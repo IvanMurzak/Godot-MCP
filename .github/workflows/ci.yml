@@ -23,3 +23,6 @@ jobs:
 
       - name: Build
         run: dotnet build Godot-MCP.sln --configuration Debug --no-restore
+
+      - name: Test
+        run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal

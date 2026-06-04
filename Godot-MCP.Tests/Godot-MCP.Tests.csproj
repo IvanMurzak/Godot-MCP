@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>com.IvanMurzak.Godot.MCP.Tests</RootNamespace>
+    <AssemblyName>Godot-MCP.Tests</AssemblyName>
+    <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
+         exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
+         none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live
+         Godot main loop and is verified via a headless Godot smoke, not here (see test.md Suite 3). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!--
+    GodotSharp pinned to match the project SDK (Godot.NET.Sdk/4.3.0). The converters under test live
+    in the Godot-MCP addon assembly; rather than ProjectReference the Godot.NET.Sdk game project
+    (which pulls editor/runtime build steps), the small set of source files under test is compiled
+    directly into this test assembly. This keeps the test project a plain, CI-friendly xUnit build.
+  -->
+  <ItemGroup>
+    <PackageReference Include="GodotSharp" Version="4.3.0" />
+    <!-- Same pin as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline). -->
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\addons\godot_mcp\Data\NodeRef.cs" Link="Source\NodeRef.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\ResourceRef.cs" Link="Source\ResourceRef.cs" />
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverter.cs" Link="Source\GodotStructReflectionConverter.cs" />
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
+  </ItemGroup>
+
+</Project>

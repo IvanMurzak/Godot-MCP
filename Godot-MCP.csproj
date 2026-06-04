@@ -20,4 +20,13 @@
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.5.5" />
   </ItemGroup>
 
+  <!--
+    The Godot.NET.Sdk auto-globs every *.cs under the project dir into THIS game assembly. The xUnit
+    test project (Godot-MCP.Tests/) lives in a subfolder and has its own .csproj, so exclude it here —
+    otherwise its test files (which reference xUnit) get compiled into the game assembly and fail.
+  -->
+  <ItemGroup>
+    <Compile Remove="Godot-MCP.Tests/**/*.cs" />
+  </ItemGroup>
+
 </Project>
