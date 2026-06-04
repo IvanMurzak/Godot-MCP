@@ -48,6 +48,15 @@
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
     <Compile Include="..\addons\godot_mcp\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
+    <!-- Scene/Node tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
+         structured result models, the property-patch model, the path normalizer, and the ambient
+         reflector accessor. The editor-driving tool methods (Tool_Node.*.cs / Tool_Scene.*.cs) are
+         #if TOOLS and verified via the headless Godot smoke (test.md Suite 3), not here. -->
+    <Compile Include="..\addons\godot_mcp\Data\NodeData.cs" Link="Source\NodeData.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\SceneData.cs" Link="Source\SceneData.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
+    <Compile Include="..\addons\godot_mcp\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
   </ItemGroup>
 
 </Project>

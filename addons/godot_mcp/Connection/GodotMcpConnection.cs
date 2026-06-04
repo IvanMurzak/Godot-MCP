@@ -48,6 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         readonly GodotMcpConfig _config;
         IMcpPlugin? _plugin;
+        Reflector? _publishedReflector;
 
         /// <summary>The active config (resolved Host/Token/mode are read live off this).</summary>
         public GodotMcpConfig Config => _config;
@@ -74,6 +75,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
+
+            // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)
+            // share the exact converter set registered here instead of building their own.
+            GodotMcpReflector.Current = reflector;
+            _publishedReflector = reflector;
 
             var version = new McpVersion
             {
@@ -123,6 +129,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         public void Dispose()
         {
+            // Clear the ambient reflector if it is the one we published, so a stale instance does not
+            // outlive the connection that owned it.
+            if (ReferenceEquals(GodotMcpReflector.Current, _publishedReflector))
+                GodotMcpReflector.Current = null;
+            _publishedReflector = null;
+
             if (_plugin != null)
             {
                 try
