@@ -9,6 +9,7 @@
 */
 #if TOOLS
 #nullable enable
+using System.Runtime.CompilerServices;
 using Godot;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
@@ -36,6 +37,16 @@ namespace com.IvanMurzak.Godot.MCP
 
         public override void _EnterTree()
         {
+            // FIRST: teach the editor's default AssemblyLoadContext how to find the addon's transitive
+            // NuGet dependency assemblies (ReflectorNet / McpPlugin / ...). Godot does not probe the
+            // project's *.deps.json, so without this hook the first touch of a NuGet-dependency type
+            // throws FileNotFoundException at runtime. The resolver references only BCL types, so
+            // installing it here does NOT prematurely load the very assemblies it resolves — it must
+            // run before any code path (BootMcp below) reaches a NuGet-dependency type. See
+            // GodotMcpAssemblyResolver for the full rationale.
+            GodotMcpAssemblyResolver.Log = msg => GD.Print(msg);
+            GodotMcpAssemblyResolver.Install();
+
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
             // lives in the editor SceneTree and gets _Process ticks for the lifetime of the plugin.
             _dispatcher = new MainThreadDispatcher { Name = DispatcherNodeName };
@@ -46,9 +57,19 @@ namespace com.IvanMurzak.Godot.MCP
 
             GD.Print("[Godot-MCP] plugin loaded");
 
-            // Boot the MCP connection (after the dispatcher is installed so tool handlers can marshal
-            // onto the main thread). Reuses the McpPlugin SignalR client + bearer auth; mode/URL/token
-            // come from GodotMcpConfig (env-overridable). Failures here must not break plugin load.
+            BootMcp();
+        }
+
+        /// <summary>
+        /// Boot the MCP connection. Isolated in its own non-inlined method so the JIT does not resolve
+        /// the NuGet-dependency types it references until AFTER <see cref="GodotMcpAssemblyResolver"/>
+        /// has been installed by <see cref="_EnterTree"/>. (Type references are resolved when a method
+        /// is JIT-compiled; keeping this out of <c>_EnterTree</c> guarantees the resolver wins the race.)
+        /// Failures here must not break plugin load — the catch keeps the editor usable.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void BootMcp()
+        {
             try
             {
                 _connection = new GodotMcpConnection();
