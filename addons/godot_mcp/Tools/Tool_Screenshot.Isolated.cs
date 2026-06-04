@@ -117,44 +117,62 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 TransparentBg = background == ScreenshotBackground.Transparent,
             };
 
-            // Duplicate so we can recenter at the origin without mutating the real node's transform.
-            var clone = (Node3D)target.Duplicate((int)(Node.DuplicateFlags.Signals | Node.DuplicateFlags.Groups | Node.DuplicateFlags.Scripts));
-            clone.Transform = Transform3D.Identity;
-            subViewport.AddChild(clone);
-
-            var bounds = ComputeAabb(clone);
-            var radius = bounds.Size.Length() * 0.5f;
-            var distance = ScreenshotMath.ComputeCameraDistance(radius, fov, padding);
-
-            var (dir, up) = ScreenshotMath.GetViewDirectionAndUp(view);
-            var dirVec = new Vector3(dir.x, dir.y, dir.z);
-            var upVec = new Vector3(up.x, up.y, up.z);
-            var center = bounds.GetCenter();
-            var camPos = center + dirVec * distance;
-
-            var camera = new Camera3D
+            // The caller owns the SubViewport's lifetime: every construction step below (Duplicate, AABB
+            // walk, the LookAtFromPosition calls — which THROW on a degenerate eye/target/up) can throw
+            // before the render runs, so freeing must wrap construction too. RenderSubViewportToPng only
+            // hosts/un-hosts; this finally QueueFree's the SubViewport and all temp children on every path.
+            try
             {
-                Projection = Camera3D.ProjectionType.Perspective,
-                Fov = fov,
-                Near = near,
-                Far = far,
-                Current = true,
-            };
-            subViewport.AddChild(camera);
-            camera.LookAtFromPosition(camPos, center, upVec);
+                // Duplicate so we can recenter at the origin without mutating the real node's transform.
+                // Scripts are deliberately NOT duplicated: a static off-screen render needs no behavior, and
+                // including them would run the clones' _EnterTree/_Ready on AddChild — observable side
+                // effects that contradict this tool's ReadOnlyHint=true.
+                var clone = (Node3D)target.Duplicate((int)(Node.DuplicateFlags.Signals | Node.DuplicateFlags.Groups));
+                clone.Transform = Transform3D.Identity;
+                subViewport.AddChild(clone);
 
-            // Default lighting: a single directional light along the view direction so the visible face
-            // is lit regardless of the scene's own lights (which are not present in the isolated world).
-            var light = new DirectionalLight3D
+                var bounds = ComputeAabb(clone);
+                var radius = bounds.Size.Length() * 0.5f;
+                var distance = ScreenshotMath.ComputeCameraDistance(radius, fov, padding);
+
+                // Bracket the clip planes around the framed object so it never falls outside [near, far]
+                // (which would render an empty/background-only image and report it as a successful capture).
+                (near, far) = ScreenshotMath.BracketClipPlanes(distance, radius, near, far);
+
+                var (dir, up) = ScreenshotMath.GetViewDirectionAndUp(view);
+                var dirVec = new Vector3(dir.x, dir.y, dir.z);
+                var upVec = new Vector3(up.x, up.y, up.z);
+                var center = bounds.GetCenter();
+                var camPos = center + dirVec * distance;
+
+                var camera = new Camera3D
+                {
+                    Projection = Camera3D.ProjectionType.Perspective,
+                    Fov = fov,
+                    Near = near,
+                    Far = far,
+                    Current = true,
+                };
+                subViewport.AddChild(camera);
+                camera.LookAtFromPosition(camPos, center, upVec);
+
+                // Default lighting: a single directional light along the view direction so the visible face
+                // is lit regardless of the scene's own lights (which are not present in the isolated world).
+                var light = new DirectionalLight3D
+                {
+                    LightEnergy = 1.0f,
+                    LightColor = Colors.White,
+                };
+                subViewport.AddChild(light);
+                light.LookAtFromPosition(camPos, center, upVec);
+
+                return RenderSubViewportToPng(subViewport,
+                    caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})");
+            }
+            finally
             {
-                LightEnergy = 1.0f,
-                LightColor = Colors.White,
-            };
-            subViewport.AddChild(light);
-            light.LookAtFromPosition(camPos, center, upVec);
-
-            return RenderSubViewportToPng(subViewport,
-                caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})");
+                FreeOffscreenViewport(subViewport);
+            }
         }
 
         // Aggregate the world-space AABB of every VisualInstance3D in the subtree (the clone's, already at

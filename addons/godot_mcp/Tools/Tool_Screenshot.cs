@@ -81,23 +81,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return EncodePng(image, out error);
         }
 
-        /// <summary>
-        /// Encode an already-CPU-resident <see cref="Image"/> to a PNG byte buffer. Resizes to the transport
-        /// cap first. MUST be called on the main thread. Returns null + an error if the encode produces no
-        /// bytes.
-        /// </summary>
-        internal static byte[]? EncodeImagePng(Image image, out string? error)
-        {
-            error = null;
-            if (image.IsEmpty() || image.GetWidth() <= 0 || image.GetHeight() <= 0)
-            {
-                error = "Captured image is empty (no GPU render was produced).";
-                return null;
-            }
-            ResizeToTransportLimit(image);
-            return EncodePng(image, out error);
-        }
-
         static byte[]? EncodePng(Image image, out string? error)
         {
             error = null;

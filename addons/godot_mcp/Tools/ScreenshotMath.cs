@@ -183,6 +183,45 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
+        /// Bracket the camera clip planes around the object the isolated render just framed, so the object's
+        /// depth span — a sphere of <paramref name="boundsRadius"/> centered <paramref name="cameraDistance"/>
+        /// in front of the camera — always lies inside [near, far]. Without this, a large object (or a small
+        /// user-supplied far) can leave the framed target OUTSIDE the clip range, producing an empty /
+        /// background-only PNG that the tool still reports as success.
+        ///
+        /// <para>
+        /// The object spans depths [cameraDistance - r, cameraDistance + r] (with a small margin <c>k</c>).
+        /// Near is shrunk toward — never below — that front face (floored positive so the perspective matrix
+        /// stays valid); far is grown to at least clear the back face. The caller's near/far act as the
+        /// tightest defaults: they are only loosened, never tightened, so an explicit wide range is honored.
+        /// Pure (no Godot types) → unit-testable.
+        /// </para>
+        /// </summary>
+        public static (float near, float far) BracketClipPlanes(float cameraDistance, float boundsRadius, float userNear, float userFar)
+        {
+            // Margin so the object's silhouette is not clipped exactly at the planes.
+            const float k = 1.05f;
+            var span = Math.Max(0f, boundsRadius) * k;
+
+            // Front face of the object, floored to a small positive value (near must be > 0 for perspective).
+            var frontFace = Math.Max(1e-4f, cameraDistance - span);
+            // Back face of the object.
+            var backFace = cameraDistance + span;
+
+            // Only loosen the caller's planes: near may move closer (smaller), far may move farther (larger).
+            var near = Math.Min(userNear, frontFace);
+            var far = Math.Max(userFar, backFace);
+
+            // Guarantee a valid, non-degenerate range even for pathological inputs.
+            if (near <= 0f)
+                near = 1e-4f;
+            if (far <= near)
+                far = near + Math.Max(span * 2f, 1e-3f);
+
+            return (near, far);
+        }
+
+        /// <summary>
         /// Parse a '#RGB' / '#RRGGBB' / '#RRGGBBAA' hex color into normalized (r,g,b,a) floats in [0,1].
         /// Returns false on a malformed string. Pure — does NOT construct Godot's <c>Color</c> (which would pull
         /// a native dependency); the editor handler converts the tuple to a <c>Color</c>. A leading '#' is

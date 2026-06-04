@@ -84,21 +84,31 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 World3D = source.GetWorld3D(),
             };
 
-            var cloneCamera = new Camera3D
+            // The caller owns the SubViewport's lifetime: construction below (native property reads on the
+            // source camera) can throw before the render runs, so freeing must cover construction too — not
+            // just the render. RenderSubViewportToPng only hosts/un-hosts; this finally frees on every path.
+            try
             {
-                GlobalTransform = source.GlobalTransform,
-                Projection = source.Projection,
-                Fov = source.Fov,
-                Size = source.Size,
-                Near = source.Near,
-                Far = source.Far,
-                KeepAspect = source.KeepAspect,
-                Current = true,
-            };
-            subViewport.AddChild(cloneCamera);
+                var cloneCamera = new Camera3D
+                {
+                    GlobalTransform = source.GlobalTransform,
+                    Projection = source.Projection,
+                    Fov = source.Fov,
+                    Size = source.Size,
+                    Near = source.Near,
+                    Far = source.Far,
+                    KeepAspect = source.KeepAspect,
+                    Current = true,
+                };
+                subViewport.AddChild(cloneCamera);
 
-            return RenderSubViewportToPng(subViewport,
-                caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})");
+                return RenderSubViewportToPng(subViewport,
+                    caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})");
+            }
+            finally
+            {
+                FreeOffscreenViewport(subViewport);
+            }
         }
 
         // Render the camera's 2D world into an off-screen SubViewport that shares World2D and applies the
@@ -118,34 +128,45 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 World2D = world2D,
             };
 
-            // Center the requested camera position in the output: translate the canvas so the camera's
-            // global position maps to the middle of the output, scaled by the camera zoom.
-            var zoom = source.Zoom;
-            if (zoom.X == 0f) zoom.X = 1f;
-            if (zoom.Y == 0f) zoom.Y = 1f;
-            var center = source.GetTargetPosition();
-            var canvasTransform = new Transform2D(0f, zoom, 0f,
-                new Vector2(width, height) * 0.5f - center * zoom);
-            subViewport.CanvasTransform = canvasTransform;
+            // The caller owns the SubViewport's lifetime: the canvas-transform construction below reads
+            // native camera state (zoom / center) and can throw, so free on every path including a throw
+            // before the render. RenderSubViewportToPng only hosts/un-hosts.
+            try
+            {
+                // Center the requested camera framing in the output: translate the canvas so the camera's
+                // on-screen center maps to the middle of the output, scaled by the camera zoom.
+                // GetScreenCenterPosition() is the actual screen center (post-smoothing), unlike
+                // GetTargetPosition() which returns the pre-smoothing drag target.
+                var zoom = source.Zoom;
+                if (zoom.X == 0f) zoom.X = 1f;
+                if (zoom.Y == 0f) zoom.Y = 1f;
+                var center = source.GetScreenCenterPosition();
+                var canvasTransform = new Transform2D(0f, zoom, 0f,
+                    new Vector2(width, height) * 0.5f - center * zoom);
+                subViewport.CanvasTransform = canvasTransform;
 
-            return RenderSubViewportToPng(subViewport,
-                caption: $"Camera2D '{source.Name}' screenshot ({width}x{height})");
+                return RenderSubViewportToPng(subViewport,
+                    caption: $"Camera2D '{source.Name}' screenshot ({width}x{height})");
+            }
+            finally
+            {
+                FreeOffscreenViewport(subViewport);
+            }
         }
 
         // Shared off-screen render: parent the SubViewport into the editor tree (so it gets a rendering
-        // device), force a draw, read back + encode, and always free the temporary nodes. MUST run on the
-        // main thread.
+        // device), force a draw, read back + encode. The CALLER owns the SubViewport's lifetime and frees
+        // it (via FreeOffscreenViewport) in its own finally — this only hosts/un-hosts it so a throw during
+        // construction (before this is even reached) is still covered by the caller. MUST run on the main
+        // thread.
         static ResponseCallTool RenderSubViewportToPng(SubViewport subViewport, string caption)
         {
             // The SubViewport needs a parent in the live tree to allocate a render target. The editor's
             // base control is a stable, always-present host; the SubViewport renders off-screen (it is not
-            // a visible child of any editor panel) and is removed before the call returns.
+            // a visible child of any editor panel) and is un-hosted before the call returns.
             var host = EditorInterface.Singleton.GetBaseControl();
             if (host == null)
-            {
-                subViewport.QueueFree();
                 return ResponseCallTool.Error("Editor base control is unavailable; cannot host the off-screen render.");
-            }
 
             try
             {
@@ -168,10 +189,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
             finally
             {
+                // Un-host only; the caller's finally QueueFree's the SubViewport (and its descendants).
                 if (subViewport.GetParent() != null)
                     subViewport.GetParent().RemoveChild(subViewport);
-                subViewport.QueueFree();
             }
+        }
+
+        // Free an off-screen SubViewport and its descendants. Idempotent-safe to call from the caller's
+        // finally on every path (including a throw before the SubViewport was ever hosted): un-hosts it if
+        // still parented, then QueueFree's the whole subtree exactly once. MUST run on the main thread.
+        static void FreeOffscreenViewport(SubViewport subViewport)
+        {
+            if (subViewport == null || !GodotObject.IsInstanceValid(subViewport))
+                return;
+            if (subViewport.GetParent() != null)
+                subViewport.GetParent().RemoveChild(subViewport);
+            subViewport.QueueFree();
         }
     }
 }

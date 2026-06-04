@@ -163,6 +163,48 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(6f, d, 3);
         }
 
+        // ---- BracketClipPlanes -------------------------------------------------------------------
+
+        [Fact]
+        public void BracketClipPlanes_ObjectAlwaysWithinRange()
+        {
+            // Camera 100 units out from a radius-10 object: the object spans depths [90, 110]. The returned
+            // planes must bracket that whole span.
+            var (near, far) = ScreenshotMath.BracketClipPlanes(100f, 10f, userNear: 0.05f, userFar: 4000f);
+            Assert.True(near <= 90f, $"near {near} must be <= object front face 90");
+            Assert.True(far >= 110f, $"far {far} must be >= object back face 110");
+            Assert.True(near > 0f);
+            Assert.True(far > near);
+        }
+
+        [Fact]
+        public void BracketClipPlanes_OnlyLoosensCallerPlanes()
+        {
+            // A wide user range already brackets the object → it must be honored unchanged (only loosened).
+            var (near, far) = ScreenshotMath.BracketClipPlanes(50f, 5f, userNear: 0.01f, userFar: 10000f);
+            Assert.Equal(0.01f, near, 5);
+            Assert.Equal(10000f, far, 1);
+        }
+
+        [Fact]
+        public void BracketClipPlanes_LargeObjectSmallFar_GrowsFar()
+        {
+            // A big object with a too-small user far: far must grow to clear the back face (~210), not stay 100.
+            var (near, far) = ScreenshotMath.BracketClipPlanes(200f, 100f, userNear: 0.05f, userFar: 100f);
+            Assert.True(far >= 300f, $"far {far} must clear the back face ~300");
+            Assert.True(near > 0f);
+        }
+
+        [Fact]
+        public void BracketClipPlanes_NearStaysPositive_ForCloseLargeObject()
+        {
+            // Object front face would be negative (distance < radius): near must floor at a small positive.
+            var (near, far) = ScreenshotMath.BracketClipPlanes(5f, 20f, userNear: 0.05f, userFar: 10f);
+            Assert.True(near > 0f, $"near {near} must stay positive");
+            Assert.True(far > near, $"far {far} must exceed near {near}");
+            Assert.True(float.IsFinite(near) && float.IsFinite(far));
+        }
+
         // ---- GetViewDirectionAndUp ---------------------------------------------------------------
 
         [Theory]
