@@ -26,8 +26,11 @@
   -->
   <ItemGroup>
     <PackageReference Include="GodotSharp" Version="4.3.0" />
-    <!-- Same pin as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline). -->
+    <!-- Same pins as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline).
+         com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
+         Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.5.5" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,6 +40,11 @@
     <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
+    <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
+         compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
+         instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
+    <Compile Include="..\addons\godot_mcp\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
   </ItemGroup>
 
 </Project>
