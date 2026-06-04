@@ -77,6 +77,17 @@
          handlers (Tool_Screenshot.*.cs) are #if TOOLS and encode a real Godot Image, so they are verified
          via the headless/windowed Godot smoke (test.md Suite 3), not here. -->
     <Compile Include="..\addons\godot_mcp\Tools\ScreenshotMath.cs" Link="Source\ScreenshotMath.cs" />
+    <!-- Editor introspection tool family (editor-state / console-logs / selection / reflection) —
+         pure-managed pieces only (no Godot native types, no #if TOOLS): the structured result models,
+         the log severity enum, and the in-memory log collector. The editor-driving handlers
+         (Tool_Editor.*.cs / Tool_Editor.Selection.*.cs) are #if TOOLS and verified via the headless
+         Godot smoke (test.md Suite 3); the console/reflection tool handlers (Tool_Console.*.cs /
+         Tool_Reflection.*.cs) live outside #if TOOLS but their editor effect is a Suite-3 concern —
+         here we unit-test the collector + models. -->
+    <Compile Include="..\addons\godot_mcp\Data\EditorStateData.cs" Link="Source\EditorStateData.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\SelectionData.cs" Link="Source\SelectionData.cs" />
+    <Compile Include="..\addons\godot_mcp\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
   </ItemGroup>
 
 </Project>

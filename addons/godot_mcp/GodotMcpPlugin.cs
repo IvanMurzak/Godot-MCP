@@ -12,7 +12,9 @@
 using System.Runtime.CompilerServices;
 using Godot;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
+using com.IvanMurzak.Godot.MCP.Tools;
 
 namespace com.IvanMurzak.Godot.MCP
 {
@@ -37,6 +39,12 @@ namespace com.IvanMurzak.Godot.MCP
 
         public override void _EnterTree()
         {
+            // Install the process-wide log collector first so every lifecycle line below (resolver
+            // probes, plugin-loaded, connection state) is captured for the 'console-get-logs' tool.
+            // Godot's C# API exposes no global managed log hook, so the collector is fed explicitly by
+            // the plugin's own logging path (Log/LogWarning/LogError helpers) — see GodotLogCollector.
+            GodotLogCollector.Current = new GodotLogCollector();
+
             // FIRST: teach the editor's default AssemblyLoadContext how to find the addon's transitive
             // NuGet dependency assemblies (ReflectorNet / McpPlugin / ...). Godot does not probe the
             // project's *.deps.json, so without this hook the first touch of a NuGet-dependency type
@@ -44,7 +52,7 @@ namespace com.IvanMurzak.Godot.MCP
             // installing it here does NOT prematurely load the very assemblies it resolves — it must
             // run before any code path (BootMcp below) reaches a NuGet-dependency type. See
             // GodotMcpAssemblyResolver for the full rationale.
-            GodotMcpAssemblyResolver.Log = msg => GD.Print(msg);
+            GodotMcpAssemblyResolver.Log = msg => Log(msg);
             GodotMcpAssemblyResolver.Install();
 
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
@@ -55,9 +63,33 @@ namespace com.IvanMurzak.Godot.MCP
             // Route ReflectorNet's MainThread.Instance through the dispatcher.
             GodotMainThread.Install();
 
-            GD.Print("[Godot-MCP] plugin loaded");
+            Log("[Godot-MCP] plugin loaded");
 
             BootMcp();
+        }
+
+        /// <summary>
+        /// Print an informational lifecycle line to the Godot output AND capture it into the
+        /// <see cref="GodotLogCollector"/> so it is retrievable via the <c>console-get-logs</c> tool.
+        /// </summary>
+        static void Log(string message)
+        {
+            GD.Print(message);
+            GodotLogCollector.Current?.Append(GodotLogType.Log, message);
+        }
+
+        /// <summary>Warning-level analog of <see cref="Log"/>.</summary>
+        static void LogWarning(string message)
+        {
+            GD.PushWarning(message);
+            GodotLogCollector.Current?.Append(GodotLogType.Warning, message);
+        }
+
+        /// <summary>Error-level analog of <see cref="Log"/>.</summary>
+        static void LogError(string message)
+        {
+            GD.PushError(message);
+            GodotLogCollector.Current?.Append(GodotLogType.Error, message);
         }
 
         /// <summary>
@@ -77,7 +109,7 @@ namespace com.IvanMurzak.Godot.MCP
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[Godot-MCP] failed to start MCP connection: {ex.Message}");
+                LogError($"[Godot-MCP] failed to start MCP connection: {ex.Message}");
             }
         }
 
@@ -95,7 +127,11 @@ namespace com.IvanMurzak.Godot.MCP
                 _dispatcher = null;
             }
 
-            GD.Print("[Godot-MCP] plugin unloaded");
+            Log("[Godot-MCP] plugin unloaded");
+
+            // Release the collector so a stale buffer does not outlive this plugin instance (a fresh one
+            // is installed on the next _EnterTree).
+            GodotLogCollector.Current = null;
         }
     }
 }
