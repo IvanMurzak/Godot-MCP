@@ -22,7 +22,7 @@ names mirror Unity-MCP where sensible. The 10 families:
 | `Tool_Scene` | `scene-open`/`-save`/`-create`/`-list-opened`/`-get-data` | yes (editor) |
 | `Tool_Resource` | `resource-find`/`-get-data`/`-modify`/`-create`/`-move`/`-delete` | yes (editor) |
 | `Tool_FileSystem` | `filesystem-list`/`-reimport` | yes (editor) |
-| `Tool_Script` | `script-read`/`-update-or-create`/`-delete`/`-attach-to-node` | yes (editor) |
+| `Tool_Script` | `script-read`/`-create`/`-update`/`-delete`/`-attach-to-node` | yes (editor) |
 | `Tool_Screenshot` | `screenshot-viewport`/`-camera`/`-isolated` | yes (editor) |
 | `Tool_Editor` | `editor-application-get-state`/`-set-state`, `editor-selection-get`/`-set` | yes (editor) |
 | `Tool_Console` | `console-get-logs`/`-clear-logs` | no (pure-managed collector) |
