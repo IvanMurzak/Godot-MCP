@@ -37,6 +37,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         public override global::Godot.NodePath Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            // A JSON null deserializes to the empty NodePath (the canonical "no path" form) rather
+            // than a C# null: NodePath is a Godot native type with no meaningful null state in the
+            // resolver, so callers test emptiness via NodePath.IsEmpty rather than a null check.
+            // This is deliberate — null and "" round-trip to the same empty NodePath.
             if (reader.TokenType == JsonTokenType.Null)
                 return new global::Godot.NodePath();
 

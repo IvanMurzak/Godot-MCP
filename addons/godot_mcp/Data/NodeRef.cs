@@ -57,6 +57,12 @@ namespace com.IvanMurzak.Godot.MCP.Data
 
         public virtual bool IsValid() => IsValid(out _);
 
+        // NOTE: priority is DELIBERATELY inverted relative to ResourceRef. A live Node is most
+        // reliably identified by its InstanceId (a scene-tree path can be ambiguous or shift as the
+        // tree mutates), so InstanceId is priority 1 here; ResourceRef prefers ResourcePath because
+        // a res:// path is the stable identity of an on-disk asset. IsValid only checks presence, so
+        // the boolean result is order-independent — the priority is a hint for the downstream
+        // resolver, which prefers the priority-1 field when both are set.
         public virtual bool IsValid(out string? error)
         {
             if (InstanceId != 0)

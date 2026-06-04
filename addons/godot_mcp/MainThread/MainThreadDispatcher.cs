@@ -34,8 +34,12 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// <summary>
         /// The managed thread id captured when this dispatcher entered the tree. Godot calls
         /// <see cref="_EnterTree"/> on the engine main thread, so this is the main-thread id.
+        /// Defaults to a sentinel (<c>-1</c>, which no real <see cref="Thread.ManagedThreadId"/>
+        /// takes) until <see cref="_EnterTree"/> runs, so a pre-boot caller is correctly treated
+        /// as off-main-thread rather than capturing a wrong id from whatever thread first touches
+        /// this type.
         /// </summary>
-        public static int MainThreadId { get; private set; } = Thread.CurrentThread.ManagedThreadId;
+        public static int MainThreadId { get; private set; } = -1;
 
         /// <summary>True when the calling thread is the captured Godot main thread.</summary>
         public static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == MainThreadId;
@@ -48,11 +52,18 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
 
         /// <summary>
         /// Queue an action to run on the next main-thread <see cref="_Process"/> tick. Thread-safe.
+        /// Fails fast when no dispatcher is in the tree (plugin unloaded / between editor reloads):
+        /// nothing would drain the queue, so the caller's awaiter would hang forever — surface that
+        /// as an immediate <see cref="InvalidOperationException"/> instead.
         /// </summary>
         public static void Enqueue(Action action)
         {
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
+            if (_instance == null)
+                throw new InvalidOperationException(
+                    $"No {nameof(MainThreadDispatcher)} is in the tree; cannot enqueue main-thread work. " +
+                    "The dispatcher is added by GodotMcpPlugin._EnterTree and removed on _ExitTree.");
 
             _actions.Enqueue(action);
         }
@@ -68,7 +79,10 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             if (ReferenceEquals(_instance, this))
                 _instance = null;
 
-            // Drain anything left so pending awaiters do not hang forever.
+            // Drain anything left so pending awaiters do not hang forever. NOTE: this runs each
+            // queued action's FULL body during teardown — those bodies may touch the SceneTree
+            // while the editor is tearing the dispatcher down. Callers must not assume the tree is
+            // fully alive in work that could still be pending at _ExitTree time.
             DrainQueue();
         }
 
