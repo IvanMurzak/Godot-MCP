@@ -60,16 +60,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 string action;
                 if (hasFiles)
                 {
-                    // Validate every path up front so a single bad entry is a clean error, not a partial import.
+                    // Validate every path up front so a single bad entry is a clean error, not a partial
+                    // import. Collect the normalized/trimmed paths and reimport THOSE — passing the raw
+                    // 'files' (which may carry surrounding whitespace) would not match a known res:// file
+                    // and ReimportFiles would silently no-op.
+                    var normalized = new List<string>(files!.Count);
                     foreach (var f in files!)
                     {
                         var p = ResPathNormalizer.RequireResFilePath(f, nameof(files));
                         if (!FileAccess.FileExists(p))
                             throw new ArgumentException($"No file exists at '{p}'.", nameof(files));
+                        normalized.Add(p);
                     }
 
-                    efs.ReimportFiles(files!.ToArray());
-                    action = $"Reimported {files.Count} file(s)";
+                    efs.ReimportFiles(normalized.ToArray());
+                    action = $"Reimported {normalized.Count} file(s)";
 
                     // ReimportFiles is synchronous; only a tail scan (if any) may still be in flight. Do NOT
                     // prime here — a prime that never observes a scan would falsely report "never started".

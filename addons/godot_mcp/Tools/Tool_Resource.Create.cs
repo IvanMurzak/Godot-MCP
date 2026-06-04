@@ -52,7 +52,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     && !resPath.EndsWith(".res", StringComparison.OrdinalIgnoreCase))
                     throw new ArgumentException($"resourcePath must end with '.tres' or '.res'; got '{resourcePath}'.", nameof(resourcePath));
 
-                if (ResourceLoader.Exists(resPath))
+                // Guard on the file on disk (like sibling Move/Delete), not just on a LOADABLE resource:
+                // ResourceLoader.Exists is false for a present-but-unimported / non-resource file, which
+                // ResourceSaver.Save would then silently overwrite.
+                if (FileAccess.FileExists(resPath) || ResourceLoader.Exists(resPath))
                     throw new ArgumentException($"A resource already exists at '{resPath}'. Use '{ResourceModifyToolId}' to change it, " +
                         $"or '{ResourceMoveToolId}'/'{ResourceDeleteToolId}' to relocate/remove it first.", nameof(resourcePath));
 

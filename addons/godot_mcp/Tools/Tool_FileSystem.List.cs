@@ -65,7 +65,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     var subPath = sub.GetPath(); // already a 'res://.../' trailing-slash form
                     listing.Entries.Add(new FileSystemEntry
                     {
-                        Name = TrimTrailingSlash(GetLeafName(subPath)),
+                        Name = GetLeafName(subPath), // GetLeafName already strips the trailing slash
                         Path = subPath,
                         IsDirectory = true,
                     });
@@ -115,8 +115,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var idx = trimmed.LastIndexOf('/');
             return idx < 0 ? trimmed : trimmed.Substring(idx + 1);
         }
-
-        static string TrimTrailingSlash(string s) => s.TrimEnd('/');
     }
 }
 #endif
