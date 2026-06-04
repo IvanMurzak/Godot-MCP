@@ -55,9 +55,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var root = EditorInterface.Singleton.GetEditedSceneRoot()
                     ?? throw new Exception("No scene is currently being edited; open or create a scene first.");
 
-                // Resolve the parent (default: edited scene root).
+                // Resolve the parent (default: edited scene root). An explicit parentNodeRef must resolve
+                // (and throws when it does not) — only a genuinely-null ref falls back to the scene root.
                 Node parent = root;
-                if (parentNodeRef != null && parentNodeRef.IsValid(out _))
+                if (parentNodeRef != null)
                 {
                     parent = ResolveNode(parentNodeRef, out var parentError)
                         ?? throw new ArgumentException(parentError ?? "Parent node not found.", nameof(parentNodeRef));
