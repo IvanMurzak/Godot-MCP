@@ -52,30 +52,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
 
                 // From here the script file is already gone. This is a MULTI-FILE op (script + '.uid'
-                // sidecar): if the sidecar removal throws below, the script itself is still deleted. Refresh
-                // in 'finally' regardless so the editor index drops the removed entry even on partial failure.
-                string status;
-                try
+                // sidecar): the PRIMARY delete already succeeded, so a failure to remove the SECONDARY sidecar
+                // is a degraded (not failed) outcome — we report it as a warning in the status rather than
+                // throwing a transport error (mirrors resource-move/delete's "primary op succeeded, secondary
+                // degraded" principle). Refresh regardless so the editor index drops the removed entry.
+                string? sidecarWarning = null;
+
+                // Godot 4.3+ emits a '.uid' sidecar next to a script; remove it too when present so no
+                // orphaned uid file is left behind (the analog of Unity's '.meta').
+                var uidPath = resPath + ".uid";
+                if (FileAccess.FileExists(uidPath))
                 {
-                    // Godot 4.3+ emits a '.uid' sidecar next to a script; remove it too when present so no
-                    // orphaned uid file is left behind (the analog of Unity's '.meta').
-                    var uidPath = resPath + ".uid";
-                    if (FileAccess.FileExists(uidPath))
-                    {
-                        var rmUidErr = DirAccess.RemoveAbsolute(uidPath);
-                        if (rmUidErr != Error.Ok)
-                            throw new Exception(
-                                $"Inconsistent state: script '{resPath}' was deleted but its '.uid' sidecar " +
-                                $"'{uidPath}' failed to remove ({rmUidErr}). The script itself is already gone; " +
-                                "remove the orphaned sidecar manually.");
-                    }
-                }
-                finally
-                {
-                    status = RefreshAndSettle(resPath, lang, removed: true);
+                    var rmUidErr = DirAccess.RemoveAbsolute(uidPath);
+                    if (rmUidErr != Error.Ok)
+                        sidecarWarning =
+                            $" WARNING: the script was deleted but its '.uid' sidecar '{uidPath}' failed to " +
+                            $"remove ({rmUidErr}) — orphaned, manual cleanup may be needed.";
                 }
 
-                return ToScriptInfo(resPath, lang, $"Script deleted; {status}");
+                var status = RefreshAndSettle(resPath, lang, removed: true);
+
+                return ToScriptInfo(resPath, lang, $"Script deleted; {status}{sidecarWarning}");
             });
         }
     }

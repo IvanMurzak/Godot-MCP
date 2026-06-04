@@ -125,6 +125,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// builds via out-of-band MSBuild), so it is accepted as-is and the post-write build settle is what
         /// surfaces real compile errors. Returns true when the content is acceptable; on a GDScript parse
         /// failure returns false and sets <paramref name="error"/>. Main-thread only (touches GDScript).
+        ///
+        /// <para>
+        /// LIMITATION (parse-only): the throwaway <see cref="GDScript.Reload"/> probe can return a non-Ok
+        /// Error for reasons that are NOT a syntax error — e.g. the source <c>extends</c> a project type,
+        /// declares a <c>class_name</c>, or <c>preload(...)</c>s a resource that the standalone probe cannot
+        /// resolve. Hard-rejecting on those would falsely block a syntactically-valid <c>.gd</c> that merely
+        /// references project state. So we ONLY hard-reject an actual parse/syntax error
+        /// (<see cref="Error.ParseError"/>); any other non-Ok Reload result is treated as ACCEPTED
+        /// best-effort (parallel to the C# path) and the real load is left to the editor's full re-parse.
+        /// </para>
         /// </summary>
         static bool ValidateSyntax(string content, ScriptLang lang, out string? error)
         {
@@ -133,10 +143,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return true; // C#: no cheap in-editor check; the build settle is the real gate.
 
             // Feed the source into a throwaway GDScript instance and reload it. Reload() parses + compiles the
-            // source and returns a non-Ok Error on a syntax/parse failure, without writing anything to disk.
+            // source; a genuine syntax error surfaces as Error.ParseError. Other non-Ok results (a resolution
+            // failure against project state the standalone probe can't see — extends/class_name/preload) are
+            // NOT syntax errors, so we accept them best-effort rather than misclassify them as a parse failure.
             var probe = new GDScript { SourceCode = content };
             var err = probe.Reload(keepState: false);
-            if (err != Error.Ok)
+            if (err == Error.ParseError)
             {
                 error = $"GDScript failed to parse ({err}). Fix the syntax and retry.";
                 return false;

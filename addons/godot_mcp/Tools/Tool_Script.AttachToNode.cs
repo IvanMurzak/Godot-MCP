@@ -31,26 +31,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Attach a script (C# '.cs' or GDScript '.gd') to a Node in the currently edited Godot " +
             "scene — the Godot analog of adding a MonoBehaviour to a GameObject. Identify the target with " +
             "'nodeRef' (instanceId preferred, else scene-tree path) and the script with 'scriptPath' (a " +
-            "res:// script file that must exist). Pass an empty/null 'scriptPath' to DETACH (clear) the " +
-            "node's script. The script resource is loaded and set via Node.SetScript; the scene is marked " +
+            "res:// script file that must exist). Pass an empty/whitespace/null 'scriptPath' to DETACH (clear) " +
+            "the node's script. The script resource is loaded and set via Node.SetScript; the scene is marked " +
             "unsaved (persist with '" + Tool_Scene.SceneSaveToolId + "'). Returns the script's structured " +
             "ScriptInfo on attach, or an identity record with a 'detached' status on clear.")]
         public ScriptInfo AttachToNode
         (
             [Description("Reference to the target Node (instanceId preferred, else scene-tree path).")]
             NodeRef nodeRef,
-            [Description("res:// path of the script to attach, ending in '.cs' or '.gd'. Pass empty/null to " +
-                "DETACH the node's current script.")]
+            [Description("res:// path of the script to attach, ending in '.cs' or '.gd'. Pass " +
+                "empty/whitespace/null to DETACH the node's current script.")]
             string? scriptPath = null
         )
         {
-            if (nodeRef == null)
-                throw new ArgumentNullException(nameof(nodeRef));
-            if (!nodeRef.IsValid(out var refError))
-                throw new ArgumentException(refError, nameof(nodeRef));
-
             return MainThread.Instance.Run(() =>
             {
+                // ResolveNode validates the ref (null / invalid / not-found) and returns a single consistent
+                // structured failure, matching the other Tool_Node handlers — no redundant top-level pre-check.
                 var node = Tool_Node.ResolveNode(nodeRef, out var error)
                     ?? throw new Exception(error ?? $"Node by {nodeRef} not found.");
 
