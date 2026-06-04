@@ -1,0 +1,116 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# │  See the LICENSE file in the project root for more information.  │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# Tag-triggered release: builds + tests the solution for sanity, packages the
+# addons/godot_mcp/ folder into a versioned zip, and publishes a GitHub Release
+# with that zip attached + auto-generated notes.
+#
+# Triggers:
+#   - push of a tag matching `v*` (e.g. `v0.1.0`)  -> builds, zips, AND publishes
+#     the GitHub Release.
+#   - workflow_dispatch (manual)                   -> DRY RUN: builds + zips and
+#     uploads the zip only as a workflow ARTIFACT. The publish step is guarded by
+#     `if: startsWith(github.ref, 'refs/tags/')`, so a dispatch run NEVER creates a
+#     Release. There is intentionally NO `push: branches` trigger — a merge to main
+#     must not cut a release. A `v*` tag push is the one and only publish path.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: # manual dry-run: build + zip + upload artifact, no Release
+
+# Least-privilege: only the release job needs to write the GitHub Release.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build, zip addon, publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Sanity build + test. Mirrors ci.yml so a tag on a red commit fails loudly
+      # before any zip/Release is produced. Godot.NET.Sdk is a NuGet SDK, so no
+      # Godot binary is needed here.
+      - name: Restore
+        run: dotnet restore Godot-MCP.sln
+
+      - name: Build
+        run: dotnet build Godot-MCP.sln --configuration Debug --no-restore
+
+      - name: Test
+        run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal
+
+      # Resolve the release version. On a tag push this is the tag name with any
+      # leading `v` stripped (v0.1.0 -> 0.1.0). On a manual dispatch (no tag)
+      # fall back to the plugin.cfg version + a `-dryrun` suffix so the artifact
+      # name is unambiguous and never collides with a real release asset.
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            cfg_version="$(grep -E '^version=' addons/godot_mcp/plugin.cfg | head -n1 | sed -E 's/^version="?([^"]*)"?.*/\1/')"
+            version="${cfg_version}-dryrun"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release version: ${version}"
+
+      # Package only the addon SOURCE folder (the deliverable — Godot has no
+      # compiled artifact to ship). Exclude dev cruft so the zip is install-clean.
+      - name: Package addon zip
+        id: package
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          zip_name="godot-mcp-addon-${version}.zip"
+          # Zip the addons/ tree so the archive expands to addons/godot_mcp/...,
+          # which drops straight into a consumer project's res:// root.
+          zip -r "${zip_name}" addons/godot_mcp \
+            -x '*.uid' \
+            -x '*.import' \
+            -x '*/bin/*' \
+            -x '*/obj/*' \
+            -x '*/.godot/*'
+          echo "zip_name=${zip_name}" >> "$GITHUB_OUTPUT"
+          echo "Created ${zip_name}:"
+          unzip -l "${zip_name}"
+
+      # DRY-RUN path (workflow_dispatch, no tag): upload the zip as an artifact so
+      # the packaging can be inspected without publishing. Never runs on a tag.
+      - name: Upload addon zip as artifact (dry run)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_name }}
+
+      # PUBLISH path (tag push only): create the GitHub Release with the zip
+      # attached and auto-generated notes. Guarded so the dispatch dry-run never
+      # reaches it.
+      - name: Create GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: ${{ steps.package.outputs.zip_name }}
