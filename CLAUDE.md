@@ -5,22 +5,55 @@ Godot **editor addon** (`addons/godot_mcp/`) backed by a `Godot.NET.Sdk` C# proj
 `Reflector` with Godot type converters, and connects to an MCP server (cloud `ai-game.dev` by default,
 or a custom local server) over the reused `com.IvanMurzak.McpPlugin` SignalR client. The MCP/reflection
 stack is **not forked** — it is consumed from nuget.org as `PackageReference`s and the pins are owned by
-the upstream release pipelines (never bump them here).
+the upstream release pipelines (never bump them here). The reused pins are frozen at
+`com.IvanMurzak.ReflectorNet` **5.3.1** and `com.IvanMurzak.McpPlugin` **6.5.5** (in `Godot-MCP.csproj`,
+mirrored by `Godot-MCP.Tests/` and the infra testbed) — keep all three in lockstep; never bump here.
+
+## Tool families
+
+Tools live in `addons/godot_mcp/Tools/` — one `[AiToolType]` `partial class Tool_<Family>` per family,
+with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
+names mirror Unity-MCP where sensible. The 10 families:
+
+| Family (class) | Tools | `#if TOOLS`? |
+| --- | --- | --- |
+| `Tool_Ping` | `ping` | no (pure-managed) |
+| `Tool_Node` | `node-find`/`-create`/`-modify`/`-set-parent`/`-duplicate`/`-delete` | yes (editor) |
+| `Tool_Scene` | `scene-open`/`-save`/`-create`/`-list-opened`/`-get-data` | yes (editor) |
+| `Tool_Resource` | `resource-find`/`-get-data`/`-modify`/`-create`/`-move`/`-delete` | yes (editor) |
+| `Tool_FileSystem` | `filesystem-list`/`-reimport` | yes (editor) |
+| `Tool_Script` | `script-read`/`-create`/`-update`/`-delete`/`-attach-to-node` | yes (editor) |
+| `Tool_Screenshot` | `screenshot-viewport`/`-camera`/`-isolated` | yes (editor) |
+| `Tool_Editor` | `editor-application-get-state`/`-set-state`, `editor-selection-get`/`-set` | yes (editor) |
+| `Tool_Console` | `console-get-logs`/`-clear-logs` | no (pure-managed collector) |
+| `Tool_Reflection` | `reflection-method-find`/`-call` | no (engine-agnostic ReflectorNet) |
+
+Editor-driving families live behind `#if TOOLS` (they touch `EditorInterface`/live `Node`/`Resource`);
+their pure-managed result models + helpers live OUTSIDE the guard so they are CI-unit-testable. The
+ping/console/reflection families have no editor-API surface and stay fully outside `#if TOOLS`.
 
 ## Build / test
 
+Three suites (mirrors the `godot-mcp` implement-task profile `test.md`):
+
 ```bash
+# Suite 1 — build (CI gate; 0 errors required)
 dotnet restore Godot-MCP.sln
-dotnet build  Godot-MCP.sln --configuration Debug --no-restore   # 0 errors required (CI gate)
-dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build   # 0 failures
+dotnet build  Godot-MCP.sln --configuration Debug --no-restore
+
+# Suite 2 — unit tests (xUnit; 0 failures required, also runs in CI)
+dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build
+
+# Suite 3 — headless live-editor smoke (operator/reviewer check, NOT a CI gate; see testbed runbook below)
 ```
 
-`Godot.NET.Sdk` is a NuGet SDK, so **no Godot binary is needed to build or unit-test**. The xUnit
+`Godot.NET.Sdk` is a NuGet SDK, so **no Godot binary is needed for Suite 1 or 2**. The xUnit
 project compiles a CI-friendly subset of the addon sources directly (it never `ProjectReference`s the
-game project). Only **pure-managed** Godot types are unit-testable here — Godot types that wrap a native
+game project; the game `.csproj` excludes `Godot-MCP.Tests/**` so its xUnit files don't leak into the
+game assembly). Only **pure-managed** Godot types are unit-testable here — Godot types that wrap a native
 object (`NodePath`, `Node`, `Resource`, `SceneTree`) call `godotsharp_*` P/Invoke on construction and
 crash the test host with `AccessViolationException` when no Godot native lib is loaded; verify those via
-the headless Godot smoke instead.
+the headless Godot smoke (Suite 3) instead.
 
 ## Editor-runtime assembly loading (the dependency-resolution fix)
 
