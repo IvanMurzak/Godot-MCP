@@ -44,6 +44,9 @@
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
+    <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
+         no Godot native types — so it is unit-testable in this plain-xUnit host. -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
     <Compile Include="..\addons\godot_mcp\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
   </ItemGroup>
 
