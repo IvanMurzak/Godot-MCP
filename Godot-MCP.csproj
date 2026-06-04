@@ -1,0 +1,23 @@
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <RootNamespace>com.IvanMurzak.Godot.MCP</RootNamespace>
+    <AssemblyName>Godot-MCP</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    Reused libraries (shared with Unity-MCP). Referenced via NuGet, never vendored/forked.
+    Versions match the pins in Unity-MCP-Server (com.IvanMurzak.Unity.MCP.Server.csproj).
+    com.IvanMurzak.McpPlugin is the client package; it transitively pulls
+    McpPlugin.Common + ReflectorNet. ReflectorNet is also pinned explicitly to keep the
+    version deterministic.
+  -->
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.5.5" />
+  </ItemGroup>
+
+</Project>
