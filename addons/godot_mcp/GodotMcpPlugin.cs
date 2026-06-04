@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using Godot;
+using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 
 namespace com.IvanMurzak.Godot.MCP
@@ -21,9 +22,9 @@ namespace com.IvanMurzak.Godot.MCP
     ///
     /// On load it installs the editor main-thread dispatcher (the Godot analog of Unity's
     /// <c>MainThread.Instance.Run</c>) so downstream tool handlers can marshal Godot API calls
-    /// onto the main thread. The MCP connection to ai-game.dev (SignalR client via
-    /// com.IvanMurzak.McpPlugin) is intentionally NOT wired up here — that is a separate
-    /// downstream task.
+    /// onto the main thread, then boots the MCP connection (SignalR client via
+    /// com.IvanMurzak.McpPlugin) to the configured server (cloud ai-game.dev by default, or a
+    /// custom override) and registers the addon's MCP tools.
     /// </summary>
     [Tool]
     public partial class GodotMcpPlugin : EditorPlugin
@@ -31,6 +32,7 @@ namespace com.IvanMurzak.Godot.MCP
         const string DispatcherNodeName = "GodotMcpMainThreadDispatcher";
 
         MainThreadDispatcher? _dispatcher;
+        GodotMcpConnection? _connection;
 
         public override void _EnterTree()
         {
@@ -43,10 +45,29 @@ namespace com.IvanMurzak.Godot.MCP
             GodotMainThread.Install();
 
             GD.Print("[Godot-MCP] plugin loaded");
+
+            // Boot the MCP connection (after the dispatcher is installed so tool handlers can marshal
+            // onto the main thread). Reuses the McpPlugin SignalR client + bearer auth; mode/URL/token
+            // come from GodotMcpConfig (env-overridable). Failures here must not break plugin load.
+            try
+            {
+                _connection = new GodotMcpConnection();
+                _connection.Start();
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[Godot-MCP] failed to start MCP connection: {ex.Message}");
+            }
         }
 
         public override void _ExitTree()
         {
+            if (_connection != null)
+            {
+                _connection.Dispose();
+                _connection = null;
+            }
+
             if (_dispatcher != null)
             {
                 _dispatcher.QueueFree();

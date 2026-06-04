@@ -452,6 +452,12 @@ mono_crash.*.json
 # Godot import metadata
 *.import
 
+# Godot 4.4+ generates a per-script `.cs.uid` next to each `.cs` when a project that
+# embeds this addon is opened in the editor (e.g. the Godot-Test-Project testbed, whose
+# junction writes them into `addons/godot_mcp/`). These are editor-local cache artifacts,
+# never source — ignore them repo-wide so they cannot leak into a commit / trip Gate A.
+*.uid
+
 ##
 ## .NET / build output (bare bin not covered by the VisualStudio section above)
 ##
