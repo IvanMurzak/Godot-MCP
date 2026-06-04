@@ -57,6 +57,15 @@
     <Compile Include="..\addons\godot_mcp\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
     <Compile Include="..\addons\godot_mcp\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
+    <!-- Resource/FileSystem tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
+         the structured result models and the res:// path normalizer. The editor-driving handlers
+         (Tool_Resource.*.cs / Tool_FileSystem.*.cs) are #if TOOLS and verified via the headless Godot
+         smoke (test.md Suite 3), not here. -->
+    <Compile Include="..\addons\godot_mcp\Data\FileSystemEntry.cs" Link="Source\FileSystemEntry.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\FileSystemListing.cs" Link="Source\FileSystemListing.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\ResourceInfo.cs" Link="Source\ResourceInfo.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\ResourceFindResult.cs" Link="Source\ResourceFindResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Tools\ResPathNormalizer.cs" Link="Source\ResPathNormalizer.cs" />
   </ItemGroup>
 
 </Project>
