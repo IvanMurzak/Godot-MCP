@@ -38,8 +38,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("McpPlugin.Common")]
         public void ResolvePath_ResolvesTransitiveNuGetDependency_ViaDepsJson(string simpleName)
         {
-            // Re-seed the deps.json resolver from the test assembly (idempotent Install() may have
-            // already pinned a different anchor in another test run, so go through the seam directly).
+            // Ensure the resolver is installed and seeded from the test assembly's sibling deps.json.
+            // NOTE: Install() latches on the first call (the _installed flag), so this is the seeding
+            // call only if no prior test installed it first; otherwise it is a no-op and the resolver is
+            // already seeded from the test assembly (every test in this class anchors on TestAssemblyPath,
+            // so the seeded anchor is the same either way).
             GodotMcpAssemblyResolver.Install(TestAssemblyPath);
 
             var resolved = GodotMcpAssemblyResolver.ResolvePath(new AssemblyName(simpleName));
@@ -102,6 +105,29 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Still resolves after repeated installs.
             var resolved = GodotMcpAssemblyResolver.ResolvePath(new AssemblyName("ReflectorNet"));
             Assert.False(string.IsNullOrEmpty(resolved));
+        }
+
+        [Fact]
+        public void Install_LatchesOnFirstCall_SecondInstallWithDifferentAnchorIsNoOp()
+        {
+            // Proves the idempotency latch behaviorally (rather than merely "does not throw"): once the
+            // resolver is installed, a SECOND Install() seeded from a DIFFERENT (here, deliberately
+            // bogus) anchor must NOT re-seed or change resolution behavior — the _installed latch makes
+            // the second call a no-op, so the original (good) seeding stays in effect. If the latch ever
+            // regressed and the resolver re-seeded from this bogus anchor, ResolvePath would stop finding
+            // the real dependency and this test would fail.
+            GodotMcpAssemblyResolver.Install(TestAssemblyPath);
+
+            var before = GodotMcpAssemblyResolver.ResolvePath(new AssemblyName("ReflectorNet"));
+            Assert.False(string.IsNullOrEmpty(before), "precondition: resolver must resolve ReflectorNet after the seeding install");
+
+            // A path that does not exist and has no sibling deps.json. If this re-seeded the resolver,
+            // strategies 1 and 2 would lose their good probe dir / deps.json index.
+            var bogusAnchor = Path.Combine(Path.GetTempPath(), "godot-mcp-nonexistent-anchor", "Bogus.dll");
+            GodotMcpAssemblyResolver.Install(bogusAnchor);
+
+            var after = GodotMcpAssemblyResolver.ResolvePath(new AssemblyName("ReflectorNet"));
+            Assert.Equal(before, after);
         }
     }
 }

@@ -65,11 +65,31 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// hook that runs before Godot instantiates the <c>EditorPlugin</c> type (whose field/using
     /// references would otherwise fault during type load, before any plugin method body runs).
     /// </para>
+    ///
+    /// <para>
+    /// <b>Known limitation (not implemented).</b> Strategy 2 probes only the NuGet <i>global</i> packages
+    /// folder (<c>NUGET_PACKAGES</c> env, else <c>~/.nuget/packages</c>). It does NOT consult NuGet
+    /// <i>fallback</i> package folders — <c>DOTNET_NUGET_FALLBACK_PACKAGES</c> / the SDK's
+    /// <c>NuGetFallbackFolder</c> / the <c>additionalProbingPaths</c> a <c>*.deps.json</c> may declare —
+    /// which some enterprise/CI caches rely on. If a dependency lives only in a fallback folder and not
+    /// the global cache, strategy 2 misses it and the resolve falls through to strategy 3. This is a
+    /// follow-up; for the supported consumer story (a normal <c>dotnet restore</c> into the global cache)
+    /// it does not arise.
+    /// </para>
     /// </summary>
     public static class GodotMcpAssemblyResolver
     {
         static readonly object _gate = new object();
         static bool _installed;
+
+        // Load-bearing concurrency invariant for the three cached fields below: they are seeded under
+        // _gate inside Install() BEFORE the Resolving hook is subscribed, and Install() runs its seeding
+        // body exactly once (the _installed latch makes every later call a no-op — it never re-seeds).
+        // Because of that one-time, publish-before-subscribe ordering, the Resolving hook
+        // (OnResolving → ResolvePath) reads these WITHOUT taking _gate and is still safe: by the time any
+        // resolve can fire, the fields are fully written and never mutated again. A future edit that
+        // re-seeds these post-install (or seeds them after subscribing) would break this and introduce a
+        // data race — take _gate there if you ever do.
         static AssemblyDependencyResolver? _depsResolver;
         static string? _probeDirectory;
         static Dictionary<string, string>? _depsJsonAssemblyPaths;
@@ -219,7 +239,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (string.IsNullOrEmpty(simpleName))
                 return null;
 
-            // 1) Same-directory probe (copied-beside-the-assembly deployments).
+            // 1) Same-directory probe (copied-beside-the-assembly deployments). This trusts the
+            //    filename: it returns <probeDir>/<simpleName>.dll if it exists, WITHOUT checking the
+            //    file's assembly version against assemblyName.Version. That is intentional — for
+            //    copy-local deploys the build already vetted which version landed beside the assembly,
+            //    so the on-disk DLL is authoritative. (Version skew there would be a build problem, not
+            //    something this runtime probe should second-guess.)
             var dir = _probeDirectory;
             if (!string.IsNullOrEmpty(dir))
             {
@@ -352,7 +377,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             var path = ResolvePath(assemblyName);
             if (string.IsNullOrEmpty(path))
+            {
+                // Fail-soft: every strategy missed. Returning null lets the CLR continue its own
+                // resolution (and ultimately throw FileNotFoundException as it normally would), but a
+                // bare FileNotFoundException gives the consumer no clue WHY. The most common cause is
+                // version/cache skew — the *.deps.json lists a {package}/{version} whose folder is not
+                // in the NuGet cache (e.g. restore never ran, or a different pin), so strategy 2 finds
+                // nothing. Surface that here so it is diagnosable from the editor log.
+                Log?.Invoke(
+                    $"[Godot-MCP] could not resolve '{assemblyName.Name}' via same-dir probe / " +
+                    $"deps.json+NuGet-cache / AssemblyDependencyResolver — the CLR will now throw if " +
+                    $"this assembly is required. Check that 'dotnet restore' populated the NuGet cache " +
+                    $"for the version pinned in *.deps.json (probe dir: {_probeDirectory}).");
                 return null;
+            }
 
             try
             {
