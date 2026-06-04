@@ -123,6 +123,26 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // hosts/un-hosts; this finally QueueFree's the SubViewport and all temp children on every path.
             try
             {
+                // The OwnWorld3D SubViewport otherwise clears to Godot's DEFAULT environment color, ignoring
+                // the requested SolidColor hex. For the SolidColor path, install a WorldEnvironment whose
+                // Environment clears the background to the parsed color so the produced PNG actually shows the
+                // requested background. (Transparent stays driven by TransparentBg above and gets no
+                // WorldEnvironment.) The WorldEnvironment is a child of the SubViewport, so
+                // FreeOffscreenViewport's subtree QueueFree frees it along with the clone/camera/light.
+                if (background == ScreenshotBackground.SolidColor &&
+                    ScreenshotMath.TryParseHtmlColor(backgroundColorHex, out var bg))
+                {
+                    var worldEnvironment = new WorldEnvironment
+                    {
+                        Environment = new global::Godot.Environment
+                        {
+                            BackgroundMode = global::Godot.Environment.BGMode.Color,
+                            BackgroundColor = new Color(bg.r, bg.g, bg.b, bg.a),
+                        },
+                    };
+                    subViewport.AddChild(worldEnvironment);
+                }
+
                 // Duplicate so we can recenter at the origin without mutating the real node's transform.
                 // Scripts are deliberately NOT duplicated: a static off-screen render needs no behavior, and
                 // including them would run the clones' _EnterTree/_Ready on AddChild — observable side
