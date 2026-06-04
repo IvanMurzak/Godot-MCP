@@ -74,20 +74,31 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (moveErr != Error.Ok)
                     throw new Exception($"Failed to move '{src}' to '{dst}': {moveErr}.");
 
-                // Move the sidecar '.import' metadata if it exists (imported assets carry one; .tres usually
-                // do not). Keeping it next to the resource preserves import settings + uid mapping.
-                var srcImport = src + ".import";
-                if (FileAccess.FileExists(srcImport))
+                // From here the resource file is already at 'dst'. This is a MULTI-FILE op (resource +
+                // .import sidecar): if the sidecar rename throws below, the filesystem is left half-moved.
+                // Rescan in a 'finally' regardless so the editor index reflects on-disk reality (resource at
+                // dst) even on a partial failure — never leave a stale index pointing at the old location.
+                try
                 {
-                    var importErr = DirAccess.RenameAbsolute(srcImport, dst + ".import");
-                    if (importErr != Error.Ok)
-                        throw new Exception($"Moved '{src}' but failed to move its '.import' sidecar: {importErr}. " +
-                            "The asset may need a manual reimport.");
+                    // Move the sidecar '.import' metadata if it exists (imported assets carry one; .tres
+                    // usually do not). Keeping it next to the resource preserves import settings + uid mapping.
+                    var srcImport = src + ".import";
+                    if (FileAccess.FileExists(srcImport))
+                    {
+                        var importErr = DirAccess.RenameAbsolute(srcImport, dst + ".import");
+                        if (importErr != Error.Ok)
+                            throw new Exception(
+                                $"Inconsistent state: resource moved to '{dst}' but its '.import' sidecar " +
+                                $"failed to move ('{srcImport}' -> '{dst}.import': {importErr}). A manual " +
+                                "reimport of the moved resource is required to repair the import metadata.");
+                    }
                 }
-
-                // Rescan so the editor filesystem indexes the new location and drops the old one.
-                var efs = EditorInterface.Singleton.GetResourceFilesystem();
-                efs?.Scan();
+                finally
+                {
+                    // Rescan so the editor filesystem indexes the new location and drops the old one — runs
+                    // even when the sidecar move threw, so the index never lies about where the resource is.
+                    EditorInterface.Singleton.GetResourceFilesystem()?.Scan();
+                }
 
                 return ToResourceInfo(dst);
             });

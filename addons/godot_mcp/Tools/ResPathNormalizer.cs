@@ -46,10 +46,31 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 throw new ArgumentException(
                     $"Directory path must be a '{ResScheme}' path (or empty for the project root); got '{rawPath}'.");
 
+            RejectParentTraversal(path, rawPath, nameof(rawPath));
+
             if (!path.EndsWith("/", StringComparison.Ordinal))
                 path += "/";
 
             return path;
+        }
+
+        /// <summary>
+        /// Reject a '..' path segment so that, e.g., <c>res://a/../a/b.tres</c> and <c>res://a/b.tres</c>
+        /// cannot denote the same file while comparing as unequal strings (which would let a caller bypass a
+        /// string-equality src==dst guard). Bounded by Godot's res:// sandbox so this is not a traversal
+        /// vulnerability — it just locks the path-equality guards. A bare <c>.</c> segment is harmless and
+        /// allowed; only the parent-escape <c>..</c> is rejected.
+        /// </summary>
+        static void RejectParentTraversal(string normalized, string? original, string paramName)
+        {
+            // Split on '/' and look for a literal '..' segment. The 'res://' prefix yields empty segments
+            // ("res:", "", "") which never equal "..", so it is unaffected.
+            foreach (var segment in normalized.Split('/'))
+            {
+                if (segment == "..")
+                    throw new ArgumentException(
+                        $"Path must not contain a '..' parent-directory segment; got '{original}'.", paramName);
+            }
         }
 
         /// <summary>
@@ -68,8 +89,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var p = (path ?? string.Empty).Trim();
             if (!IsResPath(p))
                 throw new ArgumentException($"Path must be a '{ResScheme}' path; got '{path}'.", paramName);
+            // The bare scheme 'res://' is the project root, not a file — give an accurate message rather than
+            // the misleading "not a directory" one the trailing-slash check below would otherwise produce.
+            if (p == ResScheme)
+                throw new ArgumentException(
+                    $"Path must name a file under '{ResScheme}', not the bare project root '{ResScheme}'.", paramName);
             if (p.EndsWith("/", StringComparison.Ordinal))
                 throw new ArgumentException($"Path must be a file path, not a directory; got '{path}'.", paramName);
+            RejectParentTraversal(p, path, paramName);
             return p;
         }
     }

@@ -51,6 +51,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 var hasFiles = files != null && files.Count > 0;
 
+                // Bounded settle loop tunables. The MainThread dispatcher already executes us on the editor
+                // main thread, so a short Thread.Sleep here yields without re-entrancy issues.
+                const int sleepMs = 25;
+                const int maxWaits = 200;          // 200 * 25ms = 5s settle ceiling
+                const int primeWaits = 40;         // 40 * 25ms = 1s ceiling to observe the scan START
+
                 string action;
                 if (hasFiles)
                 {
@@ -64,20 +70,50 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                     efs.ReimportFiles(files!.ToArray());
                     action = $"Reimported {files.Count} file(s)";
-                }
-                else
-                {
-                    efs.Scan();
-                    action = "Full filesystem scan";
+
+                    // ReimportFiles is synchronous; only a tail scan (if any) may still be in flight. Do NOT
+                    // prime here — a prime that never observes a scan would falsely report "never started".
+                    // Just drain whatever scan is currently running (bounded).
+                    var tailWaits = 0;
+                    while (efs.IsScanning() && tailWaits < maxWaits)
+                    {
+                        Thread.Sleep(sleepMs);
+                        tailWaits++;
+                    }
+
+                    var tailSettled = !efs.IsScanning();
+                    return tailSettled
+                        ? $"{action}; filesystem settled."
+                        : $"{action}; filesystem still scanning after {maxWaits * sleepMs}ms (progress={efs.GetScanningProgress():0.00}).";
                 }
 
-                // Settle: Scan() runs the index asynchronously, so poll IsScanning() until it clears (with a
-                // bounded number of short sleeps so a stuck scan cannot hang the tool indefinitely).
-                // ReimportFiles is synchronous, but IsScanning() may still report a tail scan — the same wait
-                // covers both. The MainThread dispatcher already executes us on the editor main thread, so a
-                // short Thread.Sleep here yields without re-entrancy issues.
-                const int maxWaits = 200;          // 200 * 25ms = 5s ceiling
-                const int sleepMs = 25;
+                // Full scan. Scan() runs the index ASYNCHRONOUSLY, so IsScanning() can still be false on the
+                // first check (the scan has not begun yet). A naive `while (IsScanning())` would exit
+                // immediately and falsely report "settled" though nothing was indexed — defeating the tool's
+                // purpose. So PRIME first: poll until the scan is observed running at least once (bounded),
+                // and only then poll until it clears.
+                efs.Scan();
+                action = "Full filesystem scan";
+
+                var primed = false;
+                var primePolls = 0;
+                while (primePolls < primeWaits)
+                {
+                    if (efs.IsScanning())
+                    {
+                        primed = true;
+                        break;
+                    }
+                    Thread.Sleep(sleepMs);
+                    primePolls++;
+                }
+
+                if (!primed)
+                    // The scan never started within the prime window. Report it explicitly rather than
+                    // silently claiming "settled" — the caller should not assume the index was refreshed.
+                    return $"{action}; scan did not start within {primeWaits * sleepMs}ms — filesystem may be unchanged or busy (NOT confirmed settled).";
+
+                // Scan observed running; now drain it (bounded).
                 var waits = 0;
                 while (efs.IsScanning() && waits < maxWaits)
                 {

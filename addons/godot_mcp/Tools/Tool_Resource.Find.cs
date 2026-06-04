@@ -40,7 +40,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  - 'directory' — a res:// directory to scope the type-filtered scan (defaults to the whole project).\n" +
             "With 'resourcePath' or 'uid', returns that single resource (a structured error if it does not " +
             "exist). With 'typeFilter' (and optional 'directory'), recursively scans the editor filesystem " +
-            "and returns every match. Each hit carries res:// path, uid, and type.")]
+            "and returns every match. Each hit carries res:// path, uid, and type.\n" +
+            "NOTE: 'resourcePath' and 'uid' are mutually exclusive — when both are supplied 'uid' takes " +
+            "precedence and 'resourcePath' is ignored. For a direct path/uid lookup, 'typeFilter' and " +
+            "'directory' are ignored (they only apply to the type-filtered scan).")]
         public ResourceFindResult Find
         (
             [Description("Optional exact res:// path (or uid://) to resolve to a single resource.")]

@@ -84,6 +84,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var reflector = GodotMcpReflector.GetOrCreate();
                 object? objToModify = resource;
                 var anyChange = false;
+                // Track which surface (if any) reassigned 'objToModify' to a fresh boxed instance, so the
+                // $type-divergence rejection below can name the culprit for debuggability.
+                string? divergedSurface = null;
 
                 // ReflectorNet's TryPatch/TryModifyAt accumulate errors into 'logs' and are documented not to
                 // throw, but a malformed patch could still surface an exception from a converter. Wrap each
@@ -95,7 +98,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     try
                     {
                         if (reflector.TryPatch(ref objToModify, jsonPatch!, logs: logs))
+                        {
                             anyChange = true;
+                            if (divergedSurface == null && !ReferenceEquals(objToModify, resource))
+                                divergedSurface = "jsonPatch";
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -122,7 +129,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         try
                         {
                             if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
+                            {
                                 anyChange = true;
+                                if (divergedSurface == null && !ReferenceEquals(objToModify, resource))
+                                    divergedSurface = $"pathPatches[{i}] ('{patch.Path}')";
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -137,8 +148,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // are about to save was NOT updated, so persisting would write stale data. Guard against it.
                 if (anyChange && !ReferenceEquals(objToModify, resource))
                 {
-                    logs.Error("Modification produced a new instance instead of mutating the loaded Resource " +
-                        "in place; the resource was NOT re-saved.");
+                    logs.Error($"Modification via {divergedSurface ?? "a patch surface"} produced a new " +
+                        "instance instead of mutating the loaded Resource in place (likely a '$type' " +
+                        "replacement); the resource was NOT re-saved.");
                     return logs;
                 }
 

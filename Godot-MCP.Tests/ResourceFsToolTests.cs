@@ -216,5 +216,31 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Throws<ArgumentException>(() => ResPathNormalizer.RequireResFilePath("res://materials/", "p"));
             Assert.Throws<ArgumentException>(() => ResPathNormalizer.RequireResFilePath(null, "p"));
         }
+
+        [Fact]
+        public void RequireResFilePath_BareScheme_RejectsWithRootSpecificMessage()
+        {
+            // 'res://' passes IsResPath (it IS a res:// path) but names the project root, not a file. The
+            // message must say so accurately rather than the misleading "not a directory".
+            var ex = Assert.Throws<ArgumentException>(() => ResPathNormalizer.RequireResFilePath("res://", "p"));
+            Assert.Contains("project root", ex.Message);
+            Assert.DoesNotContain("not a directory", ex.Message);
+        }
+
+        [Fact]
+        public void RequireResFilePath_Rejects_ParentTraversalSegment()
+        {
+            // A '..' segment would let res://a/../a/b.tres and res://a/b.tres compare unequal while denoting
+            // the same file — reject it so the src==dst path-equality guards hold.
+            var ex = Assert.Throws<ArgumentException>(
+                () => ResPathNormalizer.RequireResFilePath("res://a/../a/b.tres", "p"));
+            Assert.Contains("..", ex.Message);
+        }
+
+        [Fact]
+        public void NormalizeDir_Rejects_ParentTraversalSegment()
+        {
+            Assert.Throws<ArgumentException>(() => ResPathNormalizer.NormalizeDir("res://a/../b"));
+        }
     }
 }

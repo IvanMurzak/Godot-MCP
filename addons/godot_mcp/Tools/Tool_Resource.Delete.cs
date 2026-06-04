@@ -55,17 +55,30 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
 
-                // Remove the sidecar '.import' metadata if present.
-                var importPath = resPath + ".import";
-                if (FileAccess.FileExists(importPath))
+                // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import
+                // sidecar): if the sidecar removal throws below, the resource itself is still deleted. Rescan
+                // in a 'finally' regardless so the editor index drops the removed entry even on partial
+                // failure — never leave a stale index pointing at a file that no longer exists.
+                try
                 {
-                    var rmImportErr = DirAccess.RemoveAbsolute(importPath);
-                    if (rmImportErr != Error.Ok)
-                        throw new Exception($"Deleted '{resPath}' but failed to remove its '.import' sidecar '{importPath}': {rmImportErr}.");
+                    // Remove the sidecar '.import' metadata if present.
+                    var importPath = resPath + ".import";
+                    if (FileAccess.FileExists(importPath))
+                    {
+                        var rmImportErr = DirAccess.RemoveAbsolute(importPath);
+                        if (rmImportErr != Error.Ok)
+                            throw new Exception(
+                                $"Inconsistent state: resource '{resPath}' was deleted but its '.import' " +
+                                $"sidecar '{importPath}' failed to remove ({rmImportErr}). The resource itself " +
+                                "is already gone; remove the orphaned sidecar manually.");
+                    }
                 }
-
-                // Rescan so the editor filesystem drops the removed entry.
-                EditorInterface.Singleton.GetResourceFilesystem()?.Scan();
+                finally
+                {
+                    // Rescan so the editor filesystem drops the removed entry — runs even when the sidecar
+                    // removal threw, so the index never lists a resource that no longer exists on disk.
+                    EditorInterface.Singleton.GetResourceFilesystem()?.Scan();
+                }
 
                 return info;
             });
