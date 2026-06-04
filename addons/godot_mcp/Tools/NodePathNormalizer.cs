@@ -31,6 +31,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>
         /// Normalize <paramref name="rawPath"/> against an edited root named <paramref name="editedRootName"/>.
         /// Returns <c>"."</c> when the path denotes the root itself, or a root-relative child path otherwise.
+        /// <para>
+        /// Note: a bare <c>"/"</c> or <c>"/root/"</c> (no segment after the prefix) normalizes to the empty
+        /// string. <c>ResolveNode</c> treats an empty/<c>"."</c> result as the edited scene root, so these
+        /// degenerate inputs resolve to the root rather than erroring — callers that pass a bare slash get
+        /// the root, by design.
+        /// </para>
         /// </summary>
         public static string Normalize(string rawPath, string editedRootName)
         {

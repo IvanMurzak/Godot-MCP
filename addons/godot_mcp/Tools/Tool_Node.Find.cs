@@ -33,7 +33,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "and return its structured data (instanceId, name, path, type, attached script, child count). " +
             "Provide a 'nodeRef' identifying the Node (instanceId is preferred; a path like " +
             "'/root/Main/Player' or 'Main/Player' is resolved relative to the edited scene root). " +
-            "Set 'hierarchyDepth' > 0 to include children: 1 = direct children, 2 = grandchildren, etc.")]
+            "Set 'hierarchyDepth' > 0 to include children: 1 = direct children, 2 = grandchildren, etc. " +
+            "A node that cannot be resolved (bad ref, no edited scene, path not found) yields a structured " +
+            "error, not a null result.")]
         public NodeData? Find
         (
             [Description("Reference to the Node to find (instanceId preferred, else scene-tree path).")]
@@ -47,11 +49,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return MainThread.Instance.Run(() =>
             {
+                // ResolveNode sets 'error' on every null return (bad ref, no edited scene, path not found),
+                // so a null node always comes with an error here — surfaced as a structured error rather
+                // than a soft-null result (see the tool description). There is no error-free null case.
                 var node = ResolveNode(nodeRef, out var error);
-                if (error != null)
-                    throw new Exception(error);
                 if (node == null)
-                    return null;
+                    throw new Exception(error ?? $"Node by {nodeRef} not found.");
 
                 return ToNodeData(node, hierarchyDepth);
             });

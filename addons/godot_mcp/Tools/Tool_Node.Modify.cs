@@ -77,11 +77,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 object? objToModify = node;
                 var anyChange = false;
 
-                // 1) JSON Merge Patch.
+                // ReflectorNet's TryPatch/TryModifyAt are documented to accumulate errors into 'logs' and
+                // never throw, but a malformed patch could still surface an exception from a converter or
+                // navigation edge case. Wrap each patch-surface call so a bad entry degrades to a logged
+                // skip instead of aborting MainThread.Run and leaving the scene half-modified + not marked.
+                // 1) JSON Merge Patch (applied first).
                 if (hasJsonPatch)
                 {
-                    if (reflector.TryPatch(ref objToModify, jsonPatch!, logs: logs))
-                        anyChange = true;
+                    try
+                    {
+                        if (reflector.TryPatch(ref objToModify, jsonPatch!, logs: logs))
+                            anyChange = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        logs.Error($"jsonPatch threw and was skipped: {ex.Message}");
+                    }
                 }
 
                 // 2) Path patches.
@@ -100,9 +111,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                             logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
                             continue;
                         }
-                        if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
-                            anyChange = true;
+                        try
+                        {
+                            if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
+                                anyChange = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') threw and was skipped: {ex.Message}");
+                        }
                     }
+                }
+
+                // 'objToModify' is passed by ref: a patch may reassign it to a fresh boxed instance (e.g. a
+                // '$type' replacement) instead of mutating the live node in place. Node is a reference type,
+                // so in-place writes hit the editor's node — but if the ref diverged, the live node was NOT
+                // updated, so reporting success + marking unsaved would be a silent no-op. Guard against it.
+                if (anyChange && !ReferenceEquals(objToModify, node))
+                {
+                    logs.Error("Modification produced a new instance instead of mutating the live Node in " +
+                        "place (the editor Node was not updated); the scene was left unchanged.");
+                    return logs;
                 }
 
                 if (anyChange)

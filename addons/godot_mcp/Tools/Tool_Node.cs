@@ -127,8 +127,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (hierarchyDepth > 0)
             {
                 data.Children = new System.Collections.Generic.List<NodeData>(data.ChildCount);
-                var count = node.GetChildCount(includeInternal: false);
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < data.ChildCount; i++)
                 {
                     var child = node.GetChild(i, includeInternal: false);
                     if (child != null)

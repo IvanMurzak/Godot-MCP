@@ -159,6 +159,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("Player/Weapon", "Main", "Player/Weapon")]
         // Whitespace is trimmed.
         [InlineData("  Main/Player  ", "Main", "Player")]
+        // Bare slash and bare '/root/' (no segment after the prefix) normalize to empty — ResolveNode
+        // then treats empty as the edited root (documented degenerate-input behavior).
+        [InlineData("/", "Main", "")]
+        [InlineData("/root/", "Main", "")]
+        // A root NAME that is a PREFIX of (not equal to) the first segment must NOT be stripped: root
+        // "Main" + "MainMenu/X" keeps "MainMenu/X" (the trailing-'/' guard prevents a prefix false-match).
+        [InlineData("MainMenu/X", "Main", "MainMenu/X")]
+        [InlineData("/root/MainMenu/X", "Main", "MainMenu/X")]
         public void NodePathNormalizer_Normalizes(string raw, string rootName, string expected)
         {
             Assert.Equal(expected, NodePathNormalizer.Normalize(raw, rootName));

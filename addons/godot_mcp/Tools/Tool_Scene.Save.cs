@@ -51,7 +51,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     if (!EndsWithSceneExt(path))
                         throw new ArgumentException($"path must end with '.tscn' or '.scn'; got '{path}'.", nameof(path));
 
+                    // SaveSceneAs returns void (no Error), so a silent failure (e.g. an unwritable target
+                    // dir) would otherwise be reported as success. Confirm the edited scene's file path now
+                    // points at the requested destination; a mismatch means the save did not land.
                     EditorInterface.Singleton.SaveSceneAs(path);
+
+                    var savedPath = EditorInterface.Singleton.GetEditedSceneRoot()?.GetSceneFilePath();
+                    if (savedPath != path)
+                        throw new Exception(
+                            $"Save-as to '{path}' did not take effect (edited scene path is now '{savedPath ?? "<none>"}').");
                 }
                 else
                 {
