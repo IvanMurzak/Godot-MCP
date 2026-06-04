@@ -61,6 +61,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(GodotMcpConnectionMode.Custom, config.ActiveMode);
         }
 
+        [Theory]
+        [InlineData("0")]
+        [InlineData("1")]
+        public void EnvConnectionMode_NumericString_FallsBackToConfigured(string envValue)
+        {
+            // Enum.TryParse would accept numeric strings; we deliberately reject them so only
+            // named values (Cloud/Custom) override the configured mode.
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvConnectionMode, envValue);
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
+            Assert.Equal(GodotMcpConnectionMode.Custom, config.ActiveMode);
+        }
+
         // --- Cloud URL resolution ---
 
         [Fact]
@@ -135,6 +147,50 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("http://localhost:9999", config.Host);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void Host_InCustomMode_NullOrBlankCustomHost_FallsBackToDefault(string? customHost)
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = customHost!
+            };
+            Assert.Equal(GodotMcpConfig.DefaultCustomHost, config.Host);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void Host_InCustomMode_EnvHostBlank_FallsBackToConfigured(string envHost)
+        {
+            // A blank EnvHost must not shadow a valid configured CustomHost.
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvHost, envHost);
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:5300"
+            };
+            Assert.Equal("http://localhost:5300", config.Host);
+        }
+
+        [Theory]
+        [InlineData("not-a-url")]
+        [InlineData("ftp://localhost")]
+        public void Host_InCustomMode_InvalidEnvHost_FallsBackToDefault(string envHost)
+        {
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvHost, envHost);
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:5300"
+            };
+            Assert.Equal(GodotMcpConfig.DefaultCustomHost, config.Host);
+        }
+
         [Fact]
         public void Host_Setter_WritesCustomHost()
         {
@@ -194,6 +250,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 ConnectionMode = GodotMcpConnectionMode.Custom,
                 CustomToken = "custom-tok"
             };
+            Assert.Equal("env-tok", config.Token);
+        }
+
+        [Fact]
+        public void Token_EnvOverride_StripsWrappingQuotes()
+        {
+            // GODOT_MCP_TOKEN="abc" (shell-quoted) must not send a literal-quote bearer value.
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvToken, "\"env-tok\"");
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Cloud };
             Assert.Equal("env-tok", config.Token);
         }
 

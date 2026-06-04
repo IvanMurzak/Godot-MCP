@@ -143,11 +143,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public static GodotMcpConnectionMode ResolveActiveMode(GodotMcpConnectionMode configured)
         {
-            var raw = ReadEnv(EnvConnectionMode);
-            if (string.IsNullOrWhiteSpace(raw))
+            var normalized = NormalizeEnv(ReadEnv(EnvConnectionMode));
+            if (string.IsNullOrEmpty(normalized))
                 return configured;
 
-            if (Enum.TryParse<GodotMcpConnectionMode>(raw.Trim(), ignoreCase: true, out var parsed))
+            // Only honor named enum values; reject numeric strings ("1") that Enum.TryParse
+            // would otherwise accept and silently map to an arbitrary mode.
+            if (Enum.TryParse<GodotMcpConnectionMode>(normalized, ignoreCase: true, out var parsed) &&
+                !int.TryParse(normalized, out _))
                 return parsed;
 
             return configured;
@@ -160,17 +163,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public static string ResolveCloudBaseUrl()
         {
-            var raw = ReadEnv(EnvCloudUrl);
-            if (string.IsNullOrWhiteSpace(raw))
+            var normalized = NormalizeUrl(ReadEnv(EnvCloudUrl));
+            if (string.IsNullOrEmpty(normalized))
                 return DefaultCloudBaseUrl;
 
-            var normalized = raw.Trim().Trim('"').TrimEnd('/');
-
-            if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-            {
+            if (!IsValidHttpUrl(normalized))
                 return DefaultCloudBaseUrl;
-            }
 
             if (normalized.EndsWith(CloudHubPath, StringComparison.OrdinalIgnoreCase))
                 normalized = normalized[..^CloudHubPath.Length];
@@ -186,27 +184,61 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public string ResolveCustomHost()
         {
-            var raw = ReadEnv(EnvHost);
-            if (!string.IsNullOrWhiteSpace(raw))
-                return raw!.Trim().Trim('"');
+            // Prefer the env override, then the configured host; validate each as an http(s) URL
+            // (mirroring ResolveCloudBaseUrl) and fall back to DefaultCustomHost on anything invalid.
+            var envHost = NormalizeUrl(ReadEnv(EnvHost));
+            if (!string.IsNullOrEmpty(envHost))
+                return IsValidHttpUrl(envHost) ? envHost : DefaultCustomHost;
 
-            return string.IsNullOrWhiteSpace(CustomHost) ? DefaultCustomHost : CustomHost;
+            var configuredHost = NormalizeUrl(CustomHost);
+            if (!string.IsNullOrEmpty(configuredHost))
+                return IsValidHttpUrl(configuredHost) ? configuredHost : DefaultCustomHost;
+
+            return DefaultCustomHost;
         }
 
         /// <summary>Resolve the active cloud token, applying the <see cref="EnvToken"/> override.</summary>
         public string? ResolveCloudToken()
         {
-            var raw = ReadEnv(EnvToken);
-            return string.IsNullOrWhiteSpace(raw) ? CloudToken : raw!.Trim();
+            var envToken = NormalizeEnv(ReadEnv(EnvToken));
+            return string.IsNullOrEmpty(envToken) ? CloudToken : envToken;
         }
 
         /// <summary>Resolve the active custom token, applying the <see cref="EnvToken"/> override.</summary>
         public string? ResolveCustomToken()
         {
-            var raw = ReadEnv(EnvToken);
-            return string.IsNullOrWhiteSpace(raw) ? CustomToken : raw!.Trim();
+            var envToken = NormalizeEnv(ReadEnv(EnvToken));
+            return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
         }
 
         static string? ReadEnv(string name) => Environment.GetEnvironmentVariable(name);
+
+        /// <summary>
+        /// Single normalization for env/config string values: trim surrounding whitespace and a single
+        /// pair of wrapping double-quotes (so <c>GODOT_MCP_TOKEN="abc"</c> yields <c>abc</c>, not a
+        /// bearer value with literal quotes). Returns <c>null</c> for null/blank input.
+        /// </summary>
+        static string? NormalizeEnv(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return null;
+
+            return raw.Trim().Trim('"');
+        }
+
+        /// <summary>
+        /// URL-flavored normalization: <see cref="NormalizeEnv"/> plus a trailing-slash trim so URL
+        /// resolvers compare/append cleanly. Returns <c>null</c> for null/blank input.
+        /// </summary>
+        static string? NormalizeUrl(string? raw)
+        {
+            var normalized = NormalizeEnv(raw);
+            return string.IsNullOrEmpty(normalized) ? null : normalized.TrimEnd('/');
+        }
+
+        /// <summary>True when <paramref name="value"/> is an absolute http or https URL.</summary>
+        static bool IsValidHttpUrl(string value) =>
+            Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 }
