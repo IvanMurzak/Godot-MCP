@@ -9,7 +9,9 @@
 */
 #if TOOLS
 #nullable enable
+using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.UI
@@ -49,8 +51,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         OptionButton _modeSelector = null!;
         VBoxContainer _customHostRow = null!;
         LineEdit _hostField = null!;
-        Label _cloudNote = null!;
         Label _overrideNote = null!;
+
+        // Cloud-mode auth section (device-code flow): masked token + Authorize/Revoke + status.
+        VBoxContainer _cloudAuthRow = null!;
+        LineEdit _cloudTokenField = null!;
+        Button _authorizeButton = null!;
+        Button _revokeButton = null!;
+        Label _cloudAuthStatus = null!;
+
+        // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
+        GodotDeviceAuthFlow? _deviceAuthFlow;
 
         // Custom-mode authorization row (auth option + masked token + Generate).
         OptionButton _authSelector = null!;
@@ -78,8 +89,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             BuildUi();
 
             // Subscribe AFTER the UI exists so the first push has controls to write to. The connection
-            // marshals this event onto the editor main thread, so the handler may touch Controls directly.
+            // marshals these events onto the editor main thread, so the handlers may touch Controls directly.
             _connection.ConnectionStatusChanged += OnConnectionStatusChanged;
+            _connection.AuthorizationRejected += OnAuthorizationRejected;
 
             // Render the current state immediately (the event only fires on CHANGE).
             ApplyStatus(_connection.ConnectionStatus);
@@ -171,14 +183,41 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _generateTokenButton.Pressed += OnGenerateTokenPressed;
             tokenLine.AddChild(_generateTokenButton);
 
-            // --- Cloud-mode note (shown only in Cloud mode; cloud auth is a later task) ---
-            _cloudNote = new Label
+            // --- Cloud-mode auth section (shown only in Cloud mode): device-code login ---
+            _cloudAuthRow = new VBoxContainer { Name = "CloudAuthRow" };
+            AddChild(_cloudAuthRow);
+
+            _cloudAuthRow.AddChild(new Label { Name = "CloudTokenLabel", Text = "Cloud Token" });
+
+            var cloudTokenLine = new HBoxContainer { Name = "CloudTokenLine" };
+            _cloudAuthRow.AddChild(cloudTokenLine);
+
+            _cloudTokenField = new LineEdit
             {
-                Name = "CloudNote",
-                Text = "Cloud auth is configured separately.",
+                Name = "CloudTokenField",
+                // Masked + read-only: the access token is never shown in clear text and is only ever set by
+                // the device-auth flow (never typed/logged). Mirrors the Custom-mode token field.
+                Secret = true,
+                Editable = false,
+                PlaceholderText = ConnectionPanelView.CloudTokenPlaceholder,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill
+            };
+            cloudTokenLine.AddChild(_cloudTokenField);
+
+            _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
+            _authorizeButton.Pressed += OnAuthorizeButtonPressed;
+            cloudTokenLine.AddChild(_authorizeButton);
+
+            _revokeButton = new Button { Name = "RevokeButton", Text = "Revoke" };
+            _revokeButton.Pressed += OnRevokeButtonPressed;
+            cloudTokenLine.AddChild(_revokeButton);
+
+            _cloudAuthStatus = new Label
+            {
+                Name = "CloudAuthStatus",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart
             };
-            AddChild(_cloudNote);
+            _cloudAuthRow.AddChild(_cloudAuthStatus);
 
             // --- Env/.env override note (shown when a process env / .env value forces mode or host) ---
             _overrideNote = new Label
@@ -386,13 +425,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var persistedCustom = persistedMode == GodotMcpConnectionMode.Custom;
 
             _customHostRow.Visible = persistedCustom;
-            _cloudNote.Visible = !persistedCustom;
+            _cloudAuthRow.Visible = !persistedCustom;
 
             if (persistedCustom)
             {
                 // Show the EFFECTIVE custom host (env GODOT_MCP_HOST wins over the persisted value).
                 _hostField.Text = _connection.Config.ResolveCustomHost();
                 ApplyAuthVisibility();
+            }
+            else
+            {
+                ApplyCloudAuthState();
             }
 
             // The active mode differs from the persisted mode only when an env/.env override forced it.
@@ -423,6 +466,148 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _tokenField.Text = required ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
         }
 
+        /// <summary>
+        /// Render the Cloud-mode auth controls from the persisted <see cref="GodotMcpConfig.CloudToken"/>:
+        /// the masked field carries the stored token (or shows the placeholder via empty text), and the
+        /// Revoke button is visible only when a token is stored. Called on Cloud-mode entry and after every
+        /// token change. The token is never shown in clear text or logged.
+        /// </summary>
+        void ApplyCloudAuthState()
+        {
+            var token = _connection.Config.CloudToken;
+            var hasToken = !string.IsNullOrEmpty(token);
+
+            // Empty text → the masked LineEdit shows its PlaceholderText ("Token — press Authorize").
+            _cloudTokenField.Text = hasToken ? token! : string.Empty;
+            _revokeButton.Visible = hasToken;
+        }
+
+        /// <summary>
+        /// Start (or cancel) the device-code authorization flow. While running, the button shows "Cancel"
+        /// and a click cancels the in-flight flow. The flow runs on a background task; every state change is
+        /// marshalled onto the editor main thread before touching any <see cref="Control"/>. On
+        /// <see cref="GodotDeviceAuthFlowState.WaitingForUser"/> the verification URL is opened in the
+        /// browser; on <see cref="GodotDeviceAuthFlowState.Authorized"/> the returned token is persisted and
+        /// the connection reconnects. The token is never logged.
+        /// </summary>
+        void OnAuthorizeButtonPressed()
+        {
+            // A click while a flow is running means "Cancel".
+            if (_deviceAuthFlow != null && GodotDeviceAuthFlow.IsRunning(_deviceAuthFlow.State))
+            {
+                _deviceAuthFlow.Cancel();
+                return;
+            }
+
+            _deviceAuthFlow?.Cancel();
+            var flow = new GodotDeviceAuthFlow();
+            _deviceAuthFlow = flow;
+
+            flow.OnStateChanged += state =>
+            {
+                // OnStateChanged fires on the flow's background task thread; hop to the editor main thread
+                // before touching Controls. A missing dispatcher (between editor reloads) degrades to a
+                // direct call rather than throwing.
+                if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                    MainThreadDispatcher.Enqueue(() => OnAuthFlowStateChanged(flow, state));
+                else
+                    OnAuthFlowStateChanged(flow, state);
+            };
+
+            // Fire-and-forget; the state-change handler drives the status/button/browser UI, and the awaited
+            // result persists the token (the token NEVER lives on the flow instance — it only flows out as
+            // StartAsync's return value, so config writes stay on the main thread via the dispatcher).
+            _ = RunAuthFlowAsync(flow);
+        }
+
+        async Task RunAuthFlowAsync(GodotDeviceAuthFlow flow)
+        {
+            var token = await flow.StartAsync(_connection.CloudBaseUrl, "Godot Editor");
+            if (string.IsNullOrEmpty(token))
+                return; // Non-Authorized terminal state: nothing to persist (UI already reflects it).
+
+            // Persist + reconnect on the editor main thread (the awaited continuation may run off-thread).
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(() => PersistAuthorizedToken(flow, token!));
+            else
+                PersistAuthorizedToken(flow, token!);
+        }
+
+        /// <summary>
+        /// Apply one device-auth flow state transition to the UI (status line, button label, browser-open).
+        /// MUST run on the editor main thread. Ignores events from a stale flow (a newer Authorize click
+        /// replaced <see cref="_deviceAuthFlow"/>). Token persistence happens in
+        /// <see cref="PersistAuthorizedToken"/> off the awaited result, not here.
+        /// </summary>
+        void OnAuthFlowStateChanged(GodotDeviceAuthFlow flow, GodotDeviceAuthFlowState state)
+        {
+            // Drop late events from a flow that has been superseded by a newer one.
+            if (!ReferenceEquals(_deviceAuthFlow, flow))
+                return;
+
+            // Status line. UserCode is safe to show; the access token never reaches this string.
+            _cloudAuthStatus.Text = ConnectionPanelView.CloudAuthStatusMessage(state, flow.UserCode, flow.ErrorMessage);
+            _authorizeButton.Text = ConnectionPanelView.CloudAuthButtonText(state);
+
+            // Open the verification URL so the user can approve in the browser.
+            if (state == GodotDeviceAuthFlowState.WaitingForUser && !string.IsNullOrEmpty(flow.VerificationUriComplete))
+                OS.ShellOpen(flow.VerificationUriComplete);
+        }
+
+        /// <summary>
+        /// Persist the cloud token produced by an Authorized flow, refresh the masked field, and reconnect.
+        /// MUST run on the editor main thread. Ignores a stale flow. The token is written straight to config
+        /// and never logged.
+        /// </summary>
+        void PersistAuthorizedToken(GodotDeviceAuthFlow flow, string token)
+        {
+            if (!ReferenceEquals(_deviceAuthFlow, flow))
+                return;
+
+            _connection.Config.CloudToken = token;
+            _connection.Save();
+            ApplyCloudAuthState();
+
+            // Reconnect so the new bearer is used — only meaningful when the live mode is Cloud.
+            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                _connection.Reconnect();
+        }
+
+        /// <summary>
+        /// Revoke the stored cloud token: clear it, persist, revert the UI to the Authorize state, and (if
+        /// the live mode is Cloud) disconnect so the now-unauthenticated session does not linger.
+        /// </summary>
+        void OnRevokeButtonPressed()
+        {
+            _connection.Config.CloudToken = null;
+            _connection.Save();
+            _cloudAuthStatus.Text = "Token revoked.";
+            ApplyCloudAuthState();
+
+            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                _connection.Disconnect();
+        }
+
+        /// <summary>
+        /// Handle a server-side authorization rejection (the connection's
+        /// <see cref="GodotMcpConnection.AuthorizationRejected"/> fired, already on the main thread): drop
+        /// the rejected cloud token, persist, revert the UI to Authorize, and warn the user WITHOUT logging
+        /// the token (it carries no payload through this event anyway).
+        /// </summary>
+        void OnAuthorizationRejected()
+        {
+            // Only relevant to Cloud mode — a Custom-mode rejection is the Custom token's concern.
+            if (_connection.Config.ActiveMode != GodotMcpConnectionMode.Cloud)
+                return;
+
+            _connection.Config.CloudToken = null;
+            _connection.Save();
+            _cloudAuthStatus.Text = "Authorization rejected by server — press Authorize.";
+            ApplyCloudAuthState();
+
+            GD.PushWarning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
+        }
+
         void SyncModeSelector(GodotMcpConnectionMode activeMode)
         {
             // Reflect the PERSISTED mode the user edits (not the env-forced live mode); the override note
@@ -445,8 +630,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         public override void _ExitTree()
         {
-            // Unsubscribe so a freed panel does not receive a late main-thread status push.
+            // Unsubscribe so a freed panel does not receive a late main-thread push.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
+            _connection.AuthorizationRejected -= OnAuthorizationRejected;
+
+            // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel.
+            _deviceAuthFlow?.Cancel();
+            _deviceAuthFlow = null;
         }
     }
 }
