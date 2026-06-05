@@ -102,6 +102,10 @@
          via the headless Godot smoke (test.md Suite 3); the view logic is unit-tested here. The SignalR
          HubConnectionState enum it switches on is provided transitively by com.IvanMurzak.McpPlugin. -->
     <Compile Include="..\addons\godot_mcp\UI\ConnectionPanelView.cs" Link="Source\ConnectionPanelView.cs" />
+    <!-- Support-footer link constants — pure-managed (no Godot native types, no #if TOOLS): the static
+         URLs/copy opened by the dock footer. The editor Control wiring (SupportFooter.cs) is #if TOOLS and
+         verified via the headless Godot smoke (test.md Suite 3); the constants are unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\SupportFooterLinks.cs" Link="Source\SupportFooterLinks.cs" />
   </ItemGroup>
 
 </Project>

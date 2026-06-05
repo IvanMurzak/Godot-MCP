@@ -50,6 +50,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         readonly GodotMcpConnection? _connection;
         ConnectionPanel? _connectionPanel;
+        SupportFooter? _supportFooter;
 
         /// <summary>
         /// Construct the dock wired to the live <paramref name="connection"/> so its connection panel can
@@ -110,6 +111,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _connectionPanel = new ConnectionPanel(_connection);
                 Body.AddChild(_connectionPanel);
             }
+
+            // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
+            // no live state / subscriptions, so it builds unconditionally (independent of the connection).
+            _supportFooter = new SupportFooter();
+            Body.AddChild(_supportFooter);
         }
 
         /// <summary>
