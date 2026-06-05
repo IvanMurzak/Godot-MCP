@@ -206,13 +206,28 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// (Re)connect with the CURRENT <see cref="GodotMcpConfig"/> (mode/host/token). If a plugin
-        /// already exists it is reused — the reused client reconnects via <c>KeepConnected</c>; otherwise
-        /// this builds a fresh plugin via <see cref="Start"/>. The boot path calls <see cref="Start"/>
-        /// directly; the dock's Connect button calls this. Idempotent and safe to call repeatedly.
+        /// already exists it is reused — the reused client re-arms its own <c>KeepConnected</c> intent
+        /// inside <see cref="IConnection.Connect"/>; otherwise this builds a fresh plugin via
+        /// <see cref="Start"/>. The boot path calls <see cref="Start"/> directly; the dock's Connect
+        /// button calls this. Idempotent and safe to call repeatedly.
+        ///
+        /// <para>
+        /// Auto-reconnect intent lives in the reused client's <see cref="IConnection.KeepConnected"/>
+        /// reactive property, NOT in <see cref="GodotMcpConfig.KeepConnected"/>: the McpPlugin
+        /// <c>ConnectionManager</c> sets its internal reconnect flag to <c>true</c> inside
+        /// <see cref="IConnection.Connect"/> and to <c>false</c> inside <see cref="IConnection.Disconnect"/>;
+        /// it never reads the <see cref="ConnectionConfig.KeepConnected"/> field at runtime. Calling
+        /// <c>plugin.Connect()</c> is therefore what re-arms reconnection after a manual Disconnect — this
+        /// is the exact mechanism the Unity reference uses (its <c>UnityMcpPluginEditor.KeepConnected</c>
+        /// gates only the BOOT path's <c>ConnectIfNeeded</c>, while the live client is driven by
+        /// <c>mcpPlugin.Connect()</c> / <c>mcpPlugin.Disconnect()</c>).
+        /// </para>
         /// </summary>
         public void Connect()
         {
-            // Re-arm the intent to stay connected (the Disconnect button clears it) BEFORE (re)connecting.
+            // Keep the persisted/boot intent aligned with the user's explicit Connect (boot honours this
+            // via Start()'s ConnectIfNeeded analogue); the LIVE reconnect re-arm happens inside
+            // plugin.Connect() below, which flips the client's own KeepConnected to true.
             _config.KeepConnected = true;
 
             if (_plugin == null)
@@ -225,13 +240,21 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Disconnect from the MCP server and stop auto-reconnect. Clears <c>KeepConnected</c> so the
-        /// reused client does not immediately reconnect, then asks it to disconnect. The plugin instance
-        /// is kept (not disposed) so a subsequent <see cref="Connect"/> can reuse it; full teardown happens
-        /// in <see cref="Dispose"/> at plugin unload.
+        /// Disconnect from the MCP server and stop auto-reconnect. The reconnect-stop is driven by
+        /// <see cref="IConnection.Disconnect"/> on the reused client — it cancels the in-flight connect
+        /// loop's token, flips the client's own <see cref="IConnection.KeepConnected"/> reactive property
+        /// to <c>false</c>, and stops + disposes the live <c>HubConnection</c> — so the client does NOT
+        /// auto-reconnect and the status subscription (which reduces over <c>plugin.KeepConnected</c>)
+        /// settles on <see cref="UI.ConnectionStatus.Disconnected"/> (gray). Setting
+        /// <see cref="GodotMcpConfig.KeepConnected"/> here is intent bookkeeping only (the client never
+        /// reads that field at runtime) and keeps the boot/persisted intent consistent. The plugin
+        /// instance is kept (not disposed) so a subsequent <see cref="Connect"/> can reuse it; full
+        /// teardown happens in <see cref="Dispose"/> at plugin unload.
         /// </summary>
         public void Disconnect()
         {
+            // Bookkeeping only — the client's live reconnect intent is cleared by plugin.Disconnect()
+            // below (ConnectionManager sets its internal KeepConnected=false there), not by this field.
             _config.KeepConnected = false;
 
             var plugin = _plugin;

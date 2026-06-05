@@ -244,6 +244,37 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(GodotMcpConnectionMode.Custom, config.ActiveMode);
         }
 
+        // --- Auth option: file layer + env precedence ---
+
+        [Fact]
+        public void Apply_FileAuthOption_WritesConfiguredField()
+        {
+            using var _ = EnvFileScope.ClearAll();
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
+            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "Required"));
+            Assert.Equal(GodotMcpAuthOption.Required, config.ActiveAuthOption);
+        }
+
+        [Fact]
+        public void EnvAuthOption_Beats_FileAuthOption()
+        {
+            // File says None, env says Required → env wins (ActiveAuthOption reads env live).
+            using var _ = EnvFileScope.Set(GodotMcpConfig.EnvAuthOption, "Required");
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
+            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "None"));
+            Assert.Equal(GodotMcpAuthOption.Required, config.ActiveAuthOption);
+        }
+
+        [Fact]
+        public void Apply_FileAuthOption_Numeric_IsIgnored()
+        {
+            using var _ = EnvFileScope.ClearAll();
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
+            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "1"));
+            // Numeric rejected → configured default (None) stands.
+            Assert.Equal(GodotMcpAuthOption.None, config.ActiveAuthOption);
+        }
+
         // --- Default wins when neither env nor file present ---
 
         [Fact]
@@ -372,7 +403,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 GodotMcpConfig.EnvCloudUrl,
                 GodotMcpConfig.EnvHost,
                 GodotMcpConfig.EnvToken,
-                GodotMcpConfig.EnvConnectionMode
+                GodotMcpConfig.EnvConnectionMode,
+                GodotMcpConfig.EnvAuthOption
             };
 
             readonly Dictionary<string, string?> _prior = new();

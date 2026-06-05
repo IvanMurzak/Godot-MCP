@@ -114,11 +114,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Apply the SERIALIZED-LAYER values from <paramref name="persisted"/> onto <paramref name="target"/>,
-        /// writing only the four serialized backing fields (<c>CustomHost</c>/<c>CustomToken</c>/
-        /// <c>CloudToken</c>/<c>ConnectionMode</c>). This is how the boot path seeds the config with the
-        /// persisted baseline BEFORE the <c>.env</c>/process-env layers are applied on top — keeping the
-        /// documented precedence intact. No-op when <paramref name="persisted"/> is <c>null</c>. Returns
-        /// <paramref name="target"/> for fluent use.
+        /// writing only the serialized backing fields (<c>CustomHost</c>/<c>CustomToken</c>/
+        /// <c>CloudToken</c>/<c>ConnectionMode</c>/<c>AuthOption</c>). This is how the boot path seeds the
+        /// config with the persisted baseline BEFORE the <c>.env</c>/process-env layers are applied on
+        /// top — keeping the documented precedence intact. No-op when <paramref name="persisted"/> is
+        /// <c>null</c>. Returns <paramref name="target"/> for fluent use.
         /// </summary>
         public static GodotMcpConfig ApplyPersisted(GodotMcpConfig target, GodotMcpConfig? persisted)
         {
@@ -131,6 +131,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             target.CustomToken = persisted.CustomToken;
             target.CloudToken = persisted.CloudToken;
             target.ConnectionMode = persisted.ConnectionMode;
+            target.AuthOption = persisted.AuthOption;
 
             return target;
         }

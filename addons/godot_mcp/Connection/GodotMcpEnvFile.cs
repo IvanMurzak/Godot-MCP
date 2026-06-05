@@ -45,13 +45,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </summary>
     public static class GodotMcpEnvFile
     {
-        /// <summary>The four recognized keys. Any other key in the file is ignored.</summary>
+        /// <summary>The recognized keys. Any other key in the file is ignored.</summary>
         static readonly string[] RecognizedKeys =
         {
             GodotMcpConfig.EnvConnectionMode,
             GodotMcpConfig.EnvHost,
             GodotMcpConfig.EnvCloudUrl,
-            GodotMcpConfig.EnvToken
+            GodotMcpConfig.EnvToken,
+            GodotMcpConfig.EnvAuthOption
         };
 
         /// <summary>
@@ -180,6 +181,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 config.ConnectionMode = GodotMcpConnectionMode.Custom;
             }
 
+            // 2b) Auth option (Custom-mode only): an explicit file value writes the serialized field
+            //     beneath the env layer (env GODOT_MCP_AUTH_OPTION still wins live via ActiveAuthOption).
+            if (values.TryGetValue(GodotMcpConfig.EnvAuthOption, out var fileAuth) &&
+                TryParseAuthOption(fileAuth, out var parsedAuth))
+            {
+                config.AuthOption = parsedAuth;
+            }
+
             // 3) Token: route to the active mode's token field (after mode is settled above so the route
             //    matches what the connection will actually use). Env token still wins live.
             if (values.TryGetValue(GodotMcpConfig.EnvToken, out var fileToken))
@@ -228,6 +237,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (int.TryParse(normalized, out _))
                 return false;
             return Enum.TryParse(normalized, ignoreCase: true, out mode);
+        }
+
+        /// <summary>
+        /// Parse a Custom-mode auth-option string to <see cref="GodotMcpAuthOption"/>, accepting only the
+        /// named values (<c>None</c>/<c>Required</c>, case-insensitive) and rejecting numeric strings —
+        /// identical discipline to <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ResolveActiveAuthOption"/>.
+        /// </summary>
+        static bool TryParseAuthOption(string? raw, out GodotMcpAuthOption authOption)
+        {
+            authOption = default;
+            var normalized = Sanitize(raw);
+            if (string.IsNullOrEmpty(normalized))
+                return false;
+            if (int.TryParse(normalized, out _))
+                return false;
+            return Enum.TryParse(normalized, ignoreCase: true, out authOption);
         }
 
         /// <summary>Sanitize a file value identically to a process-env value (see <see cref="Parse"/>).</summary>
