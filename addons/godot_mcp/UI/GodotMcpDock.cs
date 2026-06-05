@@ -9,6 +9,7 @@
 */
 #if TOOLS
 #nullable enable
+using com.IvanMurzak.Godot.MCP.Connection;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.UI
@@ -42,13 +43,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Container into which later tasks insert the connection / features / footer / cloud-auth
-        /// sections. Populated empty by this foundation scaffold; exposed so those tasks add children here
-        /// rather than re-parenting the whole dock.
+        /// sections. Populated by <see cref="BuildUi"/> with the <see cref="ConnectionPanel"/>; later tasks
+        /// add their sections here rather than re-parenting the whole dock.
         /// </summary>
         public VBoxContainer? Body { get; private set; }
 
-        public GodotMcpDock()
+        readonly GodotMcpConnection? _connection;
+        ConnectionPanel? _connectionPanel;
+
+        /// <summary>
+        /// Construct the dock wired to the live <paramref name="connection"/> so its connection panel can
+        /// show status and drive Connect/Disconnect/mode/URL. <see cref="GodotMcpPlugin"/> owns the
+        /// connection and threads it through here. A null connection (defensive / design-preview) builds the
+        /// header-only chrome with no connection panel.
+        /// </summary>
+        public GodotMcpDock(GodotMcpConnection? connection)
         {
+            _connection = connection;
             Name = DockTitle;
             BuildUi();
         }
@@ -83,15 +94,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             header.AddChild(new HSeparator { Name = "HeaderSeparator" });
 
-            // --- Body placeholder ---
-            // Later tasks (connection status + mode toggle, features list, footer, cloud auth) add their
-            // sections as children of Body. Left empty by this foundation scaffold on purpose.
+            // --- Body ---
+            // Hosts the connection section now; later tasks (features list, footer, cloud auth) add their
+            // sections as further children of Body.
             Body = new VBoxContainer
             {
                 Name = "Body",
                 SizeFlagsVertical = SizeFlags.ExpandFill
             };
             AddChild(Body);
+
+            // Connection section — only when a live connection was threaded in.
+            if (_connection != null)
+            {
+                _connectionPanel = new ConnectionPanel(_connection);
+                Body.AddChild(_connectionPanel);
+            }
         }
 
         /// <summary>
@@ -102,7 +120,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public void Refresh()
         {
-            // Intentionally empty until a later task adds dynamic sections to Body.
+            _connectionPanel?.Refresh();
         }
     }
 }

@@ -12,10 +12,14 @@
 using System;
 using System.Reflection;
 using System.Threading.Tasks;
+using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Reflection;
+using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet;
 using Godot;
+using Microsoft.AspNetCore.SignalR.Client;
+using R3;
 using McpVersion = com.IvanMurzak.McpPlugin.Common.Version;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
@@ -57,11 +61,39 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         IMcpPlugin? _plugin;
         Reflector? _publishedReflector;
 
+        /// <summary>
+        /// Live subscription to the reused client's <see cref="IConnection.ConnectionState"/> +
+        /// <see cref="IConnection.KeepConnected"/> reactive properties. Re-created on every
+        /// <see cref="Start"/> (a new plugin instance exposes new properties) and disposed on
+        /// <see cref="Dispose"/>. <see cref="SerialDisposable"/> auto-disposes the prior subscription when
+        /// reassigned, so a reconnect never leaks a stale subscription.
+        /// </summary>
+        readonly SerialDisposable _stateSubscription = new();
+
+        /// <summary>Last reduced status, cached so <see cref="ConnectionStatus"/> is readable without a live plugin.</summary>
+        ConnectionStatus _status = ConnectionStatus.Disconnected;
+
         /// <summary>The active config (resolved Host/Token/mode are read live off this).</summary>
         public GodotMcpConfig Config => _config;
 
         /// <summary>The built plugin instance, or null before <see cref="Start"/> / after <see cref="Dispose"/>.</summary>
         public IMcpPlugin? Plugin => _plugin;
+
+        /// <summary>
+        /// The current simplified connection status (Disconnected / Connecting / Connected), reduced from
+        /// the reused client's <see cref="HubConnectionState"/> + <c>KeepConnected</c> via
+        /// <see cref="ConnectionPanelView.Reduce"/>. The dock reads this for its initial render and is
+        /// pushed subsequent changes via <see cref="ConnectionStatusChanged"/>.
+        /// </summary>
+        public ConnectionStatus ConnectionStatus => _status;
+
+        /// <summary>
+        /// Raised whenever <see cref="ConnectionStatus"/> changes. ALWAYS marshalled onto the Godot editor
+        /// main thread (the McpPlugin client fires its R3 properties from background SignalR threads), so a
+        /// UI handler can touch <see cref="Godot.Control"/>s directly without re-dispatching. Only fired on
+        /// an actual change (de-duplicated) to avoid redundant UI churn.
+        /// </summary>
+        public event Action<ConnectionStatus>? ConnectionStatusChanged;
 
         public GodotMcpConnection(GodotMcpConfig? config = null)
         {
@@ -118,12 +150,122 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             _plugin = builder.Build(reflector);
 
+            SubscribeToConnectionState(_plugin);
+
             var mode = _config.ActiveMode;
             var host = _config.Host;
             GD.Print($"[Godot-MCP] connecting (mode={mode}, host={host}) ...");
 
             // Fire-and-forget connect; KeepConnected drives reconnection in the client.
             _ = ConnectAsync();
+        }
+
+        /// <summary>
+        /// Subscribe to the reused client's <see cref="IConnection.ConnectionState"/> +
+        /// <see cref="IConnection.KeepConnected"/> reactive properties and push the reduced
+        /// <see cref="ConnectionStatus"/> to <see cref="ConnectionStatusChanged"/> on the editor main
+        /// thread. Mirrors the Unity reference's <c>SubscribeToConnectionState</c> (CombineLatest of the
+        /// two properties), but marshals via the Godot main-thread dispatcher instead of a Unity
+        /// synchronization context. The subscription is stored in a <see cref="SerialDisposable"/> so a
+        /// later <see cref="Start"/> (new plugin) replaces it cleanly.
+        /// </summary>
+        void SubscribeToConnectionState(IMcpPlugin plugin)
+        {
+            // Seed from current values so the dock's first render is correct even before any change fires.
+            PublishStatus(ConnectionPanelView.Reduce(plugin.ConnectionState.CurrentValue, plugin.KeepConnected.CurrentValue));
+
+            _stateSubscription.Disposable = Observable
+                .CombineLatest(
+                    plugin.ConnectionState,
+                    plugin.KeepConnected,
+                    (state, keepConnected) => ConnectionPanelView.Reduce(state, keepConnected))
+                .Subscribe(status =>
+                {
+                    // R3 fires off the SignalR thread; hop to the editor main thread before raising the
+                    // event so subscribers (the dock) can touch Control nodes directly. A missing
+                    // dispatcher (between editor reloads) degrades to a direct call rather than throwing.
+                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                        MainThreadDispatcher.Enqueue(() => PublishStatus(status));
+                    else
+                        PublishStatus(status);
+                });
+        }
+
+        /// <summary>
+        /// Update the cached <see cref="ConnectionStatus"/> and raise <see cref="ConnectionStatusChanged"/>
+        /// when it actually changed. De-duplicated so identical consecutive states (e.g. the seed plus an
+        /// immediate first push) do not double-fire the UI. MUST be called on the editor main thread.
+        /// </summary>
+        void PublishStatus(ConnectionStatus status)
+        {
+            if (_status == status)
+                return;
+            _status = status;
+            ConnectionStatusChanged?.Invoke(status);
+        }
+
+        /// <summary>
+        /// (Re)connect with the CURRENT <see cref="GodotMcpConfig"/> (mode/host/token). If a plugin
+        /// already exists it is reused — the reused client reconnects via <c>KeepConnected</c>; otherwise
+        /// this builds a fresh plugin via <see cref="Start"/>. The boot path calls <see cref="Start"/>
+        /// directly; the dock's Connect button calls this. Idempotent and safe to call repeatedly.
+        /// </summary>
+        public void Connect()
+        {
+            // Re-arm the intent to stay connected (the Disconnect button clears it) BEFORE (re)connecting.
+            _config.KeepConnected = true;
+
+            if (_plugin == null)
+            {
+                Start();
+                return;
+            }
+
+            _ = ConnectAsync();
+        }
+
+        /// <summary>
+        /// Disconnect from the MCP server and stop auto-reconnect. Clears <c>KeepConnected</c> so the
+        /// reused client does not immediately reconnect, then asks it to disconnect. The plugin instance
+        /// is kept (not disposed) so a subsequent <see cref="Connect"/> can reuse it; full teardown happens
+        /// in <see cref="Dispose"/> at plugin unload.
+        /// </summary>
+        public void Disconnect()
+        {
+            _config.KeepConnected = false;
+
+            var plugin = _plugin;
+            if (plugin == null)
+                return;
+
+            _ = DisconnectAsync(plugin);
+        }
+
+        /// <summary>
+        /// Apply the current config (mode / host / token) by rebuilding the connection from scratch:
+        /// dispose the existing plugin and <see cref="Start"/> a fresh one. Used by the dock when the user
+        /// changes connection mode or the server URL — those alter the resolved <see cref="GodotMcpConfig.Host"/>,
+        /// and the cleanest way to re-point the SignalR client at a new host is a fresh build (mirrors the
+        /// Unity reference's dispose-then-rebuild on host/mode change). Re-arms <c>KeepConnected</c>.
+        /// </summary>
+        public void Reconnect()
+        {
+            _config.KeepConnected = true;
+            DisposePlugin();
+            Start();
+        }
+
+        async Task DisconnectAsync(IMcpPlugin plugin)
+        {
+            try
+            {
+                await plugin.Disconnect();
+                GD.Print("[Godot-MCP] disconnected.");
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[Godot-MCP] disconnect failed: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -229,6 +371,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         public void Dispose()
         {
+            _stateSubscription.Dispose();
+            DisposePlugin();
+        }
+
+        /// <summary>
+        /// Tear down the current plugin instance (and the ambient reflector it published) without
+        /// disposing the long-lived <see cref="_stateSubscription"/> holder — so <see cref="Reconnect"/>
+        /// can rebuild a fresh plugin. The <see cref="SerialDisposable"/>'s CURRENT inner subscription is
+        /// released here (the next <see cref="Start"/> reassigns it); the holder itself is only disposed in
+        /// <see cref="Dispose"/>.
+        /// </summary>
+        void DisposePlugin()
+        {
+            // Release the live state subscription's inner disposable (keeps the SerialDisposable reusable).
+            _stateSubscription.Disposable = null;
+
             // Clear the ambient reflector if it is the one we published, so a stale instance does not
             // outlive the connection that owned it.
             if (ReferenceEquals(GodotMcpReflector.Current, _publishedReflector))

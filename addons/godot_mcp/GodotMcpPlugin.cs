@@ -67,23 +67,22 @@ namespace com.IvanMurzak.Godot.MCP
 
             Log("[Godot-MCP] plugin loaded");
 
-            // Register the "AI Game Developer" editor dock. Defensive: a dock failure must never break
-            // plugin load or the MCP connection boot below, so it is wrapped and logged rather than thrown.
-            RegisterDock();
-
+            // Build the connection, register the dock (wired to it), and boot the MCP connection. All three
+            // touch NuGet-dependency types (McpPlugin / ReflectorNet), so they live in a single non-inlined
+            // method invoked AFTER the assembly resolver is installed above — see BootMcp's remarks.
             BootMcp();
         }
 
         /// <summary>
-        /// Instantiate the <see cref="GodotMcpDock"/> and add it to an editor dock slot. Isolated and
-        /// defensively wrapped so a UI failure cannot take down plugin load or the connection boot — the
-        /// dock is additive scaffolding, not load-bearing for the MCP path.
+        /// Instantiate the <see cref="GodotMcpDock"/> (wired to <paramref name="connection"/>) and add it to
+        /// an editor dock slot. Isolated and defensively wrapped so a UI failure cannot take down plugin
+        /// load or the connection boot — the dock is additive scaffolding, not load-bearing for the MCP path.
         /// </summary>
-        void RegisterDock()
+        void RegisterDock(GodotMcpConnection? connection)
         {
             try
             {
-                _dock = new GodotMcpDock();
+                _dock = new GodotMcpDock(connection);
                 AddControlToDock(DockSlot.RightUl, _dock);
             }
             catch (System.Exception ex)
@@ -118,11 +117,13 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>
-        /// Boot the MCP connection. Isolated in its own non-inlined method so the JIT does not resolve
-        /// the NuGet-dependency types it references until AFTER <see cref="GodotMcpAssemblyResolver"/>
-        /// has been installed by <see cref="_EnterTree"/>. (Type references are resolved when a method
-        /// is JIT-compiled; keeping this out of <c>_EnterTree</c> guarantees the resolver wins the race.)
-        /// Failures here must not break plugin load — the catch keeps the editor usable.
+        /// Build the connection, register the dock wired to it, and boot the MCP connection. Isolated in
+        /// its own non-inlined method so the JIT does not resolve the NuGet-dependency types it (and the
+        /// dock's <c>ConnectionPanel</c>) reference until AFTER <see cref="GodotMcpAssemblyResolver"/> has
+        /// been installed by <see cref="_EnterTree"/>. (Type references are resolved when a method is
+        /// JIT-compiled; keeping this out of <c>_EnterTree</c> guarantees the resolver wins the race.)
+        /// Dock registration runs even if the connection construction throws, so a UI failure and a
+        /// connection failure are independent — each is caught and logged, keeping the editor usable.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         void BootMcp()
@@ -130,6 +131,21 @@ namespace com.IvanMurzak.Godot.MCP
             try
             {
                 _connection = new GodotMcpConnection();
+            }
+            catch (System.Exception ex)
+            {
+                LogError($"[Godot-MCP] failed to create MCP connection: {ex.Message}");
+                _connection = null;
+            }
+
+            // Register the dock (wired to the connection if one was built; header-only otherwise).
+            RegisterDock(_connection);
+
+            if (_connection == null)
+                return;
+
+            try
+            {
                 _connection.Start();
             }
             catch (System.Exception ex)
