@@ -71,11 +71,59 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             AssertRgb8(DockTheme.Link, 79, 195, 247); // #4FC3F7
         }
 
+        [Fact]
+        public void RowTint_MapsEnabledToGreenDisabledToRed()
+        {
+            Assert.Equal(DockTheme.RowEnabledTint, DockTheme.RowTint(enabled: true));
+            Assert.Equal(DockTheme.RowDisabledTint, DockTheme.RowTint(enabled: false));
+        }
+
+        [Fact]
+        public void RowTints_MatchBriefRgbaSourceValues()
+        {
+            // enabled soft green Color(80/255,160/255,80/255, 0.18)
+            AssertRgba8(DockTheme.RowEnabledTint, 80, 160, 80, 0.18f);
+            // disabled soft red Color(160/255,80/255,80/255, 0.18)
+            AssertRgba8(DockTheme.RowDisabledTint, 160, 80, 80, 0.18f);
+        }
+
+        [Fact]
+        public void RowSizing_MatchesBrief()
+        {
+            Assert.Equal(8, DockTheme.RowCornerRadius);
+            Assert.Equal(8, DockTheme.RowContentPadding);
+        }
+
+        [Fact]
+        public void MetadataColors_MatchBrief8BitSourceValues()
+        {
+            // prompt Role: Color8(143,170,220)
+            AssertRgb8(DockTheme.RoleLabel, 143, 170, 220);
+            // resource URI: Color8(154,205,50)
+            AssertRgb8(DockTheme.ResourceUri, 154, 205, 50);
+            // resource MimeType: Color8(221,160,221)
+            AssertRgb8(DockTheme.ResourceMimeType, 221, 160, 221);
+        }
+
+        [Fact]
+        public void RowIdMuted_ReusesDescriptionMutedGray()
+        {
+            Assert.Equal(DockTheme.ColorDescriptionMuted, DockTheme.RowIdMuted);
+        }
+
         static void AssertRgb8((float R, float G, float B) c, int r8, int g8, int b8)
         {
             Assert.Equal(r8 / 255f, c.R, 5);
             Assert.Equal(g8 / 255f, c.G, 5);
             Assert.Equal(b8 / 255f, c.B, 5);
+        }
+
+        static void AssertRgba8((float R, float G, float B, float A) c, int r8, int g8, int b8, float a)
+        {
+            Assert.Equal(r8 / 255f, c.R, 5);
+            Assert.Equal(g8 / 255f, c.G, 5);
+            Assert.Equal(b8 / 255f, c.B, 5);
+            Assert.Equal(a, c.A, 5);
         }
     }
 }

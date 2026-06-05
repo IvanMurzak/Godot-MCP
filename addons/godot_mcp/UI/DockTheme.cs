@@ -153,5 +153,45 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>Divider colour — 1px <c>Color8(26,26,26)</c> separator between sections.</summary>
         public static readonly (float R, float G, float B) Divider = (26f / 255f, 26f / 255f, 26f / 255f);
+
+        // --- Feature list rows (Tools / Prompts / Resources windows) -------------------------------------------
+
+        /// <summary>
+        /// Per-row card tint for an ENABLED feature item — soft translucent green <c>rgba(80,160,80, 0.18)</c>
+        /// (Unity's list item ".checked" tint). The editor maps this onto the row's <c>StyleBoxFlat</c> bg.
+        /// </summary>
+        public static readonly (float R, float G, float B, float A) RowEnabledTint = (80f / 255f, 160f / 255f, 80f / 255f, 0.18f);
+
+        /// <summary>
+        /// Per-row card tint for a DISABLED feature item — soft translucent red <c>rgba(160,80,80, 0.18)</c>
+        /// (Unity's un-checked / disabled list item tint). The editor maps this onto the row's <c>StyleBoxFlat</c> bg.
+        /// </summary>
+        public static readonly (float R, float G, float B, float A) RowDisabledTint = (160f / 255f, 80f / 255f, 80f / 255f, 0.18f);
+
+        /// <summary>Feature-row card corner radius (px).</summary>
+        public const int RowCornerRadius = 8;
+
+        /// <summary>Feature-row card inner content padding (px), applied on all four sides.</summary>
+        public const int RowContentPadding = 8;
+
+        /// <summary>Muted gray for a feature row's id sub-label (under the title). Reuses the description muted gray.</summary>
+        public static readonly (float R, float G, float B) RowIdMuted = ColorDescriptionMuted;
+
+        /// <summary>Prompt-row "Role: X" label colour — soft blue <c>Color8(143,170,220)</c>.</summary>
+        public static readonly (float R, float G, float B) RoleLabel = (143f / 255f, 170f / 255f, 220f / 255f);
+
+        /// <summary>Resource-row URI label colour — yellow-green <c>Color8(154,205,50)</c>.</summary>
+        public static readonly (float R, float G, float B) ResourceUri = (154f / 255f, 205f / 255f, 50f / 255f);
+
+        /// <summary>Resource-row "MimeType: X" label colour — plum <c>Color8(221,160,221)</c>.</summary>
+        public static readonly (float R, float G, float B) ResourceMimeType = (221f / 255f, 160f / 255f, 221f / 255f);
+
+        /// <summary>
+        /// Map a feature row's enabled-state to its card tint: enabled → soft green, disabled → soft red. Pure-managed
+        /// (no Godot types) so the row-tint rule is unit-testable; the editor maps the returned tuple onto a
+        /// Godot <c>Color</c> / <c>StyleBoxFlat</c>.
+        /// </summary>
+        public static (float R, float G, float B, float A) RowTint(bool enabled) =>
+            enabled ? RowEnabledTint : RowDisabledTint;
     }
 }

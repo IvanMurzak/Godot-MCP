@@ -265,6 +265,67 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
         }
 
+        // --- Feature list rows (Tools / Prompts / Resources windows) -------------------------------------------
+
+        /// <summary>
+        /// Build the per-row "card" <see cref="StyleBoxFlat"/> for a feature item: rounded
+        /// (<see cref="DockTheme.RowCornerRadius"/>), padded (<see cref="DockTheme.RowContentPadding"/>), and tinted
+        /// by enabled-state — soft green when <paramref name="enabled"/>, soft red otherwise
+        /// (<see cref="DockTheme.RowTint"/>).
+        /// </summary>
+        public static StyleBoxFlat RowStyleBox(bool enabled)
+        {
+            var box = new StyleBoxFlat
+            {
+                BgColor = Rgba(DockTheme.RowTint(enabled))
+            };
+            box.SetCornerRadiusAll(DockTheme.RowCornerRadius);
+            box.ContentMarginLeft = DockTheme.RowContentPadding;
+            box.ContentMarginRight = DockTheme.RowContentPadding;
+            box.ContentMarginTop = DockTheme.RowContentPadding;
+            box.ContentMarginBottom = DockTheme.RowContentPadding;
+            return box;
+        }
+
+        /// <summary>
+        /// Wrap a feature row's <paramref name="content"/> in a tinted, rounded <see cref="PanelContainer"/> card
+        /// (<see cref="RowStyleBox"/>) whose tint reflects <paramref name="enabled"/>. The caller adds the returned
+        /// panel to the list; the content is reparented INTO the card.
+        /// </summary>
+        public static PanelContainer RowCard(Control content, string name, bool enabled)
+        {
+            var panel = new PanelContainer { Name = name, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            panel.AddThemeStyleboxOverride("panel", RowStyleBox(enabled));
+            panel.AddChild(content);
+            return panel;
+        }
+
+        /// <summary>Apply the 16px bold row-title look + a coloured metadata-label colour to a <see cref="Label"/>.</summary>
+        public static void ApplyRowTitle(Label label)
+        {
+            label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSectionTitle);
+        }
+
+        /// <summary>Apply the muted-gray row-id (sub-label) look to a <see cref="Label"/>.</summary>
+        public static void ApplyRowId(Label label)
+        {
+            label.AddThemeColorOverride("font_color", Rgb(DockTheme.RowIdMuted));
+        }
+
+        /// <summary>Tint a metadata <see cref="Label"/> (role / uri / mimetype / token) with an arbitrary palette RGB.</summary>
+        public static void ApplyMetadataColor(Label label, (float R, float G, float B) color)
+        {
+            label.AddThemeColorOverride("font_color", Rgb(color));
+        }
+
+        // --- Filter bar (search field + status dropdown + stats label) ----------------------------------------
+
+        /// <summary>Skin an <see cref="OptionButton"/> (the status filter) with the input style.</summary>
+        public static void ApplyOptionButton(OptionButton option)
+        {
+            option.AddThemeStyleboxOverride("normal", InputStyleBox());
+        }
+
         // --- Foldout (collapsible section: a toggle Button + a child VBox shown/hidden) ------------------------
 
         /// <summary>
