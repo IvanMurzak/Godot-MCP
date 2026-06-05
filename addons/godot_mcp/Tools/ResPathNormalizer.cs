@@ -80,6 +80,29 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => !string.IsNullOrEmpty(path) && path!.StartsWith(ResScheme, StringComparison.Ordinal);
 
         /// <summary>
+        /// Derive the parent directory (trailing-slash form) of a <c>res://</c> file path. For
+        /// <c>res://scenes/level.tscn</c> this returns <c>res://scenes/</c>; for a file directly under the
+        /// project root (<c>res://thing.tres</c>) it returns the bare scheme <c>res://</c>. Pure string logic
+        /// (no Godot API) so the slash math is unit-testable; the editor handlers pass the result to
+        /// <c>DirAccess.MakeDirRecursiveAbsolute</c> before saving so a nested target dir is created instead
+        /// of failing with <c>CantOpen</c>. Throws for a non-<c>res://</c> or directory path.
+        /// </summary>
+        public static string ParentDir(string? filePath)
+        {
+            var p = (filePath ?? string.Empty).Trim();
+            if (!IsResPath(p))
+                throw new ArgumentException($"Path must be a '{ResScheme}' path; got '{filePath}'.", nameof(filePath));
+            if (p.EndsWith("/", StringComparison.Ordinal))
+                throw new ArgumentException($"Path must be a file path, not a directory; got '{filePath}'.", nameof(filePath));
+
+            // The last '/' lies at or after the scheme's own slashes ("res://" ends at index 5), so the
+            // substring up to and including it is the parent dir in trailing-slash form. A file directly under
+            // the root has its last '/' inside the scheme, so this yields the bare scheme 'res://'.
+            var lastSlash = p.LastIndexOf('/');
+            return p.Substring(0, lastSlash + 1);
+        }
+
+        /// <summary>
         /// Validate that <paramref name="path"/> is a <c>res://</c> file path, throwing
         /// <see cref="ArgumentException"/> (with <paramref name="paramName"/>) otherwise. Returns the
         /// trimmed path on success.

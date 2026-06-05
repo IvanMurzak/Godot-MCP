@@ -71,10 +71,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     if (packErr != Error.Ok)
                         throw new Exception($"Failed to pack new scene root: {packErr}.");
 
+                    // ResourceSaver.Save does NOT create missing parent directories — create them first so a
+                    // nested target path (e.g. 'res://levels/level_2.tscn') saves instead of failing with
+                    // CantOpen, matching Tool_Resource.Create and Unity's CreateAsset behavior.
+                    var targetDir = ResPathNormalizer.ParentDir(resourcePath);
+                    if (!DirAccess.DirExistsAbsolute(targetDir))
+                    {
+                        var mkErr = DirAccess.MakeDirRecursiveAbsolute(targetDir);
+                        if (mkErr != Error.Ok)
+                            throw new Exception($"Failed to create target directory '{targetDir}': {mkErr}.");
+                    }
+
                     var saveErr = ResourceSaver.Save(packed, resourcePath);
                     if (saveErr != Error.Ok)
-                        throw new Exception($"Failed to save new scene to '{resourcePath}': {saveErr}. " +
-                            "Ensure the target directory exists.");
+                        throw new Exception($"Failed to save new scene to '{resourcePath}': {saveErr}.");
                 }
                 finally
                 {
