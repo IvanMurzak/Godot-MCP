@@ -1,0 +1,35 @@
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_e36a2a3c4d1c6f::t_32654022e64b5a 18,94-95
+  s_e36a2a3c4d1c6f::t_686484380dceea 70-73,77-93
+  s_e36a2a3c4d1c6f::t_e41a95918dac7c 40
+  s_e36a2a3c4d1c6f::t_9ddcebbc369061 149-156
+Godot-MCP.Tests/GodotMcpConfigStoreTests.cs
+  s_e36a2a3c4d1c6f::t_513a30721c7236 1-280
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_bf90e805b61c62 1-3,5-109
+  s_e36a2a3c4d1c6f::t_c091c96f34d364 4
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_13d1f8f25674c3 51-54
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_4c41dc848f5efa 49-55
+  s_e36a2a3c4d1c6f::t_2784d8e2f7707a 84-93
+  s_e36a2a3c4d1c6f::t_e0d42cf68acb2f 157-209
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_e36a2a3c4d1c6f::t_b9d1596cbe5ecc 1-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a5479496d2097e1476bc9a693a430f253889dcb5",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
