@@ -52,6 +52,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Label _cloudNote = null!;
         Label _overrideNote = null!;
 
+        // Custom-mode authorization row (auth option + masked token + Generate).
+        OptionButton _authSelector = null!;
+        VBoxContainer _tokenRow = null!;
+        LineEdit _tokenField = null!;
+        Button _generateTokenButton = null!;
+
+        // Index of the two Authorization OptionButton entries — kept stable so a selection maps to a value.
+        const int AuthIdNone = 0;
+        const int AuthIdRequired = 1;
+
         // Timeline dots.
         ColorRect _timelineGodotDot = null!;
         ColorRect _timelineServerDot = null!;
@@ -124,6 +134,42 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _hostField.TextSubmitted += OnHostSubmitted;
             _hostField.FocusExited += OnHostFocusExited;
             _customHostRow.AddChild(_hostField);
+
+            // --- Authorization (Custom mode only): none | required ---
+            var authRow = new HBoxContainer { Name = "AuthRow" };
+            _customHostRow.AddChild(authRow);
+
+            authRow.AddChild(new Label { Name = "AuthLabel", Text = "Authorization" });
+
+            _authSelector = new OptionButton { Name = "AuthSelector" };
+            _authSelector.AddItem("none", AuthIdNone);
+            _authSelector.AddItem("required", AuthIdRequired);
+            _authSelector.ItemSelected += OnAuthOptionSelected;
+            authRow.AddChild(_authSelector);
+
+            // --- Token row (shown only when Authorization == required): masked field + Generate ---
+            _tokenRow = new VBoxContainer { Name = "TokenRow" };
+            _customHostRow.AddChild(_tokenRow);
+
+            _tokenRow.AddChild(new Label { Name = "TokenLabel", Text = "Token" });
+
+            var tokenLine = new HBoxContainer { Name = "TokenLine" };
+            _tokenRow.AddChild(tokenLine);
+
+            _tokenField = new LineEdit
+            {
+                Name = "TokenField",
+                // Masked + read-only: the token is never shown in clear text and is only changed via
+                // Generate (never typed/logged). Mirrors the Unity reference's password token field.
+                Secret = true,
+                Editable = false,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill
+            };
+            tokenLine.AddChild(_tokenField);
+
+            _generateTokenButton = new Button { Name = "GenerateTokenButton", Text = "New" };
+            _generateTokenButton.Pressed += OnGenerateTokenPressed;
+            tokenLine.AddChild(_generateTokenButton);
 
             // --- Cloud-mode note (shown only in Cloud mode; cloud auth is a later task) ---
             _cloudNote = new Label
@@ -219,15 +265,76 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             if (_connection.Config.ConnectionMode == mode)
             {
-                // No persisted change (e.g. an env override is forcing the active mode); just re-render.
+                // No persisted change selected; just re-render.
                 ApplyModeVisibility(_connection.Config.ActiveMode);
                 return;
             }
 
+            // Persist the user's chosen PERSISTED mode regardless of any env/.env override. The selector
+            // is always enabled (the change "does something" — it updates the persisted layer that takes
+            // effect once the override is removed). Only RECONNECT when the change actually moves the LIVE
+            // active mode: under an env override ActiveMode is pinned, so a persisted-only edit must not
+            // tear down the current connection.
+            var liveModeBefore = _connection.Config.ActiveMode;
             _connection.Config.ConnectionMode = mode;
             _connection.Save();
             ApplyModeVisibility(_connection.Config.ActiveMode);
-            _connection.Reconnect();
+
+            if (_connection.Config.ActiveMode != liveModeBefore)
+                _connection.Reconnect();
+        }
+
+        /// <summary>
+        /// Persist the chosen Custom-mode authorization option (none/required) and reconnect so the
+        /// bearer-token routing takes effect. When set to <c>required</c> with no token yet, generate one
+        /// so the connection has a credential to send. Persists even under an env override (the override
+        /// note explains the env value wins live); only reconnects when the live mode is Custom.
+        /// </summary>
+        void OnAuthOptionSelected(long index)
+        {
+            var authOption = index == AuthIdRequired
+                ? GodotMcpAuthOption.Required
+                : GodotMcpAuthOption.None;
+
+            if (_connection.Config.AuthOption == authOption)
+            {
+                ApplyAuthVisibility();
+                return;
+            }
+
+            _connection.Config.AuthOption = authOption;
+
+            // When switching to required without a stored token, mint one so the connection is usable.
+            if (authOption == GodotMcpAuthOption.Required &&
+                string.IsNullOrEmpty(_connection.Config.CustomToken))
+            {
+                _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
+            }
+
+            _connection.Save();
+            ApplyAuthVisibility();
+
+            // Only a live Custom connection is affected by the auth/token routing.
+            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)
+                _connection.Reconnect();
+        }
+
+        /// <summary>
+        /// Generate a fresh Custom-mode token, persist it, and reconnect so the new bearer is used. The
+        /// token is never logged and is shown only as a masked field. Generating implies the user wants
+        /// auth, so this also flips <see cref="GodotMcpAuthOption"/> to <c>Required</c> if it was off.
+        /// </summary>
+        void OnGenerateTokenPressed()
+        {
+            _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
+            if (_connection.Config.AuthOption == GodotMcpAuthOption.None)
+                _connection.Config.AuthOption = GodotMcpAuthOption.Required;
+
+            _connection.Save();
+            ApplyAuthVisibility();
+
+            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)
+                _connection.Reconnect();
         }
 
         void OnHostSubmitted(string text) => CommitHost(text);
@@ -263,34 +370,66 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Show the Server-URL row only in Custom mode and the cloud note only in Cloud mode. Also surfaces
-        /// the env/.env override note when a process env / <c>.env</c> value is forcing the active mode away
-        /// from the persisted <see cref="GodotMcpConfig.ConnectionMode"/> (so the user understands why a UI
-        /// change may not take effect). Reflects the EFFECTIVE host in the field (env override shown).
+        /// Drive the editable Custom section off the PERSISTED <see cref="GodotMcpConfig.ConnectionMode"/>
+        /// (so editing the selector / URL / auth always targets the layer the user can change), while the
+        /// override note surfaces when an env/.env value is forcing the LIVE active mode away from that
+        /// persisted choice. The selector + host field stay ENABLED even when overridden — a persisted
+        /// edit "does something" (it takes effect once the override is gone) and does NOT corrupt
+        /// precedence, since env/.env is read live by the config resolvers. The host field shows the
+        /// EFFECTIVE custom host (env override visible) for transparency.
         /// </summary>
         void ApplyModeVisibility(GodotMcpConnectionMode activeMode)
         {
-            var isCustom = activeMode == GodotMcpConnectionMode.Custom;
-            _customHostRow.Visible = isCustom;
-            _cloudNote.Visible = !isCustom;
+            // Editable controls follow the PERSISTED mode (what the user is editing); the cloud-vs-custom
+            // SECTION the user can configure is the persisted one, not the env-forced live one.
+            var persistedMode = _connection.Config.ConnectionMode;
+            var persistedCustom = persistedMode == GodotMcpConnectionMode.Custom;
 
-            if (isCustom)
+            _customHostRow.Visible = persistedCustom;
+            _cloudNote.Visible = !persistedCustom;
+
+            if (persistedCustom)
             {
                 // Show the EFFECTIVE custom host (env GODOT_MCP_HOST wins over the persisted value).
                 _hostField.Text = _connection.Config.ResolveCustomHost();
+                ApplyAuthVisibility();
             }
 
             // The active mode differs from the persisted mode only when an env/.env override forced it.
-            var overridden = activeMode != _connection.Config.ConnectionMode;
+            var overridden = activeMode != persistedMode;
             _overrideNote.Visible = overridden;
-            // When overridden, the persisted-mode UI cannot change the effective mode: disable the field.
-            _hostField.Editable = !overridden;
-            _modeSelector.Disabled = overridden;
+
+            // Keep BOTH the mode selector and the host field ENABLED even when an env/.env value currently
+            // forces the live mode/host: editing them updates the PERSISTED layer (it "does something"),
+            // which takes effect once the override is removed. The override note explains that the env
+            // value still wins for the live connection.
+            _hostField.Editable = true;
+            _modeSelector.Disabled = false;
+        }
+
+        /// <summary>
+        /// Render the Custom-mode authorization controls from the persisted config: the auth selector
+        /// reflects <see cref="GodotMcpConfig.AuthOption"/>, the masked token row is shown only when
+        /// <c>Required</c>, and the field carries the stored Custom token (masked). The token is never
+        /// shown in clear text or logged. Always reads/writes the PERSISTED layer (env auth override is
+        /// surfaced by the override note, not by disabling these controls).
+        /// </summary>
+        void ApplyAuthVisibility()
+        {
+            var required = _connection.Config.AuthOption == GodotMcpAuthOption.Required;
+            _authSelector.Selected = required ? AuthIdRequired : AuthIdNone;
+            _tokenRow.Visible = required;
+            // Masked field carries the stored token; only meaningful when required.
+            _tokenField.Text = required ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
         }
 
         void SyncModeSelector(GodotMcpConnectionMode activeMode)
         {
-            _modeSelector.Selected = activeMode == GodotMcpConnectionMode.Cloud ? ModeIdCloud : ModeIdCustom;
+            // Reflect the PERSISTED mode the user edits (not the env-forced live mode); the override note
+            // explains when the two diverge.
+            _modeSelector.Selected = _connection.Config.ConnectionMode == GodotMcpConnectionMode.Cloud
+                ? ModeIdCloud
+                : ModeIdCustom;
         }
 
         /// <summary>

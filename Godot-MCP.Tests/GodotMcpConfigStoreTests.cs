@@ -152,6 +152,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpConfigStore.Save(path, new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
+                // Persisting Required so the Custom-mode bearer flows (auth-option gate); it round-trips too.
+                AuthOption = GodotMcpAuthOption.Required,
                 CustomHost = "http://persisted-host:1234",
                 CustomToken = "persisted-tok"
             });
@@ -162,6 +164,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpEnvFile.Apply(target, new Dictionary<string, string>());
 
             Assert.Equal(GodotMcpConnectionMode.Custom, target.ActiveMode);
+            Assert.Equal(GodotMcpAuthOption.Required, target.ActiveAuthOption);
             Assert.Equal("http://persisted-host:1234", target.Host);
             Assert.Equal("persisted-tok", target.Token);
         }
@@ -244,7 +247,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 GodotMcpConfig.EnvCloudUrl,
                 GodotMcpConfig.EnvHost,
                 GodotMcpConfig.EnvToken,
-                GodotMcpConfig.EnvConnectionMode
+                GodotMcpConfig.EnvConnectionMode,
+                GodotMcpConfig.EnvAuthOption
             };
 
             readonly Dictionary<string, string?> _prior = new();

@@ -223,6 +223,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var config = new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
+                // Custom-mode token only flows to the bearer when auth is Required (the auth-option gate).
+                AuthOption = GodotMcpAuthOption.Required,
                 CloudToken = "cloud-tok",
                 CustomToken = "custom-tok"
             };
@@ -248,6 +250,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var config = new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
+                // Token routing in Custom mode is gated on auth being Required (see AuthOption tests).
+                AuthOption = GodotMcpAuthOption.Required,
                 CustomToken = "custom-tok"
             };
             Assert.Equal("env-tok", config.Token);
@@ -319,7 +323,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 GodotMcpConfig.EnvCloudUrl,
                 GodotMcpConfig.EnvHost,
                 GodotMcpConfig.EnvToken,
-                GodotMcpConfig.EnvConnectionMode
+                GodotMcpConfig.EnvConnectionMode,
+                GodotMcpConfig.EnvAuthOption
             };
 
             readonly Dictionary<string, string?> _prior = new();
