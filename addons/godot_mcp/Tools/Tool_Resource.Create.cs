@@ -72,7 +72,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 // ResourceSaver.Save does NOT create missing parent directories — create them first so a
                 // nested target path (e.g. 'res://materials/wood.tres') works like Unity's CreateAsset.
-                var targetDir = resPath.Substring(0, resPath.LastIndexOf('/') + 1);
+                var targetDir = ResPathNormalizer.ParentDir(resPath);
                 if (!DirAccess.DirExistsAbsolute(targetDir))
                 {
                     var mkErr = DirAccess.MakeDirRecursiveAbsolute(targetDir);

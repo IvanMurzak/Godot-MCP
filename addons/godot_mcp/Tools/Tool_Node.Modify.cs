@@ -111,10 +111,28 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                             logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
                             continue;
                         }
+                        // A value carrying nothing settable (no 'value', no 'fields', no 'props' — e.g. a
+                        // '{typeName}'-only entry) cannot change anything. Warn naming the path instead of
+                        // letting the no-op pass silently, then skip it.
+                        if (NodePropertyPatch.IsStructuralNoOp(patch.Value))
+                        {
+                            logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') has no value/fields/props " +
+                                "to apply — nothing to set; skipped (no-op).");
+                            continue;
+                        }
                         try
                         {
                             if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
+                            {
                                 anyChange = true;
+                            }
+                            else
+                            {
+                                // TryModifyAt accumulates its own errors into 'logs', but a plain false can
+                                // also mean the patch resolved to a no-op (e.g. an unresolved path or a value
+                                // that changed nothing). Surface a path-named warning so the no-op is visible.
+                                logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') did not modify the Node (no-op).");
+                            }
                         }
                         catch (Exception ex)
                         {

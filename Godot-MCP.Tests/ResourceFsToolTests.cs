@@ -227,6 +227,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.DoesNotContain("not a directory", ex.Message);
         }
 
+        // ---- ResPathNormalizer.ParentDir (mkdir-parents derivation) ------------------------------
+
+        [Theory]
+        [InlineData("res://scenes/level.tscn", "res://scenes/")]
+        [InlineData("res://a/b/c.tres", "res://a/b/")]
+        [InlineData("res://thing.tres", "res://")] // file directly under the project root
+        [InlineData("  res://scenes/level.tscn  ", "res://scenes/")] // trims
+        public void ParentDir_DerivesParentDirectory(string filePath, string expected)
+        {
+            Assert.Equal(expected, ResPathNormalizer.ParentDir(filePath));
+        }
+
+        [Fact]
+        public void ParentDir_Rejects_NonResAndDirectory()
+        {
+            Assert.Throws<ArgumentException>(() => ResPathNormalizer.ParentDir("/abs/level.tscn"));
+            Assert.Throws<ArgumentException>(() => ResPathNormalizer.ParentDir("res://scenes/")); // a dir, not a file
+            Assert.Throws<ArgumentException>(() => ResPathNormalizer.ParentDir(null));
+        }
+
         [Fact]
         public void RequireResFilePath_Rejects_ParentTraversalSegment()
         {

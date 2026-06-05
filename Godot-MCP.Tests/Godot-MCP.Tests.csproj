@@ -40,6 +40,11 @@
     <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
+    <!-- Resource reference converter — pure-managed (matches Godot.Resource + derived types by inheritance
+         distance; (de)serializes the ResourceRef shape). The native ResourceLoader.Load resolution is
+         injected under #if TOOLS (Tool_Resource.ReflectionResolver.cs, verified via the Suite-3 smoke); the
+         type-matching + ref shaping are unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Reflection\Godot_Resource_ReflectionConverter.cs" Link="Source\Godot_Resource_ReflectionConverter.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
