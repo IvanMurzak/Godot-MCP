@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Collections.Generic;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 {
@@ -20,6 +21,25 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
         public override string AgentName => "Claude Code";
         public override string AgentId => "claude-code";
         public override string DownloadUrl => "https://docs.anthropic.com/en/docs/claude-code/overview";
+        public override string? TutorialUrl => "https://youtu.be/Sknh2p12W8c";
+
+        public override string? Description =>
+            "The recommended way to use AI Game Developer with Godot — Claude Code is a CLI agent you launch from the project root.";
+
+        public override IReadOnlyList<string> ManualSteps => new[]
+        {
+            "Click 'Configure' above to write the AI Game Developer server into '.mcp.json' at the project root (or copy the snippet manually).",
+            "Open a terminal in the project root and run: claude",
+            "Restart Claude Code to apply the configuration.",
+        };
+
+        public override IReadOnlyList<string> Troubleshooting => new[]
+        {
+            "- Ensure the Claude Code CLI is installed and accessible from the terminal.",
+            "- Start Claude Code in the folder that contains the Godot project (the folder with 'project.godot').",
+            "- Check that the configuration file '.mcp.json' exists at the project root.",
+            "- Restart Claude Code after configuration changes.",
+        };
 
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) =>
             AgentConfigPaths.ClaudeCode(projectRoot);

@@ -46,21 +46,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 4);
 
-            AddChild(new HSeparator { Name = "FooterSeparator" });
-
-            AddChild(new Label
+            var prompt = new Label
             {
                 Name = "Prompt",
                 Text = SupportFooterLinks.PromptText
-            });
+            };
+            DockStyle.ApplyDescription(prompt);
+            AddChild(prompt);
 
-            // --- Support links: open externally; no live state. ---
-            var links = new HBoxContainer { Name = "Links" };
-            AddChild(links);
-
-            links.AddChild(MakeLinkButton("Discord", "Help / Talk", SupportFooterLinks.DiscordUrl));
-            links.AddChild(MakeLinkButton("Issues", "Bug Report", SupportFooterLinks.IssuesUrl));
-            links.AddChild(MakeLinkButton("Star", "Star", SupportFooterLinks.RepositoryUrl));
+            // --- Support links: open externally; no live state. Styled as flat link buttons separated by "•". ---
+            AddChild(DockStyle.LinkRow("Links", new System.Collections.Generic.List<(string, string, string)>
+            {
+                ("Discord", "Help / Talk", SupportFooterLinks.DiscordUrl),
+                ("Issues", "Bug Report", SupportFooterLinks.IssuesUrl),
+                ("Star", "Star", SupportFooterLinks.RepositoryUrl),
+            }));
 
             // --- Thanks line (RichTextLabel so the product name can be emphasised). ---
             var thanks = new RichTextLabel
@@ -72,22 +72,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Text = $"[i]{SupportFooterLinks.ThanksText}[/i]"
             };
             AddChild(thanks);
-        }
-
-        /// <summary>
-        /// Build a button that opens <paramref name="url"/> in the user's default handler. <see cref="OS.ShellOpen"/>
-        /// is the Godot way to hand a URL/path to the OS (browser for http/https).
-        /// </summary>
-        static Button MakeLinkButton(string name, string text, string url)
-        {
-            var button = new Button
-            {
-                Name = name,
-                Text = text,
-                TooltipText = url
-            };
-            button.Pressed += () => OS.ShellOpen(url);
-            return button;
         }
     }
 }

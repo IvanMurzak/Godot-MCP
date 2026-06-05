@@ -48,6 +48,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         TextEdit? _snippetText;
         Button? _revealButton;
         Label? _statusLabel;
+        Button? _configureButton;
+        Button? _removeButton;
 
         /// <summary>
         /// Construct the section wired to the live <paramref name="connection"/> (it reads the resolved MCP-client
@@ -66,8 +68,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 4);
 
-            AddChild(new HSeparator { Name = "AgentSeparator" });
-            AddChild(new Label { Name = "AgentHeader", Text = "AI agent" });
+            var headerLabel = new Label { Name = "AgentHeader", Text = "AI agent" };
+            DockStyle.ApplySectionTitle(headerLabel);
+            AddChild(headerLabel);
 
             // Agent dropdown — populated from the registry, item id = registry index.
             var row = new HBoxContainer { Name = "AgentSelectorRow" };
@@ -138,6 +141,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _snippetText = null;
             _revealButton = null;
             _statusLabel = null;
+            _configureButton = null;
+            _removeButton = null;
 
             BuildAgentView(_current);
         }
@@ -147,21 +152,61 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            _agentView.AddChild(new Label { Name = "AgentName", Text = agent.AgentName });
+            var nameLabel = new Label { Name = "AgentName", Text = agent.AgentName };
+            DockStyle.ApplySectionTitle(nameLabel);
+            _agentView.AddChild(nameLabel);
 
-            // --- Links: Download (+ optional Tutorial). Open externally via OS.ShellOpen. ---
-            var links = new HBoxContainer { Name = "Links" };
-            _agentView.AddChild(links);
-            links.AddChild(MakeLinkButton("Download", "Download", agent.DownloadUrl));
+            // --- Per-agent description (muted). ---
+            if (!string.IsNullOrEmpty(agent.Description))
+            {
+                var desc = new Label { Name = "Description", Text = agent.Description! };
+                DockStyle.ApplyDescription(desc);
+                _agentView.AddChild(desc);
+            }
+
+            // --- Per-agent warning banner (styled amber frame). ---
+            if (!string.IsNullOrEmpty(agent.WarningText))
+                _agentView.AddChild(DockStyle.WarningFrame(agent.WarningText!));
+
+            // --- Links: Download (+ optional Tutorial), as flat link buttons separated by "•". ---
+            var linkDefs = new List<(string Name, string Text, string Url)>
+            {
+                ("Download", "Download", agent.DownloadUrl)
+            };
             if (!string.IsNullOrEmpty(agent.TutorialUrl))
-                links.AddChild(MakeLinkButton("Tutorial", "Tutorial", agent.TutorialUrl!));
+                linkDefs.Add(("Tutorial", "Tutorial", agent.TutorialUrl!));
+            _agentView.AddChild(DockStyle.LinkRow("Links", linkDefs));
 
-            // --- Generated HTTP-config snippet (read-only, token masked by default). ---
-            _agentView.AddChild(new Label
+            // --- The KEY decision: Configure/Remove for agents with a config-file path; copyable JSON otherwise. ---
+            var configPath = ResolveConfigPath(agent);
+            if (GodotAgentConfigurator.ShouldShowJson(configPath))
+                BuildSnippetView(agent);
+            else
+                BuildConfigureRemoveView(agent, configPath!);
+
+            // --- Per-agent help foldouts (Manual Configuration Steps / Troubleshooting). ---
+            BuildHelpFoldouts(agent);
+
+            RefreshSnippet();
+            RefreshStatus();
+        }
+
+        /// <summary>
+        /// For an agent WITHOUT a writable config-file path (Custom): show the copyable HTTP snippet (read-only,
+        /// token MASKED by default) + Reveal/Copy. No Configure/Remove buttons.
+        /// </summary>
+        void BuildSnippetView(GodotAgentConfigurator agent)
+        {
+            if (_agentView == null)
+                return;
+
+            var snippetLabel = new Label
             {
                 Name = "SnippetLabel",
                 Text = "Copy this into your MCP client config:"
-            });
+            };
+            DockStyle.ApplyDescription(snippetLabel);
+            _agentView.AddChild(snippetLabel);
 
             _snippetText = new TextEdit
             {
@@ -177,45 +222,83 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _agentView.AddChild(snippetActions);
 
             _revealButton = new Button { Name = "Reveal", Text = "Reveal token" };
+            DockStyle.ApplySecondaryButton(_revealButton);
             _revealButton.Pressed += OnRevealToggled;
             snippetActions.AddChild(_revealButton);
 
             var copyButton = new Button { Name = "Copy", Text = "Copy" };
+            DockStyle.ApplySecondaryButton(copyButton);
             copyButton.Pressed += OnCopyPressed;
             snippetActions.AddChild(copyButton);
+        }
 
-            // --- Config-file controls (only for agents that have a writable config). ---
-            var configPath = ResolveConfigPath(agent);
-            if (configPath != null)
+        /// <summary>
+        /// For an agent WITH a writable config-file path (Claude Code/Desktop, Cursor, VS Code): show the
+        /// Unity-style Configure/Remove row — a status label ("Configured"/"Not configured"), a Configure /
+        /// Reconfigure primary button (writes the entry), a Remove alert button (visible only when configured),
+        /// and the config-file path. NO raw JSON snippet for these agents. The real token still flows into the
+        /// written file via Configure — it is never shown on-screen or logged.
+        /// </summary>
+        void BuildConfigureRemoveView(GodotAgentConfigurator agent, string configPath)
+        {
+            if (_agentView == null)
+                return;
+
+            _statusLabel = new Label { Name = "Status" };
+            _agentView.AddChild(_statusLabel);
+
+            var pathLabel = new Label
             {
-                _statusLabel = new Label { Name = "Status" };
-                _agentView.AddChild(_statusLabel);
+                Name = "ConfigPath",
+                Text = configPath,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
+            DockStyle.ApplyDescription(pathLabel);
+            _agentView.AddChild(pathLabel);
 
-                _agentView.AddChild(new Label
+            var configActions = new HBoxContainer { Name = "ConfigActions" };
+            _agentView.AddChild(configActions);
+
+            _configureButton = new Button { Name = "Configure", Text = "Configure" };
+            DockStyle.ApplyPrimaryButton(_configureButton);
+            _configureButton.Pressed += () => OnConfigurePressed(agent, configPath);
+            configActions.AddChild(_configureButton);
+
+            _removeButton = new Button { Name = "Remove", Text = "Remove" };
+            DockStyle.ApplyAlertButton(_removeButton);
+            _removeButton.Pressed += () => OnRemovePressed(agent, configPath);
+            configActions.AddChild(_removeButton);
+        }
+
+        /// <summary>Append the agent's "Manual Configuration Steps" / "Troubleshooting" collapsible foldouts when non-empty.</summary>
+        void BuildHelpFoldouts(GodotAgentConfigurator agent)
+        {
+            if (_agentView == null)
+                return;
+
+            if (agent.ManualSteps.Count > 0)
+            {
+                var (container, content) = DockStyle.Foldout("Manual Configuration Steps");
+                foreach (var step in agent.ManualSteps)
                 {
-                    Name = "ConfigPath",
-                    Text = configPath,
-                    AutowrapMode = TextServer.AutowrapMode.WordSmart
-                });
-
-                var configActions = new HBoxContainer { Name = "ConfigActions" };
-                _agentView.AddChild(configActions);
-
-                var configureButton = new Button { Name = "Configure", Text = "Configure" };
-                configureButton.Pressed += () => OnConfigurePressed(agent, configPath);
-                configActions.AddChild(configureButton);
-
-                var removeButton = new Button { Name = "Remove", Text = "Remove" };
-                removeButton.Pressed += () => OnRemovePressed(agent, configPath);
-                configActions.AddChild(removeButton);
+                    var label = new Label { Text = step };
+                    DockStyle.ApplyDescription(label);
+                    content.AddChild(label);
+                }
+                _agentView.AddChild(container);
             }
-            else
+
+            if (agent.Troubleshooting.Count > 0)
             {
-                _statusLabel = null;
+                var (container, content) = DockStyle.Foldout("Troubleshooting");
+                foreach (var tip in agent.Troubleshooting)
+                {
+                    var label = new Label { Text = tip };
+                    DockStyle.ApplyDescription(label);
+                    content.AddChild(label);
+                }
+                _agentView.AddChild(container);
             }
-
-            RefreshSnippet();
-            RefreshStatus();
         }
 
         void OnRevealToggled()
@@ -258,7 +341,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _snippetText.Text = _current.BuildSnippet(McpUrl, Token, maskToken: !_revealToken);
         }
 
-        /// <summary>Re-render the "Configured"/"Not configured" status label for the current agent.</summary>
+        /// <summary>
+        /// Re-render the Configure/Remove status for the current agent (only agents WITH a config-file path have
+        /// this row). Drives the "Configured"/"Not configured" label, flips the Configure button to "Reconfigure"
+        /// when already configured, and shows the Remove button only when an entry exists. Reads
+        /// <see cref="GodotAgentConfigurator.IsConfigured"/> — pure-managed, against the resolved config path.
+        /// </summary>
         void RefreshStatus()
         {
             if (_current == null || _statusLabel == null)
@@ -270,6 +358,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             var configured = _current.IsConfigured(configPath, McpUrl);
             _statusLabel.Text = configured ? "Configured" : "Not configured";
+            _statusLabel.AddThemeColorOverride(
+                "font_color",
+                configured ? DockStyle.Rgb(DockTheme.StatusOnline) : DockStyle.Rgb(DockTheme.WarningText));
+
+            if (_configureButton != null)
+                _configureButton.Text = configured ? "Reconfigure" : "Configure";
+            if (_removeButton != null)
+                _removeButton.Visible = configured;
         }
 
         /// <summary>
@@ -310,13 +406,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             "macOS" => AgentOs.MacOS,
             _ => AgentOs.Linux,
         };
-
-        static Button MakeLinkButton(string name, string text, string url)
-        {
-            var button = new Button { Name = name, Text = text, TooltipText = url };
-            button.Pressed += () => OS.ShellOpen(url);
-            return button;
-        }
     }
 }
 #endif

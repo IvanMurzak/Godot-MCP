@@ -82,15 +82,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             SizeFlagsVertical = SizeFlags.ExpandFill;
 
-            // --- Header section ---
+            // --- Header card (title + version + Log Level), wrapped in the styled card chrome. ---
             var header = new VBoxContainer { Name = "Header" };
-            AddChild(header);
+            header.AddThemeConstantOverride("separation", 4);
 
             var title = new Label
             {
                 Name = "Title",
                 Text = DockTitle
             };
+            DockStyle.ApplyHeader(title);
             header.AddChild(title);
 
             var version = new Label
@@ -98,6 +99,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Name = "Version",
                 Text = $"v{AddonVersion}"
             };
+            DockStyle.ApplyDescription(version);
             header.AddChild(version);
 
             // Log Level selector — routes the reused framework's verbosity (connection / handshake logs) to
@@ -106,11 +108,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_connection != null)
                 BuildLogLevelRow(header, _connection);
 
-            header.AddChild(new HSeparator { Name = "HeaderSeparator" });
+            AddChild(DockStyle.Card(header, "Header"));
 
             // --- Body ---
             // Hosts the connection section now; later tasks (features list, footer, cloud auth) add their
-            // sections as further children of Body.
+            // sections as further children of Body. Each major section is wrapped in a styled card so the dock
+            // mimics Unity-MCP's MainWindow (dark-blue rounded frame-groups).
             Body = new VBoxContainer
             {
                 Name = "Body",
@@ -122,28 +125,28 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_connection != null)
             {
                 _connectionPanel = new ConnectionPanel(_connection);
-                Body.AddChild(_connectionPanel);
+                Body.AddChild(DockStyle.Card(_connectionPanel, "Connection"));
 
                 // MCP-features section — tools/prompts/resources counts + per-item enable/disable windows.
                 // Inserted BETWEEN the connection panel and the support footer, wired to the live connection
                 // (it reads the plugin's managers and subscribes to their update streams). Only meaningful with
                 // a live connection, so it shares the connection-null guard with the connection panel.
                 _featuresPanel = new FeaturesPanel(_connection);
-                Body.AddChild(_featuresPanel);
+                Body.AddChild(DockStyle.Card(_featuresPanel, "Features"));
 
-                // AI-agent section — the dropdown of AI-agent configurators + the selected agent's HTTP-config
-                // snippet / Configure / Remove. Inserted BETWEEN the features panel and the support footer, wired
-                // to the live connection (it reads the resolved MCP-client URL + token off the config and persists
-                // the selected agent via Save). Only meaningful with a live connection, so it shares the
-                // connection-null guard with the connection + features panels.
+                // AI-agent section — the dropdown of AI-agent configurators + the selected agent's Configure /
+                // Remove (or, for Custom, the HTTP-config snippet). Inserted BETWEEN the features panel and the
+                // support footer, wired to the live connection (it reads the resolved MCP-client URL + token off
+                // the config and persists the selected agent via Save). Only meaningful with a live connection,
+                // so it shares the connection-null guard with the connection + features panels.
                 _agentConfiguratorsPanel = new AgentConfiguratorsPanel(_connection);
-                Body.AddChild(_agentConfiguratorsPanel);
+                Body.AddChild(DockStyle.Card(_agentConfiguratorsPanel, "AiAgent"));
             }
 
             // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
             // no live state / subscriptions, so it builds unconditionally (independent of the connection).
             _supportFooter = new SupportFooter();
-            Body.AddChild(_supportFooter);
+            Body.AddChild(DockStyle.Card(_supportFooter, "Footer"));
         }
 
         /// <summary>

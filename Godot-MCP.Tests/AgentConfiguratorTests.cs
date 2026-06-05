@@ -263,6 +263,94 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Null(custom.ConfigFilePath(AgentOs.Windows, @"C:\Users\u", @"C:\Users\u\AppData\Roaming", @"C:\proj"));
         }
 
+        // --- Config-vs-JSON decision predicate (ShouldShowJson) ---
+
+        [Fact]
+        public void ShouldShowJson_TrueOnlyWhenPathIsNullOrEmpty()
+        {
+            Assert.True(GodotAgentConfigurator.ShouldShowJson(null));
+            Assert.True(GodotAgentConfigurator.ShouldShowJson(""));
+            Assert.False(GodotAgentConfigurator.ShouldShowJson("/proj/.mcp.json"));
+        }
+
+        [Fact]
+        public void ShouldShowJson_True_ForCustom_False_ForPathHavingAgents()
+        {
+            const string home = "/home/u";
+            const string appData = "/appdata";
+            const string proj = "/proj";
+
+            // Custom: no path → show JSON.
+            var custom = new CustomConfigurator();
+            Assert.True(GodotAgentConfigurator.ShouldShowJson(
+                custom.ConfigFilePath(AgentOs.Linux, home, appData, proj)));
+
+            // Every path-having agent: has a path → show Configure/Remove (NOT JSON).
+            foreach (var agent in new GodotAgentConfigurator[]
+                     {
+                         new ClaudeCodeConfigurator(),
+                         new ClaudeDesktopConfigurator(),
+                         new CursorConfigurator(),
+                         new VisualStudioCodeConfigurator(),
+                     })
+            {
+                var path = agent.ConfigFilePath(AgentOs.Linux, home, appData, proj);
+                Assert.False(string.IsNullOrEmpty(path));
+                Assert.False(GodotAgentConfigurator.ShouldShowJson(path));
+            }
+        }
+
+        // --- Per-agent help metadata (parity with Unity) ---
+
+        [Fact]
+        public void PathHavingAgents_ReportNonNullConfigPath_CustomReportsNull()
+        {
+            // Exactly one agent (Custom) is snippet-only; the rest have a config path.
+            var snippetOnly = 0;
+            var pathHaving = 0;
+            foreach (var agent in GodotAgentConfiguratorRegistry.All)
+            {
+                var path = agent.ConfigFilePath(AgentOs.Linux, "/home/u", "/appdata", "/proj");
+                if (string.IsNullOrEmpty(path))
+                    snippetOnly++;
+                else
+                    pathHaving++;
+            }
+            Assert.Equal(1, snippetOnly);          // only Custom
+            Assert.True(pathHaving >= 4);          // Claude Code/Desktop, Cursor, VS Code at minimum
+        }
+
+        [Fact]
+        public void EveryRegisteredAgent_CarriesPortedHelp_StepsAndTroubleshooting()
+        {
+            // Every agent in the registry was given ported help content (non-empty Manual Steps +
+            // Troubleshooting) so the dock's foldouts are never blank for a shipped agent.
+            foreach (var agent in GodotAgentConfiguratorRegistry.All)
+            {
+                Assert.NotEmpty(agent.ManualSteps);
+                Assert.NotEmpty(agent.Troubleshooting);
+                Assert.All(agent.ManualSteps, s => Assert.False(string.IsNullOrWhiteSpace(s)));
+                Assert.All(agent.Troubleshooting, s => Assert.False(string.IsNullOrWhiteSpace(s)));
+            }
+        }
+
+        [Fact]
+        public void ClaudeDesktop_And_VsCode_CarryWarningText()
+        {
+            // The two agents that need a prominent caveat in Unity carry a warning banner here too.
+            Assert.False(string.IsNullOrEmpty(new ClaudeDesktopConfigurator().WarningText));
+            Assert.False(string.IsNullOrEmpty(new VisualStudioCodeConfigurator().WarningText));
+        }
+
+        [Fact]
+        public void DefaultConfigurator_HelpMembers_AreEmptyNotNull()
+        {
+            // The base defaults are safe to read without null checks (empty lists / null strings).
+            var custom = new CustomConfigurator();
+            Assert.NotNull(custom.ManualSteps);
+            Assert.NotNull(custom.Troubleshooting);
+        }
+
         // --- Per-OS path resolution (injected OS / home / appData / projectRoot) ---
 
         [Fact]
