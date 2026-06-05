@@ -52,12 +52,35 @@ namespace com.IvanMurzak.Godot.MCP.UI
             Name = "FeaturesPanel";
             BuildUi();
 
-            // Subscribe AFTER the UI exists so the first push has controls to write to. The connection
-            // marshals these onto the editor main thread, so the handlers may touch Controls directly.
+            // The connection wiring — event subscription + the live count re-seed — is done in _EnterTree
+            // (NOT here) so that a dock-layout reload (which DETACHES then RE-ATTACHES this Control, firing
+            // _ExitTree → _EnterTree) re-arms it. Subscribing only in the ctor was the #56 bug, the same one
+            // #42 fixed for ConnectionPanel: the editor reparents the dock during "Loading docks", _ExitTree
+            // tore the subscription down, nothing re-subscribed the re-attached panel, so a later toggle's
+            // FeaturesUpdated never reached it and the counts stayed stale (e.g. "36 / 36").
+        }
+
+        /// <summary>
+        /// (Re)arm the panel's feature wiring every time it enters the editor tree — including the re-attach the
+        /// editor performs during dock-layout restore. Subscribes to the connection events and re-seeds the
+        /// counts from LIVE state (the events only fire on change, so a registry/managers change reached while
+        /// detached must be pulled in here). Pairs with <see cref="_ExitTree"/>, which tears both down.
+        /// Idempotent against duplicate subscription: the handlers are removed first (remove-then-add), mirroring
+        /// the proven <c>ConnectionPanel</c> (#42) pattern.
+        /// </summary>
+        public override void _EnterTree()
+        {
+            // Remove-then-add so a re-entry never double-subscribes. The connection marshals these events onto
+            // the editor main thread, so the handlers may touch Controls directly.
+            _connection.FeaturesUpdated -= OnFeaturesUpdated;
             _connection.FeaturesUpdated += OnFeaturesUpdated;
+            _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.ConnectionStatusChanged += OnConnectionStatusChanged;
 
-            // Render current state immediately (the events only fire on change).
+            // Re-seed from LIVE state: the events only fire on change, so any registry/managers change that
+            // happened while the panel was detached (e.g. during the dock reparent) is pulled onto the labels
+            // here. This is the load-bearing #56 fix — the panel ALWAYS converges to the real counts on
+            // (re)entry, independent of event-delivery timing.
             RefreshAll();
         }
 
