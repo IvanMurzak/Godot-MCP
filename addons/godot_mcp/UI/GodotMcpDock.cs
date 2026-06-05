@@ -76,11 +76,46 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// Build the static dock chrome: a header (title + version) and the (currently empty)
         /// <see cref="Body"/> placeholder. Logo is intentionally omitted in this foundation (no committed
         /// logo asset yet) — a later task can add it to the header without changing this layout.
+        ///
+        /// <para>
+        /// All chrome (header card + <see cref="Body"/>) is nested inside a vertical <see cref="ScrollContainer"/>
+        /// so the dock can be resized SHORTER than its content height — the content then scrolls vertically
+        /// instead of forcing the whole editor dock to stay tall. Horizontal scrolling is disabled so the
+        /// content fits the dock width (the ScrollContainer sizes its child to the viewport width when the
+        /// horizontal scroll mode is Disabled). The dock root keeps no vertical minimum of its own, so the
+        /// editor lets the panel shrink (a ScrollContainer does NOT propagate its child's tall combined
+        /// min-height up its own vertical axis).
+        /// </para>
         /// </summary>
         void BuildUi()
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             SizeFlagsVertical = SizeFlags.ExpandFill;
+            // Let the dock be resized shorter than its content — the ScrollContainer (below) takes over the
+            // overflow. Without this the VBoxContainer's combined child min-height would floor the panel tall.
+            CustomMinimumSize = Vector2.Zero;
+
+            // --- Scroll viewport ---
+            // Wrap the whole dock body so a short panel scrolls vertically instead of forcing the dock tall.
+            // Vertical scroll auto-shows; horizontal scroll is disabled so the inner content fits the width.
+            var scroll = new ScrollContainer
+            {
+                Name = "DockScroll",
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill
+            };
+            AddChild(scroll);
+
+            // The single child of the ScrollContainer — holds header card + Body. ExpandFill horizontally so
+            // it spans the scroll viewport width (the ScrollContainer sizes it to the viewport when horizontal
+            // scroll is disabled); its natural (tall) height is what scrolls.
+            var content = new VBoxContainer
+            {
+                Name = "ScrollContent",
+                SizeFlagsHorizontal = SizeFlags.ExpandFill
+            };
+            scroll.AddChild(content);
 
             // --- Header card (title + version + Log Level), wrapped in the styled card chrome. ---
             var header = new VBoxContainer { Name = "Header" };
@@ -108,7 +143,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_connection != null)
                 BuildLogLevelRow(header, _connection);
 
-            AddChild(DockStyle.Card(header, "Header"));
+            content.AddChild(DockStyle.Card(header, "Header"));
 
             // --- Body ---
             // Hosts the connection section now; later tasks (features list, footer, cloud auth) add their
@@ -117,9 +152,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             Body = new VBoxContainer
             {
                 Name = "Body",
-                SizeFlagsVertical = SizeFlags.ExpandFill
+                SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
-            AddChild(Body);
+            content.AddChild(Body);
 
             // Connection section — only when a live connection was threaded in.
             if (_connection != null)
