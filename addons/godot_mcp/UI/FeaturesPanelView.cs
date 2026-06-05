@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Globalization;
 using com.IvanMurzak.Godot.MCP.Connection;
 
 namespace com.IvanMurzak.Godot.MCP.UI
@@ -48,9 +49,25 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>
         /// Format the tools-only "~N tokens" sub-label (from <c>EnabledToolsTokenCount</c>). Mirrors the Unity
         /// reference's "~{tokens} tokens" token label. Only the Tools row shows this; prompts/resources have no
-        /// token analog.
+        /// token analog. Counts of 1000+ are abbreviated with a <c>k</c> suffix (one decimal, trailing
+        /// <c>.0</c> trimmed): <c>999</c> → "~999 tokens", <c>1000</c> → "~1k tokens", <c>1500</c> →
+        /// "~1.5k tokens", <c>12345</c> → "~12.3k tokens".
         /// </summary>
-        public static string TokenLabel(int enabledTokenCount) => $"~{enabledTokenCount} tokens";
+        public static string TokenLabel(int enabledTokenCount) => $"~{FormatTokenCount(enabledTokenCount)} tokens";
+
+        /// <summary>
+        /// Abbreviate a token count: values under 1000 render as-is; 1000+ render as <c>{value/1000}k</c> with
+        /// one decimal place and a trimmed trailing <c>.0</c> (e.g. 1000 → "1k", 1500 → "1.5k", 2000 → "2k").
+        /// Uses the invariant culture so the decimal separator is always a dot regardless of editor locale.
+        /// </summary>
+        public static string FormatTokenCount(int enabledTokenCount)
+        {
+            if (enabledTokenCount < 1000)
+                return enabledTokenCount.ToString(CultureInfo.InvariantCulture);
+
+            var thousands = enabledTokenCount / 1000.0;
+            return thousands.ToString("0.#", CultureInfo.InvariantCulture) + "k";
+        }
 
         /// <summary>The token sub-label shown when the plugin/managers are not yet available — "~— tokens".</summary>
         public static string UnavailableTokenLabel() => $"~{Unavailable} tokens";

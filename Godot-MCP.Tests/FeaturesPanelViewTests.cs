@@ -49,8 +49,25 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void TokenLabel_formats_with_tilde_and_suffix()
         {
-            Assert.Equal("~1234 tokens", FeaturesPanelView.TokenLabel(1234));
+            Assert.Equal("~999 tokens", FeaturesPanelView.TokenLabel(999));
             Assert.Equal("~0 tokens", FeaturesPanelView.TokenLabel(0));
+            // 1000+ is abbreviated with a k suffix.
+            Assert.Equal("~1.2k tokens", FeaturesPanelView.TokenLabel(1234));
+        }
+
+        [Theory]
+        [InlineData(0, "0")]
+        [InlineData(1, "1")]
+        [InlineData(999, "999")]            // just under the threshold — rendered as-is
+        [InlineData(1000, "1k")]            // exact thousand — no decimal
+        [InlineData(1500, "1.5k")]          // half-thousand — one decimal
+        [InlineData(1234, "1.2k")]          // rounded to one decimal
+        [InlineData(2000, "2k")]            // trailing .0 trimmed
+        [InlineData(12345, "12.3k")]
+        [InlineData(1999, "2k")]            // rounds up at one decimal
+        public void FormatTokenCount_abbreviates_thousands_with_k(int count, string expected)
+        {
+            Assert.Equal(expected, FeaturesPanelView.FormatTokenCount(count));
         }
 
         [Fact]
