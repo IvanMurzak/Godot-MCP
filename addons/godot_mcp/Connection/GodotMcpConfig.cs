@@ -120,6 +120,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public GodotMcpAuthOption AuthOption { get; set; } = GodotMcpAuthOption.None;
 
         /// <summary>
+        /// Persisted per-feature enable/disable map for the dock's MCP-features section (tools / prompts /
+        /// resources). Only user-touched items are stored; an empty map means "everything at its live default"
+        /// (the McpPlugin managers default to enabled), so a fresh install disables nothing. Reapplied on plugin
+        /// boot (see <c>GodotMcpConnection.ReapplyFeatureStates</c>) and updated when the user toggles an item in
+        /// a feature list window. The merge/capture logic is pure-managed (<see cref="GodotMcpFeatureStateMerge"/>).
+        /// </summary>
+        [JsonPropertyName("features")]
+        public GodotMcpFeatureMap Features { get; set; } = new();
+
+        /// <summary>
         /// The effective connection mode after applying the <see cref="EnvConnectionMode"/> override.
         /// Never serialized — recomputed from the env each access so a process-level override always wins.
         /// </summary>

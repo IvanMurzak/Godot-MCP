@@ -10,6 +10,8 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
@@ -78,6 +80,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         readonly SerialDisposable _authRejectedSubscription = new();
 
+        /// <summary>
+        /// Live subscription to the three feature managers' <c>On*Updated</c> streams (tools / prompts /
+        /// resources), merged into a single editor-main-thread <see cref="FeaturesUpdated"/> event the dock's
+        /// features panel refreshes from. Re-created on every <see cref="Start"/> (a new plugin exposes new
+        /// managers/streams) and released on plugin teardown — same <see cref="SerialDisposable"/> discipline as
+        /// <see cref="_stateSubscription"/>, so a reconnect never leaks a stale subscription.
+        /// </summary>
+        readonly SerialDisposable _featuresSubscription = new();
+
         /// <summary>Last reduced status, cached so <see cref="ConnectionStatus"/> is readable without a live plugin.</summary>
         ConnectionStatus _status = ConnectionStatus.Disconnected;
 
@@ -86,6 +97,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>The built plugin instance, or null before <see cref="Start"/> / after <see cref="Dispose"/>.</summary>
         public IMcpPlugin? Plugin => _plugin;
+
+        /// <summary>
+        /// The plugin's <see cref="IMcpManager"/> (owns the tool/prompt/resource managers), or null before
+        /// <see cref="Start"/> / after <see cref="Dispose"/>. The dock's features section reaches the
+        /// per-kind managers (<see cref="IMcpManager.ToolManager"/> etc.) through this rather than poking the
+        /// plugin internals, so the editor UI has a single, null-safe accessor for the feature stats.
+        /// </summary>
+        public IMcpManager? McpManager => _plugin?.McpManager;
 
         /// <summary>
         /// The resolved cloud BASE url (no <c>/mcp</c> hub suffix) — the host the device-auth endpoints
@@ -118,6 +137,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// an actual change (de-duplicated) to avoid redundant UI churn.
         /// </summary>
         public event Action<ConnectionStatus>? ConnectionStatusChanged;
+
+        /// <summary>
+        /// Raised when any feature manager's registry changes (a tool/prompt/resource was enabled, disabled,
+        /// added, or removed — the reused client's <c>On*Updated</c> fired). ALWAYS marshalled onto the Godot
+        /// editor main thread, so the dock's features panel may refresh its count labels by touching
+        /// <see cref="Godot.Control"/>s directly. Carries no payload — the panel re-reads counts from the
+        /// managers. Re-wired to the new managers on every <see cref="Start"/>/<see cref="Reconnect"/>.
+        /// </summary>
+        public event Action? FeaturesUpdated;
 
         public GodotMcpConnection(GodotMcpConfig? config = null)
         {
@@ -174,7 +202,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             _plugin = builder.Build(reflector);
 
+            // Reapply the persisted per-feature enable-map now that the managers exist (the tool/prompt/
+            // resource registries are populated during Build via the assembly scan). A saved disable for a
+            // still-registered item is restored; stale entries (renamed/removed) are pruned; items with no
+            // saved entry stay at the manager default (enabled). See ReapplyFeatureStates.
+            ReapplyFeatureStates(_plugin);
+
             SubscribeToConnectionState(_plugin);
+            SubscribeToFeatureUpdates(_plugin);
 
             var mode = _config.ActiveMode;
             var host = _config.Host;
@@ -228,6 +263,47 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
+        /// Subscribe to the freshly-built plugin's three feature-manager <c>On*Updated</c> streams (tools /
+        /// prompts / resources) and raise the merged <see cref="FeaturesUpdated"/> event on the editor main
+        /// thread. The streams fire off the SignalR thread, so each is hopped to the main thread before
+        /// raising — mirroring <see cref="SubscribeToConnectionState"/>. Stored in a
+        /// <see cref="SerialDisposable"/> so a later <see cref="Start"/> (new managers) replaces it cleanly.
+        /// Any kind whose manager is null is simply skipped.
+        /// </summary>
+        void SubscribeToFeatureUpdates(IMcpPlugin plugin)
+        {
+            var mgr = plugin.McpManager;
+            if (mgr == null)
+            {
+                _featuresSubscription.Disposable = null;
+                return;
+            }
+
+            var streams = new List<Observable<Unit>>();
+            if (mgr.ToolManager?.OnToolsUpdated is { } toolsUpdated)
+                streams.Add(toolsUpdated);
+            if (mgr.PromptManager?.OnPromptsUpdated is { } promptsUpdated)
+                streams.Add(promptsUpdated);
+            if (mgr.ResourceManager?.OnResourcesUpdated is { } resourcesUpdated)
+                streams.Add(resourcesUpdated);
+
+            if (streams.Count == 0)
+            {
+                _featuresSubscription.Disposable = null;
+                return;
+            }
+
+            _featuresSubscription.Disposable = Observable.Merge(streams)
+                .Subscribe(_ =>
+                {
+                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                        MainThreadDispatcher.Enqueue(() => FeaturesUpdated?.Invoke());
+                    else
+                        FeaturesUpdated?.Invoke();
+                });
+        }
+
+        /// <summary>
         /// Update the cached <see cref="ConnectionStatus"/> and raise <see cref="ConnectionStatusChanged"/>
         /// when it actually changed. De-duplicated so identical consecutive states (e.g. the seed plus an
         /// immediate first push) do not double-fire the UI. MUST be called on the editor main thread.
@@ -238,6 +314,94 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             _status = status;
             ConnectionStatusChanged?.Invoke(status);
+        }
+
+        // --- MCP feature enable-map (tools / prompts / resources) -----------------------------------------
+
+        /// <summary>
+        /// The per-kind feature manager off the freshly-built plugin, or null when that kind's manager is not
+        /// available. The three managers share the same shape (enumerate / count / is-enabled / set-enabled),
+        /// so the dock addresses them generically through <see cref="GodotMcpFeatureKind"/>.
+        /// </summary>
+        IFeatureManagerAdapter? FeatureManager(GodotMcpFeatureKind kind, IMcpPlugin? plugin)
+        {
+            var mgr = plugin?.McpManager;
+            if (mgr == null)
+                return null;
+
+            return kind switch
+            {
+                GodotMcpFeatureKind.Tools => mgr.ToolManager is { } t ? new ToolManagerAdapter(t) : null,
+                GodotMcpFeatureKind.Prompts => mgr.PromptManager is { } p ? new PromptManagerAdapter(p) : null,
+                GodotMcpFeatureKind.Resources => mgr.ResourceManager is { } r ? new ResourceManagerAdapter(r) : null,
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Reapply the persisted enable-map to a freshly-built plugin's managers. For each kind, the pure
+        /// <see cref="GodotMcpFeatureStateMerge.ComputeReapply"/> decides which live items get an explicit
+        /// <c>SetEnabled</c> (saved entries matching a live item) — stale saved names are pruned and items with
+        /// no saved entry stay at the manager default (enabled). A null/empty map disables nothing. Runs once
+        /// per <see cref="Start"/>, right after the plugin is built.
+        /// </summary>
+        void ReapplyFeatureStates(IMcpPlugin plugin)
+        {
+            foreach (GodotMcpFeatureKind kind in Enum.GetValues(typeof(GodotMcpFeatureKind)))
+            {
+                var manager = FeatureManager(kind, plugin);
+                if (manager == null)
+                    continue;
+
+                var liveNames = manager.GetNames().ToList();
+                var saved = _config.Features.For(kind);
+                var toApply = GodotMcpFeatureStateMerge.ComputeReapply(liveNames, saved);
+
+                foreach (var pair in toApply)
+                    manager.SetEnabled(pair.Key, pair.Value);
+            }
+        }
+
+        /// <summary>
+        /// Enumerate the live items of a feature kind as (name, description, enabled) tuples for the list
+        /// window. Empty when the plugin/managers are not yet available. Reads the LIVE enabled-state off the
+        /// manager (which reflects any reapplied persisted disable).
+        /// </summary>
+        public IReadOnlyList<(string Name, string? Description, bool Enabled)> GetFeatureItems(GodotMcpFeatureKind kind)
+        {
+            var manager = FeatureManager(kind, _plugin);
+            return manager == null
+                ? Array.Empty<(string, string?, bool)>()
+                : manager.GetItems().ToList();
+        }
+
+        /// <summary>
+        /// Count summary (enabled, total, enabledTokenCount) for a feature kind, or null when the
+        /// plugin/managers are not yet available (the panel shows the "—" placeholder then). Only the
+        /// <see cref="GodotMcpFeatureKind.Tools"/> kind reports a non-zero token count
+        /// (<c>EnabledToolsTokenCount</c>); prompts/resources have no token analog.
+        /// </summary>
+        public (int Enabled, int Total, int EnabledTokenCount)? GetFeatureCounts(GodotMcpFeatureKind kind)
+        {
+            var manager = FeatureManager(kind, _plugin);
+            return manager?.GetCounts();
+        }
+
+        /// <summary>
+        /// Toggle one item's enabled-state: push it to the live manager AND patch + persist the enable-map so
+        /// the choice survives a restart. No-op (returns false) when the manager is unavailable. The map is
+        /// patched via the pure <see cref="GodotMcpFeatureStateMerge.Upsert"/> then <see cref="Save"/>d.
+        /// </summary>
+        public bool SetFeatureEnabled(GodotMcpFeatureKind kind, string name, bool enabled)
+        {
+            var manager = FeatureManager(kind, _plugin);
+            if (manager == null)
+                return false;
+
+            manager.SetEnabled(name, enabled);
+            GodotMcpFeatureStateMerge.Upsert(_config.Features.For(kind), name, enabled);
+            Save();
+            return true;
         }
 
         /// <summary>
@@ -432,6 +596,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             _stateSubscription.Dispose();
             _authRejectedSubscription.Dispose();
+            _featuresSubscription.Dispose();
             DisposePlugin();
         }
 
@@ -444,10 +609,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         void DisposePlugin()
         {
-            // Release the live state + auth-rejected subscriptions' inner disposables (keeps the
+            // Release the live state + auth-rejected + features subscriptions' inner disposables (keeps the
             // SerialDisposables reusable for the next Start()).
             _stateSubscription.Disposable = null;
             _authRejectedSubscription.Disposable = null;
+            _featuresSubscription.Disposable = null;
 
             // Clear the ambient reflector if it is the one we published, so a stale instance does not
             // outlive the connection that owned it.
