@@ -79,6 +79,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public const string EnvAuthOption = "GODOT_MCP_AUTH_OPTION";
 
+        /// <summary>
+        /// Forces the plugin's log-verbosity threshold (<c>Trace</c> / <c>Debug</c> / <c>Info</c> /
+        /// <c>Warning</c> / <c>Error</c> / <c>None</c>, case-insensitive) — the Godot analog of a
+        /// <c>UNITY_MCP_LOG_LEVEL</c>. Honored live by <see cref="ActiveLogLevel"/> so a smoke run can be
+        /// driven at <c>Trace</c> without touching the persisted config.
+        /// </summary>
+        public const string EnvLogLevel = "GODOT_MCP_LOG_LEVEL";
+
         // --- Defaults. ---
 
         /// <summary>Base URL of the hosted cloud server. The <c>/mcp</c> hub path is appended by <see cref="ResolveCloudUrl"/>.</summary>
@@ -120,6 +128,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public GodotMcpAuthOption AuthOption { get; set; } = GodotMcpAuthOption.None;
 
         /// <summary>
+        /// The configured log-verbosity threshold for the plugin's routing of the reused framework's
+        /// <c>Microsoft.Extensions.Logging</c> output to the Godot Output (overridable by
+        /// <see cref="EnvLogLevel"/> via <see cref="ResolveActiveLogLevel"/>). Defaults to
+        /// <see cref="GodotMcpLogLevel.Info"/> — the framework's connection/handshake info lines are shown,
+        /// but trace/debug noise is suppressed until the user opts in via the dock's Log Level dropdown.
+        /// </summary>
+        [JsonPropertyName("logLevel")]
+        public GodotMcpLogLevel LogLevel { get; set; } = GodotMcpLogLevel.Info;
+
+        /// <summary>
         /// Persisted per-feature enable/disable map for the dock's MCP-features section (tools / prompts /
         /// resources). Only user-touched items are stored; an empty map means "everything at its live default"
         /// (the McpPlugin managers default to enabled), so a fresh install disables nothing. Reapplied on plugin
@@ -143,6 +161,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         [JsonIgnore]
         public GodotMcpAuthOption ActiveAuthOption => ResolveActiveAuthOption(AuthOption);
+
+        /// <summary>
+        /// The effective log-verbosity threshold after applying the <see cref="EnvLogLevel"/> override.
+        /// Never serialized — recomputed from the env each access so a process-level override always wins
+        /// (parity with <see cref="ActiveMode"/> / <see cref="ActiveAuthOption"/>). The logger reads this
+        /// LIVE on every log call, so the dock's Log Level dropdown takes effect without a rebuild.
+        /// </summary>
+        [JsonIgnore]
+        public GodotMcpLogLevel ActiveLogLevel => ResolveActiveLogLevel(LogLevel);
 
         /// <summary>
         /// Active connection URL based on <see cref="ActiveMode"/>:
@@ -281,6 +308,25 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return configured;
 
             if (Enum.TryParse<GodotMcpAuthOption>(normalized, ignoreCase: true, out var parsed) &&
+                !int.TryParse(normalized, out _))
+                return parsed;
+
+            return configured;
+        }
+
+        /// <summary>
+        /// Resolve the active log-verbosity threshold, letting <see cref="EnvLogLevel"/> override the
+        /// configured value. An unrecognized/empty/numeric env value falls through to
+        /// <paramref name="configured"/> — identical discipline to <see cref="ResolveActiveMode"/> /
+        /// <see cref="ResolveActiveAuthOption"/>.
+        /// </summary>
+        public static GodotMcpLogLevel ResolveActiveLogLevel(GodotMcpLogLevel configured)
+        {
+            var normalized = NormalizeEnv(ReadEnv(EnvLogLevel));
+            if (string.IsNullOrEmpty(normalized))
+                return configured;
+
+            if (Enum.TryParse<GodotMcpLogLevel>(normalized, ignoreCase: true, out var parsed) &&
                 !int.TryParse(normalized, out _))
                 return parsed;
 

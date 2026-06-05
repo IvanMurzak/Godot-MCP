@@ -115,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Apply the SERIALIZED-LAYER values from <paramref name="persisted"/> onto <paramref name="target"/>,
         /// writing only the serialized backing fields (<c>CustomHost</c>/<c>CustomToken</c>/
-        /// <c>CloudToken</c>/<c>ConnectionMode</c>/<c>AuthOption</c>/<c>Features</c>). This is how the boot path
+        /// <c>CloudToken</c>/<c>ConnectionMode</c>/<c>AuthOption</c>/<c>LogLevel</c>/<c>Features</c>). This is how the boot path
         /// seeds the config with the persisted baseline BEFORE the <c>.env</c>/process-env layers are applied on
         /// top — keeping the documented precedence intact. No-op when <paramref name="persisted"/> is
         /// <c>null</c>. Returns <paramref name="target"/> for fluent use.
@@ -132,6 +132,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             target.CloudToken = persisted.CloudToken;
             target.ConnectionMode = persisted.ConnectionMode;
             target.AuthOption = persisted.AuthOption;
+            target.LogLevel = persisted.LogLevel;
             // The persisted feature enable-map (tools/prompts/resources). A missing `features` key in an older
             // config file deserializes to a non-null empty map (the property initializer), so this is always safe.
             target.Features = persisted.Features ?? new GodotMcpFeatureMap();

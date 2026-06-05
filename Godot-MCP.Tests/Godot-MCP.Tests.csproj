@@ -52,6 +52,14 @@
          precedence layer (no Godot native types, no #if TOOLS). The editor wiring that resolves the
          user:// path lives in GodotMcpConnection.cs (#if TOOLS); the path-injectable core is unit-tested. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
+    <!-- Log-level config + gate + logger/provider — all pure-managed (no Godot native types, no #if TOOLS):
+         the GodotMcpLogLevel enum + GodotMcpLogGate (Microsoft LogLevel → GodotMcpLogLevel mapping/gating),
+         and the GodotMcpLogger/GodotMcpLoggerProvider that route the reused framework's logging to an
+         injected sink (the GD.* sink itself is wired in GodotMcpConnection.cs, #if TOOLS, verified via the
+         Suite-3 smoke). The gate + logger routing are unit-tested here with a capturing sink. -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLogLevel.cs" Link="Source\GodotMcpLogLevel.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLogger.cs" Link="Source\GodotMcpLogger.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLoggerProvider.cs" Link="Source\GodotMcpLoggerProvider.cs" />
     <!-- MCP-features enable-map — pure-managed (no Godot native types, no #if TOOLS, no McpPlugin dependency):
          the per-kind feature-state list (GodotMcpFeatureMap/GodotMcpFeatureState) that GodotMcpConfig serializes,
          and the merge/capture logic (GodotMcpFeatureStateMerge) the boot-reapply + window-toggle drive. The live
