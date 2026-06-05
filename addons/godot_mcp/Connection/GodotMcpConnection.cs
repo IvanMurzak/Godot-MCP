@@ -317,13 +317,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
 
             _featuresSubscription.Disposable = Observable.Merge(streams)
-                .Subscribe(_ =>
-                {
-                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() => FeaturesUpdated?.Invoke());
-                    else
-                        FeaturesUpdated?.Invoke();
-                });
+                .Subscribe(_ => RaiseFeaturesUpdated());
         }
 
         /// <summary>
@@ -488,7 +482,36 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             manager.SetEnabled(name, enabled);
             GodotMcpFeatureStateMerge.Upsert(_config.Features.For(kind), name, enabled);
             Save();
+
+            // Guarantee the dock's features panel recomputes after a per-row toggle (issue #54). Directly
+            // owning the refresh here makes the dock-count update a property of the toggle path itself rather
+            // than an incidental side effect of how the reused client's Set*Enabled happens to notify: with the
+            // pinned McpPlugin 6.7.0 the manager's Set*Enabled DOES fire its On*Updated stream (so the
+            // SubscribeToFeatureUpdates path also raises FeaturesUpdated), but that is an upstream
+            // implementation detail we must not depend on for a first-party UI invariant — older/newer client
+            // versions may treat an enable/disable as not-a-registry-change and stay silent. The raise is
+            // kind-generic: one call covers tools/prompts/resources because the panel re-reads every kind's
+            // counts. A duplicate refresh (when On*Updated also fires) is harmless — RefreshAll only re-reads
+            // counts and re-sets label text (idempotent), and the list window does not subscribe to
+            // FeaturesUpdated (it re-filters locally), so there is no feedback loop.
+            RaiseFeaturesUpdated();
             return true;
+        }
+
+        /// <summary>
+        /// Raise <see cref="FeaturesUpdated"/> on the editor main thread, mirroring the same dispatcher-guard
+        /// the managers' <c>On*Updated</c> subscription uses (see <see cref="SubscribeToFeatureUpdates"/>): hop
+        /// to the main thread when off it (and a dispatcher is in the tree), else invoke inline. The toggle
+        /// path (<see cref="SetFeatureEnabled"/>) already runs on the editor main thread, so it takes the inline
+        /// branch — but routing through the same guard keeps the event's "always marshalled onto the main
+        /// thread" contract true regardless of which thread a future caller raises from.
+        /// </summary>
+        void RaiseFeaturesUpdated()
+        {
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(() => FeaturesUpdated?.Invoke());
+            else
+                FeaturesUpdated?.Invoke();
         }
 
         /// <summary>
