@@ -188,6 +188,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
+            // Wire the editor-side ResourceLoader.Load resolution into the (pure-managed) Resource
+            // reflection converter so node-modify can assign a Resource-typed property by ref (res:// path /
+            // instance id). The converter lives outside #if TOOLS; this installs the native resolver.
+            Tools.Tool_Resource.InstallReflectionResolver();
+
             // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)
             // share the exact converter set registered here instead of building their own.
             GodotMcpReflector.Current = reflector;

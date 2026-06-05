@@ -45,6 +45,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             reflector.Converters.Add(new Godot_Vector3_ReflectionConverter());
             reflector.Converters.Add(new Godot_Color_ReflectionConverter());
 
+            // Resource reference converter — matches Godot.Resource and EVERY Resource-derived type
+            // (Mesh/Material/Texture2D/…) by inheritance distance, so a Resource-typed member is assigned
+            // by reference (res:// path / instance id) instead of falling back to instantiate-and-populate
+            // (which fails: "Instance creation failed for Godot.BoxMesh"). The live ResourceLoader.Load
+            // resolution is injected under #if TOOLS; see Godot_Resource_ReflectionConverter.ResourceResolver.
+            reflector.Converters.Add(new Godot_Resource_ReflectionConverter());
+
             // JSON converters — types best described as a single scalar (NodePath as its string form).
             reflector.JsonSerializer.AddConverter(new GodotNodePathJsonConverter());
         }

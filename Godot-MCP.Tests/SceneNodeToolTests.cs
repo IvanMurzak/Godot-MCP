@@ -142,6 +142,39 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("position/[0]", restored!.Path);
         }
 
+        // ---- NodePropertyPatch.IsStructuralNoOp (no-op warning detection) ------------------------
+
+        [Fact]
+        public void IsStructuralNoOp_NullValue_IsNoOp()
+        {
+            Assert.True(NodePropertyPatch.IsStructuralNoOp(null));
+        }
+
+        [Fact]
+        public void IsStructuralNoOp_TypeNameOnly_IsNoOp()
+        {
+            // A '{typeName}'-only entry (no value, no fields, no props) cannot change anything.
+            var value = new ReflectorNet.Model.SerializedMember { typeName = "Godot.BoxMesh" };
+            Assert.True(NodePropertyPatch.IsStructuralNoOp(value));
+        }
+
+        [Fact]
+        public void IsStructuralNoOp_WithValue_IsNotNoOp()
+        {
+            var reflector = GodotReflectorFactory.CreateDefaultReflector();
+            var value = ReflectorNet.Model.SerializedMember.FromValue(reflector, typeof(int), 42, name: "n");
+            Assert.False(NodePropertyPatch.IsStructuralNoOp(value));
+        }
+
+        [Fact]
+        public void IsStructuralNoOp_WithFields_IsNotNoOp()
+        {
+            var reflector = GodotReflectorFactory.CreateDefaultReflector();
+            var value = new ReflectorNet.Model.SerializedMember { typeName = "Some.Type" }
+                .AddField(ReflectorNet.Model.SerializedMember.FromValue(reflector, typeof(int), 1, name: "x"));
+            Assert.False(NodePropertyPatch.IsStructuralNoOp(value));
+        }
+
         // ---- NodePathNormalizer ------------------------------------------------------------------
 
         [Theory]

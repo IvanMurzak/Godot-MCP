@@ -38,5 +38,24 @@ namespace com.IvanMurzak.Godot.MCP.Data
         public SerializedMember? Value { get; set; } = null;
 
         public NodePropertyPatch() { }
+
+        /// <summary>
+        /// True when <paramref name="value"/> carries nothing the modifier could apply — no
+        /// <c>value</c> JSON, no <c>fields</c>, and no <c>props</c> (e.g. a <c>{typeName}</c>-only entry).
+        /// Such a patch is a guaranteed no-op: it would silently change nothing. <c>node-modify</c> uses this
+        /// to emit a WARNING naming the path rather than letting the no-op pass unremarked. Pure-managed (no
+        /// Godot API), so it is unit-testable. A <c>null</c> value also counts as a no-op.
+        /// </summary>
+        public static bool IsStructuralNoOp(SerializedMember? value)
+        {
+            if (value == null)
+                return true;
+
+            var hasValue = value.valueJsonElement.HasValue;
+            var hasFields = value.fields != null && value.fields.Count > 0;
+            var hasProps = value.props != null && value.props.Count > 0;
+
+            return !hasValue && !hasFields && !hasProps;
+        }
     }
 }
