@@ -70,6 +70,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         readonly SerialDisposable _stateSubscription = new();
 
+        /// <summary>
+        /// Live subscription to the reused client's <see cref="IConnection.OnAuthorizationRejected"/> stream.
+        /// Re-created on every <see cref="Start"/> and disposed on <see cref="Dispose"/> (same lifecycle as
+        /// <see cref="_stateSubscription"/>). Marshals the rejection onto the editor main thread before
+        /// raising <see cref="AuthorizationRejected"/>.
+        /// </summary>
+        readonly SerialDisposable _authRejectedSubscription = new();
+
         /// <summary>Last reduced status, cached so <see cref="ConnectionStatus"/> is readable without a live plugin.</summary>
         ConnectionStatus _status = ConnectionStatus.Disconnected;
 
@@ -78,6 +86,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>The built plugin instance, or null before <see cref="Start"/> / after <see cref="Dispose"/>.</summary>
         public IMcpPlugin? Plugin => _plugin;
+
+        /// <summary>
+        /// The resolved cloud BASE url (no <c>/mcp</c> hub suffix) — the host the device-auth endpoints
+        /// (<c>/api/auth/device/*</c>) live on. The dock's Cloud-auth section passes this to
+        /// <see cref="GodotDeviceAuthFlow.StartAsync"/>. Read live off the config so an env override applies.
+        /// </summary>
+        public string CloudBaseUrl => GodotMcpConfig.ResolveCloudBaseUrl();
+
+        /// <summary>
+        /// Raised when the server rejects the connection's authorization token (the reused client's
+        /// <see cref="IConnection.OnAuthorizationRejected"/> fired). ALWAYS marshalled onto the Godot editor
+        /// main thread, so a UI handler may clear the stored token and touch <see cref="Godot.Control"/>s
+        /// directly. The Cloud-auth section subscribes to drop the rejected <c>CloudToken</c> and revert to
+        /// the Authorize state. The token itself is never passed through this event (it carries no payload).
+        /// </summary>
+        public event Action? AuthorizationRejected;
 
         /// <summary>
         /// The current simplified connection status (Disconnected / Connecting / Connected), reduced from
@@ -188,6 +212,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         MainThreadDispatcher.Enqueue(() => PublishStatus(status));
                     else
                         PublishStatus(status);
+                });
+
+            // Surface the reused client's authorization-rejected stream as a main-thread event the dock can
+            // act on (clear the rejected token, revert to Authorize). R3 fires off the SignalR thread, so we
+            // hop to the editor main thread before raising, mirroring the status subscription above.
+            _authRejectedSubscription.Disposable = plugin.OnAuthorizationRejected
+                .Subscribe(_ =>
+                {
+                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                        MainThreadDispatcher.Enqueue(() => AuthorizationRejected?.Invoke());
+                    else
+                        AuthorizationRejected?.Invoke();
                 });
         }
 
@@ -395,6 +431,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public void Dispose()
         {
             _stateSubscription.Dispose();
+            _authRejectedSubscription.Dispose();
             DisposePlugin();
         }
 
@@ -407,8 +444,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         void DisposePlugin()
         {
-            // Release the live state subscription's inner disposable (keeps the SerialDisposable reusable).
+            // Release the live state + auth-rejected subscriptions' inner disposables (keeps the
+            // SerialDisposables reusable for the next Start()).
             _stateSubscription.Disposable = null;
+            _authRejectedSubscription.Disposable = null;
 
             // Clear the ambient reflector if it is the one we published, so a stale instance does not
             // outlive the connection that owned it.

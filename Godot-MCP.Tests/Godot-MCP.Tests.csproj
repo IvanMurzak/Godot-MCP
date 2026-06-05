@@ -55,6 +55,12 @@
     <!-- URL-safe bearer-token generator: pure-managed (RandomNumberGenerator + Convert), no Godot native
          types / no #if TOOLS. Output is random, so the tests pin FORMAT invariants (length/charset). -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpTokenGenerator.cs" Link="Source\GodotMcpTokenGenerator.cs" />
+    <!-- Cloud device-code auth core: the HTTP transport (mockable HttpMessageHandler) + the flow state
+         machine. Both pure-managed (no Godot native types, no #if TOOLS), so the device flow is unit-tested
+         here with a fake handler + injected delay/clock; the editor wiring lives in the #if TOOLS
+         ConnectionPanel (browser-open + token persistence), verified via the headless smoke (test.md Suite 3). -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotDeviceAuthService.cs" Link="Source\GodotDeviceAuthService.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotDeviceAuthFlow.cs" Link="Source\GodotDeviceAuthFlow.cs" />
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />

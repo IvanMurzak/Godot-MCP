@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using com.IvanMurzak.Godot.MCP.Connection;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace com.IvanMurzak.Godot.MCP.UI
@@ -126,5 +127,40 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var normalized = Connection.GodotMcpConfig.NormalizeUrl(url);
             return !string.IsNullOrEmpty(normalized) && Connection.GodotMcpConfig.IsValidHttpUrl(normalized!);
         }
+
+        // --- Cloud device-auth presentation (pure-managed, unit-tested). ---
+
+        /// <summary>Cloud-token field placeholder shown when no token is stored (the field is masked + read-only).</summary>
+        public const string CloudTokenPlaceholder = "Token — press Authorize";
+
+        /// <summary>Authorize-button label while the flow is idle / finished (clicking starts a new flow).</summary>
+        public const string AuthorizeButtonText = "Authorize";
+
+        /// <summary>Authorize-button label while the flow is running (clicking cancels it).</summary>
+        public const string AuthorizeButtonCancelText = "Cancel";
+
+        /// <summary>
+        /// The status line for a given device-auth flow state. Mirrors Unity-MCP's
+        /// <c>GetAuthFlowStatusMessage</c>. The <paramref name="userCode"/> is fine to show (it is the
+        /// short device code the user types into the browser); the access TOKEN is NEVER passed here or
+        /// shown anywhere except masked in the token field. <paramref name="errorMessage"/> is the flow's
+        /// non-secret diagnostic text. Pure-managed → unit-tested.
+        /// </summary>
+        public static string CloudAuthStatusMessage(
+            GodotDeviceAuthFlowState state, string? userCode, string? errorMessage) => state switch
+        {
+            GodotDeviceAuthFlowState.Initiating => "Initiating…",
+            GodotDeviceAuthFlowState.WaitingForUser => $"Code: {userCode} — Authorize in browser",
+            GodotDeviceAuthFlowState.Polling => $"Code: {userCode} — Waiting…",
+            GodotDeviceAuthFlowState.Authorized => "Authorized!",
+            GodotDeviceAuthFlowState.Failed => $"Failed: {errorMessage}",
+            GodotDeviceAuthFlowState.Expired => "Expired — try again",
+            GodotDeviceAuthFlowState.Cancelled => "Cancelled",
+            _ => string.Empty
+        };
+
+        /// <summary>The Authorize/Cancel button text for a given flow state (Cancel while running).</summary>
+        public static string CloudAuthButtonText(GodotDeviceAuthFlowState state) =>
+            GodotDeviceAuthFlow.IsRunning(state) ? AuthorizeButtonCancelText : AuthorizeButtonText;
     }
 }
