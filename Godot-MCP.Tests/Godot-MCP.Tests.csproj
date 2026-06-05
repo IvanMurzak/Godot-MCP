@@ -48,6 +48,10 @@
          no #if TOOLS). The editor wiring (ProjectSettings.GlobalizePath) lives in GodotMcpConnection.cs
          (#if TOOLS), verified via the headless smoke; the parse/apply core is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpEnvFile.cs" Link="Source\GodotMcpEnvFile.cs" />
+    <!-- Config persistence store: pure-managed System.Text.Json load/save of the serialized-config
+         precedence layer (no Godot native types, no #if TOOLS). The editor wiring that resolves the
+         user:// path lives in GodotMcpConnection.cs (#if TOOLS); the path-injectable core is unit-tested. -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
