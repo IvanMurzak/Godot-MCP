@@ -14,8 +14,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Reflection;
+using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet;
@@ -194,7 +196,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // Scan THIS addon assembly for [AiToolType]/[AiTool] (the ping tool, and future families).
             Assembly addonAssembly = typeof(GodotMcpConnection).Assembly;
 
-            var builder = new McpPluginBuilder(version)
+            // Route the reused framework's Microsoft.Extensions.Logging output (ConnectionManager /
+            // hub-connector connect, hub-state, version handshake, errors) to the Godot Output, gated by the
+            // LIVE configured Log Level (read off _config each call so the dock dropdown applies without a
+            // rebuild). Without a provider these framework logs are invisible — they are the diagnostic for
+            // the "Connecting…" hang. The provider/logger are pure-managed; the only Godot dependency is the
+            // injected GD.* + log-collector sink below.
+            var loggerProvider = new GodotMcpLoggerProvider(() => _config.ActiveLogLevel, RouteFrameworkLog);
+
+            var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
                 .WithToolsFromAssembly(addonAssembly)
                 .WithPromptsFromAssembly(addonAssembly)
@@ -314,6 +324,32 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             _status = status;
             ConnectionStatusChanged?.Invoke(status);
+        }
+
+        /// <summary>
+        /// The Godot sink the <see cref="GodotMcpLoggerProvider"/> routes the reused framework's log lines
+        /// to: write to the Godot Output by severity (info/debug/trace → <see cref="GD.Print"/>, warning →
+        /// <see cref="GD.PushWarning"/>, error/critical → <see cref="GD.PushError"/>) AND append to
+        /// <see cref="GodotLogCollector.Current"/> so <c>console-get-logs</c> captures the framework lines
+        /// too. The level decision already happened in the logger (this only runs for enabled lines). The
+        /// framework never logs secrets, and this pass-through adds none.
+        /// </summary>
+        static void RouteFrameworkLog(GodotLogType logType, string message)
+        {
+            switch (logType)
+            {
+                case GodotLogType.Error:
+                    GD.PushError(message);
+                    break;
+                case GodotLogType.Warning:
+                    GD.PushWarning(message);
+                    break;
+                default:
+                    GD.Print(message);
+                    break;
+            }
+
+            GodotLogCollector.Current?.Append(logType, message);
         }
 
         // --- MCP feature enable-map (tools / prompts / resources) -----------------------------------------

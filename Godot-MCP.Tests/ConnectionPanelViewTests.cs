@@ -70,6 +70,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 ConnectionPanelView.Reduce(state, keepConnected: false));
         }
 
+        // --- Reduce: exhaustive matrix (every HubConnectionState × keepConnected → expected status) ---
+
+        [Theory]
+        // keepConnected = true
+        [InlineData(HubConnectionState.Connected, true, ConnectionStatus.Connected)]
+        [InlineData(HubConnectionState.Connecting, true, ConnectionStatus.Connecting)]
+        [InlineData(HubConnectionState.Reconnecting, true, ConnectionStatus.Connecting)]
+        [InlineData(HubConnectionState.Disconnected, true, ConnectionStatus.Connecting)]
+        // keepConnected = false (the client is not trying to be connected → always Disconnected)
+        [InlineData(HubConnectionState.Connected, false, ConnectionStatus.Disconnected)]
+        [InlineData(HubConnectionState.Connecting, false, ConnectionStatus.Disconnected)]
+        [InlineData(HubConnectionState.Reconnecting, false, ConnectionStatus.Disconnected)]
+        [InlineData(HubConnectionState.Disconnected, false, ConnectionStatus.Disconnected)]
+        public void Reduce_FullMatrix(HubConnectionState state, bool keepConnected, ConnectionStatus expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.Reduce(state, keepConnected));
+        }
+
         // --- StatusLabel ---
 
         [Theory]

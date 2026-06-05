@@ -52,7 +52,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             GodotMcpConfig.EnvHost,
             GodotMcpConfig.EnvCloudUrl,
             GodotMcpConfig.EnvToken,
-            GodotMcpConfig.EnvAuthOption
+            GodotMcpConfig.EnvAuthOption,
+            GodotMcpConfig.EnvLogLevel
         };
 
         /// <summary>
@@ -189,6 +190,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 config.AuthOption = parsedAuth;
             }
 
+            // 2c) Log level (cross-cutting): an explicit file value writes the serialized field beneath the
+            //     env layer (env GODOT_MCP_LOG_LEVEL still wins live via ActiveLogLevel).
+            if (values.TryGetValue(GodotMcpConfig.EnvLogLevel, out var fileLogLevel) &&
+                TryParseLogLevel(fileLogLevel, out var parsedLogLevel))
+            {
+                config.LogLevel = parsedLogLevel;
+            }
+
             // 3) Token: route to the active mode's token field (after mode is settled above so the route
             //    matches what the connection will actually use). Env token still wins live.
             if (values.TryGetValue(GodotMcpConfig.EnvToken, out var fileToken))
@@ -253,6 +262,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (int.TryParse(normalized, out _))
                 return false;
             return Enum.TryParse(normalized, ignoreCase: true, out authOption);
+        }
+
+        /// <summary>
+        /// Parse a log-level string to <see cref="GodotMcpLogLevel"/>, accepting only the named values
+        /// (case-insensitive) and rejecting numeric strings — identical discipline to
+        /// <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ResolveActiveLogLevel"/>.
+        /// </summary>
+        static bool TryParseLogLevel(string? raw, out GodotMcpLogLevel logLevel)
+        {
+            logLevel = default;
+            var normalized = Sanitize(raw);
+            if (string.IsNullOrEmpty(normalized))
+                return false;
+            if (int.TryParse(normalized, out _))
+                return false;
+            return Enum.TryParse(normalized, ignoreCase: true, out logLevel);
         }
 
         /// <summary>Sanitize a file value identically to a process-env value (see <see cref="Parse"/>).</summary>
