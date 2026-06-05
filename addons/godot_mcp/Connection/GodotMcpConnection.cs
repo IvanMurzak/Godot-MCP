@@ -448,15 +448,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Enumerate the live items of a feature kind as (name, description, enabled) tuples for the list
-        /// window. Empty when the plugin/managers are not yet available. Reads the LIVE enabled-state off the
-        /// manager (which reflects any reapplied persisted disable).
+        /// Enumerate the live items of a feature kind as pure-managed <see cref="FeatureRowItem"/> view-models
+        /// for the list window — the common name/title/description/enabled plus the kind-specific metadata
+        /// (tools: token count + input args; prompts: role + arguments; resources: uri + mimetype). Empty when
+        /// the plugin/managers are not yet available. Reads the LIVE enabled-state off the manager (which
+        /// reflects any reapplied persisted disable). The window filters this list via <see cref="FeatureFilter"/>.
         /// </summary>
-        public IReadOnlyList<(string Name, string? Description, bool Enabled)> GetFeatureItems(GodotMcpFeatureKind kind)
+        public IReadOnlyList<FeatureRowItem> GetFeatureItems(GodotMcpFeatureKind kind)
         {
             var manager = FeatureManager(kind, _plugin);
             return manager == null
-                ? Array.Empty<(string, string?, bool)>()
+                ? Array.Empty<FeatureRowItem>()
                 : manager.GetItems().ToList();
         }
 

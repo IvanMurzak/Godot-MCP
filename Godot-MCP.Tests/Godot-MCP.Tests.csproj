@@ -152,6 +152,14 @@
          The editor Control wiring (FeaturesPanel.cs / FeatureRow.cs / FeatureListWindow.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the label formatting is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\UI\FeaturesPanelView.cs" Link="Source\FeaturesPanelView.cs" />
+    <!-- Feature list filter + row view-model — pure-managed (no Godot native types, no #if TOOLS): the
+         FeatureStatusFilter enum, the FeatureRowItem/FeatureArgument records, the status+text filter chain
+         (FeatureFilter.Apply), the "Filtered: X, Total: Y" stat formatter, and the JSON-schema argument parser
+         (uses System.Text.Json.Nodes + ReflectorNet's JsonSchema key constants). The live IToolManager/
+         IPromptManager/IResourceManager → FeatureRowItem mapping (FeatureManagerAdapters.cs) and the editor
+         window Control wiring (FeatureListWindow.cs) are #if TOOLS and verified via the headless Godot smoke
+         (test.md Suite 3); the filter/stat/parse logic is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\FeatureFilter.cs" Link="Source\FeatureFilter.cs" />
     <!-- AI-agent configurators — pure-managed (no Godot native types, no #if TOOLS): the abstract base, the
          JSON read-merge-write helper, the per-OS path resolver, the concrete configurators, and the registry.
          The dock UI (AgentConfiguratorsPanel.cs) is #if TOOLS and verified via the headless Godot smoke
