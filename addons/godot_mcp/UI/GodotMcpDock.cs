@@ -51,6 +51,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         readonly GodotMcpConnection? _connection;
         ConnectionPanel? _connectionPanel;
         FeaturesPanel? _featuresPanel;
+        AgentConfiguratorsPanel? _agentConfiguratorsPanel;
         SupportFooter? _supportFooter;
 
         // Log Level selector (header). Only built when a live connection was threaded in (it reads/writes
@@ -129,6 +130,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 // a live connection, so it shares the connection-null guard with the connection panel.
                 _featuresPanel = new FeaturesPanel(_connection);
                 Body.AddChild(_featuresPanel);
+
+                // AI-agent section — the dropdown of AI-agent configurators + the selected agent's HTTP-config
+                // snippet / Configure / Remove. Inserted BETWEEN the features panel and the support footer, wired
+                // to the live connection (it reads the resolved MCP-client URL + token off the config and persists
+                // the selected agent via Save). Only meaningful with a live connection, so it shares the
+                // connection-null guard with the connection + features panels.
+                _agentConfiguratorsPanel = new AgentConfiguratorsPanel(_connection);
+                Body.AddChild(_agentConfiguratorsPanel);
             }
 
             // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
@@ -218,6 +227,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             _connectionPanel?.Refresh();
             _featuresPanel?.Refresh();
+            _agentConfiguratorsPanel?.Refresh();
             SyncLogLevelSelector();
         }
     }

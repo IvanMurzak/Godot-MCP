@@ -148,6 +148,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public GodotMcpFeatureMap Features { get; set; } = new();
 
         /// <summary>
+        /// The AI agent the dock's "AI agent" section has selected (the <c>AgentId</c> of a
+        /// <c>GodotAgentConfigurator</c>, e.g. <c>claude-code</c>). Persisted so the user's choice survives an editor
+        /// restart. Defaults to <c>claude-code</c> — the first-listed configurator. This is pure presentation state
+        /// (it does not affect the plugin's own connection), so it is never env-overridden.
+        /// </summary>
+        [JsonPropertyName("selectedAgentId")]
+        public string SelectedAgentId { get; set; } = "claude-code";
+
+        /// <summary>
         /// The effective connection mode after applying the <see cref="EnvConnectionMode"/> override.
         /// Never serialized — recomputed from the env each access so a process-level override always wins.
         /// </summary>
@@ -253,6 +262,40 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>Resolve the full cloud connection URL (base + <see cref="CloudHubPath"/>).</summary>
         public static string ResolveCloudUrl() => ResolveCloudBaseUrl() + CloudHubPath;
+
+        /// <summary>
+        /// Resolve the MCP-client endpoint URL an external AI client (Claude Code, Cursor, …) should POST to —
+        /// the value the AI-agent configurators write into the user's MCP-client config. This is DISTINCT from
+        /// <see cref="Host"/> (the URL the <em>plugin</em> connects to): the plugin connects to
+        /// <c>&lt;host&gt;/hub/mcp-server</c> over SignalR, while an MCP client connects to <c>&lt;host&gt;/mcp</c>
+        /// over streamable-HTTP.
+        ///
+        /// <list type="bullet">
+        ///   <item><b>Cloud mode</b>: <see cref="ResolveCloudUrl"/> — already ends in <see cref="CloudHubPath"/>
+        ///   (<c>/mcp</c>), so it is returned unchanged.</item>
+        ///   <item><b>Custom mode</b>: the resolved custom host (trailing slash stripped) with
+        ///   <see cref="CloudHubPath"/> appended — e.g. <c>http://localhost:8080</c> → <c>http://localhost:8080/mcp</c>.
+        ///   A host that already ends in <c>/mcp</c> is not double-suffixed.</item>
+        /// </list>
+        ///
+        /// Reads the active mode/host LIVE off <paramref name="config"/> (so an env override applies) but is a
+        /// pure static — no Godot / SignalR dependency — so it is unit-testable in the plain-xUnit host.
+        /// </summary>
+        public static string ResolveMcpClientUrl(GodotMcpConfig config)
+        {
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
+
+            if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                return ResolveCloudUrl();
+
+            // Custom mode: the plugin connects to <host>/hub/mcp-server; the MCP client connects to <host>/mcp.
+            var host = config.ResolveCustomHost().TrimEnd('/');
+            if (host.EndsWith(CloudHubPath, StringComparison.OrdinalIgnoreCase))
+                return host;
+
+            return host + CloudHubPath;
+        }
 
         /// <summary>
         /// Resolve the active custom-mode host, applying the <see cref="EnvHost"/> override.

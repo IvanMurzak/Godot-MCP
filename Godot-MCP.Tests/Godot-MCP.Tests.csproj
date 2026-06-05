@@ -142,6 +142,19 @@
          The editor Control wiring (FeaturesPanel.cs / FeatureRow.cs / FeatureListWindow.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the label formatting is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\UI\FeaturesPanelView.cs" Link="Source\FeaturesPanelView.cs" />
+    <!-- AI-agent configurators — pure-managed (no Godot native types, no #if TOOLS): the abstract base, the
+         JSON read-merge-write helper, the per-OS path resolver, the concrete configurators, and the registry.
+         The dock UI (AgentConfiguratorsPanel.cs) is #if TOOLS and verified via the headless Godot smoke
+         (test.md Suite 3); the snippet/configure/remove/path/registry logic is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfigurator.cs" Link="Source\GodotAgentConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigJson.cs" Link="Source\AgentConfigJson.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigPaths.cs" Link="Source\AgentConfigPaths.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfiguratorRegistry.cs" Link="Source\GodotAgentConfiguratorRegistry.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ClaudeCodeConfigurator.cs" Link="Source\ClaudeCodeConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ClaudeDesktopConfigurator.cs" Link="Source\ClaudeDesktopConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CursorConfigurator.cs" Link="Source\CursorConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\VisualStudioCodeConfigurator.cs" Link="Source\VisualStudioCodeConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CustomConfigurator.cs" Link="Source\CustomConfigurator.cs" />
   </ItemGroup>
 
 </Project>
