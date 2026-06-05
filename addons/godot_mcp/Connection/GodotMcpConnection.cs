@@ -46,6 +46,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>Plugin version reported to the server in the MCP handshake.</summary>
         public const string PluginVersion = "0.1.0";
 
+        /// <summary>
+        /// <c>user://</c> path of the persisted config file (the serialized-config precedence layer).
+        /// Resolved to an absolute path lazily in <see cref="ConfigFilePath"/> via
+        /// <see cref="ProjectSettings.GlobalizePath(string)"/>.
+        /// </summary>
+        const string ConfigUserPath = "user://godot-mcp-config.json";
+
         readonly GodotMcpConfig _config;
         IMcpPlugin? _plugin;
         Reflector? _publishedReflector;
@@ -74,11 +81,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             }
 
-            // Layer the project-root `.env` BENEATH the live process-env overrides the config already
-            // applies in its getters. Godot is launched from the GUI (no inherited shell exports), so a
-            // committed `res://.env` is how a project self-configures its MCP host/token. Process env
-            // still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
-            // see GodotMcpEnvFile's precedence note.
+            // PRECEDENCE: process env > .env file > persisted config > built-in default.
+            // 1) Seed the SERIALIZED-config layer first (lowest layer above the built-in defaults), so the
+            //    .env and live process-env layers below override it — never the other way around.
+            ApplyPersistedConfig();
+
+            // 2) Layer the project-root `.env` BENEATH the live process-env overrides the config already
+            //    applies in its getters. Godot is launched from the GUI (no inherited shell exports), so a
+            //    committed `res://.env` is how a project self-configures its MCP host/token. Process env
+            //    still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
+            //    see GodotMcpEnvFile's precedence note.
             ApplyProjectEnvFile();
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
@@ -140,6 +152,59 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             GodotMcpEnvFile.Apply(_config, values);
             GD.Print($"[Godot-MCP] applied {values.Count} setting(s) from project .env ({envPath}).");
+        }
+
+        /// <summary>
+        /// Absolute on-disk path of the persisted config file, resolved from <see cref="ConfigUserPath"/>.
+        /// The only Godot dependency of the persistence path; the load/save core
+        /// (<see cref="GodotMcpConfigStore"/>) is pure-managed.
+        /// </summary>
+        public string ConfigFilePath => ProjectSettings.GlobalizePath(ConfigUserPath);
+
+        /// <summary>
+        /// Load the persisted config (serialized layer) from <see cref="ConfigFilePath"/> and seed the
+        /// active <see cref="_config"/>'s serialized backing fields from it — BENEATH the <c>.env</c> and
+        /// process-env layers applied afterwards. A missing/corrupt file is a silent no-op (Load returns
+        /// null). This is the persisted half of the precedence chain documented on
+        /// <see cref="GodotMcpConfigStore"/>.
+        /// </summary>
+        void ApplyPersistedConfig()
+        {
+            string path;
+            try
+            {
+                path = ConfigFilePath;
+            }
+            catch (Exception ex)
+            {
+                GD.PushWarning($"[Godot-MCP] could not resolve persisted config path: {ex.Message}");
+                return;
+            }
+
+            var persisted = GodotMcpConfigStore.Load(path);
+            if (persisted == null)
+                return;
+
+            GodotMcpConfigStore.ApplyPersisted(_config, persisted);
+            GD.Print($"[Godot-MCP] loaded persisted config ({path}).");
+        }
+
+        /// <summary>
+        /// Persist the active config's serialized layer to <see cref="ConfigFilePath"/>. Invoked by the
+        /// dock / connection when the user edits a setting (later UI tasks wire the edit callbacks). IO
+        /// failures are caught and logged so a transient save error does not break the editor session.
+        /// </summary>
+        public void Save()
+        {
+            try
+            {
+                GodotMcpConfigStore.Save(ConfigFilePath, _config);
+                GD.Print($"[Godot-MCP] saved config ({ConfigFilePath}).");
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[Godot-MCP] failed to save config: {ex.Message}");
+            }
         }
 
         async Task ConnectAsync()

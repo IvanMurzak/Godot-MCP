@@ -15,6 +15,7 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Tools;
+using com.IvanMurzak.Godot.MCP.UI;
 
 namespace com.IvanMurzak.Godot.MCP
 {
@@ -36,6 +37,7 @@ namespace com.IvanMurzak.Godot.MCP
 
         MainThreadDispatcher? _dispatcher;
         GodotMcpConnection? _connection;
+        GodotMcpDock? _dock;
 
         public override void _EnterTree()
         {
@@ -65,7 +67,30 @@ namespace com.IvanMurzak.Godot.MCP
 
             Log("[Godot-MCP] plugin loaded");
 
+            // Register the "AI Game Developer" editor dock. Defensive: a dock failure must never break
+            // plugin load or the MCP connection boot below, so it is wrapped and logged rather than thrown.
+            RegisterDock();
+
             BootMcp();
+        }
+
+        /// <summary>
+        /// Instantiate the <see cref="GodotMcpDock"/> and add it to an editor dock slot. Isolated and
+        /// defensively wrapped so a UI failure cannot take down plugin load or the connection boot — the
+        /// dock is additive scaffolding, not load-bearing for the MCP path.
+        /// </summary>
+        void RegisterDock()
+        {
+            try
+            {
+                _dock = new GodotMcpDock();
+                AddControlToDock(DockSlot.RightUl, _dock);
+            }
+            catch (System.Exception ex)
+            {
+                LogError($"[Godot-MCP] failed to register editor dock: {ex.Message}");
+                _dock = null;
+            }
         }
 
         /// <summary>
@@ -119,6 +144,14 @@ namespace com.IvanMurzak.Godot.MCP
             {
                 _connection.Dispose();
                 _connection = null;
+            }
+
+            if (_dock != null)
+            {
+                // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
+                RemoveControlFromDocks(_dock);
+                _dock.QueueFree();
+                _dock = null;
             }
 
             if (_dispatcher != null)
