@@ -136,6 +136,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // The persisted feature enable-map (tools/prompts/resources). A missing `features` key in an older
             // config file deserializes to a non-null empty map (the property initializer), so this is always safe.
             target.Features = persisted.Features ?? new GodotMcpFeatureMap();
+            // The dock's selected AI-agent id (pure presentation state). A missing key in an older config file
+            // deserializes to the property default ("claude-code"); guard the null case defensively all the same.
+            target.SelectedAgentId = string.IsNullOrEmpty(persisted.SelectedAgentId)
+                ? target.SelectedAgentId
+                : persisted.SelectedAgentId;
 
             return target;
         }

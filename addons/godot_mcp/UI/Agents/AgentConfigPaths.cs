@@ -1,0 +1,69 @@
+/*
+┌──────────────────────────────────────────────────────────────────┐
+│  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+│  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+│  Copyright (c) 2026 Ivan Murzak                                  │
+│  Licensed under the Apache License, Version 2.0.                 │
+│  See the LICENSE file in the project root for more information.  │
+└──────────────────────────────────────────────────────────────────┘
+*/
+#nullable enable
+using System.IO;
+
+namespace com.IvanMurzak.Godot.MCP.UI.Agents
+{
+    /// <summary>
+    /// The operating-system families an AI-agent configurator resolves its config-file path against. Injected
+    /// (rather than read from <c>Godot.OS</c>) so the per-OS path resolution is pure-managed and unit-testable in
+    /// the plain-xUnit host. The editor wiring maps <c>Godot.OS.GetName()</c> onto this in
+    /// <c>AgentConfiguratorsPanel.cs</c> (<c>#if TOOLS</c>).
+    /// </summary>
+    public enum AgentOs
+    {
+        Windows,
+        MacOS,
+        Linux
+    }
+
+    /// <summary>
+    /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>) per-OS config-path helpers for the AI-agent
+    /// configurators. All inputs (OS family, home dir, %APPDATA%, project root) are INJECTED so the resolution is
+    /// deterministic and unit-testable; the editor passes the real values (<c>Godot.OS.GetName()</c>,
+    /// <c>OS.GetEnvironment("USERPROFILE"/"HOME")</c>, <c>OS.GetEnvironment("APPDATA")</c>, and
+    /// <c>ProjectSettings.GlobalizePath("res://")</c>).
+    /// </summary>
+    public static class AgentConfigPaths
+    {
+        /// <summary>
+        /// Combine + normalize path segments to an absolute config path. Uses <see cref="Path.Combine(string[])"/>
+        /// so the host OS's separator is applied, then collapses any mixed separators to the platform separator via
+        /// <see cref="Path.GetFullPath(string)"/>-free normalization (we keep it simple: forward-slash inputs are
+        /// fine on every platform for the consumers, which open the file with <c>System.IO</c>).
+        /// </summary>
+        static string Combine(params string[] parts) => Path.Combine(parts);
+
+        /// <summary>
+        /// Resolve the Claude Desktop config path for <paramref name="os"/>:
+        /// <list type="bullet">
+        ///   <item>Windows: <c>&lt;appData&gt;/Claude/claude_desktop_config.json</c></item>
+        ///   <item>macOS: <c>&lt;home&gt;/Library/Application Support/Claude/claude_desktop_config.json</c></item>
+        ///   <item>Linux: <c>&lt;home&gt;/.config/Claude/claude_desktop_config.json</c></item>
+        /// </list>
+        /// </summary>
+        public static string ClaudeDesktop(AgentOs os, string home, string appData) => os switch
+        {
+            AgentOs.Windows => Combine(appData, "Claude", "claude_desktop_config.json"),
+            AgentOs.MacOS => Combine(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"),
+            _ => Combine(home, ".config", "Claude", "claude_desktop_config.json"),
+        };
+
+        /// <summary>Claude Code project-local config: <c>&lt;projectRoot&gt;/.mcp.json</c>.</summary>
+        public static string ClaudeCode(string projectRoot) => Combine(projectRoot, ".mcp.json");
+
+        /// <summary>Cursor project-local config: <c>&lt;projectRoot&gt;/.cursor/mcp.json</c>.</summary>
+        public static string Cursor(string projectRoot) => Combine(projectRoot, ".cursor", "mcp.json");
+
+        /// <summary>VS Code project-local config: <c>&lt;projectRoot&gt;/.vscode/mcp.json</c>.</summary>
+        public static string VisualStudioCode(string projectRoot) => Combine(projectRoot, ".vscode", "mcp.json");
+    }
+}

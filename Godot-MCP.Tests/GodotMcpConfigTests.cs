@@ -312,6 +312,66 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("\"connectionMode\"", json);
         }
 
+        // --- MCP-client URL resolution (the URL an external AI client POSTs to — distinct from Host) ---
+
+        [Fact]
+        public void McpClientUrl_Cloud_IsTheCloudMcpUrl()
+        {
+            using var _ = EnvScope.ClearAll();
+            // Cloud Host already ends in /mcp (via ResolveCloudUrl); the MCP-client URL equals it, no double-suffix.
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Cloud };
+            Assert.Equal("https://ai-game.dev/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Fact]
+        public void McpClientUrl_Custom_AppendsMcpToHost()
+        {
+            using var _ = EnvScope.ClearAll();
+            // The plugin connects to <host>/hub/mcp-server; the AI client connects to <host>/mcp.
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:8080"
+            };
+            Assert.Equal("http://localhost:8080/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Fact]
+        public void McpClientUrl_Custom_TrailingSlashHost_IsNormalized()
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:8080/"
+            };
+            Assert.Equal("http://localhost:8080/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Fact]
+        public void McpClientUrl_Custom_HostAlreadyEndingInMcp_IsNotDoubleSuffixed()
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:8080/mcp"
+            };
+            Assert.Equal("http://localhost:8080/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Fact]
+        public void McpClientUrl_Custom_HonorsEnvHostOverride()
+        {
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvHost, "http://10.0.0.5:9000");
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = "http://localhost:8080"
+            };
+            Assert.Equal("http://10.0.0.5:9000/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
         /// <summary>
         /// Sets/clears process env vars relevant to <see cref="GodotMcpConfig"/> and restores the prior
         /// values on dispose. Keeps env-driven tests isolated and re-entry-safe.

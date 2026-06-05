@@ -82,6 +82,41 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void SaveLoad_RoundTripsSelectedAgentId_AndApplyPersistedCarriesIt()
+        {
+            using var _ = EnvScope.ClearAll();
+
+            var path = PathFor("config-agent.json");
+            var original = new GodotMcpConfig { SelectedAgentId = "cursor" };
+
+            GodotMcpConfigStore.Save(path, original);
+
+            var json = System.IO.File.ReadAllText(path);
+            Assert.Contains("\"selectedAgentId\"", json);
+
+            var loaded = GodotMcpConfigStore.Load(path);
+            Assert.Equal("cursor", loaded!.SelectedAgentId);
+
+            // ApplyPersisted carries the selected agent onto a fresh target (default would have been claude-code).
+            var target = new GodotMcpConfig();
+            GodotMcpConfigStore.ApplyPersisted(target, loaded);
+            Assert.Equal("cursor", target.SelectedAgentId);
+        }
+
+        [Fact]
+        public void ApplyPersisted_MissingSelectedAgentId_KeepsTargetDefault()
+        {
+            using var _ = EnvScope.ClearAll();
+
+            // An older config (no selectedAgentId key) deserializes to the property default; if a persisted value
+            // were somehow blank, ApplyPersisted must keep the target's default rather than blanking it.
+            var persisted = new GodotMcpConfig { SelectedAgentId = "" };
+            var target = new GodotMcpConfig(); // default "claude-code"
+            GodotMcpConfigStore.ApplyPersisted(target, persisted);
+            Assert.Equal("claude-code", target.SelectedAgentId);
+        }
+
+        [Fact]
         public void Save_WritesEnumByName_NotNumber()
         {
             using var _ = EnvScope.ClearAll();
