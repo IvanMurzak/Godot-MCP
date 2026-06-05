@@ -74,6 +74,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             }
 
+            // Layer the project-root `.env` BENEATH the live process-env overrides the config already
+            // applies in its getters. Godot is launched from the GUI (no inherited shell exports), so a
+            // committed `res://.env` is how a project self-configures its MCP host/token. Process env
+            // still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
+            // see GodotMcpEnvFile's precedence note.
+            ApplyProjectEnvFile();
+
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
             // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)
@@ -105,6 +112,34 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             // Fire-and-forget connect; KeepConnected drives reconnection in the client.
             _ = ConnectAsync();
+        }
+
+        /// <summary>
+        /// Resolve the project-root <c>.env</c> (<c>res://.env</c> → absolute via
+        /// <see cref="ProjectSettings.GlobalizePath(string)"/>) and apply its recognized
+        /// <c>GODOT_MCP_*</c> values to <see cref="_config"/> beneath the process-env layer. The native
+        /// <c>ProjectSettings</c> call is the only Godot dependency; the parse/apply core is pure-managed
+        /// (<see cref="GodotMcpEnvFile"/>). A missing file is a silent no-op.
+        /// </summary>
+        void ApplyProjectEnvFile()
+        {
+            string envPath;
+            try
+            {
+                envPath = ProjectSettings.GlobalizePath("res://.env");
+            }
+            catch (Exception ex)
+            {
+                GD.PushWarning($"[Godot-MCP] could not resolve res://.env path: {ex.Message}");
+                return;
+            }
+
+            var values = GodotMcpEnvFile.LoadFile(envPath);
+            if (values.Count == 0)
+                return;
+
+            GodotMcpEnvFile.Apply(_config, values);
+            GD.Print($"[Godot-MCP] applied {values.Count} setting(s) from project .env ({envPath}).");
         }
 
         async Task ConnectAsync()

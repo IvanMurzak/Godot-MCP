@@ -217,8 +217,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Single normalization for env/config string values: trim surrounding whitespace and a single
         /// pair of wrapping double-quotes (so <c>GODOT_MCP_TOKEN="abc"</c> yields <c>abc</c>, not a
         /// bearer value with literal quotes). Returns <c>null</c> for null/blank input.
+        ///
+        /// <para>
+        /// Exposed <c>internal</c> so the <c>.env</c> file layer
+        /// (<see cref="GodotMcpEnvFile"/>) sanitizes file values identically to process-env values
+        /// — see the precedence note on <see cref="GodotMcpEnvFile.Apply"/>.
+        /// </para>
         /// </summary>
-        static string? NormalizeEnv(string? raw)
+        internal static string? NormalizeEnv(string? raw)
         {
             if (string.IsNullOrWhiteSpace(raw))
                 return null;
@@ -230,15 +236,37 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// URL-flavored normalization: <see cref="NormalizeEnv"/> plus a trailing-slash trim so URL
         /// resolvers compare/append cleanly. Returns <c>null</c> for null/blank input.
         /// </summary>
-        static string? NormalizeUrl(string? raw)
+        internal static string? NormalizeUrl(string? raw)
         {
             var normalized = NormalizeEnv(raw);
             return string.IsNullOrEmpty(normalized) ? null : normalized.TrimEnd('/');
         }
 
         /// <summary>True when <paramref name="value"/> is an absolute http or https URL.</summary>
-        static bool IsValidHttpUrl(string value) =>
+        internal static bool IsValidHttpUrl(string value) =>
             Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
             (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+        /// <summary>
+        /// True when <paramref name="url"/> targets a loopback host (<c>localhost</c>, an IPv4
+        /// <c>127.0.0.0/8</c> address, or IPv6 <c>::1</c>). Mirrors Unity-MCP's
+        /// <c>EnvironmentUtils.IsLoopbackUrl</c> — used to auto-select <see cref="GodotMcpConnectionMode.Custom"/>
+        /// when a local-dev host is configured without an explicit mode. Pure-managed (no Godot types).
+        /// </summary>
+        internal static bool IsLoopbackUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return false;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                return false;
+
+            var host = uri.Host;
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (System.Net.IPAddress.TryParse(host, out var ip))
+                return System.Net.IPAddress.IsLoopback(ip);
+
+            return false;
+        }
     }
 }
