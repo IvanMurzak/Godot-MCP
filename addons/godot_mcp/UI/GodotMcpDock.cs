@@ -50,6 +50,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         readonly GodotMcpConnection? _connection;
         ConnectionPanel? _connectionPanel;
+        FeaturesPanel? _featuresPanel;
         SupportFooter? _supportFooter;
 
         /// <summary>
@@ -110,6 +111,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
             {
                 _connectionPanel = new ConnectionPanel(_connection);
                 Body.AddChild(_connectionPanel);
+
+                // MCP-features section — tools/prompts/resources counts + per-item enable/disable windows.
+                // Inserted BETWEEN the connection panel and the support footer, wired to the live connection
+                // (it reads the plugin's managers and subscribes to their update streams). Only meaningful with
+                // a live connection, so it shares the connection-null guard with the connection panel.
+                _featuresPanel = new FeaturesPanel(_connection);
+                Body.AddChild(_featuresPanel);
             }
 
             // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
@@ -127,6 +135,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public void Refresh()
         {
             _connectionPanel?.Refresh();
+            _featuresPanel?.Refresh();
         }
     }
 }

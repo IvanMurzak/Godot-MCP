@@ -52,6 +52,14 @@
          precedence layer (no Godot native types, no #if TOOLS). The editor wiring that resolves the
          user:// path lives in GodotMcpConnection.cs (#if TOOLS); the path-injectable core is unit-tested. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
+    <!-- MCP-features enable-map — pure-managed (no Godot native types, no #if TOOLS, no McpPlugin dependency):
+         the per-kind feature-state list (GodotMcpFeatureMap/GodotMcpFeatureState) that GodotMcpConfig serializes,
+         and the merge/capture logic (GodotMcpFeatureStateMerge) the boot-reapply + window-toggle drive. The live
+         IToolManager/IPromptManager/IResourceManager wiring (FeatureManagerAdapters.cs) is #if TOOLS and verified
+         via the headless Godot smoke (test.md Suite 3); the merge rules are unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureState.cs" Link="Source\GodotMcpFeatureState.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureMap.cs" Link="Source\GodotMcpFeatureMap.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureStateMerge.cs" Link="Source\GodotMcpFeatureStateMerge.cs" />
     <!-- URL-safe bearer-token generator: pure-managed (RandomNumberGenerator + Convert), no Godot native
          types / no #if TOOLS. Output is random, so the tests pin FORMAT invariants (length/charset). -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpTokenGenerator.cs" Link="Source\GodotMcpTokenGenerator.cs" />
@@ -115,6 +123,11 @@
          URLs/copy opened by the dock footer. The editor Control wiring (SupportFooter.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the constants are unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\UI\SupportFooterLinks.cs" Link="Source\SupportFooterLinks.cs" />
+    <!-- Features-panel presentation logic — pure-managed (no Godot native types, no #if TOOLS): the
+         "<Title>: X / Y" count label, the "~N tokens" sub-label, per-kind titles, and the "—" placeholder.
+         The editor Control wiring (FeaturesPanel.cs / FeatureRow.cs / FeatureListWindow.cs) is #if TOOLS and
+         verified via the headless Godot smoke (test.md Suite 3); the label formatting is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\FeaturesPanelView.cs" Link="Source\FeaturesPanelView.cs" />
   </ItemGroup>
 
 </Project>
