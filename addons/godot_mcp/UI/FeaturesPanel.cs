@@ -66,7 +66,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 6);
 
-            AddChild(new Label { Name = "FeaturesHeader", Text = "MCP Features" });
+            var header = new Label { Name = "FeaturesHeader", Text = "MCP Features" };
+            DockStyle.ApplySectionTitle(header);
+            AddChild(header);
 
             _toolsRow = new FeatureRow(GodotMcpFeatureKind.Tools, showTokens: true, OnOpenPressed);
             AddChild(_toolsRow);

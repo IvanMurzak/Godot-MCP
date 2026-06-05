@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Collections.Generic;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents
 {
@@ -48,6 +49,40 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <summary>Optional icon file name for the panel (null = no icon). Display-only metadata.</summary>
         public virtual string? IconFileName => null;
 
+        // --- Per-agent help metadata (parity with Unity-MCP's *Configurator.OnUICreated) -----------------------
+        // Each member below carries the agent-specific guidance the dock's per-agent view renders: a short
+        // description, an optional warning banner, and the collapsible "Manual Configuration Steps" /
+        // "Troubleshooting" foldouts. PURE-MANAGED (plain strings/lists, no Godot native types, no #if TOOLS), so
+        // the panel reads them and the registry can be CI-unit-tested for "ported agents carry non-empty help".
+        // The strings are adapted from the corresponding Unity Impl/*Configurator.OnUICreated, dropping the
+        // stdio-only specifics (Godot-MCP is HTTP-only) and reworded Unity -> Godot.
+
+        /// <summary>
+        /// A short one-or-two-line description shown under the agent name (the analog of Unity's
+        /// <c>ContainerUnderHeader</c> description labels). Null = no description line.
+        /// </summary>
+        public virtual string? Description => null;
+
+        /// <summary>
+        /// An optional warning banner shown prominently under the agent name (the analog of Unity's
+        /// <c>TemplateWarningLabel</c> / <c>TemplateAlertLabel</c>). Null = no warning. Use this for "IMPORTANT: …"
+        /// guidance (e.g. Claude Desktop's "prefer Claude Code", VS Code's "start the server manually each time").
+        /// </summary>
+        public virtual string? WarningText => null;
+
+        /// <summary>
+        /// The ordered "Manual Configuration Steps" the panel renders inside a collapsible foldout. Empty = the
+        /// foldout is omitted. Each string is one step; they describe how to apply the addon's HTTP entry to this
+        /// agent's config file (the analog of Unity's <c>TemplateFoldout("Manual Configuration Steps")</c> body).
+        /// </summary>
+        public virtual IReadOnlyList<string> ManualSteps => System.Array.Empty<string>();
+
+        /// <summary>
+        /// The ordered "Troubleshooting" tips the panel renders inside a collapsible foldout. Empty = the foldout
+        /// is omitted. Each string is one tip (the analog of Unity's <c>TemplateFoldout("Troubleshooting")</c> body).
+        /// </summary>
+        public virtual IReadOnlyList<string> Troubleshooting => System.Array.Empty<string>();
+
         /// <summary>
         /// The entry name the addon's server is written under inside the client config (the key of the
         /// <see cref="BodyPath"/> object). Defaults to <c>ai-game-developer</c>; mirrors the product name so a user
@@ -72,6 +107,16 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <param name="appData">The Windows %APPDATA% directory (ignored on macOS/Linux).</param>
         /// <param name="projectRoot">The absolute Godot project root (<c>ProjectSettings.GlobalizePath("res://")</c>).</param>
         public abstract string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot);
+
+        /// <summary>
+        /// The dock's Config-vs-JSON decision predicate: TRUE when the panel should show the copyable JSON snippet
+        /// for this agent (because it has NO writable config-file path the addon can drive), FALSE when the panel
+        /// should instead show the Configure / Remove buttons + status (because a config-file path exists). This is
+        /// the KEY behavior of the AI-agent section: agents with a known config file get a one-click Configure/Remove
+        /// row; only Custom / manual agents fall back to the raw JSON snippet. Pure-managed (the path is injected) so
+        /// it is unit-testable; the editor passes the per-OS resolved path from <see cref="ConfigFilePath"/>.
+        /// </summary>
+        public static bool ShouldShowJson(string? resolvedConfigPath) => string.IsNullOrEmpty(resolvedConfigPath);
 
         /// <summary>
         /// Build the JSON snippet a user copies into this agent's MCP client — the addon's HTTP entry under

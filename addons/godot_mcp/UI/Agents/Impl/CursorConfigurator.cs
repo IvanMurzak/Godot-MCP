@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Collections.Generic;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 {
@@ -20,6 +21,21 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
         public override string AgentName => "Cursor";
         public override string AgentId => "cursor";
         public override string DownloadUrl => "https://www.cursor.com/";
+
+        public override string? Description =>
+            "Cursor reads MCP servers from a project-local '.cursor/mcp.json'.";
+
+        public override IReadOnlyList<string> ManualSteps => new[]
+        {
+            "Click 'Configure' above to write the AI Game Developer server into '.cursor/mcp.json' (or copy the snippet manually).",
+            "Open Cursor in this project; it picks up the server automatically.",
+        };
+
+        public override IReadOnlyList<string> Troubleshooting => new[]
+        {
+            "- The '.cursor/mcp.json' file must have no JSON syntax errors.",
+            "- Open Cursor settings → 'MCP Servers' to restart ai-game-developer or inspect the available MCP tools and server status.",
+        };
 
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) =>
             AgentConfigPaths.Cursor(projectRoot);

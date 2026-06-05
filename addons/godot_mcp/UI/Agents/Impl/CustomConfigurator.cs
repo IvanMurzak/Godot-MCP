@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Collections.Generic;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 {
@@ -21,6 +22,22 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
         public override string AgentName => "Other - Custom";
         public override string AgentId => "other-custom";
         public override string DownloadUrl => "https://modelcontextprotocol.io/";
+
+        public override string? Description =>
+            "Any other MCP client. Copy the HTTP snippet below into your client's own MCP server config — AI Game Developer cannot auto-write it.";
+
+        public override IReadOnlyList<string> ManualSteps => new[]
+        {
+            "Open (or create) your MCP client's server configuration.",
+            "Copy and paste the JSON snippet above into it, under the client's MCP servers section.",
+            "Restart or reload the client to pick up the new server.",
+        };
+
+        public override IReadOnlyList<string> Troubleshooting => new[]
+        {
+            "- The snippet uses the HTTP transport (type: http) pointing at the same server this plugin connects to.",
+            "- If your client requires a bearer token, the Authorization header carries it — keep it secret.",
+        };
 
         /// <summary>Null = snippet-only; no on-disk config the addon can read/write for an arbitrary client.</summary>
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) => null;

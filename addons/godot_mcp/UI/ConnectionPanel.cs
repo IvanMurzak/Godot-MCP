@@ -161,6 +161,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             statusRow.AddChild(_statusDot);
 
             _statusLabel = new Label { Name = "StatusLabel" };
+            DockStyle.ApplySubLabel(_statusLabel);
             statusRow.AddChild(_statusLabel);
 
             // --- Connect/Disconnect button ---
@@ -192,6 +193,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 PlaceholderText = GodotMcpConfig.DefaultCustomHost,
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
+            DockStyle.ApplyInput(_hostField);
             // Commit on Enter and on focus-out (mirrors the Unity reference's FocusOut commit).
             _hostField.TextSubmitted += OnHostSubmitted;
             _hostField.FocusExited += OnHostFocusExited;
@@ -301,9 +303,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         static ColorRect MakeDot(string name) => new ColorRect
         {
             Name = name,
-            CustomMinimumSize = new Vector2(10, 10),
+            CustomMinimumSize = new Vector2(DockTheme.StatusDotSize, DockTheme.StatusDotSize),
             SizeFlagsVertical = SizeFlags.ShrinkCenter,
-            Color = ToColor(ConnectionPanelView.ColorDisconnected)
+            Color = DockStyle.Rgb(DockTheme.StatusDisconnected)
         };
 
         static HBoxContainer MakeTimelineRow(ColorRect dot, string label)
@@ -313,8 +315,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             row.AddChild(new Label { Text = label });
             return row;
         }
-
-        static Color ToColor((float R, float G, float B) rgb) => new Color(rgb.R, rgb.G, rgb.B);
 
         void OnConnectionStatusChanged(ConnectionStatus status) => ApplyStatus(status);
 
@@ -326,7 +326,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void ApplyStatus(ConnectionStatus status)
         {
-            var color = ToColor(ConnectionPanelView.StatusColor(status));
+            // Status-dot colour comes from the brief's dock palette (online green / connecting amber /
+            // disconnected orange); the status LABEL text still comes from ConnectionPanelView.
+            var color = DockStyle.Rgb(DockTheme.StatusDotColor(status));
 
             _statusDot.Color = color;
             _statusLabel.Text = ConnectionPanelView.StatusLabel(status);
