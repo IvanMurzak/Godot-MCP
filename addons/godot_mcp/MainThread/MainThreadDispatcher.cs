@@ -47,6 +47,46 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         static readonly ConcurrentQueue<Action> _actions = new ConcurrentQueue<Action>();
         static MainThreadDispatcher? _instance;
 
+        /// <summary>
+        /// Per-tick callbacks invoked on every main-thread <see cref="_Process"/> tick (after the queued
+        /// actions are drained), each receiving the frame <c>delta</c> in seconds. Unlike a dock Control's
+        /// own <see cref="Node._Process"/> — which Godot skips while the dock tab is hidden — the dispatcher
+        /// is a non-dock editor Node added under the <c>EditorPlugin</c>, so it ticks for the whole plugin
+        /// lifetime regardless of which dock tab is active. This is what makes the connection panel's periodic
+        /// status re-sync reliable even when its tab is not the foreground one (issue #42). Thread-affinity:
+        /// register/unregister + invocation all happen on the editor main thread.
+        /// </summary>
+        static event Action<double>? _onProcess;
+
+        /// <summary>
+        /// Register a per-frame <paramref name="callback"/> (receives the frame delta in seconds) invoked on
+        /// every main-thread tick. Returns an <see cref="IDisposable"/> that unregisters it — store it and
+        /// dispose on teardown so a freed subscriber stops being ticked. Safe to call before any dispatcher
+        /// is in the tree (the callback simply starts firing once one is).
+        /// </summary>
+        public static IDisposable RegisterProcess(Action<double> callback)
+        {
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+
+            _onProcess += callback;
+            return new ProcessRegistration(callback);
+        }
+
+        sealed class ProcessRegistration : IDisposable
+        {
+            Action<double>? _callback;
+            public ProcessRegistration(Action<double> callback) => _callback = callback;
+
+            public void Dispose()
+            {
+                if (_callback == null)
+                    return;
+                _onProcess -= _callback;
+                _callback = null;
+            }
+        }
+
         /// <summary>The currently-installed dispatcher instance, or <c>null</c> when none is in the tree.</summary>
         public static MainThreadDispatcher? Instance => _instance;
 
@@ -89,6 +129,21 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         public override void _Process(double delta)
         {
             DrainQueue();
+
+            // Fire per-tick subscribers (e.g. the connection panel's status re-sync). Snapshot the delegate
+            // so a callback that unregisters mid-invocation does not perturb the running invocation list.
+            var onProcess = _onProcess;
+            if (onProcess != null)
+            {
+                try
+                {
+                    onProcess(delta);
+                }
+                catch (Exception ex)
+                {
+                    GD.PushError($"[Godot-MCP] MainThreadDispatcher per-tick callback threw: {ex}");
+                }
+            }
         }
 
         static void DrainQueue()
