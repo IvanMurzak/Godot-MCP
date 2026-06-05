@@ -127,6 +127,12 @@
          via the headless Godot smoke (test.md Suite 3); the view logic is unit-tested here. The SignalR
          HubConnectionState enum it switches on is provided transitively by com.IvanMurzak.McpPlugin. -->
     <Compile Include="..\addons\godot_mcp\UI\ConnectionPanelView.cs" Link="Source\ConnectionPanelView.cs" />
+    <!-- Connection status tracker — pure-managed (no Godot native types, no #if TOOLS): the current-status
+         holder + de-dup rule extracted out of GodotMcpConnection.PublishStatus (issue #42). The editor
+         Timer/_Process wiring that drives the periodic re-sync stays in ConnectionPanel.cs (#if TOOLS,
+         verified via the headless Godot smoke, test.md Suite 3); the de-dup / convergence / reset logic
+         is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\ConnectionStatusTracker.cs" Link="Source\ConnectionStatusTracker.cs" />
     <!-- Support-footer link constants — pure-managed (no Godot native types, no #if TOOLS): the static
          URLs/copy opened by the dock footer. The editor Control wiring (SupportFooter.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the constants are unit-tested here. -->

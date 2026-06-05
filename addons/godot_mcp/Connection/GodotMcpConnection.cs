@@ -91,8 +91,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         readonly SerialDisposable _featuresSubscription = new();
 
-        /// <summary>Last reduced status, cached so <see cref="ConnectionStatus"/> is readable without a live plugin.</summary>
-        ConnectionStatus _status = ConnectionStatus.Disconnected;
+        /// <summary>
+        /// Holds the last reduced status (so <see cref="ConnectionStatus"/> is readable without a live
+        /// plugin) and owns the de-dup rule. Pure-managed (<see cref="ConnectionStatusTracker"/>) so the
+        /// status path — de-dup, late-subscriber convergence, reconnect reset — is unit-tested in the
+        /// plain-xUnit host. The dock's periodic re-sync reads <see cref="ConnectionStatus"/> (i.e.
+        /// <c>_statusTracker.Current</c>) DIRECTLY, bypassing the event, so a render can never be
+        /// permanently lost to the de-dup (the root cause of issue #42).
+        /// </summary>
+        readonly ConnectionStatusTracker _statusTracker = new();
 
         /// <summary>The active config (resolved Host/Token/mode are read live off this).</summary>
         public GodotMcpConfig Config => _config;
@@ -130,7 +137,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <see cref="ConnectionPanelView.Reduce"/>. The dock reads this for its initial render and is
         /// pushed subsequent changes via <see cref="ConnectionStatusChanged"/>.
         /// </summary>
-        public ConnectionStatus ConnectionStatus => _status;
+        public ConnectionStatus ConnectionStatus => _statusTracker.Current;
 
         /// <summary>
         /// Raised whenever <see cref="ConnectionStatus"/> changes. ALWAYS marshalled onto the Godot editor
@@ -241,7 +248,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         void SubscribeToConnectionState(IMcpPlugin plugin)
         {
             // Seed from current values so the dock's first render is correct even before any change fires.
-            PublishStatus(ConnectionPanelView.Reduce(plugin.ConnectionState.CurrentValue, plugin.KeepConnected.CurrentValue));
+            // Runs synchronously on the caller (Start, which is on the editor main thread), so it is "inline".
+            PublishStatus(ConnectionPanelView.Reduce(plugin.ConnectionState.CurrentValue, plugin.KeepConnected.CurrentValue), marshalled: false);
 
             _stateSubscription.Disposable = Observable
                 .CombineLatest(
@@ -254,9 +262,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     // event so subscribers (the dock) can touch Control nodes directly. A missing
                     // dispatcher (between editor reloads) degrades to a direct call rather than throwing.
                     if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() => PublishStatus(status));
+                        MainThreadDispatcher.Enqueue(() => PublishStatus(status, marshalled: true));
                     else
-                        PublishStatus(status);
+                        PublishStatus(status, marshalled: false);
                 });
 
             // Surface the reused client's authorization-rejected stream as a main-thread event the dock can
@@ -315,16 +323,52 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Update the cached <see cref="ConnectionStatus"/> and raise <see cref="ConnectionStatusChanged"/>
-        /// when it actually changed. De-duplicated so identical consecutive states (e.g. the seed plus an
-        /// immediate first push) do not double-fire the UI. MUST be called on the editor main thread.
+        /// when it actually changed. De-duplicated (via <see cref="_statusTracker"/>) so identical
+        /// consecutive states (e.g. the seed plus an immediate first push) do not double-fire the UI. MUST
+        /// be called on the editor main thread. <paramref name="marshalled"/> records whether this push was
+        /// hopped from the SignalR thread onto the main thread (<c>true</c>) or ran inline on the caller
+        /// (<c>false</c>) — surfaced at Trace so the full status path is visible in the Output when
+        /// diagnosing a stuck label (issue #42). The de-dup never permanently hides a render: the dock's
+        /// periodic re-sync reads <see cref="ConnectionStatus"/> directly.
         /// </summary>
-        void PublishStatus(ConnectionStatus status)
+        void PublishStatus(ConnectionStatus status, bool marshalled)
         {
-            if (_status == status)
+            var previous = _statusTracker.Current;
+            if (!_statusTracker.TryAdvance(status))
+            {
+                LogTrace($"[Godot-MCP] status push (de-duped, no change): {status} ({(marshalled ? "marshalled" : "inline")})");
                 return;
-            _status = status;
+            }
+
+            LogTrace($"[Godot-MCP] status: {previous} -> {status} ({(marshalled ? "marshalled to main thread" : "inline")})");
             ConnectionStatusChanged?.Invoke(status);
         }
+
+        /// <summary>
+        /// Emit a Trace-level diagnostic line through the same Godot Output + log-collector sink the
+        /// framework logs use, gated by the LIVE configured <see cref="GodotMcpConfig.ActiveLogLevel"/> (read
+        /// each call so the dock's Log Level dropdown applies without a rebuild). Used for the connection
+        /// status path (<see cref="PublishStatus"/>) so a smoke run at Trace shows whether/when
+        /// <see cref="ConnectionStatus.Connected"/> is reached and pushed. Never logs secrets — the status
+        /// enum carries none.
+        /// </summary>
+        void LogTrace(string message)
+        {
+            if (!GodotMcpLogGate.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Trace, _config.ActiveLogLevel))
+                return;
+
+            RouteFrameworkLog(GodotLogType.Log, message);
+        }
+
+        /// <summary>
+        /// Public Trace hook for the dock's <see cref="UI.ConnectionPanel"/> so it can record what status it
+        /// actually RENDERED (<c>ApplyStatus rendered status: …</c>) through the same Output + log-collector
+        /// sink and the same live <see cref="GodotMcpConfig.ActiveLogLevel"/> gate as the connection's own
+        /// status-push traces. Pairing the connection-side <c>status: X -> Y</c> line with the panel-side
+        /// <c>rendered status: Y</c> line is what lets a Trace smoke run SEE the terminal Connected render
+        /// arrive at the label (the diagnostic for issue #42). Never logs secrets.
+        /// </summary>
+        public void LogStatusTrace(string message) => LogTrace(message);
 
         /// <summary>
         /// The Godot sink the <see cref="GodotMcpLoggerProvider"/> routes the reused framework's log lines
@@ -511,6 +555,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             _config.KeepConnected = true;
             DisposePlugin();
+
+            // Reset the status baseline so the NEW plugin's seed (pushed from Start → SubscribeToConnectionState)
+            // is free to advance from Disconnected rather than being de-duped against a stale value carried over
+            // from the disposed plugin. Without this, a Reconnect that lands back on the same reduced status as
+            // before would not re-fire ConnectionStatusChanged — the periodic re-sync still converges the label,
+            // but resetting keeps the event path correct too. Done on the main thread (callers are UI handlers).
+            if (_statusTracker.Reset())
+                ConnectionStatusChanged?.Invoke(_statusTracker.Current);
+
             Start();
         }
 

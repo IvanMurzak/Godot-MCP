@@ -78,6 +78,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
         ColorRect _timelineServerDot = null!;
         ColorRect _timelineAgentDot = null!;
 
+        // The last status the panel actually RENDERED, so the periodic re-sync only re-applies (and traces)
+        // when the live status has drifted from what is on screen — keeping the per-tick check cheap and quiet.
+        ConnectionStatus? _renderedStatus;
+
+        // Accumulated frame delta for the periodic re-sync. Reset each time it crosses the interval so the
+        // re-sync runs at a steady ~ResyncIntervalSeconds cadence regardless of frame rate.
+        double _resyncAccumulator;
+
+        // Registration of the re-sync into the main-thread dispatcher's per-tick hook (disposed in _ExitTree).
+        // The dispatcher — NOT this dock Control — is the pump, because Godot skips a dock Control's own
+        // _Process while its tab is hidden, whereas the dispatcher (a non-dock editor Node) always ticks.
+        System.IDisposable? _resyncRegistration;
+
+        /// <summary>Re-sync cadence: re-read + re-apply the live connection status this often (seconds).</summary>
+        const double ResyncIntervalSeconds = 0.5;
+
         // Index of the two OptionButton entries — kept stable so a selection maps back to a mode.
         const int ModeIdCustom = 0;
         const int ModeIdCloud = 1;
@@ -88,14 +104,48 @@ namespace com.IvanMurzak.Godot.MCP.UI
             Name = "ConnectionPanel";
             BuildUi();
 
-            // Subscribe AFTER the UI exists so the first push has controls to write to. The connection
-            // marshals these events onto the editor main thread, so the handlers may touch Controls directly.
+            // Initial mode visibility (the cheap, idempotent part). The connection wiring — event
+            // subscription, status seed, and re-sync registration — is done in _EnterTree so that a
+            // dock-layout reload (which DETACHES then RE-ATTACHES this Control, firing _ExitTree → _EnterTree)
+            // re-arms all of it. Doing it only in the ctor was the residual #42 bug: the editor reparents the
+            // dock during "Loading docks" right as the handshake completes, the original wiring was torn down
+            // by _ExitTree, and nothing re-seeded the re-attached panel — so it stayed on "Connecting…".
+            ApplyModeVisibility(_connection.Config.ActiveMode);
+        }
+
+        /// <summary>
+        /// (Re)arm the panel's connection wiring every time it enters the editor tree — including the
+        /// re-attach the editor performs during dock-layout restore. Subscribes to the connection events,
+        /// re-seeds the label from the LIVE status (the event only fires on CHANGE, so a status reached while
+        /// detached must be pulled in here), and registers the dispatcher-pumped periodic re-sync. Pairs with
+        /// <see cref="_ExitTree"/>, which tears all three down. Idempotent against duplicate subscription:
+        /// the handlers are removed first.
+        /// </summary>
+        public override void _EnterTree()
+        {
+            // Remove-then-add so a re-entry never double-subscribes. The connection marshals these events onto
+            // the editor main thread, so the handlers may touch Controls directly.
+            _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.ConnectionStatusChanged += OnConnectionStatusChanged;
+            _connection.AuthorizationRejected -= OnAuthorizationRejected;
             _connection.AuthorizationRejected += OnAuthorizationRejected;
 
-            // Render the current state immediately (the event only fires on CHANGE).
+            // Re-seed from the LIVE status: a status reached while the panel was detached (e.g. Connected
+            // arriving during the dock reparent) is pulled onto the label here, since the change event was
+            // missed. This is the load-bearing #42 fix — the panel ALWAYS converges to the real status on
+            // (re)entry, independent of event-delivery timing.
             ApplyStatus(_connection.ConnectionStatus);
             ApplyModeVisibility(_connection.Config.ActiveMode);
+
+            // Belt-and-suspenders convergence: register a per-frame re-sync into the main-thread dispatcher's
+            // tick hook. Every ResyncIntervalSeconds it re-reads the LIVE connection status off the connection
+            // (NOT off the event) and re-applies it if the label has drifted. Reaches the real status within
+            // ~0.5s even if a push was lost to the off-thread marshalling / de-dup boundary, and covers a
+            // Reconnect settling on the new connection's status. The dispatcher pumps it (not this Control's
+            // own _Process), so it ticks even when the dock tab is hidden.
+            _resyncAccumulator = 0.0;
+            _resyncRegistration?.Dispose();
+            _resyncRegistration = MainThreadDispatcher.RegisterProcess(OnResyncTick);
         }
 
         void BuildUi()
@@ -286,6 +336,51 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _timelineGodotDot.Color = color;
             _timelineServerDot.Color = color;
+
+            _renderedStatus = status;
+
+            // Trace the actual render so a Trace smoke run shows the terminal Connected reaching the label
+            // (pairs with the connection's "status: X -> Y" push trace — see GodotMcpConnection.PublishStatus).
+            _connection.LogStatusTrace($"[Godot-MCP] ApplyStatus rendered status: {status}");
+        }
+
+        /// <summary>
+        /// Per-frame tick fired by the main-thread dispatcher. Accumulates <paramref name="delta"/> and runs
+        /// the cheap <see cref="SyncFromConnection"/> drift check once every <see cref="ResyncIntervalSeconds"/>s.
+        /// Driven by the dispatcher (a non-dock editor Node that always ticks) rather than this Control's own
+        /// <see cref="Node._Process"/>, which Godot skips while the dock tab is hidden — see the registration
+        /// in the constructor.
+        /// </summary>
+        void OnResyncTick(double delta)
+        {
+            _resyncAccumulator += delta;
+            if (_resyncAccumulator < ResyncIntervalSeconds)
+                return;
+
+            _resyncAccumulator = 0.0;
+            SyncFromConnection();
+        }
+
+        /// <summary>
+        /// Re-read the LIVE connection status DIRECTLY off <see cref="GodotMcpConnection.ConnectionStatus"/>
+        /// (bypassing the <see cref="GodotMcpConnection.ConnectionStatusChanged"/> event) and re-apply it
+        /// when it differs from what the panel last rendered. Driven by the periodic <see cref="_Process"/>
+        /// re-sync so the label converges to the real status within ~<see cref="ResyncIntervalSeconds"/>s even
+        /// if a status push was lost to the off-thread marshalling / de-dup boundary OR to a dock-layout
+        /// reload that re-instantiated/detached the panel mid-handshake (the root cause of issue #42), or a
+        /// Reconnect rebuilt the connection. Cheap and quiet: when the live status already matches the
+        /// rendered one this is a single enum comparison and returns without touching any Control. Runs on
+        /// the editor main thread (Godot fires <see cref="_Process"/> there).
+        /// </summary>
+        void SyncFromConnection()
+        {
+            var live = _connection.ConnectionStatus;
+            if (_renderedStatus == live)
+                return;
+
+            _connection.LogStatusTrace(
+                $"[Godot-MCP] re-sync: label '{_renderedStatus}' drifted from live '{live}' — re-applying.");
+            ApplyStatus(live);
         }
 
         void OnConnectButtonPressed()
@@ -633,6 +728,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Unsubscribe so a freed panel does not receive a late main-thread push.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
+
+            // Unregister the periodic re-sync so the dispatcher no longer ticks into a freed panel.
+            _resyncRegistration?.Dispose();
+            _resyncRegistration = null;
 
             // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel.
             _deviceAuthFlow?.Cancel();
