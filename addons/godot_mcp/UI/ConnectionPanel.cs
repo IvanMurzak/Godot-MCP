@@ -9,6 +9,7 @@
 */
 #if TOOLS
 #nullable enable
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
@@ -18,23 +19,28 @@ namespace com.IvanMurzak.Godot.MCP.UI
 {
     /// <summary>
     /// The connection section of the Godot-MCP editor dock — the Godot <see cref="Control"/> analog of
-    /// Unity-MCP's <c>MainWindowEditor.Connection</c>. A <see cref="VBoxContainer"/> the
-    /// <see cref="GodotMcpDock"/> drops into its Body, wired to a <see cref="GodotMcpConnection"/>. It
-    /// renders, top to bottom:
+    /// Unity-MCP's <c>MainWindowEditor.Connection</c>, ported 1:1 to Unity-MCP's vertical TIMELINE design. A
+    /// <see cref="VBoxContainer"/> the <see cref="GodotMcpDock"/> drops into its Body, wired to a
+    /// <see cref="GodotMcpConnection"/>. It renders, top to bottom:
     /// <list type="bullet">
-    ///   <item>A status row — a coloured dot + a "Godot: …" label, live from
-    ///   <see cref="GodotMcpConnection.ConnectionStatus"/>.</item>
-    ///   <item>A Connect/Disconnect button whose text + enabled-state reflect the status.</item>
-    ///   <item>A Custom|Cloud mode selector that persists the choice and reconnects.</item>
-    ///   <item>A Server URL field (Custom mode only) bound to the custom host, with validation.</item>
-    ///   <item>A simplified Godot → MCP server → AI agent timeline of status dots.</item>
+    ///   <item>A "Connection" header (20px bold) with a right-aligned Custom|Cloud segmented control.</item>
+    ///   <item>Amber alert panels — "Authorization Required" (Cloud, no token) / "Connection Required"
+    ///   (ready but not connected).</item>
+    ///   <item>A vertical timeline of three points — Godot, MCP server, AI agent — each with a status circle
+    ///   (filled green online / green ring connecting / filled orange disconnected) in a 20px indicator column
+    ///   joined by a 2px connecting line, an underlined 13px label, and the point's content.</item>
+    ///   <item>The Godot point: a right-aligned Connect/Disconnect button.</item>
+    ///   <item>The MCP-server point: a frame-group card holding the Server URL (Custom mode) / cloud auth row
+    ///   (Cloud mode) and the Authorization segmented + masked token field.</item>
+    ///   <item>The AI-agent point: a status circle + label (no connecting line below).</item>
     /// </list>
     ///
     /// <para>
     /// Editor-only (<c>#if TOOLS</c>): it builds live Godot UI <see cref="Node"/>s, so it is verified via
     /// the headless Godot smoke (<c>test.md</c> Suite 3), not the plain-xUnit host. ALL presentation
-    /// decisions (status reduction, label/button text, dot colour, URL validation) live in the
-    /// pure-managed <see cref="ConnectionPanelView"/> so they ARE unit-tested.
+    /// decisions (status reduction, label/button text, circle state, segmented index/selection, alert
+    /// visibility, URL validation) live in the pure-managed <see cref="ConnectionPanelView"/> /
+    /// <see cref="SegmentedControlModel"/> / <see cref="DockTheme"/> so they ARE unit-tested.
     /// </para>
     /// </summary>
     [Tool]
@@ -42,16 +48,41 @@ namespace com.IvanMurzak.Godot.MCP.UI
     {
         readonly GodotMcpConnection _connection;
 
-        // Status row.
-        ColorRect _statusDot = null!;
+        // Header: Custom|Cloud mode segmented control.
+        Control _modeSegmented = null!;
+        static readonly IReadOnlyList<string> ModeOptions = new[] { ModeLabelCustom, ModeLabelCloud };
+        const string ModeLabelCustom = "Custom";
+        const string ModeLabelCloud = "Cloud";
+
+        // Alert panels (amber WarningFrame): shown/hidden per ConnectionPanelView rules.
+        PanelContainer _authRequiredAlert = null!;
+        PanelContainer _connectionRequiredAlert = null!;
+
+        // Timeline circles (re-styled in place per status change).
+        Panel _timelineGodotCircle = null!;
+        Panel _timelineServerCircle = null!;
+        Panel _timelineAgentCircle = null!;
+
+        // Godot point: status label + Connect/Disconnect.
         Label _statusLabel = null!;
         Button _connectButton = null!;
 
-        // Mode selector + custom-host row.
-        OptionButton _modeSelector = null!;
+        // MCP-server point content.
+        Label _agentLabel = null!;
+
+        // Custom-mode server-URL + auth.
         VBoxContainer _customHostRow = null!;
         LineEdit _hostField = null!;
         Label _overrideNote = null!;
+
+        // Custom-mode authorization segmented (none|required) + masked token + Generate.
+        Control _authSegmented = null!;
+        VBoxContainer _tokenRow = null!;
+        LineEdit _tokenField = null!;
+        Button _generateTokenButton = null!;
+        static readonly IReadOnlyList<string> AuthOptions = new[] { AuthLabelNone, AuthLabelRequired };
+        const string AuthLabelNone = "none";
+        const string AuthLabelRequired = "required";
 
         // Cloud-mode auth section (device-code flow): masked token + Authorize/Revoke + status.
         VBoxContainer _cloudAuthRow = null!;
@@ -62,21 +93,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
         GodotDeviceAuthFlow? _deviceAuthFlow;
-
-        // Custom-mode authorization row (auth option + masked token + Generate).
-        OptionButton _authSelector = null!;
-        VBoxContainer _tokenRow = null!;
-        LineEdit _tokenField = null!;
-        Button _generateTokenButton = null!;
-
-        // Index of the two Authorization OptionButton entries — kept stable so a selection maps to a value.
-        const int AuthIdNone = 0;
-        const int AuthIdRequired = 1;
-
-        // Timeline dots.
-        ColorRect _timelineGodotDot = null!;
-        ColorRect _timelineServerDot = null!;
-        ColorRect _timelineAgentDot = null!;
 
         // The last status the panel actually RENDERED, so the periodic re-sync only re-applies (and traces)
         // when the live status has drifted from what is on screen — keeping the per-tick check cheap and quiet.
@@ -93,10 +109,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>Re-sync cadence: re-read + re-apply the live connection status this often (seconds).</summary>
         const double ResyncIntervalSeconds = 0.5;
-
-        // Index of the two OptionButton entries — kept stable so a selection maps back to a mode.
-        const int ModeIdCustom = 0;
-        const int ModeIdCloud = 1;
 
         public ConnectionPanel(GodotMcpConnection connection)
         {
@@ -151,39 +163,93 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void BuildUi()
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            AddThemeConstantOverride("separation", 6);
+            AddThemeConstantOverride("separation", 8);
 
-            // --- Status row: dot + label ---
-            var statusRow = new HBoxContainer { Name = "StatusRow" };
-            AddChild(statusRow);
+            // --- Header row: "Connection" (20px bold) + right-aligned Custom|Cloud segmented ---
+            var headerRow = new HBoxContainer { Name = "HeaderRow" };
+            AddChild(headerRow);
 
-            _statusDot = MakeDot("StatusDot");
-            statusRow.AddChild(_statusDot);
+            var headerLabel = new Label { Name = "HeaderLabel", Text = "Connection" };
+            DockStyle.ApplyHeader(headerLabel);
+            headerRow.AddChild(headerLabel);
 
-            _statusLabel = new Label { Name = "StatusLabel" };
+            headerRow.AddChild(new Control { Name = "HeaderSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+
+            _modeSegmented = DockStyle.SegmentedControl(
+                "ModeSegmented",
+                ModeOptions,
+                SegmentedControlModel.IndexOf(ModeOptions, ModeLabelForMode(_connection.Config.ConnectionMode)),
+                OnModeSegmentSelected);
+            headerRow.AddChild(_modeSegmented);
+
+            // --- Alert panels (shown/hidden per ConnectionPanelView rules) ---
+            _authRequiredAlert = DockStyle.AlertPanel(
+                "AuthRequiredAlert",
+                ConnectionPanelView.AuthorizationRequiredTitle,
+                ConnectionPanelView.AuthorizationRequiredMessage,
+                ConnectionPanelView.AuthorizeButtonText,
+                OnAuthorizeButtonPressed);
+            AddChild(_authRequiredAlert);
+
+            _connectionRequiredAlert = DockStyle.AlertPanel(
+                "ConnectionRequiredAlert",
+                ConnectionPanelView.ConnectionRequiredTitle,
+                ConnectionPanelView.ConnectionRequiredMessage,
+                ConnectionPanelView.ButtonTextConnect,
+                () => _connection.Connect());
+            AddChild(_connectionRequiredAlert);
+
+            // --- Vertical timeline: Godot -> MCP server -> AI agent ---
+            var timeline = new VBoxContainer { Name = "Timeline" };
+            timeline.AddThemeConstantOverride("separation", 0);
+            AddChild(timeline);
+
+            // Point 1 — Godot: label + right-aligned Connect/Disconnect.
+            _timelineGodotCircle = DockStyle.TimelineCircle("GodotCircle", ConnectionPanelView.TimelinePointState.Disconnected);
+            _statusLabel = new Label { Name = "GodotStatus" };
             DockStyle.ApplySubLabel(_statusLabel);
-            statusRow.AddChild(_statusLabel);
 
-            // --- Connect/Disconnect button ---
             _connectButton = new Button { Name = "ConnectButton" };
             _connectButton.Pressed += OnConnectButtonPressed;
-            AddChild(_connectButton);
 
-            // --- Mode selector ---
-            var modeRow = new HBoxContainer { Name = "ModeRow" };
-            AddChild(modeRow);
+            var godotContent = new HBoxContainer { Name = "GodotContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            godotContent.AddChild(DockStyle.TimelineLabel("GodotLabel", "Godot"));
+            godotContent.AddChild(_statusLabel);
+            godotContent.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            godotContent.AddChild(_connectButton);
+            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false));
 
-            modeRow.AddChild(new Label { Name = "ModeLabel", Text = "Mode" });
+            // Point 2 — MCP server: a frame-group card with the server URL / cloud auth + authorization rows.
+            _timelineServerCircle = DockStyle.TimelineCircle("ServerCircle", ConnectionPanelView.TimelinePointState.Disconnected);
+            var serverContent = new VBoxContainer { Name = "ServerContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            serverContent.AddThemeConstantOverride("separation", 4);
+            serverContent.AddChild(DockStyle.TimelineLabel("ServerLabel", "MCP server"));
+            BuildServerCard(serverContent);
+            timeline.AddChild(MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false));
 
-            _modeSelector = new OptionButton { Name = "ModeSelector" };
-            _modeSelector.AddItem("Custom", ModeIdCustom);
-            _modeSelector.AddItem("Cloud", ModeIdCloud);
-            _modeSelector.ItemSelected += OnModeSelected;
-            modeRow.AddChild(_modeSelector);
+            // Point 3 — AI agent: circle + label, LAST point (no connecting line below).
+            _timelineAgentCircle = DockStyle.TimelineCircle("AgentCircle", ConnectionPanelView.TimelinePointState.Disconnected);
+            _agentLabel = new Label { Name = "AgentLabel", Text = ConnectionPanelView.AgentLabel(null, null) };
+            DockStyle.ApplySubLabel(_agentLabel);
+            var agentContent = new HBoxContainer { Name = "AgentContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            agentContent.AddChild(_agentLabel);
+            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true));
+        }
+
+        /// <summary>
+        /// Build the MCP-server point's frame-group card content: the Custom-mode server-URL row + override
+        /// note, the Cloud-mode device-auth row, and the Authorization (none|required) segmented + masked
+        /// token field. These are reparented INTO a styled card by <see cref="DockStyle.Card"/>.
+        /// </summary>
+        void BuildServerCard(VBoxContainer parent)
+        {
+            var card = new VBoxContainer { Name = "ServerCardContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            card.AddThemeConstantOverride("separation", 4);
 
             // --- Custom-mode server-URL row (shown only in Custom mode) ---
             _customHostRow = new VBoxContainer { Name = "CustomHostRow" };
-            AddChild(_customHostRow);
+            _customHostRow.AddThemeConstantOverride("separation", 4);
+            card.AddChild(_customHostRow);
 
             _customHostRow.AddChild(new Label { Name = "HostLabel", Text = "Server URL" });
 
@@ -199,23 +265,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _hostField.FocusExited += OnHostFocusExited;
             _customHostRow.AddChild(_hostField);
 
-            // --- Authorization (Custom mode only): none | required ---
-            var authRow = new HBoxContainer { Name = "AuthRow" };
-            _customHostRow.AddChild(authRow);
+            // --- Authorization (Custom mode only): none | required (segmented) ---
+            var authLine = new HBoxContainer { Name = "AuthLine" };
+            _customHostRow.AddChild(authLine);
 
-            authRow.AddChild(new Label { Name = "AuthLabel", Text = "Authorization" });
+            authLine.AddChild(new Label { Name = "AuthLabel", Text = "Authorization Token" });
+            authLine.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
-            _authSelector = new OptionButton { Name = "AuthSelector" };
-            _authSelector.AddItem("none", AuthIdNone);
-            _authSelector.AddItem("required", AuthIdRequired);
-            _authSelector.ItemSelected += OnAuthOptionSelected;
-            authRow.AddChild(_authSelector);
+            _authSegmented = DockStyle.SegmentedControl(
+                "AuthSegmented",
+                AuthOptions,
+                SegmentedControlModel.IndexOf(AuthOptions, AuthLabelForOption(_connection.Config.AuthOption)),
+                OnAuthSegmentSelected);
+            authLine.AddChild(_authSegmented);
 
             // --- Token row (shown only when Authorization == required): masked field + Generate ---
             _tokenRow = new VBoxContainer { Name = "TokenRow" };
             _customHostRow.AddChild(_tokenRow);
-
-            _tokenRow.AddChild(new Label { Name = "TokenLabel", Text = "Token" });
 
             var tokenLine = new HBoxContainer { Name = "TokenLine" };
             _tokenRow.AddChild(tokenLine);
@@ -237,7 +303,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // --- Cloud-mode auth section (shown only in Cloud mode): device-code login ---
             _cloudAuthRow = new VBoxContainer { Name = "CloudAuthRow" };
-            AddChild(_cloudAuthRow);
+            _cloudAuthRow.AddThemeConstantOverride("separation", 4);
+            card.AddChild(_cloudAuthRow);
 
             _cloudAuthRow.AddChild(new Label { Name = "CloudTokenLabel", Text = "Cloud Token" });
 
@@ -279,67 +346,72 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 AutowrapMode = TextServer.AutowrapMode.WordSmart
             };
             _overrideNote.AddThemeColorOverride("font_color", new Color(0.92f, 0.74f, 0.20f));
-            AddChild(_overrideNote);
+            card.AddChild(_overrideNote);
 
-            AddChild(new HSeparator { Name = "TimelineSeparator" });
-
-            // --- Simplified timeline: Godot -> MCP server -> AI agent ---
-            var timeline = new VBoxContainer { Name = "Timeline" };
-            AddChild(timeline);
-
-            _timelineGodotDot = MakeDot("TimelineGodotDot");
-            timeline.AddChild(MakeTimelineRow(_timelineGodotDot, "Godot"));
-
-            _timelineServerDot = MakeDot("TimelineServerDot");
-            timeline.AddChild(MakeTimelineRow(_timelineServerDot, "MCP server"));
-
-            _timelineAgentDot = MakeDot("TimelineAgentDot");
-            timeline.AddChild(MakeTimelineRow(_timelineAgentDot, "AI agent (connects on demand)"));
-
-            // Sync the mode selector to the current config.
-            SyncModeSelector(_connection.Config.ActiveMode);
+            parent.AddChild(DockStyle.Card(card, "Server"));
         }
 
-        static ColorRect MakeDot(string name) => new ColorRect
+        /// <summary>
+        /// Compose one timeline point: a 20px indicator column (the status circle, and below it a 2px
+        /// connecting line that ExpandFills to span the gap to the next point — hidden on the LAST point) next
+        /// to the point's <paramref name="content"/>. Mirrors Unity-MCP's timeline row.
+        /// </summary>
+        static HBoxContainer MakeTimelinePoint(Panel circle, Control content, bool isLast)
         {
-            Name = name,
-            CustomMinimumSize = new Vector2(DockTheme.StatusDotSize, DockTheme.StatusDotSize),
-            SizeFlagsVertical = SizeFlags.ShrinkCenter,
-            Color = DockStyle.Rgb(DockTheme.StatusDisconnected)
-        };
+            var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            row.AddThemeConstantOverride("separation", 8);
 
-        static HBoxContainer MakeTimelineRow(ColorRect dot, string label)
-        {
-            var row = new HBoxContainer();
-            row.AddChild(dot);
-            row.AddChild(new Label { Text = label });
+            // Indicator column: circle on top, connecting line filling the rest (hidden on the last point).
+            var indicator = new VBoxContainer
+            {
+                Name = "Indicator",
+                CustomMinimumSize = new Vector2(DockTheme.TimelineIndicatorWidth, 0)
+            };
+            indicator.AddThemeConstantOverride("separation", 2);
+            indicator.AddChild(circle);
+
+            var line = DockStyle.TimelineLine();
+            line.Visible = !isLast;
+            indicator.AddChild(line);
+
+            row.AddChild(indicator);
+            row.AddChild(content);
             return row;
         }
+
+        static string ModeLabelForMode(GodotMcpConnectionMode mode) =>
+            mode == GodotMcpConnectionMode.Cloud ? ModeLabelCloud : ModeLabelCustom;
+
+        static string AuthLabelForOption(GodotMcpAuthOption option) =>
+            option == GodotMcpAuthOption.Required ? AuthLabelRequired : AuthLabelNone;
 
         void OnConnectionStatusChanged(ConnectionStatus status) => ApplyStatus(status);
 
         /// <summary>
-        /// Push a <see cref="ConnectionStatus"/> into the status row, button, and the Godot + MCP-server
-        /// timeline dots. All derived presentation comes from <see cref="ConnectionPanelView"/>. The
-        /// "Godot" and "MCP server" timeline dots track the same hub state (a single connection); the
-        /// "AI agent" dot is informational and stays neutral (the cloud-auth / agent-info task fills it in).
+        /// Push a <see cref="ConnectionStatus"/> into the Godot status label, the Connect button, the Godot +
+        /// MCP-server timeline circles, and the alert-panel visibility. All derived presentation comes from
+        /// <see cref="ConnectionPanelView"/>. The "Godot" and "MCP server" circles track the same hub state (a
+        /// single connection); the "AI agent" circle stays neutral (Godot is a server-less client with no live
+        /// agent-info channel — the label reads "AI agent (connects on demand)").
         /// </summary>
         void ApplyStatus(ConnectionStatus status)
         {
-            // Status-dot colour comes from the brief's dock palette (online green / connecting amber /
-            // disconnected orange); the status LABEL text still comes from ConnectionPanelView.
-            var color = DockStyle.Rgb(DockTheme.StatusDotColor(status));
+            var pointState = ConnectionPanelView.PointState(status);
 
-            _statusDot.Color = color;
             _statusLabel.Text = ConnectionPanelView.StatusLabel(status);
-
             _connectButton.Text = ConnectionPanelView.ButtonText(status);
             _connectButton.Disabled = ConnectionPanelView.ButtonDisabled(status);
+            // Primary (cyan) when the click connects; secondary (gray) when it disconnects.
+            if (status == ConnectionStatus.Connected)
+                DockStyle.ApplySecondaryButton(_connectButton);
+            else
+                DockStyle.ApplyPrimaryButton(_connectButton);
 
-            _timelineGodotDot.Color = color;
-            _timelineServerDot.Color = color;
+            DockStyle.ApplyTimelineCircle(_timelineGodotCircle, pointState);
+            DockStyle.ApplyTimelineCircle(_timelineServerCircle, pointState);
 
             _renderedStatus = status;
+            ApplyAlertVisibility(status);
 
             // Trace the actual render so a Trace smoke run shows the terminal Connected reaching the label
             // (pairs with the connection's "status: X -> Y" push trace — see GodotMcpConnection.PublishStatus).
@@ -347,11 +419,26 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// Show/hide the two amber alert panels per the pure-managed
+        /// <see cref="ConnectionPanelView.ShowAuthorizationRequired"/> /
+        /// <see cref="ConnectionPanelView.ShowConnectionRequired"/> rules, driven by the live mode, whether a
+        /// cloud token is stored, and the current status.
+        /// </summary>
+        void ApplyAlertVisibility(ConnectionStatus status)
+        {
+            var isCloud = _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud;
+            var hasCloudToken = !string.IsNullOrEmpty(_connection.Config.CloudToken);
+
+            _authRequiredAlert.Visible = ConnectionPanelView.ShowAuthorizationRequired(isCloud, hasCloudToken);
+            _connectionRequiredAlert.Visible = ConnectionPanelView.ShowConnectionRequired(isCloud, hasCloudToken, status);
+        }
+
+        /// <summary>
         /// Per-frame tick fired by the main-thread dispatcher. Accumulates <paramref name="delta"/> and runs
         /// the cheap <see cref="SyncFromConnection"/> drift check once every <see cref="ResyncIntervalSeconds"/>s.
         /// Driven by the dispatcher (a non-dock editor Node that always ticks) rather than this Control's own
         /// <see cref="Node._Process"/>, which Godot skips while the dock tab is hidden — see the registration
-        /// in the constructor.
+        /// in <see cref="_EnterTree"/>.
         /// </summary>
         void OnResyncTick(double delta)
         {
@@ -366,13 +453,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>
         /// Re-read the LIVE connection status DIRECTLY off <see cref="GodotMcpConnection.ConnectionStatus"/>
         /// (bypassing the <see cref="GodotMcpConnection.ConnectionStatusChanged"/> event) and re-apply it
-        /// when it differs from what the panel last rendered. Driven by the periodic <see cref="_Process"/>
-        /// re-sync so the label converges to the real status within ~<see cref="ResyncIntervalSeconds"/>s even
-        /// if a status push was lost to the off-thread marshalling / de-dup boundary OR to a dock-layout
-        /// reload that re-instantiated/detached the panel mid-handshake (the root cause of issue #42), or a
-        /// Reconnect rebuilt the connection. Cheap and quiet: when the live status already matches the
-        /// rendered one this is a single enum comparison and returns without touching any Control. Runs on
-        /// the editor main thread (Godot fires <see cref="_Process"/> there).
+        /// when it differs from what the panel last rendered. Driven by the periodic dispatcher re-sync so the
+        /// label converges to the real status within ~<see cref="ResyncIntervalSeconds"/>s even if a status push
+        /// was lost to the off-thread marshalling / de-dup boundary OR to a dock-layout reload that
+        /// re-instantiated/detached the panel mid-handshake (the root cause of issue #42), or a Reconnect
+        /// rebuilt the connection. Cheap and quiet: when the live status already matches the rendered one this
+        /// is a single enum comparison and returns without touching any Control. Runs on the editor main thread.
         /// </summary>
         void SyncFromConnection()
         {
@@ -393,24 +479,24 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _connection.Connect();
         }
 
-        void OnModeSelected(long index)
+        /// <summary>
+        /// Handle a Custom|Cloud segment click: persist the chosen PERSISTED mode and reconnect only when the
+        /// change actually moves the LIVE active mode (under an env override ActiveMode is pinned, so a
+        /// persisted-only edit must not tear down the current connection). Re-renders the segmented selection
+        /// and the mode-dependent sections afterward.
+        /// </summary>
+        void OnModeSegmentSelected(int index)
         {
-            var mode = index == ModeIdCloud
+            var mode = index == SegmentedControlModel.IndexOf(ModeOptions, ModeLabelCloud)
                 ? GodotMcpConnectionMode.Cloud
                 : GodotMcpConnectionMode.Custom;
 
             if (_connection.Config.ConnectionMode == mode)
             {
-                // No persisted change selected; just re-render.
                 ApplyModeVisibility(_connection.Config.ActiveMode);
                 return;
             }
 
-            // Persist the user's chosen PERSISTED mode regardless of any env/.env override. The selector
-            // is always enabled (the change "does something" — it updates the persisted layer that takes
-            // effect once the override is removed). Only RECONNECT when the change actually moves the LIVE
-            // active mode: under an env override ActiveMode is pinned, so a persisted-only edit must not
-            // tear down the current connection.
             var liveModeBefore = _connection.Config.ActiveMode;
             _connection.Config.ConnectionMode = mode;
             _connection.Save();
@@ -426,9 +512,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// so the connection has a credential to send. Persists even under an env override (the override
         /// note explains the env value wins live); only reconnects when the live mode is Custom.
         /// </summary>
-        void OnAuthOptionSelected(long index)
+        void OnAuthSegmentSelected(int index)
         {
-            var authOption = index == AuthIdRequired
+            var authOption = index == SegmentedControlModel.IndexOf(AuthOptions, AuthLabelRequired)
                 ? GodotMcpAuthOption.Required
                 : GodotMcpAuthOption.None;
 
@@ -507,19 +593,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Drive the editable Custom section off the PERSISTED <see cref="GodotMcpConfig.ConnectionMode"/>
-        /// (so editing the selector / URL / auth always targets the layer the user can change), while the
-        /// override note surfaces when an env/.env value is forcing the LIVE active mode away from that
-        /// persisted choice. The selector + host field stay ENABLED even when overridden — a persisted
-        /// edit "does something" (it takes effect once the override is gone) and does NOT corrupt
-        /// precedence, since env/.env is read live by the config resolvers. The host field shows the
-        /// EFFECTIVE custom host (env override visible) for transparency.
+        /// (so editing the segmented control / URL / auth always targets the layer the user can change), while
+        /// the override note surfaces when an env/.env value is forcing the LIVE active mode away from that
+        /// persisted choice. The segmented control stays interactive even when overridden — a persisted edit
+        /// "does something" (it takes effect once the override is gone) and does NOT corrupt precedence, since
+        /// env/.env is read live by the config resolvers. The host field shows the EFFECTIVE custom host (env
+        /// override visible) for transparency. Re-renders the mode segmented selection + alert visibility too.
         /// </summary>
         void ApplyModeVisibility(GodotMcpConnectionMode activeMode)
         {
-            // Editable controls follow the PERSISTED mode (what the user is editing); the cloud-vs-custom
-            // SECTION the user can configure is the persisted one, not the env-forced live one.
+            // Editable controls follow the PERSISTED mode (what the user is editing).
             var persistedMode = _connection.Config.ConnectionMode;
             var persistedCustom = persistedMode == GodotMcpConnectionMode.Custom;
+
+            // Re-render the mode segmented to the persisted mode.
+            DockStyle.SetSegmentedSelection(
+                _modeSegmented,
+                SegmentedControlModel.IndexOf(ModeOptions, ModeLabelForMode(persistedMode)));
 
             _customHostRow.Visible = persistedCustom;
             _cloudAuthRow.Visible = !persistedCustom;
@@ -539,16 +629,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var overridden = activeMode != persistedMode;
             _overrideNote.Visible = overridden;
 
-            // Keep BOTH the mode selector and the host field ENABLED even when an env/.env value currently
-            // forces the live mode/host: editing them updates the PERSISTED layer (it "does something"),
-            // which takes effect once the override is removed. The override note explains that the env
-            // value still wins for the live connection.
             _hostField.Editable = true;
-            _modeSelector.Disabled = false;
+            ApplyAlertVisibility(_connection.ConnectionStatus);
         }
 
         /// <summary>
-        /// Render the Custom-mode authorization controls from the persisted config: the auth selector
+        /// Render the Custom-mode authorization controls from the persisted config: the auth segmented
         /// reflects <see cref="GodotMcpConfig.AuthOption"/>, the masked token row is shown only when
         /// <c>Required</c>, and the field carries the stored Custom token (masked). The token is never
         /// shown in clear text or logged. Always reads/writes the PERSISTED layer (env auth override is
@@ -557,7 +643,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void ApplyAuthVisibility()
         {
             var required = _connection.Config.AuthOption == GodotMcpAuthOption.Required;
-            _authSelector.Selected = required ? AuthIdRequired : AuthIdNone;
+            DockStyle.SetSegmentedSelection(
+                _authSegmented,
+                SegmentedControlModel.IndexOf(AuthOptions, required ? AuthLabelRequired : AuthLabelNone));
             _tokenRow.Visible = required;
             // Masked field carries the stored token; only meaningful when required.
             _tokenField.Text = required ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
@@ -664,6 +752,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.Config.CloudToken = token;
             _connection.Save();
             ApplyCloudAuthState();
+            ApplyAlertVisibility(_connection.ConnectionStatus);
 
             // Reconnect so the new bearer is used — only meaningful when the live mode is Cloud.
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
@@ -680,6 +769,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.Save();
             _cloudAuthStatus.Text = "Token revoked.";
             ApplyCloudAuthState();
+            ApplyAlertVisibility(_connection.ConnectionStatus);
 
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
                 _connection.Disconnect();
@@ -701,17 +791,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.Save();
             _cloudAuthStatus.Text = "Authorization rejected by server — press Authorize.";
             ApplyCloudAuthState();
+            ApplyAlertVisibility(_connection.ConnectionStatus);
 
             GD.PushWarning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
-        }
-
-        void SyncModeSelector(GodotMcpConnectionMode activeMode)
-        {
-            // Reflect the PERSISTED mode the user edits (not the env-forced live mode); the override note
-            // explains when the two diverge.
-            _modeSelector.Selected = _connection.Config.ConnectionMode == GodotMcpConnectionMode.Cloud
-                ? ModeIdCloud
-                : ModeIdCustom;
         }
 
         /// <summary>
@@ -720,7 +802,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public void Refresh()
         {
-            SyncModeSelector(_connection.Config.ActiveMode);
             ApplyModeVisibility(_connection.Config.ActiveMode);
             ApplyStatus(_connection.ConnectionStatus);
         }

@@ -241,6 +241,59 @@ namespace com.IvanMurzak.Godot.MCP.UI
             return panel;
         }
 
+        /// <summary>
+        /// Build a full amber ALERT panel (Unity's warning frame with an action): the same tinted amber bg /
+        /// border / radius as <see cref="WarningFrame"/>, but with a bold amber <paramref name="title"/> over a
+        /// warm <paramref name="message"/> and a primary (cyan) action button. Used for "Authorization Required"
+        /// and "Connection Required". The returned panel is shown/hidden by the caller per the pure-managed
+        /// <see cref="ConnectionPanelView.ShowAuthorizationRequired"/> / <see cref="ConnectionPanelView.ShowConnectionRequired"/>
+        /// rules. <paramref name="onPressed"/> wires the button.
+        /// </summary>
+        public static PanelContainer AlertPanel(string name, string title, string message, string buttonText, System.Action onPressed)
+        {
+            var box = new StyleBoxFlat
+            {
+                BgColor = Rgba(DockTheme.WarningBackground),
+                BorderColor = Rgba(DockTheme.WarningBorder)
+            };
+            box.SetCornerRadiusAll(DockTheme.WarningCornerRadius);
+            box.SetBorderWidthAll(1);
+            box.ContentMarginLeft = 8;
+            box.ContentMarginRight = 8;
+            box.ContentMarginTop = 6;
+            box.ContentMarginBottom = 6;
+
+            var panel = new PanelContainer { Name = name, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            panel.AddThemeStyleboxOverride("panel", box);
+
+            var col = new VBoxContainer { Name = "AlertContent" };
+            col.AddThemeConstantOverride("separation", 4);
+            panel.AddChild(col);
+
+            var titleLabel = new Label { Name = "AlertTitle", Text = title };
+            titleLabel.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSubLabel);
+            titleLabel.AddThemeColorOverride("font_color", Rgb(DockTheme.WarningTitle));
+            col.AddChild(titleLabel);
+
+            var messageLabel = new Label
+            {
+                Name = "AlertMessage",
+                Text = message,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
+            messageLabel.AddThemeColorOverride("font_color", Rgb(DockTheme.WarningMessage));
+            messageLabel.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeWarningMessage);
+            col.AddChild(messageLabel);
+
+            var button = new Button { Name = "AlertButton", Text = buttonText };
+            ApplyPrimaryButton(button);
+            button.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+            button.Pressed += () => onPressed();
+            col.AddChild(button);
+
+            return panel;
+        }
+
         // --- Inputs --------------------------------------------------------------------------------------------
 
         /// <summary>Build the input (LineEdit/OptionButton) normal <see cref="StyleBoxFlat"/>: translucent-black bg, 6px radius, subtle border.</summary>
@@ -339,6 +392,246 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static void ApplyOptionButton(OptionButton option)
         {
             option.AddThemeStyleboxOverride("normal", InputStyleBox());
+        }
+
+        // --- Segmented control (reusable Custom|Cloud / stdio|http / none|required toggle) ---------------------
+
+        /// <summary>
+        /// Build a horizontal SEGMENTED CONTROL: a track-skinned <see cref="HBoxContainer"/> holding one toggle
+        /// <see cref="Button"/> per option, where exactly one segment is "selected" (dark highlight + cyan text)
+        /// and the rest are muted. Mirrors Unity-MCP's segmented mode/transport/auth toggle. The numbers
+        /// (track/selected colours, radii, per-segment width/font) all come from <see cref="DockTheme"/>;
+        /// the index/selection rules come from the pure-managed (unit-tested) <see cref="SegmentedControlModel"/>.
+        ///
+        /// <para>
+        /// <paramref name="onSelected"/> fires with the chosen option index when the user clicks a NOT-already-
+        /// selected segment (clicking the active segment is a no-op). The caller owns the value→index mapping and
+        /// re-renders selection via <see cref="SetSegmentedSelection"/> after persisting; this builder does NOT
+        /// auto-toggle, so the visual selection never drifts from the backing config.
+        /// </para>
+        /// </summary>
+        public static PanelContainer SegmentedControl(
+            string name,
+            System.Collections.Generic.IReadOnlyList<string> options,
+            int selectedIndex,
+            System.Action<int> onSelected)
+        {
+            var track = new HBoxContainer { Name = name };
+            track.AddThemeConstantOverride("separation", 0);
+
+            var trackBox = new StyleBoxFlat { BgColor = Rgba(DockTheme.SegmentTrackBackground) };
+            trackBox.SetCornerRadiusAll(DockTheme.SegmentTrackCornerRadius);
+            trackBox.ContentMarginLeft = DockTheme.SegmentTrackPadding;
+            trackBox.ContentMarginRight = DockTheme.SegmentTrackPadding;
+            trackBox.ContentMarginTop = DockTheme.SegmentTrackPadding;
+            trackBox.ContentMarginBottom = DockTheme.SegmentTrackPadding;
+
+            // The track skin is applied via a PanelContainer wrapper so the pill background frames the segments.
+            var panel = new PanelContainer { Name = name + "Track" };
+            panel.AddThemeStyleboxOverride("panel", trackBox);
+            panel.AddChild(track);
+
+            var clamped = SegmentedControlModel.ClampSelected(selectedIndex, options.Count);
+            for (int i = 0; i < options.Count; i++)
+            {
+                int index = i; // capture for the lambda
+                var segment = new Button
+                {
+                    Name = "Segment" + i,
+                    Text = options[i],
+                    ToggleMode = true,
+                    ButtonPressed = SegmentedControlModel.IsSelected(i, clamped),
+                    Flat = true,
+                    CustomMinimumSize = new Vector2(DockTheme.SegmentMinWidth, 0)
+                };
+                segment.AddThemeFontSizeOverride("font_size", DockTheme.SegmentFontSize);
+                ApplySegmentStyle(segment, SegmentedControlModel.IsSelected(i, clamped));
+
+                segment.Pressed += () =>
+                {
+                    // Clicking the already-selected segment is a no-op (and we keep it visually pressed).
+                    if (SegmentedControlModel.IsSelected(index, GetSegmentedSelection(track)))
+                    {
+                        SetSegmentedSelection(track, GetSegmentedSelection(track));
+                        return;
+                    }
+                    onSelected(index);
+                };
+                track.AddChild(segment);
+            }
+
+            return panel;
+        }
+
+        /// <summary>
+        /// Re-render which segment of a <see cref="SegmentedControl"/> is selected — call after the backing
+        /// value changes (e.g. after persisting a mode toggle). <paramref name="track"/> is the inner
+        /// <see cref="HBoxContainer"/> returned indirectly by <see cref="SegmentedControl"/> (reach it via the
+        /// panel's first child); pass the panel and this resolves it.
+        /// </summary>
+        public static void SetSegmentedSelection(Control trackOrPanel, int selectedIndex)
+        {
+            var track = ResolveSegmentTrack(trackOrPanel);
+            if (track == null)
+                return;
+
+            var clamped = SegmentedControlModel.ClampSelected(selectedIndex, track.GetChildCount());
+            for (int i = 0; i < track.GetChildCount(); i++)
+            {
+                if (track.GetChild(i) is Button segment)
+                {
+                    var isSel = SegmentedControlModel.IsSelected(i, clamped);
+                    segment.ButtonPressed = isSel;
+                    ApplySegmentStyle(segment, isSel);
+                }
+            }
+        }
+
+        static int GetSegmentedSelection(HBoxContainer track)
+        {
+            for (int i = 0; i < track.GetChildCount(); i++)
+            {
+                if (track.GetChild(i) is Button segment && segment.ButtonPressed)
+                    return i;
+            }
+            return 0;
+        }
+
+        static HBoxContainer? ResolveSegmentTrack(Control trackOrPanel)
+        {
+            if (trackOrPanel is HBoxContainer hbox)
+                return hbox;
+            // SegmentedControl returns a PanelContainer wrapping the HBox track.
+            if (trackOrPanel.GetChildCount() > 0 && trackOrPanel.GetChild(0) is HBoxContainer inner)
+                return inner;
+            return null;
+        }
+
+        static void ApplySegmentStyle(Button segment, bool selected)
+        {
+            if (selected)
+            {
+                var box = new StyleBoxFlat { BgColor = Rgba(DockTheme.SegmentSelectedBackground) };
+                box.SetCornerRadiusAll(DockTheme.SegmentSelectedCornerRadius);
+                box.ContentMarginLeft = 8;
+                box.ContentMarginRight = 8;
+                box.ContentMarginTop = 2;
+                box.ContentMarginBottom = 2;
+                segment.AddThemeStyleboxOverride("normal", box);
+                segment.AddThemeStyleboxOverride("hover", box);
+                segment.AddThemeStyleboxOverride("pressed", box);
+
+                var text = Rgb(DockTheme.SegmentSelectedText);
+                segment.AddThemeColorOverride("font_color", text);
+                segment.AddThemeColorOverride("font_hover_color", text);
+                segment.AddThemeColorOverride("font_pressed_color", text);
+            }
+            else
+            {
+                // Unselected: transparent (track shows through) + muted text.
+                var empty = new StyleBoxEmpty();
+                segment.AddThemeStyleboxOverride("normal", empty);
+                segment.AddThemeStyleboxOverride("hover", empty);
+                segment.AddThemeStyleboxOverride("pressed", empty);
+
+                var muted = Rgb(DockTheme.SegmentUnselectedText);
+                segment.AddThemeColorOverride("font_color", muted);
+                segment.AddThemeColorOverride("font_hover_color", muted.Lightened(0.2f));
+                segment.AddThemeColorOverride("font_pressed_color", muted);
+            }
+        }
+
+        // --- Vertical timeline (Godot -> MCP server -> AI agent) ----------------------------------------------
+
+        /// <summary>
+        /// Build the status circle for a timeline point in a given <see cref="ConnectionPanelView.TimelinePointState"/>:
+        /// <c>Online</c> = filled green disc, <c>Connecting</c> = green RING (transparent fill, 2px green border),
+        /// <c>Disconnected</c> = filled orange disc. A <see cref="Panel"/> sized to <see cref="DockTheme.StatusDotSize"/>
+        /// with a fully-rounded <see cref="StyleBoxFlat"/>. Use <see cref="ApplyTimelineCircle"/> to re-style an
+        /// existing circle in place (the panel reuses one node across status changes).
+        /// </summary>
+        public static Panel TimelineCircle(string name, ConnectionPanelView.TimelinePointState state)
+        {
+            var circle = new Panel
+            {
+                Name = name,
+                CustomMinimumSize = new Vector2(DockTheme.StatusDotSize, DockTheme.StatusDotSize),
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter
+            };
+            ApplyTimelineCircle(circle, state);
+            return circle;
+        }
+
+        /// <summary>
+        /// Re-style an existing timeline circle <see cref="Panel"/> for the given
+        /// <see cref="ConnectionPanelView.TimelinePointState"/> in place (filled disc vs green ring). Called on
+        /// every status change so a single circle node tracks the live state.
+        /// </summary>
+        public static void ApplyTimelineCircle(Panel circle, ConnectionPanelView.TimelinePointState state)
+        {
+            var radius = DockTheme.StatusDotSize / 2;
+            StyleBoxFlat box;
+            switch (state)
+            {
+                case ConnectionPanelView.TimelinePointState.Online:
+                    box = new StyleBoxFlat { BgColor = Rgb(DockTheme.StatusOnline) };
+                    break;
+                case ConnectionPanelView.TimelinePointState.Connecting:
+                    // Green RING: transparent fill + 2px green border.
+                    box = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), BorderColor = Rgb(DockTheme.StatusOnline) };
+                    box.SetBorderWidthAll(DockTheme.TimelineRingBorderWidth);
+                    break;
+                default:
+                    box = new StyleBoxFlat { BgColor = Rgb(DockTheme.StatusDisconnected) };
+                    break;
+            }
+            box.SetCornerRadiusAll(radius);
+            circle.AddThemeStyleboxOverride("panel", box);
+        }
+
+        /// <summary>
+        /// Build the 2px vertical connecting line drawn between consecutive timeline points
+        /// (<see cref="DockTheme.TimelineLine"/>). A thin <see cref="ColorRect"/> that ExpandFills vertically so
+        /// it spans the gap; the LAST point passes a hidden one (no line below the final point).
+        /// </summary>
+        public static ColorRect TimelineLine(string name = "TimelineLine")
+        {
+            return new ColorRect
+            {
+                Name = name,
+                Color = Rgb(DockTheme.TimelineLine),
+                CustomMinimumSize = new Vector2(DockTheme.TimelineLineWidth, 0),
+                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter
+            };
+        }
+
+        /// <summary>
+        /// Build a 13px timeline-point title (Unity's timeline label) WITH a thin underline: a
+        /// <see cref="VBoxContainer"/> holding the <see cref="Label"/> over a 1px divider-coloured underline rule.
+        /// Godot's plain <see cref="Label"/> has no font-underline override, so the underline is a real 1px
+        /// <see cref="ColorRect"/> that hugs the label width — reliable across Godot versions.
+        /// </summary>
+        public static VBoxContainer TimelineLabel(string name, string text)
+        {
+            var box = new VBoxContainer { Name = name };
+            box.AddThemeConstantOverride("separation", 1);
+            box.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+
+            var label = new Label { Name = "Text", Text = text };
+            label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSubLabel);
+            box.AddChild(label);
+
+            var underline = new ColorRect
+            {
+                Name = "Underline",
+                Color = Rgb(DockTheme.Divider).Lightened(0.4f),
+                CustomMinimumSize = new Vector2(0, 1),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            };
+            box.AddChild(underline);
+            return box;
         }
 
         // --- Foldout (collapsible section: a toggle Button + a child VBox shown/hidden) ------------------------

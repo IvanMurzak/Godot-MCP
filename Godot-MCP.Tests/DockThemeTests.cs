@@ -111,6 +111,71 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(DockTheme.ColorDescriptionMuted, DockTheme.RowIdMuted);
         }
 
+        // --- Segmented control palette (Unity-MCP's segmented toggle) ---
+
+        [Fact]
+        public void SegmentTrack_MatchesBriefRgbaAndSizing()
+        {
+            // track bg rgba(255,255,255, 0.05)
+            AssertRgba8(DockTheme.SegmentTrackBackground, 255, 255, 255, 0.05f);
+            Assert.Equal(6, DockTheme.SegmentTrackCornerRadius);
+            Assert.Equal(2, DockTheme.SegmentTrackPadding);
+        }
+
+        [Fact]
+        public void SegmentSelected_MatchesBriefRgbaAndSizing()
+        {
+            // selected highlight rgba(0,0,0, 0.4)
+            AssertRgba8(DockTheme.SegmentSelectedBackground, 0, 0, 0, 0.4f);
+            Assert.Equal(4, DockTheme.SegmentSelectedCornerRadius);
+        }
+
+        [Fact]
+        public void SegmentText_SelectedIsCyanPrimary_UnselectedIsMutedGray()
+        {
+            // selected text = primary cyan Color8(175,232,230)
+            Assert.Equal(DockTheme.ButtonPrimary, DockTheme.SegmentSelectedText);
+            AssertRgb8(DockTheme.SegmentSelectedText, 175, 232, 230);
+            // unselected text = muted gray (reuses the description muted gray)
+            Assert.Equal(DockTheme.ColorDescriptionMuted, DockTheme.SegmentUnselectedText);
+        }
+
+        [Fact]
+        public void SegmentSizing_MatchesBrief()
+        {
+            Assert.Equal(40, DockTheme.SegmentMinWidth);
+            Assert.Equal(12, DockTheme.SegmentFontSize);
+        }
+
+        // --- Vertical timeline ---
+
+        [Fact]
+        public void TimelineLine_MatchesBrief8BitAndWidth()
+        {
+            // connecting line rgb(80,80,80), 2px wide.
+            AssertRgb8(DockTheme.TimelineLine, 80, 80, 80);
+            Assert.Equal(2, DockTheme.TimelineLineWidth);
+        }
+
+        [Fact]
+        public void TimelineIndicatorAndRing_MatchBrief()
+        {
+            Assert.Equal(20, DockTheme.TimelineIndicatorWidth);
+            Assert.Equal(2, DockTheme.TimelineRingBorderWidth);
+        }
+
+        [Fact]
+        public void WarningFrame_MatchesBriefRgbaAndColors()
+        {
+            // amber warning frame: bg rgba(180,120,40, 0.12), border rgba(220,160,60, 0.45),
+            // title Color8(255,200,100), message Color8(210,180,130).
+            AssertRgba8(DockTheme.WarningBackground, 180, 120, 40, 0.12f);
+            AssertRgba8(DockTheme.WarningBorder, 220, 160, 60, 0.45f);
+            AssertRgb8(DockTheme.WarningTitle, 255, 200, 100);
+            AssertRgb8(DockTheme.WarningMessage, 210, 180, 130);
+            Assert.Equal(10, DockTheme.WarningCornerRadius);
+        }
+
         static void AssertRgb8((float R, float G, float B) c, int r8, int g8, int b8)
         {
             Assert.Equal(r8 / 255f, c.R, 5);

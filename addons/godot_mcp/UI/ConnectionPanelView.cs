@@ -162,5 +162,94 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>The Authorize/Cancel button text for a given flow state (Cancel while running).</summary>
         public static string CloudAuthButtonText(GodotDeviceAuthFlowState state) =>
             GodotDeviceAuthFlow.IsRunning(state) ? AuthorizeButtonCancelText : AuthorizeButtonText;
+
+        // --- Vertical timeline (Godot -> MCP server -> AI agent) presentation (pure-managed, unit-tested). ---
+
+        /// <summary>
+        /// The visual state of one timeline status circle, decoupled from <see cref="ConnectionStatus"/> so the
+        /// editor's circle painter maps it 1:1 to a Godot <c>StyleBoxFlat</c> (filled vs ring): a <c>Online</c>
+        /// circle is a filled green disc, <c>Connecting</c> is a green ring (transparent fill, 2px border), and
+        /// <c>Disconnected</c> is a filled orange disc. Mirrors Unity-MCP's status-indicator classes.
+        /// </summary>
+        public enum TimelinePointState
+        {
+            /// <summary>Filled orange disc — not connected.</summary>
+            Disconnected,
+
+            /// <summary>Green ring (transparent fill, 2px border) — mid-handshake / retrying.</summary>
+            Connecting,
+
+            /// <summary>Filled green disc — connected.</summary>
+            Online
+        }
+
+        /// <summary>
+        /// Map the dock's <see cref="ConnectionStatus"/> to the timeline circle's
+        /// <see cref="TimelinePointState"/>. The "Godot" and "MCP server" points both track this single hub
+        /// state (one connection); the editor paints the returned state as a filled disc or a ring.
+        /// </summary>
+        public static TimelinePointState PointState(ConnectionStatus status) => status switch
+        {
+            ConnectionStatus.Connected => TimelinePointState.Online,
+            ConnectionStatus.Connecting => TimelinePointState.Connecting,
+            _ => TimelinePointState.Disconnected
+        };
+
+        /// <summary>
+        /// The AI-agent timeline point's label. With no connected agent it reads
+        /// "AI agent (connects on demand)"; when an agent is connected the label carries its
+        /// <paramref name="clientName"/> and (when present) <paramref name="clientVersion"/> — e.g.
+        /// "AI agent: Claude (1.2.0)" or "AI agent: Cursor". Whitespace-only names are treated as none.
+        /// Mirrors Unity-MCP's "AI agent: &lt;client&gt; (&lt;ver&gt;)" line.
+        /// </summary>
+        public static string AgentLabel(string? clientName, string? clientVersion)
+        {
+            if (string.IsNullOrWhiteSpace(clientName))
+                return "AI agent (connects on demand)";
+
+            return string.IsNullOrWhiteSpace(clientVersion)
+                ? $"AI agent: {clientName!.Trim()}"
+                : $"AI agent: {clientName!.Trim()} ({clientVersion!.Trim()})";
+        }
+
+        // --- Alert panels (amber WarningFrame). Pure-managed visibility rules, unit-tested. ---
+
+        /// <summary>Title of the Cloud-mode "no token yet" alert.</summary>
+        public const string AuthorizationRequiredTitle = "Authorization Required";
+
+        /// <summary>Message body of the "Authorization Required" alert.</summary>
+        public const string AuthorizationRequiredMessage =
+            "Cloud mode needs an access token. Press Authorize to sign in.";
+
+        /// <summary>Title of the "authorized but not connected" alert.</summary>
+        public const string ConnectionRequiredTitle = "Connection Required";
+
+        /// <summary>Message body of the "Connection Required" alert.</summary>
+        public const string ConnectionRequiredMessage =
+            "Not connected to the MCP server. Press Connect to establish the connection.";
+
+        /// <summary>
+        /// True when the "Authorization Required" alert should show: the live mode is Cloud and no cloud
+        /// token is stored yet (the user must Authorize before a connection can succeed). Pure rule so the
+        /// editor only decides VISIBILITY here — the alert chrome is built in <c>DockStyle.WarningFrame</c>.
+        /// </summary>
+        public static bool ShowAuthorizationRequired(bool isCloudMode, bool hasCloudToken) =>
+            isCloudMode && !hasCloudToken;
+
+        /// <summary>
+        /// True when the "Connection Required" alert should show: the user is otherwise ready (in Custom
+        /// mode, or in Cloud mode WITH a token) but the live connection is not <see cref="ConnectionStatus.Connected"/>.
+        /// Suppressed in Cloud-mode-without-token (the "Authorization Required" alert owns that case) and while
+        /// <see cref="ConnectionStatus.Connecting"/> (a connection attempt is already underway).
+        /// </summary>
+        public static bool ShowConnectionRequired(bool isCloudMode, bool hasCloudToken, ConnectionStatus status)
+        {
+            // Authorization alert owns the cloud-no-token case; don't double-alert.
+            if (ShowAuthorizationRequired(isCloudMode, hasCloudToken))
+                return false;
+
+            // Only nag when fully disconnected — a Connecting attempt is already in flight.
+            return status == ConnectionStatus.Disconnected;
+        }
     }
 }
