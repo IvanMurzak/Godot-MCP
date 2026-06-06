@@ -68,10 +68,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Theory]
-        [InlineData("/etc/passwd")]
-        [InlineData(@"C:\Windows\System32")]
+        [InlineData("/etc/passwd")]            // POSIX absolute
+        [InlineData(@"C:\Windows\System32")]   // Windows drive-letter (backslash) — must reject on Linux too
+        [InlineData("C:/Windows")]             // Windows drive-letter (forward slash)
+        [InlineData("c:/windows")]             // lowercase drive letter
+        [InlineData("C:relative")]             // drive-letter with no separator (still drive-rooted)
+        [InlineData(@"\\server\share")]        // UNC path
+        [InlineData(@"\rooted")]               // single leading backslash (Windows root-of-current-drive)
         public void IsSafeRelativeSkillsPath_RejectsAbsolutePaths(string path)
         {
+            // The rejection MUST be OS-independent — these are all absolute/rooted forms regardless of host OS.
+            // (Regression guard for the CI failure where Path.IsPathRooted("C:\\Windows") was false on Linux.)
             Assert.False(AgentConfigPaths.IsSafeRelativeSkillsPath(path));
         }
 

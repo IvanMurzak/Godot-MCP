@@ -87,10 +87,28 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             if (string.IsNullOrEmpty(relativePath))
                 return true;
 
+            // Reject absolute / rooted forms with a PURELY STRING-BASED test so the result is identical on every
+            // host OS. System.IO.Path.IsPathRooted is platform-dependent — on Linux it returns false for a Windows
+            // drive-letter path like "C:\Windows" (a drive letter is not a Linux root), which would let such a path
+            // slip past the guard on a Linux CI runner while being rejected on Windows. Cover all absolute shapes:
+            //   - POSIX absolute:        leading '/'
+            //   - Windows UNC / rooted:  leading '\' (single or "\\server\share")
+            //   - Windows drive-letter:  "<letter>:" prefix, with '\' OR '/' or nothing after (C:\, C:/, C:foo)
+            var normalized = relativePath!.Replace('\\', '/');
+
+            if (normalized.StartsWith("/"))
+                return false;
+
+            if (normalized.Length >= 2 &&
+                normalized[1] == ':' &&
+                ((normalized[0] >= 'A' && normalized[0] <= 'Z') || (normalized[0] >= 'a' && normalized[0] <= 'z')))
+                return false;
+
+            // Belt-and-suspenders: still honour the platform check too (catches any rooted form not covered above).
             if (Path.IsPathRooted(relativePath))
                 return false;
 
-            var normalized = relativePath!.Replace('\\', '/');
+            // Reject '..' traversal segments (after backslash normalization above).
             if (normalized == ".." || normalized.StartsWith("../") || normalized.Contains("/../") || normalized.EndsWith("/.."))
                 return false;
 
