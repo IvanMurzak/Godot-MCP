@@ -24,8 +24,13 @@ external checkout or junction.
 1. installs the requested Godot **mono** binary + .NET 8,
 2. **copies** `../addons/godot_mcp` into `Godot-Tests/addons/godot_mcp` (a dev
    junction does not survive checkout in CI; the copy is `.gitignore`d here),
-3. builds the project C# (`<godot> --headless --path Godot-Tests --build-solutions --quit`),
-4. boots the editor headless (`<godot> --headless --path Godot-Tests --editor --quit`)
+3. imports the project once (`<godot> --headless --path Godot-Tests --import --quit`)
+   to materialize the `.godot/` layout on a cold checkout,
+4. builds the project C# with **`dotnet build Godot-Tests/Godot-Tests.csproj`** —
+   the addon `*.cs` globs into the project assembly, so a clean build proves the
+   addon compiles against the frozen pins. (`godot --build-solutions` is a silent
+   no-op on a cold headless checkout, so `dotnet build` is used directly.)
+5. boots the editor headless (`<godot> --headless --path Godot-Tests --editor --quit`)
    and **fails the job** unless `[Godot-MCP] plugin loaded` appears with no
    `FileNotFoundException` / addon-load exception.
 
@@ -42,6 +47,7 @@ copy the addon in first:
 
 ```bash
 cp -r ../addons/godot_mcp addons/godot_mcp
-"$GODOT" --headless --path . --build-solutions --quit
-"$GODOT" --headless --path . --editor --quit   # expect: [Godot-MCP] plugin loaded
+"$GODOT" --headless --path . --import --quit          # generate .godot/ (cold start)
+dotnet build Godot-Tests.csproj --configuration Debug # -> .godot/mono/temp/bin/Debug/Godot-MCP-Tests.dll
+"$GODOT" --headless --path . --editor --quit          # expect: [Godot-MCP] plugin loaded
 ```

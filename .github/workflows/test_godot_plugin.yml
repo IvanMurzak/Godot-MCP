@@ -59,19 +59,39 @@ jobs:
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
           test -f "${TEST_PROJECT}/addons/godot_mcp/GodotMcpPlugin.cs"
 
-      - name: Build C# solution (headless)
+      - name: Import the project (generate .godot layout)
+        shell: bash
+        run: |
+          set -uo pipefail
+          # A cold CI checkout has no .godot/. Godot's `--build-solutions` is a
+          # silent no-op until the project has been imported once (it materializes
+          # the .godot/mono layout only on first editor import). Run an import pass
+          # so the project is recognized before we build. Headless import prints
+          # benign "progress dialog while flushing the message queue" warnings and
+          # may exit non-zero on teardown — neither is fatal, so do NOT gate on the
+          # import's exit code (the real gates are the emitted DLL below + the
+          # plugin-loaded assertion). See ../../CLAUDE.md "Testbed runbook".
+          godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
+          echo "Import pass complete."
+
+      - name: Build C# (addon compiles into the project assembly)
         shell: bash
         run: |
           set -euo pipefail
-          # Godot generates the .sln/.csproj wiring + compiles the project (the
-          # addon globs into the project assembly). A non-zero exit on teardown
-          # is tolerated; the real build signal is the emitted managed assembly.
-          godot --headless --path "${TEST_PROJECT}" --build-solutions --quit \
-            2>&1 | tee build-solutions.log || true
+          # Compile via `dotnet build` directly on the test project's .csproj
+          # rather than `godot --build-solutions` — the latter silently no-ops in
+          # a headless cold checkout (it produces no assembly and no diagnostics).
+          # `dotnet build` is deterministic: Godot.NET.Sdk resolves GodotSharp from
+          # nuget.org for the pinned SDK, and the addon's *.cs (copied in above)
+          # globs into THIS project assembly, so a successful build proves the
+          # addon's C# compiles against the frozen McpPlugin / ReflectorNet pins.
+          # Output lands at .godot/mono/temp/bin/<Config>/Godot-MCP-Tests.dll.
+          dotnet build "${TEST_PROJECT}/Godot-Tests.csproj" \
+            --configuration Debug 2>&1 | tee build.log
           if ! ls "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.dll >/dev/null 2>&1; then
             echo "::error::C# build did not produce Godot-MCP-Tests.dll — the addon failed to compile."
-            echo "----- build-solutions.log -----"
-            cat build-solutions.log || true
+            echo "----- build.log -----"
+            cat build.log || true
             exit 1
           fi
 
@@ -105,7 +125,8 @@ jobs:
         with:
           name: godot-${{ inputs.godotVersion }}-logs
           path: |
-            build-solutions.log
+            import.log
+            build.log
             editor-boot.log
           if-no-files-found: ignore
           retention-days: 7
