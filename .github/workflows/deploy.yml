@@ -1,0 +1,87 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# │  See the LICENSE file in the project root for more information.  │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# Deploy: publish the godot-mcp-cli npm package (cli/) to the public npm
+# registry via OIDC Trusted Publishing with build provenance. Mirrors
+# Unity-MCP/.github/workflows/deploy.yml's `deploy-cli-to-npm` job 1:1.
+#
+# Called by release.yml ONLY after the GitHub Release has been created on a
+# real version bump (the release pipeline is version-tag-gated, so a no-bump
+# merge to main never reaches this workflow). Can also be dispatched manually
+# with an explicit version for re-publish.
+#
+# IMPORTANT — first publish prerequisite (owner action, separate from this PR):
+#   npm OIDC Trusted Publishing requires the `godot-mcp-cli` package to have a
+#   Trusted Publisher configured on npmjs.com that authorizes THIS repository +
+#   workflow. Until the owner sets that up, the `npm publish` step will fail
+#   auth. There is NO NPM_TOKEN secret — auth is exchanged at runtime via the
+#   `id-token: write` OIDC token. See:
+#   https://docs.npmjs.com/trusted-publishers
+
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "npm package version to publish (e.g. 0.1.0)."
+        required: true
+        type: string
+
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+jobs:
+  deploy-cli-to-npm:
+    name: publish godot-mcp-cli to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC Trusted Publishing — no NPM_TOKEN needed.
+    defaults:
+      run:
+        working-directory: ./cli
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Resolve version
+        id: version
+        run: |
+          version="${{ inputs.version }}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Publishing godot-mcp-cli version: ${version}"
+
+      # Align the cli package.json version to the release version so the
+      # published artifact matches the GitHub Release tag. plugin.cfg is the
+      # single source of truth for the release version (see docs/RELEASING.md);
+      # this writes that value into the cli at publish time. --allow-same-version
+      # makes it a no-op when cli/package.json already matches.
+      - name: Set package version
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Publish to npm with provenance
+        run: npm publish --access public --provenance
