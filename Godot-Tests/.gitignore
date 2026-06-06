@@ -1,0 +1,24 @@
+# CI-only Godot testbed — keep this dir minimal. The addon is copied into
+# addons/godot_mcp/ at CI time (see .github/workflows/test_godot_plugin.yml) and
+# is NEVER committed here (the real source lives in ../addons/godot_mcp/). All
+# build/import artifacts are generated and ignored.
+
+# Copied-in addon (populated by CI; the canonical source is ../addons/godot_mcp/)
+/addons/
+
+# Godot 4+ generated dirs / caches
+.godot/
+.import/
+export_presets.cfg
+.mono/
+*.import
+*.cs.uid
+
+# .NET build output
+bin/
+obj/
+
+# Godot-generated solution / nuget config (regenerated on build-solutions)
+Godot-MCP-Tests.sln
+Godot-Tests.sln
+nuget.config

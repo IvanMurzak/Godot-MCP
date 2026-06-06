@@ -1,0 +1,27 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Minimal Godot 4 C# project used ONLY by CI (.github/workflows/test_godot_plugin.yml)
+; to boot a headless editor across Godot 4.3 / 4.4 / 4.5 (mono) and assert the
+; godot_mcp addon loads. No game content. The addon source is copied into
+; res://addons/godot_mcp/ by the workflow before boot (a dev junction does not
+; survive checkout in CI). Keep the NuGet pins in Godot-Tests.csproj in lockstep
+; with ../Godot-MCP.csproj. The "4.3" feature is the engine floor the addon
+; supports; opening under 4.4/4.5 just triggers a silent (headless) upgrade.
+
+config_version=5
+
+[application]
+
+config/name="Godot-MCP-Tests"
+config/description="Minimal headless CI testbed verifying the godot_mcp addon loads across Godot 4.3/4.4/4.5 (mono). No game content."
+config/features=PackedStringArray("4.3", "C#")
+
+[dotnet]
+
+project/assembly_name="Godot-MCP-Tests"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
