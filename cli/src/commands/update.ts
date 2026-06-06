@@ -5,7 +5,7 @@ import * as ui from '../utils/ui.js';
 import { fetchLatestVersion, formatUpdateAvailable, isRunningViaNpx } from '../utils/update-check.js';
 import { isNewerVersion } from '../utils/semver.js';
 
-const PACKAGE_NAME = 'godot-mcp-cli';
+const PACKAGE_NAME = 'godot-cli';
 
 interface UpdateOptions {
   check?: boolean;
@@ -25,7 +25,7 @@ function runNpmInstall(packageSpec: string): Promise<number> {
 
 export function createUpdateCommand(currentVersion: string): Command {
   return new Command('update')
-    .description('Update godot-mcp-cli to the latest version')
+    .description('Update godot-cli to the latest version')
     .option('--check', 'Only check for updates without installing')
     .action(async (options: UpdateOptions) => {
       if (isRunningViaNpx()) {

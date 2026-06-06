@@ -6,7 +6,7 @@ import * as os from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CLI_PATH = path.resolve(__dirname, '..', 'bin', 'godot-mcp-cli.js');
+const CLI_PATH = path.resolve(__dirname, '..', 'bin', 'godot-cli.js');
 
 function runCli(args: string[], options?: { cwd?: string }): { stdout: string; exitCode: number } {
   try {
@@ -30,7 +30,7 @@ describe('CLI integration', () => {
     it('shows help with --help', () => {
       const { stdout, exitCode } = runCli(['--help']);
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('godot-mcp-cli');
+      expect(stdout).toContain('godot-cli');
       expect(stdout).toContain('open');
       expect(stdout).toContain('run-tool');
       expect(stdout).toContain('run-system-tool');
@@ -73,7 +73,7 @@ describe('CLI integration', () => {
     });
 
     it('falls back to cwd and fails when cwd is not a Godot project', () => {
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-mcp-cli-open-'));
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-open-'));
       try {
         const { exitCode, stdout } = runCli(['open'], { cwd: tmp });
         expect(exitCode).toBe(1);
@@ -98,7 +98,7 @@ describe('CLI integration', () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-mcp-cli-cfg-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-cfg-'));
     });
 
     afterEach(() => {
@@ -150,7 +150,7 @@ describe('CLI integration', () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-mcp-cli-plugin-'));
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-plugin-'));
     });
 
     afterEach(() => {

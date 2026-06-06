@@ -76,7 +76,7 @@ export const openCommand = new Command('open')
       if (!libIsGodotProjectDir(projectPath)) {
         if (usedCwdFallback) {
           ui.error(`Current directory is not a Godot project: ${projectPath}`);
-          ui.info('Run this command from a Godot project folder, or pass a path: godot-mcp-cli open <path>');
+          ui.info('Run this command from a Godot project folder, or pass a path: godot-cli open <path>');
         } else {
           ui.error(`Not a Godot project (missing project.godot): ${projectPath}`);
         }

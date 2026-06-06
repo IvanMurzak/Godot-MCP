@@ -1,7 +1,7 @@
-// Shared public types for the godot-mcp-cli library API.
+// Shared public types for the godot-cli library API.
 //
 // This file is re-exported from `lib.ts` — consumers should import
-// from `godot-mcp-cli` (the package root), NOT from deep paths.
+// from `godot-cli` (the package root), NOT from deep paths.
 //
 // No top-level side effects, no runtime deps beyond TypeScript types.
 

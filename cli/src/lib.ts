@@ -1,4 +1,4 @@
-// Library entry point for `godot-mcp-cli`.
+// Library entry point for `godot-cli`.
 //
 // Constraints:
 // - NO top-level side effects. Importing this file must not open sockets, spin
@@ -10,7 +10,7 @@
 //   the public boundary. Narrow on `kind` for type-safe access.
 // - Progress is surfaced via an optional `onProgress` callback, not globals.
 //
-// Consumers: `import { openProject } from 'godot-mcp-cli'` (maps to this file
+// Consumers: `import { openProject } from 'godot-cli'` (maps to this file
 // via the `exports` field in package.json).
 
 export { openProject } from './lib/open.js';
