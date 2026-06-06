@@ -6,7 +6,7 @@
 # │  See the LICENSE file in the project root for more information.  │
 # └──────────────────────────────────────────────────────────────────┘
 #
-# Deploy: publish the godot-mcp-cli npm package (cli/) to the public npm
+# Deploy: publish the godot-cli npm package (cli/) to the public npm
 # registry via OIDC Trusted Publishing with build provenance. Mirrors
 # Unity-MCP/.github/workflows/deploy.yml's `deploy-cli-to-npm` job 1:1.
 #
@@ -16,7 +16,7 @@
 # with an explicit version for re-publish.
 #
 # IMPORTANT — first publish prerequisite (owner action, separate from this PR):
-#   npm OIDC Trusted Publishing requires the `godot-mcp-cli` package to have a
+#   npm OIDC Trusted Publishing requires the `godot-cli` package to have a
 #   Trusted Publisher configured on npmjs.com that authorizes THIS repository +
 #   workflow. Until the owner sets that up, the `npm publish` step will fail
 #   auth. There is NO NPM_TOKEN secret — auth is exchanged at runtime via the
@@ -41,7 +41,7 @@ on:
 
 jobs:
   deploy-cli-to-npm:
-    name: publish godot-mcp-cli to npm
+    name: publish godot-cli to npm
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -59,12 +59,19 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      # The GitHub-hosted runner's Node 22 bundle ships npm 10.9.8, but npm OIDC
+      # Trusted Publishing requires npm >= 11.5.1 (older npm never performs the
+      # OIDC token exchange, so the publish PUT fails auth with a masked E404).
+      # Upgrade npm before any publish step. See: https://docs.npmjs.com/trusted-publishers
+      - name: Upgrade npm (OIDC Trusted Publishing requires npm >= 11.5.1)
+        run: npm install -g npm@latest
+
       - name: Resolve version
         id: version
         run: |
           version="${{ inputs.version }}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Publishing godot-mcp-cli version: ${version}"
+          echo "Publishing godot-cli version: ${version}"
 
       # Align the cli package.json version to the release version so the
       # published artifact matches the GitHub Release tag. plugin.cfg is the
