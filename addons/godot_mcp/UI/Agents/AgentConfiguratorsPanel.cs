@@ -48,6 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         TextEdit? _snippetText;
         Button? _revealButton;
         Label? _statusLabel;
+        Label? _configPathLabel;
         Button? _configureButton;
         Button? _removeButton;
 
@@ -68,16 +69,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 4);
 
-            var headerLabel = new Label { Name = "AgentHeader", Text = "AI agent" };
-            DockStyle.ApplySectionTitle(headerLabel);
-            AddChild(headerLabel);
-
-            // Agent dropdown — populated from the registry, item id = registry index.
+            // Agent selector — a SINGLE row mirroring Unity's MainWindow.uxml "AI agent" row
+            // (<Label class="header"/> + <DropdownField flex-grow:1/>): the 20px-bold "AI agent" header on the
+            // left, the agent OptionButton filling the remaining width on the right. No redundant second label.
             var row = new HBoxContainer { Name = "AgentSelectorRow" };
+            row.Alignment = BoxContainer.AlignmentMode.Center;
             AddChild(row);
-            row.AddChild(new Label { Name = "AgentSelectorLabel", Text = "Agent" });
 
-            _agentSelector = new OptionButton { Name = "AgentSelector" };
+            var headerLabel = new Label { Name = "AgentHeader", Text = "AI agent" };
+            DockStyle.ApplyHeader(headerLabel);
+            row.AddChild(headerLabel);
+
+            // Agent dropdown — populated from the registry, item id = registry index. Fills remaining width.
+            _agentSelector = new OptionButton { Name = "AgentSelector", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             var names = GodotAgentConfiguratorRegistry.AgentNames;
             for (int i = 0; i < names.Count; i++)
                 _agentSelector.AddItem(names[i], i);
@@ -141,6 +145,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _snippetText = null;
             _revealButton = null;
             _statusLabel = null;
+            _configPathLabel = null;
             _configureButton = null;
             _removeButton = null;
 
@@ -152,9 +157,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            var nameLabel = new Label { Name = "AgentName", Text = agent.AgentName };
-            DockStyle.ApplySectionTitle(nameLabel);
-            _agentView.AddChild(nameLabel);
+            // NOTE: the selected agent's name is intentionally NOT repeated here as a separate label — it is
+            // already shown in the agent OptionButton above (mirrors Unity, which does not duplicate it).
 
             // --- Per-agent description (muted). ---
             if (!string.IsNullOrEmpty(agent.Description))
@@ -244,30 +248,55 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            _statusLabel = new Label { Name = "Status" };
-            _agentView.AddChild(_statusLabel);
+            // Mirror Unity's TemplateConfigureStatus.uxml: a two-row block.
+            //   Row 1 (space-between): "Model Context Protocol (MCP)" header on the LEFT + the config path on the
+            //           RIGHT (right-aligned, single line, ellipsis-truncated, muted description style).
+            //   Row 2 (space-between): the status text on the LEFT + the Remove/Configure buttons on the RIGHT.
 
-            var pathLabel = new Label
+            // --- Row 1: MCP header + right-aligned ellipsis config path. ---
+            var headerRow = new HBoxContainer { Name = "McpHeaderRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            headerRow.Alignment = BoxContainer.AlignmentMode.Center;
+            _agentView.AddChild(headerRow);
+
+            var mcpHeader = new Label { Name = "McpHeader", Text = "Model Context Protocol (MCP)" };
+            DockStyle.ApplySubLabel(mcpHeader);
+            headerRow.AddChild(mcpHeader);
+
+            _configPathLabel = new Label
             {
                 Name = "ConfigPath",
                 Text = configPath,
-                AutowrapMode = TextServer.AutowrapMode.WordSmart
+                TooltipText = configPath,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                HorizontalAlignment = HorizontalAlignment.Right
             };
-            DockStyle.ApplyDescription(pathLabel);
-            _agentView.AddChild(pathLabel);
+            DockStyle.ApplyConfigPath(_configPathLabel);
+            headerRow.AddChild(_configPathLabel);
+
+            // --- Row 2: status text + right-aligned Remove/Configure buttons. ---
+            var statusRow = new HBoxContainer { Name = "ConfigStatusRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            statusRow.Alignment = BoxContainer.AlignmentMode.Center;
+            _agentView.AddChild(statusRow);
+
+            _statusLabel = new Label { Name = "Status", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            DockStyle.ApplyDescription(_statusLabel);
+            _statusLabel.AutowrapMode = TextServer.AutowrapMode.Off; // single-line status, keep it on Row 2's left
+            statusRow.AddChild(_statusLabel);
 
             var configActions = new HBoxContainer { Name = "ConfigActions" };
-            _agentView.AddChild(configActions);
+            statusRow.AddChild(configActions);
 
-            _configureButton = new Button { Name = "Configure", Text = "Configure" };
-            DockStyle.ApplyPrimaryButton(_configureButton);
-            _configureButton.Pressed += () => OnConfigurePressed(agent, configPath);
-            configActions.AddChild(_configureButton);
-
+            // Button order mirrors Unity: Remove first (left), Configure second (right).
             _removeButton = new Button { Name = "Remove", Text = "Remove" };
             DockStyle.ApplyAlertButton(_removeButton);
             _removeButton.Pressed += () => OnRemovePressed(agent, configPath);
             configActions.AddChild(_removeButton);
+
+            _configureButton = new Button { Name = "Configure", Text = "Configure" };
+            _configureButton.Pressed += () => OnConfigurePressed(agent, configPath);
+            configActions.AddChild(_configureButton);
+            // Configure/Reconfigure text, primary-vs-secondary styling, and Remove visibility are all driven by
+            // RefreshStatus() (called at the end of BuildAgentView) off the live IsConfigured() state.
         }
 
         /// <summary>Append the agent's "Manual Configuration Steps" / "Troubleshooting" collapsible foldouts when non-empty.</summary>
@@ -363,7 +392,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 configured ? DockStyle.Rgb(DockTheme.StatusOnline) : DockStyle.Rgb(DockTheme.WarningText));
 
             if (_configureButton != null)
+            {
+                // Primary (cyan) ONLY when an entry still needs writing; once configured it becomes a plain
+                // "Reconfigure" secondary button (mirrors the brief — the call-to-action is the un-configured state).
                 _configureButton.Text = configured ? "Reconfigure" : "Configure";
+                if (configured)
+                    DockStyle.ApplySecondaryButton(_configureButton);
+                else
+                    DockStyle.ApplyPrimaryButton(_configureButton);
+            }
             if (_removeButton != null)
                 _removeButton.Visible = configured;
         }

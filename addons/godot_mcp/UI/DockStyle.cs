@@ -95,6 +95,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         }
 
+        /// <summary>
+        /// Apply the muted, SINGLE-LINE, ellipsis-truncated config-path look (Unity's <c>labelConfigPath</c>:
+        /// <c>section-desc</c> + <c>text-overflow: ellipsis; white-space: nowrap</c>). Unlike
+        /// <see cref="ApplyDescription"/> this never wraps — it clips with a trailing ellipsis so a long path hugs a
+        /// single line. The caller sets <see cref="Control.SizeFlagsHorizontal"/> / <see cref="Label.HorizontalAlignment"/>
+        /// for right-alignment within its row.
+        /// </summary>
+        public static void ApplyConfigPath(Label label)
+        {
+            label.AddThemeColorOverride("font_color", Rgb(DockTheme.ColorDescriptionMuted));
+            label.AutowrapMode = TextServer.AutowrapMode.Off;
+            label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            label.ClipText = true;
+        }
+
         /// <summary>Apply the 13px bold sub/timeline label look to a <see cref="Label"/>.</summary>
         public static void ApplySubLabel(Label label)
         {
