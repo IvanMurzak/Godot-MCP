@@ -1,0 +1,73 @@
+{
+  "name": "godot-mcp-cli",
+  "version": "0.1.0",
+  "description": "Cross-platform CLI tool for Godot-MCP (Skills & MCP). Resolves and launches the Godot editor with MCP connection env vars, runs MCP/system tools over HTTP, probes server health, configures AI agents (Claude Code, Cursor, VS Code, …), and enables/disables the godot_mcp addon. Works with Claude Code, Cursor, Copilot, and any MCP client.",
+  "type": "module",
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    }
+  },
+  "bin": {
+    "godot-mcp-cli": "bin/godot-mcp-cli.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "CHANGELOG.md",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "godot",
+    "godot ai",
+    "godot skills",
+    "godot mcp",
+    "ai skills",
+    "ai mcp",
+    "ai",
+    "mcp",
+    "model-context-protocol",
+    "gamedev",
+    "game-dev"
+  ],
+  "author": {
+    "name": "Ivan Murzak",
+    "url": "https://github.com/IvanMurzak"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IvanMurzak/Godot-MCP.git",
+    "directory": "cli"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^13.1.0",
+    "yocto-spinner": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}
