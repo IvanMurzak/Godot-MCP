@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# The repo-root .gitignore excludes `bin/` (a C#/Godot build-output dir). This
+# package's bin/ holds the committed CLI entrypoint shim, so re-include it.
+!/bin/
+!/bin/*.js
