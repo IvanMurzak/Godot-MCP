@@ -53,6 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         FeaturesPanel? _featuresPanel;
         AgentConfiguratorsPanel? _agentConfiguratorsPanel;
         SkillsPanel? _skillsPanel;
+        ExtensionsPanel? _extensionsPanel;
         SupportFooter? _supportFooter;
 
         // Log Level selector (header). Only built when a live connection was threaded in (it reads/writes
@@ -191,6 +192,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _agentConfiguratorsPanel.AgentSelectionChanged += () => _skillsPanel?.Refresh();
             }
 
+            // Extensions section — install/update more AI tool families into the consumer's Godot project via NuGet
+            // PackageReference (read-modify-write the consumer .csproj). Inserted BETWEEN the Skills card and the
+            // support footer. It reads its state SYNCHRONOUSLY from the consumer .csproj (no live connection /
+            // subscriptions), so — like the footer — it builds UNCONDITIONALLY (independent of the connection); the
+            // registry ships empty today, so it renders an honest "coming soon" placeholder.
+            _extensionsPanel = new ExtensionsPanel();
+            Body.AddChild(DockStyle.Card(_extensionsPanel, "Extensions"));
+
             // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
             // no live state / subscriptions, so it builds unconditionally (independent of the connection).
             _supportFooter = new SupportFooter();
@@ -280,6 +289,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _featuresPanel?.Refresh();
             _agentConfiguratorsPanel?.Refresh();
             _skillsPanel?.Refresh();
+            _extensionsPanel?.Refresh();
             SyncLogLevelSelector();
         }
     }
