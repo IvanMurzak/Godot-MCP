@@ -108,6 +108,34 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <param name="projectRoot">The absolute Godot project root (<c>ProjectSettings.GlobalizePath("res://")</c>).</param>
         public abstract string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot);
 
+        // --- Skills capability (parity with Unity-MCP's AiAgentConfigurator.SkillsPath / SupportsSkills) ---------
+
+        /// <summary>
+        /// Whether this agent supports auto-generated MCP "skills" (a <c>SKILL.md</c>-per-tool directory the
+        /// skill-generation engine writes). Defaults to <c>false</c> (most agents do not); the Claude Code
+        /// configurator overrides it to <c>true</c>. Mirrors the <see cref="ShouldShowJson"/> / <see cref="ConfigFilePath"/>
+        /// capability pattern: the dock gates the Skills section's visibility on this (showing a "not supported" line
+        /// otherwise), exactly like Unity-MCP gates its skills UI to Claude. Pure-managed so the registry's
+        /// skills-capability set is unit-testable.
+        /// </summary>
+        public virtual bool SupportsSkills => false;
+
+        /// <summary>
+        /// The per-OS absolute skills directory the addon's skill-generation engine writes into for this agent, or
+        /// <c>null</c> when the agent does not support skills (the default — see <see cref="SupportsSkills"/>). The
+        /// Godot analog of Unity-MCP's project-relative <c>SkillsPath = ".claude/skills"</c>, resolved here to an
+        /// absolute path so the engine's swap-and-restore call receives a concrete destination. Implementations
+        /// resolve from the injected project root via <see cref="AgentConfigPaths"/> so they stay pure-managed and
+        /// unit-testable; the editor passes <c>ProjectSettings.GlobalizePath("res://")</c> as <paramref name="projectRoot"/>.
+        /// The signature mirrors <see cref="ConfigFilePath"/> for a uniform editor call site, though only the
+        /// project root is consulted today.
+        /// </summary>
+        /// <param name="os">The host OS family (injected; the editor maps <c>Godot.OS.GetName()</c> onto it).</param>
+        /// <param name="home">The user home directory (USERPROFILE / HOME).</param>
+        /// <param name="appData">The Windows %APPDATA% directory (ignored on macOS/Linux).</param>
+        /// <param name="projectRoot">The absolute Godot project root (<c>ProjectSettings.GlobalizePath("res://")</c>).</param>
+        public virtual string? SkillsDir(AgentOs os, string home, string appData, string projectRoot) => null;
+
         /// <summary>
         /// The dock's Config-vs-JSON decision predicate: TRUE when the panel should show the copyable JSON snippet
         /// for this agent (because it has NO writable config-file path the addon can drive), FALSE when the panel

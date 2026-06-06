@@ -133,6 +133,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             target.ConnectionMode = persisted.ConnectionMode;
             target.AuthOption = persisted.AuthOption;
             target.LogLevel = persisted.LogLevel;
+            // The auto-generate-skills toggle (a serialized bool on the base ConnectionConfig). Honoured here so a
+            // user's persisted choice survives a restart and overrides the constructor's ON default — without this
+            // copy the boot path would always re-seed ON and silently drop a user's OFF. The skills card writes this
+            // (+ Save) when toggled; SkillsPath/ProjectRootPath are runtime-only (swap-and-restore) and not persisted.
+            target.GenerateSkillFiles = persisted.GenerateSkillFiles;
             // The persisted feature enable-map (tools/prompts/resources). A missing `features` key in an older
             // config file deserializes to a non-null empty map (the property initializer), so this is always safe.
             target.Features = persisted.Features ?? new GodotMcpFeatureMap();

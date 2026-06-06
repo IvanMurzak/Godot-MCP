@@ -170,6 +170,12 @@
          The dock UI (AgentConfiguratorsPanel.cs) is #if TOOLS and verified via the headless Godot smoke
          (test.md Suite 3); the snippet/configure/remove/path/registry logic is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfigurator.cs" Link="Source\GodotAgentConfigurator.cs" />
+    <!-- Skills card presentation model — pure-managed (no Godot native types, no #if TOOLS): the supported/path
+         resolution (SkillsPlan) the dock's Skills card renders, plus the per-agent skills-dir resolver +
+         in-project relative-path safety guard added to AgentConfigPaths and the SupportsSkills/SkillsDir capability
+         on GodotAgentConfigurator/ClaudeCodeConfigurator. The editor Control wiring (SkillsPanel.cs) is #if TOOLS and
+         verified via the headless Godot smoke (test.md Suite 3); the plan/path/capability logic is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\SkillsPlan.cs" Link="Source\SkillsPlan.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigJson.cs" Link="Source\AgentConfigJson.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\AgentAlertView.cs" Link="Source\AgentAlertView.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigPaths.cs" Link="Source\AgentConfigPaths.cs" />

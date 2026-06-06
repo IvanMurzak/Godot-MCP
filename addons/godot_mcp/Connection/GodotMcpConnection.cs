@@ -19,6 +19,7 @@ using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
+using com.IvanMurzak.Godot.MCP.UI.Agents;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet;
 using Godot;
@@ -233,6 +234,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             SubscribeToConnectionState(_plugin);
             SubscribeToFeatureUpdates(_plugin);
 
+            // Auto-generate the selected agent's skills (SKILL.md-per-tool) when the toggle is ON. Runs AFTER the
+            // plugin Build so the tool registry the engine reads from is populated. GenerateSkillFilesIfNeeded only
+            // regenerates when the on-disk skills are stale/missing, so this is cheap on a warm boot. Gated by the
+            // GenerateSkillFiles toggle (ON by default) and a no-op when the selected agent does not support skills.
+            MaybeAutoGenerateSkills(_plugin);
+
             var mode = _config.ActiveMode;
             var host = _config.Host;
             GD.Print($"[Godot-MCP] connecting (mode={mode}, host={host}) ...");
@@ -440,6 +447,79 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     manager.SetEnabled(pair.Key, pair.Value);
             }
         }
+
+        /// <summary>
+        /// Auto-generate the selected AI agent's skills (a <c>SKILL.md</c>-per-tool directory) on addon load, gated by
+        /// the <see cref="GodotMcpConfig.GenerateSkillFiles"/> toggle. The Godot analog of Unity-MCP's boot-time
+        /// auto-generate (<c>MainWindowEditor.AiAgents</c>'s <c>GenerateSkillFiles</c> on configured skills). No-op
+        /// when the toggle is OFF or the selected agent does not support skills. Uses the engine's
+        /// <see cref="IMcpPlugin.GenerateSkillFilesIfNeeded"/> (which only writes when the on-disk skills are
+        /// stale/missing) via the same swap-and-restore pattern the dock's on-demand Generate uses: point the live
+        /// config's <c>SkillsPath</c> + <c>ProjectRootPath</c> at the resolved destination, generate, restore. The
+        /// only Godot dependencies are the path resolution (<c>OS</c>/<c>ProjectSettings</c>) and the destination
+        /// mkdir; the supported/path decision is the pure-managed <see cref="SkillsPlan"/>. Failures are caught and
+        /// logged so a generation error never blocks the connection boot.
+        /// </summary>
+        void MaybeAutoGenerateSkills(IMcpPlugin plugin)
+        {
+            if (!_config.GenerateSkillFiles)
+                return;
+
+            var agent = GodotAgentConfiguratorRegistry.GetByAgentId(_config.SelectedAgentId);
+            var os = MapAgentOs(OS.GetName());
+            var home = OS.GetEnvironment("USERPROFILE");
+            if (string.IsNullOrEmpty(home))
+                home = OS.GetEnvironment("HOME");
+            var appData = OS.GetEnvironment("APPDATA");
+            var projectRoot = ProjectSettings.GlobalizePath("res://").TrimEnd('/');
+
+            var plan = SkillsPlan.Resolve(agent, os, home, appData, projectRoot);
+            if (!plan.Supported || string.IsNullOrEmpty(plan.SkillsDir))
+                return;
+
+            var skillsDir = plan.SkillsDir!;
+
+            try
+            {
+                if (!DirAccess.DirExistsAbsolute(skillsDir))
+                {
+                    var mkdir = DirAccess.MakeDirRecursiveAbsolute(skillsDir);
+                    if (mkdir != Error.Ok)
+                    {
+                        GD.PushWarning($"[Godot-MCP] auto-generate skills: could not create folder {skillsDir} ({mkdir}).");
+                        return;
+                    }
+                }
+
+                var originalSkillsPath = _config.SkillsPath;
+                var originalProjectRoot = _config.ProjectRootPath;
+                try
+                {
+                    _config.SkillsPath = skillsDir;
+                    _config.ProjectRootPath = projectRoot;
+                    plugin.GenerateSkillFilesIfNeeded(skillsDir);
+                }
+                finally
+                {
+                    _config.SkillsPath = originalSkillsPath;
+                    _config.ProjectRootPath = originalProjectRoot;
+                }
+
+                GD.Print($"[Godot-MCP] auto-generate skills: ensured up-to-date skills in {skillsDir}.");
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[Godot-MCP] auto-generate skills failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Map Godot's <c>OS.GetName()</c> ("Windows"/"macOS"/"Linux"/…) onto the injectable <see cref="AgentOs"/>.</summary>
+        static AgentOs MapAgentOs(string godotOsName) => godotOsName switch
+        {
+            "Windows" => AgentOs.Windows,
+            "macOS" => AgentOs.MacOS,
+            _ => AgentOs.Linux,
+        };
 
         /// <summary>
         /// Enumerate the live items of a feature kind as pure-managed <see cref="FeatureRowItem"/> view-models

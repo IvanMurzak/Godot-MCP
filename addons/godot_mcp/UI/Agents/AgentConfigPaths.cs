@@ -65,5 +65,36 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
 
         /// <summary>VS Code project-local config: <c>&lt;projectRoot&gt;/.vscode/mcp.json</c>.</summary>
         public static string VisualStudioCode(string projectRoot) => Combine(projectRoot, ".vscode", "mcp.json");
+
+        /// <summary>
+        /// Claude Code project-local skills directory: <c>&lt;projectRoot&gt;/.claude/skills</c>. The destination the
+        /// skill-generation engine (<c>IMcpPlugin.GenerateSkillFiles</c>) writes a <c>SKILL.md</c>-per-tool into. The
+        /// Godot analog of Unity-MCP's <c>ClaudeCodeConfigurator.SkillsPath = ".claude/skills"</c> resolved against the
+        /// project root. Pure-managed (the project root is injected) so it is unit-testable.
+        /// </summary>
+        public static string ClaudeCodeSkills(string projectRoot) => Combine(projectRoot, ".claude", "skills");
+
+        /// <summary>
+        /// Validate a user-or-config-supplied skills path is a SAFE in-project relative path: rejects an absolute /
+        /// rooted path and any <c>..</c> traversal segment (mirrors Unity-MCP's <c>Tool_Skills.GenerateAll</c> guard).
+        /// Returns <c>true</c> when <paramref name="relativePath"/> is null/empty (the resolver falls back to the
+        /// per-agent default) OR a clean relative path; <c>false</c> when it is rooted or escapes the project root.
+        /// Pure-managed (no IO, no Godot types) so it is unit-testable; the editor calls this before resolving an
+        /// override against the project root.
+        /// </summary>
+        public static bool IsSafeRelativeSkillsPath(string? relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+                return true;
+
+            if (Path.IsPathRooted(relativePath))
+                return false;
+
+            var normalized = relativePath!.Replace('\\', '/');
+            if (normalized == ".." || normalized.StartsWith("../") || normalized.Contains("/../") || normalized.EndsWith("/.."))
+                return false;
+
+            return true;
+        }
     }
 }
