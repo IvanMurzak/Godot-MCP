@@ -209,11 +209,52 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  # Cross-compile the Godot-MCP-Server self-contained binaries for all 7 RIDs
+  # and zip each into `godot-mcp-server-<rid>.zip` (Unity-MCP parity:
+  # build-and-zip-mcp-server). Gated on `should_release` like every other job
+  # here, so a no-bump merge of a workflow/feature PR builds NOTHING.
+  #
+  # Runner choice: ubuntu-latest. build-all.sh cross-compiles ALL runtimes from
+  # a single host via `dotnet publish -r <rid> --self-contained` (PublishSingleFile),
+  # which needs only a .NET 8 SDK and works identically on any OS — there is no
+  # per-RID native toolchain requirement. ubuntu-latest is the cheapest GitHub
+  # runner and matches this repo's other .NET jobs (dotnet-build-test runs on
+  # ubuntu-latest), so we pick it over Unity's macos-latest for cost/consistency.
+  # The 7 emitted zips (win-x64/-x86/-arm64, linux-x64/-arm64, osx-x64/-arm64)
+  # are identical regardless of build host.
+  build-and-zip-godot-server:
+    runs-on: ubuntu-latest
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Make build script executable
+        run: chmod +x ./Godot-MCP-Server/build-all.sh
+
+      - name: Build self-contained server executables for all RIDs
+        shell: bash
+        run: cd Godot-MCP-Server && ./build-all.sh Release
+
+      - name: Upload server zips as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-mcp-server-zips
+          path: ./Godot-MCP-Server/publish/*.zip
+          if-no-files-found: error
+
   # --- PUBLISH (gated on tag-not-existing AND every test passing) ---
 
   # Build + package the addon zip and cut the GitHub Release on the new
   # `v<version>` tag. Identical packaging to the previous tag-triggered flow,
-  # now gated on the version check + tests instead of a tag push.
+  # now gated on the version check + tests instead of a tag push. Also attaches
+  # the cross-platform Godot-MCP-Server zips built by build-and-zip-godot-server.
   release-addon:
     runs-on: ubuntu-latest
     needs:
@@ -224,6 +265,7 @@ jobs:
         test-godot-4-3,
         test-godot-4-4,
         test-godot-4-5,
+        build-and-zip-godot-server,
       ]
     if: needs.check-version-tag.outputs.should_release == 'true'
     outputs:
@@ -269,8 +311,27 @@ jobs:
           echo "Created ${zip_name}:"
           unzip -l "${zip_name}"
 
-      # Create the GitHub Release + tag with the zip attached and auto-generated
-      # notes. tag_name is the `v<version>` computed from plugin.cfg.
+      # Pull in the 7 cross-platform server zips built by build-and-zip-godot-server
+      # so they ride the same GitHub Release as the addon zip. They land in
+      # ./server-zips/godot-mcp-server-<rid>.zip and are added to the files: list
+      # below. SV3's downloader resolves them at
+      # releases/download/<version>/godot-mcp-server-<os>-<arch>.zip.
+      - name: Download server zips artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: godot-mcp-server-zips
+          path: ./server-zips
+
+      - name: List assembled release assets
+        run: |
+          set -euo pipefail
+          echo "Addon zip: ${{ steps.package.outputs.zip_name }}"
+          echo "Server zips:"
+          ls -la ./server-zips
+
+      # Create the GitHub Release + tag with the addon zip + the 7 server zips
+      # attached and auto-generated notes. tag_name is the `v<version>` computed
+      # from plugin.cfg.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -278,7 +339,9 @@ jobs:
           tag_name: ${{ needs.check-version-tag.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ steps.package.outputs.zip_name }}
+          files: |
+            ${{ steps.package.outputs.zip_name }}
+            ./server-zips/*.zip
 
       - name: Mark publish success
         id: mark
