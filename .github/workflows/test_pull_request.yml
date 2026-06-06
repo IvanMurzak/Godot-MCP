@@ -1,0 +1,74 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# │  See the LICENSE file in the project root for more information.  │
+# └──────────────────────────────────────────────────────────────────┘
+
+# Pull-request CI aggregator (Unity-MCP parity with test_pull_request.yml).
+# Fans out, with fail-fast disabled so every leg reports independently:
+#   (a) .NET build + xUnit  — a PR-aggregate copy of ci.yml's build/test
+#   (b) godot-mcp-cli node tests (20/22) via the reusable test_cli.yml
+#   (c) the godot_mcp addon-load smoke across Godot 4.3 / 4.4 / 4.5 (mono) via
+#       the reusable test_godot_plugin.yml
+#
+# NOTE: ci.yml is intentionally left untouched and still runs on push + PR; its
+# job display name `dotnet build (.NET 8)` remains the canonical required check.
+# The `dotnet-build-test` job below is an additional aggregate signal, NOT a
+# rename of that check.
+name: Test Pull Request
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Auto-cancel superseded runs when a new commit is pushed to the same PR, so
+# intermediate pushes don't pile up runner time.
+concurrency:
+  group: test-pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # (a) .NET build + xUnit (mirrors ci.yml; aggregate signal for this PR run).
+  dotnet-build-test:
+    name: dotnet build + test (.NET 8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore Godot-MCP.sln
+
+      - name: Build
+        run: dotnet build Godot-MCP.sln --configuration Debug --no-restore
+
+      - name: Test
+        run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal
+
+  # (b) godot-mcp-cli node tests (Node 20 & 22).
+  test-cli:
+    uses: ./.github/workflows/test_cli.yml
+
+  # (c) godot_mcp addon-load smoke across the Godot engine matrix (mono).
+  test-godot-4-3:
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.3.0"
+
+  test-godot-4-4:
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.4.0"
+
+  test-godot-4-5:
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.5.1"

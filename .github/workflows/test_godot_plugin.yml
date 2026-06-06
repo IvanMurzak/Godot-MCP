@@ -1,0 +1,111 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# │  See the LICENSE file in the project root for more information.  │
+# └──────────────────────────────────────────────────────────────────┘
+
+# Reusable workflow: boot a headless Godot editor (mono / .NET build) of the
+# requested version against the in-repo Godot-Tests/ project and assert the
+# godot_mcp addon loads cleanly. Godot needs NO license (unlike Unity), so this
+# uses the official Godot binaries via chickensoft-games/setup-godot — no
+# game-ci. Called once per matrix version by test_pull_request.yml.
+name: Test Godot Plugin
+
+on:
+  workflow_call:
+    inputs:
+      godotVersion:
+        description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
+        required: true
+        type: string
+
+jobs:
+  test-godot-plugin:
+    name: godot ${{ inputs.godotVersion }} (mono)
+    runs-on: ubuntu-latest
+    env:
+      # The in-repo test project. The addon is copied into <TEST_PROJECT>/addons/
+      # at runtime (a dev junction does not survive checkout).
+      TEST_PROJECT: Godot-Tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Godot ${{ inputs.godotVersion }} (mono)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godotVersion }}
+          use-dotnet: true
+          include-templates: false
+
+      - name: Report Godot version
+        shell: bash
+        run: godot --version --headless
+
+      - name: Copy addon into the test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${TEST_PROJECT}/addons/godot_mcp"
+          mkdir -p "${TEST_PROJECT}/addons"
+          cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/GodotMcpPlugin.cs"
+
+      - name: Build C# solution (headless)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Godot generates the .sln/.csproj wiring + compiles the project (the
+          # addon globs into the project assembly). A non-zero exit on teardown
+          # is tolerated; the real build signal is the emitted managed assembly.
+          godot --headless --path "${TEST_PROJECT}" --build-solutions --quit \
+            2>&1 | tee build-solutions.log || true
+          if ! ls "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.dll >/dev/null 2>&1; then
+            echo "::error::C# build did not produce Godot-MCP-Tests.dll — the addon failed to compile."
+            echo "----- build-solutions.log -----"
+            cat build-solutions.log || true
+            exit 1
+          fi
+
+      - name: Boot editor headless and assert addon loads
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Boot the editor once; the godot_mcp EditorPlugin runs its _EnterTree
+          # and prints "[Godot-MCP] plugin loaded". Capture stdout+stderr.
+          godot --headless --path "${TEST_PROJECT}" --editor --quit \
+            2>&1 | tee editor-boot.log || true
+
+          echo "----- editor-boot.log -----"
+          cat editor-boot.log
+
+          if ! grep -qF "[Godot-MCP] plugin loaded" editor-boot.log; then
+            echo "::error::'[Godot-MCP] plugin loaded' was NOT found — the addon did not load on Godot ${{ inputs.godotVersion }}."
+            exit 1
+          fi
+
+          if grep -qE "FileNotFoundException|Cannot open file|Failed to load script|Unable to load addon|addon .* failed" editor-boot.log; then
+            echo "::error::An addon-load / assembly-resolution error appeared in the editor boot output on Godot ${{ inputs.godotVersion }}."
+            exit 1
+          fi
+
+          echo "Godot ${{ inputs.godotVersion }}: addon loaded cleanly."
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-${{ inputs.godotVersion }}-logs
+          path: |
+            build-solutions.log
+            editor-boot.log
+          if-no-files-found: ignore
+          retention-days: 7

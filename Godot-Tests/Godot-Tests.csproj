@@ -1,0 +1,40 @@
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+
+  <!--
+    CI-only testbed project for the godot_mcp addon (analog of Unity-MCP's
+    Unity-Tests/<version>/ projects). Used exclusively by
+    .github/workflows/test_godot_plugin.yml to boot a headless Godot editor
+    across the 4.3 / 4.4 / 4.5 (mono) matrix and assert "[Godot-MCP] plugin
+    loaded" with no addon-load exception.
+
+    Godot compiles EVERY .cs file under the project dir (including the addon
+    scripts the workflow copies into addons/godot_mcp/ before boot) into THIS
+    single assembly. So this csproj must declare the same NuGet
+    PackageReferences the addon's scripts depend on, otherwise the addon's C#
+    will not compile here. Keep these pins in lockstep with ../Godot-MCP.csproj
+    (com.IvanMurzak.ReflectorNet 5.3.1, com.IvanMurzak.McpPlugin 6.7.0).
+
+    SDK pin note: Godot.NET.Sdk/4.3.0 is the engine floor the addon supports
+    (matches ../Godot-MCP.csproj). The .NET SDK package is published to
+    nuget.org and restores on any runner; the installed Godot binary
+    (4.3/4.4/4.5) drives the actual `--build-solutions` compile via its own
+    bundled GodotSharp, so a single floor pin works across the whole matrix.
+
+    EXCLUDED from ../Godot-MCP.sln so the existing `dotnet build (.NET 8)` CI
+    gate is unaffected — this project is only ever built by the Godot editor.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <RootNamespace>com.IvanMurzak.Godot.MCP.Tests.Project</RootNamespace>
+    <AssemblyName>Godot-MCP-Tests</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Mirror of ../Godot-MCP.csproj package pins (must stay in lockstep). -->
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.7.0" />
+  </ItemGroup>
+
+</Project>
