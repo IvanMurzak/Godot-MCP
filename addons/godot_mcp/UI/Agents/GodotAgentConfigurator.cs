@@ -131,6 +131,15 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         public bool IsConfigured(string configPath, string mcpUrl) =>
             AgentConfigJson.IsConfigured(configPath, BodyPath, ServerKey, mcpUrl);
 
+        /// <summary>
+        /// Classify this agent's on-disk config relative to <paramref name="mcpUrl"/>: <see cref="AgentConfigState.Missing"/>
+        /// (no entry → "Setup Required" alert), <see cref="AgentConfigState.Stale"/> (entry points at a different url →
+        /// "Reconfiguration Required" alert), or <see cref="AgentConfigState.UpToDate"/> (no alert). Delegates to the
+        /// pure-managed <see cref="AgentConfigJson.ConfigState"/>.
+        /// </summary>
+        public AgentConfigState ConfigState(string configPath, string mcpUrl) =>
+            AgentConfigJson.ConfigState(configPath, BodyPath, ServerKey, mcpUrl);
+
         /// <summary>READ-MERGE-WRITE the addon's HTTP entry into this agent's config file (real token), preserving siblings.</summary>
         public void Configure(string configPath, string mcpUrl, string? token) =>
             AgentConfigJson.Configure(configPath, BodyPath, ServerKey, mcpUrl, token);

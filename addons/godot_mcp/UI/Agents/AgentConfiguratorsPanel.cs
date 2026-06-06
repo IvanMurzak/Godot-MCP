@@ -42,6 +42,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         OptionButton? _agentSelector;
         VBoxContainer? _agentView;
 
+        // The body column (right of the optional 32px agent icon) that the per-agent sub-views are built into.
+        // Distinct from _agentView (the outer swappable container) so the icon sits to the LEFT of the body.
+        VBoxContainer? _agentBody;
+
+        /// <summary>
+        /// The addon-relative directory holding the optional per-agent icon assets. A configurator's
+        /// <see cref="GodotAgentConfigurator.IconFileName"/> is resolved against this; a missing file falls back to
+        /// no-icon (never crashes — see <see cref="LoadAgentIcon"/>).
+        /// </summary>
+        const string IconsDir = "res://addons/godot_mcp/Icons/";
+
         // Live state for the currently-shown configurator's view.
         GodotAgentConfigurator? _current;
         bool _revealToken;
@@ -51,6 +62,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Label? _configPathLabel;
         Button? _configureButton;
         Button? _removeButton;
+
+        // The AI-agent "Setup Required" / "Reconfiguration Required" alert panel (reused DockStyle.AlertPanel),
+        // rebuilt by RefreshStatus off the live AgentConfigState. Null for the Custom snippet agent (no config path).
+        Control? _alertPanel;
 
         /// <summary>
         /// Construct the section wired to the live <paramref name="connection"/> (it reads the resolved MCP-client
@@ -148,6 +163,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _configPathLabel = null;
             _configureButton = null;
             _removeButton = null;
+            _alertPanel = null;
+            _agentBody = null;
 
             BuildAgentView(_current);
         }
@@ -157,20 +174,34 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            // NOTE: the selected agent's name is intentionally NOT repeated here as a separate label — it is
-            // already shown in the agent OptionButton above (mirrors Unity, which does not duplicate it).
+            // NOTE: the selected agent's name is intentionally NOT repeated here as a separate label (it is shown in
+            // the agent OptionButton above — mirrors Unity, and the standalone name label was removed in #58).
+
+            // --- Icon (left) + body (right) layout: a 32px per-agent icon, gracefully omitted when missing. ---
+            var iconRow = new HBoxContainer { Name = "AgentIconRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            iconRow.AddThemeConstantOverride("separation", 8);
+            iconRow.Alignment = BoxContainer.AlignmentMode.Begin;
+            _agentView.AddChild(iconRow);
+
+            var icon = LoadAgentIcon(agent);
+            if (icon != null)
+                iconRow.AddChild(icon);
+
+            _agentBody = new VBoxContainer { Name = "AgentBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            _agentBody.AddThemeConstantOverride("separation", 4);
+            iconRow.AddChild(_agentBody);
 
             // --- Per-agent description (muted). ---
             if (!string.IsNullOrEmpty(agent.Description))
             {
                 var desc = new Label { Name = "Description", Text = agent.Description! };
                 DockStyle.ApplyDescription(desc);
-                _agentView.AddChild(desc);
+                _agentBody.AddChild(desc);
             }
 
             // --- Per-agent warning banner (styled amber frame). ---
             if (!string.IsNullOrEmpty(agent.WarningText))
-                _agentView.AddChild(DockStyle.WarningFrame(agent.WarningText!));
+                _agentBody.AddChild(DockStyle.WarningFrame(agent.WarningText!));
 
             // --- Links: Download (+ optional Tutorial), as flat link buttons separated by "•". ---
             var linkDefs = new List<(string Name, string Text, string Url)>
@@ -179,14 +210,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             if (!string.IsNullOrEmpty(agent.TutorialUrl))
                 linkDefs.Add(("Tutorial", "Tutorial", agent.TutorialUrl!));
-            _agentView.AddChild(DockStyle.LinkRow("Links", linkDefs));
+            _agentBody.AddChild(DockStyle.LinkRow("Links", linkDefs));
 
             // --- The KEY decision: Configure/Remove for agents with a config-file path; copyable JSON otherwise. ---
             var configPath = ResolveConfigPath(agent);
             if (GodotAgentConfigurator.ShouldShowJson(configPath))
+            {
                 BuildSnippetView(agent);
+            }
             else
+            {
+                // Only config-path agents (not the Custom snippet agent) get the Setup/Reconfiguration alert. The
+                // alert frame is (re)built per state by RefreshStatus; an empty host slot reserves its position
+                // ABOVE the configure/remove row, matching the Unity reference order.
+                _agentBody.AddChild(new VBoxContainer { Name = "AlertHost", SizeFlagsHorizontal = SizeFlags.ExpandFill });
                 BuildConfigureRemoveView(agent, configPath!);
+            }
 
             // --- Per-agent help foldouts (Manual Configuration Steps / Troubleshooting). ---
             BuildHelpFoldouts(agent);
@@ -196,12 +235,43 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// Load the optional 32px <see cref="TextureRect"/> icon for <paramref name="agent"/> from
+        /// <see cref="IconsDir"/> + the agent's <see cref="GodotAgentConfigurator.IconFileName"/>. Returns null
+        /// (no icon, the body fills the full width) when the agent declares no icon file OR the asset is missing /
+        /// not a texture — this NEVER crashes the dock on a missing asset.
+        /// </summary>
+        TextureRect? LoadAgentIcon(GodotAgentConfigurator agent)
+        {
+            var fileName = agent.IconFileName;
+            if (string.IsNullOrEmpty(fileName))
+                return null;
+
+            var path = IconsDir + fileName;
+            if (!ResourceLoader.Exists(path))
+                return null;
+
+            // Load defensively: a corrupt / non-texture asset must not crash the dock.
+            if (ResourceLoader.Load(path) is not Texture2D texture)
+                return null;
+
+            return new TextureRect
+            {
+                Name = "AgentIcon",
+                Texture = texture,
+                CustomMinimumSize = new Vector2(32, 32),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                SizeFlagsVertical = SizeFlags.ShrinkBegin
+            };
+        }
+
+        /// <summary>
         /// For an agent WITHOUT a writable config-file path (Custom): show the copyable HTTP snippet (read-only,
         /// token MASKED by default) + Reveal/Copy. No Configure/Remove buttons.
         /// </summary>
         void BuildSnippetView(GodotAgentConfigurator agent)
         {
-            if (_agentView == null)
+            if (_agentBody == null)
                 return;
 
             var snippetLabel = new Label
@@ -210,7 +280,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Text = "Copy this into your MCP client config:"
             };
             DockStyle.ApplyDescription(snippetLabel);
-            _agentView.AddChild(snippetLabel);
+            _agentBody.AddChild(snippetLabel);
 
             _snippetText = new TextEdit
             {
@@ -219,11 +289,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 CustomMinimumSize = new Vector2(0, 120),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
-            _agentView.AddChild(_snippetText);
+            _agentBody.AddChild(_snippetText);
 
             // Snippet action buttons: Reveal token + Copy (copies the UNMASKED snippet).
             var snippetActions = new HBoxContainer { Name = "SnippetActions" };
-            _agentView.AddChild(snippetActions);
+            _agentBody.AddChild(snippetActions);
 
             _revealButton = new Button { Name = "Reveal", Text = "Reveal token" };
             DockStyle.ApplySecondaryButton(_revealButton);
@@ -245,7 +315,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void BuildConfigureRemoveView(GodotAgentConfigurator agent, string configPath)
         {
-            if (_agentView == null)
+            if (_agentBody == null)
                 return;
 
             // Mirror Unity's TemplateConfigureStatus.uxml: a two-row block.
@@ -256,7 +326,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // --- Row 1: MCP header + right-aligned ellipsis config path. ---
             var headerRow = new HBoxContainer { Name = "McpHeaderRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             headerRow.Alignment = BoxContainer.AlignmentMode.Center;
-            _agentView.AddChild(headerRow);
+            _agentBody.AddChild(headerRow);
 
             var mcpHeader = new Label { Name = "McpHeader", Text = "Model Context Protocol (MCP)" };
             DockStyle.ApplySubLabel(mcpHeader);
@@ -276,7 +346,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // --- Row 2: status text + right-aligned Remove/Configure buttons. ---
             var statusRow = new HBoxContainer { Name = "ConfigStatusRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             statusRow.Alignment = BoxContainer.AlignmentMode.Center;
-            _agentView.AddChild(statusRow);
+            _agentBody.AddChild(statusRow);
 
             _statusLabel = new Label { Name = "Status", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             DockStyle.ApplyDescription(_statusLabel);
@@ -302,7 +372,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Append the agent's "Manual Configuration Steps" / "Troubleshooting" collapsible foldouts when non-empty.</summary>
         void BuildHelpFoldouts(GodotAgentConfigurator agent)
         {
-            if (_agentView == null)
+            if (_agentBody == null)
                 return;
 
             if (agent.ManualSteps.Count > 0)
@@ -314,7 +384,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     DockStyle.ApplyDescription(label);
                     content.AddChild(label);
                 }
-                _agentView.AddChild(container);
+                _agentBody.AddChild(container);
             }
 
             if (agent.Troubleshooting.Count > 0)
@@ -326,7 +396,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     DockStyle.ApplyDescription(label);
                     content.AddChild(label);
                 }
-                _agentView.AddChild(container);
+                _agentBody.AddChild(container);
             }
         }
 
@@ -371,10 +441,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Re-render the Configure/Remove status for the current agent (only agents WITH a config-file path have
-        /// this row). Drives the "Configured"/"Not configured" label, flips the Configure button to "Reconfigure"
-        /// when already configured, and shows the Remove button only when an entry exists. Reads
-        /// <see cref="GodotAgentConfigurator.IsConfigured"/> — pure-managed, against the resolved config path.
+        /// Re-render the Configure/Remove status AND the Setup/Reconfiguration alert for the current agent (only
+        /// agents WITH a config-file path have these). Drives the "Configured"/"Not configured" label, flips the
+        /// Configure button to "Reconfigure" when already configured, shows the Remove button only when an entry
+        /// exists, and (re)builds the amber alert panel per the live <see cref="AgentConfigState"/>. Reads the
+        /// pure-managed <see cref="GodotAgentConfigurator.ConfigState"/> against the resolved config path.
         /// </summary>
         void RefreshStatus()
         {
@@ -385,7 +456,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (configPath == null)
                 return;
 
-            var configured = _current.IsConfigured(configPath, McpUrl);
+            var state = _current.ConfigState(configPath, McpUrl);
+            var configured = state == AgentConfigState.UpToDate;
+
             _statusLabel.Text = configured ? "Configured" : "Not configured";
             _statusLabel.AddThemeColorOverride(
                 "font_color",
@@ -403,6 +476,47 @@ namespace com.IvanMurzak.Godot.MCP.UI
             }
             if (_removeButton != null)
                 _removeButton.Visible = configured;
+
+            RefreshAlert(_current, configPath, state);
+        }
+
+        /// <summary>
+        /// (Re)build the AI-agent "Setup Required" / "Reconfiguration Required" amber alert into the reserved
+        /// <c>AlertHost</c> slot, driven by the pure-managed <see cref="AgentAlertView"/> off <paramref name="state"/>.
+        /// Cleared (no alert) when the config is <see cref="AgentConfigState.UpToDate"/>. The action button reuses
+        /// the same <see cref="OnConfigurePressed"/> path as the Configure button (writes the addon's entry, then
+        /// RefreshStatus re-evaluates and clears the alert). Reuses <see cref="DockStyle.AlertPanel"/> (PR #61's
+        /// amber frame) so the chrome is not duplicated.
+        /// </summary>
+        void RefreshAlert(GodotAgentConfigurator agent, string configPath, AgentConfigState state)
+        {
+            if (_agentBody == null)
+                return;
+
+            // The reserved host VBox sits ABOVE the configure/remove row (added in BuildAgentView for config-path
+            // agents). The Custom snippet agent has no host, so there is nothing to render the alert into.
+            var host = _agentBody.GetNodeOrNull<VBoxContainer>("AlertHost");
+            if (host == null)
+                return;
+
+            // Clear any prior alert (state may have just flipped, e.g. after a Configure write).
+            foreach (var child in host.GetChildren())
+            {
+                host.RemoveChild(child);
+                child.QueueFree();
+            }
+            _alertPanel = null;
+
+            if (!AgentAlertView.ShowAlert(state))
+                return;
+
+            _alertPanel = DockStyle.AlertPanel(
+                "AgentAlert",
+                AgentAlertView.Title(state),
+                AgentAlertView.Message(state),
+                AgentAlertView.ButtonText,
+                () => OnConfigurePressed(agent, configPath));
+            host.AddChild(_alertPanel);
         }
 
         /// <summary>

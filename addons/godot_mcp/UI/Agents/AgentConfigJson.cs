@@ -29,6 +29,24 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
     /// buttons) lives behind <c>#if TOOLS</c> in <c>AgentConfiguratorsPanel.cs</c>.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The three states the addon's entry in an agent's on-disk config can be in, relative to the CURRENT MCP
+    /// client URL. Drives the dock's AI-agent alert panel: <see cref="Missing"/> → "Setup Required",
+    /// <see cref="Stale"/> → "Reconfiguration Required", <see cref="UpToDate"/> → no alert. Pure-managed so the
+    /// alert decision is unit-testable without a Godot Control.
+    /// </summary>
+    public enum AgentConfigState
+    {
+        /// <summary>No addon entry exists in the config file (missing / empty / invalid file, or entry absent).</summary>
+        Missing,
+
+        /// <summary>An addon entry exists but its <c>url</c> does NOT match the current MCP client URL (stale config).</summary>
+        Stale,
+
+        /// <summary>An addon entry exists and its <c>url</c> matches the current MCP client URL (nothing to do).</summary>
+        UpToDate
+    }
+
     public static class AgentConfigJson
     {
         /// <summary>The masked stand-in shown on-screen in place of a real bearer token (never copied/written).</summary>
@@ -104,6 +122,37 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             var url = entry["url"]?.GetValue<string>();
             return !string.IsNullOrEmpty(url)
                 && string.Equals(url, mcpUrl, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Classify the addon's entry in the file at <paramref name="configPath"/> relative to the current
+        /// <paramref name="mcpUrl"/>: <see cref="AgentConfigState.Missing"/> when no entry exists (missing / empty /
+        /// invalid file, or the <paramref name="bodyPath"/> → <paramref name="serverKey"/> entry is absent),
+        /// <see cref="AgentConfigState.Stale"/> when an entry exists but its <c>url</c> differs (ordinal-ignore-case)
+        /// from <paramref name="mcpUrl"/>, and <see cref="AgentConfigState.UpToDate"/> when an entry exists with a
+        /// matching url. This is the pure-managed source of truth for the dock's AI-agent alert panel; it shares the
+        /// same parse + nav rules as <see cref="IsConfigured"/> (which is exactly <c>state == UpToDate</c>) so the
+        /// two never disagree.
+        /// </summary>
+        public static AgentConfigState ConfigState(string configPath, string bodyPath, string serverKey, string mcpUrl)
+        {
+            var root = TryReadObject(configPath);
+            if (root == null)
+                return AgentConfigState.Missing;
+
+            if (root[bodyPath] is not JsonObject body)
+                return AgentConfigState.Missing;
+
+            if (body[serverKey] is not JsonObject entry)
+                return AgentConfigState.Missing;
+
+            var url = entry["url"]?.GetValue<string>();
+            if (string.IsNullOrEmpty(url))
+                return AgentConfigState.Missing;
+
+            return string.Equals(url, mcpUrl, StringComparison.OrdinalIgnoreCase)
+                ? AgentConfigState.UpToDate
+                : AgentConfigState.Stale;
         }
 
         /// <summary>
