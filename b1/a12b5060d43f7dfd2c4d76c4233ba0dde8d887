@@ -1,0 +1,43 @@
+Godot-MCP-Server/build-all.sh
+  s_e36a2a3c4d1c6f::t_becdb7845450f1 1-163
+Godot-MCP-Server/NLog.config
+  s_e36a2a3c4d1c6f::t_d46fb69b44531d 1-52
+Godot-MCP-Server/server.json
+  s_e36a2a3c4d1c6f::t_8aa9eeef6a0b8b 1-51
+Godot-MCP.csproj
+  s_e36a2a3c4d1c6f::t_5e00c0648b8103 24-29,33
+Godot-MCP-Server/appsettings.json
+  s_e36a2a3c4d1c6f::t_67dfdd71764857 1-9
+Godot-MCP-Server/build-all.ps1
+  s_e36a2a3c4d1c6f::t_445be68cc1e717 1-159
+Godot-MCP-Server/README.md
+  s_e36a2a3c4d1c6f::t_6a4e524ec0c79a 1-59
+Godot-MCP-Server/.gitignore
+  s_e36a2a3c4d1c6f::t_580adee2775103 1-44
+Godot-MCP-Server/src/Program.cs
+  s_e36a2a3c4d1c6f::t_3f62196a99b928 1-148
+Godot-MCP-Server/.dockerignore
+  s_e36a2a3c4d1c6f::t_5227947ebbf7cc 1-31
+Godot-MCP-Server/com.IvanMurzak.Godot.MCP.Server.csproj
+  s_e36a2a3c4d1c6f::t_06f6fd8e53f5e9 1-70
+Godot-MCP-Server/Dockerfile
+  s_e36a2a3c4d1c6f::t_4c22ee845707bc 1-32
+Godot-MCP-Server/Godot-MCP-Server.sln
+  s_e36a2a3c4d1c6f::t_78de78092aa355 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b1a12b5060d43f7dfd2c4d76c4233ba0dde8d887",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <ivandmurzak@gmail.com>"
+    }
+  }
+}
