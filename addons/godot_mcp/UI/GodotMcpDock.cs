@@ -52,6 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         ConnectionPanel? _connectionPanel;
         FeaturesPanel? _featuresPanel;
         AgentConfiguratorsPanel? _agentConfiguratorsPanel;
+        SkillsPanel? _skillsPanel;
         SupportFooter? _supportFooter;
 
         // Log Level selector (header). Only built when a live connection was threaded in (it reads/writes
@@ -176,6 +177,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 // so it shares the connection-null guard with the connection + features panels.
                 _agentConfiguratorsPanel = new AgentConfiguratorsPanel(_connection);
                 Body.AddChild(DockStyle.Card(_agentConfiguratorsPanel, "AiAgent"));
+
+                // Skills section — auto-generated SKILL.md output for the selected skills-capable agent: the resolved
+                // skills path, an Auto-generate toggle (persisted via GenerateSkillFiles), and an on-demand Generate
+                // button. Inserted BETWEEN the AI-agent card and the support footer, wired to the live connection (it
+                // reads the persisted selected agent + drives the live plugin's GenerateSkillFiles). Only meaningful
+                // with a live connection, so it shares the connection-null guard with the panels above.
+                _skillsPanel = new SkillsPanel(_connection);
+                Body.AddChild(DockStyle.Card(_skillsPanel, "Skills"));
+
+                // The Skills card's supported-state + output path follow the selected AI agent, so re-render it when
+                // the AI-agent dropdown selection changes (the panel persists the new SelectedAgentId first).
+                _agentConfiguratorsPanel.AgentSelectionChanged += () => _skillsPanel?.Refresh();
             }
 
             // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
@@ -266,6 +279,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connectionPanel?.Refresh();
             _featuresPanel?.Refresh();
             _agentConfiguratorsPanel?.Refresh();
+            _skillsPanel?.Refresh();
             SyncLogLevelSelector();
         }
     }

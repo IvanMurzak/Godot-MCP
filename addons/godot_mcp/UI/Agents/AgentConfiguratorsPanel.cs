@@ -9,6 +9,7 @@
 */
 #if TOOLS
 #nullable enable
+using System;
 using System.Collections.Generic;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.UI.Agents;
@@ -38,6 +39,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
     public partial class AgentConfiguratorsPanel : VBoxContainer
     {
         readonly GodotMcpConnection _connection;
+
+        /// <summary>
+        /// Raised after the user picks a DIFFERENT AI agent in the dropdown (the persisted
+        /// <see cref="GodotMcpConfig.SelectedAgentId"/> changed + was Saved). The dock subscribes so dependent
+        /// sections — notably the Skills card, whose supported-state/path follow the selected agent — re-render. Fired
+        /// on the editor main thread (the selection callback runs there), carries no payload (subscribers re-read the
+        /// persisted selection). Not fired when the user re-picks the already-selected agent.
+        /// </summary>
+        public event Action? AgentSelectionChanged;
 
         OptionButton? _agentSelector;
         VBoxContainer? _agentView;
@@ -127,13 +137,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Persist the selected agent id so the choice survives a restart.
             var selected = all[i];
-            if (_connection.Config.SelectedAgentId != selected.AgentId)
+            var changed = _connection.Config.SelectedAgentId != selected.AgentId;
+            if (changed)
             {
                 _connection.Config.SelectedAgentId = selected.AgentId;
                 _connection.Save();
             }
 
             ShowAgent(i);
+
+            // Notify dependent sections (the Skills card follows the selected agent) AFTER the persisted selection +
+            // this panel's own view are updated, so a subscriber re-reading SelectedAgentId sees the new value.
+            if (changed)
+                AgentSelectionChanged?.Invoke();
         }
 
         /// <summary>Rebuild the per-agent view for the configurator at registry index <paramref name="index"/>.</summary>

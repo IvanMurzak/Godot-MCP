@@ -43,5 +43,12 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) =>
             AgentConfigPaths.ClaudeCode(projectRoot);
+
+        // Claude Code is the only skills-capable agent in v1 (owner-approved): it reads auto-generated SKILL.md files
+        // from `<projectRoot>/.claude/skills`. Mirrors Unity-MCP's ClaudeCodeConfigurator.SkillsPath = ".claude/skills".
+        public override bool SupportsSkills => true;
+
+        public override string? SkillsDir(AgentOs os, string home, string appData, string projectRoot) =>
+            AgentConfigPaths.ClaudeCodeSkills(projectRoot);
     }
 }

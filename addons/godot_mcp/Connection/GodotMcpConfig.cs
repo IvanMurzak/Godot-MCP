@@ -216,7 +216,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // KeepConnected is true (it drives a FixedRetryPolicy on the underlying HubConnection).
             // We do not reimplement transport — we just opt into staying connected.
             KeepConnected = true;
-            GenerateSkillFiles = false;
+
+            // Auto-generate skills is ON by default (owner-approved v1 default): on a fresh install the addon
+            // regenerates the skills-capable agent's SKILL.md files on boot via GenerateSkillFilesIfNeeded(), so the
+            // AI agent sees up-to-date per-tool skills with no manual step. The dock's Skills card exposes a toggle
+            // that persists an override (GenerateSkillFiles is a serialized field on the base ConnectionConfig).
+            GenerateSkillFiles = true;
         }
 
         // --- Pure resolution helpers (unit-testable; no Godot / SignalR dependency). ---
