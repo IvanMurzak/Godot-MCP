@@ -1,8 +1,8 @@
-// CLI entry-point re-exports (`godot-mcp-cli/cli`).
+// CLI entry-point re-exports (`godot-cli/cli`).
 //
 // Exposes the commander Command instances so a consumer can compose them into
 // their own program. The runnable program lives in `index.ts` (imported by
-// `bin/godot-mcp-cli.js`).
+// `bin/godot-cli.js`).
 
 export { openCommand } from './commands/open.js';
 export { runToolCommand } from './commands/run-tool.js';

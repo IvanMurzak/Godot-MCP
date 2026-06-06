@@ -20,7 +20,7 @@ const pkg = require('../package.json') as { version: string };
 const program = new Command();
 
 program
-  .name('godot-mcp-cli')
+  .name('godot-cli')
   .description('Cross-platform CLI tool for Godot-MCP operations')
   .version(pkg.version)
   .option('-v, --verbose', 'Enable verbose diagnostic output');

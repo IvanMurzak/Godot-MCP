@@ -120,7 +120,7 @@ export function configureStyledHelp(cmd: Command, appVersion?: string): Command 
       if (isRoot) {
         lines.push(
           chalk.dim('Run ') +
-          chalk.yellow('godot-mcp-cli <command> --help') +
+          chalk.yellow('godot-cli <command> --help') +
           chalk.dim(' for detailed usage of each command.')
         );
         lines.push('');

@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const CLI_PATH = path.resolve(__dirname, '..', '..', 'bin', 'godot-mcp-cli.js');
+export const CLI_PATH = path.resolve(__dirname, '..', '..', 'bin', 'godot-cli.js');
 
 /** Run the CLI as a child process with timeout and error handling. */
 export function runCliAsync(args: string[], cwd?: string): Promise<{ stdout: string; exitCode: number }> {

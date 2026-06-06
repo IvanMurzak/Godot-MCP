@@ -82,7 +82,7 @@ export const configureCommand = new Command('configure')
     ) => {
       const resolvedPath = positionalPath ?? options.path;
       if (!resolvedPath) {
-        ui.error('Path is required. Usage: godot-mcp-cli configure <path> or --path <path>');
+        ui.error('Path is required. Usage: godot-cli configure <path> or --path <path>');
         process.exit(1);
       }
 

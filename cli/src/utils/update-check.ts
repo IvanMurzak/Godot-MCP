@@ -4,9 +4,9 @@ import { readFileSync, writeFileSync } from 'fs';
 import chalk from 'chalk';
 import { isNewerVersion, isValidVersion } from './semver.js';
 
-const PACKAGE_NAME = 'godot-mcp-cli';
+const PACKAGE_NAME = 'godot-cli';
 const NPM_REGISTRY_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
-const CACHE_FILE = join(homedir(), '.godot-mcp-cli-update.json');
+const CACHE_FILE = join(homedir(), '.godot-cli-update.json');
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000;
 

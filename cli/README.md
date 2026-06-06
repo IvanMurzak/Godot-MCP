@@ -1,4 +1,4 @@
-# godot-mcp-cli
+# godot-cli
 
 Cross-platform CLI for **Godot-MCP** — the [Godot](https://godotengine.org/) editor addon that bridges
 LLMs (Claude, Cursor, Copilot, …) with the Godot editor via the
@@ -14,9 +14,9 @@ enables/disables the `godot_mcp` addon in a project.
 ## Install
 
 ```bash
-npm install -g godot-mcp-cli
+npm install -g godot-cli
 # or run ad-hoc:
-npx godot-mcp-cli <command>
+npx godot-cli <command>
 ```
 
 Requires Node `^20.19.0 || >=22.12.0`.
@@ -35,7 +35,7 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
 | `install-plugin [path]` | Enable the `godot_mcp` addon in `project.godot` `[editor_plugins]`. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]`. |
-| `update` | Check npm for a newer `godot-mcp-cli` and install it. |
+| `update` | Check npm for a newer `godot-cli` and install it. |
 
 ### Editor resolution (`open`)
 
@@ -86,7 +86,7 @@ The Godot MCP server exposes **no** `skill-generate` HTTP endpoint for the CLI t
 The package also exports a side-effect-free library (the `.` entry):
 
 ```ts
-import { openProject, runTool, setupMcp, installPlugin } from 'godot-mcp-cli';
+import { openProject, runTool, setupMcp, installPlugin } from 'godot-cli';
 ```
 
 Every function returns a discriminated union (`{ kind: 'success', ... }` / `{ kind: 'failure', error }`)
