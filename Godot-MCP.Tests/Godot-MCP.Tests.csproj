@@ -171,6 +171,7 @@
          (test.md Suite 3); the snippet/configure/remove/path/registry logic is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfigurator.cs" Link="Source\GodotAgentConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigJson.cs" Link="Source\AgentConfigJson.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\AgentAlertView.cs" Link="Source\AgentAlertView.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\AgentConfigPaths.cs" Link="Source\AgentConfigPaths.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfiguratorRegistry.cs" Link="Source\GodotAgentConfiguratorRegistry.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ClaudeCodeConfigurator.cs" Link="Source\ClaudeCodeConfigurator.cs" />

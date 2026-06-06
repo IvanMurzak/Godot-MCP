@@ -75,5 +75,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.Equal("~— tokens", FeaturesPanelView.UnavailableTokenLabel());
         }
+
+        [Fact]
+        public void TokenTotalLabel_formats_with_tilde_total_suffix_and_k_abbrev()
+        {
+            Assert.Equal("~999 tokens total", FeaturesPanelView.TokenTotalLabel(999));
+            Assert.Equal("~0 tokens total", FeaturesPanelView.TokenTotalLabel(0));
+            // Shares FormatTokenCount with TokenLabel, so the k-abbreviation is identical.
+            Assert.Equal("~1.5k tokens total", FeaturesPanelView.TokenTotalLabel(1500));
+            Assert.Equal("~12.3k tokens total", FeaturesPanelView.TokenTotalLabel(12345));
+        }
+
+        [Fact]
+        public void UnavailableTokenTotalLabel_uses_the_dash_placeholder()
+        {
+            Assert.Equal("~— tokens total", FeaturesPanelView.UnavailableTokenTotalLabel());
+        }
     }
 }

@@ -164,6 +164,71 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             }
         }
 
+        // --- ConfigState classifier (Missing / Stale / UpToDate) drives the dock's Setup/Reconfiguration alert ---
+
+        [Fact]
+        public void ConfigState_Missing_WhenFileAbsentOrEntryAbsent()
+        {
+            var agent = ClaudeCode();
+            var path = TempFile();
+            try
+            {
+                // No file on disk yet → Missing.
+                Assert.Equal(AgentConfigState.Missing, agent.ConfigState(path, Url));
+
+                // A file that exists but holds an unrelated server (no addon entry) → still Missing.
+                File.WriteAllText(path, "{\"mcpServers\":{\"someone-else\":{\"type\":\"http\",\"url\":\"https://x/mcp\"}}}");
+                Assert.Equal(AgentConfigState.Missing, agent.ConfigState(path, Url));
+            }
+            finally
+            {
+                Cleanup(path);
+            }
+        }
+
+        [Fact]
+        public void ConfigState_UpToDate_WhenEntryMatchesUrl_StaleWhenUrlDiffers()
+        {
+            var agent = ClaudeCode();
+            var path = TempFile();
+            try
+            {
+                agent.Configure(path, Url, Token);
+
+                // Same url → UpToDate (and exactly the IsConfigured==true case).
+                Assert.Equal(AgentConfigState.UpToDate, agent.ConfigState(path, Url));
+                Assert.True(agent.IsConfigured(path, Url));
+
+                // A different current url → Stale (entry exists but points elsewhere).
+                Assert.Equal(AgentConfigState.Stale, agent.ConfigState(path, "http://localhost:8080/mcp"));
+                Assert.False(agent.IsConfigured(path, "http://localhost:8080/mcp"));
+            }
+            finally
+            {
+                Cleanup(path);
+            }
+        }
+
+        [Theory]
+        [InlineData("")]                       // empty file
+        [InlineData("   ")]                     // whitespace
+        [InlineData("{ not valid json ")]       // malformed
+        [InlineData("[1,2,3]")]                 // valid json but not an object
+        public void ConfigState_Missing_OnBadFile(string content)
+        {
+            var agent = ClaudeCode();
+            var path = TempFile();
+            try
+            {
+                File.WriteAllText(path, content);
+                Assert.Equal(AgentConfigState.Missing, agent.ConfigState(path, Url));
+            }
+            finally
+            {
+                Cleanup(path);
+            }
+        }
+
         [Theory]
         [InlineData("")]                       // empty file
         [InlineData("   ")]                     // whitespace

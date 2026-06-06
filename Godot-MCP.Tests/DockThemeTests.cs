@@ -72,6 +72,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void OpenButton_Palette_MatchesBriefReferenceValues()
+        {
+            // btn-secondary: gray fill rgb(70,70,70), border rgb(100,100,100), 30px tall, 6px radius.
+            AssertRgb8(DockTheme.ButtonSecondary, 70, 70, 70);
+            AssertRgb8(DockTheme.ButtonOpenBorder, 100, 100, 100);
+            Assert.Equal(30, DockTheme.ButtonOpenHeight);
+            Assert.Equal(6, DockTheme.ButtonOpenCornerRadius);
+        }
+
+        [Fact]
+        public void TokenSubLabel_Palette_MatchesBriefReferenceValues()
+        {
+            // "~N tokens total" sub-label: gray rgb(150,150,150), 11px.
+            AssertRgb8(DockTheme.ColorTokenSubLabel, 150, 150, 150);
+            Assert.Equal(11, DockTheme.FontSizeTokenSubLabel);
+        }
+
+        [Fact]
         public void RowTint_MapsEnabledToGreenDisabledToRed()
         {
             Assert.Equal(DockTheme.RowEnabledTint, DockTheme.RowTint(enabled: true));

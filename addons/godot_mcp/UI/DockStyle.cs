@@ -143,6 +143,40 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
         }
 
+        /// <summary>
+        /// Skin <paramref name="button"/> as the MCP-features "Open" action (Unity's <c>.btn-secondary</c>): gray
+        /// <see cref="DockTheme.ButtonSecondary"/> fill, a <see cref="DockTheme.ButtonOpenBorder"/> 1px border,
+        /// <see cref="DockTheme.ButtonOpenCornerRadius"/> radius, and <see cref="DockTheme.ButtonOpenHeight"/> tall.
+        /// Distinct from <see cref="ApplySecondaryButton"/> (the compact 20px/4px-radius/no-border variant used by
+        /// the agent action row) so the dock's feature rows match the taller bordered Unity button exactly.
+        /// </summary>
+        public static void ApplyOpenButton(Button button)
+        {
+            var bg = Rgb(DockTheme.ButtonSecondary);
+            var border = Rgb(DockTheme.ButtonOpenBorder);
+            ApplyBorderedButtonBackground(button, bg, bg.Lightened(0.1f), border, DockTheme.ButtonOpenCornerRadius);
+            button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonOpenHeight);
+        }
+
+        static void ApplyBorderedButtonBackground(Button button, Color normal, Color hover, Color border, int cornerRadius)
+        {
+            StyleBoxFlat Make(Color bg)
+            {
+                var box = new StyleBoxFlat { BgColor = bg, BorderColor = border };
+                box.SetCornerRadiusAll(cornerRadius);
+                box.SetBorderWidthAll(1);
+                box.ContentMarginLeft = 10;
+                box.ContentMarginRight = 10;
+                box.ContentMarginTop = 4;
+                box.ContentMarginBottom = 4;
+                return box;
+            }
+
+            button.AddThemeStyleboxOverride("normal", Make(normal));
+            button.AddThemeStyleboxOverride("hover", Make(hover));
+            button.AddThemeStyleboxOverride("pressed", Make(normal.Darkened(0.1f)));
+        }
+
         static void ApplyButtonBackground(Button button, Color normal, Color hover, int cornerRadius)
         {
             var normalBox = new StyleBoxFlat { BgColor = normal };

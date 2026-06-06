@@ -55,6 +55,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Muted gray for section descriptions (Unity's muted description text).</summary>
         public static readonly (float R, float G, float B) ColorDescriptionMuted = (0.6f, 0.6f, 0.6f);
 
+        /// <summary>
+        /// The MCP-features token sub-label colour — gray <c>Color8(150,150,150)</c> (Unity's "~N tokens total"
+        /// 11px sub-label). Distinct from <see cref="ColorDescriptionMuted"/> to match the Unity reference value.
+        /// </summary>
+        public static readonly (float R, float G, float B) ColorTokenSubLabel = (150f / 255f, 150f / 255f, 150f / 255f);
+
+        /// <summary>The MCP-features token sub-label font size (px) — Unity's 11px "~N tokens total".</summary>
+        public const int FontSizeTokenSubLabel = 11;
+
         // --- Status dot (Unity _status-indicators.uss) ---------------------------------------------------------
 
         /// <summary>Status-dot diameter (px).</summary>
@@ -103,6 +112,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>Alert / Remove button hover background — brighter red.</summary>
         public static readonly (float R, float G, float B) ButtonAlertHover = (140f / 255f, 50f / 255f, 50f / 255f);
+
+        /// <summary>
+        /// The MCP-features "Open" button border colour — <c>Color8(100,100,100)</c> (Unity's <c>.btn-secondary</c>
+        /// border). The fill reuses <see cref="ButtonSecondary"/> gray.
+        /// </summary>
+        public static readonly (float R, float G, float B) ButtonOpenBorder = (100f / 255f, 100f / 255f, 100f / 255f);
+
+        /// <summary>The MCP-features "Open" button corner radius (px) — Unity's <c>.btn-secondary</c> 6px radius.</summary>
+        public const int ButtonOpenCornerRadius = 6;
+
+        /// <summary>The MCP-features "Open" button height (px) — Unity's <c>.btn-secondary</c> 30px.</summary>
+        public const int ButtonOpenHeight = 30;
 
         // --- Links (Unity _typography.uss / link style) --------------------------------------------------------
 

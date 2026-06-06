@@ -56,6 +56,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static string TokenLabel(int enabledTokenCount) => $"~{FormatTokenCount(enabledTokenCount)} tokens";
 
         /// <summary>
+        /// Format the tools-only "~N tokens total" sub-label shown under the count in the restyled MCP-features
+        /// row (Unity's "~N tokens total" 11px gray sub-label). Uses the same k-abbreviated
+        /// <see cref="FormatTokenCount"/> as <see cref="TokenLabel"/>, with a "total" suffix: <c>1500</c> →
+        /// "~1.5k tokens total".
+        /// </summary>
+        public static string TokenTotalLabel(int enabledTokenCount) => $"~{FormatTokenCount(enabledTokenCount)} tokens total";
+
+        /// <summary>The "~N tokens total" sub-label shown when the plugin/managers are not yet available — "~— tokens total".</summary>
+        public static string UnavailableTokenTotalLabel() => $"~{Unavailable} tokens total";
+
+        /// <summary>
         /// Abbreviate a token count: values under 1000 render as-is; 1000+ render as <c>{value/1000}k</c> with
         /// one decimal place and a trimmed trailing <c>.0</c> (e.g. 1000 → "1k", 1500 → "1.5k", 2000 → "2k").
         /// Uses the invariant culture so the decimal separator is always a dot regardless of editor locale.
