@@ -21,12 +21,16 @@
   </ItemGroup>
 
   <!--
-    The Godot.NET.Sdk auto-globs every *.cs under the project dir into THIS game assembly. The xUnit
-    test project (Godot-MCP.Tests/) lives in a subfolder and has its own .csproj, so exclude it here —
-    otherwise its test files (which reference xUnit) get compiled into the game assembly and fail.
+    The Godot.NET.Sdk auto-globs every *.cs under the project dir into THIS game assembly. Sibling
+    projects that live in subfolders and own their own .csproj must be excluded here, otherwise their
+    sources (which reference packages this game assembly does not, e.g. xUnit or ASP.NET Core) get
+    compiled into the game assembly and break the build:
+      - Godot-MCP.Tests/   — the xUnit unit-test project.
+      - Godot-MCP-Server/   — the standalone ASP.NET Core MCP server (its own .sln; NOT part of this one).
   -->
   <ItemGroup>
     <Compile Remove="Godot-MCP.Tests/**/*.cs" />
+    <Compile Remove="Godot-MCP-Server/**/*.cs" />
   </ItemGroup>
 
 </Project>
