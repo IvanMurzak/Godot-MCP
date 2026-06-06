@@ -94,6 +94,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
         GodotDeviceAuthFlow? _deviceAuthFlow;
 
+        // Local-server hosting (Custom mode): the Start/Stop button on the MCP-server timeline point, the
+        // "Local server: …" status line, and the manager that downloads + runs the version-matched
+        // godot-mcp-server binary. The server circle (_timelineServerCircle) reflects this LOCAL server's
+        // lifecycle (Stopped/Starting/Running/Stopping) — the connection's own hub state is shown by the
+        // Godot circle. This is the #1 "server-less client" carve-out reversal: the plugin can now HOST its
+        // own server, not only connect to an external/cloud one.
+        readonly GodotMcpServerManager _serverManager;
+        VBoxContainer _localServerRow = null!;
+        Label _serverStatusLabel = null!;
+        Button _serverStartStopButton = null!;
+
+        // The last server status the panel rendered, so re-seeds/re-applies are idempotent and quiet.
+        GodotMcpServerStatus? _renderedServerStatus;
+
         // The last status the panel actually RENDERED, so the periodic re-sync only re-applies (and traces)
         // when the live status has drifted from what is on screen — keeping the per-tick check cheap and quiet.
         ConnectionStatus? _renderedStatus;
@@ -113,6 +127,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public ConnectionPanel(GodotMcpConnection connection)
         {
             _connection = connection;
+
+            // The local-server manager downloads + runs the version-matched godot-mcp-server binary on
+            // demand. Owned by the panel for the panel's lifetime; its StatusChanged is (un)subscribed in
+            // _EnterTree/_ExitTree alongside the connection events (same #42/#56 reparent discipline). The
+            // PluginVersion is the addon version the server binary must match EXACTLY.
+            _serverManager = new GodotMcpServerManager(
+                GodotMcpConnection.PluginVersion,
+                GD.Print,
+                GD.PushWarning,
+                GD.PushError);
+
             Name = "ConnectionPanel";
             BuildUi();
 
@@ -142,11 +167,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
             _connection.AuthorizationRejected += OnAuthorizationRejected;
 
+            // Same remove-then-add discipline for the local-server manager's status stream (#42/#56): the
+            // manager outlives the panel's tree membership, so a status reached while the panel was detached
+            // (e.g. the ~5s startup verification completing during a dock reparent) is pulled in by the
+            // re-seed below. The manager marshals its raises onto the editor main thread, so the handler may
+            // touch Controls directly.
+            _serverManager.StatusChanged -= OnServerStatusChanged;
+            _serverManager.StatusChanged += OnServerStatusChanged;
+
             // Re-seed from the LIVE status: a status reached while the panel was detached (e.g. Connected
             // arriving during the dock reparent) is pulled onto the label here, since the change event was
             // missed. This is the load-bearing #42 fix — the panel ALWAYS converges to the real status on
             // (re)entry, independent of event-delivery timing.
             ApplyStatus(_connection.ConnectionStatus);
+            ApplyServerStatus(_serverManager.Status);
             ApplyModeVisibility(_connection.Config.ActiveMode);
 
             // Belt-and-suspenders convergence: register a per-frame re-sync into the main-thread dispatcher's
@@ -301,6 +335,27 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _generateTokenButton.Pressed += OnGenerateTokenPressed;
             tokenLine.AddChild(_generateTokenButton);
 
+            // --- Local-server hosting row (Custom mode only): Start/Stop the version-matched server binary ---
+            // The plugin can HOST its own server here (download-if-needed + launch), not just connect to an
+            // external/cloud one. Hidden in Cloud mode (no local server is launched against the cloud host).
+            _localServerRow = new VBoxContainer { Name = "LocalServerRow" };
+            _localServerRow.AddThemeConstantOverride("separation", 4);
+            _customHostRow.AddChild(_localServerRow);
+
+            var serverLine = new HBoxContainer { Name = "LocalServerLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+
+            _serverStatusLabel = new Label { Name = "LocalServerStatus" };
+            DockStyle.ApplySubLabel(_serverStatusLabel);
+            serverLine.AddChild(_serverStatusLabel);
+
+            serverLine.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+
+            _serverStartStopButton = new Button { Name = "LocalServerStartStopButton" };
+            _serverStartStopButton.Pressed += OnServerStartStopPressed;
+            serverLine.AddChild(_serverStartStopButton);
+
+            _localServerRow.AddChild(serverLine);
+
             // --- Cloud-mode auth section (shown only in Cloud mode): device-code login ---
             _cloudAuthRow = new VBoxContainer { Name = "CloudAuthRow" };
             _cloudAuthRow.AddThemeConstantOverride("separation", 4);
@@ -388,11 +443,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void OnConnectionStatusChanged(ConnectionStatus status) => ApplyStatus(status);
 
         /// <summary>
-        /// Push a <see cref="ConnectionStatus"/> into the Godot status label, the Connect button, the Godot +
-        /// MCP-server timeline circles, and the alert-panel visibility. All derived presentation comes from
-        /// <see cref="ConnectionPanelView"/>. The "Godot" and "MCP server" circles track the same hub state (a
-        /// single connection); the "AI agent" circle stays neutral (Godot is a server-less client with no live
-        /// agent-info channel — the label reads "AI agent (connects on demand)").
+        /// Push a <see cref="ConnectionStatus"/> into the Godot status label, the Connect button, the Godot
+        /// timeline circle, and the alert-panel visibility. All derived presentation comes from
+        /// <see cref="ConnectionPanelView"/>. The "Godot" circle tracks the hub connection state; the
+        /// "MCP server" circle is driven SEPARATELY by the LOCAL server's lifecycle (see
+        /// <see cref="ApplyServerStatus"/>) now that the plugin can host its own server; the "AI agent"
+        /// circle stays neutral (no live agent-info channel — the label reads "AI agent (connects on demand)").
         /// </summary>
         void ApplyStatus(ConnectionStatus status)
         {
@@ -408,7 +464,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 DockStyle.ApplyPrimaryButton(_connectButton);
 
             DockStyle.ApplyTimelineCircle(_timelineGodotCircle, pointState);
-            DockStyle.ApplyTimelineCircle(_timelineServerCircle, pointState);
 
             _renderedStatus = status;
             ApplyAlertVisibility(status);
@@ -431,6 +486,60 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _authRequiredAlert.Visible = ConnectionPanelView.ShowAuthorizationRequired(isCloud, hasCloudToken);
             _connectionRequiredAlert.Visible = ConnectionPanelView.ShowConnectionRequired(isCloud, hasCloudToken, status);
+        }
+
+        void OnServerStatusChanged(GodotMcpServerStatus status) => ApplyServerStatus(status);
+
+        /// <summary>
+        /// Render the LOCAL server's lifecycle onto the MCP-server timeline point: the "Local server: …"
+        /// status line, the Start/Stop button (text + disabled state from the pure-managed
+        /// <see cref="GodotMcpServerView"/>), and the server timeline circle (filled green Running/External,
+        /// green ring while Starting/Stopping, orange disc Stopped). Idempotent + quiet: a re-apply of the
+        /// already-rendered status is harmless. Runs on the editor main thread (the manager marshals its
+        /// raises there).
+        /// </summary>
+        void ApplyServerStatus(GodotMcpServerStatus status)
+        {
+            _serverStatusLabel.Text = GodotMcpServerView.ServerStatusLabel(status);
+            _serverStartStopButton.Text = GodotMcpServerView.ServerButtonText(status);
+            _serverStartStopButton.Disabled = GodotMcpServerView.ServerButtonDisabled(status);
+
+            // Primary (cyan) when the click starts the server; secondary (gray) when it stops it.
+            if (status == GodotMcpServerStatus.Running)
+                DockStyle.ApplySecondaryButton(_serverStartStopButton);
+            else
+                DockStyle.ApplyPrimaryButton(_serverStartStopButton);
+
+            DockStyle.ApplyTimelineCircle(_timelineServerCircle, GodotMcpServerView.ServerPointState(status));
+            _renderedServerStatus = status;
+        }
+
+        /// <summary>
+        /// Handle a click on the local-server Start/Stop button. When stopped, downloads the version-matched
+        /// binary if needed then launches it with <c>client-transport=streamableHttp</c> on the port parsed
+        /// from the configured Custom host URL, passing the bearer token only when auth is required (the
+        /// token is never logged). When running, terminates it. The download/launch is fire-and-forget; the
+        /// status circle + button converge via the manager's <see cref="GodotMcpServerManager.StatusChanged"/>
+        /// stream. The button is disabled by <see cref="ApplyServerStatus"/> during transient states, so a
+        /// double-click cannot race a start/stop.
+        /// </summary>
+        void OnServerStartStopPressed()
+        {
+            if (_serverManager.Status == GodotMcpServerStatus.Running)
+            {
+                _serverManager.StopServer();
+                return;
+            }
+
+            var port = GodotMcpServerView.ResolveServerPort(
+                _connection.Config.ResolveCustomHost(),
+                com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultPort);
+            var timeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultTimeoutMs;
+            var authRequired = _connection.Config.ActiveAuthOption == GodotMcpAuthOption.Required;
+            var token = _connection.Config.ResolveCustomToken();
+
+            // Fire-and-forget: StartServerAsync downloads-if-needed then launches; status changes drive the UI.
+            _ = _serverManager.StartServerAsync(port, timeoutMs, authRequired, token);
         }
 
         /// <summary>
@@ -804,6 +913,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             ApplyModeVisibility(_connection.Config.ActiveMode);
             ApplyStatus(_connection.ConnectionStatus);
+            ApplyServerStatus(_serverManager.Status);
         }
 
         public override void _ExitTree()
@@ -811,6 +921,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Unsubscribe so a freed panel does not receive a late main-thread push.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
+            _serverManager.StatusChanged -= OnServerStatusChanged;
 
             // Unregister the periodic re-sync so the dispatcher no longer ticks into a freed panel.
             _resyncRegistration?.Dispose();
@@ -819,6 +930,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel.
             _deviceAuthFlow?.Cancel();
             _deviceAuthFlow = null;
+
+            // NOTE: the local-server manager is NOT disposed here — _ExitTree fires on every dock reparent
+            // (#42/#56), and disposing would kill a running server on a benign layout reload. The manager is
+            // disposed only when the panel is permanently freed (NotificationPredelete below), which stops
+            // any hosted server so we never leak a process.
+        }
+
+        /// <summary>
+        /// On permanent free (plugin disabled / editor teardown — NOT a dock reparent, which is _ExitTree),
+        /// dispose the local-server manager so any hosted server process is stopped and not orphaned.
+        /// </summary>
+        public override void _Notification(int what)
+        {
+            if (what == NotificationPredelete)
+                _serverManager.Dispose();
         }
     }
 }
