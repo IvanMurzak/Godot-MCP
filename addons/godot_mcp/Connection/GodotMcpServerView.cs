@@ -282,4 +282,65 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             return defaultPort;
         }
     }
+
+    /// <summary>
+    /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>) ownership test used by the orphan-process
+    /// cleanup to decide whether a running <c>godot-mcp-server</c> process belongs to THIS project — so the
+    /// cleanup can never cross-kill another Godot project's hosted server. The decision is a deterministic,
+    /// cross-platform path comparison (no <c>Path</c> APIs, no <c>netstat</c>/<c>lsof</c>), so the same
+    /// assertions hold on the Linux CI runner and on a Windows dev box.
+    /// </summary>
+    public static class GodotMcpServerOwnership
+    {
+        /// <summary>
+        /// True when <paramref name="candidateExecutablePath"/> (a running process's executable path) is THIS
+        /// project's cached server binary — i.e. it resolves to the same file as
+        /// <paramref name="ownExecutablePath"/> (the path returned by the manager's <c>ExecutableFullPath()</c>),
+        /// OR it lives in the same containing directory. Both paths are produced by the manager from the same
+        /// cache root, so a same-directory match is the load-bearing signal that the process is ours.
+        ///
+        /// <para>
+        /// Comparison normalizes backslash/forward-slash separators and is case-insensitive (Windows paths are
+        /// case-insensitive; the macOS default volume is too; on the rare case-sensitive Linux volume this only
+        /// ever broadens "is it ours" slightly toward our OWN cache dir — it never matches a DIFFERENT
+        /// project, which is the safety property that matters). A null/empty candidate is never owned (fail
+        /// closed: a process we cannot attribute is never killed).
+        /// </para>
+        /// </summary>
+        public static bool IsOwnedByThisProject(string? candidateExecutablePath, string? ownExecutablePath)
+        {
+            if (string.IsNullOrEmpty(candidateExecutablePath) || string.IsNullOrEmpty(ownExecutablePath))
+                return false;
+
+            var candidate = NormalizePath(candidateExecutablePath!);
+            var own = NormalizePath(ownExecutablePath!);
+
+            // Exact same binary file.
+            if (string.Equals(candidate, own, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Same containing directory (our cache platform folder) — the candidate must start with our
+            // directory prefix (bounded by the trailing slash so a sibling dir with a shared name prefix
+            // cannot match).
+            var ownDir = DirectoryPrefix(own);
+            if (ownDir.Length == 0)
+                return false;
+
+            return candidate.StartsWith(ownDir, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Replace backslashes with forward slashes so the comparison is separator-agnostic.</summary>
+        static string NormalizePath(string path) => path.Replace('\\', '/');
+
+        /// <summary>
+        /// The directory prefix of a normalized path, INCLUDING the trailing slash (so a <c>StartsWith</c>
+        /// match is bounded to the directory and cannot match a sibling whose name merely shares a prefix).
+        /// Returns empty when the path has no separator.
+        /// </summary>
+        static string DirectoryPrefix(string normalizedPath)
+        {
+            var idx = normalizedPath.LastIndexOf('/');
+            return idx < 0 ? string.Empty : normalizedPath.Substring(0, idx + 1);
+        }
+    }
 }

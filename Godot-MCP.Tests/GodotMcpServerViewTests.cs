@@ -279,5 +279,62 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // fallback — Uri fills it in. (Documents the behavior so the manager's port choice is predictable.)
             Assert.Equal(80, GodotMcpServerView.ResolveServerPort("http://localhost", defaultPort: 9999));
         }
+
+        // --- Orphan-process ownership (GodotMcpServerOwnership.IsOwnedByThisProject) ---
+        // Driven with explicit string paths (no Path APIs, no filesystem) so the assertions are
+        // deterministic and identical on Windows + Linux CI.
+
+        [Fact]
+        public void IsOwned_ExactSamePath_IsTrue()
+        {
+            var own = "C:/proj/.godot/mcp-server/win-x64/godot-mcp-server.exe";
+            Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(own, own));
+        }
+
+        [Fact]
+        public void IsOwned_SamePath_SeparatorAndCaseInsensitive()
+        {
+            // Windows backslash vs forward slash, mixed case — still our binary.
+            var own = "C:/proj/.godot/mcp-server/win-x64/godot-mcp-server.exe";
+            var candidate = @"c:\PROJ\.godot\mcp-server\win-x64\godot-mcp-server.exe";
+            Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
+        }
+
+        [Fact]
+        public void IsOwned_SameCacheDir_IsTrue()
+        {
+            // A process whose exe sits in OUR cache platform folder is ours.
+            var own = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
+            var candidate = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
+            Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
+        }
+
+        [Fact]
+        public void IsOwned_DifferentProjectCacheDir_IsFalse()
+        {
+            // The safety property: a DIFFERENT project's identically-named server binary is NEVER ours.
+            var own = "/home/u/projA/.godot/mcp-server/linux-x64/godot-mcp-server";
+            var other = "/home/u/projB/.godot/mcp-server/linux-x64/godot-mcp-server";
+            Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(other, own));
+        }
+
+        [Fact]
+        public void IsOwned_SiblingDirSharingNamePrefix_IsFalse()
+        {
+            // The trailing-slash bound prevents a sibling dir whose name merely shares a prefix from matching.
+            var own = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
+            var sibling = "/home/u/proj/.godot/mcp-server/linux-x64-evil/godot-mcp-server";
+            Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(sibling, own));
+        }
+
+        [Theory]
+        [InlineData(null, "/x/godot-mcp-server")]
+        [InlineData("", "/x/godot-mcp-server")]
+        [InlineData("/x/godot-mcp-server", null)]
+        [InlineData("/x/godot-mcp-server", "")]
+        public void IsOwned_NullOrEmpty_FailsClosed(string? candidate, string? own)
+        {
+            Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
+        }
     }
 }

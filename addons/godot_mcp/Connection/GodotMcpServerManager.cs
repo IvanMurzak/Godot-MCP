@@ -269,8 +269,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
                 SetStatus(GodotMcpServerStatus.Starting, marshalled: false);
 
-                // Free the port from any orphaned server we previously left behind.
-                KillOrphanedServerProcesses(port);
+                // Free the port from any orphaned server WE previously left behind for THIS project
+                // (scoped to this project's cache dir — never cross-kills another project's server).
+                KillOrphanedServerProcesses();
 
                 try
                 {
@@ -292,13 +293,28 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
                     process.Exited += OnProcessExited;
 
+                    // DRAIN the redirected stdout/stderr so a verbose server cannot fill the ~4KB OS pipe
+                    // buffer and BLOCK on a write nothing is reading. The handlers DISCARD every line —
+                    // they MUST NOT log the content, because the server echoes its own launch arguments
+                    // (including the secret token) to stdout. We keep redirect=true (so that token-bearing
+                    // echo never reaches the editor console) and simply throw the drained lines away.
+                    process.OutputDataReceived += DiscardServerOutput;
+                    process.ErrorDataReceived += DiscardServerOutput;
+
                     if (!process.Start())
                     {
                         _logError("[Godot-MCP] failed to start local server process.");
+                        process.OutputDataReceived -= DiscardServerOutput;
+                        process.ErrorDataReceived -= DiscardServerOutput;
                         process.Dispose();
                         SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
                         return false;
                     }
+
+                    // Begin async draining now that the process is running; pairs with the detach +
+                    // CancelOutputRead/CancelErrorRead in CleanupProcess.
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
 
                     _serverProcess = process;
                     _log($"[Godot-MCP] local server process started (PID {process.Id}, port {port}); verifying…");
@@ -432,12 +448,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Kill an orphaned <c>godot-mcp-server</c> process holding <paramref name="port"/> so a fresh launch
-        /// can bind it. Conservative: only kills processes whose name contains the server executable name,
-        /// and skips our own current process. Failures are swallowed (fail-safe).
+        /// Kill an orphaned server process that THIS project previously launched — scoped so it can NEVER
+        /// cross-kill another Godot project's hosted server. The scope test is purely path-based
+        /// (<see cref="GodotMcpServerOwnership.IsOwnedByThisProject"/>): a candidate is killed only when its
+        /// executable path resolves under THIS project's cache folder (<see cref="CachePlatformPath"/>) — i.e.
+        /// it is OUR binary, left running by a prior editor session that did not stop cleanly. We also skip
+        /// our own current process. Path comparison is a deterministic, cross-platform string test (no
+        /// fragile <c>netstat</c>/<c>lsof</c> parsing), so it behaves identically on every OS. Failures are
+        /// swallowed (fail-safe).
         /// </summary>
-        void KillOrphanedServerProcesses(int port)
+        void KillOrphanedServerProcesses()
         {
+            var ownPath = ExecutableFullPath();
+
             try
             {
                 var currentPid = -1;
@@ -450,11 +473,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         if (proc.Id == currentPid)
                             continue;
 
+                        // Cheap name pre-filter before the (potentially throwing) MainModule access.
                         var name = proc.ProcessName.ToLowerInvariant();
                         if (!name.Contains(GodotMcpServerView.ExecutableName))
                             continue;
 
-                        _logWarning($"[Godot-MCP] killing orphaned local server process (PID {proc.Id}).");
+                        // The load-bearing scope gate: only kill if this process's executable is OUR cached
+                        // binary (path under this project's cache folder). MainModule can throw (access denied
+                        // / 32-vs-64-bit / exited) — on any failure we DO NOT kill (fail closed: never touch a
+                        // process we cannot positively attribute to this project).
+                        string? candidatePath;
+                        try { candidatePath = proc.MainModule?.FileName; }
+                        catch { continue; }
+
+                        if (!GodotMcpServerOwnership.IsOwnedByThisProject(candidatePath, ownPath))
+                            continue;
+
+                        _logWarning($"[Godot-MCP] killing orphaned local server process (PID {proc.Id}) from this project.");
                         proc.Kill();
                         proc.WaitForExit(3000);
                     }
@@ -496,11 +531,31 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     try
                     {
                         toDispose.Exited -= OnProcessExited;
+
+                        // Stop draining + detach the discard handlers before dispose (mirrors the attach in
+                        // StartServer); CancelOutputRead/CancelErrorRead are best-effort (no-op if reading
+                        // never started or already stopped).
+                        try { toDispose.CancelOutputRead(); } catch { }
+                        try { toDispose.CancelErrorRead(); } catch { }
+                        toDispose.OutputDataReceived -= DiscardServerOutput;
+                        toDispose.ErrorDataReceived -= DiscardServerOutput;
+
                         toDispose.Dispose();
                     }
                     catch (Exception ex) { _log($"[Godot-MCP] error disposing server process: {ex.Message}"); }
                 });
             }
+        }
+
+        /// <summary>
+        /// Drain handler for the server's redirected stdout/stderr: DISCARDS every received line. This exists
+        /// solely so the OS pipe buffer cannot fill and block the child process — it MUST NOT log the line
+        /// content, because the server echoes its own launch arguments (including the secret token) to stdout.
+        /// Throwing the lines away keeps the token off every log surface while still draining the pipe.
+        /// </summary>
+        static void DiscardServerOutput(object sender, DataReceivedEventArgs e)
+        {
+            // Intentionally empty: read-and-discard. Do NOT log e.Data — it may contain the token.
         }
 
         /// <summary>
