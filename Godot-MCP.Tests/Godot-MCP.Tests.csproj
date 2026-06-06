@@ -185,6 +185,19 @@
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CursorConfigurator.cs" Link="Source\CursorConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\VisualStudioCodeConfigurator.cs" Link="Source\VisualStudioCodeConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CustomConfigurator.cs" Link="Source\CustomConfigurator.cs" />
+    <!-- Extensions install infrastructure — pure-managed (no Godot native types, no #if TOOLS): the descriptor
+         record + empty registry, the install planner (PackageReference add / version-bump as a pure XML transform,
+         preserving siblings — the KEY tested seam), the installed-state detector (parse PackageReferences + per-
+         descriptor state + version compare), the IO seam interface + orchestrator, and the dock placeholder copy.
+         The editor wiring (ConsumerProjectFile.cs, ExtensionsPanel.cs, ExtensionRow.cs) is #if TOOLS and verified
+         via the headless Godot smoke (test.md Suite 3); the plan/detect/install logic is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Extensions\GodotExtensionDescriptor.cs" Link="Source\GodotExtensionDescriptor.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\GodotExtensionRegistry.cs" Link="Source\GodotExtensionRegistry.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionInstallPlanner.cs" Link="Source\ExtensionInstallPlanner.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\InstalledStateDetector.cs" Link="Source\InstalledStateDetector.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\IConsumerProjectFile.cs" Link="Source\IConsumerProjectFile.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionInstaller.cs" Link="Source\ExtensionInstaller.cs" />
+    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionsPanelText.cs" Link="Source\ExtensionsPanelText.cs" />
   </ItemGroup>
 
 </Project>
