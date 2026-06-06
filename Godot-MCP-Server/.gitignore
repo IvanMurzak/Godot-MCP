@@ -1,0 +1,44 @@
+## Ignore Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build results
+bin/
+obj/
+
+## OS-generated files
+.DS_Store
+Thumbs.db
+
+## Rider (JetBrains)
+.idea/
+*.sln.iml
+
+## Dotnet specific
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## NuGet
+*.nupkg
+*.snupkg
+*.psmdcp
+.nuget/
+
+# Published pre-compiled server
+publish/
+packages/
+nupkg/
+
+# Runtime logs (NLog.config writes here)
+logs/
+
+# Claude Code settings
+.claude/
+
+# MCP Publisher
+.mcpregistry_github_token
+.mcpregistry_registry_token

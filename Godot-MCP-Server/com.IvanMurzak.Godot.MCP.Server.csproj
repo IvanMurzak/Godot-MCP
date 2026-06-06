@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>com.IvanMurzak.Godot.MCP.Server</RootNamespace>
+    <AssemblyName>godot-mcp-server</AssemblyName>
+
+    <!-- NuGet Package Properties -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>godot-mcp-server</ToolCommandName>
+    <PackageId>com.IvanMurzak.Godot.MCP.Server</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Ivan Murzak</Authors>
+    <Company>Ivan Murzak</Company>
+    <Copyright>Copyright © 2026 Ivan Murzak</Copyright>
+    <Description>Godot MCP Server - A Model Context Protocol server that enables AI assistants to interact with the Godot Editor and games through the Godot-MCP addon</Description>
+    <PackageTags>godot;mcp;model-context-protocol;ai;assistant;signalr;dotnet-tool</PackageTags>
+    <RepositoryUrl>https://github.com/IvanMurzak/Godot-MCP</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/IvanMurzak/Godot-MCP</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Initial release of Godot MCP Server as a global dotnet tool</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <!-- Disable static web assets manifests & strip debug symbols for lean Release output -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <GenerateStaticWebAssetsManifest>false</GenerateStaticWebAssetsManifest>
+    <GenerateStaticWebAssetsEndpointsManifest>false</GenerateStaticWebAssetsEndpointsManifest>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+  </PropertyGroup>
+
+  <!--
+    Frozen reused NuGet pins. These are kept in lockstep with the Godot-MCP addon
+    (Godot-MCP.csproj): McpPlugin.Server 6.7.0 + ReflectorNet 5.3.1. The server core
+    lives entirely in the McpPlugin.Server package; there is no Godot-specific server
+    code. Do NOT bump these here — version changes run through the upstream release
+    pipelines (see the Godot-MCP target profile PIPELINE.md invariant).
+  -->
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin.Server" Version="6.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageReference Include="NLog.Web.AspNetCore" Version="6.1.2" />
+    <PackageReference Include="R3" Version="1.3.0" />
+  </ItemGroup>
+
+  <!-- Include package files -->
+  <ItemGroup>
+    <None Include="LICENSE" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Exclude the local publish output folder so successive publishes don't recursively include previous outputs -->
+  <ItemGroup>
+    <None Remove="publish/**" />
+    <Content Remove="publish/**" />
+    <EmbeddedResource Remove="publish/**" />
+  </ItemGroup>
+
+</Project>

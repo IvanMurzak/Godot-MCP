@@ -1,0 +1,31 @@
+# configurations
+.vscode
+.claude
+
+# dotnet build
+bin
+obj
+
+# dotnet publish
+publish
+nupkg
+
+# runtime logs
+logs
+
+# documentation
+*.md
+
+# scripts
+*.ps1
+*.sh
+
+# project files
+*.sln
+
+# MCP Publisher
+.mcpregistry_github_token
+.mcpregistry_registry_token
+
+# other
+server.json
