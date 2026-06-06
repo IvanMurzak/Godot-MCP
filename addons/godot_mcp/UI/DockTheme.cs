@@ -154,6 +154,49 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Divider colour — 1px <c>Color8(26,26,26)</c> separator between sections.</summary>
         public static readonly (float R, float G, float B) Divider = (26f / 255f, 26f / 255f, 26f / 255f);
 
+        // --- Segmented control (Unity-MCP's mode / transport / auth segmented toggle) ---------------------------
+
+        /// <summary>Segmented-control TRACK background — <c>rgba(255,255,255, 0.05)</c> (the pill the segments sit in).</summary>
+        public static readonly (float R, float G, float B, float A) SegmentTrackBackground = (1f, 1f, 1f, 0.05f);
+
+        /// <summary>Segmented-control track corner radius (px).</summary>
+        public const int SegmentTrackCornerRadius = 6;
+
+        /// <summary>Segmented-control track inner padding (px) around the segments.</summary>
+        public const int SegmentTrackPadding = 2;
+
+        /// <summary>SELECTED-segment highlight background — <c>rgba(0,0,0, 0.4)</c> (the dark pill under the active segment).</summary>
+        public static readonly (float R, float G, float B, float A) SegmentSelectedBackground = (0f, 0f, 0f, 0.4f);
+
+        /// <summary>Selected-segment highlight corner radius (px).</summary>
+        public const int SegmentSelectedCornerRadius = 4;
+
+        /// <summary>Selected-segment text colour — cyan <c>Color8(175,232,230)</c> (reuses the primary cyan).</summary>
+        public static readonly (float R, float G, float B) SegmentSelectedText = ButtonPrimary;
+
+        /// <summary>Unselected-segment text colour — muted gray (reuses the description muted gray).</summary>
+        public static readonly (float R, float G, float B) SegmentUnselectedText = ColorDescriptionMuted;
+
+        /// <summary>Per-segment minimum width (px).</summary>
+        public const int SegmentMinWidth = 40;
+
+        /// <summary>Per-segment font size (px).</summary>
+        public const int SegmentFontSize = 12;
+
+        // --- Vertical timeline (Godot -> MCP server -> AI agent) -----------------------------------------------
+
+        /// <summary>Width of the timeline indicator column holding the status circle + connecting line (px).</summary>
+        public const int TimelineIndicatorWidth = 20;
+
+        /// <summary>The connecting line drawn between consecutive timeline points — <c>Color8(80,80,80)</c>, 2px wide.</summary>
+        public static readonly (float R, float G, float B) TimelineLine = (80f / 255f, 80f / 255f, 80f / 255f);
+
+        /// <summary>Timeline connecting-line thickness (px).</summary>
+        public const int TimelineLineWidth = 2;
+
+        /// <summary>Status-circle border width for the "connecting" RING state (px).</summary>
+        public const int TimelineRingBorderWidth = 2;
+
         // --- Feature list rows (Tools / Prompts / Resources windows) -------------------------------------------
 
         /// <summary>

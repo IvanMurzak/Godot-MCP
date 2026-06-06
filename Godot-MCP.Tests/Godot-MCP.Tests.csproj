@@ -132,6 +132,11 @@
          via the headless Godot smoke (test.md Suite 3); the view logic is unit-tested here. The SignalR
          HubConnectionState enum it switches on is provided transitively by com.IvanMurzak.McpPlugin. -->
     <Compile Include="..\addons\godot_mcp\UI\ConnectionPanelView.cs" Link="Source\ConnectionPanelView.cs" />
+    <!-- Segmented-control state model — pure-managed (no Godot native types, no #if TOOLS): the
+         value→index / selected-predicate / clamp rules for the reusable segmented control (Custom|Cloud,
+         none|required). The editor builder (DockStyle.SegmentedControl, #if TOOLS) consumes these and is
+         verified via the headless Godot smoke (test.md Suite 3); the index/selection logic is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\UI\SegmentedControlModel.cs" Link="Source\SegmentedControlModel.cs" />
     <!-- Dock design palette — pure-managed (no Godot native types, no #if TOOLS): the colour/size/font
          constants + the ConnectionStatus → status-dot colour mapping that DockStyle (#if TOOLS) consumes.
          The editor StyleBox/Theme wiring (DockStyle.cs) is #if TOOLS and verified via the headless Godot

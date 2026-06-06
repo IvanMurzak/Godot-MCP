@@ -197,6 +197,83 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             }
         }
 
+        // --- Timeline circle state (ConnectionStatus -> TimelinePointState) ---
+
+        [Theory]
+        [InlineData(ConnectionStatus.Connected, ConnectionPanelView.TimelinePointState.Online)]
+        [InlineData(ConnectionStatus.Connecting, ConnectionPanelView.TimelinePointState.Connecting)]
+        [InlineData(ConnectionStatus.Disconnected, ConnectionPanelView.TimelinePointState.Disconnected)]
+        public void PointState_MapsEachStatus(ConnectionStatus status, ConnectionPanelView.TimelinePointState expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.PointState(status));
+        }
+
+        // --- AgentLabel ---
+
+        [Fact]
+        public void AgentLabel_NoAgent_IsConnectsOnDemand()
+        {
+            Assert.Equal("AI agent (connects on demand)", ConnectionPanelView.AgentLabel(null, null));
+            Assert.Equal("AI agent (connects on demand)", ConnectionPanelView.AgentLabel("", "1.0"));
+            Assert.Equal("AI agent (connects on demand)", ConnectionPanelView.AgentLabel("   ", null));
+        }
+
+        [Fact]
+        public void AgentLabel_NameOnly_OmitsVersionParens()
+        {
+            Assert.Equal("AI agent: Cursor", ConnectionPanelView.AgentLabel("Cursor", null));
+            Assert.Equal("AI agent: Cursor", ConnectionPanelView.AgentLabel(" Cursor ", "  "));
+        }
+
+        [Fact]
+        public void AgentLabel_NameAndVersion_IncludesParens()
+        {
+            Assert.Equal("AI agent: Claude (1.2.0)", ConnectionPanelView.AgentLabel("Claude", "1.2.0"));
+            Assert.Equal("AI agent: Claude (1.2.0)", ConnectionPanelView.AgentLabel(" Claude ", " 1.2.0 "));
+        }
+
+        // --- Alert visibility: Authorization Required (Cloud, no token) ---
+
+        [Theory]
+        [InlineData(true, false, true)]    // cloud + no token -> show
+        [InlineData(true, true, false)]    // cloud + token -> hide
+        [InlineData(false, false, false)]  // custom -> hide regardless
+        [InlineData(false, true, false)]
+        public void ShowAuthorizationRequired_OnlyCloudWithoutToken(bool cloud, bool hasToken, bool expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.ShowAuthorizationRequired(cloud, hasToken));
+        }
+
+        // --- Alert visibility: Connection Required (ready but disconnected) ---
+
+        [Theory]
+        // Custom mode, disconnected -> show (Custom never needs a cloud token).
+        [InlineData(false, false, ConnectionStatus.Disconnected, true)]
+        // Custom mode, connecting / connected -> hide.
+        [InlineData(false, false, ConnectionStatus.Connecting, false)]
+        [InlineData(false, false, ConnectionStatus.Connected, false)]
+        // Cloud + token, disconnected -> show.
+        [InlineData(true, true, ConnectionStatus.Disconnected, true)]
+        // Cloud + token, connected -> hide.
+        [InlineData(true, true, ConnectionStatus.Connected, false)]
+        // Cloud WITHOUT token -> the Authorization alert owns this; Connection alert stays hidden.
+        [InlineData(true, false, ConnectionStatus.Disconnected, false)]
+        [InlineData(true, false, ConnectionStatus.Connecting, false)]
+        public void ShowConnectionRequired_RespectsModeTokenAndStatus(
+            bool cloud, bool hasToken, ConnectionStatus status, bool expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.ShowConnectionRequired(cloud, hasToken, status));
+        }
+
+        [Fact]
+        public void Alerts_AreMutuallyExclusive_InCloudWithoutToken()
+        {
+            // In Cloud-mode-without-token the Authorization alert shows and the Connection alert must NOT,
+            // so the two never stack on the same condition.
+            Assert.True(ConnectionPanelView.ShowAuthorizationRequired(true, false));
+            Assert.False(ConnectionPanelView.ShowConnectionRequired(true, false, ConnectionStatus.Disconnected));
+        }
+
         [Fact]
         public void CustomHost_PersistsAndReloads()
         {
