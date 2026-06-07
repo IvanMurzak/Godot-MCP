@@ -13,7 +13,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>godot-mcp-server</ToolCommandName>
     <PackageId>com.IvanMurzak.Godot.MCP.Server</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Ivan Murzak</Authors>
     <Company>Ivan Murzak</Company>
     <Copyright>Copyright © 2026 Ivan Murzak</Copyright>
