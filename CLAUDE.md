@@ -1,13 +1,20 @@
 # CLAUDE.md — Godot-MCP
 
-Godot **editor addon** (`addons/godot_mcp/`) backed by a `Godot.NET.Sdk` C# project. A `[Tool]`
-`EditorPlugin` (`GodotMcpPlugin`) boots on editor load, installs the main-thread dispatcher, builds a
-`Reflector` with Godot type converters, and connects to an MCP server (cloud `ai-game.dev` by default,
-or a custom local server) over the reused `com.IvanMurzak.McpPlugin` SignalR client. The MCP/reflection
-stack is **not forked** — it is consumed from nuget.org as `PackageReference`s and the pins are owned by
-the upstream release pipelines (never bump them here). The reused pins are frozen at
-`com.IvanMurzak.ReflectorNet` **5.3.1** and `com.IvanMurzak.McpPlugin` **6.5.5** (in `Godot-MCP.csproj`,
-mirrored by `Godot-MCP.Tests/` and the infra testbed) — keep all three in lockstep; never bump here.
+Godot-MCP bridges LLMs (Claude, Cursor, Copilot, …) with the [Godot](https://godotengine.org/) editor
+via the [Model Context Protocol](https://modelcontextprotocol.io/) — the Godot-engine sibling of Unity-MCP.
+Sub-projects: `addons/godot_mcp/` (the Godot **editor addon**, a `Godot.NET.Sdk` C# project), `cli/` (the
+`godot-cli` npm package — the Godot analog of `unity-mcp-cli`), `Godot-MCP-Server/` (the .NET MCP server, a
+thin ASP.NET Core host — the Godot analog of `Unity-MCP-Server`), and `Godot-MCP.Tests/` (the CI xUnit
+suite). See **CLI (godot-cli)** and **Server (Godot-MCP-Server)** below.
+
+The addon is the heart of the repo. A `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) boots on editor load,
+installs the main-thread dispatcher, builds a `Reflector` with Godot type converters, and connects to an
+MCP server (cloud `ai-game.dev` by default, or a custom local server) over the reused
+`com.IvanMurzak.McpPlugin` SignalR client. The MCP/reflection stack is **not forked** — it is consumed
+from nuget.org as `PackageReference`s and the pins are owned by the upstream release pipelines (never bump
+them here). The reused pins are frozen at `com.IvanMurzak.ReflectorNet` **5.3.1** and
+`com.IvanMurzak.McpPlugin` **6.7.0** (in `Godot-MCP.csproj`, mirrored by `Godot-MCP.Tests/` and the infra
+testbed) — keep all three in lockstep; never bump here.
 
 ## Tool families
 
@@ -54,6 +61,51 @@ game assembly). Only **pure-managed** Godot types are unit-testable here — God
 object (`NodePath`, `Node`, `Resource`, `SceneTree`) call `godotsharp_*` P/Invoke on construction and
 crash the test host with `AccessViolationException` when no Godot native lib is loaded; verify those via
 the headless Godot smoke (Suite 3) instead.
+
+## CLI (godot-cli)
+
+`cli/` publishes the **`godot-cli`** npm package — the Godot analog of `unity-mcp-cli`. It is a Node
+(`^20.19.0 || >=22.12.0`) TypeScript CLI that resolves and launches the Godot editor with the right
+`GODOT_MCP_*` connection env vars, runs MCP/system tools over the server's HTTP API (`POST
+<url>/api/tools/<tool>`), probes server health, writes AI-agent MCP-client config, and enables/disables the
+`godot_mcp` addon in a project. It also exports a side-effect-free library (`import { openProject, runTool,
+… } from 'godot-cli'`) whose functions return a `{ kind: 'success' | 'failure' }` discriminated union and
+never throw past the public boundary. Unlike the Unity CLI there is **no `setup-skills` command** — Godot
+skills are generated addon-side on plugin boot, so there is nothing for the CLI to invoke.
+
+```bash
+cd cli
+npm install
+npm run build   # tsc → dist/ (ESM)
+npm test        # vitest
+```
+
+**Find detail in** [`cli/README.md`](cli/README.md) — full command table, editor-resolution order,
+connection env vars, and server-URL resolution.
+
+## Server (Godot-MCP-Server)
+
+`Godot-MCP-Server/` is a **thin ASP.NET Core host** around the MCP server core
+(`com.IvanMurzak.McpPlugin.Server` NuGet package) — the Godot analog of `Unity-MCP-Server`. There is **no
+Godot-specific server code**: `src/Program.cs` only wires Kestrel / SignalR / NLog and delegates to the
+`McpPlugin.Server` extension methods. It bridges MCP clients and the Godot editor/games (via the
+`addons/godot_mcp` plugin) over SignalR. It is a sibling project to the addon, so it is excluded from the
+addon's source glob (`<Compile Remove="Godot-MCP-Server/**/*.cs" />` in `Godot-MCP.csproj`) and kept out of
+`Godot-MCP.sln` with its own `Godot-MCP-Server.sln` (see the sibling-project glob trap in the implement-task
+profile `conventions.md`).
+
+```bash
+cd Godot-MCP-Server
+dotnet build com.IvanMurzak.Godot.MCP.Server.csproj
+# Run (HTTP transport on port 8080):
+dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport streamableHttp --port 8080
+# Run (STDIO transport — for local MCP clients):
+dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport stdio
+```
+
+`build-all.sh` / `build-all.ps1` produce self-contained single-file binaries for win/linux/osx RIDs under
+`./publish/`. **Find detail in** [`Godot-MCP-Server/README.md`](Godot-MCP-Server/README.md) — the full
+argument/env-var table and cross-platform build matrix.
 
 ## Editor-runtime assembly loading (the dependency-resolution fix)
 
@@ -113,7 +165,7 @@ assembly, the addon's C# only compiles if the **consumer's `.csproj` declares th
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.5.5" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.7.0" />
 </ItemGroup>
 ```
 
