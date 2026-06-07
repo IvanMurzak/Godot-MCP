@@ -206,8 +206,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 Environment = $"Godot {Engine.GetVersionInfo()["string"]}"
             };
 
-            // Scan THIS addon assembly for [AiToolType]/[AiTool] (the ping tool, and future families).
-            Assembly addonAssembly = typeof(GodotMcpConnection).Assembly;
+            // The scan set for tool/prompt/resource registration AND IReflectorModule discovery (issue
+            // #86). Mirrors Unity-MCP's BuildMcpPlugin (which scans AssemblyUtils.AllAssemblies and prunes
+            // the heavy ones at the builder via .IgnoreAssemblies): enumerate the default load context
+            // broadly so a Godot-MCP extension's assembly — unknown ahead of time — is reachable, then let
+            // the .IgnoreAssemblies(...) prune below keep the heavy assemblies from ever being
+            // type-enumerated. AllAssemblies includes THIS addon assembly (the ping tool and future tool
+            // families live here).
+            Assembly[] assemblies = GodotAssemblyUtils.AllAssemblies;
 
             // Route the reused framework's Microsoft.Extensions.Logging output (ConnectionManager /
             // hub-connector connect, hub-state, version handshake, errors) to the Godot Output, gated by the
@@ -219,9 +225,38 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
-                .WithToolsFromAssembly(addonAssembly)
-                .WithPromptsFromAssembly(addonAssembly)
-                .WithResourcesFromAssembly(addonAssembly);
+                // Prune the heavy assemblies so neither the tool/prompt/resource scan NOR the
+                // IReflectorModule discovery below ever type-enumerates them. Mirrors the Unity reference's
+                // .IgnoreAssemblies(...) prefix list (BCL, the reused McpPlugin/ReflectorNet/R3/SignalR
+                // stack, the Godot engine assemblies, and this repo's own test assembly). This MUST come
+                // before .WithReflectorModulesFromAssembly(...) — discovery honors the prune, so an ignored
+                // hosting assembly is never walked for modules.
+                .IgnoreAssemblies(
+                    "mscorlib",
+                    "netstandard",
+                    "System",
+                    "Microsoft",
+                    "GodotSharp",
+                    "GodotSharpEditor",
+                    "Godot.SourceGenerators",
+                    "R3",
+                    "ObservableCollections",
+                    "McpPlugin",
+                    "ReflectorNet",
+                    "Godot-MCP.Tests")
+                .WithToolsFromAssembly(assemblies)
+                .WithPromptsFromAssembly(assemblies)
+                .WithResourcesFromAssembly(assemblies)
+                // Auto-discover IReflectorModule implementors across all loaded assemblies so any
+                // assembly (including Godot-MCP extensions added later, unknown ahead of time) can
+                // contribute ReflectorNet JSON/reflection converters, serialization-blacklist entries, and
+                // scan-ignore rules without a hardcoded extension list — the Godot equivalent of the M8
+                // "extension-contributed converters" mechanism. Discovery honors the .IgnoreAssemblies(...)
+                // prune above (heavy assemblies are never type-enumerated) and runs strictly before the
+                // heavy attribute scan inside Build(). The Godot core converters registered into the
+                // reflector by GodotReflectorFactory remain the Order=0 baseline; module contributions
+                // layer on top. Mirrors Unity-MCP's UnityMcpPlugin.Build.cs ordering exactly.
+                .WithReflectorModulesFromAssembly(assemblies);
 
             _plugin = builder.Build(reflector);
 
