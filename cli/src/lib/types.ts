@@ -16,6 +16,8 @@
 export type ProgressEvent =
   | { phase: 'start'; message: string }
   | { phase: 'manifest-patched'; message: string; manifestPath: string }
+  // createProject phases
+  | { phase: 'project-scaffolded'; message: string; projectPath: string }
   // openProject phases
   | { phase: 'editor-resolved'; message: string; editorPath: string }
   | {
@@ -139,6 +141,55 @@ export interface OpenEnvInputs {
   mode?: OpenProjectOptions['mode'];
   logLevel?: OpenProjectOptions['logLevel'];
 }
+
+// ---------------------------------------------------------------------------
+// create-project
+// ---------------------------------------------------------------------------
+
+export interface CreateProjectOptions {
+  /** Target directory to scaffold the project into. Defaults to `process.cwd()`. */
+  projectPath?: string;
+  /**
+   * Project name written to `config/name` (and the `[dotnet]` assembly name /
+   * csproj filename when `dotnet` is set). Defaults to a name derived from the
+   * target folder name.
+   */
+  name?: string;
+  /** When `true`, additionally scaffold a `Godot.NET.Sdk` (C#) csproj. */
+  dotnet?: boolean;
+  onProgress?: ProgressCallback;
+}
+
+export interface CreateProjectSuccess {
+  kind: 'success';
+  success: true;
+  projectPath: string;
+  /** The resolved project name (explicit arg or folder-name derivation). */
+  projectName: string;
+  /** Whether the C# (`--dotnet`) csproj was scaffolded. */
+  dotnet: boolean;
+  /** Absolute paths of every file written, in write order. */
+  filesWritten: string[];
+  warnings: string[];
+}
+
+export interface CreateProjectFailure {
+  kind: 'failure';
+  success: false;
+  projectPath?: string;
+  warnings: string[];
+  /**
+   * Absolute paths of any files written before the failure, in write order.
+   * Empty when the scaffold was refused before writing or after a successful
+   * best-effort rollback; non-empty only when cleanup of a partial scaffold
+   * could not be completed — lets the consumer finish the cleanup.
+   */
+  filesWritten: string[];
+  errorMessage: string;
+  error: Error;
+}
+
+export type CreateProjectResult = CreateProjectSuccess | CreateProjectFailure;
 
 // ---------------------------------------------------------------------------
 // run-tool / run-system-tool
