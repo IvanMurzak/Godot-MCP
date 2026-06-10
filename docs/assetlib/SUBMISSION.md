@@ -23,9 +23,8 @@ this file is just the field values. Keep it in sync whenever any field changes.
 | Form field | Value to paste |
 | --- | --- |
 | **Asset name** | `Godot-MCP` |
-| **Type** | `Addon` (must be Addon — only Addons show in the in-editor *AssetLib* tab) |
-| **Category** | `Tools` |
-| **Godot version** | `4.3` (lowest supported; the addon also runs on 4.4 / 4.5 — one version per entry) |
+| **Category** | `Tools` (an Addon-side category — categories are split into Addons / Projects, and picking an Addon category is what makes this entry an Addon and surfaces it in the in-editor *AssetLib* tab; there is no separate "Type" field) |
+| **Godot version** | `4.3` (lowest supported; the addon also runs on 4.4 / 4.5 — a single entry cannot carry multiple engine versions, so each version it should advertise needs its own resubmission) |
 | **Version** | `0.4.0` (must match `addons/godot_mcp/plugin.cfg` `version=` and the `v0.4.0` tag) |
 | **Repository host** | `GitHub` |
 | **Repository URL** | `https://github.com/IvanMurzak/Godot-MCP` |
@@ -34,17 +33,21 @@ this file is just the field values. Keep it in sync whenever any field changes.
 | **License** | `Apache-2.0` |
 | **Icon URL** | `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png` (square 512×512 PNG; AssetLib requires square PNG/JPG ≥ 128×128 — SVG is not accepted) |
 
-## Short description (one line)
+## plugin.cfg description parity (one line — NOT a separate form field)
+
+The form has a single **Description** field (below); there is no separate short-description input. Keep
+this one-liner in sync with `addons/godot_mcp/plugin.cfg` `description`, and use it as the opening line of
+the Description below so the listing leads with the same summary:
 
 ```
 Model Context Protocol (MCP) integration for the Godot Editor. AI tools in C#, cloud-connected to ai-game.dev.
 ```
 
-(Matches `addons/godot_mcp/plugin.cfg` `description`.)
-
-## Long description (PLAIN TEXT — the form does not render Markdown)
+## Description (PLAIN TEXT — the single form field; the form does not render Markdown)
 
 ```
+Model Context Protocol (MCP) integration for the Godot Editor. AI tools in C#, cloud-connected to ai-game.dev.
+
 Godot-MCP connects AI agents (Claude, Cursor, GitHub Copilot, Gemini, or any MCP-aware client) to the
 Godot Editor so they can inspect and drive your project — create nodes, edit scenes, manage resources
 and scripts, capture screenshots, and more.

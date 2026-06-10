@@ -97,10 +97,11 @@ The submission form (per the
 [official docs](https://docs.godotengine.org/en/stable/community/asset_library/submitting_to_assetlib.html))
 has these field constraints worth knowing before you start:
 
-- **Type** must be **Addon** (not *Project*) — only Addons appear in the in-editor *AssetLib* tab; a
-  *Project* entry is visible only in the Project Manager.
-- **Category** = **Tools** (one of: 2D Tools, 3D Tools, Shaders, Materials, **Tools**, Scripts, Misc,
-  Templates, Projects, Demos).
+- **Category** decides whether the entry is an **Addon** or a **Project** — there is no separate "Type"
+  field. The category list is split into Addon-side and Project-side groups; pick an Addon-side category
+  so the entry shows in the in-editor *AssetLib* tab (a Project entry is visible only in the Project
+  Manager). Use **Tools** — the Addon-side categories are: 2D Tools, 3D Tools, Shaders, Materials,
+  **Tools**, Scripts, Misc.
 - **Icon URL** must be a **square (1:1) PNG or JPG, minimum 128×128** — **SVG is NOT accepted**. A raw
   GitHub URL is required, e.g.
   `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png`. A
@@ -108,13 +109,43 @@ has these field constraints worth knowing before you start:
 - **Godot version** is a **single version per submission** — submit against the lowest supported
   (`4.3`); the addon also runs on 4.4 / 4.5 but each extra version would need its own entry.
 - **Download Commit** is a specific commit **hash** (not a tag): use the commit that the `v<version>`
-  release tag points at. The Asset Library downloads a repo snapshot at that commit, so the consumer
-  receives the addon source under `addons/godot_mcp/` exactly as it sits on `main` at that tag.
+  release tag points at. The Asset Library downloads a GitHub *source archive* of the repo at that
+  commit. The root [`.gitattributes`](../.gitattributes) `export-ignore` entries (see
+  [Why a `.gitattributes` export-ignore](#why-a-gitattributes-export-ignore) below) trim that archive
+  down to just `addons/godot_mcp/` (plus `LICENSE` / `README.md`), so the consumer receives the addon
+  source under `addons/godot_mcp/` exactly as it sits on `main` at that tag — and nothing else.
 - **License** = **Apache-2.0**.
 - **Description** is **plain text** today (Markdown is planned but not live) — keep it prose, no
   Markdown syntax.
 - **Preview** (optional) accepts up to three images / YouTube videos with thumbnail URLs; use the
   promo images under `docs/img/promo/` via their raw URLs.
+
+### Why a `.gitattributes` export-ignore
+
+The Asset Library does **not** download the curated `godot-mcp-addon-<version>.zip` from the GitHub
+Release — it downloads a **GitHub source archive of the whole repo** at the Download Commit. Without
+intervention that archive would carry `cli/`, `Godot-MCP-Server/`, `Godot-MCP.Tests/`, `Godot-Tests/`,
+`Godot-MCP.csproj`, `Godot-MCP.sln`, `docs/`, `.github/`, and `CLAUDE.md` straight into the consumer's
+project. Because Godot's mono build compiles **every** `.cs` under a project into one assembly, that
+stray server/test C# would land in the consumer's project and **break their build** — the opposite of
+the install story this release promises.
+
+The root [`.gitattributes`](../.gitattributes) prevents this. Its
+[`export-ignore`](https://git-scm.com/docs/gitattributes#_creating_an_archive) entries mark every
+top-level path **except** `addons/` (and `LICENSE` / `README.md`) so `git archive` — and therefore the
+GitHub source archives the Asset Library serves — omit them. The result is an addon-only snapshot.
+
+This is **archive-only**: `export-ignore` changes nothing in the working tree, in CI, or in the
+`release.yml` `release-addon` job (which zips `addons/godot_mcp/` directly and never calls
+`git archive`). After editing the ignore list, verify the snapshot contains only the intended paths:
+
+```bash
+git archive HEAD | tar -t          # should list only addons/, LICENSE, README.md
+```
+
+The `.gitattributes` lives at the tagged commit, and that tagged snapshot is immutable once the Asset
+Library references it — so the export-ignore set must be correct **in the release PR**, not patched
+afterwards.
 
 ### First submission (one-time)
 
