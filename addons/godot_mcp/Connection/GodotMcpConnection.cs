@@ -54,9 +54,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     {
         /// <summary>
         /// Fallback plugin version, used ONLY when <c>addons/godot_mcp/plugin.cfg</c> cannot be read at
-        /// runtime (it always can in a real install). The release pipeline keeps it aligned with
-        /// plugin.cfg's <c>version=</c> as a belt-and-suspenders default; the live, parsed value in
-        /// <see cref="PluginVersion"/> is the source of truth.
+        /// runtime (it always can in a real install). Manually maintained — bump it alongside
+        /// plugin.cfg's <c>version=</c> (no workflow or doc rewrites this literal, so it can silently
+        /// drift if you forget). The live, parsed value in <see cref="PluginVersion"/> is the source of
+        /// truth; <see cref="ResolvePluginVersion"/> emits a warning whenever it has to fall back here.
         /// </summary>
         const string FallbackPluginVersion = "0.3.0";
 
@@ -93,6 +94,21 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             catch
             {
                 // Fall through to the literal fallback — never let a config read break the boot path.
+            }
+
+            // Reached only when plugin.cfg was missing/unreadable/blank. Surface it: the fallback pins
+            // BOTH the handshake version and the server download URL to this literal, so a silent drift
+            // here is the same issue-#94 class behind a rarer trigger. Guard the warning itself so the
+            // never-throws contract holds even if GD is unavailable mid editor-reload.
+            try
+            {
+                GD.PushWarning(
+                    $"[Godot-MCP] plugin.cfg version unreadable; pinning to fallback v{FallbackPluginVersion}. " +
+                    "Handshake + local-server download use this version — bump FallbackPluginVersion alongside plugin.cfg if it drifts.");
+            }
+            catch
+            {
+                // Diagnostics must never break the boot/type-initializer path.
             }
 
             return FallbackPluginVersion;

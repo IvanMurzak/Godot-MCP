@@ -156,7 +156,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (!string.Equals(line.Substring(0, eq).Trim(), "version", StringComparison.Ordinal))
                     continue;
 
-                var value = line.Substring(eq + 1).Trim().Trim('"').Trim();
+                // Mirror release.yml:91's sed (`s/^version="?([^"]*)"?.*/\1/`): the value is what sits
+                // inside the quotes, and ANY trailing content (an inline `; comment`, stray tokens) after
+                // the closing quote is dropped. Stopping at the closing quote — rather than just trimming
+                // end-quotes — is what keeps this parse byte-for-byte aligned with the workflow read.
+                var rhs = line.Substring(eq + 1).Trim();
+                string value;
+                if (rhs.StartsWith("\"", StringComparison.Ordinal))
+                {
+                    var close = rhs.IndexOf('"', 1);
+                    value = close < 0 ? rhs.Substring(1) : rhs.Substring(1, close - 1);
+                }
+                else
+                {
+                    value = rhs;
+                }
+                value = value.Trim();
                 return value.Length == 0 ? null : value;
             }
 
