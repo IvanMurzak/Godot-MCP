@@ -7,6 +7,7 @@ import { statusCommand } from './commands/status.js';
 import { waitForReadyCommand } from './commands/wait-for-ready.js';
 import { setupMcpCommand } from './commands/setup-mcp.js';
 import { configureCommand } from './commands/configure.js';
+import { createProjectCommand } from './commands/create-project.js';
 import { closeCommand } from './commands/close.js';
 import { createUpdateCommand } from './commands/update.js';
 import { installPluginCommand } from './commands/install-plugin.js';
@@ -29,6 +30,7 @@ program
 const subcommands = [
   closeCommand,
   configureCommand,
+  createProjectCommand,
   installPluginCommand,
   openCommand,
   removePluginCommand,

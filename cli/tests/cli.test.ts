@@ -42,6 +42,7 @@ describe('CLI integration', () => {
       expect(stdout).toContain('install-plugin');
       expect(stdout).toContain('remove-plugin');
       expect(stdout).toContain('update');
+      expect(stdout).toContain('create-project');
     });
 
     it('does NOT register a setup-skills command (scoped out of v1)', () => {
@@ -143,6 +144,41 @@ describe('CLI integration', () => {
       ]);
       expect(exitCode).toBe(1);
       expect(stdout).toContain('does not exist');
+    });
+  });
+
+  describe('create-project', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-create-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('shows help with --help', () => {
+      const { stdout, exitCode } = runCli(['create-project', '--help']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('--path');
+      expect(stdout).toContain('--name');
+      expect(stdout).toContain('--dotnet');
+    });
+
+    it('scaffolds a project into the target directory', () => {
+      const dest = path.join(tmpDir, 'NewGame');
+      const { exitCode } = runCli(['create-project', '--path', dest, '--name', 'NewGame']);
+      expect(exitCode).toBe(0);
+      expect(fs.existsSync(path.join(dest, 'project.godot'))).toBe(true);
+      expect(fs.existsSync(path.join(dest, 'icon.svg'))).toBe(true);
+    });
+
+    it('fails when the target already hosts a Godot project', () => {
+      fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
+      const { exitCode, stdout } = runCli(['create-project', '--path', tmpDir]);
+      expect(exitCode).toBe(1);
+      expect(stdout).toContain('Refusing to scaffold');
     });
   });
 

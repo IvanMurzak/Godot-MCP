@@ -14,6 +14,7 @@
 // via the `exports` field in package.json).
 
 export { openProject } from './lib/open.js';
+export { createProject } from './lib/create-project.js';
 export { runTool, runSystemTool } from './lib/run-tool.js';
 export { setupMcp, listAgentIds } from './lib/setup-mcp.js';
 export { installPlugin, removePlugin } from './lib/install-plugin.js';
@@ -30,6 +31,11 @@ export type {
   OpenProjectFailure,
   OpenProjectAuthOption,
   OpenProjectConnectionMode,
+  // create-project
+  CreateProjectOptions,
+  CreateProjectResult,
+  CreateProjectSuccess,
+  CreateProjectFailure,
   // run-tool / run-system-tool
   RunToolOptions,
   RunToolResult,
