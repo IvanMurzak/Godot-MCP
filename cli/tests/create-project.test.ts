@@ -6,10 +6,12 @@ import {
   createProject,
   deriveProjectName,
   detectExistingProjectMarker,
+  escapeGodotConfigString,
   renderCsproj,
   renderProjectGodot,
   toAssemblyName,
   toRootNamespace,
+  validateProjectName,
 } from '../src/lib/create-project.js';
 
 describe('deriveProjectName', () => {
@@ -67,6 +69,46 @@ describe('renderProjectGodot', () => {
     expect(text).toContain('config/features=PackedStringArray("4.3", "C#")');
     expect(text).toContain('[dotnet]');
     expect(text).toContain('project/assembly_name="My-Game"');
+  });
+
+  it('escapes quotes and backslashes in the name so the ConfigFile stays valid', () => {
+    const text = renderProjectGodot('Ev"il\\Name', true);
+    // The raw, unescaped name must never appear verbatim inside the quoted value.
+    expect(text).toContain('config/name="Ev\\"il\\\\Name"');
+    expect(text).toContain('project/assembly_name="Ev\\"il\\\\Name"');
+    expect(text).not.toContain('config/name="Ev"il');
+  });
+});
+
+describe('escapeGodotConfigString', () => {
+  it('escapes double-quotes and backslashes per Godot ConfigFile rules', () => {
+    expect(escapeGodotConfigString('a"b')).toBe('a\\"b');
+    expect(escapeGodotConfigString('a\\b')).toBe('a\\\\b');
+    expect(escapeGodotConfigString('plain')).toBe('plain');
+  });
+});
+
+describe('validateProjectName', () => {
+  it('accepts ordinary and hyphenated names', () => {
+    expect(validateProjectName('My-Game')).toBeNull();
+    expect(validateProjectName('Godot-Test-Project')).toBeNull();
+  });
+
+  it('rejects line breaks', () => {
+    expect(validateProjectName('X\nrun/main_scene="res://evil.tscn')).not.toBeNull();
+    expect(validateProjectName('a\rb')).not.toBeNull();
+  });
+
+  it('rejects path separators and traversal', () => {
+    expect(validateProjectName('../../other/proj')).not.toBeNull();
+    expect(validateProjectName('sub\\dir')).not.toBeNull();
+    expect(validateProjectName('a..b')).not.toBeNull();
+  });
+
+  it('rejects Windows-reserved filename characters', () => {
+    expect(validateProjectName('na"me')).not.toBeNull();
+    expect(validateProjectName('na:me')).not.toBeNull();
+    expect(validateProjectName('na*me')).not.toBeNull();
   });
 });
 
@@ -213,5 +255,50 @@ describe('createProject', () => {
     if (result.kind !== 'failure') return;
     expect(result.error).toBeInstanceOf(Error);
     expect(result.errorMessage.length).toBeGreaterThan(0);
+  });
+
+  it('refuses (structured failure, no writes) a name with a newline / injected key', async () => {
+    const dest = path.join(tmpDir, 'Injected');
+    const result = await createProject({
+      projectPath: dest,
+      name: 'X"\nrun/main_scene="res://evil.tscn',
+    });
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+    expect(result.errorMessage).toContain('Invalid project name');
+    // Nothing was scaffolded — the injection never reached project.godot.
+    expect(fs.existsSync(path.join(dest, 'project.godot'))).toBe(false);
+    expect(result.filesWritten).toEqual([]);
+  });
+
+  it('refuses (structured failure, no writes) a name with path separators / traversal', async () => {
+    const dest = path.join(tmpDir, 'Traversal');
+    const result = await createProject({ projectPath: dest, name: '../../evil', dotnet: true });
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+    expect(result.errorMessage).toContain('Invalid project name');
+    // No csproj was written outside (or inside) the target directory.
+    expect(fs.existsSync(dest)).toBe(false);
+    expect(result.filesWritten).toEqual([]);
+  });
+
+  it('refuses a name containing a double-quote (reserved char)', async () => {
+    // `"` is rejected at the createProject boundary; the renderProjectGodot
+    // escaping (unit-tested separately) is the defense-in-depth second layer.
+    const dest = path.join(tmpDir, 'EscapeMe');
+    const result = await createProject({ projectPath: dest, name: 'Quote"Name' });
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+    expect(result.errorMessage).toContain('Invalid project name');
+  });
+
+  it('warns when it overwrites a pre-existing non-marker file', async () => {
+    // A stray icon.svg in a marker-free directory must be reported, not silently clobbered.
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'icon.svg'), '<svg/>');
+    const result = await createProject({ projectPath: tmpDir, name: 'Reuse' });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.warnings.some((w) => w.includes('icon.svg'))).toBe(true);
   });
 });

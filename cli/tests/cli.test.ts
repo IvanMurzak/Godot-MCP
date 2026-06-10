@@ -174,6 +174,14 @@ describe('CLI integration', () => {
       expect(fs.existsSync(path.join(dest, 'icon.svg'))).toBe(true);
     });
 
+    it('scaffolds via the positional [path] argument form', () => {
+      const dest = path.join(tmpDir, 'PositionalGame');
+      const { exitCode } = runCli(['create-project', dest, '--name', 'PositionalGame']);
+      expect(exitCode).toBe(0);
+      expect(fs.existsSync(path.join(dest, 'project.godot'))).toBe(true);
+      expect(fs.existsSync(path.join(dest, 'icon.svg'))).toBe(true);
+    });
+
     it('fails when the target already hosts a Godot project', () => {
       fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
       const { exitCode, stdout } = runCli(['create-project', '--path', tmpDir]);

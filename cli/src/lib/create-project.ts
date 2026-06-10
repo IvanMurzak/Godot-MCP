@@ -66,6 +66,32 @@ export function toRootNamespace(projectName: string): string {
 }
 
 /**
+ * Escape a string for embedding inside a double-quoted Godot `ConfigFile`
+ * value (the `project.godot` format): backslash -> `\\` and double-quote ->
+ * `\"`. Without this, a name containing `"` or `\` produces a `project.godot`
+ * Godot cannot parse — or, worse, lets a crafted name inject arbitrary config
+ * keys. Pure. Exported for unit tests.
+ */
+export function escapeGodotConfigString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * Validate a project name before any filesystem write. Rejected when the name
+ * would corrupt the generated `project.godot` (line breaks inside a quoted
+ * `ConfigFile` string) or would escape / break the `--dotnet` csproj filename
+ * (path separators, `..` traversal, or characters illegal in a filename).
+ * Returns a human-readable reason when invalid, or `null` when safe. Pure.
+ */
+export function validateProjectName(projectName: string): string | null {
+  if (/[\r\n]/.test(projectName)) return 'must not contain line breaks';
+  if (/[/\\]/.test(projectName)) return 'must not contain path separators ("/" or "\\")';
+  if (projectName.includes('..')) return 'must not contain ".." path segments';
+  if (/[<>:"|?*]/.test(projectName)) return 'must not contain reserved characters (< > : " | ? *)';
+  return null;
+}
+
+/**
  * Detect whether `dir` already hosts a project for any supported engine and, if
  * so, which marker file proves it. Checks (in order) a Godot `project.godot`, a
  * Unity `ProjectSettings/ProjectVersion.txt`, and any Unreal `*.uproject` file
@@ -104,7 +130,7 @@ export function detectExistingProjectMarker(
 export function renderProjectGodot(projectName: string, dotnet: boolean): string {
   const features = dotnet ? 'PackedStringArray("4.3", "C#")' : 'PackedStringArray("4.3")';
   const dotnetSection = dotnet
-    ? `\n[dotnet]\n\nproject/assembly_name="${toAssemblyName(projectName)}"\n`
+    ? `\n[dotnet]\n\nproject/assembly_name="${escapeGodotConfigString(toAssemblyName(projectName))}"\n`
     : '';
 
   return `; Engine configuration file.
@@ -119,7 +145,7 @@ config_version=5
 
 [application]
 
-config/name="${projectName}"
+config/name="${escapeGodotConfigString(projectName)}"
 config/features=${features}
 config/icon="res://icon.svg"
 ${dotnetSection}`;
@@ -158,6 +184,7 @@ export function renderCsproj(projectName: string): string {
  */
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const warnings: string[] = [];
+  const filesWritten: string[] = [];
   let resolvedProjectPath: string | undefined;
 
   try {
@@ -165,6 +192,14 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     resolvedProjectPath = projectPath;
     const dotnet = options.dotnet === true;
     const projectName = deriveProjectName(projectPath, options.name);
+
+    // Validate the name BEFORE any writes — line breaks would corrupt the
+    // quoted `project.godot` strings, and path separators / `..` / reserved
+    // chars would let a crafted `--dotnet` csproj filename escape the target.
+    const nameError = validateProjectName(projectName);
+    if (nameError) {
+      throw new Error(`Invalid project name "${projectName}": ${nameError}.`);
+    }
 
     emitProgress(options.onProgress, {
       phase: 'start',
@@ -182,21 +217,29 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     // Create the target directory (and any parents) if absent.
     fs.mkdirSync(projectPath, { recursive: true });
 
-    const filesWritten: string[] = [];
+    // Write one file, recording it for rollback and warning when an existing
+    // non-marker file is clobbered.
+    const writeFile = (filePath: string, contents: string): void => {
+      if (fs.existsSync(filePath)) {
+        warnings.push(`Overwrote existing file: ${filePath}`);
+      }
+      fs.writeFileSync(filePath, contents);
+      filesWritten.push(filePath);
+    };
 
-    const projectGodotPath = path.join(projectPath, 'project.godot');
-    fs.writeFileSync(projectGodotPath, renderProjectGodot(projectName, dotnet));
-    filesWritten.push(projectGodotPath);
-
+    // Write the icon and (optional) csproj first, then `project.godot` LAST so
+    // the engine marker only exists once the scaffold fully succeeds — a
+    // mid-write failure leaves no marker to brick a corrected retry.
     const iconPath = path.join(projectPath, 'icon.svg');
-    fs.writeFileSync(iconPath, DEFAULT_ICON_SVG);
-    filesWritten.push(iconPath);
+    writeFile(iconPath, DEFAULT_ICON_SVG);
 
     if (dotnet) {
       const csprojPath = path.join(projectPath, `${toAssemblyName(projectName)}.csproj`);
-      fs.writeFileSync(csprojPath, renderCsproj(projectName));
-      filesWritten.push(csprojPath);
+      writeFile(csprojPath, renderCsproj(projectName));
     }
+
+    const projectGodotPath = path.join(projectPath, 'project.godot');
+    writeFile(projectGodotPath, renderProjectGodot(projectName, dotnet));
 
     emitProgress(options.onProgress, {
       phase: 'project-scaffolded',
@@ -215,12 +258,23 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
       warnings,
     };
   } catch (err: unknown) {
+    // Roll back any files written before the failure (best-effort, reverse
+    // order) so a failed/refused scaffold leaves the target as it was found.
+    for (const filePath of [...filesWritten].reverse()) {
+      try {
+        fs.rmSync(filePath, { force: true });
+      } catch {
+        warnings.push(`Failed to roll back partially-written file: ${filePath}`);
+      }
+    }
+
     const errorObj = err instanceof Error ? err : new Error(String(err));
     return {
       kind: 'failure',
       success: false,
       projectPath: resolvedProjectPath,
       warnings,
+      filesWritten,
       errorMessage: errorObj.message,
       error: errorObj,
     };

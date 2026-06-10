@@ -178,6 +178,13 @@ export interface CreateProjectFailure {
   success: false;
   projectPath?: string;
   warnings: string[];
+  /**
+   * Absolute paths of any files written before the failure, in write order.
+   * Empty when the scaffold was refused before writing or after a successful
+   * best-effort rollback; non-empty only when cleanup of a partial scaffold
+   * could not be completed — lets the consumer finish the cleanup.
+   */
+  filesWritten: string[];
   errorMessage: string;
   error: Error;
 }
