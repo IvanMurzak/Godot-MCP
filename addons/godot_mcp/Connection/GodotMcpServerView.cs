@@ -129,16 +129,81 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public static string AssetZipName(OSPlatform os, Architecture arch) =>
             $"{AssetPrefix}-{PlatformName(os, arch)}.zip";
 
-        // --- Release URL construction (exact version, no semver) ---
+        // --- Plugin-version source (parsed from plugin.cfg, so the tag can never drift) ---
+
+        /// <summary>
+        /// Parse the addon <c>version="x.y.z"</c> value out of the raw text of
+        /// <c>addons/godot_mcp/plugin.cfg</c> (a Godot INI file). Returns the trimmed, unquoted version, or
+        /// null when no <c>version=</c> key is present. This mirrors the release workflow's OWN version read
+        /// (<c>.github/workflows/release.yml</c>'s <c>get_version</c> step greps the same <c>^version=</c>
+        /// line and tags the release <c>v&lt;version&gt;</c>), so the server tag the addon downloads can never
+        /// drift from the tag the release was actually cut on (issue #94). Pure string parse — unit-testable
+        /// with no Godot binary.
+        /// </summary>
+        public static string? ParsePluginVersion(string? pluginCfgText)
+        {
+            if (string.IsNullOrEmpty(pluginCfgText))
+                return null;
+
+            foreach (var rawLine in pluginCfgText!.Replace("\r\n", "\n").Split('\n'))
+            {
+                var line = rawLine.Trim();
+                var eq = line.IndexOf('=');
+                if (eq < 0)
+                    continue;
+
+                // The key (left of '=') must be exactly `version` — not e.g. a future `version_extra`.
+                if (!string.Equals(line.Substring(0, eq).Trim(), "version", StringComparison.Ordinal))
+                    continue;
+
+                // Mirror release.yml:91's sed (`s/^version="?([^"]*)"?.*/\1/`): the value is what sits
+                // inside the quotes, and ANY trailing content (an inline `; comment`, stray tokens) after
+                // the closing quote is dropped. Stopping at the closing quote — rather than just trimming
+                // end-quotes — is what keeps this parse byte-for-byte aligned with the workflow read.
+                var rhs = line.Substring(eq + 1).Trim();
+                string value;
+                if (rhs.StartsWith("\"", StringComparison.Ordinal))
+                {
+                    var close = rhs.IndexOf('"', 1);
+                    value = close < 0 ? rhs.Substring(1) : rhs.Substring(1, close - 1);
+                }
+                else
+                {
+                    value = rhs;
+                }
+                value = value.Trim();
+                return value.Length == 0 ? null : value;
+            }
+
+            return null;
+        }
+
+        // --- Release URL construction (exact version, no semver; v-prefixed tag) ---
+
+        /// <summary>
+        /// The Git release TAG for an addon version: the version with a leading <c>v</c> (e.g.
+        /// <c>0.3.0</c> → <c>v0.3.0</c>). The release workflow tags every release <c>v${version}</c>
+        /// (<c>.github/workflows/release.yml</c> <c>get_version</c>: <c>tag=v${version}</c>) and the
+        /// per-platform server zips are attached to THAT tag — so the download path MUST use the v-prefixed
+        /// tag, never the bare version (a bare-version path 404s). Already-v-prefixed input is passed through
+        /// unchanged so a caller cannot accidentally double-prefix.
+        /// </summary>
+        public static string ReleaseTag(string addonVersion)
+        {
+            var version = (addonVersion ?? string.Empty).Trim();
+            return version.StartsWith("v", StringComparison.Ordinal) ? version : "v" + version;
+        }
 
         /// <summary>
         /// The download URL for the version-matched server zip:
-        /// <c>https://github.com/IvanMurzak/Godot-MCP/releases/download/&lt;version&gt;/godot-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>.
-        /// The <paramref name="addonVersion"/> is used VERBATIM (an EXACT plugin-version → server-version
-        /// match, like Unity — no semver range). Mirrors Unity's <c>ExecutableZipUrl</c>.
+        /// <c>https://github.com/IvanMurzak/Godot-MCP/releases/download/v&lt;version&gt;/godot-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>.
+        /// The <paramref name="addonVersion"/> selects an EXACT plugin-version → server-version match (like
+        /// Unity — no semver range); it is mapped to the release tag via <see cref="ReleaseTag"/> (the
+        /// <c>v</c>-prefixed tag the release workflow cuts), then used verbatim. Mirrors Unity's
+        /// <c>ExecutableZipUrl</c> shape, adjusted for Godot-MCP's <c>v</c>-prefixed release tags.
         /// </summary>
         public static string DownloadUrl(string addonVersion, OSPlatform os, Architecture arch) =>
-            $"https://github.com/IvanMurzak/Godot-MCP/releases/download/{addonVersion}/{AssetZipName(os, arch)}";
+            $"https://github.com/IvanMurzak/Godot-MCP/releases/download/{ReleaseTag(addonVersion)}/{AssetZipName(os, arch)}";
 
         // --- Version match (EXACT, like Unity) ---
 

@@ -31,12 +31,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
     public partial class GodotMcpDock : VBoxContainer
     {
         /// <summary>
-        /// Addon version shown in the dock header. Kept in sync MANUALLY with <c>plugin.cfg</c>'s
-        /// <c>version=</c> field (the dock does not parse <c>plugin.cfg</c> at runtime — it is not on the
-        /// project's resource path in a published install, and a const avoids the IO). This mirrors the
-        /// <c>PluginVersion</c> const on <c>GodotMcpConnection</c>; bump both when the addon version moves.
+        /// Addon version shown in the dock header. Sourced from the SAME single source of truth as the MCP
+        /// handshake / local-server pin — <see cref="Connection.GodotMcpConnection.PluginVersion"/>, which is
+        /// parsed once from <c>res://addons/godot_mcp/plugin.cfg</c> (present on the resource path in every
+        /// install, since Godot needs it to enable the addon). Deriving it here means the header can never
+        /// drift from <c>plugin.cfg</c> — the bug that previously left it pinned at a stale literal (issue #94).
         /// </summary>
-        public const string AddonVersion = "0.1.0";
+        public static readonly string AddonVersion = Connection.GodotMcpConnection.PluginVersion;
 
         /// <summary>The dock's display title (also its tab name in the editor dock).</summary>
         public const string DockTitle = "AI Game Developer";

@@ -93,6 +93,8 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
   - [Cloud mode (default) — ai-game.dev](#cloud-mode-default--ai-gamedev)
   - [Custom mode — your own server](#custom-mode--your-own-server)
 - [Godot `MCP Server` setup](#godot-mcp-server-setup)
+  - [Local server — let the addon download & run it for you](#local-server--let-the-addon-download--run-it-for-you)
+  - [Build & run the server manually (advanced)](#build--run-the-server-manually-advanced)
 - [Customize Tools](#customize-tools)
 - [How Godot MCP Architecture Works](#how-godot-mcp-architecture-works)
 - [Building & contributing](#building--contributing)
@@ -311,9 +313,45 @@ export GODOT_MCP_HOST=http://localhost:5300
 # Godot `MCP Server` setup
 
 In **Cloud** mode you don't run a server at all — the plugin talks to `ai-game.dev`. If you want to host
-the server yourself (local dev, CI, or your own cloud), this repo ships **`Godot-MCP-Server/`**, a thin
-ASP.NET Core host around the shared MCP server core (`com.IvanMurzak.McpPlugin.Server`). Both transports
-are supported: `streamableHttp` (HTTP) and `stdio`.
+the server yourself (local dev, CI, or your own cloud), you have two options: let the addon **download and
+run the matched server binary for you** (recommended), or **build and run it manually** (advanced).
+
+## Local server — let the addon download & run it for you
+
+In [Custom mode](#custom-mode--your-own-server) the plugin can **host its own MCP server** — you don't have
+to build or launch anything by hand. Open the addon dock's **Server** card while Custom mode is selected and
+use the **Local server** row:
+
+- **Start Server** — downloads the server build that **exactly matches the addon's version** (read from
+  `addons/godot_mcp/plugin.cfg`), caches it, launches it, and the plugin connects to it. **Stop Server**
+  terminates it (it is also stopped automatically when you close the editor).
+- The download is the per-platform release asset
+  `godot-mcp-server-<rid>.zip` — pulled over **HTTPS from `github.com` only**, from this repo's GitHub
+  Release for the addon's version. The release is tagged `v<version>`, so the asset URL is:
+  `https://github.com/IvanMurzak/Godot-MCP/releases/download/v<version>/godot-mcp-server-<rid>.zip`.
+  The `<rid>` (platform runtime identifier — e.g. `win-x64`, `osx-arm64`, `linux-x64`) is resolved
+  automatically for your machine; all seven published RIDs are supported (`win-x64`/`x86`/`arm64`,
+  `linux-x64`/`arm64`, `osx-x64`/`arm64`).
+- The binary is cached under your project's `.godot/mcp-server/<rid>/` folder (gitignored) and re-used on
+  later launches; it is only re-downloaded when the addon version changes (an **exact** plugin-version →
+  server-version match, so the editor plugin and the server it talks to never drift). The server is launched
+  on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport.
+
+> **Version pinning & security.** The download URL is derived **solely** from the addon's own version and
+> your platform RID — there is no arbitrary-URL binary execution. If the matching release asset can't be
+> fetched (you're offline, or no release has been published for this version yet), the addon logs a warning
+> and the local server simply doesn't start — fall back to the manual build below, or use Cloud mode. The
+> download is **skipped entirely under CI** (the `CI` / `GITHUB_ACTIONS` environment), where no local server
+> is hosted.
+
+This mirrors [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP)'s self-hosted server flow: the editor
+plugin manages the version-matched server binary for you instead of requiring a manual build.
+
+## Build & run the server manually (advanced)
+
+For development on the server itself, or to run it as a standalone / cloud process, this repo ships
+**`Godot-MCP-Server/`**, a thin ASP.NET Core host around the shared MCP server core
+(`com.IvanMurzak.McpPlugin.Server`). Both transports are supported: `streamableHttp` (HTTP) and `stdio`.
 
 ```bash
 cd Godot-MCP-Server
