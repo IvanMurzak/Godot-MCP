@@ -1,86 +1,282 @@
-# Godot-MCP
+<div align="center" width="100%">
 
-**Model Context Protocol (MCP) integration for the [Godot Engine](https://godotengine.org/).**
+## ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/ai-developer-header.svg?raw=true)
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![MCP](https://badge.mcpx.dev 'MCP Server')](https://modelcontextprotocol.io/introduction)
+[![npm](https://img.shields.io/npm/v/godot-cli?label=godot-cli&logo=npm&labelColor=333A41 'godot-cli on npm')](https://www.npmjs.com/package/godot-cli)
+[![Godot](https://img.shields.io/badge/Godot-4.3%E2%80%934.5-478CBF?style=flat&logo=godotengine&logoColor=white&labelColor=333A41 'Godot 4.3–4.5, C#/.NET (mono)')](https://godotengine.org/)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet&logoColor=white&labelColor=333A41 '.NET 8')](https://dotnet.microsoft.com/)
+[![release](https://github.com/IvanMurzak/Godot-MCP/workflows/release/badge.svg 'release')](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/release.yml)</br>
+[![Discord](https://img.shields.io/badge/Discord-Join-7289da?logo=discord&logoColor=white&labelColor=333A41 'Join')](https://discord.gg/cfbdMZX99G)
+[![Stars](https://img.shields.io/github/stars/IvanMurzak/Godot-MCP 'Stars')](https://github.com/IvanMurzak/Godot-MCP/stargazers)
+[![License](https://img.shields.io/github/license/IvanMurzak/Godot-MCP?label=License&labelColor=333A41)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE)
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
-Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP):
-a C# editor addon that exposes Godot Editor operations as **AI Tools** and connects them to an
-MCP server, so an AI assistant can inspect and drive your Godot project — create nodes, edit
-scenes, manage resources and scripts, capture screenshots, and more — through the same cloud
-backend ([ai-game.dev](https://ai-game.dev)) that powers Unity-MCP.
+  <img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/promo/ai-developer-banner.jpg" alt="AI Game Developer — Godot MCP" title="AI-driven Godot game development" width="100%">
 
-## Requirements
+  <p>
+    <a href="https://claude.ai/download"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/claude-64.png" alt="Claude" title="Claude" height="36"></a>&nbsp;&nbsp;
+    <a href="https://openai.com/index/introducing-codex/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/codex-64.png" alt="Codex" title="Codex" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.cursor.com/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/cursor-64.png" alt="Cursor" title="Cursor" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/docs/copilot/overview"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/github-copilot-64.png" alt="GitHub Copilot" title="GitHub Copilot" height="36"></a>&nbsp;&nbsp;
+    <a href="https://gemini.google.com/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/gemini-64.png" alt="Gemini" title="Gemini" height="36"></a>&nbsp;&nbsp;
+    <a href="https://antigravity.google/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/antigravity-64.png" alt="Antigravity" title="Antigravity" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/vs-code-64.png" alt="VS Code" title="VS Code" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.jetbrains.com/rider/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/rider-64.png" alt="Rider" title="Rider" height="36"></a>&nbsp;&nbsp;
+    <a href="https://visualstudio.microsoft.com/"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/visual-studio-64.png" alt="Visual Studio" title="Visual Studio" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/anthropics/claude-code"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/open-code-64.png" alt="Open Code" title="Open Code" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/cline/cline"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/cline-64.png" alt="Cline" title="Cline" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/Kilo-Org/kilocode"><img src="https://github.com/IvanMurzak/Godot-MCP/raw/main/docs/img/mcp-clients/kilo-code-64.png" alt="Kilo Code" title="Kilo Code" height="36"></a>
+  </p>
 
-- **Godot 4.3+** — the C# / .NET (mono) edition. The addon csproj pins `Godot.NET.Sdk/4.3.0`
-  as its minimum floor; newer 4.x editors work.
+</div>
+
+`Godot MCP` is an AI-powered game development assistant **for the Godot Editor**. Connect **Claude**, **Cursor**, **Copilot**, or any MCP-aware agent to Godot and let it inspect and drive your project — create nodes, edit scenes, manage resources and scripts, capture screenshots, and more.
+
+Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP): a C# **editor addon** that exposes Godot Editor operations as **AI Tools** and connects them to an MCP server through the same hosted cloud backend ([ai-game.dev](https://ai-game.dev)) that powers Unity-MCP — or your own self-hosted server. The MCP / reflection stack is **not forked**: it is shared with Unity-MCP and consumed from [nuget.org](https://www.nuget.org/) as `PackageReference`s.
+
+> **[💬 Join our Discord Server](https://discord.gg/cfbdMZX99G)** — Ask questions, showcase your work, and connect with other developers!
+
+## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
+
+- ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
+- ✔️ **36 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 10 families for operating the Godot Editor
+- ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
+- ✔️ **Scene & Node control** — Build and edit the scene tree, open/save `.tscn` scenes, mutate `.tres`/`.res` resources
+- ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
+- ✔️ **Reflection escape hatch** — Find and call any C# method across loaded assemblies via [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)
+- ✔️ **Cloud or self-hosted** — Connect to `ai-game.dev` out of the box, or point at your own server
+- ✔️ **Natural conversation** — Chat with AI like you would with a human
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Quick Start
+
+Get up and running in a few steps using the [`godot-cli`](https://www.npmjs.com/package/godot-cli) (the Godot analog of `unity-mcp-cli`):
+
+> **Prerequisite:** first add the addon files and the two NuGet packages to your project — see
+> [Installation](#installation) Steps 1–2. `install-plugin` below only flips the `project.godot`
+> enable flag; it does not copy the addon or add the NuGet pins, so the editor cannot load the plugin
+> without them.
+
+```bash
+# 1. Install godot-cli
+npm install -g godot-cli
+
+# 2. Enable the godot_mcp addon in your Godot C# project (addon files + NuGet pins must already be present)
+godot-cli install-plugin ./MyGodotProject
+
+# 3. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
+godot-cli setup-mcp claude-code ./MyGodotProject
+
+# 4. Open the Godot editor (auto-connects with the right GODOT_MCP_* env vars)
+godot-cli open ./MyGodotProject
+
+# 5. Wait until the plugin answers the readiness probe
+godot-cli wait-for-ready ./MyGodotProject
+```
+
+That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it happen. ✨
+
+> See the [full CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for every command, editor-resolution order, and connection env vars.
+
+# Contents
+
+- [Quick Start](#quick-start)
+- [Tools Reference](#tools-reference)
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Step 1: Add the addon](#step-1-add-the-addon)
+  - [Step 2: Add the NuGet packages](#step-2-add-the-nuget-packages)
+  - [Step 3: Install an AI agent](#step-3-install-an-ai-agent)
+- [Connect](#connect)
+  - [Cloud mode (default) — ai-game.dev](#cloud-mode-default--ai-gamedev)
+  - [Custom mode — your own server](#custom-mode--your-own-server)
+- [Godot `MCP Server` setup](#godot-mcp-server-setup)
+- [Customize Tools](#customize-tools)
+- [How Godot MCP Architecture Works](#how-godot-mcp-architecture-works)
+- [Building & contributing](#building--contributing)
+- [License](#license)
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Tools Reference
+
+Godot-MCP ships **36 built-in tools** grouped into **10 families**. Tool names mirror Unity-MCP where
+sensible (`scene-*`, `node-*`, …). Every tool returns a structured, [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)-serialized
+result (or a PNG image for screenshots). All tools are available immediately after the addon is enabled —
+no extra configuration required.
+
+| Family | Tools | What it does |
+| --- | --- | --- |
+| **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). |
+| **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. |
+| **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
+| **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
+| **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node. |
+| **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
+| **editor** | `editor-application-get-state`, `editor-application-set-state`, `editor-selection-get`, `editor-selection-set` | Read/drive the editor run-and-play lifecycle (Godot launches the game in a separate process) and the current selection. |
+| **console** | `console-get-logs`, `console-clear-logs` | Read and clear the plugin's editor log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | Find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet — the engine-agnostic escape hatch. |
+
+<details>
+  <summary>Per-tool descriptions</summary>
+
+**ping**
+
+- `ping` — Lightweight readiness probe; echoes a message back, or returns `pong`.
+
+**node**
+
+- `node-find` — Find nodes in the active scene tree by path, type, or name.
+- `node-create` — Create a new node under a parent (optionally instancing a `.tscn` sub-scene).
+- `node-modify` — Set fields/properties on one or more nodes.
+- `node-set-parent` — Reparent nodes within the scene tree.
+- `node-duplicate` — Duplicate nodes together with their subtrees.
+- `node-delete` — Delete nodes from the active scene.
+
+**scene**
+
+- `scene-open` — Open a `res://*.tscn` PackedScene in the editor.
+- `scene-save` — Save an open scene back to its `.tscn` file.
+- `scene-create` — Create a new scene asset in the project.
+- `scene-list-opened` — List the scenes currently open in the editor.
+- `scene-get-data` — Retrieve the root nodes / structure of a scene.
+
+**resource**
+
+- `resource-find` — Search the project for resources (`.tres`/`.res`).
+- `resource-get-data` — Read a resource's serialized fields and properties.
+- `resource-modify` — Modify a resource's properties.
+- `resource-create` — Create a new resource asset.
+- `resource-move` — Move / rename a resource, keeping `.import` sidecars consistent.
+- `resource-delete` — Delete a resource from the project.
+
+**filesystem**
+
+- `filesystem-list` — Browse the `res://` tree (file types + uids) via the editor file index.
+- `filesystem-reimport` — Reimport files in the project.
+
+**script**
+
+- `script-read` — Read a `.cs` / `.gd` script file.
+- `script-create` — Create a new script file.
+- `script-update` — Update an existing script file's contents.
+- `script-delete` — Delete a script file.
+- `script-attach-to-node` — Attach a script to a node.
+
+**screenshot**
+
+- `screenshot-viewport` — Capture the editor viewport as a PNG.
+- `screenshot-camera` — Capture from a specific camera.
+- `screenshot-isolated` — Render a node in isolation from a chosen angle.
+
+**editor**
+
+- `editor-application-get-state` — Read the editor application/run state.
+- `editor-application-set-state` — Start / stop the running game.
+- `editor-selection-get` — Get the current editor selection.
+- `editor-selection-set` — Set the current editor selection.
+
+**console**
+
+- `console-get-logs` — Read the plugin's collected editor logs (with filtering).
+- `console-clear-logs` — Clear the collected log cache.
+
+**reflection**
+
+- `reflection-method-find` — Find C# methods (including private) across every loaded assembly.
+- `reflection-method-call` — Call any C# method with input parameters and get the result.
+
+</details>
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Requirements
+
+- **Godot 4.3+** — the C# / .NET (mono) edition. The addon csproj pins `Godot.NET.Sdk/4.3.0` as its
+  minimum floor; newer 4.x editors (4.4, 4.5) work.
 - **.NET 8 SDK** (`net8.0`).
 
-## What it is
+> [!IMPORTANT]
+> Godot-MCP requires the **mono (C#/.NET)** build of Godot — the standard (GDScript-only) build cannot
+> compile the addon.
 
-Godot-MCP is a Godot **editor addon** (`addons/godot_mcp/`) backed by a `Godot.NET.Sdk` C#
-project. On editor load, a `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) boots the plugin: it
-installs a main-thread dispatcher, builds a [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)
-`Reflector` with Godot type converters, and opens a SignalR connection to an MCP server over the
-reused [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin)
-client. The AI tools it registers are then callable by any MCP-aware AI agent.
+# Installation
 
-The MCP / reflection stack is **not forked** — it is shared with Unity-MCP and consumed from
-[nuget.org](https://www.nuget.org/) as `PackageReference`s. The pins are owned by the upstream
-release pipelines; this repo never bumps or vendors them.
+There are two things to install: the **addon** (the plugin files) and the two **NuGet packages** the
+addon's C# depends on. Godot compiles *every* `.cs` under your project into one assembly, so your
+project's `.csproj` must declare the same NuGet references the addon needs — otherwise the addon's C# will
+not compile.
 
-## Install
+## Step 1: Add the addon
 
-There are two things to install: the **addon** (the plugin files) and the two **NuGet packages**
-the addon's C# depends on. Godot compiles *every* `.cs` under your project into one assembly, so
-your project's `.csproj` must declare the same NuGet references the addon needs — otherwise the
-addon's C# will not compile.
+Copy the `addons/godot_mcp/` folder from this repository into your Godot C# project's `addons/` directory.
 
-### 1. Add the addon
-
-Either install **Godot-MCP** from the Godot Asset Library, or copy the `addons/godot_mcp/` folder
-from this repository into your Godot C# project's `addons/` directory.
-
-Then enable it: **Project → Project Settings → Plugins → Godot-MCP → Enable**. On a successful
-load the editor Output panel prints:
+Then enable it: **Project → Project Settings → Plugins → Godot-MCP → Enable** (or run
+[`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject`, which flips the
+same enable flag in `project.godot` — it does **not** copy the addon files, so you must add them first). On
+a successful load the editor Output panel prints:
 
 ```
 [Godot-MCP] plugin loaded
 ```
 
-### 2. Add the NuGet packages
+## Step 2: Add the NuGet packages
 
-Add both `PackageReference`s to your project's `.csproj` (use these exact pinned versions — they
-must match the addon's `Godot-MCP.csproj`):
+Add both `PackageReference`s to your project's `.csproj` (use these exact pinned versions — they must
+match the addon's `Godot-MCP.csproj`):
 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.5.5" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.7.0" />
 </ItemGroup>
 ```
 
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.3.1` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `6.5.5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `6.7.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
-Run `dotnet restore` so the packages land in your NuGet cache, then build. **No manual DLL copying
-is required** — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
-global-packages folder by reading the build's `*.deps.json`. (If you prefer self-contained output,
-set `<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>` so the DLLs are copied beside
-your project assembly instead.)
+Run `dotnet restore` so the packages land in your NuGet cache, then build. **No manual DLL copying is
+required** — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
+global-packages folder by reading the build's `*.deps.json`. (If you prefer self-contained output, set
+`<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>` so the DLLs are copied beside your
+project assembly instead.)
 
-## Connect
+## Step 3: Install an AI agent
 
-The plugin connects to an MCP server in one of two modes. The mode and its URL / token can be set
-in the serialized config or overridden at process start with environment variables (handy for CI,
-headless runs, and local dev). All variable names are the Godot analog of Unity-MCP's `UNITY_MCP_*`.
+Choose a single `AI agent` you prefer — you don't need to install all of them. This is your main chat
+window to communicate with the LLM.
 
-### Cloud mode (default) — ai-game.dev
+- [Claude Code](https://github.com/anthropics/claude-code) **(recommended)**
+- [Claude Desktop](https://claude.ai/download)
+- [GitHub Copilot in VS Code](https://code.visualstudio.com/docs/copilot/overview)
+- [Antigravity](https://antigravity.google/)
+- [Cursor](https://www.cursor.com/)
+- Any other MCP-aware agent
 
-In **Cloud** mode the plugin connects to the hosted backend at `https://ai-game.dev` (the `/mcp`
-hub path is appended automatically). This is the default `connectionMode`.
+Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject` — it points the
+client at the Godot server's `<host>/mcp` URL. See the
+[CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for the full list of
+supported agents.
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Connect
+
+The plugin connects to an MCP server in one of two modes. The mode and its URL / token can be set in the
+serialized config or overridden at process start with environment variables (handy for CI, headless runs,
+and local dev). All variable names are the Godot analog of Unity-MCP's `UNITY_MCP_*`. The active mode
+always recomputes from the environment, so a process-level override wins over the serialized config
+without editing any file.
+
+## Cloud mode (default) — ai-game.dev
+
+In **Cloud** mode the plugin connects to the hosted backend at `https://ai-game.dev` (the `/mcp` hub path
+is appended automatically). This is the default `connectionMode`.
 
 | Environment variable | Purpose | Default |
 | --- | --- | --- |
@@ -88,10 +284,10 @@ hub path is appended automatically). This is the default `connectionMode`.
 | `GODOT_MCP_CLOUD_URL` | Override the cloud base URL. A trailing `/mcp` is stripped if present; a non-http(s) value falls back to the default. | `https://ai-game.dev` |
 | `GODOT_MCP_TOKEN` | Bearer token, routed to the active mode's token. Surrounding quotes are trimmed. | (none) |
 
-### Custom mode — your own server
+## Custom mode — your own server
 
-In **Custom** mode the plugin connects to a server URL you supply (a local dev server, a
-self-hosted instance, etc.).
+In **Custom** mode the plugin connects to a server URL you supply (a local dev server, a self-hosted
+instance, etc.).
 
 | Environment variable | Purpose | Default |
 | --- | --- | --- |
@@ -107,29 +303,120 @@ export GODOT_MCP_HOST=http://localhost:5300
 # export GODOT_MCP_TOKEN=...   # only if the server enforces auth
 ```
 
-The active mode always recomputes from the environment, so a process-level override wins over the
-serialized config without editing any file.
+> The [`godot-cli open`](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) command forwards
+> these env vars for you via `--mode`, `--url`, `--cloud-url`, and `--token` flags.
 
-## Tools
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
-Godot-MCP groups its AI tools into **10 families**. Tool names mirror Unity-MCP where sensible
-(`scene-*`, `node-*`, …). Every tool returns a structured, ReflectorNet-serialized result (or a
-PNG image for screenshots).
+# Godot `MCP Server` setup
 
-| Family | Tools | What it does |
-| --- | --- | --- |
-| **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). |
-| **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. |
-| **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
-| **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
-| **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node. (No dynamic code execution — that is intentionally out of scope.) |
-| **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
-| **editor** | `editor-application-get-state`, `editor-application-set-state`, `editor-selection-get`, `editor-selection-set` | Read/drive the editor run-and-play lifecycle (Godot launches the game in a separate process) and the current selection. |
-| **console** | `console-get-logs`, `console-clear-logs` | Read and clear the plugin's editor log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | Find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet — the engine-agnostic escape hatch. |
+In **Cloud** mode you don't run a server at all — the plugin talks to `ai-game.dev`. If you want to host
+the server yourself (local dev, CI, or your own cloud), this repo ships **`Godot-MCP-Server/`**, a thin
+ASP.NET Core host around the shared MCP server core (`com.IvanMurzak.McpPlugin.Server`). Both transports
+are supported: `streamableHttp` (HTTP) and `stdio`.
 
-## Building & contributing
+```bash
+cd Godot-MCP-Server
+
+# HTTP transport on port 8080
+dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport streamableHttp --port 8080
+
+# stdio transport — for local MCP clients that launch the server directly
+dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport stdio
+```
+
+`build-all.sh` / `build-all.ps1` produce self-contained single-file binaries for win/linux/osx RIDs under
+`./publish/`. Then point the plugin at it in [Custom mode](#custom-mode--your-own-server)
+(`GODOT_MCP_HOST=http://localhost:8080`).
+
+> **Choosing a transport:** use `stdio` when the MCP client launches the server binary directly (local
+> use — the most common setup); use `streamableHttp` when running the server as a standalone process or in
+> the cloud and connecting over HTTP.
+
+See [`Godot-MCP-Server/README.md`](https://github.com/IvanMurzak/Godot-MCP/blob/main/Godot-MCP-Server/README.md)
+for the full argument / environment-variable table and the cross-platform build matrix.
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Customize Tools
+
+Godot-MCP supports custom `MCP Tool` development directly in your project code. A tool family is a
+`partial class` decorated `[AiToolType]`; each tool method is decorated `[AiTool("tool-name", …)]` with a
+`[Description]` on the method and on each parameter to help the LLM understand it.
+
+> Any Godot API call (`Node`, `Resource`, `EditorInterface`, …) **must** run on the editor main thread —
+> marshal it through `MainThread.Instance.Run(...)` (ReflectorNet's `MainThread` is backed by the Godot
+> main-thread dispatcher on plugin boot). Never touch engine objects off-thread.
+
+```csharp
+[AiToolType]
+public partial class Tool_MyFeature
+{
+    [AiTool("my-custom-task", Title = "Do a custom task")]
+    [Description("Explain to the LLM what this does and when to call it.")]
+    public string CustomTask
+    (
+        [Description("Explain to the LLM what this parameter is.")]
+        string inputData
+    )
+    {
+        // ... work that does not touch the Godot API can run on this background thread ...
+
+        return MainThread.Instance.Run(() =>
+        {
+            // ... touch EditorInterface / Node / Resource here, on the main thread ...
+            return "[Success] Operation completed.";
+        });
+    }
+}
+```
+
+Return a structured data model (ReflectorNet-serialized) or `void` for side-effect-only ops — never ad-hoc
+string formatting for parseable output. Use `string? optional = null` parameters (nullable + default) to
+mark them as optional for the LLM.
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# How Godot MCP Architecture Works
+
+Godot-MCP is a bridge between LLMs and the Godot editor. It exposes and explains Godot's tools to the LLM,
+which then understands the interface and uses the tools according to your requests.
+
+On editor load, the `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) boots the plugin: it installs a main-thread
+dispatcher, builds a [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) `Reflector`
+with Godot type converters, and opens a SignalR connection to an MCP server over the reused
+[`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) client. The AI tools
+it registers are then callable by any MCP-aware AI agent.
+
+## What is `MCP`
+
+MCP — Model Context Protocol. In a few words, it is `USB Type-C` for AI, specifically for LLMs (Large
+Language Models). It teaches the LLM how to use external features — such as the Godot Engine in this case,
+or even your own custom C# method. [Official documentation](https://modelcontextprotocol.io/).
+
+## What is an `AI agent`
+
+It is an application with a chat window. It may have smart agents to operate better, and embedded advanced
+MCP Tools. A well-built MCP client is 50% of the AI success in executing a task — which is why it is
+important to choose a good one.
+
+## What is the `MCP Server`
+
+It is the bridge between the `MCP Client` and "something else" — in this case the Godot editor. In **Cloud**
+mode this is the hosted `ai-game.dev` backend; in **Custom** mode it is the `Godot-MCP-Server/` host you
+run yourself.
+
+## What is an `MCP Tool`
+
+An `MCP Tool` is a function the LLM can call to interact with Godot. These tools are the bridge between
+natural-language requests and actual Godot operations. When you ask the AI to "create a node" or
+"open a scene," it uses MCP Tools to execute the action. Tools have typed, described parameters; return
+structured results; and are thread-aware (main-thread for Godot API calls, background-thread for heavy
+processing).
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Building & contributing
 
 `Godot.NET.Sdk` is a NuGet SDK, so **no Godot binary is required to compile or unit-test**:
 
@@ -139,10 +426,17 @@ dotnet build  Godot-MCP.sln --configuration Debug --no-restore   # 0 errors requ
 dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build
 ```
 
-A Godot 4.3+ editor is only needed for live behavioral verification of the engine-driving tools.
-See [`CLAUDE.md`](CLAUDE.md) for the full build/test/run runbook, the editor-runtime assembly-load
-fix, conventions, and the headless testbed smoke.
+A Godot 4.3+ editor is only needed for live behavioral verification of the engine-driving tools. See
+[`CLAUDE.md`](https://github.com/IvanMurzak/Godot-MCP/blob/main/CLAUDE.md) for the full build/test/run
+runbook, the editor-runtime assembly-load fix, conventions, and the headless testbed smoke.
 
-## License
+Contributions are highly appreciated. **Please give this project a star 🌟 if you find it useful!**
 
-[Apache-2.0](LICENSE) © Ivan Murzak
+1. 👉 [Fork the project](https://github.com/IvanMurzak/Godot-MCP/fork)
+2. Clone the fork and open it in a Godot 4.3+ (mono) editor
+3. Implement new things, commit, and push to GitHub
+4. Create a Pull Request targeting the original [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP/compare) repository, `main` branch.
+
+# License
+
+[Apache-2.0](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) © Ivan Murzak
