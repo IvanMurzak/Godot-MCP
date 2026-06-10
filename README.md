@@ -54,11 +54,16 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 
 Get up and running in a few steps using the [`godot-cli`](https://www.npmjs.com/package/godot-cli) (the Godot analog of `unity-mcp-cli`):
 
+> **Prerequisite:** first add the addon files and the two NuGet packages to your project — see
+> [Installation](#installation) Steps 1–2. `install-plugin` below only flips the `project.godot`
+> enable flag; it does not copy the addon or add the NuGet pins, so the editor cannot load the plugin
+> without them.
+
 ```bash
 # 1. Install godot-cli
 npm install -g godot-cli
 
-# 2. Enable the godot_mcp addon in your Godot C# project
+# 2. Enable the godot_mcp addon in your Godot C# project (addon files + NuGet pins must already be present)
 godot-cli install-plugin ./MyGodotProject
 
 # 3. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
@@ -207,11 +212,12 @@ not compile.
 
 ## Step 1: Add the addon
 
-Copy the `addons/godot_mcp/` folder from this repository into your Godot C# project's `addons/` directory
-(or install it via [`godot-cli`](https://www.npmjs.com/package/godot-cli): `godot-cli install-plugin ./MyGodotProject`).
+Copy the `addons/godot_mcp/` folder from this repository into your Godot C# project's `addons/` directory.
 
-Then enable it: **Project → Project Settings → Plugins → Godot-MCP → Enable**. On a successful load the
-editor Output panel prints:
+Then enable it: **Project → Project Settings → Plugins → Godot-MCP → Enable** (or run
+[`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject`, which flips the
+same enable flag in `project.godot` — it does **not** copy the addon files, so you must add them first). On
+a successful load the editor Output panel prints:
 
 ```
 [Godot-MCP] plugin loaded
@@ -434,5 +440,3 @@ Contributions are highly appreciated. **Please give this project a star 🌟 if 
 # License
 
 [Apache-2.0](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) © Ivan Murzak
-</content>
-</invoke>
