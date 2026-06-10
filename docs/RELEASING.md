@@ -79,31 +79,65 @@ version-gate applies: if the tag already exists, the dispatch run is a no-op.
 
 ---
 
-## Godot Asset Library submission (metadata — manual, Ivan-gated)
+## Godot Asset Library submission (manual, Ivan-gated)
 
 The Godot Asset Library is the discoverable in-editor channel (*AssetLib* tab). Submission is a
 **manual web-form step** performed by the maintainer at
 <https://godotengine.org/asset-library/> after a GitHub Release exists. It is **not** automated and
-**not** performed by this pipeline. The metadata below is prepared so the form can be filled in
-quickly; nothing here submits anything.
+**not** performed by this pipeline.
 
-| Field | Value |
-| --- | --- |
-| **Asset name** | Godot-MCP |
-| **Category** | Tools |
-| **Godot version** | 4.3+ (C#/.NET mono edition) |
-| **Repository host** | GitHub |
-| **Repository URL** | `https://github.com/IvanMurzak/Godot-MCP` |
-| **Version** | the semver just released (e.g. `0.2.0`) — match `plugin.cfg` / the `v*` tag |
-| **Version string / commit** | the released tag's commit (the Asset Library entry points at a specific commit or the release download) |
-| **Download / commit** | the `v<semver>` tag commit on `main` (Asset Library can reference the tagged commit; the GitHub Release zip is the human download) |
-| **License** | Apache-2.0 (matches [`LICENSE`](../LICENSE) and the `plugin.cfg` author) |
-| **Icon** | a 128×128 PNG/SVG icon. **NONE ships in `addons/godot_mcp/` today** — add one (e.g. `addons/godot_mcp/icon.png`) before the first Asset Library submission and reference its raw GitHub URL in the form. |
-| **Short description** | "Model Context Protocol (MCP) integration for the Godot Editor. AI tools in C#, cloud-connected to ai-game.dev." (matches `plugin.cfg` `description`) |
-| **Long description** | The Godot counterpart of Unity-MCP: a C# editor addon that exposes Godot Editor operations (nodes, scenes, resources, scripts, screenshots, editor state, reflection) as **AI Tools** over an MCP server. See [`README.md`](../README.md) for the full tool family list and install steps. **Important install note for consumers:** because Godot compiles every `.cs` under the project into one assembly, the consumer's `.csproj` must declare the two NuGet `PackageReference`s the addon needs (`com.IvanMurzak.ReflectorNet` 5.3.1, `com.IvanMurzak.McpPlugin` 6.5.5) — surface this in the submission so installers aren't surprised by a compile error. |
+A **ready-to-paste submission package** — every form field's exact value, plus the icon and preview
+URLs — is maintained at [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Open it next to the
+web form and copy each field across. The notes below are the procedure; the values live in that file so
+they are versioned and easy to update on each release.
 
-After the form is submitted, a Godot Asset Library moderator reviews and approves the entry; later
-versions are pushed as edits to the same entry (bump the version + point at the new tag).
+### Form-field requirements (verified against the Asset Library docs)
+
+The submission form (per the
+[official docs](https://docs.godotengine.org/en/stable/community/asset_library/submitting_to_assetlib.html))
+has these field constraints worth knowing before you start:
+
+- **Type** must be **Addon** (not *Project*) — only Addons appear in the in-editor *AssetLib* tab; a
+  *Project* entry is visible only in the Project Manager.
+- **Category** = **Tools** (one of: 2D Tools, 3D Tools, Shaders, Materials, **Tools**, Scripts, Misc,
+  Templates, Projects, Demos).
+- **Icon URL** must be a **square (1:1) PNG or JPG, minimum 128×128** — **SVG is NOT accepted**. A raw
+  GitHub URL is required, e.g.
+  `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png`. A
+  512×512 PNG ships at [`addons/godot_mcp/icon.png`](../addons/godot_mcp/icon.png) for exactly this.
+- **Godot version** is a **single version per submission** — submit against the lowest supported
+  (`4.3`); the addon also runs on 4.4 / 4.5 but each extra version would need its own entry.
+- **Download Commit** is a specific commit **hash** (not a tag): use the commit that the `v<version>`
+  release tag points at. The Asset Library downloads a repo snapshot at that commit, so the consumer
+  receives the addon source under `addons/godot_mcp/` exactly as it sits on `main` at that tag.
+- **License** = **Apache-2.0**.
+- **Description** is **plain text** today (Markdown is planned but not live) — keep it prose, no
+  Markdown syntax.
+- **Preview** (optional) accepts up to three images / YouTube videos with thumbnail URLs; use the
+  promo images under `docs/img/promo/` via their raw URLs.
+
+### First submission (one-time)
+
+1. Cut the GitHub Release first (the version bump → `release.yml` → `v<version>` tag + addon zip). The
+   Asset Library entry references the released commit, so the release must exist.
+2. Sign in at <https://godotengine.org/asset-library/> with the maintainer's godotengine.org account.
+3. Click **Submit Asset** and fill every field from
+   [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Set **Download Commit** to the commit hash
+   the `v<version>` tag points at (`git rev-list -n1 v<version>`).
+4. Submit. A Godot Asset Library moderator reviews and approves the entry (this can take days).
+
+### Subsequent-version updates (every later release)
+
+The Asset Library entry is **edited in place** — you do NOT create a new entry per version:
+
+1. Cut the new GitHub Release (bump `plugin.cfg`, merge → `release.yml` tags `v<newversion>`).
+2. Sign in, open the existing **Godot-MCP** asset, click **Edit**.
+3. Bump the **Version** field to the new semver and set **Download Commit** to the new tag's commit
+   hash (`git rev-list -n1 v<newversion>`). Update the description / previews only if they changed.
+4. Submit the edit — it goes through moderator review again before going live.
+
+> Each edit refreshes the values in [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md) too, so the
+> versioned package always reflects what is live.
 
 ---
 
@@ -116,7 +150,7 @@ in this repo):
 | Package | Version | Role |
 | --- | --- | --- |
 | `com.IvanMurzak.ReflectorNet` | `5.3.1` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `6.5.5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.McpPlugin` | `6.7.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
 entry — plus the **`godot-mcp-cli` npm package** are the distribution channels for Godot-MCP. There

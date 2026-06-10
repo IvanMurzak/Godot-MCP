@@ -214,16 +214,48 @@ not compile.
 
 ## Step 1: Add the addon
 
-Copy the `addons/godot_mcp/` folder from this repository into your Godot C# project's `addons/` directory.
+Pick **one** of the following ways to get the `addons/godot_mcp/` folder into your Godot C# project.
 
-Then enable it: **Project → Project Settings → Plugins → Godot-MCP → Enable** (or run
+### Option A — Godot Asset Library (recommended)
+
+The easiest path: install directly from inside the editor.
+
+1. Open the **AssetLib** tab at the top of the Godot editor.
+2. Search for **Godot-MCP** and open the asset.
+3. Click **Download**, then **Install** — Godot unpacks the addon into your project's
+   `res://addons/godot_mcp/`.
+
+> The Asset Library entry is published per release and always points at a tagged version, so an
+> in-editor install gives you a known-good snapshot of the addon. (See note below if the entry is not
+> visible yet.)
+
+### Option B — GitHub Release zip
+
+Grab the latest `godot-mcp-addon-<version>.zip` from the
+[Releases page](https://github.com/IvanMurzak/Godot-MCP/releases/latest) and extract it into your
+project's root — the archive already contains `addons/godot_mcp/...`, so the files land at
+`res://addons/godot_mcp/`.
+
+### Option C — copy from source / godot-cli
+
+Copy the `addons/godot_mcp/` folder from this repository (or your clone) into your project's `addons/`
+directory by hand.
+
+---
+
+After the files are in place, **enable** the plugin:
+**Project → Project Settings → Plugins → Godot-MCP → Enable** (or run
 [`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject`, which flips the
-same enable flag in `project.godot` — it does **not** copy the addon files, so you must add them first). On
-a successful load the editor Output panel prints:
+same enable flag in `project.godot` — it does **not** copy the addon files, so the files from Option A/B/C
+must already be present). On a successful load the editor Output panel prints:
 
 ```
 [Godot-MCP] plugin loaded
 ```
+
+> **Asset Library availability.** The in-editor AssetLib entry (Option A) appears after the maintainer's
+> first submission is approved by the Godot Asset Library moderators. Until then, use Option B (GitHub
+> Release zip) or Option C.
 
 ## Step 2: Add the NuGet packages
 
