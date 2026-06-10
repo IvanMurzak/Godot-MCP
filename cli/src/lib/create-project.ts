@@ -185,6 +185,9 @@ export function renderCsproj(projectName: string): string {
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   const warnings: string[] = [];
   const filesWritten: string[] = [];
+  // Original bytes of any pre-existing file we overwrite, so a failed scaffold
+  // can RESTORE the caller's file rather than delete it during rollback.
+  const overwrittenOriginals = new Map<string, Buffer>();
   let resolvedProjectPath: string | undefined;
   let projectDirExistedBefore = true;
 
@@ -199,7 +202,10 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     // chars would let a crafted `--dotnet` csproj filename escape the target.
     const nameError = validateProjectName(projectName);
     if (nameError) {
-      throw new Error(`Invalid project name "${projectName}": ${nameError}.`);
+      const hint = options.name?.trim()
+        ? ''
+        : ' (derived from the target folder name — pass --name to override)';
+      throw new Error(`Invalid project name "${projectName}": ${nameError}.${hint}`);
     }
 
     emitProgress(options.onProgress, {
@@ -224,8 +230,21 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     // Write one file, recording it for rollback and warning when an existing
     // non-marker file is clobbered.
     const writeFile = (filePath: string, contents: string): void => {
-      if (fs.existsSync(filePath)) {
+      // Only a pre-existing regular FILE is an overwrite worth warning about /
+      // snapshotting; a directory at this path isn't a file we can clobber (the
+      // write below will throw), so it must not produce a phantom warning.
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         warnings.push(`Overwrote existing file: ${filePath}`);
+        // Snapshot the caller's original bytes (once) so rollback restores them
+        // instead of deleting a file they already had. If the read fails, fall
+        // back to delete-on-rollback (best-effort).
+        if (!overwrittenOriginals.has(filePath)) {
+          try {
+            overwrittenOriginals.set(filePath, fs.readFileSync(filePath));
+          } catch {
+            // Unreadable: treat as freshly-written (rmSync on rollback).
+          }
+        }
       }
       fs.writeFileSync(filePath, contents);
       filesWritten.push(filePath);
@@ -264,13 +283,23 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
   } catch (err: unknown) {
     // Roll back any files written before the failure (best-effort, reverse
     // order) so a failed/refused scaffold leaves the target as it was found.
-    // Only entries whose cleanup FAILED stay in `leftover` — honouring the
-    // CreateProjectFailure.filesWritten contract (non-empty only when a partial
-    // scaffold could not be fully removed).
+    // A file we OVERWROTE is restored to its original bytes (never deleted —
+    // that would leave the caller with less than they started with); a file we
+    // freshly created is removed. Only entries whose cleanup FAILED stay in
+    // `leftover` — honouring the CreateProjectFailure.filesWritten contract
+    // (non-empty only when a partial scaffold could not be fully cleaned up).
     const leftover: string[] = [];
     for (const filePath of [...filesWritten].reverse()) {
       try {
-        fs.rmSync(filePath, { force: true });
+        const original = overwrittenOriginals.get(filePath);
+        if (original !== undefined) {
+          fs.writeFileSync(filePath, original);
+          // The overwrite was reverted, so drop the now-inaccurate warning.
+          const idx = warnings.indexOf(`Overwrote existing file: ${filePath}`);
+          if (idx !== -1) warnings.splice(idx, 1);
+        } else {
+          fs.rmSync(filePath, { force: true });
+        }
       } catch {
         warnings.push(`Failed to roll back partially-written file: ${filePath}`);
         leftover.push(filePath);

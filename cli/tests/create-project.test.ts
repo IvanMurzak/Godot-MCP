@@ -280,6 +280,32 @@ describe('createProject', () => {
     expect(fs.existsSync(dest)).toBe(true);
   });
 
+  it('restores (does NOT delete) a pre-existing file it overwrote when a LATER write fails', async () => {
+    // A marker-free directory that already holds the user's icon.svg. With
+    // --dotnet the write order is icon.svg -> <name>.csproj -> project.godot;
+    // a directory at the csproj path makes that second write throw AFTER
+    // icon.svg was overwritten. Rollback must put the user's icon.svg back
+    // (not rmSync it), leaving the target with no LESS than it started with.
+    const dest = path.join(tmpDir, 'HasIcon');
+    fs.mkdirSync(dest, { recursive: true });
+    const userIcon = '<svg id="mine"/>';
+    fs.writeFileSync(path.join(dest, 'icon.svg'), userIcon);
+    fs.mkdirSync(path.join(dest, 'HasIcon.csproj'));
+
+    const result = await createProject({ projectPath: dest, name: 'HasIcon', dotnet: true });
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+
+    // The user's original icon.svg survives with its ORIGINAL content restored.
+    expect(fs.existsSync(path.join(dest, 'icon.svg'))).toBe(true);
+    expect(fs.readFileSync(path.join(dest, 'icon.svg'), 'utf-8')).toBe(userIcon);
+    // Cleanup fully succeeded, so the failure-shape lists no leftover files...
+    expect(result.filesWritten).toEqual([]);
+    // ...and the "Overwrote existing file" warning was dropped, since the
+    // overwrite was reverted — the failure shape must not claim a stale clobber.
+    expect(result.warnings.some((w) => w.includes('Overwrote existing file'))).toBe(false);
+  });
+
   it('refuses (structured failure, no writes) a name with a newline / injected key', async () => {
     const dest = path.join(tmpDir, 'Injected');
     const result = await createProject({
