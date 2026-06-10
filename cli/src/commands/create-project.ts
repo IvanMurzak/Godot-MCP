@@ -36,6 +36,15 @@ export const createProjectCommand = new Command('create-project')
     if (result.kind === 'failure') {
       spinner.error('Failed to create project');
       ui.error(result.errorMessage);
+      // Surface failure-shape diagnostics BEFORE exiting: leftover files a
+      // partial rollback could not remove, plus any rollback warnings.
+      if (result.filesWritten.length > 0) {
+        ui.label('Files left behind (cleanup failed)', result.filesWritten.join(', '));
+      }
+      for (const warning of result.warnings) {
+        console.log('');
+        ui.warn(warning);
+      }
       process.exit(1);
     }
 

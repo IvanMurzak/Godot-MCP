@@ -186,6 +186,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
   const warnings: string[] = [];
   const filesWritten: string[] = [];
   let resolvedProjectPath: string | undefined;
+  let projectDirExistedBefore = true;
 
   try {
     const { projectPath } = resolveProjectPath(options.projectPath, process.cwd());
@@ -214,7 +215,10 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
       );
     }
 
-    // Create the target directory (and any parents) if absent.
+    // Create the target directory (and any parents) if absent. Record whether
+    // it pre-existed so a failed scaffold can remove a directory it created
+    // (but never one the caller already had).
+    projectDirExistedBefore = fs.existsSync(projectPath);
     fs.mkdirSync(projectPath, { recursive: true });
 
     // Write one file, recording it for rollback and warning when an existing
@@ -260,11 +264,29 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
   } catch (err: unknown) {
     // Roll back any files written before the failure (best-effort, reverse
     // order) so a failed/refused scaffold leaves the target as it was found.
+    // Only entries whose cleanup FAILED stay in `leftover` — honouring the
+    // CreateProjectFailure.filesWritten contract (non-empty only when a partial
+    // scaffold could not be fully removed).
+    const leftover: string[] = [];
     for (const filePath of [...filesWritten].reverse()) {
       try {
         fs.rmSync(filePath, { force: true });
       } catch {
         warnings.push(`Failed to roll back partially-written file: ${filePath}`);
+        leftover.push(filePath);
+      }
+    }
+    // We iterated in reverse for cleanup; restore write order for the contract.
+    leftover.reverse();
+
+    // If we created the target directory and rollback emptied it, remove it too
+    // so a failed scaffold leaves the target as it was found. Best-effort: a
+    // non-empty dir (pre-existing sibling content) keeps the rmdir from firing.
+    if (resolvedProjectPath && !projectDirExistedBefore && leftover.length === 0) {
+      try {
+        fs.rmdirSync(resolvedProjectPath);
+      } catch {
+        // Directory not empty or already gone — leave it; cleanup is best-effort.
       }
     }
 
@@ -274,7 +296,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
       success: false,
       projectPath: resolvedProjectPath,
       warnings,
-      filesWritten,
+      filesWritten: leftover,
       errorMessage: errorObj.message,
       error: errorObj,
     };

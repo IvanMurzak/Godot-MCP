@@ -257,6 +257,29 @@ describe('createProject', () => {
     expect(result.errorMessage.length).toBeGreaterThan(0);
   });
 
+  it('rolls back already-written files when a LATER write fails', async () => {
+    // Pre-create dest with a DIRECTORY where the csproj will be written. With
+    // --dotnet the write order is icon.svg -> <name>.csproj -> project.godot, so
+    // icon.svg is written and recorded first, then writeFileSync to a directory
+    // path throws — exercising the catch-block rollback after a recorded write.
+    // (A `project.godot` directory can't be used here: detectExistingProjectMarker
+    // would treat it as an existing marker and refuse before any write.)
+    const dest = path.join(tmpDir, 'PartialGame');
+    fs.mkdirSync(dest, { recursive: true });
+    fs.mkdirSync(path.join(dest, 'PartialGame.csproj'));
+
+    const result = await createProject({ projectPath: dest, name: 'PartialGame', dotnet: true });
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+
+    // icon.svg was written then rolled back; cleanup succeeded, so the
+    // CreateProjectFailure.filesWritten contract reports an empty list.
+    expect(fs.existsSync(path.join(dest, 'icon.svg'))).toBe(false);
+    expect(result.filesWritten).toEqual([]);
+    // The caller-provided directory itself is left in place (we did not create it).
+    expect(fs.existsSync(dest)).toBe(true);
+  });
+
   it('refuses (structured failure, no writes) a name with a newline / injected key', async () => {
     const dest = path.join(tmpDir, 'Injected');
     const result = await createProject({
