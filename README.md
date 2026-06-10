@@ -87,6 +87,9 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 - [Requirements](#requirements)
 - [Installation](#installation)
   - [Step 1: Add the addon](#step-1-add-the-addon)
+    - [Option A — Godot Asset Library (recommended)](#option-a--godot-asset-library-recommended)
+    - [Option B — GitHub Release zip](#option-b--github-release-zip)
+    - [Option C — copy from source](#option-c--copy-from-source)
   - [Step 2: Add the NuGet packages](#step-2-add-the-nuget-packages)
   - [Step 3: Install an AI agent](#step-3-install-an-ai-agent)
 - [Connect](#connect)
@@ -236,7 +239,7 @@ Grab the latest `godot-mcp-addon-<version>.zip` from the
 project's root — the archive already contains `addons/godot_mcp/...`, so the files land at
 `res://addons/godot_mcp/`.
 
-### Option C — copy from source / godot-cli
+### Option C — copy from source
 
 Copy the `addons/godot_mcp/` folder from this repository (or your clone) into your project's `addons/`
 directory by hand.

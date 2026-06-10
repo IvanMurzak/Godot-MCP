@@ -7,7 +7,7 @@ There are two distribution artifacts, both cut from the **same release version**
 1. the **addon source folder** (`addons/godot_mcp/`), shipped as
    - a **GitHub Release** with a versioned `godot-mcp-addon-<version>.zip` attached, and
    - a **Godot Asset Library** entry that points at that repository/version; and
-2. the **`godot-mcp-cli`** npm package (`cli/`), published to the public npm registry.
+2. the **`godot-cli`** npm package (`cli/`), published to the public npm registry.
 
 Godot-MCP does **not** publish any NuGet package of its own — see [NuGet](#nuget-decision) below.
 
@@ -47,26 +47,26 @@ bump the version is therefore a **no-op** — nothing is released and nothing is
    - `check-version-tag` reads `version` from `plugin.cfg`, computes `v<version>`, and checks whether
      that tag already exists. If it does (no bump), **every** downstream job is skipped — the run is a
      no-op. If it does not (a real bump), the gate opens;
-   - the test gate runs as `needs:` — the .NET build+test, the `godot-mcp-cli` node tests
+   - the test gate runs as `needs:` — the .NET build+test, the `godot-cli` node tests
      (`test_cli.yml`, Node 20/22), and the Godot engine smoke matrix (`test_godot_plugin.yml` for
      4.3/4.4/4.5). The release proceeds only if all pass;
    - `release-addon` zips `addons/godot_mcp/` into `godot-mcp-addon-<version>.zip` (excluding
      `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`) and creates the **GitHub Release** + `v<version>`
      tag with the zip attached and auto-generated notes (`generate_release_notes: true`);
    - `deploy` (deploy.yml) sets `cli/package.json` to the release version, runs `npm ci && npm run
-     build && npm test`, then **publishes `godot-mcp-cli` to npm** with `npm publish --access public
+     build && npm test`, then **publishes `godot-cli` to npm** with `npm publish --access public
      --provenance` via **OIDC Trusted Publishing** (no `NPM_TOKEN` — see
      [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only)).
 
 3. **Verify.** Check the new Release at
    `https://github.com/IvanMurzak/Godot-MCP/releases/tag/v0.2.0` (zip attached, notes right) and the
-   npm package at `https://www.npmjs.com/package/godot-mcp-cli`.
+   npm package at `https://www.npmjs.com/package/godot-cli`.
 
 ### npm Trusted Publisher prerequisite (first publish only)
 
 The npm publish uses **OIDC Trusted Publishing** — there is intentionally **no `NPM_TOKEN` secret**.
 Before the **first** real publish can succeed, the maintainer must configure a **Trusted Publisher**
-for the `godot-mcp-cli` package on npmjs.com, authorizing this repository and the `deploy.yml`
+for the `godot-cli` package on npmjs.com, authorizing this repository and the `deploy.yml`
 workflow. See <https://docs.npmjs.com/trusted-publishers>. Until that is configured, the `npm
 publish` step fails authentication; the addon GitHub Release still succeeds (it does not depend on
 npm). This is a deliberate maintainer gate (see [GATES](#gates--what-requires-the-maintainer-ivan)).
@@ -184,7 +184,7 @@ in this repo):
 | `com.IvanMurzak.McpPlugin` | `6.7.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
-entry — plus the **`godot-mcp-cli` npm package** are the distribution channels for Godot-MCP. There
+entry — plus the **`godot-cli` npm package** are the distribution channels for Godot-MCP. There
 is no new NuGet package ID to claim and no NuGet publish secret to configure; `release.yml` /
 `deploy.yml` contain **no** `dotnet pack` / `dotnet nuget push` step, by design. (This is the
 deliberate difference from the sibling `ReflectorNet` / `MCP-Plugin-dotnet` repos, whose `deploy.yml`
@@ -201,7 +201,7 @@ by the maintainer:
 - **The version bump that triggers a release.** Releasing is gated on `plugin.cfg`'s version: only a
   maintainer-approved version bump landing on `main` opens the release gate. A no-bump merge is a
   no-op. No agent bumps the version to force a release.
-- **Configuring the npm Trusted Publisher** for `godot-mcp-cli` (one-time, before the first publish).
+- **Configuring the npm Trusted Publisher** for `godot-cli` (one-time, before the first publish).
   A manual step on npmjs.com authorizing this repo + `deploy.yml` to publish via OIDC. Until it is
   done, the `npm publish` step fails auth (the GitHub Release still succeeds). See
   [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only).
