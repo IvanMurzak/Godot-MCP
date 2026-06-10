@@ -322,13 +322,13 @@ In [Custom mode](#custom-mode--your-own-server) the plugin can **host its own MC
 to build or launch anything by hand. Open the addon dock's **Server** card while Custom mode is selected and
 use the **Local server** row:
 
-- **Start Server** — downloads the server build that **exactly matches the addon's version** (from
-  `plugin.cfg`), caches it, launches it, and the plugin connects to it. **Stop Server** terminates it
-  (it is also stopped automatically when you close the editor).
+- **Start Server** — downloads the server build that **exactly matches the addon's version** (read from
+  `addons/godot_mcp/plugin.cfg`), caches it, launches it, and the plugin connects to it. **Stop Server**
+  terminates it (it is also stopped automatically when you close the editor).
 - The download is the per-platform release asset
   `godot-mcp-server-<rid>.zip` — pulled over **HTTPS from `github.com` only**, from this repo's GitHub
-  Release for the addon's version:
-  `https://github.com/IvanMurzak/Godot-MCP/releases/download/<version>/godot-mcp-server-<rid>.zip`.
+  Release for the addon's version. The release is tagged `v<version>`, so the asset URL is:
+  `https://github.com/IvanMurzak/Godot-MCP/releases/download/v<version>/godot-mcp-server-<rid>.zip`.
   The `<rid>` (platform runtime identifier — e.g. `win-x64`, `osx-arm64`, `linux-x64`) is resolved
   automatically for your machine; all seven published RIDs are supported (`win-x64`/`x86`/`arm64`,
   `linux-x64`/`arm64`, `osx-x64`/`arm64`).

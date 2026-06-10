@@ -101,24 +101,113 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 GodotMcpServerView.AssetZipName(OSPlatform.Linux, Architecture.Arm64));
         }
 
+        // --- Release tag (v-prefixed) ---
+
+        [Theory]
+        [InlineData("0.3.0", "v0.3.0")]
+        [InlineData("1.2.3-beta", "v1.2.3-beta")]
+        [InlineData(" 0.3.0 ", "v0.3.0")]
+        public void ReleaseTag_PrependsV(string version, string expected)
+        {
+            Assert.Equal(expected, GodotMcpServerView.ReleaseTag(version));
+        }
+
+        [Fact]
+        public void ReleaseTag_AlreadyVPrefixed_IsNotDoublePrefixed()
+        {
+            // Defensive: a caller that already passed a v-tag must not get `vv0.3.0`.
+            Assert.Equal("v0.3.0", GodotMcpServerView.ReleaseTag("v0.3.0"));
+        }
+
         // --- Download URL ---
 
         [Fact]
-        public void DownloadUrl_UsesExactVersionAndRidAsset()
+        public void DownloadUrl_UsesVPrefixedReleaseTagAndRidAsset()
         {
-            var url = GodotMcpServerView.DownloadUrl("0.1.0", OSPlatform.Windows, Architecture.X64);
+            // The release workflow tags `v<version>` and attaches the server zips to THAT tag, so the URL
+            // must carry the `v` prefix (a bare-version path 404s — issue #94).
+            var url = GodotMcpServerView.DownloadUrl("0.3.0", OSPlatform.Windows, Architecture.X64);
             Assert.Equal(
-                "https://github.com/IvanMurzak/Godot-MCP/releases/download/0.1.0/godot-mcp-server-win-x64.zip",
+                "https://github.com/IvanMurzak/Godot-MCP/releases/download/v0.3.0/godot-mcp-server-win-x64.zip",
                 url);
         }
 
         [Fact]
-        public void DownloadUrl_VersionIsVerbatim_NoSemverNormalization()
+        public void DownloadUrl_VersionIsVerbatimUnderVTag_NoSemverNormalization()
         {
-            // EXACT match like Unity — a 'v'-prefixed or pre-release version is used verbatim, not normalized.
+            // EXACT match like Unity — a pre-release version is used verbatim (no normalization), under the
+            // v-prefixed release tag.
             var url = GodotMcpServerView.DownloadUrl("1.2.3-beta", OSPlatform.Linux, Architecture.X64);
-            Assert.Contains("/releases/download/1.2.3-beta/", url);
+            Assert.Contains("/releases/download/v1.2.3-beta/", url);
             Assert.EndsWith("godot-mcp-server-linux-x64.zip", url);
+        }
+
+        // --- Plugin-version source (parsed from plugin.cfg) ---
+
+        [Fact]
+        public void ParsePluginVersion_ReadsQuotedVersionFromPluginCfgText()
+        {
+            // The exact shape of addons/godot_mcp/plugin.cfg.
+            const string cfg =
+                "[plugin]\n\n" +
+                "name=\"Godot-MCP\"\n" +
+                "description=\"MCP integration for the Godot Editor.\"\n" +
+                "author=\"Ivan Murzak\"\n" +
+                "version=\"0.3.0\"\n" +
+                "script=\"GodotMcpPlugin.cs\"\n";
+            Assert.Equal("0.3.0", GodotMcpServerView.ParsePluginVersion(cfg));
+        }
+
+        [Theory]
+        [InlineData("version=\"1.4.2\"\n", "1.4.2")]
+        [InlineData("version = \"1.4.2\"\n", "1.4.2")]   // tolerant of spaces around '='
+        [InlineData("version=1.4.2\n", "1.4.2")]         // tolerant of an unquoted value
+        [InlineData("  version=\"1.4.2\"  \n", "1.4.2")] // tolerant of leading/trailing whitespace
+        public void ParsePluginVersion_TolerantOfSpacingAndQuoting(string line, string expected)
+        {
+            Assert.Equal(expected, GodotMcpServerView.ParsePluginVersion("[plugin]\n" + line));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("[plugin]\nname=\"Godot-MCP\"\n")] // no version key
+        [InlineData("version_extra=\"x\"\n")]          // a different key that merely starts with `version`
+        public void ParsePluginVersion_MissingOrUnrelated_IsNull(string? cfg)
+        {
+            Assert.Null(GodotMcpServerView.ParsePluginVersion(cfg));
+        }
+
+        [Fact]
+        public void DownloadUrl_FromCommittedPluginCfg_UsesVPrefixedTag()
+        {
+            // End-to-end lock against drift: the version the URL pins MUST be the one in the committed
+            // addons/godot_mcp/plugin.cfg, mapped to the v-prefixed release tag the workflow cuts.
+            var cfgPath = FindRepoFile("addons/godot_mcp/plugin.cfg");
+            Assert.True(cfgPath != null, "Could not locate addons/godot_mcp/plugin.cfg from the test assembly.");
+
+            var version = GodotMcpServerView.ParsePluginVersion(System.IO.File.ReadAllText(cfgPath!));
+            Assert.False(string.IsNullOrEmpty(version), "plugin.cfg must declare a non-empty version.");
+
+            var url = GodotMcpServerView.DownloadUrl(version!, OSPlatform.Windows, Architecture.X64);
+            Assert.Contains($"/releases/download/v{version}/", url);
+            Assert.StartsWith("https://github.com/", url);
+        }
+
+        /// <summary>
+        /// Walk up from the test assembly location to find a repo-relative file, so the committed-plugin.cfg
+        /// lock test does not depend on the test runner's working directory. Returns null when not found.
+        /// </summary>
+        static string? FindRepoFile(string relativePath)
+        {
+            var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+            for (var i = 0; i < 12 && dir != null; i++, dir = dir.Parent)
+            {
+                var candidate = System.IO.Path.Combine(dir.FullName, relativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+                if (System.IO.File.Exists(candidate))
+                    return candidate;
+            }
+            return null;
         }
 
         // --- Version match (EXACT) ---

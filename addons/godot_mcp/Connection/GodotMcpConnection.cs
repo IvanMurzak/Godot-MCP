@@ -52,8 +52,51 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </summary>
     public sealed class GodotMcpConnection : IDisposable
     {
-        /// <summary>Plugin version reported to the server in the MCP handshake.</summary>
-        public const string PluginVersion = "0.1.0";
+        /// <summary>
+        /// Fallback plugin version, used ONLY when <c>addons/godot_mcp/plugin.cfg</c> cannot be read at
+        /// runtime (it always can in a real install). The release pipeline keeps it aligned with
+        /// plugin.cfg's <c>version=</c> as a belt-and-suspenders default; the live, parsed value in
+        /// <see cref="PluginVersion"/> is the source of truth.
+        /// </summary>
+        const string FallbackPluginVersion = "0.3.0";
+
+        /// <summary>
+        /// Plugin version reported to the server in the MCP handshake AND used by the local-server manager to
+        /// pin the downloaded server binary to the matching GitHub release. Resolved ONCE from
+        /// <c>addons/godot_mcp/plugin.cfg</c> — the single source of truth the release workflow itself reads
+        /// (<c>release.yml</c> greps the same <c>version=</c> line and tags <c>v&lt;version&gt;</c>) — so it
+        /// can never drift from the released version the way the old hard-coded <c>"0.1.0"</c> literal did
+        /// (issue #94: a drifted version produced a guaranteed-404 download URL). Falls back to
+        /// <see cref="FallbackPluginVersion"/> only if the file is unreadable.
+        /// </summary>
+        public static readonly string PluginVersion = ResolvePluginVersion();
+
+        /// <summary>
+        /// Resolve the addon version from <c>res://addons/godot_mcp/plugin.cfg</c> via the pure-managed
+        /// <see cref="GodotMcpServerView.ParsePluginVersion"/> parser, with a safe fallback. The only Godot
+        /// dependency is the <c>res://</c> path resolution; the parse is unit-tested in the plain-xUnit host.
+        /// Never throws — a read/parse failure degrades to <see cref="FallbackPluginVersion"/> so a config
+        /// problem can never break the connection boot or the type initializer.
+        /// </summary>
+        static string ResolvePluginVersion()
+        {
+            try
+            {
+                var path = ProjectSettings.GlobalizePath("res://addons/godot_mcp/plugin.cfg");
+                if (System.IO.File.Exists(path))
+                {
+                    var parsed = GodotMcpServerView.ParsePluginVersion(System.IO.File.ReadAllText(path));
+                    if (!string.IsNullOrEmpty(parsed))
+                        return parsed!;
+                }
+            }
+            catch
+            {
+                // Fall through to the literal fallback — never let a config read break the boot path.
+            }
+
+            return FallbackPluginVersion;
+        }
 
         /// <summary>
         /// <c>user://</c> path of the persisted config file (the serialized-config precedence layer).
