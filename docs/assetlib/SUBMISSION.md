@@ -80,12 +80,13 @@ License: Apache-2.0.
 
 ## Preview images (optional — up to 3 images / YouTube videos)
 
-The Asset Library accepts image or video previews with thumbnail URLs. Use the promo art via raw
-GitHub URLs:
+The Asset Library accepts image or video previews. Each preview has three form fields — **Type**,
+**Image/YouTube URL**, and **Thumbnail URL**. For an image preview the same raw GitHub URL serves as
+both the image and its thumbnail (paste it into both fields). Use the promo art via raw GitHub URLs:
 
-| # | Type | URL |
-| --- | --- | --- |
-| 1 | Image | `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/promo/ai-developer-banner.jpg` |
+| # | Type | Image/YouTube URL | Thumbnail URL |
+| --- | --- | --- | --- |
+| 1 | Image | `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/promo/ai-developer-banner.jpg` | (same as Image URL) |
 
 (One strong banner preview is enough; add more from `docs/img/promo/` if desired. Prefer PNG/JPG over
 SVG for preview thumbnails — SVG may not render reliably in the Asset Library gallery.)
