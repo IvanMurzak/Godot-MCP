@@ -95,8 +95,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         GodotDeviceAuthFlow? _deviceAuthFlow;
 
         // Local-server hosting (Custom mode): the Start/Stop button on the MCP-server timeline point, the
-        // "Local server: …" status line, and the manager that downloads + runs the version-matched
-        // godot-mcp-server binary. The server circle (_timelineServerCircle) reflects this LOCAL server's
+        // "Local server: …" status line, and the manager that downloads + runs the pinned shared
+        // gamedev-mcp-server binary. The server circle (_timelineServerCircle) reflects this LOCAL server's
         // lifecycle (Stopped/Starting/Running/Stopping) — the connection's own hub state is shown by the
         // Godot circle. This is the #1 "server-less client" carve-out reversal: the plugin can now HOST its
         // own server, not only connect to an external/cloud one.
@@ -128,12 +128,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             _connection = connection;
 
-            // The local-server manager downloads + runs the version-matched godot-mcp-server binary on
-            // demand. Owned by the panel for the panel's lifetime; its StatusChanged is (un)subscribed in
-            // _EnterTree/_ExitTree alongside the connection events (same #42/#56 reparent discipline). The
-            // PluginVersion is the addon version the server binary must match EXACTLY.
+            // The local-server manager downloads + runs the shared gamedev-mcp-server binary on demand,
+            // pinned to GodotMcpServerView.ServerVersion (NOT the addon version — the two diverge). Owned
+            // by the panel for the panel's lifetime; its StatusChanged is (un)subscribed in
+            // _EnterTree/_ExitTree alongside the connection events (same #42/#56 reparent discipline).
             _serverManager = new GodotMcpServerManager(
-                GodotMcpConnection.PluginVersion,
                 GD.Print,
                 GD.PushWarning,
                 GD.PushError);

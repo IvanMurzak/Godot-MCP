@@ -3,9 +3,10 @@
 Godot-MCP bridges LLMs (Claude, Cursor, Copilot, …) with the [Godot](https://godotengine.org/) editor
 via the [Model Context Protocol](https://modelcontextprotocol.io/) — the Godot-engine sibling of Unity-MCP.
 Sub-projects: `addons/godot_mcp/` (the Godot **editor addon**, a `Godot.NET.Sdk` C# project), `cli/` (the
-`godot-cli` npm package — the Godot analog of `unity-mcp-cli`), `Godot-MCP-Server/` (the .NET MCP server, a
-thin ASP.NET Core host — the Godot analog of `Unity-MCP-Server`), and `Godot-MCP.Tests/` (the CI xUnit
-suite). See **CLI (godot-cli)** and **Server (Godot-MCP-Server)** below.
+`godot-cli` npm package — the Godot analog of `unity-mcp-cli`), and `Godot-MCP.Tests/` (the CI xUnit
+suite). The MCP server is NOT in this repo — the addon consumes the shared
+[GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server). See **CLI (godot-cli)** and
+**Server (shared GameDev-MCP-Server)** below.
 
 The addon is the heart of the repo. A `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) boots on editor load,
 installs the main-thread dispatcher, builds a `Reflector` with Godot type converters, and connects to an
@@ -83,29 +84,15 @@ npm test        # vitest
 **Find detail in** [`cli/README.md`](cli/README.md) — full command table, editor-resolution order,
 connection env vars, and server-URL resolution.
 
-## Server (Godot-MCP-Server)
+## Server (shared GameDev-MCP-Server)
 
-`Godot-MCP-Server/` is a **thin ASP.NET Core host** around the MCP server core
-(`com.IvanMurzak.McpPlugin.Server` NuGet package) — the Godot analog of `Unity-MCP-Server`. There is **no
-Godot-specific server code**: `src/Program.cs` only wires Kestrel / SignalR / NLog and delegates to the
-`McpPlugin.Server` extension methods. It bridges MCP clients and the Godot editor/games (via the
-`addons/godot_mcp` plugin) over SignalR. It is a sibling project to the addon, so it is excluded from the
-addon's source glob (`<Compile Remove="Godot-MCP-Server/**/*.cs" />` in `Godot-MCP.csproj`) and kept out of
-`Godot-MCP.sln` with its own `Godot-MCP-Server.sln` (see the sibling-project glob trap in the implement-task
-profile `conventions.md`).
-
-```bash
-cd Godot-MCP-Server
-dotnet build com.IvanMurzak.Godot.MCP.Server.csproj
-# Run (HTTP transport on port 8080):
-dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport streamableHttp --port 8080
-# Run (STDIO transport — for local MCP clients):
-dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport stdio
-```
-
-`build-all.sh` / `build-all.ps1` produce self-contained single-file binaries for win/linux/osx RIDs under
-`./publish/`. **Find detail in** [`Godot-MCP-Server/README.md`](Godot-MCP-Server/README.md) — the full
-argument/env-var table and cross-platform build matrix.
+The MCP server lives in its own shared repo: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server)
+(binary `gamedev-mcp-server`, release assets `gamedev-mcp-server-<rid>.zip`, Docker
+`aigamedeveloper/mcp-server`) — one engine-agnostic server consumed by Unity-MCP, Godot-MCP, and
+Unreal-MCP. The addon downloads the release pinned by the `ServerVersion` constant in
+`addons/godot_mcp/Connection/GodotMcpServerView.cs`. **Server version pin:** bumping the consumed server =
+changing that constant; the pinned `v<ServerVersion>` release (with all 7 RID zips) must already exist on
+GameDev-MCP-Server BEFORE cutting an addon release that pins it.
 
 ## Editor-runtime assembly loading (the dependency-resolution fix)
 

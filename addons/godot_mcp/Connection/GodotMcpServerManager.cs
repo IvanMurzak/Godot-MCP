@@ -26,9 +26,12 @@ using HttpCompletionOption = System.Net.Http.HttpCompletionOption;
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
     /// <summary>
-    /// Editor-only (<c>#if TOOLS</c>) lifecycle manager for the locally-hosted <c>godot-mcp-server</c>
-    /// binary — the Godot analog of Unity-MCP's <c>McpServerManager</c>. It downloads the version-matched
-    /// server zip from the GitHub release, caches it under the project's <c>.godot/mcp-server/&lt;rid&gt;/</c>
+    /// Editor-only (<c>#if TOOLS</c>) lifecycle manager for the locally-hosted <c>gamedev-mcp-server</c>
+    /// binary — the shared, engine-agnostic MCP server released from
+    /// https://github.com/IvanMurzak/GameDev-MCP-Server (the Godot analog of Unity-MCP's
+    /// <c>McpServerManager</c>). It downloads the server zip pinned by
+    /// <see cref="GodotMcpServerView.ServerVersion"/> from the GameDev-MCP-Server GitHub release, caches it
+    /// under the project's <c>.godot/mcp-server/&lt;rid&gt;/</c>
     /// folder (gitignored), unzips it, marks it executable on Unix, launches it as a child process, monitors
     /// the ~5s startup window, persists the PID so an editor recompile can reconnect to a still-running
     /// server, and stops it gracefully (then force-kills) on request or editor quit.
@@ -42,10 +45,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </para>
     ///
     /// <para>
-    /// Verification note: the actual download + run can only be exercised once a real GitHub release
-    /// publishes the server binaries. The URL/platform/version/arg logic is structurally verified by the
-    /// unit tests; this manager's wiring compiles and the dock builds. Live download+run is operator-pending
-    /// until the first real release (see the issue's "Mandatory before done").
+    /// Version pin note: the consumed server version is the <see cref="GodotMcpServerView.ServerVersion"/>
+    /// constant — NOT the addon version (addon 0.x and shared server 8.x diverge). Bumping the consumed
+    /// server = changing that constant; the corresponding GameDev-MCP-Server release must already exist.
     /// </para>
     /// </summary>
     public sealed class GodotMcpServerManager : IDisposable
@@ -53,7 +55,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>~5s startup-verification window, matching Unity's <c>verificationDelaySeconds</c>.</summary>
         const double StartupVerificationSeconds = 5.0;
 
-        readonly string _addonVersion;
         readonly Action<string> _log;
         readonly Action<string> _logWarning;
         readonly Action<string> _logError;
@@ -77,12 +78,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         public GodotMcpServerManager(
-            string addonVersion,
             Action<string> log,
             Action<string> logWarning,
             Action<string> logError)
         {
-            _addonVersion = addonVersion;
             _log = log;
             _logWarning = logWarning;
             _logError = logError;
@@ -139,9 +138,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             return File.Exists(path) ? File.ReadAllText(path) : null;
         }
 
-        /// <summary>True when the cached binary exists AND its recorded version EXACTLY matches the addon version.</summary>
+        /// <summary>
+        /// True when the cached binary exists AND its recorded version EXACTLY matches the pinned
+        /// <see cref="GodotMcpServerView.ServerVersion"/>.
+        /// </summary>
         public bool IsVersionMatches()
-            => GodotMcpServerView.VersionMatches(GetCachedVersion(), _addonVersion);
+            => GodotMcpServerView.VersionMatches(GetCachedVersion(), GodotMcpServerView.ServerVersion);
 
         /// <summary>
         /// Download + unpack the version-matched server binary when it is missing or stale. No-op (returns
@@ -172,11 +174,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             var os = GodotMcpServerView.CurrentOsPlatform();
             var arch = RuntimeInformation.ProcessArchitecture;
-            var url = GodotMcpServerView.DownloadUrl(_addonVersion, os, arch);
+            var serverVersion = GodotMcpServerView.ServerVersion;
+            var url = GodotMcpServerView.DownloadUrl(os, arch);
             var platformFolder = CachePlatformPath();
             var executablePath = ExecutableFullPath();
 
-            _log($"[Godot-MCP] downloading Godot-MCP-Server binary from: {url}");
+            _log($"[Godot-MCP] downloading GameDev-MCP-Server binary from: {url}");
 
             try
             {
@@ -186,7 +189,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 Directory.CreateDirectory(platformFolder);
 
                 var archivePath = Path.Combine(Path.GetTempPath(),
-                    $"{GodotMcpServerView.AssetPrefix}-{GodotMcpServerView.PlatformName(os, arch)}-{_addonVersion}.zip");
+                    $"{GodotMcpServerView.AssetPrefix}-{GodotMcpServerView.PlatformName(os, arch)}-{serverVersion}.zip");
 
                 using (var client = new HttpClient())
                 {
@@ -197,11 +200,40 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     await src.CopyToAsync(dst);
                 }
 
-                _log($"[Godot-MCP] unpacking Godot-MCP-Server binary to: {platformFolder}");
-                // The release zip nests the binary under a <rid>/ folder, so extract to the cache ROOT.
-                ZipFile.ExtractToDirectory(archivePath, CacheRootPath(), overwriteFiles: true);
+                _log($"[Godot-MCP] unpacking GameDev-MCP-Server binary to: {platformFolder}");
+                // The shared GameDev-MCP-Server release zips are NOT layout-uniform: the win zips are FLAT
+                // (gamedev-mcp-server.exe at the zip root) while the osx/linux zips wrap the binary in a
+                // <rid>/ folder. Extract to a throwaway staging folder, FIND the binary wherever it landed,
+                // then move its containing folder's files into the per-platform cache folder — so BOTH
+                // layouts (and any future re-arrangement) resolve correctly.
+                var stagingFolder = Path.Combine(Path.GetTempPath(),
+                    $"{GodotMcpServerView.AssetPrefix}-extract-{Guid.NewGuid():N}");
+                try
+                {
+                    ZipFile.ExtractToDirectory(archivePath, stagingFolder, overwriteFiles: true);
 
-                try { File.Delete(archivePath); } catch { /* best effort */ }
+                    var extractedBinary = FindExtractedBinary(stagingFolder, GodotMcpServerView.CurrentExecutableFileName());
+                    if (extractedBinary == null)
+                    {
+                        _logError($"[Godot-MCP] server binary '{GodotMcpServerView.CurrentExecutableFileName()}' not found inside the downloaded zip.");
+                        return false;
+                    }
+
+                    // Move the binary plus any sidecar files beside it (none today; defensive) into the cache.
+                    var sourceFolder = Path.GetDirectoryName(extractedBinary)!;
+                    foreach (var file in Directory.GetFiles(sourceFolder))
+                    {
+                        var destination = Path.Combine(platformFolder, Path.GetFileName(file));
+                        if (File.Exists(destination))
+                            File.Delete(destination);
+                        File.Move(file, destination);
+                    }
+                }
+                finally
+                {
+                    TryDeleteDirectory(stagingFolder);
+                    try { File.Delete(archivePath); } catch { /* best effort */ }
+                }
 
                 if (!File.Exists(executablePath))
                 {
@@ -212,11 +244,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (os != OSPlatform.Windows)
                     TrySetExecutable(executablePath);
 
-                File.WriteAllText(VersionFilePath(), _addonVersion);
+                File.WriteAllText(VersionFilePath(), serverVersion);
 
                 var success = IsBinaryExists() && IsVersionMatches();
                 _log(success
-                    ? $"[Godot-MCP] server binary ready: {executablePath} (version {_addonVersion})"
+                    ? $"[Godot-MCP] server binary ready: {executablePath} (version {serverVersion})"
                     : "[Godot-MCP] server binary download completed but verification failed.");
                 return success;
             }
@@ -225,6 +257,29 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 _logError($"[Godot-MCP] failed to download/unpack server binary: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Locate the extracted server binary under the staging folder, wherever the zip layout put it —
+        /// at the root (the FLAT win zips) or nested in a <c>&lt;rid&gt;/</c> folder (the osx/linux zips).
+        /// Prefers the SHALLOWEST match so a hypothetical nested duplicate cannot shadow the real binary.
+        /// Returns null when the zip contains no file with the expected name.
+        /// </summary>
+        static string? FindExtractedBinary(string stagingFolder, string executableFileName)
+        {
+            string? best = null;
+            var bestDepth = int.MaxValue;
+            foreach (var candidate in Directory.GetFiles(stagingFolder, executableFileName, SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(stagingFolder, candidate);
+                var depth = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length;
+                if (depth < bestDepth)
+                {
+                    best = candidate;
+                    bestDepth = depth;
+                }
+            }
+            return best;
         }
 
         // --- Process lifecycle ---------------------------------------------------------------------------

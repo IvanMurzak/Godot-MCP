@@ -22,9 +22,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// launch-argument builder, the status→button-text/label/circle-state mappings, and the configured-host→
     /// port extraction. Every assertion is a deterministic string/enum transform with NO platform divergence,
     /// so the SAME assertions hold on the Linux CI runner and on a Windows dev box (the issue's cross-platform
-    /// requirement). The editor download/launch/monitor side effects (<c>GodotMcpServerManager.cs</c>,
-    /// <c>#if TOOLS</c>) are verified via the headless Godot smoke (test.md Suite 3) and are operator-pending
-    /// until a real GitHub release publishes the server binaries — NOT here.
+    /// requirement). The downloaded binary is the SHARED GameDev-MCP-Server
+    /// (https://github.com/IvanMurzak/GameDev-MCP-Server), pinned by <see cref="GodotMcpServerView.ServerVersion"/>
+    /// — NOT the addon version. The editor download/launch/monitor side effects
+    /// (<c>GodotMcpServerManager.cs</c>, <c>#if TOOLS</c>) are verified via the headless Godot smoke
+    /// (test.md Suite 3) — NOT here.
     /// </summary>
     public class GodotMcpServerViewTests
     {
@@ -87,17 +89,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExecutableFileName_HasExeSuffixOnWindowsOnly()
         {
-            Assert.Equal("godot-mcp-server.exe", GodotMcpServerView.ExecutableFileName(OSPlatform.Windows));
-            Assert.Equal("godot-mcp-server", GodotMcpServerView.ExecutableFileName(OSPlatform.Linux));
-            Assert.Equal("godot-mcp-server", GodotMcpServerView.ExecutableFileName(OSPlatform.OSX));
+            Assert.Equal("gamedev-mcp-server.exe", GodotMcpServerView.ExecutableFileName(OSPlatform.Windows));
+            Assert.Equal("gamedev-mcp-server", GodotMcpServerView.ExecutableFileName(OSPlatform.Linux));
+            Assert.Equal("gamedev-mcp-server", GodotMcpServerView.ExecutableFileName(OSPlatform.OSX));
         }
 
         [Fact]
         public void AssetZipName_IsExecutableDashRidDotZip()
         {
-            Assert.Equal("godot-mcp-server-win-x64.zip",
+            Assert.Equal("gamedev-mcp-server-win-x64.zip",
                 GodotMcpServerView.AssetZipName(OSPlatform.Windows, Architecture.X64));
-            Assert.Equal("godot-mcp-server-linux-arm64.zip",
+            Assert.Equal("gamedev-mcp-server-linux-arm64.zip",
                 GodotMcpServerView.AssetZipName(OSPlatform.Linux, Architecture.Arm64));
         }
 
@@ -124,11 +126,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void DownloadUrl_UsesVPrefixedReleaseTagAndRidAsset()
         {
-            // The release workflow tags `v<version>` and attaches the server zips to THAT tag, so the URL
+            // GameDev-MCP-Server tags `v<version>` and attaches the server zips to THAT tag, so the URL
             // must carry the `v` prefix (a bare-version path 404s — issue #94).
-            var url = GodotMcpServerView.DownloadUrl("0.3.0", OSPlatform.Windows, Architecture.X64);
+            var url = GodotMcpServerView.DownloadUrl("8.0.0", OSPlatform.Windows, Architecture.X64);
             Assert.Equal(
-                "https://github.com/IvanMurzak/Godot-MCP/releases/download/v0.3.0/godot-mcp-server-win-x64.zip",
+                "https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v8.0.0/gamedev-mcp-server-win-x64.zip",
                 url);
         }
 
@@ -139,7 +141,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // v-prefixed release tag.
             var url = GodotMcpServerView.DownloadUrl("1.2.3-beta", OSPlatform.Linux, Architecture.X64);
             Assert.Contains("/releases/download/v1.2.3-beta/", url);
-            Assert.EndsWith("godot-mcp-server-linux-x64.zip", url);
+            Assert.EndsWith("gamedev-mcp-server-linux-x64.zip", url);
+        }
+
+        [Fact]
+        public void DownloadUrl_DefaultOverload_UsesPinnedServerVersion()
+        {
+            // The production path (no version argument) MUST pin GodotMcpServerView.ServerVersion against
+            // the shared GameDev-MCP-Server repo.
+            var url = GodotMcpServerView.DownloadUrl(OSPlatform.Windows, Architecture.X64);
+            Assert.Equal(
+                GodotMcpServerView.DownloadUrl(GodotMcpServerView.ServerVersion, OSPlatform.Windows, Architecture.X64),
+                url);
+            Assert.StartsWith("https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/", url);
+            Assert.Contains($"/releases/download/v{GodotMcpServerView.ServerVersion}/", url);
         }
 
         // --- Plugin-version source (parsed from plugin.cfg) ---
@@ -179,19 +194,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void DownloadUrl_FromCommittedPluginCfg_UsesVPrefixedTag()
+        public void DownloadUrl_UsesServerVersion_NotCommittedAddonVersion()
         {
-            // End-to-end lock against drift: the version the URL pins MUST be the one in the committed
-            // addons/godot_mcp/plugin.cfg, mapped to the v-prefixed release tag the workflow cuts.
+            // The decoupling lock (the inverse of the old plugin.cfg-pin test): the addon version
+            // (plugin.cfg, 0.x) and the shared GameDev-MCP-Server version (8.x) DIVERGE, and the download
+            // URL must pin ServerVersion — NEVER the addon's own version (which has no release on the
+            // shared repo and would 404).
             var cfgPath = FindRepoFile("addons/godot_mcp/plugin.cfg");
             Assert.True(cfgPath != null, "Could not locate addons/godot_mcp/plugin.cfg from the test assembly.");
 
-            var version = GodotMcpServerView.ParsePluginVersion(System.IO.File.ReadAllText(cfgPath!));
-            Assert.False(string.IsNullOrEmpty(version), "plugin.cfg must declare a non-empty version.");
+            var addonVersion = GodotMcpServerView.ParsePluginVersion(System.IO.File.ReadAllText(cfgPath!));
+            Assert.False(string.IsNullOrEmpty(addonVersion), "plugin.cfg must declare a non-empty version.");
 
-            var url = GodotMcpServerView.DownloadUrl(version!, OSPlatform.Windows, Architecture.X64);
-            Assert.Contains($"/releases/download/v{version}/", url);
-            Assert.StartsWith("https://github.com/", url);
+            // The two version lines are decoupled by design (addon 0.x vs server 8.x).
+            Assert.False(string.Equals(addonVersion, GodotMcpServerView.ServerVersion, System.StringComparison.Ordinal),
+                "Addon version and pinned server version are expected to diverge — if they ever legitimately " +
+                "coincide, revisit this lock rather than re-coupling the URL to the addon version.");
+
+            var url = GodotMcpServerView.DownloadUrl(OSPlatform.Windows, Architecture.X64);
+            Assert.Contains($"/releases/download/v{GodotMcpServerView.ServerVersion}/", url);
+            Assert.DoesNotContain($"/releases/download/v{addonVersion}/", url);
         }
 
         /// <summary>
@@ -376,7 +398,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void IsOwned_ExactSamePath_IsTrue()
         {
-            var own = "C:/proj/.godot/mcp-server/win-x64/godot-mcp-server.exe";
+            var own = "C:/proj/.godot/mcp-server/win-x64/gamedev-mcp-server.exe";
             Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(own, own));
         }
 
@@ -384,8 +406,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void IsOwned_SamePath_SeparatorAndCaseInsensitive()
         {
             // Windows backslash vs forward slash, mixed case — still our binary.
-            var own = "C:/proj/.godot/mcp-server/win-x64/godot-mcp-server.exe";
-            var candidate = @"c:\PROJ\.godot\mcp-server\win-x64\godot-mcp-server.exe";
+            var own = "C:/proj/.godot/mcp-server/win-x64/gamedev-mcp-server.exe";
+            var candidate = @"c:\PROJ\.godot\mcp-server\win-x64\gamedev-mcp-server.exe";
             Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
         }
 
@@ -393,8 +415,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void IsOwned_SameCacheDir_IsTrue()
         {
             // A process whose exe sits in OUR cache platform folder is ours.
-            var own = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
-            var candidate = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
+            var own = "/home/u/proj/.godot/mcp-server/linux-x64/gamedev-mcp-server";
+            var candidate = "/home/u/proj/.godot/mcp-server/linux-x64/gamedev-mcp-server";
             Assert.True(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
         }
 
@@ -402,8 +424,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void IsOwned_DifferentProjectCacheDir_IsFalse()
         {
             // The safety property: a DIFFERENT project's identically-named server binary is NEVER ours.
-            var own = "/home/u/projA/.godot/mcp-server/linux-x64/godot-mcp-server";
-            var other = "/home/u/projB/.godot/mcp-server/linux-x64/godot-mcp-server";
+            var own = "/home/u/projA/.godot/mcp-server/linux-x64/gamedev-mcp-server";
+            var other = "/home/u/projB/.godot/mcp-server/linux-x64/gamedev-mcp-server";
             Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(other, own));
         }
 
@@ -411,16 +433,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void IsOwned_SiblingDirSharingNamePrefix_IsFalse()
         {
             // The trailing-slash bound prevents a sibling dir whose name merely shares a prefix from matching.
-            var own = "/home/u/proj/.godot/mcp-server/linux-x64/godot-mcp-server";
-            var sibling = "/home/u/proj/.godot/mcp-server/linux-x64-evil/godot-mcp-server";
+            var own = "/home/u/proj/.godot/mcp-server/linux-x64/gamedev-mcp-server";
+            var sibling = "/home/u/proj/.godot/mcp-server/linux-x64-evil/gamedev-mcp-server";
             Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(sibling, own));
         }
 
         [Theory]
-        [InlineData(null, "/x/godot-mcp-server")]
-        [InlineData("", "/x/godot-mcp-server")]
-        [InlineData("/x/godot-mcp-server", null)]
-        [InlineData("/x/godot-mcp-server", "")]
+        [InlineData(null, "/x/gamedev-mcp-server")]
+        [InlineData("", "/x/gamedev-mcp-server")]
+        [InlineData("/x/gamedev-mcp-server", null)]
+        [InlineData("/x/gamedev-mcp-server", "")]
         public void IsOwned_NullOrEmpty_FailsClosed(string? candidate, string? own)
         {
             Assert.False(GodotMcpServerOwnership.IsOwnedByThisProject(candidate, own));
