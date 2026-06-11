@@ -349,7 +349,13 @@ export GODOT_MCP_HOST=http://localhost:5300
 
 In **Cloud** mode you don't run a server at all — the plugin talks to `ai-game.dev`. If you want to host
 the server yourself (local dev, CI, or your own cloud), you have two options: let the addon **download and
-run the matched server binary for you** (recommended), or **build and run it manually** (advanced).
+run the matched server binary for you** (recommended), or **run it manually** (advanced).
+
+The server itself is the shared, engine-agnostic
+**[GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server)** — one server binary
+(`gamedev-mcp-server`) serving Unity-MCP, Godot-MCP, and Unreal-MCP. It is released from its own repo on
+its own version line; this addon **pins** the server version it consumes (the `ServerVersion` constant in
+`addons/godot_mcp/Connection/GodotMcpServerView.cs`).
 
 ## Local server — let the addon download & run it for you
 
@@ -357,57 +363,58 @@ In [Custom mode](#custom-mode--your-own-server) the plugin can **host its own MC
 to build or launch anything by hand. Open the addon dock's **Server** card while Custom mode is selected and
 use the **Local server** row:
 
-- **Start Server** — downloads the server build that **exactly matches the addon's version** (read from
-  `addons/godot_mcp/plugin.cfg`), caches it, launches it, and the plugin connects to it. **Stop Server**
-  terminates it (it is also stopped automatically when you close the editor).
+- **Start Server** — downloads the server build for the **pinned server version**, caches it, launches it,
+  and the plugin connects to it. **Stop Server** terminates it (it is also stopped automatically when you
+  close the editor).
 - The download is the per-platform release asset
-  `godot-mcp-server-<rid>.zip` — pulled over **HTTPS from `github.com` only**, from this repo's GitHub
-  Release for the addon's version. The release is tagged `v<version>`, so the asset URL is:
-  `https://github.com/IvanMurzak/Godot-MCP/releases/download/v<version>/godot-mcp-server-<rid>.zip`.
+  `gamedev-mcp-server-<rid>.zip` — pulled over **HTTPS from `github.com` only**, from the
+  [GameDev-MCP-Server release](https://github.com/IvanMurzak/GameDev-MCP-Server/releases) tagged
+  `v<ServerVersion>`, so the asset URL is:
+  `https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v<ServerVersion>/gamedev-mcp-server-<rid>.zip`.
   The `<rid>` (platform runtime identifier — e.g. `win-x64`, `osx-arm64`, `linux-x64`) is resolved
   automatically for your machine; all seven published RIDs are supported (`win-x64`/`x86`/`arm64`,
   `linux-x64`/`arm64`, `osx-x64`/`arm64`).
 - The binary is cached under your project's `.godot/mcp-server/<rid>/` folder (gitignored) and re-used on
-  later launches; it is only re-downloaded when the addon version changes (an **exact** plugin-version →
-  server-version match, so the editor plugin and the server it talks to never drift). The server is launched
+  later launches; it is only re-downloaded when the pinned server version changes (an **exact**
+  version match, so the editor plugin and the server it talks to never drift). The server is launched
   on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport.
 
-> **Version pinning & security.** The download URL is derived **solely** from the addon's own version and
-> your platform RID — there is no arbitrary-URL binary execution. If the matching release asset can't be
-> fetched (you're offline, or no release has been published for this version yet), the addon logs a warning
-> and the local server simply doesn't start — fall back to the manual build below, or use Cloud mode. The
-> download is **skipped entirely under CI** (the `CI` / `GITHUB_ACTIONS` environment), where no local server
-> is hosted.
+> **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
+> `ServerVersion` constant and your platform RID — there is no arbitrary-URL binary execution. The addon
+> version and the server version are **decoupled**: bumping the consumed server is an explicit addon change
+> (a new `ServerVersion`), and the pinned `v<ServerVersion>` release must already exist on
+> GameDev-MCP-Server **before** an addon release that pins it. If the release asset can't be fetched
+> (you're offline), the addon logs a warning and the local server simply doesn't start — fall back to the
+> manual run below, or use Cloud mode. The download is **skipped entirely under CI** (the `CI` /
+> `GITHUB_ACTIONS` environment), where no local server is hosted.
 
 This mirrors [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP)'s self-hosted server flow: the editor
-plugin manages the version-matched server binary for you instead of requiring a manual build.
+plugin manages the pinned server binary for you instead of requiring a manual build.
 
-## Build & run the server manually (advanced)
+## Run the server manually (advanced)
 
-For development on the server itself, or to run it as a standalone / cloud process, this repo ships
-**`Godot-MCP-Server/`**, a thin ASP.NET Core host around the shared MCP server core
-(`com.IvanMurzak.McpPlugin.Server`). Both transports are supported: `streamableHttp` (HTTP) and `stdio`.
+To run the server as a standalone / cloud process, download a
+[GameDev-MCP-Server release](https://github.com/IvanMurzak/GameDev-MCP-Server/releases) binary (or use the
+[`aigamedeveloper/mcp-server`](https://hub.docker.com/r/aigamedeveloper/mcp-server) Docker image). Both
+transports are supported: `streamableHttp` (HTTP) and `stdio`.
 
 ```bash
-cd Godot-MCP-Server
-
 # HTTP transport on port 8080
-dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport streamableHttp --port 8080
+./gamedev-mcp-server --client-transport streamableHttp --port 8080
 
 # stdio transport — for local MCP clients that launch the server directly
-dotnet run --project com.IvanMurzak.Godot.MCP.Server.csproj -- --client-transport stdio
+./gamedev-mcp-server --client-transport stdio
 ```
 
-`build-all.sh` / `build-all.ps1` produce self-contained single-file binaries for win/linux/osx RIDs under
-`./publish/`. Then point the plugin at it in [Custom mode](#custom-mode--your-own-server)
+Then point the plugin at it in [Custom mode](#custom-mode--your-own-server)
 (`GODOT_MCP_HOST=http://localhost:8080`).
 
 > **Choosing a transport:** use `stdio` when the MCP client launches the server binary directly (local
 > use — the most common setup); use `streamableHttp` when running the server as a standalone process or in
 > the cloud and connecting over HTTP.
 
-See [`Godot-MCP-Server/README.md`](https://github.com/IvanMurzak/Godot-MCP/blob/main/Godot-MCP-Server/README.md)
-for the full argument / environment-variable table and the cross-platform build matrix.
+See the [GameDev-MCP-Server README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme)
+for the full argument / environment-variable table, the Docker image, and the cross-platform build matrix.
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
@@ -476,8 +483,9 @@ important to choose a good one.
 ## What is the `MCP Server`
 
 It is the bridge between the `MCP Client` and "something else" — in this case the Godot editor. In **Cloud**
-mode this is the hosted `ai-game.dev` backend; in **Custom** mode it is the `Godot-MCP-Server/` host you
-run yourself.
+mode this is the hosted `ai-game.dev` backend; in **Custom** mode it is the shared
+[GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) host you run yourself (or let the
+addon download and run for you).
 
 ## What is an `MCP Tool`
 

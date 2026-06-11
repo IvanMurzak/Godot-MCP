@@ -11,6 +11,21 @@ There are two distribution artifacts, both cut from the **same release version**
 
 Godot-MCP does **not** publish any NuGet package of its own — see [NuGet](#nuget-decision) below.
 
+The **MCP server is NOT released from this repo.** The addon consumes the shared
+[GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) (binary `gamedev-mcp-server`),
+released from its own repo on its own version line. See
+[Server version pin](#server-version-pin-shared-gamedev-mcp-server) below.
+
+## Server version pin (shared GameDev-MCP-Server)
+
+The addon downloads and runs the shared server release pinned by the **`ServerVersion` constant** in
+[`addons/godot_mcp/Connection/GodotMcpServerView.cs`](../addons/godot_mcp/Connection/GodotMcpServerView.cs).
+The addon version (`plugin.cfg`, 0.x) and the server version (8.x) are **decoupled** — never derive one
+from the other. Bumping the consumed server = changing the `ServerVersion` constant. **Ordering rule:** the
+pinned `v<ServerVersion>` release (with all 7 `gamedev-mcp-server-<rid>.zip` assets) must already exist on
+GameDev-MCP-Server **before** cutting an addon release that pins it — otherwise every consumer's local
+server download 404s.
+
 ## Version source of truth (addon ⇄ cli reconciliation)
 
 The release version has a **single source of truth: the `version` field in
@@ -124,10 +139,10 @@ has these field constraints worth knowing before you start:
 
 The Asset Library does **not** download the curated `godot-mcp-addon-<version>.zip` from the GitHub
 Release — it downloads a **GitHub source archive of the whole repo** at the Download Commit. Without
-intervention that archive would carry `cli/`, `Godot-MCP-Server/`, `Godot-MCP.Tests/`, `Godot-Tests/`,
+intervention that archive would carry `cli/`, `Godot-MCP.Tests/`, `Godot-Tests/`,
 `Godot-MCP.csproj`, `Godot-MCP.sln`, `docs/`, `.github/`, and `CLAUDE.md` straight into the consumer's
 project. Because Godot's mono build compiles **every** `.cs` under a project into one assembly, that
-stray server/test C# would land in the consumer's project and **break their build** — the opposite of
+stray test C# would land in the consumer's project and **break their build** — the opposite of
 the install story this release promises.
 
 The root [`.gitattributes`](../.gitattributes) prevents this. Its
