@@ -58,16 +58,26 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     public static class GodotMcpServerView
     {
         /// <summary>
-        /// The server executable base name (matches the <c>AssemblyName</c> in
-        /// <c>com.IvanMurzak.Godot.MCP.Server.csproj</c>). On Windows the on-disk file is
-        /// <c>godot-mcp-server.exe</c>; on Unix it is <c>godot-mcp-server</c>.
+        /// The PINNED version of the shared <c>GameDev-MCP-Server</c> this addon downloads and runs. The
+        /// addon version (<c>plugin.cfg</c>, 0.x) and the shared server version (8.x) DIVERGE — the server
+        /// is released from its own repo (https://github.com/IvanMurzak/GameDev-MCP-Server) on its own
+        /// cadence — so the download URL must NEVER be derived from the addon version. Bumping the consumed
+        /// server is an explicit addon change: update THIS constant (and make sure the corresponding
+        /// <c>v&lt;ServerVersion&gt;</c> release with all 7 RID zips exists on GameDev-MCP-Server BEFORE
+        /// cutting an addon release that pins it — otherwise the download 404s, the issue-#94 class of bug).
         /// </summary>
-        public const string ExecutableName = "godot-mcp-server";
+        public const string ServerVersion = "8.0.0";
 
         /// <summary>
-        /// The GitHub release-asset / .NET RID prefix. The release workflow zips each self-contained build
-        /// as <c>godot-mcp-server-&lt;rid&gt;.zip</c> (see <c>Godot-MCP-Server/build-all.sh</c>), so the asset
-        /// stem is the executable name plus the platform RID.
+        /// The server executable base name (the shared <c>GameDev-MCP-Server</c> binary). On Windows the
+        /// on-disk file is <c>gamedev-mcp-server.exe</c>; on Unix it is <c>gamedev-mcp-server</c>.
+        /// </summary>
+        public const string ExecutableName = "gamedev-mcp-server";
+
+        /// <summary>
+        /// The GitHub release-asset / .NET RID prefix. The GameDev-MCP-Server release workflow zips each
+        /// self-contained build as <c>gamedev-mcp-server-&lt;rid&gt;.zip</c>, so the asset stem is the
+        /// executable name plus the platform RID.
         /// </summary>
         public const string AssetPrefix = ExecutableName;
 
@@ -113,8 +123,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             OSPlatform.Create("unknown");
 
         /// <summary>
-        /// The on-disk executable file name for an os: <c>godot-mcp-server.exe</c> on Windows, else
-        /// <c>godot-mcp-server</c>. Mirrors Unity's <c>ExecutableFullName</c>.
+        /// The on-disk executable file name for an os: <c>gamedev-mcp-server.exe</c> on Windows, else
+        /// <c>gamedev-mcp-server</c>. Mirrors Unity's <c>ExecutableFullName</c>.
         /// </summary>
         public static string ExecutableFileName(OSPlatform os) =>
             os == OSPlatform.Windows ? ExecutableName + ".exe" : ExecutableName;
@@ -123,8 +133,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public static string CurrentExecutableFileName() => ExecutableFileName(CurrentOsPlatform());
 
         /// <summary>
-        /// The GitHub release zip asset name for a platform: <c>godot-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>
-        /// (e.g. <c>godot-mcp-server-win-x64.zip</c>). Matches <c>build-all.sh</c>'s <c>ZIP_NAME</c>.
+        /// The GitHub release zip asset name for a platform: <c>gamedev-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>
+        /// (e.g. <c>gamedev-mcp-server-win-x64.zip</c>). Matches the GameDev-MCP-Server release assets.
         /// </summary>
         public static string AssetZipName(OSPlatform os, Architecture arch) =>
             $"{AssetPrefix}-{PlatformName(os, arch)}.zip";
@@ -181,43 +191,52 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         // --- Release URL construction (exact version, no semver; v-prefixed tag) ---
 
         /// <summary>
-        /// The Git release TAG for an addon version: the version with a leading <c>v</c> (e.g.
-        /// <c>0.3.0</c> → <c>v0.3.0</c>). The release workflow tags every release <c>v${version}</c>
-        /// (<c>.github/workflows/release.yml</c> <c>get_version</c>: <c>tag=v${version}</c>) and the
-        /// per-platform server zips are attached to THAT tag — so the download path MUST use the v-prefixed
-        /// tag, never the bare version (a bare-version path 404s). Already-v-prefixed input is passed through
-        /// unchanged so a caller cannot accidentally double-prefix.
+        /// The Git release TAG for a server version: the version with a leading <c>v</c> (e.g.
+        /// <c>8.0.0</c> → <c>v8.0.0</c>). GameDev-MCP-Server tags every release <c>v&lt;version&gt;</c>
+        /// and the per-platform server zips are attached to THAT tag — so the download path MUST use the
+        /// v-prefixed tag, never the bare version (a bare-version path 404s). Already-v-prefixed input is
+        /// passed through unchanged so a caller cannot accidentally double-prefix.
         /// </summary>
-        public static string ReleaseTag(string addonVersion)
+        public static string ReleaseTag(string serverVersion)
         {
-            var version = (addonVersion ?? string.Empty).Trim();
+            var version = (serverVersion ?? string.Empty).Trim();
             return version.StartsWith("v", StringComparison.Ordinal) ? version : "v" + version;
         }
 
         /// <summary>
-        /// The download URL for the version-matched server zip:
-        /// <c>https://github.com/IvanMurzak/Godot-MCP/releases/download/v&lt;version&gt;/godot-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>.
-        /// The <paramref name="addonVersion"/> selects an EXACT plugin-version → server-version match (like
-        /// Unity — no semver range); it is mapped to the release tag via <see cref="ReleaseTag"/> (the
-        /// <c>v</c>-prefixed tag the release workflow cuts), then used verbatim. Mirrors Unity's
-        /// <c>ExecutableZipUrl</c> shape, adjusted for Godot-MCP's <c>v</c>-prefixed release tags.
+        /// The download URL for an explicit server version's zip:
+        /// <c>https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v&lt;serverVersion&gt;/gamedev-mcp-server-&lt;os&gt;-&lt;arch&gt;.zip</c>.
+        /// The <paramref name="serverVersion"/> selects an EXACT server release (no semver range); it is
+        /// mapped to the release tag via <see cref="ReleaseTag"/> (the <c>v</c>-prefixed tag the shared
+        /// repo cuts), then used verbatim. Mirrors Unity's <c>ExecutableZipUrl</c> shape. Production
+        /// callers must use the parameterless <see cref="DownloadUrl(OSPlatform, Architecture)"/> overload,
+        /// which pins <see cref="ServerVersion"/> — NEVER the addon version (the two diverge).
         /// </summary>
-        public static string DownloadUrl(string addonVersion, OSPlatform os, Architecture arch) =>
-            $"https://github.com/IvanMurzak/Godot-MCP/releases/download/{ReleaseTag(addonVersion)}/{AssetZipName(os, arch)}";
+        public static string DownloadUrl(string serverVersion, OSPlatform os, Architecture arch) =>
+            $"https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/{ReleaseTag(serverVersion)}/{AssetZipName(os, arch)}";
+
+        /// <summary>
+        /// The download URL for the PINNED <see cref="ServerVersion"/> server zip for a platform — the one
+        /// production path the manager uses. Deliberately takes NO version parameter so a caller cannot
+        /// accidentally feed the addon version into the URL (addon 0.x and server 8.x diverge).
+        /// </summary>
+        public static string DownloadUrl(OSPlatform os, Architecture arch) =>
+            DownloadUrl(ServerVersion, os, arch);
 
         // --- Version match (EXACT, like Unity) ---
 
         /// <summary>
-        /// True only when a cached binary's recorded version EXACTLY equals the addon version (ordinal,
-        /// trimmed). A null/empty cached version (no <c>version</c> file) never matches. Mirrors Unity's
-        /// <c>IsVersionMatches</c> (which is a plain <c>==</c>).
+        /// True only when a cached binary's recorded version EXACTLY equals the expected version — the
+        /// pinned <see cref="ServerVersion"/> in production — (ordinal, trimmed). A null/empty cached
+        /// version (no <c>version</c> file) never matches. Mirrors Unity's <c>IsVersionMatches</c>
+        /// (which is a plain <c>==</c>).
         /// </summary>
-        public static bool VersionMatches(string? cachedVersion, string addonVersion)
+        public static bool VersionMatches(string? cachedVersion, string expectedVersion)
         {
             if (string.IsNullOrEmpty(cachedVersion))
                 return false;
 
-            return string.Equals(cachedVersion!.Trim(), (addonVersion ?? string.Empty).Trim(), StringComparison.Ordinal);
+            return string.Equals(cachedVersion!.Trim(), (expectedVersion ?? string.Empty).Trim(), StringComparison.Ordinal);
         }
 
         // --- Launch argument builder (matches Unity's BuildArguments shape) ---
@@ -350,7 +369,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
     /// <summary>
     /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>) ownership test used by the orphan-process
-    /// cleanup to decide whether a running <c>godot-mcp-server</c> process belongs to THIS project — so the
+    /// cleanup to decide whether a running <c>gamedev-mcp-server</c> process belongs to THIS project — so the
     /// cleanup can never cross-kill another Godot project's hosted server. The decision is a deterministic,
     /// cross-platform path comparison (no <c>Path</c> APIs, no <c>netstat</c>/<c>lsof</c>), so the same
     /// assertions hold on the Linux CI runner and on a Windows dev box.

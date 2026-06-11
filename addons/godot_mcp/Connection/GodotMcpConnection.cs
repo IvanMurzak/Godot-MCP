@@ -62,13 +62,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         const string FallbackPluginVersion = "0.4.0";
 
         /// <summary>
-        /// Plugin version reported to the server in the MCP handshake AND used by the local-server manager to
-        /// pin the downloaded server binary to the matching GitHub release. Resolved ONCE from
+        /// Plugin version reported to the server in the MCP handshake. Resolved ONCE from
         /// <c>addons/godot_mcp/plugin.cfg</c> — the single source of truth the release workflow itself reads
         /// (<c>release.yml</c> greps the same <c>version=</c> line and tags <c>v&lt;version&gt;</c>) — so it
         /// can never drift from the released version the way the old hard-coded <c>"0.1.0"</c> literal did
-        /// (issue #94: a drifted version produced a guaranteed-404 download URL). Falls back to
-        /// <see cref="FallbackPluginVersion"/> only if the file is unreadable.
+        /// (issue #94). Falls back to <see cref="FallbackPluginVersion"/> only if the file is unreadable.
+        /// NOTE: the LOCAL server binary is NOT pinned by this version anymore — the shared
+        /// GameDev-MCP-Server download is pinned by <see cref="GodotMcpServerView.ServerVersion"/>.
         /// </summary>
         public static readonly string PluginVersion = ResolvePluginVersion();
 
@@ -97,14 +97,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
 
             // Reached only when plugin.cfg was missing/unreadable/blank. Surface it: the fallback pins
-            // BOTH the handshake version and the server download URL to this literal, so a silent drift
-            // here is the same issue-#94 class behind a rarer trigger. Guard the warning itself so the
-            // never-throws contract holds even if GD is unavailable mid editor-reload.
+            // the handshake version to this literal (the local-server download is pinned independently by
+            // GodotMcpServerView.ServerVersion), so a silent drift here misreports the plugin version.
+            // Guard the warning itself so the never-throws contract holds even if GD is unavailable mid
+            // editor-reload.
             try
             {
                 GD.PushWarning(
                     $"[Godot-MCP] plugin.cfg version unreadable; pinning to fallback v{FallbackPluginVersion}. " +
-                    "Handshake + local-server download use this version — bump FallbackPluginVersion alongside plugin.cfg if it drifts.");
+                    "The MCP handshake uses this version — bump FallbackPluginVersion alongside plugin.cfg if it drifts.");
             }
             catch
             {
