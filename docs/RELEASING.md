@@ -7,7 +7,7 @@ There are two distribution artifacts, both cut from the **same release version**
 1. the **addon source folder** (`addons/godot_mcp/`), shipped as
    - a **GitHub Release** with a versioned `godot-mcp-addon-<version>.zip` attached, and
    - a **Godot Asset Library** entry that points at that repository/version; and
-2. the **`godot-mcp-cli`** npm package (`cli/`), published to the public npm registry.
+2. the **`godot-cli`** npm package (`cli/`), published to the public npm registry.
 
 Godot-MCP does **not** publish any NuGet package of its own — see [NuGet](#nuget-decision) below.
 
@@ -47,26 +47,26 @@ bump the version is therefore a **no-op** — nothing is released and nothing is
    - `check-version-tag` reads `version` from `plugin.cfg`, computes `v<version>`, and checks whether
      that tag already exists. If it does (no bump), **every** downstream job is skipped — the run is a
      no-op. If it does not (a real bump), the gate opens;
-   - the test gate runs as `needs:` — the .NET build+test, the `godot-mcp-cli` node tests
+   - the test gate runs as `needs:` — the .NET build+test, the `godot-cli` node tests
      (`test_cli.yml`, Node 20/22), and the Godot engine smoke matrix (`test_godot_plugin.yml` for
      4.3/4.4/4.5). The release proceeds only if all pass;
    - `release-addon` zips `addons/godot_mcp/` into `godot-mcp-addon-<version>.zip` (excluding
      `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`) and creates the **GitHub Release** + `v<version>`
      tag with the zip attached and auto-generated notes (`generate_release_notes: true`);
    - `deploy` (deploy.yml) sets `cli/package.json` to the release version, runs `npm ci && npm run
-     build && npm test`, then **publishes `godot-mcp-cli` to npm** with `npm publish --access public
+     build && npm test`, then **publishes `godot-cli` to npm** with `npm publish --access public
      --provenance` via **OIDC Trusted Publishing** (no `NPM_TOKEN` — see
      [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only)).
 
 3. **Verify.** Check the new Release at
    `https://github.com/IvanMurzak/Godot-MCP/releases/tag/v0.2.0` (zip attached, notes right) and the
-   npm package at `https://www.npmjs.com/package/godot-mcp-cli`.
+   npm package at `https://www.npmjs.com/package/godot-cli`.
 
 ### npm Trusted Publisher prerequisite (first publish only)
 
 The npm publish uses **OIDC Trusted Publishing** — there is intentionally **no `NPM_TOKEN` secret**.
 Before the **first** real publish can succeed, the maintainer must configure a **Trusted Publisher**
-for the `godot-mcp-cli` package on npmjs.com, authorizing this repository and the `deploy.yml`
+for the `godot-cli` package on npmjs.com, authorizing this repository and the `deploy.yml`
 workflow. See <https://docs.npmjs.com/trusted-publishers>. Until that is configured, the `npm
 publish` step fails authentication; the addon GitHub Release still succeeds (it does not depend on
 npm). This is a deliberate maintainer gate (see [GATES](#gates--what-requires-the-maintainer-ivan)).
@@ -79,31 +79,96 @@ version-gate applies: if the tag already exists, the dispatch run is a no-op.
 
 ---
 
-## Godot Asset Library submission (metadata — manual, Ivan-gated)
+## Godot Asset Library submission (manual, Ivan-gated)
 
 The Godot Asset Library is the discoverable in-editor channel (*AssetLib* tab). Submission is a
 **manual web-form step** performed by the maintainer at
 <https://godotengine.org/asset-library/> after a GitHub Release exists. It is **not** automated and
-**not** performed by this pipeline. The metadata below is prepared so the form can be filled in
-quickly; nothing here submits anything.
+**not** performed by this pipeline.
 
-| Field | Value |
-| --- | --- |
-| **Asset name** | Godot-MCP |
-| **Category** | Tools |
-| **Godot version** | 4.3+ (C#/.NET mono edition) |
-| **Repository host** | GitHub |
-| **Repository URL** | `https://github.com/IvanMurzak/Godot-MCP` |
-| **Version** | the semver just released (e.g. `0.2.0`) — match `plugin.cfg` / the `v*` tag |
-| **Version string / commit** | the released tag's commit (the Asset Library entry points at a specific commit or the release download) |
-| **Download / commit** | the `v<semver>` tag commit on `main` (Asset Library can reference the tagged commit; the GitHub Release zip is the human download) |
-| **License** | Apache-2.0 (matches [`LICENSE`](../LICENSE) and the `plugin.cfg` author) |
-| **Icon** | a 128×128 PNG/SVG icon. **NONE ships in `addons/godot_mcp/` today** — add one (e.g. `addons/godot_mcp/icon.png`) before the first Asset Library submission and reference its raw GitHub URL in the form. |
-| **Short description** | "Model Context Protocol (MCP) integration for the Godot Editor. AI tools in C#, cloud-connected to ai-game.dev." (matches `plugin.cfg` `description`) |
-| **Long description** | The Godot counterpart of Unity-MCP: a C# editor addon that exposes Godot Editor operations (nodes, scenes, resources, scripts, screenshots, editor state, reflection) as **AI Tools** over an MCP server. See [`README.md`](../README.md) for the full tool family list and install steps. **Important install note for consumers:** because Godot compiles every `.cs` under the project into one assembly, the consumer's `.csproj` must declare the two NuGet `PackageReference`s the addon needs (`com.IvanMurzak.ReflectorNet` 5.3.1, `com.IvanMurzak.McpPlugin` 6.5.5) — surface this in the submission so installers aren't surprised by a compile error. |
+A **ready-to-paste submission package** — every form field's exact value, plus the icon and preview
+URLs — is maintained at [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Open it next to the
+web form and copy each field across. The notes below are the procedure; the values live in that file so
+they are versioned and easy to update on each release.
 
-After the form is submitted, a Godot Asset Library moderator reviews and approves the entry; later
-versions are pushed as edits to the same entry (bump the version + point at the new tag).
+### Form-field requirements (verified against the Asset Library docs)
+
+The submission form (per the
+[official docs](https://docs.godotengine.org/en/stable/community/asset_library/submitting_to_assetlib.html))
+has these field constraints worth knowing before you start:
+
+- **Category** decides whether the entry is an **Addon** or a **Project** — there is no separate "Type"
+  field. The category list is split into Addon-side and Project-side groups; pick an Addon-side category
+  so the entry shows in the in-editor *AssetLib* tab (a Project entry is visible only in the Project
+  Manager). Use **Tools** — the Addon-side categories are: 2D Tools, 3D Tools, Shaders, Materials,
+  **Tools**, Scripts, Misc.
+- **Icon URL** must be a **square (1:1) PNG or JPG, minimum 128×128** — **SVG is NOT accepted**. A raw
+  GitHub URL is required, e.g.
+  `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png`. A
+  512×512 PNG ships at [`addons/godot_mcp/icon.png`](../addons/godot_mcp/icon.png) for exactly this.
+- **Godot version** is a **single version per submission** — submit against the lowest supported
+  (`4.3`); the addon also runs on 4.4 / 4.5 but each extra version would need its own entry.
+- **Download Commit** is a specific commit **hash** (not a tag): use the commit that the `v<version>`
+  release tag points at. The Asset Library downloads a GitHub *source archive* of the repo at that
+  commit. The root [`.gitattributes`](../.gitattributes) `export-ignore` entries (see
+  [Why a `.gitattributes` export-ignore](#why-a-gitattributes-export-ignore) below) trim that archive
+  down to just `addons/godot_mcp/` (plus `LICENSE` / `README.md`), so the consumer receives the addon
+  source under `addons/godot_mcp/` exactly as it sits on `main` at that tag — and nothing else.
+- **License** = **Apache-2.0**.
+- **Description** is **plain text** today (Markdown is planned but not live) — keep it prose, no
+  Markdown syntax.
+- **Preview** (optional) accepts up to three images / YouTube videos with thumbnail URLs; use the
+  promo images under `docs/img/promo/` via their raw URLs.
+
+### Why a `.gitattributes` export-ignore
+
+The Asset Library does **not** download the curated `godot-mcp-addon-<version>.zip` from the GitHub
+Release — it downloads a **GitHub source archive of the whole repo** at the Download Commit. Without
+intervention that archive would carry `cli/`, `Godot-MCP-Server/`, `Godot-MCP.Tests/`, `Godot-Tests/`,
+`Godot-MCP.csproj`, `Godot-MCP.sln`, `docs/`, `.github/`, and `CLAUDE.md` straight into the consumer's
+project. Because Godot's mono build compiles **every** `.cs` under a project into one assembly, that
+stray server/test C# would land in the consumer's project and **break their build** — the opposite of
+the install story this release promises.
+
+The root [`.gitattributes`](../.gitattributes) prevents this. Its
+[`export-ignore`](https://git-scm.com/docs/gitattributes#_creating_an_archive) entries mark every
+top-level path **except** `addons/` (and `LICENSE` / `README.md`) so `git archive` — and therefore the
+GitHub source archives the Asset Library serves — omit them. The result is an addon-only snapshot.
+
+This is **archive-only**: `export-ignore` changes nothing in the working tree, in CI, or in the
+`release.yml` `release-addon` job (which zips `addons/godot_mcp/` directly and never calls
+`git archive`). After editing the ignore list, verify the snapshot contains only the intended paths:
+
+```bash
+git archive HEAD | tar -t          # should list only addons/, LICENSE, README.md
+```
+
+The `.gitattributes` lives at the tagged commit, and that tagged snapshot is immutable once the Asset
+Library references it — so the export-ignore set must be correct **in the release PR**, not patched
+afterwards.
+
+### First submission (one-time)
+
+1. Cut the GitHub Release first (the version bump → `release.yml` → `v<version>` tag + addon zip). The
+   Asset Library entry references the released commit, so the release must exist.
+2. Sign in at <https://godotengine.org/asset-library/> with the maintainer's godotengine.org account.
+3. Click **Submit Asset** and fill every field from
+   [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Set **Download Commit** to the commit hash
+   the `v<version>` tag points at (`git rev-list -n1 v<version>`).
+4. Submit. A Godot Asset Library moderator reviews and approves the entry (this can take days).
+
+### Subsequent-version updates (every later release)
+
+The Asset Library entry is **edited in place** — you do NOT create a new entry per version:
+
+1. Cut the new GitHub Release (bump `plugin.cfg`, merge → `release.yml` tags `v<newversion>`).
+2. Sign in, open the existing **Godot-MCP** asset, click **Edit**.
+3. Bump the **Version** field to the new semver and set **Download Commit** to the new tag's commit
+   hash (`git rev-list -n1 v<newversion>`). Update the description / previews only if they changed.
+4. Submit the edit — it goes through moderator review again before going live.
+
+> Each edit refreshes the values in [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md) too, so the
+> versioned package always reflects what is live.
 
 ---
 
@@ -116,10 +181,10 @@ in this repo):
 | Package | Version | Role |
 | --- | --- | --- |
 | `com.IvanMurzak.ReflectorNet` | `5.3.1` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `6.5.5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.McpPlugin` | `6.7.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
-entry — plus the **`godot-mcp-cli` npm package** are the distribution channels for Godot-MCP. There
+entry — plus the **`godot-cli` npm package** are the distribution channels for Godot-MCP. There
 is no new NuGet package ID to claim and no NuGet publish secret to configure; `release.yml` /
 `deploy.yml` contain **no** `dotnet pack` / `dotnet nuget push` step, by design. (This is the
 deliberate difference from the sibling `ReflectorNet` / `MCP-Plugin-dotnet` repos, whose `deploy.yml`
@@ -136,7 +201,7 @@ by the maintainer:
 - **The version bump that triggers a release.** Releasing is gated on `plugin.cfg`'s version: only a
   maintainer-approved version bump landing on `main` opens the release gate. A no-bump merge is a
   no-op. No agent bumps the version to force a release.
-- **Configuring the npm Trusted Publisher** for `godot-mcp-cli` (one-time, before the first publish).
+- **Configuring the npm Trusted Publisher** for `godot-cli` (one-time, before the first publish).
   A manual step on npmjs.com authorizing this repo + `deploy.yml` to publish via OIDC. Until it is
   done, the `npm publish` step fails auth (the GitHub Release still succeeds). See
   [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only).

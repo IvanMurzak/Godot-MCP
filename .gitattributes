@@ -1,0 +1,29 @@
+# Keep `git archive` / GitHub source snapshots limited to the installable Godot addon.
+#
+# The Godot Asset Library installer downloads a GitHub *source archive* of this repo
+# at the submitted Download Commit (not the curated release zip). Because Godot's mono
+# build compiles EVERY .cs file under a project into a single assembly, any server or
+# test C# left in that archive would be dropped into the consumer's project and break
+# their build. The `export-ignore` directive strips everything outside the addon from
+# the archive, so an Asset Library install yields only `addons/godot_mcp/` (plus the
+# LICENSE and README for attribution / listing context).
+#
+# Scope: this affects ONLY `git archive` and the GitHub-generated source archives the
+# Asset Library consumes. It does NOT touch the working tree, CI, or the `release.yml`
+# `release-addon` job — that job zips `addons/godot_mcp/` directly and never calls
+# `git archive`. Verify the result with: `git archive HEAD | tar -t`.
+#
+# See docs/RELEASING.md ("Why a .gitattributes export-ignore") for the full rationale.
+#
+# This is an ALLOW-LIST, not a deny-list: `/*` export-ignores EVERY top-level path,
+# then the `-export-ignore` lines un-ignore exactly the three we ship. This is
+# fail-safe — any future top-level addition (examples/, benchmarks/, a new server or
+# test folder) is excluded from the archive by default instead of silently leaking.
+# To add a new top-level path to an Asset Library install, un-ignore it explicitly
+# below. After ANY change here, re-verify: `git archive HEAD | tar -t` must yield
+# exactly `addons/` + `LICENSE` + `README.md` and nothing else.
+
+/*          export-ignore
+/addons     -export-ignore
+/LICENSE    -export-ignore
+/README.md  -export-ignore
