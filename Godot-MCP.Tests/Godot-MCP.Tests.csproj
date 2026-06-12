@@ -40,6 +40,10 @@
     <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
     <Compile Include="..\addons\godot_mcp\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
+    <!-- Scan-set enumerator — pure-BCL. Pinned by GodotAssemblyUtilsTests (issue #102): must span all
+         load contexts, because Godot loads the project assembly (hosting every [AiToolType] class)
+         into its own collectible non-default AssemblyLoadContext. -->
+    <Compile Include="..\addons\godot_mcp\Reflection\GodotAssemblyUtils.cs" Link="Source\GodotAssemblyUtils.cs" />
     <!-- Resource reference converter — pure-managed (matches Godot.Resource + derived types by inheritance
          distance; (de)serializes the ResourceRef shape). The native ResourceLoader.Load resolution is
          injected under #if TOOLS (Tool_Resource.ReflectionResolver.cs, verified via the Suite-3 smoke); the
