@@ -51,12 +51,17 @@ on **every push to `main`** but is **version-tag-gated**: it cuts a release only
 `plugin.cfg`'s version does not yet have a matching `v<version>` tag. A plain merge that does not
 bump the version is therefore a **no-op** — nothing is released and nothing is published.
 
-1. **Bump the version.** Edit the `version` field in
-   [`addons/godot_mcp/plugin.cfg`](../addons/godot_mcp/plugin.cfg) to the new semver
-   (e.g. `version="0.2.0"`). This is the single canonical version source (see
-   [Version source of truth](#version-source-of-truth-addon--cli-reconciliation)). Land it on `main`
-   through the normal PR flow. No manual tag push is required — the pipeline derives the tag from
-   `plugin.cfg`.
+1. **Bump the version.** Run the release helper from the repository root:
+
+   ```bash
+   node scripts/bump-version.mjs 0.2.0 --dry-run
+   node scripts/bump-version.mjs 0.2.0
+   ```
+
+   The helper updates the canonical `addons/godot_mcp/plugin.cfg` version plus the release-adjacent
+   files that must stay in sync (`cli/package*.json`, the fallback plugin version, and the Asset
+   Library submission notes). Land the resulting changes on `main` through the normal PR flow. No
+   manual tag push is required — the pipeline derives the tag from `plugin.cfg`.
 
 2. **The pipeline runs on the merge to `main`.** `release.yml`:
    - `check-version-tag` reads `version` from `plugin.cfg`, computes `v<version>`, and checks whether
