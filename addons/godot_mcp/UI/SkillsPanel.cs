@@ -136,10 +136,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            // Show the resolved skills output path in the header (full path as tooltip; the label ellipsis-truncates).
+            // Show the resolved skills output path in the header project-root-relative (e.g. `.claude/skills`); keep the
+            // full absolute path as the tooltip. The label still ellipsis-truncates if the relative form is long.
             if (_pathLabel != null)
             {
-                _pathLabel.Text = plan.SkillsDir!;
+                _pathLabel.Text = AgentConfigPaths.ToDisplayPath(plan.SkillsDir!, ProjectRoot());
                 _pathLabel.TooltipText = plan.SkillsDir!;
             }
 
