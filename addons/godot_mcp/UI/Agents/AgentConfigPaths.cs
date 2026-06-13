@@ -75,6 +75,41 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         public static string ClaudeCodeSkills(string projectRoot) => Combine(projectRoot, ".claude", "skills");
 
         /// <summary>
+        /// Render <paramref name="absolutePath"/> for DISPLAY relative to <paramref name="projectRoot"/>: returns the
+        /// project-relative form (e.g. <c>.claude/skills</c>) when the path is inside the project root, <c>"."</c> when
+        /// it equals the project root, and the original absolute path unchanged when it is OUTSIDE the project (or on
+        /// any error — safety fallback). Separators are normalized to <c>'/'</c> and trailing slashes trimmed before the
+        /// ordinal containment check. The Godot analog of Unity-MCP's <c>ToDisplayPath</c>: the skills card shows the
+        /// short relative path while keeping the full absolute path in the tooltip. Pure-managed (paths injected, no
+        /// Godot native types, no IO) so it is unit-testable in the plain-xUnit host.
+        /// </summary>
+        public static string ToDisplayPath(string absolutePath, string projectRoot)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(absolutePath) || string.IsNullOrEmpty(projectRoot))
+                    return absolutePath;
+
+                var normalizedPath = absolutePath.Replace('\\', '/').TrimEnd('/');
+                var normalizedRoot = projectRoot.Replace('\\', '/').TrimEnd('/');
+
+                if (string.Equals(normalizedPath, normalizedRoot, System.StringComparison.Ordinal))
+                    return ".";
+
+                var prefix = normalizedRoot + "/";
+                if (normalizedPath.StartsWith(prefix, System.StringComparison.Ordinal))
+                    return normalizedPath.Substring(prefix.Length);
+
+                // Outside the project root (or empty root) — return the original absolute path untouched.
+                return absolutePath;
+            }
+            catch
+            {
+                return absolutePath;
+            }
+        }
+
+        /// <summary>
         /// Validate a user-or-config-supplied skills path is a SAFE in-project relative path: rejects an absolute /
         /// rooted path and any <c>..</c> traversal segment (mirrors Unity-MCP's <c>Tool_Skills.GenerateAll</c> guard).
         /// Returns <c>true</c> when <paramref name="relativePath"/> is null/empty (the resolver falls back to the

@@ -82,6 +82,62 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(AgentConfigPaths.IsSafeRelativeSkillsPath(path));
         }
 
+        // --- AgentConfigPaths.ToDisplayPath (issue #105) ----------------------------------------------------
+
+        [Fact]
+        public void ToDisplayPath_InsideProject_ReturnsRelative()
+        {
+            var skillsDir = Path.Combine(ProjectRoot, ".claude", "skills"); // /home/dev/MyGodotProject/.claude/skills
+            Assert.Equal(".claude/skills", AgentConfigPaths.ToDisplayPath(skillsDir, ProjectRoot));
+        }
+
+        [Fact]
+        public void ToDisplayPath_EqualToProjectRoot_ReturnsDot()
+        {
+            Assert.Equal(".", AgentConfigPaths.ToDisplayPath(ProjectRoot, ProjectRoot));
+            // Trailing-slash on the path must not defeat the equality check.
+            Assert.Equal(".", AgentConfigPaths.ToDisplayPath(ProjectRoot + "/", ProjectRoot));
+        }
+
+        [Fact]
+        public void ToDisplayPath_OutsideProject_ReturnsAbsoluteUnchanged()
+        {
+            const string outside = "/somewhere/else/.claude/skills";
+            Assert.Equal(outside, AgentConfigPaths.ToDisplayPath(outside, ProjectRoot));
+
+            // A sibling path that merely shares a prefix STRING but is not a child directory must NOT be treated as
+            // inside (the trailing-slash boundary guards against `/home/dev/MyGodotProject-other`).
+            const string sibling = "/home/dev/MyGodotProject-other/.claude/skills";
+            Assert.Equal(sibling, AgentConfigPaths.ToDisplayPath(sibling, ProjectRoot));
+        }
+
+        [Theory]
+        // Backslash separators in the absolute path normalize to '/', and the relative result uses '/'.
+        [InlineData(@"C:\proj\.claude\skills", @"C:\proj", ".claude/skills")]
+        // A trailing slash on the input path is trimmed before the containment check.
+        [InlineData("/home/dev/proj/.claude/skills/", "/home/dev/proj", ".claude/skills")]
+        // Mixed separators in the project root normalize too.
+        [InlineData("/home/dev/proj/.claude/skills", @"\home\dev\proj", ".claude/skills")]
+        public void ToDisplayPath_NormalizesSeparatorsAndTrailingSlashes(string absolutePath, string projectRoot, string expected)
+        {
+            Assert.Equal(expected, AgentConfigPaths.ToDisplayPath(absolutePath, projectRoot));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        public void ToDisplayPath_NullOrEmptyPath_ReturnsInputUnchanged(string? absolutePath)
+        {
+            Assert.Equal(absolutePath, AgentConfigPaths.ToDisplayPath(absolutePath!, ProjectRoot));
+        }
+
+        [Fact]
+        public void ToDisplayPath_EmptyProjectRoot_ReturnsAbsoluteUnchanged()
+        {
+            const string abs = "/home/dev/proj/.claude/skills";
+            Assert.Equal(abs, AgentConfigPaths.ToDisplayPath(abs, string.Empty));
+        }
+
         // --- Per-agent capability (SupportsSkills / SkillsDir) ----------------------------------------------
 
         [Fact]
