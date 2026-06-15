@@ -295,6 +295,51 @@ jobs:
         id: mark
         run: echo "published=true" >> "$GITHUB_OUTPUT"
 
+  # Auto-submit the Godot Asset Library VERSION EDIT for the just-released
+  # version. Runs AFTER the GitHub Release (needs release-addon) and only on a
+  # real version bump (should_release == 'true'). This job is intentionally
+  # ISOLATED: nothing downstream needs it, so an AssetLib failure shows up as a
+  # red job for visibility but never blocks or fails the npm `deploy` job (which
+  # only needs release-addon.published). The one-time INITIAL submission +
+  # moderator approval remain manual (see docs/RELEASING.md); this automates the
+  # per-release EDIT only.
+  #
+  # Credentials/ids come ONLY from GitHub-managed config (never hardcoded):
+  #   secrets.GODOT_ASSETLIB_USERNAME / secrets.GODOT_ASSETLIB_PASSWORD
+  #   vars.GODOT_ASSETLIB_ASSET_ID
+  # If they are not configured, the action fails auth (job red) but the release
+  # and npm publish are unaffected.
+  assetlib-edit:
+    runs-on: ubuntu-latest
+    needs: [check-version-tag, release-addon]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    steps:
+      - name: Checkout repository
+        # The action reads the handlebars template (.github/assetlib/edit.hbs)
+        # from the workspace, so the repo must be checked out.
+        uses: actions/checkout@v4
+
+      - name: Submit Asset Library version edit
+        # deep-entertainment/godot-asset-lib-action @ v0.6.0
+        # Pinned to the commit SHA for supply-chain safety (the action runs
+        # arbitrary JS with the AssetLib credentials). Bump the SHA + the
+        # version comment together when upgrading.
+        uses: deep-entertainment/godot-asset-lib-action@056fa4060f062a8b209a5a6744a2726ad48d6bb0 # v0.6.0
+        env:
+          # Canonical version (from plugin.cfg via check-version-tag) and the
+          # released commit (github.sha is the commit the v<version> tag points
+          # at — release-addon cut the tag on this same commit). The handlebars
+          # template reads these as {{ env.ASSETLIB_VERSION }} and
+          # {{ env.ASSETLIB_DOWNLOAD_COMMIT }}.
+          ASSETLIB_VERSION: ${{ needs.check-version-tag.outputs.version }}
+          ASSETLIB_DOWNLOAD_COMMIT: ${{ github.sha }}
+        with:
+          action: addEdit
+          username: ${{ secrets.GODOT_ASSETLIB_USERNAME }}
+          password: ${{ secrets.GODOT_ASSETLIB_PASSWORD }}
+          assetId: ${{ vars.GODOT_ASSETLIB_ASSET_ID }}
+          assetTemplate: .github/assetlib/edit.hbs
+
   # Publish godot-mcp-cli to npm (OIDC Trusted Publishing). Gated on the GitHub
   # Release having been created. The cli version is set to the release version
   # at publish time inside deploy.yml.

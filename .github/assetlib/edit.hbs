@@ -1,0 +1,13 @@
+{
+  "title": "Godot-MCP",
+  "description": "Model Context Protocol (MCP) integration for the Godot Editor. AI tools in C#, cloud-connected to ai-game.dev.\n\nGodot-MCP connects AI agents (Claude, Cursor, GitHub Copilot, Gemini, or any MCP-aware client) to the Godot Editor so they can inspect and drive your project — create nodes, edit scenes, manage resources and scripts, capture screenshots, and more.\n\nIt is the Godot counterpart of Unity-MCP: a C# editor addon that exposes Godot Editor operations as AI Tools and connects them to an MCP server through the hosted cloud backend at ai-game.dev, or your own self-hosted server. The MCP / reflection stack is shared with Unity-MCP and consumed from nuget.org as NuGet package references (not forked).\n\n36 built-in tools across 10 families: ping, node, scene, resource, filesystem, script, screenshot, editor, console, and reflection. Tool names mirror Unity-MCP where sensible (scene-*, node-*, ...).\n\nRequirements:\n- Godot 4.3+ — the C#/.NET (mono) edition. The standard GDScript-only build cannot compile the addon.\n- .NET 8 SDK.\n\nImportant install note: Godot compiles every .cs file under your project into one assembly, so your project's .csproj must declare the two NuGet package references the addon depends on:\n  com.IvanMurzak.ReflectorNet  version 5.3.1\n  com.IvanMurzak.McpPlugin     version 6.7.0\nWithout them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet global-packages folder.\n\nFull documentation, the complete tool list, and connection setup:\nhttps://github.com/IvanMurzak/Godot-MCP\n\nLicense: Apache-2.0.",
+  "category_id": "5",
+  "godot_version": "4.3",
+  "version_string": "{{ env.ASSETLIB_VERSION }}",
+  "cost": "Apache-2.0",
+  "download_provider": "GitHub",
+  "download_commit": "{{ env.ASSETLIB_DOWNLOAD_COMMIT }}",
+  "browse_url": "https://github.com/IvanMurzak/Godot-MCP",
+  "issues_url": "https://github.com/IvanMurzak/Godot-MCP/issues",
+  "icon_url": "https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png"
+}
