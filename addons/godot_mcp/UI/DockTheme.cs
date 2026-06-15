@@ -101,6 +101,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Compact / secondary button background — gray <c>Color8(70,70,70)</c>.</summary>
         public static readonly (float R, float G, float B) ButtonSecondary = (70f / 255f, 70f / 255f, 70f / 255f);
 
+        /// <summary>Secondary-button text colour — light gray <c>Color8(200,200,200)</c> (Unity's <c>.btn-secondary</c> color).</summary>
+        public static readonly (float R, float G, float B) ButtonSecondaryText = (200f / 255f, 200f / 255f, 200f / 255f);
+
         /// <summary>Compact / secondary button corner radius (px).</summary>
         public const int ButtonSecondaryCornerRadius = 4;
 
@@ -124,6 +127,47 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>The MCP-features "Open" button height (px) — Unity's <c>.btn-secondary</c> 30px.</summary>
         public const int ButtonOpenHeight = 30;
+
+        // --- Golden "GitHub Star" button (Unity .btn-golden) ---------------------------------------------------
+
+        /// <summary>Golden-button text colour — <c>Color8(255,215,100)</c> (Unity's <c>.btn-golden</c> color).</summary>
+        public static readonly (float R, float G, float B) ButtonGoldenText = (255f / 255f, 215f / 255f, 100f / 255f);
+
+        /// <summary>Golden-button fill — dark <c>Color8(45,40,25)</c> (Unity's <c>.btn-golden</c> background).</summary>
+        public static readonly (float R, float G, float B) ButtonGoldenBackground = (45f / 255f, 40f / 255f, 25f / 255f);
+
+        /// <summary>Golden-button hover fill — <c>Color8(60,52,30)</c> (Unity's <c>.btn-golden:hover</c>).</summary>
+        public static readonly (float R, float G, float B) ButtonGoldenHover = (60f / 255f, 52f / 255f, 30f / 255f);
+
+        /// <summary>Golden-button border — <c>Color8(180,150,60)</c> (Unity's <c>.btn-golden</c> border).</summary>
+        public static readonly (float R, float G, float B) ButtonGoldenBorder = (180f / 255f, 150f / 255f, 60f / 255f);
+
+        // --- Icon buttons (Unity .btn-with-icon / .btn-icon) ---------------------------------------------------
+
+        /// <summary>Leading-icon square size (px) for an icon button — Unity's <c>.btn-icon</c> 20px.</summary>
+        public const int ButtonIconSize = 20;
+
+        /// <summary>
+        /// The AI-cube / Discord / GitHub / Star icon asset directory (mirrors the agent-icon
+        /// <c>res://addons/godot_mcp/Icons/</c> convention). The dock's header logo + footer icon buttons load
+        /// their textures from here defensively (a missing asset degrades to no-icon, never a crash).
+        /// </summary>
+        public const string IconsDir = "res://addons/godot_mcp/Icons/";
+
+        /// <summary>The AI-cube header logo file under <see cref="IconsDir"/> (Unity's <c>logo_512.png</c>).</summary>
+        public const string LogoFileName = "logo.png";
+
+        /// <summary>The Discord "Help / Talk" footer-button icon file under <see cref="IconsDir"/>.</summary>
+        public const string DiscordIconFileName = "discord.png";
+
+        /// <summary>The GitHub "Bug Report" footer-button icon file under <see cref="IconsDir"/>.</summary>
+        public const string GitHubIconFileName = "github.png";
+
+        /// <summary>The gold "GitHub Star" footer-button icon file under <see cref="IconsDir"/>.</summary>
+        public const string StarIconFileName = "star.png";
+
+        /// <summary>Header logo square size (px) — Unity's 60px <c>imgLogoPivot</c>.</summary>
+        public const int HeaderLogoSize = 60;
 
         // --- Links (Unity _typography.uss / link style) --------------------------------------------------------
 
