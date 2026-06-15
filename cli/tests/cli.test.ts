@@ -37,6 +37,7 @@ describe('CLI integration', () => {
       expect(stdout).toContain('status');
       expect(stdout).toContain('wait-for-ready');
       expect(stdout).toContain('setup-mcp');
+      expect(stdout).toContain('setup-skills');
       expect(stdout).toContain('configure');
       expect(stdout).toContain('close');
       expect(stdout).toContain('install-plugin');
@@ -45,12 +46,10 @@ describe('CLI integration', () => {
       expect(stdout).toContain('create-project');
     });
 
-    it('does NOT register a setup-skills command (scoped out of v1)', () => {
+    it('registers the setup-skills command (added in #119)', () => {
       const { stdout, exitCode } = runCli(['--help']);
       expect(exitCode).toBe(0);
-      // The word "skills" may appear in prose, but there is no `setup-skills`
-      // command listed in the Commands section.
-      expect(stdout).not.toMatch(/^\s*setup-skills\b/m);
+      expect(stdout).toMatch(/setup-skills\b/);
     });
 
     it('shows version with --version', () => {

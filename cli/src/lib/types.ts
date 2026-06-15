@@ -74,6 +74,38 @@ export interface SetupMcpFailure {
 export type SetupMcpResult = SetupMcpSuccess | SetupMcpFailure;
 
 // ---------------------------------------------------------------------------
+// setup-skills
+// ---------------------------------------------------------------------------
+
+export interface SetupSkillsOptions {
+  /** Agent to generate skills for. Use `listAgentIds()` to discover valid values. */
+  agentId: string;
+  /** Optional Godot project path. Defaults to `process.cwd()` if omitted. */
+  godotProjectPath?: string;
+  onProgress?: ProgressCallback;
+}
+
+export interface SetupSkillsSuccess {
+  kind: 'success';
+  success: true;
+  agentId: string;
+  /** Absolute path to the agent's skills directory the files were written into. */
+  skillsDir: string;
+  /** Absolute paths of every skill file written, in write order. */
+  filesWritten: string[];
+  warnings: string[];
+}
+
+export interface SetupSkillsFailure {
+  kind: 'failure';
+  success: false;
+  warnings: string[];
+  error: Error;
+}
+
+export type SetupSkillsResult = SetupSkillsSuccess | SetupSkillsFailure;
+
+// ---------------------------------------------------------------------------
 // open-project
 // ---------------------------------------------------------------------------
 

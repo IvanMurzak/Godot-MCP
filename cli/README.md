@@ -31,6 +31,7 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the Godot server's `<host>/mcp` URL. |
+| `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
 | `install-plugin [path]` | Enable the `godot_mcp` addon in `project.godot` `[editor_plugins]`. |
@@ -73,13 +74,28 @@ resolved as:
 
 Pass `--url http://localhost:<port>` to target a local/self-hosted server.
 
-## `setup-skills` is not in v1
+## `setup-skills`
 
-Unlike the Unity CLI, there is **no `setup-skills` command**. Godot skills are generated **addon-side** by
-the McpPlugin engine on plugin boot (`GodotMcpConnection.Start` → `GenerateSkillFilesIfNeeded`, driven by
-the `GodotMcpConfig.GenerateSkillFiles` toggle, with a manual "Generate" button in the dock's Skills card).
-The Godot MCP server exposes **no** `skill-generate` HTTP endpoint for the CLI to call, so porting
-`setup-skills` would have nothing to invoke. It is intentionally out of scope for v1.
+`godot-cli setup-skills <agent> [path]` generates AI-agent **skill files** for a Godot project under the
+selected agent's skills path (e.g. Claude Code's `.claude/skills`). Use `--list` to see every agent and its
+skills support.
+
+```bash
+godot-cli setup-skills claude-code            # generate into ./.claude/skills
+godot-cli setup-skills cursor ./MyGame        # generate into MyGame/.cursor/skills
+godot-cli setup-skills --list                 # list agents + their skills paths
+```
+
+The command writes a `SKILL.md`-per-tool-family directory (a `godot-mcp/` overview plus one per family:
+`godot-mcp-node`, `godot-mcp-scene`, `godot-mcp-resource`, …) describing the `godot_mcp` addon's tool
+families. It is **idempotent** — re-running rewrites the same bytes.
+
+Unlike the Unity CLI — which POSTs to a running editor's `/api/system-tools/unity-skill-generate`
+endpoint — the Godot CLI generates the files **locally** from a built-in catalog: the Godot MCP server
+exposes no skill-generate HTTP endpoint, so no server or running editor is required. (The addon
+*additionally* auto-generates skills in-process on plugin boot via
+`GodotMcpConnection.Start` → `GenerateSkillFilesIfNeeded`; the CLI command is the
+server-less, scriptable path that does not need a live editor.)
 
 ## Library API
 
