@@ -146,7 +146,15 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
     const editorPath = findGodotBinary(options.editorPath);
     if (!editorPath) {
       throw new Error(
-        'No Godot editor binary found. Set GODOT_BIN (or GODOT4_BIN), add godot to PATH, or pass --editor-path.',
+        'No Godot editor binary found.\n' +
+          'Searched: --editor-path, the GODOT_BIN / GODOT4_BIN env vars, your PATH, and common\n' +
+          'install locations (Downloads, Program Files, LocalAppData, Scoop, Chocolatey, winget,\n' +
+          'Steam) including version-stamped release names like\n' +
+          '"Godot_v<version>-stable_mono_win64.exe" nested in their extracted folder.\n' +
+          'To fix, do one of:\n' +
+          '  • pass the full path: godot-cli open --editor-path "<path-to-Godot-executable>"\n' +
+          '  • set an env var: GODOT_BIN=<path-to-Godot-executable> (or GODOT4_BIN)\n' +
+          '  • add the Godot binary to your PATH.',
       );
     }
     resolvedEditorPath = editorPath;
