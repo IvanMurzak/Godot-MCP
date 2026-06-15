@@ -431,6 +431,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // --- Segmented control (reusable Custom|Cloud / stdio|http / none|required toggle) ---------------------
 
         /// <summary>
+        /// Metadata key used to stash the AUTHORITATIVE selected index on a segmented control's track node.
+        /// The native <c>Button.ButtonPressed</c> flags are NOT a reliable source of truth here: the segments
+        /// are independent toggle buttons with no shared <c>ButtonGroup</c>, so Godot can leave two segments
+        /// pressed at once (it flips the clicked button's <c>ButtonPressed</c> BEFORE emitting <c>Pressed</c>
+        /// and never un-presses the previous one). Tracking the selection on the track itself keeps the
+        /// builder's per-segment closures and the static <see cref="SetSegmentedSelection"/> reading/writing
+        /// the same value, so the "already-selected" no-op check never misfires (issue #107).
+        /// </summary>
+        const string SegmentedSelectionMetaKey = "godot_mcp_segmented_selected_index";
+
+        /// <summary>
         /// Build a horizontal SEGMENTED CONTROL: a track-skinned <see cref="HBoxContainer"/> holding one toggle
         /// <see cref="Button"/> per option, where exactly one segment is "selected" (dark highlight + cyan text)
         /// and the rest are muted. Mirrors Unity-MCP's segmented mode/transport/auth toggle. The numbers
@@ -466,6 +477,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             panel.AddChild(track);
 
             var clamped = SegmentedControlModel.ClampSelected(selectedIndex, options.Count);
+            // Seed the authoritative selection on the track itself (see SegmentedSelectionMetaKey). The
+            // native ButtonPressed flags are not trustworthy without a ButtonGroup, so we never probe them.
+            track.SetMeta(SegmentedSelectionMetaKey, clamped);
             for (int i = 0; i < options.Count; i++)
             {
                 int index = i; // capture for the lambda
@@ -474,19 +488,25 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     Name = "Segment" + i,
                     Text = options[i],
                     ToggleMode = true,
-                    ButtonPressed = SegmentedControlModel.IsSelected(i, clamped),
                     Flat = true,
                     CustomMinimumSize = new Vector2(DockTheme.SegmentMinWidth, 0)
                 };
+                // Set the pressed state WITHOUT emitting Pressed/Toggled so initial build never re-enters
+                // the click handler.
+                segment.SetPressedNoSignal(SegmentedControlModel.IsSelected(i, clamped));
                 segment.AddThemeFontSizeOverride("font_size", DockTheme.SegmentFontSize);
                 ApplySegmentStyle(segment, SegmentedControlModel.IsSelected(i, clamped));
 
                 segment.Pressed += () =>
                 {
-                    // Clicking the already-selected segment is a no-op (and we keep it visually pressed).
-                    if (SegmentedControlModel.IsSelected(index, GetSegmentedSelection(track)))
+                    // Compare against the AUTHORITATIVE index stashed on the track, not against any probe of
+                    // native ButtonPressed flags (which can report two-pressed/zero-pressed on mono/Linux).
+                    var current = GetSegmentedSelection(track);
+                    if (SegmentedControlModel.IsSelected(index, current))
                     {
-                        SetSegmentedSelection(track, GetSegmentedSelection(track));
+                        // Re-clicking the active segment is a true no-op: re-assert visuals (Godot just
+                        // toggled this button OFF on the second click) and leave the authoritative index alone.
+                        SetSegmentedSelection(track, current);
                         return;
                     }
                     onSelected(index);
@@ -510,24 +530,30 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
 
             var clamped = SegmentedControlModel.ClampSelected(selectedIndex, track.GetChildCount());
+            // Record the authoritative selection on the track so the click handler's no-op check stays correct.
+            track.SetMeta(SegmentedSelectionMetaKey, clamped);
             for (int i = 0; i < track.GetChildCount(); i++)
             {
                 if (track.GetChild(i) is Button segment)
                 {
                     var isSel = SegmentedControlModel.IsSelected(i, clamped);
-                    segment.ButtonPressed = isSel;
+                    // SetPressedNoSignal so restyling never re-enters the Pressed handler (avoids feedback loops).
+                    segment.SetPressedNoSignal(isSel);
                     ApplySegmentStyle(segment, isSel);
                 }
             }
         }
 
+        /// <summary>
+        /// Read the AUTHORITATIVE selected index for a segmented control's track from the metadata stashed by
+        /// <see cref="SegmentedControl"/> / <see cref="SetSegmentedSelection"/>. Does NOT probe the segments'
+        /// native <c>ButtonPressed</c> flags — those are unreliable for a group of independent toggle buttons
+        /// with no <c>ButtonGroup</c> (issue #107). Falls back to <c>0</c> when the meta is absent.
+        /// </summary>
         static int GetSegmentedSelection(HBoxContainer track)
         {
-            for (int i = 0; i < track.GetChildCount(); i++)
-            {
-                if (track.GetChild(i) is Button segment && segment.ButtonPressed)
-                    return i;
-            }
+            if (track.HasMeta(SegmentedSelectionMetaKey))
+                return (int)track.GetMeta(SegmentedSelectionMetaKey);
             return 0;
         }
 
