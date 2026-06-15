@@ -57,6 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         readonly object _gate = new();
         List<ScriptDiagnostic>? _session;
+        string? _sessionTarget;
 
         /// <summary>
         /// Process-wide capture installed by the 4.5 <c>Logger</c> hook at editor boot. Null when the live
@@ -83,11 +84,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <see cref="EngineErrorKind.Script"/> callbacks are collected as <see cref="ScriptDiagnostic"/>
         /// rows. Pair with <see cref="EndSession"/> in a finally so a thrown reload never leaks a session.
         /// </summary>
-        public void BeginSession()
+        /// <param name="targetPath">
+        /// The <c>res://</c> path being validated. When non-empty, ONLY engine errors whose reported file
+        /// matches this path are collected — this prevents cross-talk, since Godot's logger callback is
+        /// multi-threaded and an unrelated off-thread script error (a background reimport, the next file in
+        /// a full scan, or a dependency error touching ANOTHER file) can fire during this session's window
+        /// and would otherwise be silently mis-attributed to <paramref name="targetPath"/>. Pass null/empty
+        /// to collect every script error regardless of path (legacy behavior; used only when no specific
+        /// file is under test).
+        /// </param>
+        public void BeginSession(string? targetPath = null)
         {
             lock (_gate)
             {
                 _session = new List<ScriptDiagnostic>();
+                _sessionTarget = string.IsNullOrEmpty(targetPath) ? null : targetPath;
             }
         }
 
@@ -101,15 +112,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 var captured = _session?.ToArray() ?? Array.Empty<ScriptDiagnostic>();
                 _session = null;
+                _sessionTarget = null;
                 return captured;
             }
         }
 
         /// <summary>
         /// Route one engine callback. Appends to <see cref="LogSink"/> (passive capture, always) and — when a
-        /// session is open and the callback is a <see cref="EngineErrorKind.Script"/> error — records a
-        /// structured diagnostic. <paramref name="line"/> may be -1 when unknown; <paramref name="filePath"/>
-        /// is the engine source path (kept as-is; it may be a <c>res://</c> or absolute path). Thread-safe.
+        /// session is open and the callback is a <see cref="EngineErrorKind.Script"/> error whose file matches
+        /// the session target (see <see cref="BeginSession"/>) — records a structured diagnostic.
+        /// <paramref name="line"/> may be -1 when unknown; <paramref name="filePath"/> is the engine source
+        /// path (kept as-is; it may be a <c>res://</c> or absolute path). Thread-safe.
         /// </summary>
         public void Route(EngineErrorKind kind, string? filePath, int line, string? message, string? rationale)
         {
@@ -130,13 +143,37 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             lock (_gate)
             {
-                _session?.Add(new ScriptDiagnostic(
+                if (_session == null)
+                    return;
+
+                // Path-match filter: when the session targets a specific file, drop script errors the engine
+                // reported against a DIFFERENT file. Godot's logger callback is multi-threaded, so an error
+                // from an unrelated off-thread reload (a background reimport, the next scanned file, or a
+                // dependency error in ANOTHER script) can fire mid-session and would otherwise be silently
+                // mis-attributed to the file under validation. An empty engine path is kept (the caller stamps
+                // the target path on it) since the engine occasionally omits the source for a script error.
+                if (_sessionTarget != null
+                    && !string.IsNullOrEmpty(filePath)
+                    && !PathsMatch(filePath, _sessionTarget))
+                {
+                    return;
+                }
+
+                _session.Add(new ScriptDiagnostic(
                     path: filePath ?? string.Empty,
                     line: line,
                     message: text,
                     severity: ScriptDiagnosticSeverity.Error));
             }
         }
+
+        /// <summary>
+        /// Compare an engine-reported source path against the session target. Case-insensitive ordinal
+        /// equality — Godot reports <c>res://</c> paths consistently, but file systems (and the engine on
+        /// some platforms) can vary letter case, so an exact-case match would drop legitimate rows.
+        /// </summary>
+        static bool PathsMatch(string enginePath, string target)
+            => string.Equals(enginePath, target, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Format a captured engine error/warning into a single console line:

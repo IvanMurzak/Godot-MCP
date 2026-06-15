@@ -174,6 +174,112 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Empty(capture.EndSession());
         }
 
+        // ---- ScriptErrorCapture: path-match filter (cross-talk defense) ---------------------------
+
+        [Fact]
+        public void Session_WithTarget_DropsScriptErrorsForOtherFiles()
+        {
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://under_test.gd");
+
+            // The file under validation -> kept.
+            capture.Route(EngineErrorKind.Script, "res://under_test.gd", 3, "c", "real error");
+            // An off-thread reload / dependency error in ANOTHER file fires mid-session -> dropped.
+            capture.Route(EngineErrorKind.Script, "res://unrelated.gd", 1, "c", "noise");
+            // A dependency error touching a third file (e.g. preload target) -> dropped.
+            capture.Route(EngineErrorKind.Script, "res://lib/dep.gd", 7, "c", "dep noise");
+
+            var diags = capture.EndSession();
+            var only = Assert.Single(diags);
+            Assert.Equal("res://under_test.gd", only.Path);
+            Assert.Equal("real error", only.Message);
+        }
+
+        [Fact]
+        public void Session_WithTarget_KeepsPathlessScriptError_ForCallerToStamp()
+        {
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://under_test.gd");
+
+            // The engine occasionally omits the source path; keep it so the tool can stamp the target.
+            capture.Route(EngineErrorKind.Script, "", 5, "c", "located-less error");
+            capture.Route(EngineErrorKind.Script, null, 6, "c", "null-path error");
+
+            var diags = capture.EndSession();
+            Assert.Equal(2, diags.Length);
+            Assert.All(diags, d => Assert.True(string.IsNullOrEmpty(d.Path)));
+        }
+
+        [Fact]
+        public void Session_WithTarget_MatchesPathCaseInsensitively()
+        {
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://Scripts/Player.gd");
+
+            capture.Route(EngineErrorKind.Script, "res://scripts/player.gd", 2, "c", "case-variant");
+
+            var only = Assert.Single(capture.EndSession());
+            Assert.Equal("res://scripts/player.gd", only.Path);
+        }
+
+        [Fact]
+        public void Session_WithoutTarget_CollectsAllScriptErrors_LegacyBehavior()
+        {
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession(); // no target -> no filtering
+
+            capture.Route(EngineErrorKind.Script, "res://a.gd", 1, "c", "a");
+            capture.Route(EngineErrorKind.Script, "res://b.gd", 2, "c", "b");
+
+            Assert.Equal(2, capture.EndSession().Length);
+        }
+
+        [Fact]
+        public void Route_IsThreadSafe_OnlyTargetFileSurvivesConcurrentNoise()
+        {
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://under_test.gd");
+
+            // Hammer Route from many threads: one matching error per "validation" thread plus a flood of
+            // off-thread noise for other files. The path-match filter + lock must yield ONLY matching rows,
+            // with no torn writes / lost updates.
+            const int matching = 50;
+            const int noisePerThread = 50;
+            var threads = new System.Collections.Generic.List<System.Threading.Thread>();
+            for (int t = 0; t < 8; t++)
+            {
+                var thread = new System.Threading.Thread(() =>
+                {
+                    for (int i = 0; i < matching; i++)
+                        capture.Route(EngineErrorKind.Script, "res://under_test.gd", i, "c", "match");
+                    for (int i = 0; i < noisePerThread; i++)
+                        capture.Route(EngineErrorKind.Script, "res://noise.gd", i, "c", "noise");
+                });
+                threads.Add(thread);
+                thread.Start();
+            }
+            foreach (var thread in threads)
+                thread.Join();
+
+            var diags = capture.EndSession();
+            Assert.Equal(8 * matching, diags.Length);
+            Assert.All(diags, d => Assert.Equal("res://under_test.gd", d.Path));
+        }
+
+        [Fact]
+        public void ScriptDiagnosticsResult_Truncated_SerializesAndDefaultsFalse()
+        {
+            Assert.False(new ScriptDiagnosticsResult().Truncated);
+
+            var r = new ScriptDiagnosticsResult { Truncated = true };
+            var json = JsonSerializer.Serialize(r);
+            Assert.Contains("\"truncated\"", json);
+
+            var restored = JsonSerializer.Deserialize<ScriptDiagnosticsResult>(json);
+            Assert.NotNull(restored);
+            Assert.True(restored!.Truncated);
+        }
+
         // ---- FormatLogLine -----------------------------------------------------------------------
 
         [Theory]

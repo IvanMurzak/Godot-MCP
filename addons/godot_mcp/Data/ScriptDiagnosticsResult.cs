@@ -65,9 +65,16 @@ namespace com.IvanMurzak.Godot.MCP.Data
             "message captured) or 'Coarse' (Godot < 4.5: per-file pass/fail with the engine error code, no line).")]
         public ScriptDiagnosticsFidelity Fidelity { get; set; } = ScriptDiagnosticsFidelity.Coarse;
 
+        [JsonInclude, JsonPropertyName("truncated")]
+        [Description("True when a full-project scan hit the file cap and only the first N '.gd' files were " +
+            "validated — so 'ok' is NOT a guaranteed all-clear for the whole project. Validate a specific " +
+            "'scriptPath' (or sub-tree) to cover the rest. Always false for a single-path validation.")]
+        public bool Truncated { get; set; } = false;
+
         [JsonInclude, JsonPropertyName("note")]
         [Description("Human-readable summary, e.g. 'No script errors found (12 scanned).' or '2 errors in 1 " +
-            "script.'. Includes a fidelity caveat on older Godot versions.")]
+            "script.'. Includes a fidelity caveat on older Godot versions and a truncation hint when the " +
+            "full-scan cap was hit.")]
         public string Note { get; set; } = string.Empty;
 
         public ScriptDiagnosticsResult() { }

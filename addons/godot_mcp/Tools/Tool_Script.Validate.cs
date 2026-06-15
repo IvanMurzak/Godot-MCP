@@ -42,7 +42,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  - 'scriptPath' (optional): a single res:// '.gd' path to validate. Omit to scan every '.gd' " +
             "under res:// (capped at " + nameof(FullScanFileCap) + ").\n" +
             "Result (ScriptDiagnosticsResult): 'ok' (true when no errors), 'diagnostics' [{ path, line, " +
-            "message, severity }], counts, and a 'fidelity' note:\n" +
+            "message, severity }], counts, a 'truncated' flag (true when a full scan hit the file cap, so " +
+            "'ok' is NOT a whole-project all-clear), and a 'fidelity' note:\n" +
             "  - Godot 4.5+: 'Precise' — exact line + message captured via the engine Logger hook.\n" +
             "  - Godot < 4.5: 'Coarse' — per-file pass/fail with the engine error code (no line/message text).\n" +
             "C# ('.cs') files are NOT validated here (Godot has no in-editor C# compiler to reach cheaply); " +
@@ -57,13 +58,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                var targets = ResolveTargets(scriptPath);
+                var targets = ResolveTargets(scriptPath, out var truncated);
 
                 var result = new ScriptDiagnosticsResult
                 {
                     ScannedPaths = targets,
                     ScannedCount = targets.Count,
-                    Fidelity = GodotScriptErrorLoggerBridge.Available
+                    Truncated = truncated,
+                    // Precise ONLY when a live capture session actually exists (the 4.5 Logger hook was
+                    // installed). Keying off the compile-time GodotScriptErrorLoggerBridge.Available const
+                    // would over-claim Precise on a 4.5 build where TryInstall returned null / Current is
+                    // null and the coarse per-file Reload()-code path is the one actually taken.
+                    Fidelity = ScriptErrorCapture.Current != null
                         ? ScriptDiagnosticsFidelity.Precise
                         : ScriptDiagnosticsFidelity.Coarse,
                 };
@@ -88,8 +94,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// or a full res:// scan capped at <see cref="FullScanFileCap"/>. Main-thread only (scan touches the
         /// editor filesystem). C# paths are rejected for the single-path case with an actionable message.
         /// </summary>
-        static List<string> ResolveTargets(string? scriptPath)
+        static List<string> ResolveTargets(string? scriptPath, out bool truncated)
         {
+            truncated = false;
             var raw = (scriptPath ?? string.Empty).Trim();
             if (raw.Length > 0)
             {
@@ -110,7 +117,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // same robust path the single-file FileAccess.FileExists check above relies on. Main-thread only.
             CollectGdScripts(ResPathNormalizer.ResScheme, found);
             if (found.Count > FullScanFileCap)
+            {
+                truncated = true; // surface the cap so an ok:true result isn't read as a whole-project all-clear.
                 found = found.GetRange(0, FullScanFileCap);
+            }
             return found;
         }
 
@@ -168,21 +178,29 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 content = file.GetAsText();
             }
 
-            var probe = new GDScript { SourceCode = content, ResourcePath = resPath };
-
-            var capture = GodotScriptErrorLoggerBridge.Available ? ScriptErrorCapture.Current : null;
-            capture?.BeginSession();
+            // Probe with a throwaway GDScript. Do NOT set ResourcePath to the REAL res:// path: Reload()
+            // would then register/replace this throwaway in Godot's global class registry and resource cache,
+            // perturbing the live cached script. Leaving ResourcePath unset keeps the probe out of the cache;
+            // the engine still reports the source path via the Logger hook (and we stamp resPath on any rows
+            // that lack one below). Dispose it after use, mirroring the using blocks for FileAccess/DirAccess.
+            // Current is non-null only on a 4.5+ build where the engine Logger hook installed (the #else stub
+            // never sets it), so it alone decides precise-vs-coarse — no separate compile-time const needed.
+            var capture = ScriptErrorCapture.Current;
+            capture?.BeginSession(resPath);
             Error err;
-            try
+            using (var probe = new GDScript { SourceCode = content })
             {
-                err = probe.Reload(keepState: false);
-            }
-            finally
-            {
-                if (capture != null)
+                try
                 {
-                    var captured = capture.EndSession();
-                    diagnostics.AddRange(captured);
+                    err = probe.Reload(keepState: false);
+                }
+                finally
+                {
+                    if (capture != null)
+                    {
+                        var captured = capture.EndSession();
+                        diagnostics.AddRange(captured);
+                    }
                 }
             }
 
@@ -203,7 +221,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (err == Error.ParseError)
             {
                 diagnostics.Add(new ScriptDiagnostic(resPath, -1,
-                    GodotScriptErrorLoggerBridge.Available
+                    capture != null
                         ? $"{err} (engine reported no structured location)."
                         : $"{err} (Godot < 4.5: no line/message detail available; open the script in the editor)."));
             }
@@ -211,24 +229,34 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return diagnostics;
         }
 
-        /// <summary>Compose the human-readable summary note, including a fidelity caveat where relevant.</summary>
+        /// <summary>
+        /// Compose the human-readable summary note, including a fidelity caveat (Godot &lt; 4.5) and a
+        /// truncation hint (full-scan cap hit) where relevant.
+        /// </summary>
         static string BuildNote(ScriptDiagnosticsResult result)
         {
+            string note;
             if (result.Ok)
             {
-                var clean = $"No GDScript errors found ({result.ScannedCount} scanned).";
-                return result.Fidelity == ScriptDiagnosticsFidelity.Coarse
-                    ? clean + " NOTE: Godot < 4.5 — only a per-file pass/fail was checked (no semantic detail)."
-                    : clean;
+                note = $"No GDScript errors found ({result.ScannedCount} scanned).";
+                if (result.Fidelity == ScriptDiagnosticsFidelity.Coarse)
+                    note += " NOTE: Godot < 4.5 — only a per-file pass/fail was checked (no semantic detail).";
+            }
+            else
+            {
+                var noun = result.ErrorCount == 1 ? "error" : "errors";
+                note = $"{result.ErrorCount} {noun} across {result.ScannedCount} scanned script(s).";
+                if (result.WarningCount > 0)
+                    note += $" {result.WarningCount} warning(s).";
+                if (result.Fidelity == ScriptDiagnosticsFidelity.Coarse)
+                    note += " NOTE: Godot < 4.5 — line/message detail is unavailable; open the failing script in the editor.";
             }
 
-            var noun = result.ErrorCount == 1 ? "error" : "errors";
-            var summary = $"{result.ErrorCount} {noun} across {result.ScannedCount} scanned script(s).";
-            if (result.WarningCount > 0)
-                summary += $" {result.WarningCount} warning(s).";
-            return result.Fidelity == ScriptDiagnosticsFidelity.Coarse
-                ? summary + " NOTE: Godot < 4.5 — line/message detail is unavailable; open the failing script in the editor."
-                : summary;
+            if (result.Truncated)
+                note += $" NOTE: full-scan cap of {FullScanFileCap} files hit — only the first {result.ScannedCount} " +
+                        "'.gd' files were validated, so this is NOT a whole-project all-clear; validate a specific path/sub-tree to cover the rest.";
+
+            return note;
         }
     }
 }
