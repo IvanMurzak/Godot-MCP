@@ -13,33 +13,34 @@ using System.Collections.Generic;
 namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 {
     /// <summary>
-    /// Configurator for Cursor. Project-local config at <c>&lt;projectRoot&gt;/.cursor/mcp.json</c>, servers under
+    /// Configurator for Zoo Code. Project-local config at <c>&lt;projectRoot&gt;/.roo/mcp.json</c>, servers under
     /// <c>mcpServers</c>. Pure-managed — CI-unit-tested via the registry.
     /// </summary>
-    public sealed class CursorConfigurator : GodotAgentConfigurator
+    public sealed class ZooCodeConfigurator : GodotAgentConfigurator
     {
-        public override string AgentName => "Cursor";
-        public override string AgentId => "cursor";
-        public override string? IconFileName => "cursor-64.png";
-        public override string DownloadUrl => "https://cursor.com/download";
-        public override string? TutorialUrl => "https://www.youtube.com/watch?v=dyk-4gTolSU";
+        public override string AgentName => "Zoo Code";
+        public override string AgentId => "zoo-code";
+        public override string? IconFileName => "zoo-code-64.png";
+        public override string DownloadUrl => "https://www.zoocode.dev/";
 
         public override string? Description =>
-            "Cursor reads MCP servers from a project-local '.cursor/mcp.json'.";
+            "Zoo Code reads MCP servers from a project-local '.roo/mcp.json'.";
 
         public override IReadOnlyList<string> ManualSteps => new[]
         {
-            "Click 'Configure' above to write the AI Game Developer server into '.cursor/mcp.json' (or copy the snippet manually).",
-            "Open Cursor in this project; it picks up the server automatically.",
+            "Click 'Configure' above to write the AI Game Developer server into '.roo/mcp.json' (or copy the snippet manually).",
+            "Restart Zoo Code if it was running.",
         };
 
         public override IReadOnlyList<string> Troubleshooting => new[]
         {
-            "- The '.cursor/mcp.json' file must have no JSON syntax errors.",
-            "- Open Cursor settings → 'MCP Servers' to restart ai-game-developer or inspect the available MCP tools and server status.",
+            "- Ensure the JSON file has no syntax errors.",
+            "- Verify Zoo Code has MCP support enabled.",
+            "- The configuration file should be in your Godot project root (the folder with 'project.godot').",
+            "- Restart Zoo Code after configuration changes.",
         };
 
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) =>
-            AgentConfigPaths.Cursor(projectRoot);
+            AgentConfigPaths.ZooCode(projectRoot);
     }
 }

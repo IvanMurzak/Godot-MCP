@@ -66,6 +66,47 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <summary>VS Code project-local config: <c>&lt;projectRoot&gt;/.vscode/mcp.json</c>.</summary>
         public static string VisualStudioCode(string projectRoot) => Combine(projectRoot, ".vscode", "mcp.json");
 
+        /// <summary>Visual Studio (Copilot) project-local config: <c>&lt;projectRoot&gt;/.vs/mcp.json</c>.</summary>
+        public static string VisualStudio(string projectRoot) => Combine(projectRoot, ".vs", "mcp.json");
+
+        /// <summary>Rider (Junie) project-local config: <c>&lt;projectRoot&gt;/.junie/mcp/mcp.json</c>.</summary>
+        public static string Rider(string projectRoot) => Combine(projectRoot, ".junie", "mcp", "mcp.json");
+
+        /// <summary>
+        /// GitHub Copilot CLI project-local config: <c>&lt;projectRoot&gt;/.mcp.json</c>. Copilot CLI v1.0.12+
+        /// discovers workspace-local MCP configs from the working directory up to the git root, so the same
+        /// <c>.mcp.json</c> is shared with Claude Code (mirrors Unity-MCP's GitHubCopilotCliConfigurator).
+        /// </summary>
+        public static string GitHubCopilotCli(string projectRoot) => Combine(projectRoot, ".mcp.json");
+
+        /// <summary>Gemini project-local config: <c>&lt;projectRoot&gt;/.gemini/settings.json</c>.</summary>
+        public static string Gemini(string projectRoot) => Combine(projectRoot, ".gemini", "settings.json");
+
+        /// <summary>
+        /// Cline global config inside VS Code's globalStorage for <paramref name="os"/>:
+        /// <list type="bullet">
+        ///   <item>Windows: <c>&lt;appData&gt;/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json</c></item>
+        ///   <item>macOS: <c>&lt;home&gt;/Library/Application Support/Code/User/globalStorage/.../cline_mcp_settings.json</c></item>
+        ///   <item>Linux: <c>&lt;home&gt;/.config/Code/User/globalStorage/.../cline_mcp_settings.json</c></item>
+        /// </list>
+        /// Mirrors Unity-MCP's ClineConfigurator (global, shared across all projects).
+        /// </summary>
+        public static string Cline(AgentOs os, string home, string appData) => os switch
+        {
+            AgentOs.Windows => Combine(appData, "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json"),
+            AgentOs.MacOS => Combine(home, "Library", "Application Support", "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json"),
+            _ => Combine(home, ".config", "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json"),
+        };
+
+        /// <summary>Open Code project-local config: <c>&lt;projectRoot&gt;/opencode.json</c>.</summary>
+        public static string OpenCode(string projectRoot) => Combine(projectRoot, "opencode.json");
+
+        /// <summary>Kilo Code project-local config: <c>&lt;projectRoot&gt;/.kilocode/mcp.json</c>.</summary>
+        public static string KiloCode(string projectRoot) => Combine(projectRoot, ".kilocode", "mcp.json");
+
+        /// <summary>Zoo Code project-local config: <c>&lt;projectRoot&gt;/.roo/mcp.json</c>.</summary>
+        public static string ZooCode(string projectRoot) => Combine(projectRoot, ".roo", "mcp.json");
+
         /// <summary>
         /// Claude Code project-local skills directory: <c>&lt;projectRoot&gt;/.claude/skills</c>. The destination the
         /// skill-generation engine (<c>IMcpPlugin.GenerateSkillFiles</c>) writes a <c>SKILL.md</c>-per-tool into. The

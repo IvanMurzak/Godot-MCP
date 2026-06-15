@@ -34,6 +34,37 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static Color Rgb((float R, float G, float B) c) => new Color(c.R, c.G, c.B);
         public static Color Rgba((float R, float G, float B, float A) c) => new Color(c.R, c.G, c.B, c.A);
 
+        // --- Bold font (Unity's `-unity-font-style: bold` on headers / section-titles / timeline-labels) ----------
+        // Godot Labels have no font-style flag; bold requires a bold Font resource. In the editor the bold face is
+        // available from the editor theme ("bold" under "EditorFonts"). Resolved once and cached; degrades to no-op
+        // (regular weight) if unavailable, so it never throws during dock construction.
+
+        static Font? _editorBoldFont;
+        static bool _editorBoldFontResolved;
+
+        static Font? EditorBoldFont()
+        {
+            if (_editorBoldFontResolved)
+                return _editorBoldFont;
+            _editorBoldFontResolved = true;
+            try
+            {
+                var theme = EditorInterface.Singleton?.GetEditorTheme();
+                if (theme != null && theme.HasFont("bold", "EditorFonts"))
+                    _editorBoldFont = theme.GetFont("bold", "EditorFonts");
+            }
+            catch { /* no editor theme (headless/test) — stay regular weight */ }
+            return _editorBoldFont;
+        }
+
+        /// <summary>Apply the editor bold font face to a <see cref="Label"/> (Unity's bold headers). No-op if unavailable.</summary>
+        public static void ApplyBold(Label label)
+        {
+            var f = EditorBoldFont();
+            if (f != null)
+                label.AddThemeFontOverride("font", f);
+        }
+
         // --- Card / frame-group --------------------------------------------------------------------------------
 
         /// <summary>
@@ -80,12 +111,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static void ApplyHeader(Label label)
         {
             label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeHeader);
+            ApplyBold(label);
         }
 
         /// <summary>Apply the 16px bold section-title look to a <see cref="Label"/>.</summary>
         public static void ApplySectionTitle(Label label)
         {
             label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSectionTitle);
+            ApplyBold(label);
         }
 
         /// <summary>Apply the muted-gray description look to a <see cref="Label"/>.</summary>
@@ -105,6 +138,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static void ApplyConfigPath(Label label)
         {
             label.AddThemeColorOverride("font_color", Rgb(DockTheme.ColorDescriptionMuted));
+            label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeConfigPath); // small — paths sit quietly beside the bigger header
             label.AutowrapMode = TextServer.AutowrapMode.Off;
             label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             label.ClipText = true;
@@ -114,6 +148,45 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static void ApplySubLabel(Label label)
         {
             label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSubLabel);
+        }
+
+        /// <summary>
+        /// Build a 13px sub-label with a thin underline drawn as a BOTTOM BORDER (Unity's <c>.timeline-label</c>
+        /// <c>border-bottom</c>), hugging just the text width. Unlike <see cref="TimelineLabel"/> (a VBox with a
+        /// separate underline rule below the text — which lifts the text up off the row baseline), the border-box
+        /// keeps the label at its natural height so it stays vertically aligned with a sibling on the same row (e.g.
+        /// the right-aligned config path). Returned as a <see cref="PanelContainer"/> that shrinks to the text and
+        /// centers vertically in its row.
+        /// </summary>
+        public static PanelContainer UnderlinedSubLabel(string name, string text)
+        {
+            var box = new StyleBoxFlat
+            {
+                BgColor = new Color(0, 0, 0, 0),
+                DrawCenter = false,
+                BorderColor = Rgb(DockTheme.Divider).Lightened(0.4f)
+            };
+            box.BorderWidthBottom = 1;
+            box.ContentMarginLeft = 0;
+            box.ContentMarginRight = 0;
+            box.ContentMarginTop = 0;
+            box.ContentMarginBottom = 2; // small gap so the rule sits just under the text, not jammed against it
+
+            var panel = new PanelContainer
+            {
+                Name = name,
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter
+            };
+            panel.AddThemeStyleboxOverride("panel", box);
+
+            var label = new Label { Name = "Text", Text = text };
+            // Unity's `.timeline-label` is 13px BOLD; render it bold + clearly larger (Godot's base font renders
+            // smaller, so the underlined section labels — Skills / MCP / the connection timeline points — looked tiny).
+            label.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeUnderlinedLabel);
+            ApplyBold(label);
+            panel.AddChild(label);
+            return panel;
         }
 
         // --- Buttons -------------------------------------------------------------------------------------------
@@ -128,19 +201,32 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeColorOverride("font_pressed_color", Rgb(DockTheme.ButtonPrimaryText));
         }
 
+        /// <summary>
+        /// Skin <paramref name="button"/> as a COMPACT PRIMARY action — same cyan fill + dark text as
+        /// <see cref="ApplyPrimaryButton"/> but at the compact (~20px) height of <see cref="ApplySecondaryButton"/>,
+        /// matching Unity's <c>.btn-compact.btn-primary</c>. Used for the MCP "Configure" button so it sits inline with
+        /// the compact "Remove" button (not the big full-width primary used by the alert frame).
+        /// </summary>
+        public static void ApplyCompactPrimaryButton(Button button)
+        {
+            var bg = Rgb(DockTheme.ButtonPrimary);
+            ApplyCompactButtonBase(button, bg, bg.Lightened(0.1f));
+            button.AddThemeColorOverride("font_color", Rgb(DockTheme.ButtonPrimaryText));
+            button.AddThemeColorOverride("font_hover_color", Rgb(DockTheme.ButtonPrimaryText));
+            button.AddThemeColorOverride("font_pressed_color", Rgb(DockTheme.ButtonPrimaryText));
+        }
+
         /// <summary>Skin <paramref name="button"/> as a compact SECONDARY action (gray bg, 4px radius, ~20px tall).</summary>
         public static void ApplySecondaryButton(Button button)
         {
             var bg = Rgb(DockTheme.ButtonSecondary);
-            ApplyButtonBackground(button, bg, bg.Lightened(0.1f), DockTheme.ButtonSecondaryCornerRadius);
-            button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
+            ApplyCompactButtonBase(button, bg, bg.Lightened(0.1f));
         }
 
         /// <summary>Skin <paramref name="button"/> as an ALERT / Remove action (dark-red bg, brighter red hover).</summary>
         public static void ApplyAlertButton(Button button)
         {
-            ApplyButtonBackground(button, Rgb(DockTheme.ButtonAlert), Rgb(DockTheme.ButtonAlertHover), DockTheme.ButtonSecondaryCornerRadius);
-            button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
+            ApplyCompactButtonBase(button, Rgb(DockTheme.ButtonAlert), Rgb(DockTheme.ButtonAlertHover));
         }
 
         /// <summary>
@@ -177,26 +263,35 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeStyleboxOverride("pressed", Make(normal.Darkened(0.1f)));
         }
 
-        static void ApplyButtonBackground(Button button, Color normal, Color hover, int cornerRadius)
+        static void ApplyButtonBackground(Button button, Color normal, Color hover, int cornerRadius,
+                                          int hMargin = 8, int vMargin = 4)
         {
-            var normalBox = new StyleBoxFlat { BgColor = normal };
-            normalBox.SetCornerRadiusAll(cornerRadius);
-            normalBox.ContentMarginLeft = 8;
-            normalBox.ContentMarginRight = 8;
+            StyleBoxFlat Make(Color bg)
+            {
+                var box = new StyleBoxFlat { BgColor = bg };
+                box.SetCornerRadiusAll(cornerRadius);
+                box.ContentMarginLeft = hMargin;
+                box.ContentMarginRight = hMargin;
+                box.ContentMarginTop = vMargin;
+                box.ContentMarginBottom = vMargin;
+                return box;
+            }
 
-            var hoverBox = new StyleBoxFlat { BgColor = hover };
-            hoverBox.SetCornerRadiusAll(cornerRadius);
-            hoverBox.ContentMarginLeft = 8;
-            hoverBox.ContentMarginRight = 8;
+            button.AddThemeStyleboxOverride("normal", Make(normal));
+            button.AddThemeStyleboxOverride("hover", Make(hover));
+            button.AddThemeStyleboxOverride("pressed", Make(normal.Darkened(0.1f)));
+        }
 
-            var pressedBox = new StyleBoxFlat { BgColor = normal.Darkened(0.1f) };
-            pressedBox.SetCornerRadiusAll(cornerRadius);
-            pressedBox.ContentMarginLeft = 8;
-            pressedBox.ContentMarginRight = 8;
-
-            button.AddThemeStyleboxOverride("normal", normalBox);
-            button.AddThemeStyleboxOverride("hover", hoverBox);
-            button.AddThemeStyleboxOverride("pressed", pressedBox);
+        /// <summary>
+        /// Shared skin for the dock's COMPACT buttons (Unity's <c>.btn-compact</c>: ~20px tall, 4px radius, small
+        /// font, tight vertical padding). One place so Configure / Reconfigure / Remove / Generate all match. The
+        /// caller sets the text colours after (so a compact-primary can override to dark-on-cyan).
+        /// </summary>
+        static void ApplyCompactButtonBase(Button button, Color normal, Color hover)
+        {
+            ApplyButtonBackground(button, normal, hover, DockTheme.ButtonSecondaryCornerRadius, hMargin: 8, vMargin: 2);
+            button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeCompactButton);
+            button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
         }
 
         // --- Icons (header logo + footer icon buttons; mirrors the agent-icon load pattern) -------------------
@@ -341,6 +436,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeColorOverride("font_color", link);
             button.AddThemeColorOverride("font_hover_color", link.Lightened(0.2f));
             button.AddThemeColorOverride("font_pressed_color", link);
+            button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeLink); // smaller than the body (Download / Tutorial links)
             button.Pressed += () => OS.ShellOpen(url);
             return button;
         }
@@ -414,20 +510,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             box.SetCornerRadiusAll(DockTheme.WarningCornerRadius);
             box.SetBorderWidthAll(1);
-            box.ContentMarginLeft = 8;
-            box.ContentMarginRight = 8;
-            box.ContentMarginTop = 6;
-            box.ContentMarginBottom = 6;
+            // Unity's .alert-frame padding: 10px (top/bottom) 12px (left/right).
+            box.ContentMarginLeft = 12;
+            box.ContentMarginRight = 12;
+            box.ContentMarginTop = 10;
+            box.ContentMarginBottom = 10;
 
             var panel = new PanelContainer { Name = name, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             panel.AddThemeStyleboxOverride("panel", box);
 
             var col = new VBoxContainer { Name = "AlertContent" };
-            col.AddThemeConstantOverride("separation", 4);
+            col.AddThemeConstantOverride("separation", 6);
             panel.AddChild(col);
 
             var titleLabel = new Label { Name = "AlertTitle", Text = title };
-            titleLabel.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeSubLabel);
+            titleLabel.AddThemeFontSizeOverride("font_size", 16); // bold amber title — enlarged for readability
+            ApplyBold(titleLabel);
             titleLabel.AddThemeColorOverride("font_color", Rgb(DockTheme.WarningTitle));
             col.AddChild(titleLabel);
 
@@ -441,9 +539,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             messageLabel.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeWarningMessage);
             col.AddChild(messageLabel);
 
+            // Full-width, centered cyan button — Unity's alert button is a `.btn-primary` that fills the frame
+            // (`alertButton` spans the panel), not a left-hugging compact button.
             var button = new Button { Name = "AlertButton", Text = buttonText };
             ApplyPrimaryButton(button);
-            button.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+            button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             button.Pressed += () => onPressed();
             col.AddChild(button);
 
@@ -718,11 +818,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
             }
             else
             {
-                // Unselected: transparent (track shows through) + muted text.
-                var empty = new StyleBoxEmpty();
-                segment.AddThemeStyleboxOverride("normal", empty);
-                segment.AddThemeStyleboxOverride("hover", empty);
-                segment.AddThemeStyleboxOverride("pressed", empty);
+                // Unselected: TRANSPARENT fill (the track shows through, so only the selected segment gets the dark
+                // highlight) but the SAME padding as the selected segment — Unity pads every segment equally
+                // (`padding: 2px 8px`) and only the highlight background differs, so the segments don't jump size
+                // when selection changes. (A StyleBoxEmpty here gave the unselected segment zero padding → uneven.)
+                StyleBoxFlat Transparent()
+                {
+                    var box = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), DrawCenter = false };
+                    box.SetCornerRadiusAll(DockTheme.SegmentSelectedCornerRadius);
+                    box.ContentMarginLeft = 8;
+                    box.ContentMarginRight = 8;
+                    box.ContentMarginTop = 2;
+                    box.ContentMarginBottom = 2;
+                    return box;
+                }
+                segment.AddThemeStyleboxOverride("normal", Transparent());
+                segment.AddThemeStyleboxOverride("hover", Transparent());
+                segment.AddThemeStyleboxOverride("pressed", Transparent());
 
                 var muted = Rgb(DockTheme.SegmentUnselectedText);
                 segment.AddThemeColorOverride("font_color", muted);

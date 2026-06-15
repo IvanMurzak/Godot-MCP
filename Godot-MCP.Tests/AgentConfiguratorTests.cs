@@ -368,9 +368,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- Per-agent help metadata (parity with Unity) ---
 
         [Fact]
-        public void PathHavingAgents_ReportNonNullConfigPath_CustomReportsNull()
+        public void PathHavingAgents_ReportNonNullConfigPath_SnippetOnlyAgentsReportNull()
         {
-            // Exactly one agent (Custom) is snippet-only; the rest have a config path.
+            // A small, known set of agents is snippet-only (no on-disk config the addon's shared JSON writer can
+            // safely produce): Custom (arbitrary client), Codex (TOML config), Open Code (type:"remote" entry shape),
+            // and Antigravity (keys the URL under "serverUrl"). Every other agent has a real config path so the
+            // one-click Configure works.
             var snippetOnly = 0;
             var pathHaving = 0;
             foreach (var agent in GodotAgentConfiguratorRegistry.All)
@@ -381,8 +384,43 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 else
                     pathHaving++;
             }
-            Assert.Equal(1, snippetOnly);          // only Custom
+            Assert.Equal(4, snippetOnly);          // Custom, Codex, Open Code, Antigravity
             Assert.True(pathHaving >= 4);          // Claude Code/Desktop, Cursor, VS Code at minimum
+
+            // The exact snippet-only set, by id.
+            var snippetOnlyIds = GodotAgentConfiguratorRegistry.All
+                .Where(a => string.IsNullOrEmpty(a.ConfigFilePath(AgentOs.Linux, "/home/u", "/appdata", "/proj")))
+                .Select(a => a.AgentId)
+                .ToList();
+            Assert.Equal(
+                new[] { "antigravity", "codex", "open-code", "other-custom" }.OrderBy(x => x),
+                snippetOnlyIds.OrderBy(x => x));
+        }
+
+        [Fact]
+        public void Registry_ContainsFullPortedAgentSet_InUnityOrder()
+        {
+            // The full set ported from Unity-MCP (minus the Unity-engine-specific UnityAi), in Unity's registry
+            // order, with Custom last.
+            var expectedIds = new[]
+            {
+                "claude-code",
+                "claude-desktop",
+                "vscode",
+                "vs-copilot",
+                "rider-junie",
+                "cursor",
+                "github-copilot-cli",
+                "gemini",
+                "antigravity",
+                "cline",
+                "open-code",
+                "codex",
+                "kilo-code",
+                "zoo-code",
+                "other-custom",
+            };
+            Assert.Equal(expectedIds, GodotAgentConfiguratorRegistry.All.Select(c => c.AgentId).ToArray());
         }
 
         [Fact]

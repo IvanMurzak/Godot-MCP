@@ -75,9 +75,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             headerRow.Alignment = BoxContainer.AlignmentMode.Center;
             AddChild(headerRow);
 
-            var header = new Label { Name = "SkillsHeader", Text = "Skills" };
-            DockStyle.ApplySubLabel(header);
-            headerRow.AddChild(header);
+            // "Skills" header with the underline (Unity's `labelSkillsHeader class="timeline-label"`), matching the
+            // MCP header — a 13px label with a bottom-border underline hugging the text.
+            headerRow.AddChild(DockStyle.UnderlinedSubLabel("SkillsHeader", "Skills"));
 
             _pathLabel = new Label
             {
@@ -144,15 +144,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _pathLabel.TooltipText = plan.SkillsDir!;
             }
 
-            // --- Auto-generate row: label on the LEFT + a CheckBox on the RIGHT bound to GenerateSkillFiles. ---
-            var toggleRow = new HBoxContainer { Name = "AutoGenerateRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            toggleRow.Alignment = BoxContainer.AlignmentMode.Center;
-            _body.AddChild(toggleRow);
+            // --- Auto-generate toggle + Generate on ONE row (Unity's skills row, space-between): a left group of
+            //     the "Auto-generate" label + checkbox, then the compact "Generate" button on the right. ---
+            var controlRow = new HBoxContainer { Name = "SkillsControlRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            controlRow.Alignment = BoxContainer.AlignmentMode.Center;
+            _body.AddChild(controlRow);
 
-            var toggleLabel = new Label { Name = "AutoGenerateLabel", Text = "Auto-generate", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var toggleLabel = new Label { Name = "AutoGenerateLabel", Text = "Auto-generate" };
             DockStyle.ApplyDescription(toggleLabel);
             toggleLabel.AutowrapMode = TextServer.AutowrapMode.Off;
-            toggleRow.AddChild(toggleLabel);
+            controlRow.AddChild(toggleLabel);
 
             _autoGenerateToggle = new CheckBox
             {
@@ -160,20 +161,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ButtonPressed = _connection.Config.GenerateSkillFiles
             };
             _autoGenerateToggle.Toggled += OnAutoGenerateToggled;
-            toggleRow.AddChild(_autoGenerateToggle);
+            controlRow.AddChild(_autoGenerateToggle);
 
-            // --- Generate button row (right-aligned primary action). ---
-            var actionRow = new HBoxContainer { Name = "SkillsActionRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            actionRow.Alignment = BoxContainer.AlignmentMode.End;
-            _body.AddChild(actionRow);
+            controlRow.AddChild(new Control { Name = "SkillsSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
             var generateButton = new Button { Name = "Generate", Text = "Generate" };
-            DockStyle.ApplyPrimaryButton(generateButton);
+            DockStyle.ApplySecondaryButton(generateButton); // compact gray (Unity's .btn-compact), not the big primary
             generateButton.Pressed += OnGeneratePressed;
-            actionRow.AddChild(generateButton);
+            controlRow.AddChild(generateButton);
 
-            // --- Last-result status line (muted; turns amber on failure). ---
-            _statusLabel = new Label { Name = "SkillsStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            // --- Last-result status line (muted; turns amber on failure). HIDDEN until there's a result, so the
+            //     empty line doesn't add a large gap between the Skills row and the MCP config line below. ---
+            _statusLabel = new Label { Name = "SkillsStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false };
             DockStyle.ApplyDescription(_statusLabel);
             _body.AddChild(_statusLabel);
         }
@@ -275,6 +274,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_statusLabel == null)
                 return;
 
+            _statusLabel.Visible = true; // reveal the line now that there's a result to show
             _statusLabel.Text = text;
             _statusLabel.AddThemeColorOverride(
                 "font_color",

@@ -41,13 +41,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Card outer margin (px), applied on all four sides between stacked cards.</summary>
         public const int CardMargin = 8;
 
+        /// <summary>
+        /// The dock window background — a flat neutral dark gray (Unity's editor window gray, ~<c>rgb(56,56,56)</c>),
+        /// painted behind all sections so the panel reads as Unity's darker, grayer window rather than Godot's
+        /// default bluish editor-dock tint.
+        /// </summary>
+        public static readonly (float R, float G, float B) WindowBackground = (56f / 255f, 56f / 255f, 56f / 255f);
+
         // --- Typography (Unity _typography.uss) ----------------------------------------------------------------
 
-        /// <summary>Header / window-title font size (px) — bold.</summary>
-        public const int FontSizeHeader = 20;
+        /// <summary>Header / window-title font size (px) — bold. Bumped above Unity's literal 20px because Godot's
+        /// editor renders a smaller glyph at the same px, so section titles (Connection / AI agent / Tools / Prompts /
+        /// Resources / Extensions / …) looked undersized.</summary>
+        public const int FontSizeHeader = 24;
 
-        /// <summary>Section-title font size (px) — bold.</summary>
-        public const int FontSizeSectionTitle = 16;
+        /// <summary>Section-title font size (px) — bold (e.g. "MCP Features", the agent name, extension names).</summary>
+        public const int FontSizeSectionTitle = 18;
 
         /// <summary>Timeline / sub-label font size (px) — bold.</summary>
         public const int FontSizeSubLabel = 13;
@@ -61,8 +70,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public static readonly (float R, float G, float B) ColorTokenSubLabel = (150f / 255f, 150f / 255f, 150f / 255f);
 
-        /// <summary>The MCP-features token sub-label font size (px) — Unity's 11px "~N tokens total".</summary>
-        public const int FontSizeTokenSubLabel = 11;
+        /// <summary>The MCP-features token sub-label font size (px) — the "~N tokens total" line. Bumped above
+        /// Unity's literal 11px because Godot's editor renders a larger base font, so 11px looked tiny here.</summary>
+        public const int FontSizeTokenSubLabel = 13;
+
+        /// <summary>Compact-button font size (px) — Unity's <c>.btn-compact</c> (Configure / Reconfigure / Remove /
+        /// Generate). Small so the buttons stay ~20px tall.</summary>
+        public const int FontSizeCompactButton = 12;
+
+        /// <summary>Underlined section labels (Skills / Model Context Protocol / the connection timeline points
+        /// "Godot" / "MCP server" / "AI agent"). Bold; larger than Unity's literal 13px to read well in Godot.</summary>
+        public const int FontSizeUnderlinedLabel = 16;
+
+        /// <summary>The right-aligned config/skills PATH font size (px) — smaller than its header so the path is quiet.</summary>
+        public const int FontSizeConfigPath = 14;
+
+        /// <summary>Inline link font size (px) — the "Download" / "Tutorial" agent links. Smaller than the body.</summary>
+        public const int FontSizeLink = 15;
 
         // --- Status dot (Unity _status-indicators.uss) ---------------------------------------------------------
 
@@ -194,8 +218,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Warning message colour — <c>Color8(210,180,130)</c>, 12px.</summary>
         public static readonly (float R, float G, float B) WarningMessage = (210f / 255f, 180f / 255f, 130f / 255f);
 
-        /// <summary>Warning message font size (px).</summary>
-        public const int FontSizeWarningMessage = 12;
+        /// <summary>Warning/alert message font size (px). Bumped above Unity's literal 12px — Godot renders smaller,
+        /// so the amber "Reconfiguration Required" / warning-banner text looked too small.</summary>
+        public const int FontSizeWarningMessage = 14;
 
         /// <summary>Inline warning text colour — <c>#ffbf6b</c>.</summary>
         public static readonly (float R, float G, float B) WarningText = (0xff / 255f, 0xbf / 255f, 0x6b / 255f);

@@ -48,6 +48,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
     {
         readonly GodotMcpConnection _connection;
 
+        /// <summary>
+        /// Raised after the user changes any connection setting that affects the RESOLVED MCP-client URL or token
+        /// (server URL, Custom/Cloud mode, auth option, generated/cloud token). The dock subscribes so the AI-agent
+        /// section re-evaluates its config state and shows the "Reconfiguration Required" alert + the Reconfigure
+        /// button when the written agent config no longer matches the new URL — mirroring Unity, where each
+        /// configurator re-checks IsReconfigureNeeded() whenever the connection settings change.
+        /// </summary>
+        public event System.Action? ConfigChanged;
+
         // Header: Custom|Cloud mode segmented control.
         Control _modeSegmented = null!;
         static readonly IReadOnlyList<string> ModeOptions = new[] { ModeLabelCustom, ModeLabelCloud };
@@ -246,27 +255,37 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connectButton.Pressed += OnConnectButtonPressed;
 
             var godotContent = new HBoxContainer { Name = "GodotContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            godotContent.AddChild(DockStyle.TimelineLabel("GodotLabel", "Godot"));
+            godotContent.AddThemeConstantOverride("separation", 8);
+            // Underlined section label (bottom-border, bigger + vertically aligned) — not the old VBox+rule that
+            // pushed the text up. The status text beside it no longer repeats "Godot" (see ConnectionPanelView).
+            godotContent.AddChild(DockStyle.UnderlinedSubLabel("GodotLabel", "Godot"));
             godotContent.AddChild(_statusLabel);
             godotContent.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
             godotContent.AddChild(_connectButton);
-            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false));
+            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: 4));
 
             // Point 2 — MCP server: a frame-group card with the server URL / cloud auth + authorization rows.
             _timelineServerCircle = DockStyle.TimelineCircle("ServerCircle", ConnectionPanelView.TimelinePointState.Disconnected);
             var serverContent = new VBoxContainer { Name = "ServerContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             serverContent.AddThemeConstantOverride("separation", 4);
-            serverContent.AddChild(DockStyle.TimelineLabel("ServerLabel", "MCP server"));
+            // The "MCP server" label now lives INSIDE the card (see BuildServerCard) so it's framed by the rounded
+            // rectangle, like Unity's frame-mcp-server. The server circle is offset down to line up with it.
             BuildServerCard(serverContent);
-            timeline.AddChild(MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false));
+            timeline.AddChild(MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false,
+                circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + 3));
 
             // Point 3 — AI agent: circle + label, LAST point (no connecting line below).
             _timelineAgentCircle = DockStyle.TimelineCircle("AgentCircle", ConnectionPanelView.TimelinePointState.Disconnected);
-            _agentLabel = new Label { Name = "AgentLabel", Text = ConnectionPanelView.AgentLabel(null, null) };
-            DockStyle.ApplySubLabel(_agentLabel);
+            // "AI agent" underlined label (consistent with the Godot / MCP server points) + a muted suffix.
             var agentContent = new HBoxContainer { Name = "AgentContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            agentContent.AddThemeConstantOverride("separation", 6);
+            agentContent.Alignment = BoxContainer.AlignmentMode.Begin;
+            agentContent.AddChild(DockStyle.UnderlinedSubLabel("AgentLabel", "AI agent"));
+            _agentLabel = new Label { Name = "AgentSuffix", Text = "(connects on demand)", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            DockStyle.ApplyDescription(_agentLabel);
+            _agentLabel.AutowrapMode = TextServer.AutowrapMode.Off; // single line — never wrap to one char per line in the narrow row
             agentContent.AddChild(_agentLabel);
-            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true));
+            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: 4));
         }
 
         /// <summary>
@@ -279,12 +298,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var card = new VBoxContainer { Name = "ServerCardContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             card.AddThemeConstantOverride("separation", 4);
 
+            // The "MCP server" underlined title — INSIDE the framed card (Unity's frame-mcp-server includes it).
+            card.AddChild(DockStyle.UnderlinedSubLabel("ServerLabel", "MCP server"));
+
             // --- Custom-mode server-URL row (shown only in Custom mode) ---
             _customHostRow = new VBoxContainer { Name = "CustomHostRow" };
             _customHostRow.AddThemeConstantOverride("separation", 4);
             card.AddChild(_customHostRow);
 
-            _customHostRow.AddChild(new Label { Name = "HostLabel", Text = "Server URL" });
+            // Server URL on ONE inline row — Unity's "Server URL <input>" (label left, input filling the rest),
+            // not a stacked label-over-field.
+            var hostLine = new HBoxContainer { Name = "HostLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            hostLine.AddThemeConstantOverride("separation", 8);
+            hostLine.Alignment = BoxContainer.AlignmentMode.Center;
+            _customHostRow.AddChild(hostLine);
+
+            hostLine.AddChild(new Label { Name = "HostLabel", Text = "Server URL" });
 
             _hostField = new LineEdit
             {
@@ -296,7 +325,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Commit on Enter and on focus-out (mirrors the Unity reference's FocusOut commit).
             _hostField.TextSubmitted += OnHostSubmitted;
             _hostField.FocusExited += OnHostFocusExited;
-            _customHostRow.AddChild(_hostField);
+            hostLine.AddChild(_hostField);
 
             // --- Authorization (Custom mode only): none | required (segmented) ---
             var authLine = new HBoxContainer { Name = "AuthLine" };
@@ -402,6 +431,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _overrideNote.AddThemeColorOverride("font_color", new Color(0.92f, 0.74f, 0.20f));
             card.AddChild(_overrideNote);
 
+            // The MCP-server config IS wrapped in the blue frame-group card — this is one of the only two frames
+            // the dock keeps (Unity's `frame-mcp-server`). The Server URL row inside is now inline (label + input).
             parent.AddChild(DockStyle.Card(card, "Server"));
         }
 
@@ -410,7 +441,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// connecting line that ExpandFills to span the gap to the next point — hidden on the LAST point) next
         /// to the point's <paramref name="content"/>. Mirrors Unity-MCP's timeline row.
         /// </summary>
-        static HBoxContainer MakeTimelinePoint(Panel circle, Control content, bool isLast)
+        static HBoxContainer MakeTimelinePoint(Panel circle, Control content, bool isLast, int circleTopOffset = 4)
         {
             var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             row.AddThemeConstantOverride("separation", 8);
@@ -421,8 +452,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Name = "Indicator",
                 CustomMinimumSize = new Vector2(DockTheme.TimelineIndicatorWidth, 0)
             };
-            indicator.AddThemeConstantOverride("separation", 2);
-            indicator.AddChild(circle);
+            indicator.AddThemeConstantOverride("separation", 0);
+
+            // Push the circle down by circleTopOffset so its center lines up with the point's TITLE text (the title
+            // sits at the content top for Godot/AI-agent, or inside the card's margin+padding for MCP server).
+            var circleWrap = new MarginContainer { Name = "CircleWrap" };
+            circleWrap.AddThemeConstantOverride("margin_top", circleTopOffset);
+            circleWrap.AddChild(circle);
+            indicator.AddChild(circleWrap);
 
             var line = DockStyle.TimelineLine();
             line.Visible = !isLast;
@@ -612,6 +649,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             if (_connection.Config.ActiveMode != liveModeBefore)
                 _connection.Reconnect();
+
+            ConfigChanged?.Invoke(); // mode change can swap the resolved URL → agent section re-checks config
         }
 
         /// <summary>
@@ -647,6 +686,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Only a live Custom connection is affected by the auth/token routing.
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)
                 _connection.Reconnect();
+
+            ConfigChanged?.Invoke(); // auth option / token changed → agent section re-checks config
         }
 
         /// <summary>
@@ -665,6 +706,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)
                 _connection.Reconnect();
+
+            ConfigChanged?.Invoke(); // new token → agent section re-checks config
         }
 
         void OnHostSubmitted(string text) => CommitHost(text);
@@ -697,6 +740,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Only a Custom-mode host change warrants a reconnect; in Cloud mode the field is hidden.
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)
                 _connection.Reconnect();
+
+            // The resolved MCP URL changed → the AI-agent section must re-check its config (show Reconfigure).
+            ConfigChanged?.Invoke();
         }
 
         /// <summary>
@@ -865,6 +911,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Reconnect so the new bearer is used — only meaningful when the live mode is Cloud.
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
                 _connection.Reconnect();
+
+            ConfigChanged?.Invoke(); // cloud token changed → agent section re-checks config
         }
 
         /// <summary>

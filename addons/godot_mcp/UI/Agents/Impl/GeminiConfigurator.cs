@@ -13,33 +13,34 @@ using System.Collections.Generic;
 namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
 {
     /// <summary>
-    /// Configurator for Cursor. Project-local config at <c>&lt;projectRoot&gt;/.cursor/mcp.json</c>, servers under
-    /// <c>mcpServers</c>. Pure-managed — CI-unit-tested via the registry.
+    /// Configurator for Gemini. Project-local config at <c>&lt;projectRoot&gt;/.gemini/settings.json</c>, servers
+    /// under <c>mcpServers</c>. Pure-managed — CI-unit-tested via the registry.
     /// </summary>
-    public sealed class CursorConfigurator : GodotAgentConfigurator
+    public sealed class GeminiConfigurator : GodotAgentConfigurator
     {
-        public override string AgentName => "Cursor";
-        public override string AgentId => "cursor";
-        public override string? IconFileName => "cursor-64.png";
-        public override string DownloadUrl => "https://cursor.com/download";
-        public override string? TutorialUrl => "https://www.youtube.com/watch?v=dyk-4gTolSU";
+        public override string AgentName => "Gemini";
+        public override string AgentId => "gemini";
+        public override string? IconFileName => "gemini-64.png";
+        public override string DownloadUrl => "https://geminicli.com/docs/get-started/installation/";
 
         public override string? Description =>
-            "Cursor reads MCP servers from a project-local '.cursor/mcp.json'.";
+            "Gemini CLI reads MCP servers from a project-local '.gemini/settings.json'.";
 
         public override IReadOnlyList<string> ManualSteps => new[]
         {
-            "Click 'Configure' above to write the AI Game Developer server into '.cursor/mcp.json' (or copy the snippet manually).",
-            "Open Cursor in this project; it picks up the server automatically.",
+            "Click 'Configure' above to write the AI Game Developer server into '.gemini/settings.json' (or use the CLI command below).",
+            "Alternatively, run this command in the folder of the Godot project to configure Gemini: gemini mcp add --transport http ai-game-developer <mcp-url>",
+            "Start Gemini with the debug flag: gemini --debug",
         };
 
         public override IReadOnlyList<string> Troubleshooting => new[]
         {
-            "- The '.cursor/mcp.json' file must have no JSON syntax errors.",
-            "- Open Cursor settings → 'MCP Servers' to restart ai-game-developer or inspect the available MCP tools and server status.",
+            "- Ensure the Gemini CLI is installed and accessible from the terminal.",
+            "- Ensure the MCP configuration file has no JSON syntax errors.",
+            "- Restart Gemini after configuration changes.",
         };
 
         public override string? ConfigFilePath(AgentOs os, string home, string appData, string projectRoot) =>
-            AgentConfigPaths.Cursor(projectRoot);
+            AgentConfigPaths.Gemini(projectRoot);
     }
 }

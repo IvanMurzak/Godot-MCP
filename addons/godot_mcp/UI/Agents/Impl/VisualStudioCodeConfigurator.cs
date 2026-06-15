@@ -19,9 +19,13 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
     /// </summary>
     public sealed class VisualStudioCodeConfigurator : GodotAgentConfigurator
     {
-        public override string AgentName => "Visual Studio Code";
+        public override string AgentName => "Visual Studio Code (Copilot)";
+        // Keep the ORIGINAL "vscode" id (not Unity's "vscode-copilot") so a user's persisted SelectedAgentId
+        // isn't silently reset to the default on upgrade — the id is an internal stable key, not a display value.
         public override string AgentId => "vscode";
-        public override string DownloadUrl => "https://code.visualstudio.com/";
+        public override string? IconFileName => "vs-code-64.png";
+        public override string DownloadUrl => "https://code.visualstudio.com/download";
+        public override string? TutorialUrl => "https://www.youtube.com/watch?v=ZhP7Ju91mOE";
 
         /// <summary>VS Code's MCP config nests servers under <c>servers</c>, not the usual <c>mcpServers</c>.</summary>
         public override string BodyPath => "servers";

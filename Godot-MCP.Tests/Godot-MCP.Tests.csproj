@@ -207,6 +207,16 @@
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ClaudeDesktopConfigurator.cs" Link="Source\ClaudeDesktopConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CursorConfigurator.cs" Link="Source\CursorConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\VisualStudioCodeConfigurator.cs" Link="Source\VisualStudioCodeConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\VisualStudioConfigurator.cs" Link="Source\VisualStudioConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\RiderConfigurator.cs" Link="Source\RiderConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\GitHubCopilotCliConfigurator.cs" Link="Source\GitHubCopilotCliConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\GeminiConfigurator.cs" Link="Source\GeminiConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\AntigravityConfigurator.cs" Link="Source\AntigravityConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ClineConfigurator.cs" Link="Source\ClineConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\OpenCodeConfigurator.cs" Link="Source\OpenCodeConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CodexConfigurator.cs" Link="Source\CodexConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\KiloCodeConfigurator.cs" Link="Source\KiloCodeConfigurator.cs" />
+    <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\ZooCodeConfigurator.cs" Link="Source\ZooCodeConfigurator.cs" />
     <Compile Include="..\addons\godot_mcp\UI\Agents\Impl\CustomConfigurator.cs" Link="Source\CustomConfigurator.cs" />
     <!-- Extensions install infrastructure — pure-managed (no Godot native types, no #if TOOLS): the descriptor
          record + empty registry, the install planner (PackageReference add / version-bump as a pure XML transform,

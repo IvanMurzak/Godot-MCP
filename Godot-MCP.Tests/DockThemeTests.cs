@@ -60,8 +60,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Typography_FontSizes_MatchBrief()
         {
-            Assert.Equal(20, DockTheme.FontSizeHeader);
-            Assert.Equal(16, DockTheme.FontSizeSectionTitle);
+            // Bumped above Unity's literal px values: Godot's editor renders a smaller glyph at the same px, so
+            // the headers/section-titles looked undersized in the dock. See the DockTheme docs for each.
+            Assert.Equal(24, DockTheme.FontSizeHeader);
+            Assert.Equal(18, DockTheme.FontSizeSectionTitle);
             Assert.Equal(13, DockTheme.FontSizeSubLabel);
         }
 
@@ -84,9 +86,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void TokenSubLabel_Palette_MatchesBriefReferenceValues()
         {
-            // "~N tokens total" sub-label: gray rgb(150,150,150), 11px.
+            // "~N tokens total" sub-label: gray rgb(150,150,150). Font bumped 11→13 (Godot renders smaller).
             AssertRgb8(DockTheme.ColorTokenSubLabel, 150, 150, 150);
-            Assert.Equal(11, DockTheme.FontSizeTokenSubLabel);
+            Assert.Equal(13, DockTheme.FontSizeTokenSubLabel);
         }
 
         [Fact]

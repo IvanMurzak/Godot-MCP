@@ -21,7 +21,8 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
     {
         public override string AgentName => "Claude Desktop";
         public override string AgentId => "claude-desktop";
-        public override string DownloadUrl => "https://claude.ai/download";
+        public override string? IconFileName => "claude-64.png";
+        public override string DownloadUrl => "https://code.claude.com/docs/en/desktop";
 
         public override string? WarningText =>
             "IMPORTANT: Highly recommended to use Claude Code instead — it shares the same subscription plan and is far more reliable with Godot.";
