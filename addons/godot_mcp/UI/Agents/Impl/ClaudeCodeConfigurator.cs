@@ -20,16 +20,17 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents.Impl
     {
         public override string AgentName => "Claude Code";
         public override string AgentId => "claude-code";
+        public override string? IconFileName => "claude-64.png";
         public override string DownloadUrl => "https://docs.anthropic.com/en/docs/claude-code/overview";
         public override string? TutorialUrl => "https://youtu.be/Sknh2p12W8c";
 
-        public override string? Description =>
-            "The recommended way to use AI Game Developer with Godot — Claude Code is a CLI agent you launch from the project root.";
+        // No Description — Unity-MCP's Claude Code configurator shows no description line under the header.
 
         public override IReadOnlyList<string> ManualSteps => new[]
         {
-            "Click 'Configure' above to write the AI Game Developer server into '.mcp.json' at the project root (or copy the snippet manually).",
-            "Open a terminal in the project root and run: claude",
+            "Click 'Configure' above to write the AI Game Developer server into '.mcp.json' at the project root (or use the CLI command below).",
+            "Alternatively, run this command in the folder of the Godot project to configure Claude Code: claude mcp add --transport http ai-game-developer <mcp-url> --header \"Authorization: Bearer <token>\"",
+            "Open a terminal in the project root and launch Claude Code: claude",
             "Restart Claude Code to apply the configuration.",
         };
 

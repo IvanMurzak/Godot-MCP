@@ -53,7 +53,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
         ConnectionPanel? _connectionPanel;
         FeaturesPanel? _featuresPanel;
         AgentConfiguratorsPanel? _agentConfiguratorsPanel;
-        SkillsPanel? _skillsPanel;
         ExtensionsPanel? _extensionsPanel;
         SupportFooter? _supportFooter;
 
@@ -98,6 +97,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // overflow. Without this the VBoxContainer's combined child min-height would floor the panel tall.
             CustomMinimumSize = Vector2.Zero;
 
+            // --- Background ---
+            // A flat neutral dark-gray panel filling the whole dock, so the window reads as Unity's darker, grayer
+            // background instead of Godot's default bluish editor-dock tint. Everything (scroll + content) nests in it.
+            var background = new PanelContainer
+            {
+                Name = "DockBackground",
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill
+            };
+            var bgStyle = new StyleBoxFlat { BgColor = DockStyle.Rgb(DockTheme.WindowBackground) };
+            background.AddThemeStyleboxOverride("panel", bgStyle);
+            AddChild(background);
+
             // --- Scroll viewport ---
             // Wrap the whole dock body so a short panel scrolls vertically instead of forcing the dock tall.
             // Vertical scroll auto-shows; horizontal scroll is disabled so the inner content fits the width.
@@ -108,19 +120,30 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 SizeFlagsVertical = SizeFlags.ExpandFill
             };
-            AddChild(scroll);
+            background.AddChild(scroll);
 
             // The single child of the ScrollContainer — holds header card + Body. ExpandFill horizontally so
             // it spans the scroll viewport width (the ScrollContainer sizes it to the viewport when horizontal
             // scroll is disabled); its natural (tall) height is what scrolls.
+            // A horizontal gutter so sections don't sit flush against the dock edges — the per-section cards that
+            // used to supply this margin are gone (Unity separates sections with dividers, not frames; only the
+            // MCP-server + AI-agent bodies keep a frame).
+            var contentMargin = new MarginContainer { Name = "ContentMargin", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            contentMargin.AddThemeConstantOverride("margin_left", 8);
+            contentMargin.AddThemeConstantOverride("margin_right", 8);
+            contentMargin.AddThemeConstantOverride("margin_top", 8);
+            contentMargin.AddThemeConstantOverride("margin_bottom", 8);
+            scroll.AddChild(contentMargin);
+
             var content = new VBoxContainer
             {
                 Name = "ScrollContent",
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
-            scroll.AddChild(content);
+            content.AddThemeConstantOverride("separation", 8);
+            contentMargin.AddChild(content);
 
-            // --- Header card: a ROW with a LEFT base-config column (title + Log Level + Version) and a
+            // --- Header: a ROW with a LEFT base-config column (title + Log Level + Version) and a
             // RIGHT-aligned AI-cube logo, mirroring Unity-MCP's MainWindow header (config block + imgLogo).
             var header = new HBoxContainer { Name = "Header", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             header.AddThemeConstantOverride("separation", 8);
@@ -157,65 +180,58 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (logo != null)
                 header.AddChild(logo);
 
-            content.AddChild(DockStyle.Card(header, "Header"));
+            content.AddChild(header);
+            content.AddChild(DockStyle.Divider());
 
             // --- Body ---
-            // Hosts the connection section now; later tasks (features list, footer, cloud auth) add their
-            // sections as further children of Body. Each major section is wrapped in a styled card so the dock
-            // mimics Unity-MCP's MainWindow (dark-blue rounded frame-groups).
+            // Sections are NOT each wrapped in a frame anymore — Unity separates them with horizontal dividers and
+            // keeps a frame only around the MCP-server config (inside ConnectionPanel) and the AI-agent body (inside
+            // AgentConfiguratorsPanel). Order mirrors Unity's MainWindow: Connection → AI agent → MCP features →
+            // Extensions → Footer, each followed by a divider.
             Body = new VBoxContainer
             {
                 Name = "Body",
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
+            Body.AddThemeConstantOverride("separation", 8);
             content.AddChild(Body);
 
-            // Connection section — only when a live connection was threaded in.
+            // Connection + AI-agent + MCP-features sections — only when a live connection was threaded in.
             if (_connection != null)
             {
                 _connectionPanel = new ConnectionPanel(_connection);
-                Body.AddChild(DockStyle.Card(_connectionPanel, "Connection"));
+                Body.AddChild(_connectionPanel);
+                Body.AddChild(DockStyle.Divider());
 
-                // MCP-features section — tools/prompts/resources counts + per-item enable/disable windows.
-                // Inserted BETWEEN the connection panel and the support footer, wired to the live connection
-                // (it reads the plugin's managers and subscribes to their update streams). Only meaningful with
-                // a live connection, so it shares the connection-null guard with the connection panel.
-                _featuresPanel = new FeaturesPanel(_connection);
-                Body.AddChild(DockStyle.Card(_featuresPanel, "Features"));
-
-                // AI-agent section — the dropdown of AI-agent configurators + the selected agent's Configure /
-                // Remove (or, for Custom, the HTTP-config snippet). Inserted BETWEEN the features panel and the
-                // support footer, wired to the live connection (it reads the resolved MCP-client URL + token off
-                // the config and persists the selected agent via Save). Only meaningful with a live connection,
-                // so it shares the connection-null guard with the connection + features panels.
+                // AI-agent section — the "AI agent" dropdown (UNframed) + the selected agent's framed body (Skills
+                // now lives INSIDE that body, above the MCP config line — Unity's containerSkills order). Wired to the
+                // live connection (resolved MCP-client URL + token; persists the selected agent via Save).
                 _agentConfiguratorsPanel = new AgentConfiguratorsPanel(_connection);
-                Body.AddChild(DockStyle.Card(_agentConfiguratorsPanel, "AiAgent"));
+                Body.AddChild(_agentConfiguratorsPanel);
+                Body.AddChild(DockStyle.Divider());
 
-                // Skills section — auto-generated SKILL.md output for the selected skills-capable agent: the resolved
-                // skills path, an Auto-generate toggle (persisted via GenerateSkillFiles), and an on-demand Generate
-                // button. Inserted BETWEEN the AI-agent card and the support footer, wired to the live connection (it
-                // reads the persisted selected agent + drives the live plugin's GenerateSkillFiles). Only meaningful
-                // with a live connection, so it shares the connection-null guard with the panels above.
-                _skillsPanel = new SkillsPanel(_connection);
-                Body.AddChild(DockStyle.Card(_skillsPanel, "Skills"));
+                // When the user changes the server URL / mode / auth / token, re-render the AI-agent section so the
+                // selected agent re-checks its on-disk config and surfaces "Reconfiguration Required" + the Reconfigure
+                // button (mirrors Unity, where each configurator re-evaluates on a settings change).
+                _connectionPanel.ConfigChanged += () => _agentConfiguratorsPanel?.Refresh();
 
-                // The Skills card's supported-state + output path follow the selected AI agent, so re-render it when
-                // the AI-agent dropdown selection changes (the panel persists the new SelectedAgentId first).
-                _agentConfiguratorsPanel.AgentSelectionChanged += () => _skillsPanel?.Refresh();
+                // MCP-features section — tools/prompts/resources counts + per-item enable/disable windows. Placed
+                // AFTER the AI-agent section (Unity order), wired to the live connection's managers.
+                _featuresPanel = new FeaturesPanel(_connection);
+                Body.AddChild(_featuresPanel);
+                Body.AddChild(DockStyle.Divider());
             }
 
-            // Extensions section — install/update more AI tool families into the consumer's Godot project via NuGet
-            // PackageReference (read-modify-write the consumer .csproj). Inserted BETWEEN the Skills card and the
-            // support footer. It reads its state SYNCHRONOUSLY from the consumer .csproj (no live connection /
-            // subscriptions), so — like the footer — it builds UNCONDITIONALLY (independent of the connection); the
-            // registry ships empty today, so it renders an honest "coming soon" placeholder.
+            // Extensions section — install/update more AI tool families via NuGet PackageReference. Reads its state
+            // SYNCHRONOUSLY from the consumer .csproj (no live connection), so it builds UNCONDITIONALLY; the registry
+            // ships empty today, so it renders an honest "coming soon" placeholder.
             _extensionsPanel = new ExtensionsPanel();
-            Body.AddChild(DockStyle.Card(_extensionsPanel, "Extensions"));
+            Body.AddChild(_extensionsPanel);
+            Body.AddChild(DockStyle.Divider());
 
-            // Support/footer section — static links + thanks, appended BELOW the connection panel. It holds
-            // no live state / subscriptions, so it builds unconditionally (independent of the connection).
+            // Support/footer section — static links + thanks. Holds no live state, so it builds unconditionally.
             _supportFooter = new SupportFooter();
-            Body.AddChild(DockStyle.Card(_supportFooter, "Footer"));
+            Body.AddChild(_supportFooter);
         }
 
         /// <summary>
@@ -300,7 +316,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connectionPanel?.Refresh();
             _featuresPanel?.Refresh();
             _agentConfiguratorsPanel?.Refresh();
-            _skillsPanel?.Refresh();
             _extensionsPanel?.Refresh();
             SyncLogLevelSelector();
         }

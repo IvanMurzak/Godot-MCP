@@ -35,6 +35,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
     [Tool]
     public partial class SupportFooter : VBoxContainer
     {
+        // Footer text size — the "Found an issue?" prompt, the thanks paragraph, and the sign-off.
+        const int FooterFontSize = 16;
+
         public SupportFooter()
         {
             Name = "SupportFooter";
@@ -52,6 +55,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Name = "Prompt",
                 Text = SupportFooterLinks.PromptText
             };
+            prompt.AddThemeFontSizeOverride("font_size", FooterFontSize);
             AddChild(prompt);
 
             // --- Support buttons: secondary icon buttons (Discord "Help / Talk", GitHub "Bug Report").
@@ -70,24 +74,43 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // --- Divider between the support buttons and the thanks block (Unity's .divider). ---
             AddChild(DockStyle.Divider("SupportDivider"));
 
-            // --- Thanks line (RichTextLabel so the product name can be emphasised, like Unity's red "AI"). ---
+            // --- Thanks PARAGRAPH (RichTextLabel so the product name can be emphasised, like Unity's red "AI").
+            //     Smaller font so the footer is compact like Unity (Godot's default label font is larger). ---
             var thanks = new RichTextLabel
             {
                 Name = "Thanks",
                 BbcodeEnabled = true,
                 FitContent = true,
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                Text = SupportFooterLinks.ThanksBbcode
+                Text = SupportFooterLinks.ThanksParagraphBbcode
             };
+            thanks.AddThemeFontSizeOverride("normal_font_size", FooterFontSize);
+            thanks.AddThemeFontSizeOverride("bold_font_size", FooterFontSize);
             AddChild(thanks);
 
-            // --- Gold "GitHub Star" button (Unity's .btn-golden.btn-with-icon), right-aligned. ---
-            var starRow = new HBoxContainer { Name = "StarRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            starRow.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-            starRow.AddChild(DockStyle.GoldenButton(
+            // --- Sign-off + Gold "GitHub Star" on ONE row: "Sincerely, Ivan Murzak" on the LEFT and the star
+            //     button on the RIGHT, vertically centered — mirrors Unity, where the star floats on the sign-off line.
+            var signRow = new HBoxContainer { Name = "SignRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            signRow.Alignment = BoxContainer.AlignmentMode.Center;
+
+            var sincerely = new Label
+            {
+                Name = "Sincerely",
+                Text = SupportFooterLinks.SincerelyText,
+                SizeFlagsVertical = SizeFlags.ShrinkCenter
+            };
+            sincerely.AddThemeFontSizeOverride("font_size", FooterFontSize);
+            signRow.AddChild(sincerely);
+
+            signRow.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+
+            var star = DockStyle.GoldenButton(
                 "GitHubStar", "GitHub Star", DockTheme.StarIconFileName,
-                () => OS.ShellOpen(SupportFooterLinks.RepositoryUrl)));
-            AddChild(starRow);
+                () => OS.ShellOpen(SupportFooterLinks.RepositoryUrl));
+            star.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            signRow.AddChild(star);
+
+            AddChild(signRow);
         }
     }
 }

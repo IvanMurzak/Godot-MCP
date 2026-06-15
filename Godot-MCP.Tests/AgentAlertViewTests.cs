@@ -52,13 +52,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(string.Empty, AgentAlertView.Title(AgentConfigState.UpToDate));
         }
 
-        [Theory]
-        [InlineData(AgentConfigState.Missing)]
-        [InlineData(AgentConfigState.Stale)]
-        public void Message_ShownStates_CarryTheMcpConfigurationBullet(AgentConfigState state)
+        [Fact]
+        public void Message_Missing_IsSetupRequiredCopy()
         {
-            Assert.Equal("• MCP Configuration", AgentAlertView.Message(state));
-            Assert.Equal(AgentAlertView.McpConfigurationBullet, AgentAlertView.Message(state));
+            Assert.Equal(AgentAlertView.SetupRequiredMessage, AgentAlertView.Message(AgentConfigState.Missing));
+            Assert.StartsWith("At least one of the following must be configured:", AgentAlertView.Message(AgentConfigState.Missing));
+            Assert.Contains("• MCP Configuration", AgentAlertView.Message(AgentConfigState.Missing));
+        }
+
+        [Fact]
+        public void Message_Stale_IsReconfigurationCopy()
+        {
+            Assert.Equal(AgentAlertView.ReconfigurationRequiredMessage, AgentAlertView.Message(AgentConfigState.Stale));
+            Assert.Contains("outdated", AgentAlertView.Message(AgentConfigState.Stale));
         }
 
         [Fact]
@@ -67,10 +73,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(string.Empty, AgentAlertView.Message(AgentConfigState.UpToDate));
         }
 
-        [Fact]
-        public void ButtonText_IsConfigure()
+        [Theory]
+        [InlineData(AgentConfigState.Missing, "Configure")]
+        [InlineData(AgentConfigState.Stale, "Reconfigure")]
+        [InlineData(AgentConfigState.UpToDate, "")]
+        public void ButtonText_PerState(AgentConfigState state, string expected)
         {
-            Assert.Equal("Configure", AgentAlertView.ButtonText);
+            Assert.Equal(expected, AgentAlertView.ButtonText(state));
         }
     }
 }

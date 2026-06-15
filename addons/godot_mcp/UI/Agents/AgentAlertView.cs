@@ -28,11 +28,20 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <summary>Alert title shown when the agent's MCP config exists on disk but is stale vs the current server URL.</summary>
         public const string ReconfigurationRequiredTitle = "Reconfiguration Required";
 
-        /// <summary>The single bullet shown under the title (mirrors Unity's "• MCP Configuration" line).</summary>
-        public const string McpConfigurationBullet = "• MCP Configuration";
+        /// <summary>
+        /// The "Setup Required" body — the lead sentence over a single "• MCP Configuration" bullet, ported verbatim
+        /// from Unity-MCP's <c>SetupAlertPanel</c> (its "At least one of the following must be configured:" message +
+        /// the "• MCP Configuration" item). One label here (newline-joined) since the Godot alert renders one message.
+        /// </summary>
+        public const string SetupRequiredMessage =
+            "At least one of the following must be configured:\n• MCP Configuration";
 
-        /// <summary>The alert action button label (writes / rewrites the addon's entry into the agent's config).</summary>
-        public const string ButtonText = "Configure";
+        /// <summary>
+        /// The "Reconfiguration Required" body — ported verbatim from Unity-MCP's reconfigure alert. Replaces the old
+        /// terse "• MCP Configuration" bullet so the amber frame reads like the Unity reference.
+        /// </summary>
+        public const string ReconfigurationRequiredMessage =
+            "Connection settings have changed. The existing MCP configuration is outdated and needs to be updated.";
 
         /// <summary>
         /// True when the alert panel should be shown for the given <paramref name="state"/>: shown for
@@ -56,10 +65,29 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         };
 
         /// <summary>
-        /// The alert message body for the given <paramref name="state"/> — the "• MCP Configuration" bullet for both
-        /// shown states. Returns an empty string for <see cref="AgentConfigState.UpToDate"/>.
+        /// The alert message body for the given <paramref name="state"/>: the descriptive Unity copy —
+        /// <see cref="SetupRequiredMessage"/> when <see cref="AgentConfigState.Missing"/>,
+        /// <see cref="ReconfigurationRequiredMessage"/> when <see cref="AgentConfigState.Stale"/>. Returns an empty
+        /// string for <see cref="AgentConfigState.UpToDate"/>.
         /// </summary>
-        public static string Message(AgentConfigState state) =>
-            ShowAlert(state) ? McpConfigurationBullet : string.Empty;
+        public static string Message(AgentConfigState state) => state switch
+        {
+            AgentConfigState.Missing => SetupRequiredMessage,
+            AgentConfigState.Stale => ReconfigurationRequiredMessage,
+            _ => string.Empty
+        };
+
+        /// <summary>
+        /// The alert action-button label for the given <paramref name="state"/>: "Configure" to write a missing
+        /// config (<see cref="AgentConfigState.Missing"/>), "Reconfigure" to refresh a stale one
+        /// (<see cref="AgentConfigState.Stale"/>) — mirrors Unity's "Configure" / "Reconfigure" alert buttons.
+        /// Empty for <see cref="AgentConfigState.UpToDate"/> (no alert shown).
+        /// </summary>
+        public static string ButtonText(AgentConfigState state) => state switch
+        {
+            AgentConfigState.Missing => "Configure",
+            AgentConfigState.Stale => "Reconfigure",
+            _ => string.Empty
+        };
     }
 }

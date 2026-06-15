@@ -84,12 +84,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _ => ConnectionStatus.Disconnected
         };
 
-        /// <summary>The "Godot: …" status line text for a given <see cref="ConnectionStatus"/>.</summary>
+        /// <summary>The connection status line text. NO "Godot:" prefix — the timeline point already shows the
+        /// "Godot" label, so prefixing here would print "Godot" twice on the line (Unity shows the bare status).</summary>
         public static string StatusLabel(ConnectionStatus status) => status switch
         {
-            ConnectionStatus.Connected => "Godot: Connected",
-            ConnectionStatus.Connecting => "Godot: Connecting…",
-            _ => "Godot: Disconnected"
+            ConnectionStatus.Connected => "Connected",
+            ConnectionStatus.Connecting => "Connecting…",
+            _ => "Disconnected"
         };
 
         /// <summary>The connect/disconnect button text for a given <see cref="ConnectionStatus"/>.</summary>

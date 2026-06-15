@@ -40,17 +40,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
     {
         readonly GodotMcpConnection _connection;
 
-        /// <summary>
-        /// Raised after the user picks a DIFFERENT AI agent in the dropdown (the persisted
-        /// <see cref="GodotMcpConfig.SelectedAgentId"/> changed + was Saved). The dock subscribes so dependent
-        /// sections — notably the Skills card, whose supported-state/path follow the selected agent — re-render. Fired
-        /// on the editor main thread (the selection callback runs there), carries no payload (subscribers re-read the
-        /// persisted selection). Not fired when the user re-picks the already-selected agent.
-        /// </summary>
-        public event Action? AgentSelectionChanged;
-
         OptionButton? _agentSelector;
         VBoxContainer? _agentView;
+
+        // The Skills section, rebuilt inside the agent body (ABOVE the MCP config line) per Unity's
+        // `containerSkills`. Owned by this panel (recreated on each agent switch), not a separate dock card.
+        SkillsPanel? _skillsSection;
 
         // The body column (right of the optional 32px agent icon) that the per-agent sub-views are built into.
         // Distinct from _agentView (the outer swappable container) so the icon sits to the LEFT of the body.
@@ -113,10 +108,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _agentSelector.ItemSelected += OnAgentSelected;
             row.AddChild(_agentSelector);
 
-            // Swappable per-agent view.
+            // Swappable per-agent view — wrapped in the ONE blue frame-group this section gets (Unity frames the
+            // agent template body via `frame-group`). The "AI agent" selector row above is intentionally OUTSIDE the
+            // frame. The card persists across agent switches; ShowAgent only clears the children of _agentView.
             _agentView = new VBoxContainer { Name = "AgentView", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _agentView.AddThemeConstantOverride("separation", 4);
-            AddChild(_agentView);
+            AddChild(DockStyle.Card(_agentView, "AiAgentBody"));
 
             // Restore the persisted selection (default claude-code), falling back to the first agent.
             var persistedId = _connection.Config.SelectedAgentId;
@@ -144,12 +141,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _connection.Save();
             }
 
+            // ShowAgent rebuilds the whole agent view — including the Skills section (BuildSkillsSection) — so a
+            // dependent re-render needs no separate event; the Skills section now lives inside this view.
             ShowAgent(i);
-
-            // Notify dependent sections (the Skills card follows the selected agent) AFTER the persisted selection +
-            // this panel's own view are updated, so a subscriber re-reading SelectedAgentId sees the new value.
-            if (changed)
-                AgentSelectionChanged?.Invoke();
         }
 
         /// <summary>Rebuild the per-agent view for the configurator at registry index <paramref name="index"/>.</summary>
@@ -181,6 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _removeButton = null;
             _alertPanel = null;
             _agentBody = null;
+            _skillsSection = null;
 
             BuildAgentView(_current);
         }
@@ -190,22 +185,43 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            // NOTE: the selected agent's name is intentionally NOT repeated here as a separate label (it is shown in
-            // the agent OptionButton above — mirrors Unity, and the standalone name label was removed in #58).
-
-            // --- Icon (left) + body (right) layout: a 32px per-agent icon, gracefully omitted when missing. ---
-            var iconRow = new HBoxContainer { Name = "AgentIconRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            iconRow.AddThemeConstantOverride("separation", 8);
-            iconRow.Alignment = BoxContainer.AlignmentMode.Begin;
-            _agentView.AddChild(iconRow);
+            // --- Agent header row: a 32px per-agent icon (LEFT) + a column holding the agent NAME (section-title)
+            //     over the Download/Tutorial links — a faithful port of Unity-MCP's AiAgentTemplateConfig.uxml
+            //     header (`agentIcon` + column of `agentName` + `linksContainer`). The icon is gracefully omitted
+            //     when its asset is missing / un-imported. The body (description / alert / config) sits BELOW this
+            //     header at full width (Unity's `containerUnderHeader` and friends), NOT indented under the icon. ---
+            var headerRow = new HBoxContainer { Name = "AgentHeaderRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            headerRow.AddThemeConstantOverride("separation", 8);
+            headerRow.Alignment = BoxContainer.AlignmentMode.Begin;
+            _agentView.AddChild(headerRow);
 
             var icon = LoadAgentIcon(agent);
             if (icon != null)
-                iconRow.AddChild(icon);
+                headerRow.AddChild(icon);
 
+            var headerCol = new VBoxContainer { Name = "AgentHeaderCol", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            headerCol.AddThemeConstantOverride("separation", 0); // tight: name directly over the Download/Tutorial links
+            headerRow.AddChild(headerCol);
+
+            // Agent name (Unity's `agentName` section-title, 16px). Mirrors Unity, which shows the selected agent's
+            // name here beside the icon even though it is also the dropdown's current value.
+            var nameLabel = new Label { Name = "AgentName", Text = agent.AgentName };
+            DockStyle.ApplySectionTitle(nameLabel);
+            headerCol.AddChild(nameLabel);
+
+            // Links: Download (+ optional Tutorial), flat link buttons separated by "•" — Unity's `linksContainer`.
+            var linkDefs = new List<(string Name, string Text, string Url)>
+            {
+                ("Download", "Download", agent.DownloadUrl)
+            };
+            if (!string.IsNullOrEmpty(agent.TutorialUrl))
+                linkDefs.Add(("Tutorial", "Tutorial", agent.TutorialUrl!));
+            headerCol.AddChild(DockStyle.LinkRow("Links", linkDefs));
+
+            // --- Body (full width, below the header) — Unity's `containerUnderHeader` / alert / skills / transport. ---
             _agentBody = new VBoxContainer { Name = "AgentBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _agentBody.AddThemeConstantOverride("separation", 4);
-            iconRow.AddChild(_agentBody);
+            _agentView.AddChild(_agentBody);
 
             // --- Per-agent description (muted). ---
             if (!string.IsNullOrEmpty(agent.Description))
@@ -219,27 +235,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (!string.IsNullOrEmpty(agent.WarningText))
                 _agentBody.AddChild(DockStyle.WarningFrame(agent.WarningText!));
 
-            // --- Links: Download (+ optional Tutorial), as flat link buttons separated by "•". ---
-            var linkDefs = new List<(string Name, string Text, string Url)>
-            {
-                ("Download", "Download", agent.DownloadUrl)
-            };
-            if (!string.IsNullOrEmpty(agent.TutorialUrl))
-                linkDefs.Add(("Tutorial", "Tutorial", agent.TutorialUrl!));
-            _agentBody.AddChild(DockStyle.LinkRow("Links", linkDefs));
-
             // --- The KEY decision: Configure/Remove for agents with a config-file path; copyable JSON otherwise. ---
             var configPath = ResolveConfigPath(agent);
             if (GodotAgentConfigurator.ShouldShowJson(configPath))
             {
+                // Skills sit ABOVE the config block (Unity's containerSkills → containerHttp order).
+                BuildSkillsSection();
                 BuildSnippetView(agent);
             }
             else
             {
                 // Only config-path agents (not the Custom snippet agent) get the Setup/Reconfiguration alert. The
                 // alert frame is (re)built per state by RefreshStatus; an empty host slot reserves its position
-                // ABOVE the configure/remove row, matching the Unity reference order.
+                // ABOVE the skills + configure/remove rows, matching the Unity reference order
+                // (containerAlert → containerSkills → containerHttp).
                 _agentBody.AddChild(new VBoxContainer { Name = "AlertHost", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+                BuildSkillsSection();
                 BuildConfigureRemoveView(agent, configPath!);
             }
 
@@ -274,10 +285,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             {
                 Name = "AgentIcon",
                 Texture = texture,
-                CustomMinimumSize = new Vector2(32, 32),
+                CustomMinimumSize = new Vector2(40, 40),
                 ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                 StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                SizeFlagsVertical = SizeFlags.ShrinkBegin
+                // Vertically centered against the 2-line name+links header column (Unity's `align-items: center`).
+                SizeFlagsVertical = SizeFlags.ShrinkCenter
             };
         }
 
@@ -344,14 +356,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
             headerRow.Alignment = BoxContainer.AlignmentMode.Center;
             _agentBody.AddChild(headerRow);
 
-            var mcpHeader = new Label { Name = "McpHeader", Text = "Model Context Protocol (MCP)" };
-            DockStyle.ApplySubLabel(mcpHeader);
-            headerRow.AddChild(mcpHeader);
+            // "Model Context Protocol (MCP)" header — Unity's `labelMcpHeader class="timeline-label"`: 13px with a
+            // thin underline drawn as a BOTTOM BORDER hugging the title text. Using the border-box (not a VBox+rule)
+            // keeps the text vertically aligned with the right-aligned config path on the same row.
+            headerRow.AddChild(DockStyle.UnderlinedSubLabel("McpHeader", "Model Context Protocol (MCP)"));
 
+            // Config path — shown PROJECT-RELATIVE (Unity's `ToDisplayPath`): the in-project config (e.g. Claude Code's
+            // "<root>/.mcp.json") renders as ".mcp.json"; an out-of-project global path is shown unchanged. The full
+            // absolute path stays in the tooltip.
             _configPathLabel = new Label
             {
                 Name = "ConfigPath",
-                Text = configPath,
+                Text = AgentConfigPaths.ToDisplayPath(configPath, ProjectRoot),
                 TooltipText = configPath,
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 HorizontalAlignment = HorizontalAlignment.Right
@@ -383,6 +399,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
             configActions.AddChild(_configureButton);
             // Configure/Reconfigure text, primary-vs-secondary styling, and Remove visibility are all driven by
             // RefreshStatus() (called at the end of BuildAgentView) off the live IsConfigured() state.
+        }
+
+        /// <summary>
+        /// Build the Skills section INSIDE the agent body (Unity's <c>containerSkills</c>, ABOVE the MCP config
+        /// line). A fresh <see cref="SkillsPanel"/> is created per agent switch (it reads the selected agent off the
+        /// live config on build), so no external re-render wiring is needed — ShowAgent's rebuild covers it.
+        /// </summary>
+        void BuildSkillsSection()
+        {
+            if (_agentBody == null)
+                return;
+
+            _skillsSection = new SkillsPanel(_connection);
+            _agentBody.AddChild(_skillsSection);
         }
 
         /// <summary>Append the agent's "Manual Configuration Steps" / "Troubleshooting" collapsible foldouts when non-empty.</summary>
@@ -488,7 +518,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 if (configured)
                     DockStyle.ApplySecondaryButton(_configureButton);
                 else
-                    DockStyle.ApplyPrimaryButton(_configureButton);
+                    DockStyle.ApplyCompactPrimaryButton(_configureButton); // compact cyan, inline with Remove (Unity .btn-compact)
             }
             if (_removeButton != null)
                 _removeButton.Visible = configured;
@@ -530,7 +560,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 "AgentAlert",
                 AgentAlertView.Title(state),
                 AgentAlertView.Message(state),
-                AgentAlertView.ButtonText,
+                AgentAlertView.ButtonText(state),
                 () => OnConfigurePressed(agent, configPath));
             host.AddChild(_alertPanel);
         }
@@ -543,6 +573,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             RefreshSnippet();
             RefreshStatus();
+            _skillsSection?.Refresh();
         }
 
         // --- live resolution off the connection config -------------------------------------------------------
@@ -553,6 +584,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>The active bearer token (routed by mode), or null/empty when none — never logged.</summary>
         string? Token => _connection.Config.Token;
 
+        /// <summary>The absolute project root (globalized <c>res://</c>, no trailing slash) — used to resolve per-OS
+        /// config paths AND to render them project-relative for display via <see cref="AgentConfigPaths.ToDisplayPath"/>.</summary>
+        string ProjectRoot => ProjectSettings.GlobalizePath("res://").TrimEnd('/');
+
         /// <summary>Resolve the agent's per-OS absolute config path from live editor values, or null (snippet-only).</summary>
         string? ResolveConfigPath(GodotAgentConfigurator agent)
         {
@@ -561,9 +596,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (string.IsNullOrEmpty(home))
                 home = OS.GetEnvironment("HOME");
             var appData = OS.GetEnvironment("APPDATA");
-            var projectRoot = ProjectSettings.GlobalizePath("res://").TrimEnd('/');
 
-            return agent.ConfigFilePath(os, home, appData, projectRoot);
+            return agent.ConfigFilePath(os, home, appData, ProjectRoot);
         }
 
         /// <summary>Map Godot's <c>OS.GetName()</c> ("Windows"/"macOS"/"Linux"/…) onto the injectable <see cref="AgentOs"/>.</summary>

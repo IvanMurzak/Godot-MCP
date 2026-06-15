@@ -91,9 +91,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- StatusLabel ---
 
         [Theory]
-        [InlineData(ConnectionStatus.Connected, "Godot: Connected")]
-        [InlineData(ConnectionStatus.Connecting, "Godot: Connecting…")]
-        [InlineData(ConnectionStatus.Disconnected, "Godot: Disconnected")]
+        [InlineData(ConnectionStatus.Connected, "Connected")]
+        [InlineData(ConnectionStatus.Connecting, "Connecting…")]
+        [InlineData(ConnectionStatus.Disconnected, "Disconnected")]
         public void StatusLabel_MapsEachStatus(ConnectionStatus status, string expected)
         {
             Assert.Equal(expected, ConnectionPanelView.StatusLabel(status));

@@ -50,5 +50,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public const string ThanksBbcode =
             "Thanks for using [b][color=red]AI[/color] Game Developer[/b]. If you like it, please give the project a star on GitHub.\n\nSincerely,\nIvan Murzak";
+
+        /// <summary>
+        /// The thank-you PARAGRAPH only (no "Sincerely" sign-off) as BBCode — the footer renders this above a row
+        /// that pairs the sign-off with the GitHub Star button (Unity puts the star on the "Sincerely, Ivan Murzak"
+        /// line). Kept separate from <see cref="ThanksBbcode"/> so existing callers/tests are unaffected.
+        /// </summary>
+        public const string ThanksParagraphBbcode =
+            "Thanks for using [b][color=red]AI[/color] Game Developer[/b]. If you like it, please give the project a star on GitHub.";
+
+        /// <summary>The sign-off shown on the same line as the GitHub Star button.</summary>
+        public const string SincerelyText = "Sincerely,\nIvan Murzak";
     }
 }

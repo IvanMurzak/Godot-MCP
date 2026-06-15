@@ -33,8 +33,18 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         {
             new ClaudeCodeConfigurator(),
             new ClaudeDesktopConfigurator(),
+            new VisualStudioCodeConfigurator(),  // Visual Studio Code (Copilot)
+            new VisualStudioConfigurator(),      // Visual Studio (Copilot)
+            new RiderConfigurator(),
             new CursorConfigurator(),
-            new VisualStudioCodeConfigurator(),
+            new GitHubCopilotCliConfigurator(),
+            new GeminiConfigurator(),
+            new AntigravityConfigurator(),
+            new ClineConfigurator(),
+            new OpenCodeConfigurator(),
+            new CodexConfigurator(),
+            new KiloCodeConfigurator(),
+            new ZooCodeConfigurator(),
             new CustomConfigurator(), // keep last
         };
 

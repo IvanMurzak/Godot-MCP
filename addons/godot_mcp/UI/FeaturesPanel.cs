@@ -89,9 +89,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 6);
 
-            var header = new Label { Name = "FeaturesHeader", Text = "MCP Features" };
-            DockStyle.ApplySectionTitle(header);
-            AddChild(header);
+            // (No "MCP Features" section title — removed per design; the Tools/Prompts/Resources rows stand alone.)
 
             _toolsRow = new FeatureRow(GodotMcpFeatureKind.Tools, showTokens: true, OnOpenPressed);
             AddChild(_toolsRow);
@@ -102,7 +100,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _resourcesRow = new FeatureRow(GodotMcpFeatureKind.Resources, showTokens: false, OnOpenPressed);
             AddChild(_resourcesRow);
 
-            AddChild(new HSeparator { Name = "FeaturesSeparator" });
+            // (No default HSeparator — it draws a light/white line; the dock already places a dark DockStyle.Divider
+            //  between sections, which is the one we want.)
         }
 
         void OnFeaturesUpdated() => RefreshAll();
