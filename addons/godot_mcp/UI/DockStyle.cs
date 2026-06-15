@@ -451,8 +451,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <para>
         /// <paramref name="onSelected"/> fires with the chosen option index when the user clicks a NOT-already-
         /// selected segment (clicking the active segment is a no-op). The caller owns the value→index mapping and
-        /// re-renders selection via <see cref="SetSegmentedSelection"/> after persisting; this builder does NOT
-        /// auto-toggle, so the visual selection never drifts from the backing config.
+        /// re-renders selection via <see cref="SetSegmentedSelection"/> after persisting. On a real change the
+        /// builder advances the authoritative track meta + visuals OPTIMISTICALLY before invoking
+        /// <paramref name="onSelected"/>, so the selection cannot drift even if a caller skips the round-trip;
+        /// a caller that DOES call <see cref="SetSegmentedSelection"/> simply re-asserts the same index.
         /// </para>
         /// </summary>
         public static PanelContainer SegmentedControl(
@@ -509,6 +511,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
                         SetSegmentedSelection(track, current);
                         return;
                     }
+                    // Advance the authoritative selection OPTIMISTICALLY before notifying the caller, so the
+                    // track meta and the visual pressed-state cannot diverge if a consumer of onSelected
+                    // persists the new mode but does NOT round-trip through SetSegmentedSelection (e.g. an
+                    // early-return on a no-op/persist-failure path). Correctness no longer depends on caller
+                    // discipline; a caller that DOES call SetSegmentedSelection just re-asserts the same index.
+                    SetSegmentedSelection(track, index);
                     onSelected(index);
                 };
                 track.AddChild(segment);
