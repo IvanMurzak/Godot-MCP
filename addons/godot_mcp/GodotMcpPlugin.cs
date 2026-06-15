@@ -47,6 +47,20 @@ namespace com.IvanMurzak.Godot.MCP
             // the plugin's own logging path (Log/LogWarning/LogError helpers) — see GodotLogCollector.
             GodotLogCollector.Current = new GodotLogCollector();
 
+            // Tap the engine's global error stream (Godot 4.5+ OS.AddLogger) so engine-wide GDScript parse
+            // errors land in 'console-get-logs' passively AND can be harvested on demand by 'script-validate'.
+            // A no-op on Godot < 4.5 (the bridge's #else stub returns null) — script-validate then falls back
+            // to a per-file Reload() error-code probe. Wrapped defensively: a logger-registration failure must
+            // not take down plugin load.
+            try
+            {
+                GodotScriptErrorLoggerBridge.TryInstall(GodotLogCollector.Current);
+            }
+            catch (System.Exception ex)
+            {
+                LogWarning($"[Godot-MCP] engine error-logger not installed: {ex.Message}");
+            }
+
             // FIRST: teach the editor's default AssemblyLoadContext how to find the addon's transitive
             // NuGet dependency assemblies (ReflectorNet / McpPlugin / ...). Godot does not probe the
             // project's *.deps.json, so without this hook the first touch of a NuGet-dependency type
@@ -181,6 +195,12 @@ namespace com.IvanMurzak.Godot.MCP
             // Release the collector so a stale buffer does not outlive this plugin instance (a fresh one
             // is installed on the next _EnterTree).
             GodotLogCollector.Current = null;
+
+            // Drop the engine error-capture router too. The registered Godot Logger (4.5+) lives in the
+            // engine's logger list; we intentionally do NOT remove it (Godot has no remove-logger managed
+            // API and the editor process owns its lifetime), but clearing Current stops validation sessions
+            // from leaking across a plugin reload and lets the router be GC-eligible once the engine drops it.
+            ScriptErrorCapture.Current = null;
         }
     }
 }

@@ -114,6 +114,16 @@
          not here. -->
     <Compile Include="..\addons\godot_mcp\Data\ScriptInfo.cs" Link="Source\ScriptInfo.cs" />
     <Compile Include="..\addons\godot_mcp\Tools\ScriptLang.cs" Link="Source\ScriptLang.cs" />
+    <!-- script-validate diagnostics — pure-managed (no Godot native types, no #if TOOLS): the diagnostic
+         result models (ScriptDiagnostic / ScriptDiagnosticsResult + their enums) and the ScriptErrorCapture
+         router that classifies + routes engine-error callbacks (passive log capture + on-demand validation
+         session). The engine Logger subclass that feeds the router (GodotScriptErrorLogger.cs) is
+         #if GODOT4_5_OR_GREATER (4.5+ only) and the editor-driving Validate handler (Tool_Script.Validate.cs)
+         is #if TOOLS — both verified via the headless Godot smoke (test.md Suite 3); the models + router are
+         unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Data\ScriptDiagnostic.cs" Link="Source\ScriptDiagnostic.cs" />
+    <Compile Include="..\addons\godot_mcp\Data\ScriptDiagnosticsResult.cs" Link="Source\ScriptDiagnosticsResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Tools\ScriptErrorCapture.cs" Link="Source\ScriptErrorCapture.cs" />
     <!-- Screenshot tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
          size-cap clamping, framing trig, view-direction table, and hex-color parse. The editor-driving
          handlers (Tool_Screenshot.*.cs) are #if TOOLS and encode a real Godot Image, so they are verified
