@@ -5,6 +5,22 @@ import * as os from 'os';
 import http from 'http';
 import { runCliAsync } from './helpers/cli.js';
 
+/**
+ * Bind a server on port 0 (OS-assigned), capture the port, then close it —
+ * yielding a port that is guaranteed free right now so a connection there is
+ * refused. Avoids the tiny collision risk of a hard-coded port.
+ */
+function findDeadPort(): Promise<number> {
+  return new Promise((resolve) => {
+    const server = http.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 /** Echo server that returns `{ ok: true, tool, body }` for any POST. */
 function startEchoServer(): Promise<{ url: string; close: () => Promise<void> }> {
   return new Promise((resolve) => {
@@ -46,8 +62,9 @@ describe('run-tool (builder) — CLI smoke', () => {
   });
 
   it('exits 1 with the connection-refused failure copy when the server is down', async () => {
+    const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
-      'run-tool', 'ping', '--url', 'http://127.0.0.1:59999', '--timeout', '1500',
+      'run-tool', 'ping', '--url', `http://127.0.0.1:${deadPort}`, '--timeout', '1500',
     ]);
     expect(exitCode).toBe(1);
     expect(stdout).toContain('Connection refused');
@@ -158,8 +175,9 @@ describe('run-system-tool (builder) — CLI smoke', () => {
   });
 
   it('uses the "system tool" noun in failure copy on connection refused', async () => {
+    const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
-      'run-system-tool', 'health', '--url', 'http://127.0.0.1:59999', '--timeout', '1500',
+      'run-system-tool', 'health', '--url', `http://127.0.0.1:${deadPort}`, '--timeout', '1500',
     ]);
     expect(exitCode).toBe(1);
     expect(stdout).toContain('Failed to call system tool');

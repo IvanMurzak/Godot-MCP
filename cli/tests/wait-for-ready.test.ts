@@ -5,6 +5,22 @@ import * as os from 'os';
 import http from 'http';
 import { runCliAsync } from './helpers/cli.js';
 
+/**
+ * Bind a server on port 0 (OS-assigned), capture the port, then close it —
+ * yielding a port that is guaranteed free right now so a connection there is
+ * refused. Avoids the tiny collision risk of a hard-coded port.
+ */
+function findDeadPort(): Promise<number> {
+  return new Promise((resolve) => {
+    const server = http.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 /** Start a throwaway HTTP server that answers the ping probe with `pong`. */
 function startPingServer(): Promise<{ url: string; close: () => Promise<void> }> {
   return new Promise((resolve) => {
@@ -77,10 +93,11 @@ describe('wait-for-ready — CLI smoke', () => {
   });
 
   it('times out and exits 1 when the server never comes up', async () => {
+    const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
       'wait-for-ready',
       '--url',
-      'http://127.0.0.1:59999',
+      `http://127.0.0.1:${deadPort}`,
       '--timeout',
       '1200',
       '--interval',
