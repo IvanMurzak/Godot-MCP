@@ -85,6 +85,215 @@ describe('findGodotBinary', () => {
       expect(result).not.toContain(path.join(tmpDir, 'empty'));
     }
   });
+
+  it('matches a version-stamped binary sitting directly on PATH (win32)', () => {
+    const bin = path.join(tmpDir, 'Godot_v4.5.1-stable_mono_win64.exe');
+    fs.writeFileSync(bin, '');
+    process.env['PATH'] = tmpDir;
+    expect(findGodotBinary(undefined, 'win32')).toBe(bin);
+  });
+
+  it('prefers the mono _console build over plainer ones on a single PATH dir (win32)', () => {
+    // Drop several builds in one dir; the mono _console variant must win.
+    fs.writeFileSync(path.join(tmpDir, 'Godot_v4.5.1-stable_win64.exe'), '');
+    fs.writeFileSync(path.join(tmpDir, 'Godot_v4.5.1-stable_mono_win64.exe'), '');
+    const consoleBin = path.join(tmpDir, 'Godot_v4.5.1-stable_mono_win64_console.exe');
+    fs.writeFileSync(consoleBin, '');
+    process.env['PATH'] = tmpDir;
+    expect(findGodotBinary(undefined, 'win32')).toBe(consoleBin);
+  });
+
+  it('discovers a version-stamped binary nested two folders deep under Downloads (win32)', () => {
+    // Mirror the real on-disk layout of an extracted official Windows zip:
+    //   <Downloads>/Godot_v4.5.1-stable_mono_win64/
+    //     Godot_v4.5.1-stable_mono_win64/
+    //       Godot_v4.5.1-stable_mono_win64.exe  (+ _console companion)
+    const ver = 'Godot_v4.5.1-stable_mono_win64';
+    const downloads = path.join(tmpDir, 'Downloads');
+    const nested = path.join(downloads, ver, ver);
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(nested, `${ver}.exe`), '');
+    const consoleBin = path.join(nested, `${ver}_console.exe`);
+    fs.writeFileSync(consoleBin, '');
+
+    // Point the Windows common-roots scan at our sandbox via USERPROFILE/HOME so
+    // the real machine's Downloads isn't consulted, and clear PATH so step 4 runs.
+    const savedUserProfile = process.env['USERPROFILE'];
+    const savedHome = process.env['HOME'];
+    const savedProgramFiles = process.env['PROGRAMFILES'];
+    const savedLocalAppData = process.env['LOCALAPPDATA'];
+    process.env['USERPROFILE'] = tmpDir;
+    process.env['HOME'] = tmpDir;
+    // Steer the other roots at an empty dir so only Downloads can hit.
+    const emptyRoot = path.join(tmpDir, 'empty-root');
+    fs.mkdirSync(emptyRoot, { recursive: true });
+    process.env['PROGRAMFILES'] = emptyRoot;
+    process.env['LOCALAPPDATA'] = emptyRoot;
+    process.env['PATH'] = emptyRoot;
+    try {
+      // The mono _console build is preferred.
+      expect(findGodotBinary(undefined, 'win32')).toBe(consoleBin);
+    } finally {
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedProgramFiles === undefined) delete process.env['PROGRAMFILES'];
+      else process.env['PROGRAMFILES'] = savedProgramFiles;
+      if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
+      else process.env['LOCALAPPDATA'] = savedLocalAppData;
+    }
+  });
+
+  it('does not descend past the bounded scan depth (win32)', () => {
+    // Bury a binary deeper than SCAN_MAX_DEPTH (3) below Downloads; it must NOT
+    // be found, proving the scan is bounded.
+    const downloads = path.join(tmpDir, 'Downloads');
+    const tooDeep = path.join(downloads, 'a', 'b', 'c', 'd', 'e');
+    fs.mkdirSync(tooDeep, { recursive: true });
+    fs.writeFileSync(path.join(tooDeep, 'Godot_v4.5.1-stable_mono_win64.exe'), '');
+
+    const savedUserProfile = process.env['USERPROFILE'];
+    const savedHome = process.env['HOME'];
+    const savedProgramFiles = process.env['PROGRAMFILES'];
+    const savedLocalAppData = process.env['LOCALAPPDATA'];
+    process.env['USERPROFILE'] = tmpDir;
+    process.env['HOME'] = tmpDir;
+    const emptyRoot = path.join(tmpDir, 'empty-root');
+    fs.mkdirSync(emptyRoot, { recursive: true });
+    process.env['PROGRAMFILES'] = emptyRoot;
+    process.env['LOCALAPPDATA'] = emptyRoot;
+    process.env['PATH'] = emptyRoot;
+    try {
+      expect(findGodotBinary(undefined, 'win32')).toBeNull();
+    } finally {
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedProgramFiles === undefined) delete process.env['PROGRAMFILES'];
+      else process.env['PROGRAMFILES'] = savedProgramFiles;
+      if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
+      else process.env['LOCALAPPDATA'] = savedLocalAppData;
+    }
+  });
+
+  it('discovers a macOS .app-bundle binary at the depth-3 boundary (darwin)', () => {
+    // The real layout is <home>/Applications/Godot.app/Contents/MacOS/Godot,
+    // i.e. the binary's containing dir sits exactly at scan depth 3 below the
+    // root — a guard against an off-by-one shrinking SCAN_MAX_DEPTH. The file
+    // must be named like a Godot binary for the scan to match, so use a
+    // version-stamped macOS name inside the bundle. `commonInstallRoots` derives
+    // home via os.homedir(), which reads USERPROFILE on a Windows test host and
+    // HOME elsewhere — set both so the sandbox is consulted on either runner.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    const macBin = path.join(
+      tmpDir,
+      'Applications',
+      'Godot.app',
+      'Contents',
+      'MacOS',
+      'Godot_v4.5.1-stable_macos.universal',
+    );
+    fs.mkdirSync(path.dirname(macBin), { recursive: true });
+    fs.writeFileSync(macBin, '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(findGodotBinary(undefined, 'darwin')).toBe(macBin);
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('discovers a version-stamped binary via a recursive linux scan root', () => {
+    // ~/Downloads is a recursive root on linux; an extracted tarball nests the
+    // binary one folder down. Confirm the linux scan path resolves it. Set both
+    // HOME and USERPROFILE so os.homedir() points at the sandbox on any runner.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    const nested = path.join(tmpDir, 'Downloads', 'Godot_v4.5.1-stable_linux');
+    fs.mkdirSync(nested, { recursive: true });
+    const linuxBin = path.join(nested, 'Godot_v4.5.1-stable_mono_linux.x86_64');
+    fs.writeFileSync(linuxBin, '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(findGodotBinary(undefined, 'linux')).toBe(linuxBin);
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('skips an unreadable root directory without throwing (linux)', () => {
+    // A readdirSync that throws (permission denied, ENOTDIR, …) must be
+    // swallowed by the scan and not abort resolution. ESM module namespaces are
+    // non-configurable so fs.readdirSync cannot be spied; instead make a root
+    // path resolve to a FILE — readdirSync on a file throws ENOTDIR, exercising
+    // the scan's try/catch the same way an unreadable dir would.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    // ~/Downloads is a recursive linux root; make it a file, not a dir.
+    fs.writeFileSync(path.join(tmpDir, 'Downloads'), '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(() => findGodotBinary(undefined, 'linux')).not.toThrow();
+      expect(findGodotBinary(undefined, 'linux')).toBeNull();
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('prefers the newest version when ranks tie across directories (win32)', () => {
+    // Two extracted builds of identical build-rank (both mono _console) but
+    // different versions, in sibling folders under Downloads. The newer 4.5.1
+    // must win over 4.3 despite the older path sorting first alphabetically.
+    const downloads = path.join(tmpDir, 'Downloads');
+    const old = path.join(downloads, 'a-old', 'Godot_v4.3-stable_mono_win64_console.exe');
+    const recent = path.join(downloads, 'b-new', 'Godot_v4.5.1-stable_mono_win64_console.exe');
+    fs.mkdirSync(path.dirname(old), { recursive: true });
+    fs.mkdirSync(path.dirname(recent), { recursive: true });
+    fs.writeFileSync(old, '');
+    fs.writeFileSync(recent, '');
+
+    const savedUserProfile = process.env['USERPROFILE'];
+    const savedHome = process.env['HOME'];
+    const savedProgramFiles = process.env['PROGRAMFILES'];
+    const savedLocalAppData = process.env['LOCALAPPDATA'];
+    process.env['USERPROFILE'] = tmpDir;
+    process.env['HOME'] = tmpDir;
+    const emptyRoot = path.join(tmpDir, 'empty-root');
+    fs.mkdirSync(emptyRoot, { recursive: true });
+    process.env['PROGRAMFILES'] = emptyRoot;
+    process.env['LOCALAPPDATA'] = emptyRoot;
+    process.env['PATH'] = emptyRoot;
+    try {
+      expect(findGodotBinary(undefined, 'win32')).toBe(recent);
+    } finally {
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedProgramFiles === undefined) delete process.env['PROGRAMFILES'];
+      else process.env['PROGRAMFILES'] = savedProgramFiles;
+      if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
+      else process.env['LOCALAPPDATA'] = savedLocalAppData;
+    }
+  });
 });
 
 describe('launchEditor', () => {
