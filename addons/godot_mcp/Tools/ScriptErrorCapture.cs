@@ -181,14 +181,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// An absolute engine path matches when its tail equals the scheme-stripped res:// target (e.g.
         /// <c>C:/proj/scripts/p.gd</c> ⊃ <c>scripts/p.gd</c> from <c>res://scripts/p.gd</c>). Kept pure-managed
         /// (no <c>ProjectSettings.LocalizePath</c>) so the router stays unit-testable in the plain xUnit host.
+        /// <para>
+        /// The match is asymmetric on purpose: only the ENGINE path may be the longer (absolute) form of the
+        /// target — never the reverse. A reversed <c>target.EndsWith("/" + engine)</c> clause would over-match
+        /// when a deeper target shares a basename with a shallower unrelated file (e.g. target
+        /// <c>res://scripts/ui/player.gd</c> wrongly collecting an error for <c>res://player.gd</c>), re-opening
+        /// the exact cross-talk this filter exists to prevent — so it is deliberately omitted.
+        /// </para>
         /// </summary>
         static bool PathsMatch(string enginePath, string target)
         {
             var a = NormalizePath(enginePath);
             var b = NormalizePath(target);
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase)
-                || a.EndsWith("/" + b, StringComparison.OrdinalIgnoreCase)
-                || b.EndsWith("/" + a, StringComparison.OrdinalIgnoreCase);
+                || a.EndsWith("/" + b, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Strip the Godot resource scheme and normalize separators for path comparison.</summary>

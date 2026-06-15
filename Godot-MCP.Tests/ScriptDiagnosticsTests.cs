@@ -238,6 +238,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Session_WithTarget_DoesNotMatchShallowerFileSharingBasename()
+        {
+            // Collision guard: the target is nested (res://scripts/ui/player.gd) and an UNRELATED error fires
+            // for a shallower file that happens to share the basename (res://player.gd). The reversed
+            // target.EndsWith("/" + engine) match would wrongly attribute the root file's error to the file
+            // under validation, re-opening the cross-talk the filter exists to prevent. It must be DROPPED.
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://scripts/ui/player.gd");
+
+            // The genuine error for the file under test -> kept (clause 1, exact after normalization).
+            capture.Route(EngineErrorKind.Script, "res://scripts/ui/player.gd", 3, "c", "real error");
+            // An off-thread error for the SHALLOWER same-basename file -> must be dropped (no reversed match).
+            capture.Route(EngineErrorKind.Script, "res://player.gd", 1, "c", "shallow same-basename noise");
+
+            var only = Assert.Single(capture.EndSession());
+            Assert.Equal("res://scripts/ui/player.gd", only.Path);
+            Assert.Equal("real error", only.Message);
+        }
+
+        [Fact]
         public void Session_WithoutTarget_CollectsAllScriptErrors_LegacyBehavior()
         {
             var capture = new ScriptErrorCapture();
