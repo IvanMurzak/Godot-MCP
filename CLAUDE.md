@@ -71,8 +71,13 @@ the headless Godot smoke (Suite 3) instead.
 <url>/api/tools/<tool>`), probes server health, writes AI-agent MCP-client config, and enables/disables the
 `godot_mcp` addon in a project. It also exports a side-effect-free library (`import { openProject, runTool,
 … } from 'godot-cli'`) whose functions return a `{ kind: 'success' | 'failure' }` discriminated union and
-never throw past the public boundary. Unlike the Unity CLI there is **no `setup-skills` command** — Godot
-skills are generated addon-side on plugin boot, so there is nothing for the CLI to invoke.
+never throw past the public boundary. It also ships a `setup-skills <agent> [path]` command that generates
+AI-agent skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. Unlike the Unity CLI
+(which POSTs to a running editor's `/api/system-tools/unity-skill-generate` endpoint), the Godot CLI
+generates the files **locally** from a built-in catalog of the addon's tool families — the Godot server
+exposes no skill-generate HTTP endpoint, so no server or live editor is required. (The addon *additionally*
+auto-generates skills addon-side on plugin boot via `GenerateSkillFilesIfNeeded`; the CLI command is the
+server-less, scriptable path.)
 
 ```bash
 cd cli

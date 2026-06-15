@@ -6,6 +6,7 @@ import { runSystemToolCommand } from './commands/run-system-tool.js';
 import { statusCommand } from './commands/status.js';
 import { waitForReadyCommand } from './commands/wait-for-ready.js';
 import { setupMcpCommand } from './commands/setup-mcp.js';
+import { setupSkillsCommand } from './commands/setup-skills.js';
 import { configureCommand } from './commands/configure.js';
 import { createProjectCommand } from './commands/create-project.js';
 import { closeCommand } from './commands/close.js';
@@ -37,6 +38,7 @@ const subcommands = [
   runToolCommand,
   runSystemToolCommand,
   setupMcpCommand,
+  setupSkillsCommand,
   statusCommand,
   createUpdateCommand(pkg.version),
   waitForReadyCommand,

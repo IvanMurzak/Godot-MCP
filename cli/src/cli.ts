@@ -10,6 +10,7 @@ export { runSystemToolCommand } from './commands/run-system-tool.js';
 export { statusCommand } from './commands/status.js';
 export { waitForReadyCommand } from './commands/wait-for-ready.js';
 export { setupMcpCommand } from './commands/setup-mcp.js';
+export { setupSkillsCommand } from './commands/setup-skills.js';
 export { configureCommand } from './commands/configure.js';
 export { closeCommand } from './commands/close.js';
 export { createUpdateCommand } from './commands/update.js';
