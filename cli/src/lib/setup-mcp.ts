@@ -10,6 +10,7 @@ import {
   getAgentById,
   getAgentIds,
   writeJsonAgentConfig,
+  writeTomlAgentConfig,
   MCP_SERVER_NAME,
 } from '../utils/agents.js';
 import { emitProgress } from './progress.js';
@@ -104,7 +105,11 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
     const configPath = agent.getConfigPath(projectPath);
     const props = agent.getHttpProps(serverUrl, token, authRequired);
 
-    writeJsonAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);
+    if (agent.configFormat === 'toml') {
+      writeTomlAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);
+    } else {
+      writeJsonAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);
+    }
 
     emitProgress(opts.onProgress, {
       phase: 'manifest-patched',
