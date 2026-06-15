@@ -1,7 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
+// Redirectable home dir: agents.ts resolves home-dir / global agent config paths
+// via os.homedir(); ESM forbids spying on the live export, so we mock the module
+// and back homedir() with a mutable holder the tests can repoint under tmpDir.
+const homeHolder = vi.hoisted(() => ({ dir: '' }));
+vi.mock('os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('os')>();
+  return { ...actual, homedir: () => homeHolder.dir || actual.homedir() };
+});
 import { setupMcp, listAgentIds } from '../src/lib/setup-mcp.js';
 import {
   agentRegistry,
@@ -18,6 +27,9 @@ const SERVER_NAME = 'ai-game-developer';
 describe('setupMcp', () => {
   let tmpDir: string;
   const saved: Record<string, string | undefined> = {};
+  // Env vars that steer home-dir / global agent config paths (agents.ts `appData()`
+  // reads APPDATA; the posix branches of `home()` read HOME/XDG_CONFIG_HOME).
+  const HOME_ENV_KEYS = ['APPDATA', 'HOME', 'XDG_CONFIG_HOME'];
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-setup-mcp-'));
@@ -25,9 +37,18 @@ describe('setupMcp', () => {
       saved[k] = process.env[k];
       delete process.env[k];
     }
+    // Redirect home-dir / global agent writes (cline, github-copilot-cli,
+    // antigravity, claude-desktop) under tmpDir so they never touch the real
+    // developer config. agents.ts resolves these via os.homedir() and APPDATA.
+    for (const k of HOME_ENV_KEYS) {
+      saved[k] = process.env[k];
+      process.env[k] = tmpDir;
+    }
+    homeHolder.dir = tmpDir;
   });
   afterEach(() => {
-    for (const k of [ENV_HOST, ENV_TOKEN]) {
+    homeHolder.dir = '';
+    for (const k of [ENV_HOST, ENV_TOKEN, ...HOME_ENV_KEYS]) {
       if (saved[k] === undefined) delete process.env[k];
       else process.env[k] = saved[k];
     }
@@ -427,5 +448,12 @@ describe('writeTomlAgentConfig — write/merge/remove round-trip (Codex)', () =>
     writeTomlAgentConfig(cfg, 'mcp_servers', MCP_SERVER_NAME, { url: 'C:\\a "b"' }, []);
     const toml = fs.readFileSync(cfg, 'utf-8');
     expect(toml).toContain('url = "C:\\\\a \\"b\\""');
+  });
+
+  it('escapes special characters inside array elements', () => {
+    const cfg = path.join(tmpDir, 'config.toml');
+    writeTomlAgentConfig(cfg, 'mcp_servers', MCP_SERVER_NAME, { args: ['C:\\x', 'a "q"'] }, []);
+    const toml = fs.readFileSync(cfg, 'utf-8');
+    expect(toml).toContain('args = ["C:\\\\x", "a \\"q\\""]');
   });
 });

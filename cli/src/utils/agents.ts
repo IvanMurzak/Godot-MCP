@@ -510,7 +510,9 @@ export function writeTomlAgentConfig(
   }
 
   if (sectionIdx >= 0) {
-    // Find end of section (next [...] header or EOF)
+    // Find end of section (next [...] header or EOF). The leading-`[` test is
+    // safe for the Codex schema, which emits only flat scalars (no inline-array
+    // value lines that would also start with `[`); revisit if that changes.
     let endIdx = sectionIdx + 1;
     while (endIdx < lines.length && !lines[endIdx].trim().startsWith('[')) {
       endIdx++;
@@ -530,11 +532,21 @@ export function writeTomlAgentConfig(
 
 function tomlValue(v: unknown): string {
   if (typeof v === 'string') return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'boolean') return String(v);
+  if (typeof v === 'number') {
+    // TOML spells non-finite floats `nan` / `inf` / `-inf`, not JS's NaN/Infinity.
+    if (Number.isNaN(v)) return 'nan';
+    if (v === Infinity) return 'inf';
+    if (v === -Infinity) return '-inf';
+    return String(v);
+  }
   if (Array.isArray(v)) {
     return `[${v.map(tomlValue).join(', ')}]`;
   }
-  return String(v);
+  // null/undefined/object have no valid TOML scalar form here; emit a quoted
+  // string so we never produce an invalid bare token (the Codex schema only
+  // feeds string/number/bool/array scalars, so this is a defensive fallback).
+  return `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 export { MCP_SERVER_NAME };
