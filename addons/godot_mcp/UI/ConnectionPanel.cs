@@ -121,6 +121,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // when the live status has drifted from what is on screen — keeping the per-tick check cheap and quiet.
         ConnectionStatus? _renderedStatus;
 
+        // DEV-ONLY status override (set by the dev-control bridge's inject endpoint). When non-null the
+        // periodic re-sync (SyncFromConnection) is short-circuited so an injected status STICKS on screen
+        // instead of being reverted to the live connection status within ~0.5s. Cleared by
+        // DevClearStatusOverride, after which the panel re-converges to the real live status. This field is
+        // ONLY ever written by the DevControlServer (env-gated, 127.0.0.1) — it has no effect in a shipped
+        // addon (the server never starts unless GODOT_MCP_DEV_CONTROL=1).
+        ConnectionStatus? _devStatusOverride;
+
         // Accumulated frame delta for the periodic re-sync. Reset each time it crosses the interval so the
         // re-sync runs at a steady ~ResyncIntervalSeconds cadence regardless of frame rate.
         double _resyncAccumulator;
@@ -607,6 +615,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void SyncFromConnection()
         {
+            // A dev-injected status pins the label: skip the live re-sync so the injection sticks on screen
+            // (see _devStatusOverride). DEV-ONLY — never set in a shipped addon.
+            if (_devStatusOverride != null)
+                return;
+
             var live = _connection.ConnectionStatus;
             if (_renderedStatus == live)
                 return;
@@ -962,6 +975,42 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyStatus(_connection.ConnectionStatus);
             ApplyServerStatus(_serverManager.Status);
         }
+
+        // --- DEV-ONLY inject API (driven by the env-gated, 127.0.0.1 DevControlServer) ------------------------
+        //
+        // These exist purely so a terminal / AI agent can paint a FAKE state onto the LIVE dock for test +
+        // AI-driven development. They are no-ops in a shipped addon because the server that calls them only
+        // starts when GODOT_MCP_DEV_CONTROL=1. ALL of them must run on the editor main thread (the caller
+        // hops via MainThreadDispatcher).
+
+        /// <summary>
+        /// DEV-ONLY: paint a fake <see cref="ConnectionStatus"/> onto the dock and PIN it — the periodic
+        /// re-sync is suppressed (see <see cref="_devStatusOverride"/>) so the injected status sticks instead
+        /// of being reverted to the live status within ~<see cref="ResyncIntervalSeconds"/>s. Clear it with
+        /// <see cref="DevClearStatusOverride"/>.
+        /// </summary>
+        public void DevInjectStatus(ConnectionStatus status)
+        {
+            _devStatusOverride = status;
+            ApplyStatus(status);
+        }
+
+        /// <summary>
+        /// DEV-ONLY: drop the injected-status pin and re-converge to the LIVE connection status (so the dock
+        /// resumes reflecting reality). Pairs with <see cref="DevInjectStatus"/>.
+        /// </summary>
+        public void DevClearStatusOverride()
+        {
+            _devStatusOverride = null;
+            ApplyStatus(_connection.ConnectionStatus);
+        }
+
+        /// <summary>
+        /// DEV-ONLY: paint a fake local-server <see cref="GodotMcpServerStatus"/> onto the MCP-server timeline
+        /// point. No override is needed — the server status has no periodic re-sync (unlike the connection
+        /// status), so the injected value persists until the next real <c>StatusChanged</c>.
+        /// </summary>
+        public void DevInjectServerStatus(GodotMcpServerStatus status) => ApplyServerStatus(status);
 
         public override void _ExitTree()
         {

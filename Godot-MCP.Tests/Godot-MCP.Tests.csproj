@@ -231,6 +231,11 @@
     <Compile Include="..\addons\godot_mcp\Extensions\IConsumerProjectFile.cs" Link="Source\IConsumerProjectFile.cs" />
     <Compile Include="..\addons\godot_mcp\Extensions\ExtensionInstaller.cs" Link="Source\ExtensionInstaller.cs" />
     <Compile Include="..\addons\godot_mcp\Extensions\ExtensionsPanelText.cs" Link="Source\ExtensionsPanelText.cs" />
+    <!-- DEV-ONLY inject/control bridge ROUTER — pure-managed (no Godot native types, no #if TOOLS): the
+         (method, path) → command-id route table + the connection/server status-string parsers + the click-
+         target vocabulary. The editor HttpListener transport (DevControlServer.cs) is #if TOOLS and verified
+         live (curl the editor), NOT compiled here; the routing/parsing core is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Connection\DevControl\DevControlRouter.cs" Link="Source\DevControlRouter.cs" />
   </ItemGroup>
 
 </Project>
