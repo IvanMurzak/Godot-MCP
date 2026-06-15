@@ -153,7 +153,14 @@ export interface SkillFile {
 
 const ROOT_SKILL_NAME = 'godot-mcp';
 
-/** YAML-escape a scalar that goes into single quotes in frontmatter. */
+/**
+ * YAML-escape a scalar that goes into single quotes in frontmatter.
+ *
+ * Correctness depends on the value staying single-line: a single-quoted YAML
+ * scalar cannot contain a literal newline, so an embedded `\n` would produce
+ * invalid frontmatter. All catalog descriptions here are single-line ASCII, so
+ * doubling `'` is sufficient; revisit if multi-line descriptions are ever added.
+ */
 function yamlSingleQuote(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }

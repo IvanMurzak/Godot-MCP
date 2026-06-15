@@ -8,7 +8,7 @@ import * as os from 'os';
 import { runCliAsync } from './helpers/cli.js';
 import { setupSkills } from '../src/lib/setup-skills.js';
 import { buildSkillFiles, SKILL_FAMILIES } from '../src/utils/skills.js';
-import { getAgentById } from '../src/utils/agents.js';
+import { getAgentById, agentRegistry } from '../src/utils/agents.js';
 
 // ---------------------------------------------------------------------------
 // CLI surface — help / list / error cases (no filesystem mutation needed)
@@ -42,8 +42,11 @@ describe('setup-skills command (CLI surface)', () => {
     expect(stdout).toContain('Unknown agent');
   });
 
-  it('exits 1 when agent does not support skills (claude-desktop)', async () => {
-    const { stdout, exitCode } = await runCliAsync(['setup-skills', 'claude-desktop']);
+  // Every registry agent WITHOUT a skillsPath must fail the no-skills path.
+  const unskilledAgentIds = agentRegistry.filter((a) => !a.skillsPath).map((a) => a.id);
+
+  it.each(unskilledAgentIds)('exits 1 when agent %s does not support skills', async (agentId) => {
+    const { stdout, exitCode } = await runCliAsync(['setup-skills', agentId]);
     expect(exitCode).toBe(1);
     expect(stdout).toContain('does not support skills');
   });
@@ -101,20 +104,8 @@ describe('setupSkills generation + idempotency', () => {
   });
 
   // Every agent in the registry that defines a skillsPath must generate cleanly.
-  const skilledAgentIds = [
-    'claude-code',
-    'cursor',
-    'vscode',
-    'vs-copilot',
-    'rider-junie',
-    'github-copilot-cli',
-    'gemini',
-    'antigravity',
-    'cline',
-    'open-code',
-    'codex',
-    'kilo-code',
-  ];
+  // Derived from the registry so new skilled agents are covered automatically.
+  const skilledAgentIds = agentRegistry.filter((a) => a.skillsPath).map((a) => a.id);
 
   it.each(skilledAgentIds)('generates skill files for %s under its skillsPath', async (agentId) => {
     const agent = getAgentById(agentId);
@@ -137,8 +128,10 @@ describe('setupSkills generation + idempotency', () => {
     expect(fs.existsSync(path.join(expectedDir, 'godot-mcp', 'SKILL.md'))).toBe(true);
   });
 
-  it('fails for an agent without skills support (claude-desktop)', async () => {
-    const result = await setupSkills({ agentId: 'claude-desktop', godotProjectPath: tmpDir });
+  const unskilledAgentIds = agentRegistry.filter((a) => !a.skillsPath).map((a) => a.id);
+
+  it.each(unskilledAgentIds)('fails for agent %s without skills support', async (agentId) => {
+    const result = await setupSkills({ agentId, godotProjectPath: tmpDir });
     expect(result.kind).toBe('failure');
     if (result.kind === 'failure') {
       expect(result.error.message).toContain('does not support skills');
@@ -179,6 +172,29 @@ describe('setupSkills generation + idempotency', () => {
     second.filesWritten.forEach((f, i) => {
       expect(fs.readFileSync(f, 'utf-8')).toBe(snapshot[i]);
     });
+  });
+
+  it('prunes orphaned godot-mcp* family dirs on re-run, leaving foreign dirs', async () => {
+    const first = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(first.kind).toBe('success');
+    if (first.kind !== 'success') return;
+
+    // A stale family dir the catalog no longer emits, plus a foreign dir.
+    const orphanDir = path.join(first.skillsDir, 'godot-mcp-obsolete');
+    const foreignDir = path.join(first.skillsDir, 'some-other-skill');
+    fs.mkdirSync(orphanDir, { recursive: true });
+    fs.writeFileSync(path.join(orphanDir, 'SKILL.md'), 'STALE\n');
+    fs.mkdirSync(foreignDir, { recursive: true });
+    fs.writeFileSync(path.join(foreignDir, 'SKILL.md'), 'KEEP\n');
+
+    const second = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(second.kind).toBe('success');
+
+    // The orphaned godot-mcp* dir is gone; the unrelated dir is untouched.
+    expect(fs.existsSync(orphanDir)).toBe(false);
+    expect(fs.existsSync(foreignDir)).toBe(true);
+    // Current catalog dirs still present.
+    expect(fs.existsSync(path.join(first.skillsDir, 'godot-mcp', 'SKILL.md'))).toBe(true);
   });
 
   it('overwrites stale content on re-run (regeneration, not append)', async () => {

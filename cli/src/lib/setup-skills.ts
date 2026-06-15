@@ -17,8 +17,11 @@ import type { SetupSkillsOptions, SetupSkillsResult } from './types.js';
  * the `godot_mcp` addon's tool families (`Tool_Node`, `Tool_Scene`, …), NOT
  * Unity tool names.
  *
- * Idempotent: re-running rewrites the same bytes. A `SKILL.md`-per-family
- * directory is written under `<projectPath>/<agent.skillsPath>`.
+ * Idempotent: re-running rewrites the same bytes and prunes any
+ * `godot-mcp*` skill directories the current catalog no longer emits (so a
+ * shrunk catalog does not leave stale family dirs behind). A
+ * `SKILL.md`-per-family directory is written under
+ * `<projectPath>/<agent.skillsPath>`.
  */
 export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkillsResult> {
   const warnings: string[] = [];
@@ -75,6 +78,23 @@ export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkills
 
     const skillFiles = buildSkillFiles();
     const filesWritten: string[] = [];
+
+    // Prune orphaned `godot-mcp*` family dirs the current catalog no longer
+    // emits, so a shrunk catalog does not leave stale SKILL.md dirs behind.
+    // Only our own generated dirs (top-level segment of each emitted path) are
+    // ever removed — unrelated content under skillsDir is untouched.
+    const emittedDirs = new Set(skillFiles.map((f) => f.relativePath.split('/')[0]));
+    if (fs.existsSync(skillsDir)) {
+      for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+        if (
+          entry.isDirectory() &&
+          (entry.name === 'godot-mcp' || entry.name.startsWith('godot-mcp-')) &&
+          !emittedDirs.has(entry.name)
+        ) {
+          fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
+        }
+      }
+    }
 
     for (const file of skillFiles) {
       const absPath = path.join(skillsDir, file.relativePath);
