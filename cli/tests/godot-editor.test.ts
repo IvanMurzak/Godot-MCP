@@ -177,6 +177,123 @@ describe('findGodotBinary', () => {
       else process.env['LOCALAPPDATA'] = savedLocalAppData;
     }
   });
+
+  it('discovers a macOS .app-bundle binary at the depth-3 boundary (darwin)', () => {
+    // The real layout is <home>/Applications/Godot.app/Contents/MacOS/Godot,
+    // i.e. the binary's containing dir sits exactly at scan depth 3 below the
+    // root — a guard against an off-by-one shrinking SCAN_MAX_DEPTH. The file
+    // must be named like a Godot binary for the scan to match, so use a
+    // version-stamped macOS name inside the bundle. `commonInstallRoots` derives
+    // home via os.homedir(), which reads USERPROFILE on a Windows test host and
+    // HOME elsewhere — set both so the sandbox is consulted on either runner.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    const macBin = path.join(
+      tmpDir,
+      'Applications',
+      'Godot.app',
+      'Contents',
+      'MacOS',
+      'Godot_v4.5.1-stable_macos.universal',
+    );
+    fs.mkdirSync(path.dirname(macBin), { recursive: true });
+    fs.writeFileSync(macBin, '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(findGodotBinary(undefined, 'darwin')).toBe(macBin);
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('discovers a version-stamped binary via a recursive linux scan root', () => {
+    // ~/Downloads is a recursive root on linux; an extracted tarball nests the
+    // binary one folder down. Confirm the linux scan path resolves it. Set both
+    // HOME and USERPROFILE so os.homedir() points at the sandbox on any runner.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    const nested = path.join(tmpDir, 'Downloads', 'Godot_v4.5.1-stable_linux');
+    fs.mkdirSync(nested, { recursive: true });
+    const linuxBin = path.join(nested, 'Godot_v4.5.1-stable_mono_linux.x86_64');
+    fs.writeFileSync(linuxBin, '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(findGodotBinary(undefined, 'linux')).toBe(linuxBin);
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('skips an unreadable root directory without throwing (linux)', () => {
+    // A readdirSync that throws (permission denied, ENOTDIR, …) must be
+    // swallowed by the scan and not abort resolution. ESM module namespaces are
+    // non-configurable so fs.readdirSync cannot be spied; instead make a root
+    // path resolve to a FILE — readdirSync on a file throws ENOTDIR, exercising
+    // the scan's try/catch the same way an unreadable dir would.
+    const savedHome = process.env['HOME'];
+    const savedUserProfile = process.env['USERPROFILE'];
+    process.env['HOME'] = tmpDir;
+    process.env['USERPROFILE'] = tmpDir;
+    // ~/Downloads is a recursive linux root; make it a file, not a dir.
+    fs.writeFileSync(path.join(tmpDir, 'Downloads'), '');
+    process.env['PATH'] = path.join(tmpDir, 'empty');
+    try {
+      expect(() => findGodotBinary(undefined, 'linux')).not.toThrow();
+      expect(findGodotBinary(undefined, 'linux')).toBeNull();
+    } finally {
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+    }
+  });
+
+  it('prefers the newest version when ranks tie across directories (win32)', () => {
+    // Two extracted builds of identical build-rank (both mono _console) but
+    // different versions, in sibling folders under Downloads. The newer 4.5.1
+    // must win over 4.3 despite the older path sorting first alphabetically.
+    const downloads = path.join(tmpDir, 'Downloads');
+    const old = path.join(downloads, 'a-old', 'Godot_v4.3-stable_mono_win64_console.exe');
+    const recent = path.join(downloads, 'b-new', 'Godot_v4.5.1-stable_mono_win64_console.exe');
+    fs.mkdirSync(path.dirname(old), { recursive: true });
+    fs.mkdirSync(path.dirname(recent), { recursive: true });
+    fs.writeFileSync(old, '');
+    fs.writeFileSync(recent, '');
+
+    const savedUserProfile = process.env['USERPROFILE'];
+    const savedHome = process.env['HOME'];
+    const savedProgramFiles = process.env['PROGRAMFILES'];
+    const savedLocalAppData = process.env['LOCALAPPDATA'];
+    process.env['USERPROFILE'] = tmpDir;
+    process.env['HOME'] = tmpDir;
+    const emptyRoot = path.join(tmpDir, 'empty-root');
+    fs.mkdirSync(emptyRoot, { recursive: true });
+    process.env['PROGRAMFILES'] = emptyRoot;
+    process.env['LOCALAPPDATA'] = emptyRoot;
+    process.env['PATH'] = emptyRoot;
+    try {
+      expect(findGodotBinary(undefined, 'win32')).toBe(recent);
+    } finally {
+      if (savedUserProfile === undefined) delete process.env['USERPROFILE'];
+      else process.env['USERPROFILE'] = savedUserProfile;
+      if (savedHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = savedHome;
+      if (savedProgramFiles === undefined) delete process.env['PROGRAMFILES'];
+      else process.env['PROGRAMFILES'] = savedProgramFiles;
+      if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
+      else process.env['LOCALAPPDATA'] = savedLocalAppData;
+    }
+  });
 });
 
 describe('launchEditor', () => {

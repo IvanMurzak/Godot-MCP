@@ -43,6 +43,41 @@ function pathCandidateNames(os: NodeJS.Platform): string[] {
 const SCAN_MAX_DEPTH = 3;
 
 /**
+ * Bounded scan depth for FLAT roots — system bin dirs and PATH-like locations
+ * where the binary, if present, sits directly in the dir (no nested
+ * version-stamped wrapper). Scanning these recursively (`/usr/bin`,
+ * `/usr/local/bin`, …) would issue thousands of `readdir`/`isFile` ops for no
+ * benefit, so we probe only the root itself.
+ */
+const FLAT_SCAN_DEPTH = 0;
+
+/**
+ * Version-stamped release name → comparable numeric key. Parses the
+ * `v<major>.<minor>[.<patch>]` segment (e.g. `Godot_v4.5.1-stable_...`). Returns
+ * a single integer so larger == newer; names without a version segment sort
+ * oldest (`-1`). Pre-release builds (e.g. `4.6-beta1`) are treated by their
+ * numeric version only — the stable/build-rank distinction is handled by
+ * {@link godotBinaryRank}.
+ */
+const VERSION_RE = /v(\d+)\.(\d+)(?:\.(\d+))?/i;
+function godotVersionKey(name: string): number {
+  const m = VERSION_RE.exec(name);
+  if (!m) return -1;
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  const patch = m[3] !== undefined ? Number(m[3]) : 0;
+  // Wide radices so a larger minor/patch can never overflow into the next major.
+  return major * 1_000_000 + minor * 1_000 + patch;
+}
+
+// Module-level regexes for version-stamped binary names (compiled once rather
+// than per scanned directory entry). Mirrors the loose, arch-tolerant matching
+// described on `isGodotBinaryName`.
+const WIN_STAMPED_RE = /^godot_v.*win.*\.exe$/;
+const MACOS_STAMPED_RE = /^godot_v.*(macos|osx).*$/;
+const LINUX_STAMPED_RE = /^godot_v.*(linux|x11).*$/;
+
+/**
  * Whether a file name looks like a Godot editor binary. Matches both the fixed
  * historical names (`Godot.exe`, `godot`, `godot_mono`) AND the official
  * version-stamped release names, e.g.
@@ -61,17 +96,17 @@ function isGodotBinaryName(name: string, os: NodeJS.Platform): boolean {
     // Fixed names.
     if (lower === 'godot.exe' || lower === 'godot_mono.exe') return true;
     // Version-stamped: Godot_v<...>...win64[...]( _console)?.exe
-    return /^godot_v.*win.*\.exe$/.test(lower);
+    return WIN_STAMPED_RE.test(lower);
   }
 
   if (os === 'darwin') {
     if (lower === 'godot' || lower === 'godot_mono') return true;
-    return /^godot_v.*macos.*$/.test(lower) || /^godot_v.*osx.*$/.test(lower);
+    return MACOS_STAMPED_RE.test(lower);
   }
 
   // linux + others
   if (lower === 'godot' || lower === 'godot_mono') return true;
-  return /^godot_v.*(linux|x11).*$/.test(lower);
+  return LINUX_STAMPED_RE.test(lower);
 }
 
 /**
@@ -124,37 +159,58 @@ function scanForGodotBinaries(root: string, os: NodeJS.Platform, maxDepth: numbe
 
   walk(root, 0);
 
-  // Prefer the best build (mono _console > mono > _console > plain); stable
-  // secondary sort by path so the result is deterministic.
+  // Order, in priority: best build (mono _console > mono > _console > plain),
+  // then newest version (so Godot_v4.5.1 beats Godot_v4.3 when both are
+  // extracted side by side), then path for a deterministic tiebreak.
   found.sort((a, b) => {
-    const rank = godotBinaryRank(path.basename(b)) - godotBinaryRank(path.basename(a));
-    return rank !== 0 ? rank : a.localeCompare(b);
+    const nameA = path.basename(a);
+    const nameB = path.basename(b);
+    const rank = godotBinaryRank(nameB) - godotBinaryRank(nameA);
+    if (rank !== 0) return rank;
+    const version = godotVersionKey(nameB) - godotVersionKey(nameA);
+    if (version !== 0) return version;
+    return a.localeCompare(b);
   });
   return found;
 }
 
 /**
- * Per-OS common install roots to shallow-recursively scan for a Godot editor
- * binary when neither an env override nor a PATH hit resolves one. The official
- * release zips extract to a version-stamped nested folder, so we scan roots
- * recursively (bounded by `SCAN_MAX_DEPTH`) rather than probing fixed leaf
- * paths.
+ * A common install root to search, paired with the depth to scan it at. System
+ * bin dirs and package-manager shim dirs are FLAT (`depth 0`) — the binary, if
+ * present, sits directly in them, and recursing would issue thousands of
+ * `readdir`/`isFile` ops for nothing. Archive-extraction roots (Downloads,
+ * `/opt`, `~/Applications`, the macOS `.app` bundles, …) are scanned
+ * recursively (`SCAN_MAX_DEPTH`) because official zips extract into a nested
+ * version-stamped folder.
+ */
+interface InstallRoot {
+  path: string;
+  depth: number;
+}
+
+/**
+ * Per-OS common install roots to scan for a Godot editor binary when neither an
+ * env override nor a PATH hit resolves one. Each root carries its own scan
+ * depth (see {@link InstallRoot}). Duplicate paths (e.g. `USERPROFILE` and
+ * `homedir()` resolving to the same Downloads dir on Windows) are collapsed,
+ * keeping the first/deepest occurrence so a dir is never scanned twice.
  *   - Windows: Downloads, Program Files (+ x86), LocalAppData Programs, home,
  *     plus package-manager locations (Scoop / Chocolatey / winget / Steam).
  *   - macOS: `/Applications`, `~/Applications`, `~/Downloads` (the `.app`
  *     bundle's inner `Contents/MacOS/Godot` binary is matched by the scan).
- *   - Linux: common extracted-binary dirs + Downloads + Steam.
+ *   - Linux: system bin dirs (flat) + extracted-binary dirs + Downloads + Steam.
  */
-function commonInstallRoots(os: NodeJS.Platform): string[] {
+function commonInstallRoots(os: NodeJS.Platform): InstallRoot[] {
   const home = homedir();
-  const roots: string[] = [];
+  const recursive: string[] = [];
+  const flat: string[] = [];
 
   if (os === 'win32') {
     const programFiles = process.env['PROGRAMFILES'] ?? 'C:\\Program Files';
     const programFilesX86 = process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)';
     const localAppData = process.env['LOCALAPPDATA'] ?? path.join(home, 'AppData', 'Local');
     const userProfile = process.env['USERPROFILE'] ?? home;
-    roots.push(
+    recursive.push(
       path.join(userProfile, 'Downloads'),
       path.join(home, 'Downloads'),
       path.join(programFiles, 'Godot'),
@@ -170,34 +226,44 @@ function commonInstallRoots(os: NodeJS.Platform): string[] {
       path.join(programFiles, 'Steam', 'steamapps', 'common', 'Godot Engine'),
       path.join(programFilesX86, 'Steam', 'steamapps', 'common', 'Godot Engine'),
     );
-    return roots;
-  }
-
-  if (os === 'darwin') {
-    roots.push(
+  } else if (os === 'darwin') {
+    recursive.push(
       '/Applications',
       path.join(home, 'Applications'),
       path.join(home, 'Downloads'),
       // Steam.
       path.join(home, 'Library', 'Application Support', 'Steam', 'steamapps', 'common', 'Godot Engine'),
     );
-    return roots;
+  } else {
+    // linux + others. System bin dirs are flat; archive-extraction dirs recurse.
+    flat.push(
+      '/usr/local/bin',
+      '/usr/bin',
+      path.join(home, '.local', 'bin'),
+      path.join(home, 'bin'),
+    );
+    recursive.push(
+      '/opt',
+      path.join(home, '.local', 'share', 'godot'),
+      path.join(home, 'Applications'),
+      path.join(home, 'Downloads'),
+      // Steam.
+      path.join(home, '.local', 'share', 'Steam', 'steamapps', 'common', 'Godot Engine'),
+      path.join(home, '.steam', 'steam', 'steamapps', 'common', 'Godot Engine'),
+    );
   }
 
-  // linux + others
-  roots.push(
-    '/usr/local/bin',
-    '/usr/bin',
-    '/opt',
-    path.join(home, '.local', 'bin'),
-    path.join(home, '.local', 'share', 'godot'),
-    path.join(home, 'Applications'),
-    path.join(home, 'bin'),
-    path.join(home, 'Downloads'),
-    // Steam.
-    path.join(home, '.local', 'share', 'Steam', 'steamapps', 'common', 'Godot Engine'),
-    path.join(home, '.steam', 'steam', 'steamapps', 'common', 'Godot Engine'),
-  );
+  // Build the ordered list (recursive roots first, then flat), de-duplicating
+  // by resolved path so a dir reachable two ways is scanned only once.
+  const seen = new Set<string>();
+  const roots: InstallRoot[] = [];
+  const add = (p: string, depth: number): void => {
+    if (seen.has(p)) return;
+    seen.add(p);
+    roots.push({ path: p, depth });
+  };
+  for (const p of recursive) add(p, SCAN_MAX_DEPTH);
+  for (const p of flat) add(p, FLAT_SCAN_DEPTH);
   return roots;
 }
 
@@ -246,11 +312,12 @@ function existsAsFile(p: string): boolean {
  *   1. An explicit `editorPath` argument (validated to be an existing file).
  *   2. `GODOT_BIN` / `GODOT4_BIN` environment variables.
  *   3. The first matching Godot binary on `PATH` (fixed name or version-stamped).
- *   4. A bounded shallow-recursive scan of per-OS common install roots
- *      (Downloads, Program Files, LocalAppData Programs, home, plus Scoop /
- *      Chocolatey / winget / Steam locations). Matches both fixed and
- *      version-stamped names (`Godot_v<ver>-stable_mono_win64[_console].exe`),
- *      preferring the mono `_console` build. This is what resolves the common
+ *   4. A bounded scan of per-OS common install roots (Downloads, Program Files,
+ *      LocalAppData Programs, home, plus Scoop / Chocolatey / winget / Steam
+ *      locations). Archive-extraction roots are scanned recursively while system
+ *      bin dirs are probed flat. Matches both fixed and version-stamped names
+ *      (`Godot_v<ver>-stable_mono_win64[_console].exe`), preferring the mono
+ *      `_console` build and the newest version. This is what resolves the common
  *      case of an official zip extracted into a nested version-stamped folder.
  *
  * Returns the absolute path, or `null` when no Godot binary can be located.
@@ -284,10 +351,11 @@ export function findGodotBinary(
   const onPath = findOnPath(os);
   if (onPath) return onPath;
 
-  // 4. Bounded shallow-recursive scan of common install roots. Roots are tried
-  //    in priority order; within a root the best-ranked build wins.
+  // 4. Bounded scan of common install roots. Roots are tried in priority order
+  //    at each root's own depth (system bin dirs flat, archive-extraction roots
+  //    recursive); within a root the best-ranked, newest build wins.
   for (const root of commonInstallRoots(os)) {
-    const hits = scanForGodotBinaries(root, os, SCAN_MAX_DEPTH);
+    const hits = scanForGodotBinaries(root.path, os, root.depth);
     if (hits.length > 0) {
       return hits[0];
     }
