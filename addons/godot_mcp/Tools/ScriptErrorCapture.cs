@@ -67,7 +67,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static ScriptErrorCapture? Current { get; set; }
 
         /// <summary>
-        /// Optional sink for passive log capture — typically <see cref="GodotLogCollector.Append(LogEntry)"/>
+        /// Optional sink for passive log capture — typically <see cref="GodotLogCollector.Append(GodotLogType, string, string)"/>
         /// bound at boot. Kept as a delegate so this router stays pure-managed (the editor boot injects the
         /// real collector; unit tests inject a fake). May be null (capture-session-only mode).
         /// </summary>
@@ -168,12 +168,39 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Compare an engine-reported source path against the session target. Case-insensitive ordinal
-        /// equality — Godot reports <c>res://</c> paths consistently, but file systems (and the engine on
-        /// some platforms) can vary letter case, so an exact-case match would drop legitimate rows.
+        /// Compare an engine-reported source path against the session target. The session target is always a
+        /// <c>res://</c> path (from <c>RequireScriptResPath</c> / the res:// scan), but Godot's logger callback
+        /// documents the reported file as possibly a <c>res://</c> OR an absolute/<c>user://</c> path. A plain
+        /// equality check would therefore SILENTLY DROP the genuine diagnostic when the engine reports an
+        /// absolute path for the file under test. Both sides are normalized before comparing:
+        /// <list type="bullet">
+        /// <item>strip the <c>res://</c> / <c>user://</c> scheme,</item>
+        /// <item>normalize back-slashes to forward-slashes (Windows absolute paths),</item>
+        /// <item>case-insensitive ordinal comparison (file systems and the engine vary letter case).</item>
+        /// </list>
+        /// An absolute engine path matches when its tail equals the scheme-stripped res:// target (e.g.
+        /// <c>C:/proj/scripts/p.gd</c> ⊃ <c>scripts/p.gd</c> from <c>res://scripts/p.gd</c>). Kept pure-managed
+        /// (no <c>ProjectSettings.LocalizePath</c>) so the router stays unit-testable in the plain xUnit host.
         /// </summary>
         static bool PathsMatch(string enginePath, string target)
-            => string.Equals(enginePath, target, StringComparison.OrdinalIgnoreCase);
+        {
+            var a = NormalizePath(enginePath);
+            var b = NormalizePath(target);
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase)
+                || a.EndsWith("/" + b, StringComparison.OrdinalIgnoreCase)
+                || b.EndsWith("/" + a, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Strip the Godot resource scheme and normalize separators for path comparison.</summary>
+        static string NormalizePath(string path)
+        {
+            var p = path.Replace('\\', '/');
+            if (p.StartsWith("res://", StringComparison.OrdinalIgnoreCase))
+                return p.Substring("res://".Length);
+            if (p.StartsWith("user://", StringComparison.OrdinalIgnoreCase))
+                return p.Substring("user://".Length);
+            return p;
+        }
 
         /// <summary>
         /// Format a captured engine error/warning into a single console line:

@@ -223,6 +223,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Session_WithTarget_MatchesAbsoluteEnginePath_AgainstResTarget()
+        {
+            // The session target is always a res:// path, but the engine logger may report an absolute path
+            // for the same file. The genuine diagnostic for the file under test must NOT be dropped.
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://scripts/player.gd");
+
+            capture.Route(EngineErrorKind.Script, @"C:\proj\scripts\player.gd", 5, "c", "absolute-path error");
+            capture.Route(EngineErrorKind.Script, "/home/u/proj/scripts/other.gd", 1, "c", "absolute noise");
+
+            var only = Assert.Single(capture.EndSession());
+            Assert.Equal(@"C:\proj\scripts\player.gd", only.Path);
+        }
+
+        [Fact]
         public void Session_WithoutTarget_CollectsAllScriptErrors_LegacyBehavior()
         {
             var capture = new ScriptErrorCapture();

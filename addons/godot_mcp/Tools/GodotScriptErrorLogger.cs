@@ -90,12 +90,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     public static class GodotScriptErrorLoggerBridge
     {
         /// <summary>
-        /// True on this build because the 4.5+ engine-Logger path is compiled in. The 4.3/4.4 stub returns
-        /// false (see the <c>#else</c> partial), letting the tool report a Coarse fidelity result.
-        /// </summary>
-        public const bool Available = true;
-
-        /// <summary>
         /// Install the engine-error logger and return the router it feeds. The router's <see cref="ScriptErrorCapture.LogSink"/>
         /// is wired to <paramref name="collector"/> so passive engine errors land in <c>console-get-logs</c>.
         /// Returns null only if <paramref name="collector"/> is null (nothing to wire) — callers treat null as

@@ -10,8 +10,9 @@
 // Godot < 4.5 fallback for the engine-error logger bridge. On the addon's SDK floor (Godot.NET.Sdk/4.3.0,
 // which the required `dotnet build (.NET 8)` CI gate pins) Godot.Logger / OS.AddLogger do not exist, so the
 // real bridge (GodotScriptErrorLogger.cs, guarded by #if GODOT4_5_OR_GREATER) is compiled OUT and this stub
-// is compiled IN. It reports Available == false and installs nothing, so passive engine-log capture is
-// unavailable and script-validate falls back to the per-file Reload() error-code probe (Coarse fidelity).
+// is compiled IN. TryInstall is a no-op that installs nothing, so ScriptErrorCapture.Current stays null:
+// passive engine-log capture is unavailable and script-validate falls back to the per-file Reload()
+// error-code probe (Coarse fidelity).
 #if TOOLS && !GODOT4_5_OR_GREATER
 #nullable enable
 
@@ -19,14 +20,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
     /// No-op stub of the engine-error logger bridge for Godot &lt; 4.5 (no <c>OS.AddLogger</c> /
-    /// <c>Godot.Logger</c>). Keeps <c>Tool_Script.Validate.cs</c> compiling on the SDK floor; the tool
-    /// branches on <see cref="Available"/> and uses the coarse per-file <c>Reload()</c> probe instead.
+    /// <c>Godot.Logger</c>). Keeps <c>Tool_Script.Validate.cs</c> compiling on the SDK floor; with no live
+    /// capture installed, <see cref="ScriptErrorCapture.Current"/> stays null and the tool uses the coarse
+    /// per-file <c>Reload()</c> probe instead.
     /// </summary>
     public static class GodotScriptErrorLoggerBridge
     {
-        /// <summary>False on Godot &lt; 4.5 — the engine-Logger capture path is not compiled in.</summary>
-        public const bool Available = false;
-
         /// <summary>No-op on Godot &lt; 4.5; always returns null. (Signature matches the 4.5+ bridge.)</summary>
         public static ScriptErrorCapture? TryInstall(GodotLogCollector collector) => null;
     }

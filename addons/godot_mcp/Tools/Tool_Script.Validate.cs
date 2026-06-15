@@ -66,9 +66,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     ScannedCount = targets.Count,
                     Truncated = truncated,
                     // Precise ONLY when a live capture session actually exists (the 4.5 Logger hook was
-                    // installed). Keying off the compile-time GodotScriptErrorLoggerBridge.Available const
-                    // would over-claim Precise on a 4.5 build where TryInstall returned null / Current is
-                    // null and the coarse per-file Reload()-code path is the one actually taken.
+                    // installed). Keying off a compile-time "is 4.5 compiled in?" flag would over-claim Precise
+                    // on a 4.5 build where TryInstall returned null / Current is null and the coarse per-file
+                    // Reload()-code path is the one actually taken.
                     Fidelity = ScriptErrorCapture.Current != null
                         ? ScriptDiagnosticsFidelity.Precise
                         : ScriptDiagnosticsFidelity.Coarse,
@@ -204,7 +204,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
             }
 
-            // 4.5+ precise path: if the engine Logger captured script errors, those ARE the diagnostics.
+            // 4.5+ precise path: the session captured the engine's script errors for THIS file (the session's
+            // path-match filter restricts rows to resPath, plus any pathless rows the engine emitted, which are
+            // stamped with resPath below). When present, those structured rows ARE the diagnostics.
             if (capture != null && diagnostics.Count > 0)
             {
                 // Stamp the path on any rows the engine reported without a file (defensive).
