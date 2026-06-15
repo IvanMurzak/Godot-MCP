@@ -12,6 +12,7 @@
 using System.Runtime.CompilerServices;
 using Godot;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Connection.DevControl;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Tools;
@@ -38,6 +39,11 @@ namespace com.IvanMurzak.Godot.MCP
         MainThreadDispatcher? _dispatcher;
         GodotMcpConnection? _connection;
         GodotMcpDock? _dock;
+
+        // DEV-ONLY inject/control HTTP bridge (Connection/DevControl/). Started ONLY when
+        // GODOT_MCP_DEV_CONTROL=1 (127.0.0.1, off by default → a shipped addon never listens); disposed in
+        // _ExitTree. Lets a terminal / AI agent inject fake states + simulate user actions on the live dock.
+        DevControlServer? _devControl;
 
         public override void _EnterTree()
         {
@@ -155,6 +161,11 @@ namespace com.IvanMurzak.Godot.MCP
             // Register the dock (wired to the connection if one was built; header-only otherwise).
             RegisterDock(_connection);
 
+            // DEV-ONLY: start the inject/control bridge AFTER the dock exists, gated on GODOT_MCP_DEV_CONTROL=1
+            // (off by default → a shipped addon never listens). Binds 127.0.0.1 only. A failure here must not
+            // take down the connection boot — the bridge is dev scaffolding.
+            StartDevControlIfEnabled();
+
             if (_connection == null)
                 return;
 
@@ -168,8 +179,49 @@ namespace com.IvanMurzak.Godot.MCP
             }
         }
 
+        /// <summary>
+        /// Start the DEV-ONLY inject/control bridge when <c>GODOT_MCP_DEV_CONTROL=1</c>. The port comes from
+        /// <c>GODOT_MCP_DEV_CONTROL_PORT</c> (default <see cref="DevControlServer.DefaultPort"/>) — an unset or
+        /// unparseable value falls back to the default. No-op (and never listens) when the flag is not exactly
+        /// <c>"1"</c>, OR when the dock failed to register (there is nothing to drive). Defensively wrapped so a
+        /// bridge failure cannot take down plugin boot.
+        /// </summary>
+        void StartDevControlIfEnabled()
+        {
+            if (OS.GetEnvironment("GODOT_MCP_DEV_CONTROL") != "1")
+                return;
+
+            if (_dock == null)
+            {
+                LogWarning("[dev-control] GODOT_MCP_DEV_CONTROL=1 but the dock failed to register; not starting.");
+                return;
+            }
+
+            var port = DevControlServer.DefaultPort;
+            var portEnv = OS.GetEnvironment("GODOT_MCP_DEV_CONTROL_PORT");
+            if (!string.IsNullOrEmpty(portEnv) && int.TryParse(portEnv, out var parsed) && parsed > 0 && parsed <= 65535)
+                port = parsed;
+
+            try
+            {
+                _devControl = new DevControlServer(_dock, port);
+                _devControl.Start();
+            }
+            catch (System.Exception ex)
+            {
+                LogError($"[dev-control] failed to start: {ex.Message}");
+                _devControl = null;
+            }
+        }
+
         public override void _ExitTree()
         {
+            if (_devControl != null)
+            {
+                _devControl.Dispose();
+                _devControl = null;
+            }
+
             if (_connection != null)
             {
                 _connection.Dispose();

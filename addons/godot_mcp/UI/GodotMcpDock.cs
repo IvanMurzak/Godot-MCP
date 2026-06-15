@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Connection.DevControl;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.UI
@@ -318,6 +319,189 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _agentConfiguratorsPanel?.Refresh();
             _extensionsPanel?.Refresh();
             SyncLogLevelSelector();
+        }
+
+        // ===================================================================================================
+        //  DEV-ONLY inject / control / state API
+        // ---------------------------------------------------------------------------------------------------
+        //  Surface for the env-gated, 127.0.0.1-bound DevControlServer (Connection/DevControl/) so a terminal
+        //  / AI agent can (a) INJECT fake states onto the LIVE dock to test UI rendering and (b) CONTROL it —
+        //  simulate user actions (set Server URL, switch agent, click Configure/Connect/Start) — without
+        //  clicking by hand. INERT in a shipped addon: the server only starts when GODOT_MCP_DEV_CONTROL=1.
+        //
+        //  Inject delegates to ConnectionPanel's dev API; control + state walk the live dock tree by node
+        //  Name (the Names are stable, assigned in BuildUi here / in ConnectionPanel / AgentConfiguratorsPanel)
+        //  and drive the real controls (set Text + EmitSignal, Select + EmitSignal, EmitSignal "pressed"), so
+        //  the same code paths a human click would hit run. ALL of these MUST be called on the editor main
+        //  thread (the DevControlServer hops via MainThreadDispatcher).
+        // ===================================================================================================
+
+        /// <summary>DEV-ONLY: inject a fake connection status (Connected/Connecting/Disconnected) onto the dock and pin it.</summary>
+        public void DevInjectConnectionStatus(string status)
+        {
+            if (!DevControlRouter.TryParseConnectionStatus(status, out var parsed))
+                throw new System.ArgumentException($"invalid connection-status '{status}'", nameof(status));
+            if (_connectionPanel == null)
+                throw new System.InvalidOperationException("connection panel not present (no live connection)");
+            _connectionPanel.DevInjectStatus(parsed);
+        }
+
+        /// <summary>DEV-ONLY: inject a fake local-server status (Stopped/Starting/Running/Stopping/External) onto the dock.</summary>
+        public void DevInjectServerStatus(string status)
+        {
+            if (!DevControlRouter.TryParseServerStatus(status, out var parsed))
+                throw new System.ArgumentException($"invalid server-status '{status}'", nameof(status));
+            if (_connectionPanel == null)
+                throw new System.InvalidOperationException("connection panel not present (no live connection)");
+            _connectionPanel.DevInjectServerStatus(parsed);
+        }
+
+        /// <summary>
+        /// DEV-ONLY: drive the Custom-mode Server URL field as a user would — set the LineEdit text and emit
+        /// its <c>text_submitted</c> signal so the panel runs its real commit/validate/reconnect path.
+        /// </summary>
+        public void DevSetServerUrl(string url)
+        {
+            var field = FindChild("HostField", recursive: true, owned: false) as LineEdit
+                ?? throw new System.InvalidOperationException("HostField not found (Custom mode may be hidden)");
+            field.Text = url ?? string.Empty;
+            field.EmitSignal(LineEdit.SignalName.TextSubmitted, field.Text);
+        }
+
+        /// <summary>
+        /// DEV-ONLY: select an AI agent by its display NAME or registry agent-id — sets the OptionButton
+        /// selection and emits <c>item_selected</c> so the panel runs its real persist + re-render path.
+        /// </summary>
+        public bool DevSelectAgent(string idOrName)
+        {
+            var selector = FindChild("AgentSelector", recursive: true, owned: false) as OptionButton
+                ?? throw new System.InvalidOperationException("AgentSelector not found");
+
+            // Resolve by registry agent-id first (stable), then fall back to the visible display name.
+            var index = Agents.GodotAgentConfiguratorRegistry.GetIndexByAgentId(idOrName);
+            if (index < 0)
+            {
+                var names = Agents.GodotAgentConfiguratorRegistry.AgentNames;
+                for (int i = 0; i < names.Count; i++)
+                {
+                    if (string.Equals(names[i], idOrName, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+            }
+            if (index < 0)
+                return false;
+
+            // The OptionButton item id IS the registry index (see AgentConfiguratorsPanel.BuildUi).
+            var itemIndex = selector.GetItemIndex(index);
+            if (itemIndex < 0)
+                return false;
+
+            selector.Selected = itemIndex;
+            selector.EmitSignal(OptionButton.SignalName.ItemSelected, itemIndex);
+            return true;
+        }
+
+        /// <summary>
+        /// DEV-ONLY: simulate a click on one of the dock's primary buttons by emitting its <c>pressed</c>
+        /// signal — running the exact handler a human click would. Returns false when the target's button is
+        /// not present (e.g. the Remove button is hidden until the agent is configured, the Start-server
+        /// button only exists in Custom mode). Targets: configure|reconfigure|remove|connect|start-server|generate.
+        /// </summary>
+        public bool DevClick(string target)
+        {
+            if (!DevControlRouter.TryNormalizeClickTarget(target, out var normalized))
+                throw new System.ArgumentException($"invalid click target '{target}'", nameof(target));
+
+            // Map the normalized target to the live button's node Name. "reconfigure" is the same button as
+            // "configure" (its label flips to "Reconfigure" once configured — the node Name stays "Configure").
+            var nodeName = normalized switch
+            {
+                "configure" or "reconfigure" => "Configure",
+                "remove" => "Remove",
+                "connect" => "ConnectButton",
+                "start-server" => "LocalServerStartStopButton",
+                "generate" => "Generate",
+                _ => null,
+            };
+            if (nodeName == null)
+                return false;
+
+            var button = FindChild(nodeName, recursive: true, owned: false) as BaseButton;
+            if (button == null || !IsInstanceValid(button))
+                return false;
+
+            button.EmitSignal(BaseButton.SignalName.Pressed);
+            return true;
+        }
+
+        /// <summary>
+        /// DEV-ONLY: a JSON snapshot of what the dock is currently rendering — connection status label,
+        /// Connect-button text, the Server URL field, the selected agent name, the agent config status text,
+        /// and whether the AI-agent "AgentAlert" node is present + visible. Read by <c>GET /state</c> so a
+        /// terminal / AI agent can assert on the live UI without scraping pixels.
+        /// </summary>
+        public string DevStateJson()
+        {
+            string? Text(string name) =>
+                (FindChild(name, recursive: true, owned: false) as Label)?.Text;
+            string? ButtonText(string name) =>
+                (FindChild(name, recursive: true, owned: false) as Button)?.Text;
+
+            var hostField = FindChild("HostField", recursive: true, owned: false) as LineEdit;
+            var agentSelector = FindChild("AgentSelector", recursive: true, owned: false) as OptionButton;
+            string? selectedAgent = null;
+            if (agentSelector != null && agentSelector.Selected >= 0)
+                selectedAgent = agentSelector.GetItemText(agentSelector.Selected);
+
+            var alert = FindChild("AgentAlert", recursive: true, owned: false) as Control;
+
+            // Hand-built JSON so this file stays free of a System.Text.Json dependency in the dock layer; the
+            // DevControlServer embeds this verbatim under a "dock" key. All values are escaped.
+            var sb = new System.Text.StringBuilder();
+            sb.Append('{');
+            AppendJson(sb, "dockTitle", DockTitle); sb.Append(',');
+            AppendJson(sb, "connectionStatus", Text("GodotStatus")); sb.Append(',');
+            AppendJson(sb, "connectButtonText", ButtonText("ConnectButton")); sb.Append(',');
+            AppendJson(sb, "serverUrl", hostField?.Text); sb.Append(',');
+            AppendJson(sb, "selectedAgent", selectedAgent); sb.Append(',');
+            AppendJson(sb, "agentConfigStatus", Text("Status")); sb.Append(',');
+            sb.Append("\"agentAlertPresent\":").Append(alert != null ? "true" : "false").Append(',');
+            sb.Append("\"agentAlertVisible\":").Append(alert is { Visible: true } ? "true" : "false");
+            sb.Append('}');
+            return sb.ToString();
+        }
+
+        /// <summary>Append a JSON <c>"key":"value"</c> pair (value JSON-escaped; null → JSON null) to <paramref name="sb"/>.</summary>
+        static void AppendJson(System.Text.StringBuilder sb, string key, string? value)
+        {
+            sb.Append('"').Append(key).Append("\":");
+            if (value == null)
+            {
+                sb.Append("null");
+                return;
+            }
+            sb.Append('"');
+            foreach (var ch in value)
+            {
+                switch (ch)
+                {
+                    case '"': sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default:
+                        if (ch < 0x20)
+                            sb.Append("\\u").Append(((int)ch).ToString("x4"));
+                        else
+                            sb.Append(ch);
+                        break;
+                }
+            }
+            sb.Append('"');
         }
     }
 }
