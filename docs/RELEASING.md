@@ -99,17 +99,53 @@ version-gate applies: if the tag already exists, the dispatch run is a no-op.
 
 ---
 
-## Godot Asset Library submission (manual, Ivan-gated)
+## Godot Asset Library submission
 
-The Godot Asset Library is the discoverable in-editor channel (*AssetLib* tab). Submission is a
-**manual web-form step** performed by the maintainer at
-<https://godotengine.org/asset-library/> after a GitHub Release exists. It is **not** automated and
-**not** performed by this pipeline.
+The Godot Asset Library is the discoverable in-editor channel (*AssetLib* tab). It has two distinct
+operations:
+
+- The **one-time INITIAL submission** of a brand-new asset entry, and the **moderator approval** that
+  follows it — these remain **manual web-form steps** performed by the maintainer at
+  <https://godotengine.org/asset-library/>. They are NOT automated (see
+  [First submission](#first-submission-one-time) and [GATES](#gates--what-requires-the-maintainer-ivan)).
+- The **per-release VERSION EDIT** (bumping **Version** + **Download Commit** on the *existing* entry on
+  every later release) is now **automated** by the `assetlib-edit` job in
+  [`release.yml`](../.github/workflows/release.yml). On each real version bump that cuts a release, after
+  the GitHub Release is created, the job submits the edit via the pinned
+  [`deep-entertainment/godot-asset-lib-action`](https://github.com/deep-entertainment/godot-asset-lib-action)
+  (`addEdit` mode). The Godot moderator still reviews each submitted edit before it goes live.
+
+The version edit no longer requires opening the web form by hand for routine releases — but the
+**INITIAL** submission (which creates the asset id the automation targets) is still a manual first step.
 
 A **ready-to-paste submission package** — every form field's exact value, plus the icon and preview
-URLs — is maintained at [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Open it next to the
-web form and copy each field across. The notes below are the procedure; the values live in that file so
-they are versioned and easy to update on each release.
+URLs — is maintained at [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Use it for the manual
+INITIAL submission; the automated per-release edit renders the same field values from
+[`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs) (keep the two in sync).
+
+### Automated version edit — required GitHub config
+
+The `assetlib-edit` job reads its credentials and the asset id ONLY from GitHub-managed config (nothing
+is hardcoded). Set these in the repository **Settings → Secrets and variables → Actions**:
+
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `GODOT_ASSETLIB_USERNAME` | **Secret** | The maintainer's godotengine.org Asset Library username. |
+| `GODOT_ASSETLIB_PASSWORD` | **Secret** | That account's Asset Library password (the action logs in and obtains a session token). |
+| `GODOT_ASSETLIB_ASSET_ID` | **Variable** | The numeric asset id of the existing Godot-MCP entry (assigned by the Asset Library after the INITIAL submission is approved). |
+
+Until all three are configured, the `assetlib-edit` job fails authentication and shows up as a **red
+job** — but it is isolated: the GitHub Release and the npm `deploy` publish are unaffected (they do not
+depend on it). The asset id only exists after the INITIAL submission, so this automation becomes
+effective from the **second** release onward.
+
+The rendered field values (title, description, category, godot_version, license, repo/issues URLs, icon
+URL) live in [`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs); `version_string` and
+`download_commit` are injected at run time from the canonical version (`plugin.cfg` via
+`check-version-tag`) and the released commit (`github.sha`).
+
+The notes below are the manual-procedure reference; the field values live in `SUBMISSION.md` /
+`edit.hbs` so they are versioned and easy to update.
 
 ### Form-field requirements (verified against the Asset Library docs)
 
@@ -177,18 +213,26 @@ afterwards.
    the `v<version>` tag points at (`git rev-list -n1 v<version>`).
 4. Submit. A Godot Asset Library moderator reviews and approves the entry (this can take days).
 
-### Subsequent-version updates (every later release)
+### Subsequent-version updates (every later release — AUTOMATED)
 
-The Asset Library entry is **edited in place** — you do NOT create a new entry per version:
+The Asset Library entry is **edited in place** — you do NOT create a new entry per version. Once the
+INITIAL submission exists and the three GitHub config entries above are set, this is **automated**:
 
 1. Cut the new GitHub Release (bump `plugin.cfg`, merge → `release.yml` tags `v<newversion>`).
-2. Sign in, open the existing **Godot-MCP** asset, click **Edit**.
-3. Bump the **Version** field to the new semver and set **Download Commit** to the new tag's commit
-   hash (`git rev-list -n1 v<newversion>`). Update the description / previews only if they changed.
-4. Submit the edit — it goes through moderator review again before going live.
+2. The `assetlib-edit` job runs after the Release and submits the edit automatically — it bumps the
+   **Version** to the new `plugin.cfg` semver (`version_string`) and sets **Download Commit** to the
+   released commit (`github.sha`). The other field values come from `.github/assetlib/edit.hbs`.
+3. The Godot Asset Library moderator reviews the submitted edit before it goes live (same as a manual
+   edit — automation only fills + submits the form, it does not bypass moderation).
 
-> Each edit refreshes the values in [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md) too, so the
-> versioned package always reflects what is live.
+If the automated edit fails (red `assetlib-edit` job — e.g. credentials not yet configured, or the
+asset id is wrong), fall back to the manual edit: sign in, open the existing **Godot-MCP** asset, click
+**Edit**, bump **Version** + **Download Commit** (`git rev-list -n1 v<newversion>`), and submit.
+
+> Keep [`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs) and
+> [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md) in sync, and update both (plus the long
+> description / previews) only when a field actually changes — so the automated edit and the manual
+> reference always reflect what is live.
 
 ---
 
@@ -225,8 +269,14 @@ by the maintainer:
   A manual step on npmjs.com authorizing this repo + `deploy.yml` to publish via OIDC. Until it is
   done, the `npm publish` step fails auth (the GitHub Release still succeeds). See
   [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only).
-- **Godot Asset Library submission (and version edits).** A manual web-form step at
-  <https://godotengine.org/asset-library/>, never automated.
+- **Godot Asset Library INITIAL submission + moderator approval.** Creating the brand-new asset entry
+  is a manual web-form step at <https://godotengine.org/asset-library/>, and every submission (initial
+  or edit) is reviewed by a Godot moderator. These are NOT automated. (The per-release **version edit**
+  on the existing entry IS automated — see
+  [Automated version edit](#automated-version-edit--required-github-config) — but it still goes through
+  moderator review, and it depends on the maintainer having configured the
+  `GODOT_ASSETLIB_USERNAME` / `GODOT_ASSETLIB_PASSWORD` secrets and the `GODOT_ASSETLIB_ASSET_ID`
+  variable.)
 - **Adding the addon icon** required by the Asset Library form (none ships today).
 - **Any future NuGet publishing** — new package IDs, `dotnet nuget push` steps, or NuGet
   publish secrets / trusted-publishing config. None exist today and none should be added without an
