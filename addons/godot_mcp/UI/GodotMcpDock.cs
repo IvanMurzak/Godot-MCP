@@ -120,9 +120,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             scroll.AddChild(content);
 
-            // --- Header card (title + version + Log Level), wrapped in the styled card chrome. ---
-            var header = new VBoxContainer { Name = "Header" };
-            header.AddThemeConstantOverride("separation", 4);
+            // --- Header card: a ROW with a LEFT base-config column (title + Log Level + Version) and a
+            // RIGHT-aligned AI-cube logo, mirroring Unity-MCP's MainWindow header (config block + imgLogo).
+            var header = new HBoxContainer { Name = "Header", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            header.AddThemeConstantOverride("separation", 8);
+
+            // Left column: title over the base-config fields.
+            var headerInfo = new VBoxContainer { Name = "HeaderInfo", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            headerInfo.AddThemeConstantOverride("separation", 4);
+            header.AddChild(headerInfo);
 
             var title = new Label
             {
@@ -130,21 +136,26 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Text = DockTitle
             };
             DockStyle.ApplyHeader(title);
-            header.AddChild(title);
-
-            var version = new Label
-            {
-                Name = "Version",
-                Text = $"v{AddonVersion}"
-            };
-            DockStyle.ApplyDescription(version);
-            header.AddChild(version);
+            headerInfo.AddChild(title);
 
             // Log Level selector — routes the reused framework's verbosity (connection / handshake logs) to
             // the Godot Output. Compact, in the header so it is reachable for diagnostics regardless of which
             // section is open. Only meaningful with a live connection (it binds the connection's config).
             if (_connection != null)
-                BuildLogLevelRow(header, _connection);
+                BuildLogLevelRow(headerInfo, _connection);
+
+            var version = new Label
+            {
+                Name = "Version",
+                Text = $"Version  {AddonVersion}"
+            };
+            DockStyle.ApplyDescription(version);
+            headerInfo.AddChild(version);
+
+            // Right: the AI-cube logo (square, 60px). Omitted silently when the asset is missing / un-imported.
+            var logo = DockStyle.HeaderLogo();
+            if (logo != null)
+                header.AddChild(logo);
 
             content.AddChild(DockStyle.Card(header, "Header"));
 

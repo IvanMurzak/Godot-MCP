@@ -199,6 +199,128 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeStyleboxOverride("pressed", pressedBox);
         }
 
+        // --- Icons (header logo + footer icon buttons; mirrors the agent-icon load pattern) -------------------
+
+        /// <summary>
+        /// Defensively load a texture under <see cref="DockTheme.IconsDir"/> by <paramref name="fileName"/>.
+        /// Returns <c>null</c> when the asset is missing OR has not been imported yet (Godot generates the
+        /// <c>.import</c> sidecar on first editor open, and <c>.import</c> files are gitignored) OR is not a
+        /// <see cref="Texture2D"/> — so a missing/un-imported icon degrades to no-icon, never crashing the dock.
+        /// Mirrors <c>AgentConfiguratorsPanel.LoadAgentIcon</c>.
+        /// </summary>
+        public static Texture2D? LoadIcon(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+                return null;
+
+            var path = DockTheme.IconsDir + fileName;
+            if (!ResourceLoader.Exists(path))
+                return null;
+
+            return ResourceLoader.Load(path) as Texture2D;
+        }
+
+        /// <summary>
+        /// Apply an optional leading <paramref name="iconFileName"/> texture (20px, under
+        /// <see cref="DockTheme.IconsDir"/>) and the <paramref name="text"/> label to <paramref name="button"/>
+        /// via Godot's native <see cref="Button.Icon"/> slot. When an icon is present the text gets a small
+        /// leading space to mimic the Unity icon-then-label gap; when the asset is missing / un-imported the
+        /// button degrades to text-only.
+        /// </summary>
+        private static void ApplyIconAndText(Button button, string text, string? iconFileName)
+        {
+            var texture = string.IsNullOrEmpty(iconFileName) ? null : LoadIcon(iconFileName!);
+            if (texture != null)
+            {
+                button.Icon = texture;
+                button.AddThemeConstantOverride("icon_max_width", DockTheme.ButtonIconSize);
+                button.Text = " " + text; // small gap after the icon, matching the Unity icon-then-label spacing.
+            }
+            else
+            {
+                button.Text = text;
+            }
+        }
+
+        /// <summary>
+        /// Build the header AI-cube logo as a square <see cref="TextureRect"/> (Unity's <c>imgLogoPivot</c>,
+        /// 60px, scaled to fit, aspect-preserved). Returns <c>null</c> when the logo asset is missing /
+        /// un-imported so the header silently omits it (the config column then fills the width). Editor-only.
+        /// </summary>
+        public static TextureRect? HeaderLogo()
+        {
+            var texture = LoadIcon(DockTheme.LogoFileName);
+            if (texture == null)
+                return null;
+
+            return new TextureRect
+            {
+                Name = "HeaderLogo",
+                Texture = texture,
+                CustomMinimumSize = new Vector2(DockTheme.HeaderLogoSize, DockTheme.HeaderLogoSize),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkBegin,
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd
+            };
+        }
+
+        /// <summary>
+        /// Build a secondary "button with icon" (Unity's <c>.btn-secondary.btn-with-icon</c>): a flat gray
+        /// bordered button whose content is an optional leading <paramref name="iconFileName"/> texture
+        /// (20px, under <see cref="DockTheme.IconsDir"/>) followed by the <paramref name="text"/> label. When
+        /// the icon asset is missing / un-imported the button degrades to text-only. <paramref name="onPressed"/>
+        /// wires the click. The icon+label are applied via Godot's native <see cref="Button.Icon"/> slot
+        /// (icon_max_width + a leading space on the text), not a separate container child.
+        /// </summary>
+        public static Button IconButton(string name, string text, string? iconFileName, System.Action onPressed)
+        {
+            var button = new Button
+            {
+                Name = name,
+                MouseDefaultCursorShape = Control.CursorShape.PointingHand
+            };
+            ApplyOpenButton(button);
+            button.AddThemeColorOverride("font_color", Rgb(DockTheme.ButtonSecondaryText));
+
+            ApplyIconAndText(button, text, iconFileName);
+
+            button.Pressed += () => onPressed();
+            return button;
+        }
+
+        /// <summary>
+        /// Build the gold "GitHub Star" button (Unity's <c>.btn-golden.btn-with-icon</c>): a dark
+        /// <see cref="DockTheme.ButtonGoldenBackground"/> fill, a <see cref="DockTheme.ButtonGoldenBorder"/>
+        /// border, gold <see cref="DockTheme.ButtonGoldenText"/> text, and the gold star
+        /// (<see cref="DockTheme.StarIconFileName"/>) as a leading icon. Degrades to text-only when the star
+        /// asset is missing / un-imported. <paramref name="onPressed"/> wires the click.
+        /// </summary>
+        public static Button GoldenButton(string name, string text, string? iconFileName, System.Action onPressed)
+        {
+            var button = new Button
+            {
+                Name = name,
+                MouseDefaultCursorShape = Control.CursorShape.PointingHand
+            };
+
+            var normal = Rgb(DockTheme.ButtonGoldenBackground);
+            var hover = Rgb(DockTheme.ButtonGoldenHover);
+            var border = Rgb(DockTheme.ButtonGoldenBorder);
+            ApplyBorderedButtonBackground(button, normal, hover, border, DockTheme.ButtonOpenCornerRadius);
+            button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonOpenHeight);
+
+            var textColor = Rgb(DockTheme.ButtonGoldenText);
+            button.AddThemeColorOverride("font_color", textColor);
+            button.AddThemeColorOverride("font_hover_color", textColor.Lightened(0.1f));
+            button.AddThemeColorOverride("font_pressed_color", textColor.Lightened(0.2f));
+
+            ApplyIconAndText(button, text, iconFileName);
+
+            button.Pressed += () => onPressed();
+            return button;
+        }
+
         // --- Links ---------------------------------------------------------------------------------------------
 
         /// <summary>

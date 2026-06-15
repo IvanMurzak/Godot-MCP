@@ -38,7 +38,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Heading shown above the support buttons.</summary>
         public const string PromptText = "Found an issue?";
 
-        /// <summary>Closing thank-you line.</summary>
-        public const string ThanksText = "Thanks for using AI Game Developer \U0001F49A";
+        /// <summary>Closing thank-you line (plain text — kept for callers/tests that want the un-marked-up copy).</summary>
+        public const string ThanksText =
+            "Thanks for using AI Game Developer. If you like it, please give the project a star on GitHub.\n\nSincerely,\nIvan Murzak";
+
+        /// <summary>
+        /// The closing thank-you block as Godot BBCode (for a <c>RichTextLabel</c>), mirroring Unity-MCP's
+        /// footer copy where the product name "AI Game Developer" is emphasised with a red "AI". Godot BBCode
+        /// uses <c>[color=red]…[/color]</c> + <c>[b]…[/b]</c> (the Godot analog of Unity rich-text
+        /// <c>&lt;color=red&gt;</c>/<c>&lt;b&gt;</c>).
+        /// </summary>
+        public const string ThanksBbcode =
+            "Thanks for using [b][color=red]AI[/color] Game Developer[/b]. If you like it, please give the project a star on GitHub.\n\nSincerely,\nIvan Murzak";
     }
 }
