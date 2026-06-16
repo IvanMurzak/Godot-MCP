@@ -504,8 +504,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // DevControlServer embeds this verbatim under a "dock" key. All values are escaped.
             var sb = new System.Text.StringBuilder();
             sb.Append('{');
+            // The Godot timeline label (PanelContainer "GodotLabel" → inner Label "Text") now carries the
+            // status ("Godot" / "Godot: connecting..." / "Godot: connected"); read it for connectionStatus.
+            var godotLabel = FindChild("GodotLabel", recursive: true, owned: false)?
+                .FindChild("Text", recursive: false, owned: false) as Label;
             AppendJson(sb, "dockTitle", DockTitle); sb.Append(',');
-            AppendJson(sb, "connectionStatus", Text("GodotStatus")); sb.Append(',');
+            AppendJson(sb, "connectionStatus", godotLabel?.Text); sb.Append(',');
             AppendJson(sb, "connectButtonText", ButtonText("ConnectButton")); sb.Append(',');
             AppendJson(sb, "serverUrl", hostField?.Text); sb.Append(',');
             AppendJson(sb, "selectedAgent", selectedAgent); sb.Append(',');

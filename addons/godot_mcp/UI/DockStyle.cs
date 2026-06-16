@@ -224,6 +224,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
             return panel;
         }
 
+        /// <summary>
+        /// Update the text of an <see cref="UnderlinedSubLabel"/> (its inner "Text" <see cref="Label"/>), so the
+        /// bottom-border underline re-hugs the new text width. Used to make the "Godot" timeline label carry the
+        /// live connection status ("Godot" / "Godot: connecting..." / "Godot: connected"). No-op if the expected
+        /// inner label is absent.
+        /// </summary>
+        public static void SetUnderlinedSubLabelText(PanelContainer underlinedLabel, string text)
+        {
+            if (underlinedLabel.GetChildCount() > 0 && underlinedLabel.GetChild(0) is Label inner)
+                inner.Text = text;
+        }
+
         // --- Buttons -------------------------------------------------------------------------------------------
 
         /// <summary>Skin <paramref name="button"/> as the PRIMARY action (cyan bg, dark text) — e.g. Configure when not configured.</summary>

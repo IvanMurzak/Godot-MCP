@@ -72,8 +72,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Panel _timelineServerCircle = null!;
         Panel _timelineAgentCircle = null!;
 
-        // Godot point: status label + Connect/Disconnect.
-        Label _statusLabel = null!;
+        // Godot point: the underlined "Godot" label (now carries the status — "Godot" / "Godot: connecting..." /
+        // "Godot: connected") + a single Connect/Stop toggle button.
+        PanelContainer _godotUnderline = null!;
         Button _connectButton = null!;
 
         // MCP-server point content.
@@ -254,20 +255,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
             timeline.AddThemeConstantOverride("separation", 0);
             AddChild(timeline);
 
-            // Point 1 — Godot: label + right-aligned Connect/Disconnect.
+            // Point 1 — Godot: a single underlined label that CARRIES the status + a right-aligned Connect/Stop toggle.
             _timelineGodotCircle = DockStyle.TimelineCircle("GodotCircle", ConnectionPanelView.TimelinePointState.Disconnected);
-            _statusLabel = new Label { Name = "GodotStatus" };
-            DockStyle.ApplySubLabel(_statusLabel);
 
             _connectButton = new Button { Name = "ConnectButton" };
             DockStyle.ConnectPressed(_connectButton, OnConnectButtonPressed);
 
             var godotContent = new HBoxContainer { Name = "GodotContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             godotContent.AddThemeConstantOverride("separation", 8);
-            // Underlined section label (bottom-border, bigger + vertically aligned) — not the old VBox+rule that
-            // pushed the text up. The status text beside it no longer repeats "Godot" (see ConnectionPanelView).
-            godotContent.AddChild(DockStyle.UnderlinedSubLabel("GodotLabel", "Godot"));
-            godotContent.AddChild(_statusLabel);
+            // The underlined "Godot" label now folds in the status (ApplyStatus retitles it to
+            // "Godot: connecting..." / "Godot: connected") — there is no longer a separate status suffix label.
+            _godotUnderline = DockStyle.UnderlinedSubLabel("GodotLabel", ConnectionPanelView.GodotLineLabel(ConnectionStatus.Disconnected));
+            godotContent.AddChild(_godotUnderline);
             godotContent.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
             godotContent.AddChild(_connectButton);
             timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: 4));
@@ -498,14 +497,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             var pointState = ConnectionPanelView.PointState(status);
 
-            _statusLabel.Text = ConnectionPanelView.StatusLabel(status);
+            // The underlined "Godot" label carries the status now ("Godot" / "Godot: connecting..." / "Godot: connected").
+            DockStyle.SetUnderlinedSubLabelText(_godotUnderline, ConnectionPanelView.GodotLineLabel(status));
             _connectButton.Text = ConnectionPanelView.ButtonText(status);
-            _connectButton.Disabled = ConnectionPanelView.ButtonDisabled(status);
-            // Primary (cyan) when the click connects; secondary (gray) when it disconnects.
-            if (status == ConnectionStatus.Connected)
-                DockStyle.ApplySecondaryButton(_connectButton);
-            else
+            // A single always-enabled toggle: primary (cyan) "Connect" when disconnected; secondary (gray) "Stop"
+            // when connected OR connecting.
+            if (status == ConnectionStatus.Disconnected)
                 DockStyle.ApplyPrimaryButton(_connectButton);
+            else
+                DockStyle.ApplySecondaryButton(_connectButton);
 
             DockStyle.ApplyTimelineCircle(_timelineGodotCircle, pointState);
 
@@ -631,10 +631,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         void OnConnectButtonPressed()
         {
-            if (_connection.ConnectionStatus == ConnectionStatus.Connected)
-                _connection.Disconnect();
-            else
+            // Single toggle: "Connect" only when fully disconnected; otherwise "Stop" — disconnect when connected,
+            // or cancel the in-flight attempt when connecting (Disconnect() stops the client's retry loop).
+            if (_connection.ConnectionStatus == ConnectionStatus.Disconnected)
                 _connection.Connect();
+            else
+                _connection.Disconnect();
         }
 
         /// <summary>

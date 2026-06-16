@@ -62,11 +62,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Button label shown when the plugin is disconnected (clicking connects).</summary>
         public const string ButtonTextConnect = "Connect";
 
-        /// <summary>Button label shown when the plugin is connected (clicking disconnects).</summary>
-        public const string ButtonTextDisconnect = "Disconnect";
-
-        /// <summary>Button label shown mid-connect (the button is disabled while this shows).</summary>
-        public const string ButtonTextConnecting = "Connecting…";
+        /// <summary>
+        /// Button label shown when the plugin is connected OR connecting — a single "Stop" that disconnects
+        /// (or cancels the in-flight connect attempt). The Godot line is one toggle button: "Connect" when
+        /// idle, "Stop" otherwise, enabled in every state.
+        /// </summary>
+        public const string ButtonTextStop = "Stop";
 
         /// <summary>
         /// Reduce SignalR's four-state <see cref="HubConnectionState"/> plus the client's
@@ -84,29 +85,25 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _ => ConnectionStatus.Disconnected
         };
 
-        /// <summary>The connection status line text. NO "Godot:" prefix — the timeline point already shows the
-        /// "Godot" label, so prefixing here would print "Godot" twice on the line (Unity shows the bare status).</summary>
-        public static string StatusLabel(ConnectionStatus status) => status switch
+        /// <summary>
+        /// The Godot timeline point's (underlined) label text, which now CARRIES the connection status:
+        /// "Godot" when disconnected, "Godot: connecting..." mid-handshake, "Godot: connected" when connected.
+        /// Replaces the old separate status suffix so the one underlined label conveys both the point name and
+        /// its live state.
+        /// </summary>
+        public static string GodotLineLabel(ConnectionStatus status) => status switch
         {
-            ConnectionStatus.Connected => "Connected",
-            ConnectionStatus.Connecting => "Connecting…",
-            _ => "Disconnected"
-        };
-
-        /// <summary>The connect/disconnect button text for a given <see cref="ConnectionStatus"/>.</summary>
-        public static string ButtonText(ConnectionStatus status) => status switch
-        {
-            ConnectionStatus.Connected => ButtonTextDisconnect,
-            ConnectionStatus.Connecting => ButtonTextConnecting,
-            _ => ButtonTextConnect
+            ConnectionStatus.Connected => "Godot: connected",
+            ConnectionStatus.Connecting => "Godot: connecting...",
+            _ => "Godot"
         };
 
         /// <summary>
-        /// True when the connect/disconnect button should be disabled — only while
-        /// <see cref="ConnectionStatus.Connecting"/>, where neither "Connect" nor "Disconnect" is a clean
-        /// action (the client is mid-handshake / retrying).
+        /// The Godot-line toggle button text: "Connect" when disconnected, "Stop" when connected OR connecting
+        /// (a single always-enabled button — clicking "Stop" disconnects / cancels the in-flight attempt).
         /// </summary>
-        public static bool ButtonDisabled(ConnectionStatus status) => status == ConnectionStatus.Connecting;
+        public static string ButtonText(ConnectionStatus status) =>
+            status == ConnectionStatus.Disconnected ? ButtonTextConnect : ButtonTextStop;
 
         /// <summary>The status-dot RGB for a given <see cref="ConnectionStatus"/>.</summary>
         public static (float R, float G, float B) StatusColor(ConnectionStatus status) => status switch
