@@ -28,6 +28,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         /// <summary>No-op on Godot &lt; 4.5; always returns null. (Signature matches the 4.5+ bridge.)</summary>
         public static ScriptErrorCapture? TryInstall(GodotLogCollector collector) => null;
+
+        /// <summary>
+        /// No-op on Godot &lt; 4.5 (nothing was installed, so there is nothing to remove). Matches the 4.5+
+        /// bridge signature so <c>GodotMcpPlugin.Teardown</c> compiles on the SDK floor. Idempotent.
+        /// </summary>
+        public static void Uninstall() { }
     }
 }
 #endif
