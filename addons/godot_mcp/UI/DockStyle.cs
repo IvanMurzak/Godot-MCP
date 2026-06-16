@@ -34,40 +34,28 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static Color Rgb((float R, float G, float B) c) => new Color(c.R, c.G, c.B);
         public static Color Rgba((float R, float G, float B, float A) c) => new Color(c.R, c.G, c.B, c.A);
 
-        // --- Signal-handler retention -------------------------------------------------------------------------
-        // Godot roots a C# signal-handler delegate only via a native GCHandle on the connection. In the editor
-        // (GC pressure, assembly reloads) that delegate can be collected out from under the connection; firing
-        // the signal afterwards raises
-        //   managed_callable.cpp: Parameter "delegate_handle.value" is null
-        //   Can't get method on CallableCustom "Delegate::Invoke"
-        //   Error calling from signal 'pressed' ... Method not found
-        // and the handler SILENTLY never runs (e.g. the Authorize button does nothing). Keeping a STRONG managed
-        // reference to each connected delegate — tied to the lifetime of the control that owns the connection —
-        // prevents this (the Godot docs' "keep a reference to delegates connected to signals" rule). The table is
-        // keyed weakly by the owner, so a freed control's handlers become collectable again (no leak).
-        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GodotObject, List<System.Delegate>> _signalDelegates = new();
+        // --- Signal connection (object+method form) -----------------------------------------------------------
+        // Every Godot-signal connection in the dock is made via an OBJECT+METHOD Callable
+        // (`new Callable(ownerGodotObject, "<MethodName>")`), NOT a C# delegate/lambda. Object+method Callables
+        // are NOT ManagedCallables — they never enter the native `ManagedCallable::instances` registry that
+        // `CSharpLanguage::reload_assemblies` iterates on a Build-Project hot-reload, so they CANNOT raise the
+        //   ERROR: csharp_script.cpp - managed_callable->delegate_handle.value == nullptr
+        // flood that delegate/lambda connections produced. The target Godot Object is kept alive by the scene
+        // tree, so no managed GC-rooting (the old KeepAlive ConditionalWeakTable) is needed or used.
+        //
+        // The convenience helpers below own a tiny `[Tool] partial` GodotObject subclass (LinkButton,
+        // IconButton, GoldenButton, AlertPanel, SegmentedControl, Foldout) so the click logic is an INSTANCE
+        // METHOD on a real GodotObject, connectable via MethodName.
 
         /// <summary>
-        /// Retain a strong managed reference to <paramref name="handler"/> for as long as <paramref name="owner"/>
-        /// (the control that owns the signal connection) is alive, then RETURN it so it can be used directly in a
-        /// <c>signal += DockStyle.KeepAlive(owner, handler)</c> connection. Always connect the RETURNED delegate so
-        /// the rooted instance is exactly the one Godot wraps in its <see cref="Callable"/>; rooting a different
-        /// (even equal) delegate would not protect the connected one. Prevents the "delegate_handle.value is null"
-        /// crash described above.
+        /// Connect <paramref name="button"/>'s <c>Pressed</c> signal to the instance method named
+        /// <paramref name="methodName"/> on <paramref name="owner"/> via an OBJECT+METHOD <see cref="Callable"/>.
+        /// Object+method Callables are not ManagedCallables, so they never trigger the
+        /// <c>delegate_handle.value == nullptr</c> hot-reload flood that <c>button.Pressed += handler</c> (a C#
+        /// delegate) would. The handler MUST be an instance method on <paramref name="owner"/> visible to Godot.
         /// </summary>
-        public static T KeepAlive<T>(GodotObject owner, T handler) where T : System.Delegate
-        {
-            _signalDelegates.GetOrCreateValue(owner).Add(handler);
-            return handler;
-        }
-
-        /// <summary>
-        /// Connect <paramref name="button"/>'s <c>Pressed</c> signal to <paramref name="handler"/> while retaining a
-        /// strong managed reference to it (see <see cref="KeepAlive{T}"/>) so the delegate cannot be garbage-collected
-        /// out from under the connection. Prefer this over a bare <c>button.Pressed += handler</c> everywhere in the dock.
-        /// </summary>
-        public static void ConnectPressed(BaseButton button, System.Action handler)
-            => button.Pressed += KeepAlive(button, handler);
+        public static void ConnectPressed(BaseButton button, GodotObject owner, StringName methodName)
+            => button.Connect(BaseButton.SignalName.Pressed, new Callable(owner, methodName));
 
         // --- Bold font (Unity's `-unity-font-style: bold` on headers / section-titles / timeline-labels) ----------
         // Godot Labels have no font-style flag; bold requires a bold Font resource. In the editor the bold face is
@@ -417,7 +405,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public static Button IconButton(string name, string text, string? iconFileName, System.Action onPressed)
         {
-            var button = new Button
+            var button = new DockActionButton
             {
                 Name = name,
                 MouseDefaultCursorShape = Control.CursorShape.PointingHand
@@ -427,7 +415,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             ApplyIconAndText(button, text, iconFileName);
 
-            ConnectPressed(button, onPressed);
+            button.BindPressed(onPressed);
             return button;
         }
 
@@ -440,7 +428,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public static Button GoldenButton(string name, string text, string? iconFileName, System.Action onPressed)
         {
-            var button = new Button
+            var button = new DockActionButton
             {
                 Name = name,
                 MouseDefaultCursorShape = Control.CursorShape.PointingHand
@@ -459,7 +447,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             ApplyIconAndText(button, text, iconFileName);
 
-            ConnectPressed(button, onPressed);
+            button.BindPressed(onPressed);
             return button;
         }
 
@@ -471,7 +459,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public static Button LinkButton(string name, string text, string url)
         {
-            var button = new Button
+            var button = new DockLinkButton
             {
                 Name = name,
                 Text = text,
@@ -484,7 +472,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeColorOverride("font_hover_color", link.Lightened(0.2f));
             button.AddThemeColorOverride("font_pressed_color", link);
             button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeLink); // smaller than the body (Download / Tutorial links)
-            ConnectPressed(button, () => OS.ShellOpen(url));
+            // Object+method Callable: the button opens its own stored URL via its OnPressed instance method.
+            button.BindUrl(url);
             return button;
         }
 
@@ -588,10 +577,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Full-width, centered cyan button — Unity's alert button is a `.btn-primary` that fills the frame
             // (`alertButton` spans the panel), not a left-hugging compact button.
-            var button = new Button { Name = "AlertButton", Text = buttonText };
+            var button = new DockActionButton { Name = "AlertButton", Text = buttonText };
             ApplyPrimaryButton(button);
             button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            ConnectPressed(button, onPressed);
+            button.BindPressed(onPressed);
             col.AddChild(button);
 
             return panel;
@@ -753,8 +742,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             track.SetMeta(SegmentedSelectionMetaKey, clamped);
             for (int i = 0; i < options.Count; i++)
             {
-                int index = i; // capture for the lambda
-                var segment = new Button
+                var segment = new DockSegmentButton
                 {
                     Name = "Segment" + i,
                     Text = options[i],
@@ -762,32 +750,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     Flat = true,
                     CustomMinimumSize = new Vector2(DockTheme.SegmentMinWidth, 0)
                 };
+                // Carry the per-segment click state on the segment instance (index + the track it reports into +
+                // the caller's onSelected) so the click handler is a real INSTANCE METHOD connected via an
+                // object+method Callable — no captured-lambda delegate enters the ManagedCallable registry.
+                segment.Bind(i, track, onSelected);
                 // Set the pressed state WITHOUT emitting Pressed/Toggled so initial build never re-enters
                 // the click handler.
                 segment.SetPressedNoSignal(SegmentedControlModel.IsSelected(i, clamped));
                 segment.AddThemeFontSizeOverride("font_size", DockTheme.SegmentFontSize);
                 ApplySegmentStyle(segment, SegmentedControlModel.IsSelected(i, clamped));
 
-                segment.Pressed += KeepAlive<System.Action>(segment, () =>
-                {
-                    // Compare against the AUTHORITATIVE index stashed on the track, not against any probe of
-                    // native ButtonPressed flags (which can report two-pressed/zero-pressed on mono/Linux).
-                    var current = GetSegmentedSelection(track);
-                    if (SegmentedControlModel.IsSelected(index, current))
-                    {
-                        // Re-clicking the active segment is a true no-op: re-assert visuals (Godot just
-                        // toggled this button OFF on the second click) and leave the authoritative index alone.
-                        SetSegmentedSelection(track, current);
-                        return;
-                    }
-                    // Advance the authoritative selection OPTIMISTICALLY before notifying the caller, so the
-                    // track meta and the visual pressed-state cannot diverge if a consumer of onSelected
-                    // persists the new mode but does NOT round-trip through SetSegmentedSelection (e.g. an
-                    // early-return on a no-op/persist-failure path). Correctness no longer depends on caller
-                    // discipline; a caller that DOES call SetSegmentedSelection just re-asserts the same index.
-                    SetSegmentedSelection(track, index);
-                    onSelected(index);
-                });
+                segment.Connect(BaseButton.SignalName.Pressed, new Callable(segment, DockSegmentButton.MethodName.OnPressed));
                 track.AddChild(segment);
             }
 
@@ -827,7 +800,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// native <c>ButtonPressed</c> flags — those are unreliable for a group of independent toggle buttons
         /// with no <c>ButtonGroup</c> (issue #107). Falls back to <c>0</c> when the meta is absent.
         /// </summary>
-        static int GetSegmentedSelection(HBoxContainer track)
+        internal static int GetSegmentedSelection(HBoxContainer track)
         {
             if (track.HasMeta(SegmentedSelectionMetaKey))
                 return (int)track.GetMeta(SegmentedSelectionMetaKey);
@@ -996,7 +969,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var container = new VBoxContainer { Name = title.Replace(" ", string.Empty) + "Foldout" };
             container.AddThemeConstantOverride("separation", 2);
 
-            var toggle = new Button
+            var toggle = new DockFoldoutToggle
             {
                 Name = "Toggle",
                 ToggleMode = true,
@@ -1011,11 +984,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
             content.AddThemeConstantOverride("separation", 2);
             container.AddChild(content);
 
-            toggle.Toggled += KeepAlive<BaseButton.ToggledEventHandler>(toggle, pressed =>
-            {
-                content.Visible = pressed;
-                toggle.Text = (pressed ? "▾ " : "▸ ") + title;
-            });
+            // Object+method Callable on the toggle instance: it carries the title + the content it reveals and
+            // flips them in its own OnToggled instance method (no captured-lambda delegate connection).
+            toggle.Bind(title, content);
+            toggle.Connect(BaseButton.SignalName.Toggled, new Callable(toggle, DockFoldoutToggle.MethodName.OnToggled));
 
             return (container, content);
         }
