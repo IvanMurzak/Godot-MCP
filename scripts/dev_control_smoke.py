@@ -105,9 +105,18 @@ class Smoke:
         self.step("health", "GET", "/health", None, ACCEPT_OK)
         self.step("state", "GET", "/state", None, ACCEPT_OK)
 
-        print("\n== inject connection states ==")
-        for s in ("connected", "connecting", "disconnected"):
+        print("\n== inject connection states -> Godot line label + Connect/Stop button ==")
+        # The underlined "Godot" label carries the status, and the single toggle is "Connect" when
+        # disconnected / "Stop" otherwise. A dev-injected status pins the dock, so /state reflects it.
+        conn_expectations = {
+            "connected": ("Godot: connected", "Stop"),
+            "connecting": ("Godot: connecting", "Stop"),
+            "disconnected": ("Godot", "Connect"),
+        }
+        for s, (label, btn) in conn_expectations.items():
             self.step(f"inject connection={s}", "POST", "/inject/connection-status", {"status": s}, ACCEPT_OK)
+            self.assert_state(f"  {s}: Godot label", "connectionStatus", label)
+            self.assert_state(f"  {s}: Connect/Stop button", "connectButtonText", btn)
         self.step("inject connection=connected", "POST", "/inject/connection-status", {"status": "connected"}, ACCEPT_OK)
 
         print("\n== inject server states ==")

@@ -88,35 +88,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(expected, ConnectionPanelView.Reduce(state, keepConnected));
         }
 
-        // --- StatusLabel ---
+        // --- GodotLineLabel (the underlined "Godot" label now carries the status) ---
 
         [Theory]
-        [InlineData(ConnectionStatus.Connected, "Connected")]
-        [InlineData(ConnectionStatus.Connecting, "Connecting…")]
-        [InlineData(ConnectionStatus.Disconnected, "Disconnected")]
-        public void StatusLabel_MapsEachStatus(ConnectionStatus status, string expected)
+        [InlineData(ConnectionStatus.Connected, "Godot: connected")]
+        [InlineData(ConnectionStatus.Connecting, "Godot: connecting...")]
+        [InlineData(ConnectionStatus.Disconnected, "Godot")]
+        public void GodotLineLabel_MapsEachStatus(ConnectionStatus status, string expected)
         {
-            Assert.Equal(expected, ConnectionPanelView.StatusLabel(status));
+            Assert.Equal(expected, ConnectionPanelView.GodotLineLabel(status));
         }
 
-        // --- ButtonText + ButtonDisabled ---
+        // --- ButtonText: "Connect" when disconnected, "Stop" otherwise ---
 
         [Theory]
-        [InlineData(ConnectionStatus.Connected, ConnectionPanelView.ButtonTextDisconnect)]
-        [InlineData(ConnectionStatus.Connecting, ConnectionPanelView.ButtonTextConnecting)]
+        [InlineData(ConnectionStatus.Connected, ConnectionPanelView.ButtonTextStop)]
+        [InlineData(ConnectionStatus.Connecting, ConnectionPanelView.ButtonTextStop)]
         [InlineData(ConnectionStatus.Disconnected, ConnectionPanelView.ButtonTextConnect)]
         public void ButtonText_MapsEachStatus(ConnectionStatus status, string expected)
         {
             Assert.Equal(expected, ConnectionPanelView.ButtonText(status));
-        }
-
-        [Theory]
-        [InlineData(ConnectionStatus.Connecting, true)]
-        [InlineData(ConnectionStatus.Connected, false)]
-        [InlineData(ConnectionStatus.Disconnected, false)]
-        public void ButtonDisabled_OnlyWhileConnecting(ConnectionStatus status, bool expectedDisabled)
-        {
-            Assert.Equal(expectedDisabled, ConnectionPanelView.ButtonDisabled(status));
         }
 
         // --- StatusColor ---
