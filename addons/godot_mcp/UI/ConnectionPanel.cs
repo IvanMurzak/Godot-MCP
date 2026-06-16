@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using Godot;
+using McpClientData = com.IvanMurzak.McpPlugin.Common.Model.McpClientData;
 
 namespace com.IvanMurzak.Godot.MCP.UI
 {
@@ -86,6 +87,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // MCP-server point content.
         Label _agentLabel = null!;
 
+        // AI-agent point: the muted summary suffix is _agentLabel above; this VBox holds the live per-agent rows
+        // (one per connected MCP client / AI session), rebuilt by RefreshAgents from the connection's ActiveAgents.
+        VBoxContainer _agentListContainer = null!;
+
         // Custom-mode server-URL + auth.
         VBoxContainer _customHostRow = null!;
         LineEdit _hostField = null!;
@@ -135,6 +140,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // ONLY ever written by the DevControlServer (env-gated, 127.0.0.1) — it has no effect in a shipped
         // addon (the server never starts unless GODOT_MCP_DEV_CONTROL=1).
         ConnectionStatus? _devStatusOverride;
+
+        // DEV-ONLY connected-agent override (set by the dev-control bridge's inject endpoint). When non-null,
+        // RefreshAgents renders THIS list instead of the live connection's ActiveAgents — so the smoke harness / a
+        // terminal can paint a fake AI-agent session list onto the live dock without a real external MCP client.
+        // Cleared by DevClearAgentsOverride. ONLY ever written by the env-gated, 127.0.0.1 DevControlServer.
+        IReadOnlyList<McpClientData>? _devAgentsOverride;
 
         // Accumulated frame delta for the periodic re-sync. Reset each time it crosses the interval so the
         // re-sync runs at a steady ~ResyncIntervalSeconds cadence regardless of frame rate.
@@ -206,6 +217,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _serverManager.StatusChanged -= OnServerStatusChanged;
             _serverManager.StatusChanged += OnServerStatusChanged;
 
+            // Same remove-then-add discipline for the connection's live AI-agent stream: an agent that connected
+            // while the panel was detached (e.g. during a dock reparent) is pulled in by the RefreshAgents re-seed
+            // below. AgentsUpdated is marshalled onto the editor main thread, so the handler may touch Controls.
+            _connection.AgentsUpdated -= OnAgentsUpdated;
+            _connection.AgentsUpdated += OnAgentsUpdated;
+
             // Re-seed from the LIVE status: a status reached while the panel was detached (e.g. Connected
             // arriving during the dock reparent) is pulled onto the label here, since the change event was
             // missed. This is the load-bearing #42 fix — the panel ALWAYS converges to the real status on
@@ -213,6 +230,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyStatus(_connection.ConnectionStatus);
             ApplyServerStatus(_serverManager.Status);
             ApplyModeVisibility(_connection.Config.ActiveMode);
+            RefreshAgents();
 
             // Belt-and-suspenders convergence: register a per-frame re-sync into the main-thread dispatcher's
             // tick hook. Every ResyncIntervalSeconds it re-reads the LIVE connection status off the connection
@@ -301,17 +319,29 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + TimelineCircleTopOffset);
             timeline.AddChild(_serverTimelinePoint);
 
-            // Point 3 — AI agent: circle + label, LAST point (no connecting line below).
+            // Point 3 — AI agent: circle + a header row (underlined label + live session summary) over a list of
+            // connected agents (Copilot / Claude / …), driven by the connection's AgentsUpdated. LAST point (no line).
             _timelineAgentCircle = DockStyle.TimelineCircle("AgentCircle", ConnectionPanelView.TimelinePointState.Disconnected);
-            // "AI agent" underlined label (consistent with the Godot / MCP server points) + a muted suffix.
-            var agentContent = new HBoxContainer { Name = "AgentContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            agentContent.AddThemeConstantOverride("separation", 6);
-            agentContent.Alignment = BoxContainer.AlignmentMode.Begin;
-            agentContent.AddChild(DockStyle.UnderlinedSubLabel("AgentLabel", "AI agent"));
-            _agentLabel = new Label { Name = "AgentSuffix", Text = "(connects on demand)", SizeFlagsVertical = SizeFlags.ShrinkCenter };
+
+            var agentContent = new VBoxContainer { Name = "AgentContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            agentContent.AddThemeConstantOverride("separation", 2);
+
+            // Header row: underlined "AI agent" + the muted "(N connected)" / "(connects on demand)" summary.
+            var agentHeader = new HBoxContainer { Name = "AgentHeader", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            agentHeader.AddThemeConstantOverride("separation", 6);
+            agentHeader.Alignment = BoxContainer.AlignmentMode.Begin;
+            agentHeader.AddChild(DockStyle.UnderlinedSubLabel("AgentLabel", "AI agent"));
+            _agentLabel = new Label { Name = "AgentSuffix", Text = AgentSessionView.Summary(0), SizeFlagsVertical = SizeFlags.ShrinkCenter };
             DockStyle.ApplyDescription(_agentLabel);
             _agentLabel.AutowrapMode = TextServer.AutowrapMode.Off; // single line — never wrap to one char per line in the narrow row
-            agentContent.AddChild(_agentLabel);
+            agentHeader.AddChild(_agentLabel);
+            agentContent.AddChild(agentHeader);
+
+            // Live connected-agent rows (one per active MCP client session). Rebuilt by RefreshAgents; hidden empty.
+            _agentListContainer = new VBoxContainer { Name = "AgentList", SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false };
+            _agentListContainer.AddThemeConstantOverride("separation", 0);
+            agentContent.AddChild(_agentListContainer);
+
             timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: TimelineCircleTopOffset));
         }
 
@@ -1040,6 +1070,46 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyModeVisibility(_connection.Config.ActiveMode);
             ApplyStatus(_connection.ConnectionStatus);
             ApplyServerStatus(_serverManager.Status);
+            RefreshAgents();
+        }
+
+        void OnAgentsUpdated() => RefreshAgents();
+
+        /// <summary>
+        /// Re-render the AI-agent timeline point from the connection's live <see cref="GodotMcpConnection.ActiveAgents"/>:
+        /// the muted summary suffix ("(N connected)" / "(connects on demand)"), one list row per connected MCP client
+        /// (Copilot / Claude / …), and the agent circle (filled green when ≥1 agent is connected). All text/dot
+        /// decisions come from the pure-managed <see cref="AgentSessionView"/>. Runs on the editor main thread
+        /// (<see cref="GodotMcpConnection.AgentsUpdated"/> is marshalled there); cheap + idempotent so re-seeds are quiet.
+        /// </summary>
+        void RefreshAgents()
+        {
+            var agents = _devAgentsOverride ?? _connection.ActiveAgents;
+            var count = agents?.Count ?? 0;
+
+            _agentLabel.Text = AgentSessionView.Summary(count);
+            DockStyle.ApplyTimelineCircle(_timelineAgentCircle, AgentSessionView.DotState(count));
+
+            // Rebuild the per-agent rows. Detach + free synchronously so a stale row never lingers (QueueFree alone
+            // would defer to the next idle frame and briefly double the list).
+            foreach (var child in _agentListContainer.GetChildren())
+            {
+                _agentListContainer.RemoveChild(child);
+                child.QueueFree();
+            }
+
+            if (count > 0)
+            {
+                foreach (var agent in agents!)
+                {
+                    var row = new Label { Name = "AgentRow", Text = "• " + AgentSessionView.RowLabel(agent) };
+                    DockStyle.ApplyDescription(row);
+                    row.AutowrapMode = TextServer.AutowrapMode.Off;
+                    _agentListContainer.AddChild(row);
+                }
+            }
+
+            _agentListContainer.Visible = count > 0;
         }
 
         // --- DEV-ONLY inject API (driven by the env-gated, 127.0.0.1 DevControlServer) ------------------------
@@ -1078,12 +1148,32 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public void DevInjectServerStatus(GodotMcpServerStatus status) => ApplyServerStatus(status);
 
+        /// <summary>
+        /// DEV-ONLY: paint a fake connected-agent list onto the AI-agent timeline point (green dot + per-agent rows
+        /// + "(N connected)" summary) and PIN it (RefreshAgents renders the override until cleared), so the smoke
+        /// harness can exercise the live agent display without a real external MCP client. Pairs with
+        /// <see cref="DevClearAgentsOverride"/>. No-op in a shipped addon (the caller only runs when GODOT_MCP_DEV_CONTROL=1).
+        /// </summary>
+        public void DevInjectAgents(IReadOnlyList<McpClientData> agents)
+        {
+            _devAgentsOverride = agents ?? System.Array.Empty<McpClientData>();
+            RefreshAgents();
+        }
+
+        /// <summary>DEV-ONLY: drop the injected agent list and re-converge to the LIVE <see cref="GodotMcpConnection.ActiveAgents"/>.</summary>
+        public void DevClearAgentsOverride()
+        {
+            _devAgentsOverride = null;
+            RefreshAgents();
+        }
+
         public override void _ExitTree()
         {
             // Unsubscribe so a freed panel does not receive a late main-thread push.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
             _serverManager.StatusChanged -= OnServerStatusChanged;
+            _connection.AgentsUpdated -= OnAgentsUpdated;
 
             // Unregister the periodic re-sync so the dispatcher no longer ticks into a freed panel.
             _resyncRegistration?.Dispose();
