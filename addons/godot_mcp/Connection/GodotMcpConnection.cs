@@ -1107,26 +1107,61 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
+        /// Shortest poll interval (ms) used by <see cref="DisconnectAndDrain"/> while waiting for the cancelled
+        /// connection to reach <see cref="HubConnectionState.Disconnected"/>. Kept small so the bounded settle
+        /// returns the instant the socket releases (the common refused/RST case unwinds in a few ms) rather than
+        /// always burning the full <c>timeout</c> — the editor only freezes for as long as it actually takes.
+        /// </summary>
+        const int DrainPollIntervalMs = 10;
+
+        /// <summary>
         /// Reload-safe, best-effort teardown for the Godot "Build Project" hot-reload / assembly-unload path,
         /// built ONLY on the McpPlugin 6.7.0 public API. Cancels the live connection via the reused client's
         /// synchronous <see cref="IConnection.DisconnectImmediate"/> (kills the auto-reconnect loop + fire-and-
-        /// forgets the HubConnection teardown) and then disposes the plugin (releases R3 subscriptions + the
-        /// manager). Both steps are independently try/catch-wrapped and never throw — safe to call from the
-        /// ALC-unloading handler, where a throw would abort the very unload it is trying to enable.
+        /// forgets the HubConnection teardown), then gives the just-cancelled negotiate/HttpClient continuations
+        /// a BOUNDED, main-thread window to actually unwind before disposing the plugin (releases R3 subscriptions
+        /// + the manager). Both stop + dispose are independently try/catch-wrapped and never throw — safe to call
+        /// from the ALC-unloading handler, where a throw would abort the very unload it is trying to enable.
         ///
         /// <para>
-        /// This is intentionally a fire-and-forget stop, NOT a blocking drain: live testing established that
-        /// the connection threads are NOT what pins the collectible <see cref="System.Runtime.Loader.AssemblyLoadContext"/>
-        /// open (the residual "Failed to unload assemblies" come from static refs into the collectible
-        /// assembly, addressed separately — see <see cref="GodotMcpAssemblyResolver.OnAssemblyUnloading"/>).
-        /// So there is no need to block the editor main thread on any async API here. The
-        /// <paramref name="timeout"/> is accepted for call-site compatibility and is otherwise unused.
+        /// WHY THE SETTLE (issue #138). <see cref="IConnection.DisconnectImmediate"/> only *cancels* the CTS that
+        /// governs the negotiate-retry loop and fire-and-forgets <c>HubConnection.DisposeAsync()</c>; it does NOT
+        /// join the in-flight task. If we Dispose + free the dock + unload the collectible
+        /// <see cref="System.Runtime.Loader.AssemblyLoadContext"/> within microseconds (the old behaviour), those
+        /// cancelled SignalR/HttpClient continuations are still rooted into the unloading context → "running
+        /// threads" → godotengine/godot#78513 "Failed to unload assemblies". Removing the engine Logger pin
+        /// (PR #137) left this as the dominant remaining ALC pin. Letting the cancelled tasks unwind first lets
+        /// the unload actually succeed.
+        /// </para>
+        ///
+        /// <para>
+        /// HOW. We POLL the reused client's <see cref="IConnection.ConnectionState"/> reactive property — a real,
+        /// observable signal exposed by the 6.7.0 public API — on the editor main thread until it reaches
+        /// <see cref="HubConnectionState.Disconnected"/>, capped at <paramref name="timeout"/>. This is preferred
+        /// over a blind fixed <c>Thread.Sleep</c>: the common case (a refused / RST'd localhost reconnect) reaches
+        /// <c>Disconnected</c> in a few ms and we return immediately, so the editor freeze is as short as is
+        /// effective (the UX cost the issue calls out). The wait is a plain <see cref="System.Threading.Thread.Sleep"/>
+        /// poll, NEVER an <c>await</c>/<c>.Wait()</c>/<c>.Result</c> of the connection's async drain — awaiting the
+        /// graceful <see cref="Disconnect"/>/<c>DisposeAsync</c> on the editor main thread (which IS the ALC-unload
+        /// thread) deadlocks; that approach was tried and rejected before.
+        /// </para>
+        ///
+        /// <para>
+        /// RESIDUAL CASE (acceptable). A black-holed / unreachable host can hold the socket open until the client's
+        /// own ~30s negotiate timeout — longer than any sane <paramref name="timeout"/> here — so the bounded
+        /// settle returns BEFORE that connection reaches <c>Disconnected</c> and a single-reload ALC pin can still
+        /// occur in that narrow case. That is the deliberate trade: we never freeze the editor for 30s on every
+        /// Build to cover a host that is actively black-holing the negotiate.
         /// </para>
         ///
         /// Idempotent and defensively wrapped: safe to call with no plugin (no-op) and never throws into the
         /// ALC-unloading handler.
         /// </summary>
-        /// <param name="timeout">Accepted for call-site compatibility; not used by this synchronous teardown.</param>
+        /// <param name="timeout">
+        /// Upper bound on the main-thread settle wait. The poll returns as soon as the connection reaches
+        /// <see cref="HubConnectionState.Disconnected"/>, so this is a cap, not a fixed sleep. A non-positive
+        /// value skips the settle entirely (cancel + dispose only).
+        /// </param>
         public void DisconnectAndDrain(TimeSpan timeout)
         {
             var plugin = _plugin;
@@ -1142,12 +1177,64 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 catch { /* GD may be unavailable mid-reload; swallow */ }
             }
 
-            // 2) Final plugin Dispose (6.7.0): releases the R3 subscriptions + the manager (idempotent).
+            // 2) Bounded main-thread settle (issue #138): give the just-cancelled negotiate/HttpClient
+            //    continuations a window to unwind and release the socket/handles BEFORE we Dispose + free the
+            //    dock + let the collectible ALC unload. Poll the observable ConnectionState (6.7.0 public API)
+            //    rather than blind-sleeping, so we return the instant it settles (refused/RST localhost: a few
+            //    ms) and the editor freeze is as short as is effective. A black-holed host won't settle before
+            //    the cap — we return anyway (residual leak acceptable; see the method doc). NEVER await/.Wait
+            //    the async drain here: this runs on the editor main thread, which IS the ALC-unload thread, and
+            //    awaiting it deadlocks (tried + rejected before).
+            try { WaitUntilDisconnected(plugin, timeout); }
+            catch (Exception ex)
+            {
+                try { GD.PushError($"[Godot-MCP] drain settle wait failed: {ex.Message}"); }
+                catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+
+            // 3) Final plugin Dispose (6.7.0): releases the R3 subscriptions + the manager (idempotent).
             try { plugin.Dispose(); }
             catch (Exception ex)
             {
                 try { GD.PushError($"[Godot-MCP] plugin dispose (drain) failed: {ex.Message}"); }
                 catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+        }
+
+        /// <summary>
+        /// Bounded, non-blocking-on-async poll that spins on the editor main thread until the reused client's
+        /// <see cref="IConnection.ConnectionState"/> reaches <see cref="HubConnectionState.Disconnected"/> or
+        /// <paramref name="timeout"/> elapses, whichever comes first. Reads <c>ConnectionState.CurrentValue</c>
+        /// (a synchronous snapshot of the R3 reactive property) each tick and sleeps <see cref="DrainPollIntervalMs"/>
+        /// between checks via <see cref="System.Threading.Thread.Sleep(int)"/> — a plain timed wait, NOT an
+        /// <c>await</c>/<c>.Wait()</c> of any connection Task (which would deadlock on the unload thread). A
+        /// non-positive <paramref name="timeout"/> returns immediately. Never throws an unexpected exception out —
+        /// a missing/disposed property snapshot is treated as "already gone" and ends the wait.
+        /// </summary>
+        static void WaitUntilDisconnected(IMcpPlugin plugin, TimeSpan timeout)
+        {
+            if (timeout <= TimeSpan.Zero)
+                return;
+
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                HubConnectionState state;
+                try
+                {
+                    state = plugin.ConnectionState.CurrentValue;
+                }
+                catch
+                {
+                    // The reactive property (or the plugin behind it) was disposed by a concurrent teardown —
+                    // there is nothing left holding the socket, so the settle is complete.
+                    return;
+                }
+
+                if (state == HubConnectionState.Disconnected)
+                    return;
+
+                System.Threading.Thread.Sleep(DrainPollIntervalMs);
             }
         }
 

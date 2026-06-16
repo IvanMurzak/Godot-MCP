@@ -313,7 +313,18 @@ namespace com.IvanMurzak.Godot.MCP
                 return;
             _torndown = true;
 
-            // 1) Stop the dev-control listener FIRST — releases its bound socket + joins the accept thread.
+            // 0) Issue the connection CANCEL as early as possible (issue #138). DisconnectImmediate only cancels
+            //    the negotiate-retry CTS + fire-and-forgets the HubConnection teardown — it does NOT block — so
+            //    firing it up front lets the just-cancelled SignalR/HttpClient continuations start unwinding
+            //    DURING the dev-control listener teardown below (which Dispose()s an HttpListener and joins its
+            //    accept thread). That join is "free" settle time the cancelled connection tasks get for nothing,
+            //    shortening the bounded main-thread wait the DisconnectAndDrain step (2) then spends. Idempotent:
+            //    DisconnectAndDrain calls DisconnectImmediate again internally, and a second cancel is a no-op.
+            try { _connection?.DisconnectImmediate(); }
+            catch (System.Exception ex) { TryLogTeardownError("early connection cancel", ex); }
+
+            // 1) Stop the dev-control listener — releases its bound socket + joins the accept thread (and, per
+            //    step 0 above, gives the cancelled connection tasks a head start to unwind).
             try
             {
                 if (_devControl != null)
@@ -324,16 +335,20 @@ namespace com.IvanMurzak.Godot.MCP
             }
             catch (System.Exception ex) { TryLogTeardownError("dev-control dispose", ex); }
 
-            // 2) Reload-safe disconnect that DRAINS (joins) the connection's background threads — THE key fix.
-            //    A bare DisconnectImmediate() only cancels + fire-and-forgets HubConnection.DisposeAsync(), so
-            //    the SignalR receive loop + an in-flight HTTP reconnect kept running inside the collectible ALC
-            //    and made Godot's unload fail (it does not abort threads). DisconnectAndDrain runs the graceful
-            //    StopAsync+DisposeAsync on a background thread and bounded-waits (2s) on the main thread, so
-            //    those threads are joined before the unload proceeds. 2s keeps the whole hook bounded (~3s):
-            //    a refused-localhost reconnect aborts fast (RST); a black-holed host could exceed the timeout,
-            //    in which case the bounded wait returns and we proceed anyway. Must precede the connection
-            //    Dispose (Dispose also disconnects, but doing the drain explicitly first joins the threads
-            //    while the plugin is still live and keeps the ordering obvious).
+            // 2) Reload-safe disconnect that lets the cancelled connection tasks SETTLE before unload (issue #138)
+            //    — the dominant remaining ALC pin after PR #137 removed the engine-Logger pin. DisconnectImmediate
+            //    (already issued in step 0, and re-issued here idempotently) only cancels the negotiate-retry CTS
+            //    and fire-and-forgets HubConnection.DisposeAsync(); it does NOT join the in-flight task. So the
+            //    just-cancelled SignalR/HttpClient continuations are momentarily still rooted into the collectible
+            //    ALC — and freeing the dock + unloading within microseconds (the old behaviour) left them as
+            //    "running threads", failing Godot's unload (it does not abort threads). DisconnectAndDrain gives
+            //    them a BOUNDED main-thread window to unwind: it POLLS the reused client's observable
+            //    ConnectionState until Disconnected, capped at the timeout below — returning the instant it
+            //    settles (refused/RST localhost: a few ms) so the editor freeze stays as short as is effective.
+            //    It is NOT a blocking await of the async drain (that deadlocks the unload thread; tried+rejected).
+            //    A black-holed host can hold the socket until the client's ~30s negotiate timeout, longer than the
+            //    cap, so a single-reload pin can still occur there (acceptable — see DisconnectAndDrain's doc).
+            //    Must precede the connection Dispose so the settle runs while the plugin is still live.
             try
             {
                 _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2));
