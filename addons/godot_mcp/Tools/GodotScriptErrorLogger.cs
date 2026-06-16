@@ -153,9 +153,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             if (logger != null)
             {
-                // RemoveLogger drops the engine's reference; Free() then releases the native counterpart so its
-                // native handle cannot keep re-pinning the collectible ALC. Both are best-effort — a throw here
-                // must not abort the rest of teardown (the connection/dock are already being torn down).
+                // RemoveLogger drops the engine's reference; Dispose() then deterministically releases the
+                // managed↔native binding. Both are best-effort — a throw here must not abort the rest of
+                // teardown (the connection/dock are already being torn down).
                 try
                 {
                     OS.RemoveLogger(logger); // static API in GodotSharp 4.5+
@@ -168,11 +168,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 try
                 {
-                    // The Logger is a GodotObject with a native object behind it. After the engine drops its
-                    // reference, free that native object so its handle does not re-root the ALC. IsInstanceValid
-                    // guards against a double-free if Godot already disposed it on a failed reload.
-                    if (GodotObject.IsInstanceValid(logger))
-                        logger.Free();
+                    // Godot.Logger is RefCounted-derived, so it has NO `free()` builtin — calling Free() throws
+                    // "Invalid call. Nonexistent function 'free'". Dispose() is the correct, valid release: it
+                    // breaks the native object's strong GCHandle back to this managed wrapper SYNCHRONOUSLY here.
+                    // That matters — the wrapper type lives in the collectible addon ALC, so leaving the cycle
+                    // for the finalizer is exactly the timing fragility that makes the engine give up on the ALC
+                    // unload (#78513). Dispose() is idempotent, so a double-call / already-disposed logger is safe.
+                    logger.Dispose();
                 }
                 catch (Exception)
                 {
