@@ -289,6 +289,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var target = _target ?? _resourcePicker.EditedResource;
             var recursive = _recursiveToggle.ButtonPressed;
 
+            // A null target is fine (TargetName returns null and the reflector serializes it), but a
+            // non-null target the user deleted after adopting it is a freed GodotObject — marshalling that
+            // into Serialize is a native access to freed memory that is not guaranteed to surface as a
+            // catchable managed exception. Reject it cleanly before reaching the reflector.
+            if (target != null && !GodotObject.IsInstanceValid(target))
+            {
+                _outputHeader.Text = "Output";
+                SetOutput("Target is no longer valid (was it deleted?)");
+                return;
+            }
+
             try
             {
                 var reflector = GodotMcpReflector.GetOrCreate();
