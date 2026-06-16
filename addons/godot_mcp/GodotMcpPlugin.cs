@@ -188,7 +188,17 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         void StartDevControlIfEnabled()
         {
-            if (OS.GetEnvironment("GODOT_MCP_DEV_CONTROL") != "1")
+            // Resolve with precedence process env > project-root .env > default — so a developer can enable the
+            // bridge by dropping the flag into the project's `.env` (Godot is launched from the GUI with no shell
+            // exports) WITHOUT exporting a process env var. Mirrors the connection config's env-file layer.
+            var envPath = ProjectSettings.GlobalizePath("res://.env");
+            string? ResolveDevVar(string key)
+            {
+                var fromProcess = OS.GetEnvironment(key);
+                return !string.IsNullOrEmpty(fromProcess) ? fromProcess : GodotMcpEnvFile.LookupRaw(envPath, key);
+            }
+
+            if (ResolveDevVar("GODOT_MCP_DEV_CONTROL") != "1")
                 return;
 
             if (_dock == null)
@@ -198,7 +208,7 @@ namespace com.IvanMurzak.Godot.MCP
             }
 
             var port = DevControlServer.DefaultPort;
-            var portEnv = OS.GetEnvironment("GODOT_MCP_DEV_CONTROL_PORT");
+            var portEnv = ResolveDevVar("GODOT_MCP_DEV_CONTROL_PORT");
             if (!string.IsNullOrEmpty(portEnv) && int.TryParse(portEnv, out var parsed) && parsed > 0 && parsed <= 65535)
                 port = parsed;
 

@@ -295,6 +295,51 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             return GodotMcpConfig.NormalizeEnv(raw);
         }
 
+        /// <summary>
+        /// Read ONE arbitrary key's value from the <c>.env</c> file at <paramref name="path"/> — NOT limited to
+        /// the connection <see cref="RecognizedKeys"/>. Used by features outside the connection config (e.g. the
+        /// dev-control bridge gate, <c>GODOT_MCP_DEV_CONTROL</c>) that want the same "process env &gt; .env &gt;
+        /// default" precedence: the caller checks process env first, then falls back to this. Returns the sanitized
+        /// value (same normalization as <see cref="Parse"/>) or <c>null</c> when the file is missing/unreadable, the
+        /// key is absent, or its value is blank. Never throws. Pure-managed / unit-testable.
+        /// </summary>
+        public static string? LookupRaw(string? path, string key)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrEmpty(key))
+                return null;
+
+            string[] lines;
+            try
+            {
+                if (!File.Exists(path))
+                    return null;
+                lines = File.ReadAllLines(path);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            string? found = null; // last occurrence wins (matches Parse)
+            foreach (var rawLine in lines)
+            {
+                if (rawLine == null)
+                    continue;
+                var line = rawLine.Trim();
+                if (line.Length == 0 || line[0] == '#')
+                    continue;
+                var eq = line.IndexOf('=');
+                if (eq <= 0)
+                    continue;
+                if (!string.Equals(line.Substring(0, eq).Trim(), key, StringComparison.Ordinal))
+                    continue;
+                var value = Sanitize(line.Substring(eq + 1));
+                if (!string.IsNullOrEmpty(value))
+                    found = value;
+            }
+            return found;
+        }
+
         static readonly IReadOnlyDictionary<string, string> Empty =
             new Dictionary<string, string>(StringComparer.Ordinal);
     }

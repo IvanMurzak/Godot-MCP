@@ -149,6 +149,44 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Empty(GodotMcpEnvFile.LoadFile(path));
         }
 
+        // --- LookupRaw: arbitrary single-key read (used by the dev-control gate, not a RecognizedKey) ---
+
+        [Fact]
+        public void LookupRaw_ReturnsValue_ForAnyKey_IncludingNonRecognized()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "godot-mcp-lookup-" + Guid.NewGuid().ToString("N") + ".env");
+            File.WriteAllLines(path, new[]
+            {
+                "# comment",
+                "GODOT_MCP_DEV_CONTROL=1",
+                "GODOT_MCP_DEV_CONTROL_PORT=\"9920\"",   // quotes stripped like a process-env value
+                "GODOT_MCP_HOST=http://localhost:8090",
+            });
+            try
+            {
+                Assert.Equal("1", GodotMcpEnvFile.LookupRaw(path, "GODOT_MCP_DEV_CONTROL"));
+                Assert.Equal("9920", GodotMcpEnvFile.LookupRaw(path, "GODOT_MCP_DEV_CONTROL_PORT"));
+                Assert.Equal("http://localhost:8090", GodotMcpEnvFile.LookupRaw(path, "GODOT_MCP_HOST"));
+                Assert.Null(GodotMcpEnvFile.LookupRaw(path, "GODOT_MCP_ABSENT"));
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Theory]
+        [InlineData(null, "GODOT_MCP_DEV_CONTROL")]
+        [InlineData("", "GODOT_MCP_DEV_CONTROL")]
+        public void LookupRaw_NullOrBlankPath_ReturnsNull(string? path, string key)
+        {
+            Assert.Null(GodotMcpEnvFile.LookupRaw(path, key));
+        }
+
+        [Fact]
+        public void LookupRaw_MissingFile_ReturnsNull()
+        {
+            var path = Path.Combine(Path.GetTempPath(), "godot-mcp-no-such-" + Guid.NewGuid().ToString("N") + ".env");
+            Assert.Null(GodotMcpEnvFile.LookupRaw(path, "GODOT_MCP_DEV_CONTROL"));
+        }
+
         [Fact]
         public void LoadFile_RealFile_ParsesContents()
         {
