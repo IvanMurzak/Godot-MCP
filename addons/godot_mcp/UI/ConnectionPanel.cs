@@ -148,6 +148,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Re-sync cadence: re-read + re-apply the live connection status this often (seconds).</summary>
         const double ResyncIntervalSeconds = 0.5;
 
+        /// <summary>
+        /// Vertical offset (px) that drops a timeline status dot down so its CENTER lines up with the middle of the
+        /// underlined point label next to it. Derived from the label/dot sizes — roughly
+        /// (underlined-label line height − dot diameter) / 2 — so it tracks <see cref="DockTheme.FontSizeUnderlinedLabel"/>
+        /// (a bigger label needs a larger drop). Tuned live against the dock.
+        /// </summary>
+        const int TimelineCircleTopOffset = 7;
+
         public ConnectionPanel(GodotMcpConnection connection)
         {
             _connection = connection;
@@ -280,7 +288,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             godotContent.AddChild(_godotUnderline);
             godotContent.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
             godotContent.AddChild(_connectButton);
-            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: 4));
+            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: TimelineCircleTopOffset));
 
             // Point 2 — MCP server: a frame-group card with the server URL / cloud auth + authorization rows.
             _timelineServerCircle = DockStyle.TimelineCircle("ServerCircle", ConnectionPanelView.TimelinePointState.Disconnected);
@@ -290,7 +298,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // rectangle, like Unity's frame-mcp-server. The server circle is offset down to line up with it.
             BuildServerCard(serverContent);
             _serverTimelinePoint = MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false,
-                circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + 3);
+                circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + TimelineCircleTopOffset);
             timeline.AddChild(_serverTimelinePoint);
 
             // Point 3 — AI agent: circle + label, LAST point (no connecting line below).
@@ -304,7 +312,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplyDescription(_agentLabel);
             _agentLabel.AutowrapMode = TextServer.AutowrapMode.Off; // single line — never wrap to one char per line in the narrow row
             agentContent.AddChild(_agentLabel);
-            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: 4));
+            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: TimelineCircleTopOffset));
         }
 
         /// <summary>
