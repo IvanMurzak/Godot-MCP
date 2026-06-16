@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsVertical = SizeFlags.ShrinkBegin
             };
             DockStyle.ApplyOpenButton(openButton);
-            openButton.Pressed += () => _onOpen(Kind);
+            DockStyle.ConnectPressed(openButton, () => _onOpen(Kind));
             AddChild(openButton);
         }
 

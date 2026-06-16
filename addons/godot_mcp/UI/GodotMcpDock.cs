@@ -253,7 +253,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _logLevelSelector = new OptionButton { Name = "LogLevelSelector" };
             foreach (GodotMcpLogLevel level in System.Enum.GetValues(typeof(GodotMcpLogLevel)))
                 _logLevelSelector.AddItem(level.ToString(), (int)level);
-            _logLevelSelector.ItemSelected += OnLogLevelSelected;
+            _logLevelSelector.ItemSelected += DockStyle.KeepAlive(_logLevelSelector, (OptionButton.ItemSelectedEventHandler)OnLogLevelSelected);
             row.AddChild(_logLevelSelector);
 
             _logLevelOverrideNote = new Label
@@ -424,6 +424,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 "connect" => "ConnectButton",
                 "start-server" => "LocalServerStartStopButton",
                 "generate" => "Generate",
+                "authorize" => "AuthorizeButton",
+                "revoke" => "RevokeButton",
+                "reveal" => "Reveal",
+                "copy" => "Copy",
                 _ => null,
             };
             if (nodeName == null)
@@ -434,6 +438,43 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return false;
 
             button.EmitSignal(BaseButton.SignalName.Pressed);
+            return true;
+        }
+
+        /// <summary>
+        /// DEV-ONLY: drive a segmented control as a user tap would — emit the target segment button's
+        /// <c>pressed</c> signal so the panel runs its REAL selection handler (persist + re-render). Drives
+        /// the connection-mode switch (<c>mode</c>: custom|cloud) and the Custom-mode Authorization
+        /// "transport" switch (<c>auth</c>: none|required). Returns false when the control or its segment is
+        /// not present (e.g. the auth segmented exists in Custom mode only). This is also the path that proves
+        /// the segment's <c>Pressed</c> delegate is rooted (the GC'd-signal-delegate fix).
+        /// </summary>
+        public bool DevSetSegment(string control, string option)
+        {
+            if (!DevControlRouter.TryNormalizeSegment(control, option, out var normControl, out var index))
+                throw new System.ArgumentException($"invalid segment control/option '{control}'/'{option}'");
+
+            // The inner track HBoxContainer carries the control's Name; the segment buttons are "Segment{i}"
+            // children of it (see DockStyle.SegmentedControl). Scope the segment lookup to the track so the
+            // mode/auth tracks' identically-named "Segment0/1" children never collide.
+            var trackName = normControl switch
+            {
+                "mode" => "ModeSegmented",
+                "auth" => "AuthSegmented",
+                _ => null,
+            };
+            if (trackName == null)
+                return false;
+
+            var track = FindChild(trackName, recursive: true, owned: false);
+            if (track == null)
+                return false;
+
+            var segment = track.FindChild("Segment" + index, recursive: false, owned: false) as BaseButton;
+            if (segment == null || !IsInstanceValid(segment))
+                return false;
+
+            segment.EmitSignal(BaseButton.SignalName.Pressed);
             return true;
         }
 

@@ -113,7 +113,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             root.AddChild(_emptyLabel);
 
             var closeButton = new Button { Name = "CloseButton", Text = "Close" };
-            closeButton.Pressed += OnClosePressed;
+            DockStyle.ConnectPressed(closeButton, OnClosePressed);
             root.AddChild(closeButton);
         }
 
@@ -131,7 +131,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             DockStyle.ApplyInput(_searchField);
             // Live (no debounce): every keystroke re-filters.
-            _searchField.TextChanged += _ => RebuildRows();
+            _searchField.TextChanged += DockStyle.KeepAlive<LineEdit.TextChangedEventHandler>(_searchField, _ => RebuildRows());
             bar.AddChild(_searchField);
 
             _statusOption = new OptionButton { Name = "Status" };
@@ -141,7 +141,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _statusOption.AddItem("Disabled", (int)FeatureStatusFilter.Disabled);
             _statusOption.Select((int)FeatureStatusFilter.All);
             DockStyle.ApplyOptionButton(_statusOption);
-            _statusOption.ItemSelected += _ => RebuildRows();
+            _statusOption.ItemSelected += DockStyle.KeepAlive<OptionButton.ItemSelectedEventHandler>(_statusOption, _ => RebuildRows());
             bar.AddChild(_statusOption);
 
             _statsLabel = new Label
@@ -213,7 +213,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             var toggle = new CheckButton { Name = "Toggle", ButtonPressed = item.Enabled };
             string itemName = item.Name;
-            toggle.Toggled += pressed => OnItemToggled(itemName, pressed);
+            toggle.Toggled += DockStyle.KeepAlive<BaseButton.ToggledEventHandler>(toggle, pressed => OnItemToggled(itemName, pressed));
             headerLine.AddChild(toggle);
             content.AddChild(headerLine);
 

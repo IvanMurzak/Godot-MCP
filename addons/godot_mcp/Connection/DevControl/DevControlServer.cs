@@ -166,14 +166,24 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
                 case DevControlRouter.Command.InjectConnectionStatus:
                 {
                     var value = GetString(root, "status");
-                    RunOnMainThread(() => { _dock.DevInjectConnectionStatus(value ?? string.Empty); return true; });
+                    if (!DevControlRouter.TryParseConnectionStatus(value, out _))
+                    {
+                        TryWrite(context, 400, $"{{\"ok\":false,\"error\":\"invalid connection-status {JsonInner(value)}\"}}");
+                        break;
+                    }
+                    RunOnMainThread(() => { _dock.DevInjectConnectionStatus(value!); return true; });
                     TryWrite(context, 200, "{\"ok\":true}");
                     break;
                 }
                 case DevControlRouter.Command.InjectServerStatus:
                 {
                     var value = GetString(root, "status");
-                    RunOnMainThread(() => { _dock.DevInjectServerStatus(value ?? string.Empty); return true; });
+                    if (!DevControlRouter.TryParseServerStatus(value, out _))
+                    {
+                        TryWrite(context, 400, $"{{\"ok\":false,\"error\":\"invalid server-status {JsonInner(value)}\"}}");
+                        break;
+                    }
+                    RunOnMainThread(() => { _dock.DevInjectServerStatus(value!); return true; });
                     TryWrite(context, 200, "{\"ok\":true}");
                     break;
                 }
@@ -196,9 +206,31 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
                 case DevControlRouter.Command.ControlClick:
                 {
                     var target = GetString(root, "target");
-                    var ok = RunOnMainThread(() => _dock.DevClick(target ?? string.Empty));
+                    // Invalid vocabulary → 400 (bad request); valid target whose button isn't present in the
+                    // current mode/state → 409 (the dock returns false). This keeps "bad input" distinct from
+                    // "button absent" and never surfaces a 500 for a client typo.
+                    if (!DevControlRouter.TryNormalizeClickTarget(target, out _))
+                    {
+                        TryWrite(context, 400, $"{{\"ok\":false,\"error\":\"invalid target {JsonInner(target)}\"}}");
+                        break;
+                    }
+                    var ok = RunOnMainThread(() => _dock.DevClick(target!));
                     TryWrite(context, ok ? 200 : 409,
                         ok ? "{\"ok\":true}" : $"{{\"ok\":false,\"error\":\"target not clickable {JsonInner(target)}\"}}");
+                    break;
+                }
+                case DevControlRouter.Command.ControlSetSegment:
+                {
+                    var control = GetString(root, "control");
+                    var option = GetString(root, "option");
+                    if (!DevControlRouter.TryNormalizeSegment(control, option, out _, out _))
+                    {
+                        TryWrite(context, 400, $"{{\"ok\":false,\"error\":\"invalid segment {JsonInner(control)}/{JsonInner(option)}\"}}");
+                        break;
+                    }
+                    var ok = RunOnMainThread(() => _dock.DevSetSegment(control!, option!));
+                    TryWrite(context, ok ? 200 : 409,
+                        ok ? "{\"ok\":true}" : $"{{\"ok\":false,\"error\":\"segment not present {JsonInner(control)}/{JsonInner(option)}\"}}");
                     break;
                 }
                 default:

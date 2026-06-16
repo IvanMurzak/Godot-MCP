@@ -105,7 +105,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var names = GodotAgentConfiguratorRegistry.AgentNames;
             for (int i = 0; i < names.Count; i++)
                 _agentSelector.AddItem(names[i], i);
-            _agentSelector.ItemSelected += OnAgentSelected;
+            _agentSelector.ItemSelected += DockStyle.KeepAlive(_agentSelector, (OptionButton.ItemSelectedEventHandler)OnAgentSelected);
             row.AddChild(_agentSelector);
 
             // Swappable per-agent view — wrapped in the ONE blue frame-group this section gets (Unity frames the
@@ -325,12 +325,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _revealButton = new Button { Name = "Reveal", Text = "Reveal token" };
             DockStyle.ApplySecondaryButton(_revealButton);
-            _revealButton.Pressed += OnRevealToggled;
+            DockStyle.ConnectPressed(_revealButton, OnRevealToggled);
             snippetActions.AddChild(_revealButton);
 
             var copyButton = new Button { Name = "Copy", Text = "Copy" };
             DockStyle.ApplySecondaryButton(copyButton);
-            copyButton.Pressed += OnCopyPressed;
+            DockStyle.ConnectPressed(copyButton, OnCopyPressed);
             snippetActions.AddChild(copyButton);
         }
 
@@ -391,11 +391,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Button order mirrors Unity: Remove first (left), Configure second (right).
             _removeButton = new Button { Name = "Remove", Text = "Remove" };
             DockStyle.ApplyAlertButton(_removeButton);
-            _removeButton.Pressed += () => OnRemovePressed(agent, configPath);
+            DockStyle.ConnectPressed(_removeButton, () => OnRemovePressed(agent, configPath));
             configActions.AddChild(_removeButton);
 
             _configureButton = new Button { Name = "Configure", Text = "Configure" };
-            _configureButton.Pressed += () => OnConfigurePressed(agent, configPath);
+            DockStyle.ConnectPressed(_configureButton, () => OnConfigurePressed(agent, configPath));
             configActions.AddChild(_configureButton);
             // Configure/Reconfigure text, primary-vs-secondary styling, and Remove visibility are all driven by
             // RefreshStatus() (called at the end of BuildAgentView) off the live IsConfigured() state.

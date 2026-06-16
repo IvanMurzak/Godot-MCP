@@ -33,6 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("POST", "/control/server-url", DevControlRouter.Command.ControlServerUrl)]
         [InlineData("POST", "/control/select-agent", DevControlRouter.Command.ControlSelectAgent)]
         [InlineData("POST", "/control/click", DevControlRouter.Command.ControlClick)]
+        [InlineData("POST", "/control/set-segment", DevControlRouter.Command.ControlSetSegment)]
         public void Route_MapsKnownRoutes(string method, string path, DevControlRouter.Command expected)
         {
             Assert.Equal(expected, DevControlRouter.Route(method, path));
@@ -119,6 +120,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("connect", "connect")]
         [InlineData("start-server", "start-server")]
         [InlineData("  generate ", "generate")]
+        [InlineData("Authorize", "authorize")]
+        [InlineData("REVOKE", "revoke")]
+        [InlineData("reveal", "reveal")]
+        [InlineData("Copy", "copy")]
         public void TryNormalizeClickTarget_NormalizesKnown(string target, string expected)
         {
             Assert.True(DevControlRouter.TryNormalizeClickTarget(target, out var normalized));
@@ -134,6 +139,35 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.False(DevControlRouter.TryNormalizeClickTarget(target, out var normalized));
             Assert.Equal(string.Empty, normalized);
+        }
+
+        // --- Segmented-control vocabulary --------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("mode", "custom", "mode", 0)]
+        [InlineData("mode", "Cloud", "mode", 1)]
+        [InlineData("MODE", "  cloud ", "mode", 1)]
+        [InlineData("auth", "none", "auth", 0)]
+        [InlineData("Auth", "REQUIRED", "auth", 1)]
+        public void TryNormalizeSegment_NormalizesKnown(string control, string option, string expectedControl, int expectedIndex)
+        {
+            Assert.True(DevControlRouter.TryNormalizeSegment(control, option, out var normControl, out var index));
+            Assert.Equal(expectedControl, normControl);
+            Assert.Equal(expectedIndex, index);
+        }
+
+        [Theory]
+        [InlineData(null, "custom")]      // null control
+        [InlineData("mode", null)]        // null option
+        [InlineData("", "")]              // empty
+        [InlineData("transport", "http")] // unknown control
+        [InlineData("mode", "offline")]   // unknown option for a known control
+        [InlineData("auth", "cloud")]     // option from the wrong control
+        public void TryNormalizeSegment_RejectsUnknown(string? control, string? option)
+        {
+            Assert.False(DevControlRouter.TryNormalizeSegment(control, option, out var normControl, out var index));
+            Assert.Equal(string.Empty, normControl);
+            Assert.Equal(-1, index);
         }
     }
 }
