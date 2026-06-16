@@ -58,8 +58,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             Size = new Vector2I(480, 560);
             Unresizable = false;
 
-            // Free the window when the OS/editor close button (the X) is pressed.
-            CloseRequested += OnClosePressed;
+            // Free the window when the OS/editor close button (the X) is pressed. Object+method Callable (not a
+            // delegate +=) so it never enters the ManagedCallable hot-reload registry.
+            Connect(Window.SignalName.CloseRequested, new Callable(this, MethodName.OnClosePressed));
 
             BuildUi();
             ReloadItems();
@@ -113,7 +114,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             root.AddChild(_emptyLabel);
 
             var closeButton = new Button { Name = "CloseButton", Text = "Close" };
-            DockStyle.ConnectPressed(closeButton, OnClosePressed);
+            DockStyle.ConnectPressed(closeButton, this, MethodName.OnClosePressed);
             root.AddChild(closeButton);
         }
 
@@ -130,8 +131,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
             };
             DockStyle.ApplyInput(_searchField);
-            // Live (no debounce): every keystroke re-filters.
-            _searchField.TextChanged += DockStyle.KeepAlive<LineEdit.TextChangedEventHandler>(_searchField, _ => RebuildRows());
+            // Live (no debounce): every keystroke re-filters. Object+method Callable (not a delegate +=).
+            _searchField.Connect(LineEdit.SignalName.TextChanged, new Callable(this, MethodName.OnSearchTextChanged));
             bar.AddChild(_searchField);
 
             _statusOption = new OptionButton { Name = "Status" };
@@ -141,7 +142,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _statusOption.AddItem("Disabled", (int)FeatureStatusFilter.Disabled);
             _statusOption.Select((int)FeatureStatusFilter.All);
             DockStyle.ApplyOptionButton(_statusOption);
-            _statusOption.ItemSelected += DockStyle.KeepAlive<OptionButton.ItemSelectedEventHandler>(_statusOption, _ => RebuildRows());
+            _statusOption.Connect(OptionButton.SignalName.ItemSelected, new Callable(this, MethodName.OnStatusItemSelected));
             bar.AddChild(_statusOption);
 
             _statsLabel = new Label
@@ -155,6 +156,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             return bar;
         }
+
+        /// <summary>Search-field <c>text_changed</c> handler (object+method Callable). Re-filters on each keystroke.</summary>
+        public void OnSearchTextChanged(string _) => RebuildRows();
+
+        /// <summary>Status dropdown <c>item_selected</c> handler (object+method Callable). Re-filters on selection.</summary>
+        public void OnStatusItemSelected(long _) => RebuildRows();
 
         /// <summary>Re-read the live item set off the connection, then rebuild the filtered rows.</summary>
         void ReloadItems()
@@ -211,9 +218,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplyRowTitle(titleLabel);
             headerLine.AddChild(titleLabel);
 
-            var toggle = new CheckButton { Name = "Toggle", ButtonPressed = item.Enabled };
+            var toggle = new DockCheckToggle { Name = "Toggle", ButtonPressed = item.Enabled };
             string itemName = item.Name;
-            toggle.Toggled += DockStyle.KeepAlive<BaseButton.ToggledEventHandler>(toggle, pressed => OnItemToggled(itemName, pressed));
+            // Object+method Callable on the toggle: it stores the per-row action (no delegate Callable enters the
+            // ManagedCallable registry) and invokes it from its own OnToggled instance method.
+            toggle.BindToggled(pressed => OnItemToggled(itemName, pressed));
+            toggle.Connect(BaseButton.SignalName.Toggled, new Callable(toggle, DockCheckToggle.MethodName.OnToggled));
             headerLine.AddChild(toggle);
             content.AddChild(headerLine);
 
@@ -346,7 +356,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             PopupCentered(Size);
         }
 
-        void OnClosePressed()
+        public void OnClosePressed()
         {
             // QueueFree frees the window and all rows next idle frame — no leaks.
             QueueFree();

@@ -47,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         readonly GodotMcpConnection _connection;
 
         VBoxContainer? _body;
-        CheckBox? _autoGenerateToggle;
+        DockCheckBox? _autoGenerateToggle;
         Label? _pathLabel;
         Label? _statusLabel;
 
@@ -155,19 +155,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
             toggleLabel.AutowrapMode = TextServer.AutowrapMode.Off;
             controlRow.AddChild(toggleLabel);
 
-            _autoGenerateToggle = new CheckBox
+            _autoGenerateToggle = new DockCheckBox
             {
                 Name = "AutoGenerateToggle",
                 ButtonPressed = _connection.Config.GenerateSkillFiles
             };
-            _autoGenerateToggle.Toggled += DockStyle.KeepAlive(_autoGenerateToggle, (BaseButton.ToggledEventHandler)OnAutoGenerateToggled);
+            // Object+method Callable on the checkbox instance (no delegate += into the ManagedCallable registry).
+            _autoGenerateToggle.BindToggled(OnAutoGenerateToggled);
+            _autoGenerateToggle.Connect(BaseButton.SignalName.Toggled, new Callable(_autoGenerateToggle, DockCheckBox.MethodName.OnToggled));
             controlRow.AddChild(_autoGenerateToggle);
 
             controlRow.AddChild(new Control { Name = "SkillsSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
             var generateButton = new Button { Name = "Generate", Text = "Generate" };
             DockStyle.ApplySecondaryButton(generateButton); // compact gray (Unity's .btn-compact), not the big primary
-            DockStyle.ConnectPressed(generateButton, OnGeneratePressed);
+            DockStyle.ConnectPressed(generateButton, this, MethodName.OnGeneratePressed);
             controlRow.AddChild(generateButton);
 
             // --- Last-result status line (muted; turns amber on failure). HIDDEN until there's a result, so the
@@ -200,7 +202,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// destination directory is created if missing. The result is surfaced in the status line; failures never
         /// throw out of the UI handler.
         /// </summary>
-        void OnGeneratePressed()
+        public void OnGeneratePressed()
         {
             var plan = ResolvePlan();
             if (!plan.Supported || string.IsNullOrEmpty(plan.SkillsDir))
@@ -335,6 +337,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             "macOS" => AgentOs.MacOS,
             _ => AgentOs.Linux,
         };
+
+        // No KeepAlive teardown is needed: every signal here is an OBJECT+METHOD Callable (the auto-generate
+        // checkbox connects to its own instance method; the Generate button connects to this panel's instance
+        // method), which is not a ManagedCallable and never enters the native registry the hot-reload iterates.
+        // The target controls are kept alive by the tree and freed with the panel.
     }
 }
 #endif

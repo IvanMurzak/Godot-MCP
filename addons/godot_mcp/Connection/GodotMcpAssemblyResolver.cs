@@ -120,6 +120,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 // Never let a module initializer throw — that would fail the whole assembly load.
             }
+
+            try
+            {
+                // Subscribe to the addon ALC's Unloading event from the same earliest-possible hook. On a
+                // Godot "Build Project" hot-reload the EditorPlugin's _ExitTree is NOT called before the ALC
+                // unload, so this event is the only place the live connection threads / GC handles that pin
+                // the collectible context can be released. No-op in the non-collectible CI/xUnit host.
+                InstallUnloadingHook();
+            }
+            catch
+            {
+                // Never let a module initializer throw.
+            }
         }
 
         /// <summary>
@@ -130,6 +143,101 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// after the plugin sets <see cref="Log"/> are surfaced.
         /// </summary>
         public static Action<string>? Log { get; set; }
+
+        /// <summary>
+        /// Reload-safe teardown invoked when the addon's (collectible) <see cref="AssemblyLoadContext"/>
+        /// begins unloading — the Godot "Build Project" hot-reload path. This is the hook the plugin's
+        /// <c>_ExitTree</c> MISSES: a C# rebuild raises an ALC unload WITHOUT first calling the
+        /// <c>EditorPlugin</c>'s <c>_ExitTree</c>, so all teardown wired only into <c>_ExitTree</c> is dead
+        /// code on a reload. The live SignalR connection (HubConnection + HttpClient + the auto-reconnect
+        /// loop + R3 subscriptions) and the dev-control listener thread keep running threads / strong GC
+        /// handles that PIN this collectible context open, so the CLR reports
+        /// <c>gd_mono.cpp:791 Failed to unload assemblies</c> and floods
+        /// <c>delegate_handle.value == nullptr</c> (the downstream symptom of the failed unload).
+        ///
+        /// <para>
+        /// The editor plugin assigns this in <c>_EnterTree</c>/<c>BootMcp</c> to a SYNCHRONOUS, idempotent
+        /// teardown (stop dev-control → <c>DisconnectImmediate()</c> → dispose subscriptions/plugin → free
+        /// dock/dispatcher on the main thread) and clears it when teardown runs. Null means "no live plugin
+        /// to tear down" (safe no-op). In the CI/xUnit host the addon assembly is loaded into a
+        /// NON-collectible context, so <see cref="AssemblyLoadContext.Unloading"/> never fires there and
+        /// this stays null — keeping the unit-test host unaffected.
+        /// </para>
+        /// </summary>
+        public static Action? ReloadTeardown { get; set; }
+
+        static bool _unloadingHooked;
+
+        /// <summary>
+        /// Subscribe <see cref="OnAssemblyUnloading"/> to the Unloading event of the load context that owns
+        /// THIS assembly. Installed once from <see cref="ModuleInit"/> (same earliest-possible hook the
+        /// resolver itself uses). When this assembly is in the DEFAULT (non-collectible) context — the
+        /// xUnit/CI host — <c>GetLoadContext(...)</c> returns the default context whose Unloading never
+        /// fires, so the subscription is a harmless no-op. When Godot loads the addon into a COLLECTIBLE
+        /// context for editor hot-reload, the event fires on the editor main thread at the start of the
+        /// unload, giving the plugin its only chance to release the threads/handles pinning the context.
+        /// Idempotent and fully wrapped — a failure to hook must never fail the module load.
+        /// </summary>
+        static void InstallUnloadingHook()
+        {
+            lock (_gate)
+            {
+                if (_unloadingHooked)
+                    return;
+
+                try
+                {
+                    var context = AssemblyLoadContext.GetLoadContext(typeof(GodotMcpAssemblyResolver).Assembly);
+                    if (context != null)
+                    {
+                        context.Unloading += OnAssemblyUnloading;
+                        _unloadingHooked = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log?.Invoke($"[Godot-MCP] could not install ALC unloading hook: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fires when the addon's load context starts unloading (Godot hot-reload). Runs the plugin's
+        /// registered <see cref="ReloadTeardown"/>, if any. NEVER throws — an exception escaping an
+        /// Unloading handler would abort the unload it is trying to enable. The event is raised on the
+        /// editor main thread (where the rebuild is driven), so the teardown's main-thread-only steps
+        /// (Node.Free) are legal here; the teardown itself still guards them defensively.
+        /// </summary>
+        static void OnAssemblyUnloading(AssemblyLoadContext context)
+        {
+            try
+            {
+                Log?.Invoke("[Godot-MCP] assembly unloading — running reload-safe teardown.");
+                ReloadTeardown?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                // Last-ditch: never let the Unloading handler throw.
+                try { Log?.Invoke($"[Godot-MCP] reload teardown error (ignored): {ex.Message}"); }
+                catch { /* logging itself must not throw here */ }
+            }
+
+            // Remove the strong ref that the NON-collectible Default ALC holds into THIS (collectible)
+            // addon assembly: the Resolving handler installed by our ModuleInitializer is a delegate over
+            // OnResolving, a static method in this assembly, so Default.Resolving keeps the collectible ALC
+            // pinned and contributes to "Failed to unload assemblies". On unload the addon is going away, so
+            // dropping the old resolver is correct — the reloaded assembly re-installs its own resolver via
+            // its own ModuleInitializer. Wrapped so it can never throw out of the Unloading handler.
+            try
+            {
+                AssemblyLoadContext.Default.Resolving -= OnResolving;
+            }
+            catch (Exception ex)
+            {
+                try { Log?.Invoke($"[Godot-MCP] could not detach Default.Resolving on unload (ignored): {ex.Message}"); }
+                catch { /* logging itself must not throw here */ }
+            }
+        }
 
         /// <summary>
         /// Determine the on-disk path of the project/addon assembly whose sibling <c>*.deps.json</c>

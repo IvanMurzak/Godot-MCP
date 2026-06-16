@@ -259,7 +259,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _timelineGodotCircle = DockStyle.TimelineCircle("GodotCircle", ConnectionPanelView.TimelinePointState.Disconnected);
 
             _connectButton = new Button { Name = "ConnectButton" };
-            DockStyle.ConnectPressed(_connectButton, OnConnectButtonPressed);
+            DockStyle.ConnectPressed(_connectButton, this, MethodName.OnConnectButtonPressed);
 
             var godotContent = new HBoxContainer { Name = "GodotContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             godotContent.AddThemeConstantOverride("separation", 8);
@@ -329,9 +329,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
             DockStyle.ApplyInput(_hostField);
-            // Commit on Enter and on focus-out (mirrors the Unity reference's FocusOut commit).
-            _hostField.TextSubmitted += DockStyle.KeepAlive(_hostField, (LineEdit.TextSubmittedEventHandler)OnHostSubmitted);
-            _hostField.FocusExited += DockStyle.KeepAlive(_hostField, (System.Action)OnHostFocusExited);
+            // Commit on Enter and on focus-out (mirrors the Unity reference's FocusOut commit). Connected via
+            // object+method Callables (not delegate +=) so they never enter the ManagedCallable hot-reload registry.
+            _hostField.Connect(LineEdit.SignalName.TextSubmitted, new Callable(this, MethodName.OnHostSubmitted));
+            _hostField.Connect(Control.SignalName.FocusExited, new Callable(this, MethodName.OnHostFocusExited));
             hostLine.AddChild(_hostField);
 
             // --- Authorization (Custom mode only): none | required (segmented) ---
@@ -367,7 +368,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             tokenLine.AddChild(_tokenField);
 
             _generateTokenButton = new Button { Name = "GenerateTokenButton", Text = "New" };
-            DockStyle.ConnectPressed(_generateTokenButton, OnGenerateTokenPressed);
+            DockStyle.ConnectPressed(_generateTokenButton, this, MethodName.OnGenerateTokenPressed);
             tokenLine.AddChild(_generateTokenButton);
 
             // --- Local-server hosting row (Custom mode only): Start/Stop the version-matched server binary ---
@@ -386,7 +387,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             serverLine.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
             _serverStartStopButton = new Button { Name = "LocalServerStartStopButton" };
-            DockStyle.ConnectPressed(_serverStartStopButton, OnServerStartStopPressed);
+            DockStyle.ConnectPressed(_serverStartStopButton, this, MethodName.OnServerStartStopPressed);
             serverLine.AddChild(_serverStartStopButton);
 
             _localServerRow.AddChild(serverLine);
@@ -414,11 +415,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             cloudTokenLine.AddChild(_cloudTokenField);
 
             _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
-            DockStyle.ConnectPressed(_authorizeButton, OnAuthorizeButtonPressed);
+            DockStyle.ConnectPressed(_authorizeButton, this, MethodName.OnAuthorizeButtonPressed);
             cloudTokenLine.AddChild(_authorizeButton);
 
             _revokeButton = new Button { Name = "RevokeButton", Text = "Revoke" };
-            DockStyle.ConnectPressed(_revokeButton, OnRevokeButtonPressed);
+            DockStyle.ConnectPressed(_revokeButton, this, MethodName.OnRevokeButtonPressed);
             cloudTokenLine.AddChild(_revokeButton);
 
             _cloudAuthStatus = new Label
@@ -567,7 +568,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// stream. The button is disabled by <see cref="ApplyServerStatus"/> during transient states, so a
         /// double-click cannot race a start/stop.
         /// </summary>
-        void OnServerStartStopPressed()
+        public void OnServerStartStopPressed()
         {
             if (_serverManager.Status == GodotMcpServerStatus.Running)
             {
@@ -629,7 +630,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyStatus(live);
         }
 
-        void OnConnectButtonPressed()
+        public void OnConnectButtonPressed()
         {
             // Single toggle: "Connect" only when fully disconnected; otherwise "Stop" — disconnect when connected,
             // or cancel the in-flight attempt when connecting (Disconnect() stops the client's retry loop).
@@ -710,7 +711,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// token is never logged and is shown only as a masked field. Generating implies the user wants
         /// auth, so this also flips <see cref="GodotMcpAuthOption"/> to <c>Required</c> if it was off.
         /// </summary>
-        void OnGenerateTokenPressed()
+        public void OnGenerateTokenPressed()
         {
             _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
             if (_connection.Config.AuthOption == GodotMcpAuthOption.None)
@@ -725,9 +726,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ConfigChanged?.Invoke(); // new token → agent section re-checks config
         }
 
-        void OnHostSubmitted(string text) => CommitHost(text);
+        public void OnHostSubmitted(string text) => CommitHost(text);
 
-        void OnHostFocusExited() => CommitHost(_hostField.Text);
+        public void OnHostFocusExited() => CommitHost(_hostField.Text);
 
         /// <summary>
         /// Validate + persist a Custom-mode server URL, then reconnect. Invalid input (not an absolute
@@ -844,7 +845,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// browser; on <see cref="GodotDeviceAuthFlowState.Authorized"/> the returned token is persisted and
         /// the connection reconnects. The token is never logged.
         /// </summary>
-        void OnAuthorizeButtonPressed()
+        public void OnAuthorizeButtonPressed()
         {
             // A click while a flow is running means "Cancel".
             if (_deviceAuthFlow != null && GodotDeviceAuthFlow.IsRunning(_deviceAuthFlow.State))
@@ -954,7 +955,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// Revoke the stored cloud token: clear it, persist, revert the UI to the Authorize state, and (if
         /// the live mode is Cloud) disconnect so the now-unauthenticated session does not linger.
         /// </summary>
-        void OnRevokeButtonPressed()
+        public void OnRevokeButtonPressed()
         {
             _connection.Config.CloudToken = null;
             _connection.Save();

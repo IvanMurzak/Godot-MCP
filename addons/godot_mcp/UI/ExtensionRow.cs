@@ -78,9 +78,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsVertical = SizeFlags.ShrinkBegin
             };
             DockStyle.ApplyPrimaryButton(_actionButton);
-            DockStyle.ConnectPressed(_actionButton, () => _onAction(Descriptor));
+            // Object+method Callable to this row's own instance method (no captured-lambda delegate connection).
+            DockStyle.ConnectPressed(_actionButton, this, MethodName.OnActionPressed);
             AddChild(_actionButton);
         }
+
+        /// <summary>Action-button <c>pressed</c> handler (object+method Callable): raise the panel's install/update callback.</summary>
+        public void OnActionPressed() => _onAction(Descriptor);
 
         /// <summary>
         /// Reflect <paramref name="state"/> in the action button: NotInstalled → enabled "Install",

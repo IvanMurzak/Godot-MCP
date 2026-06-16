@@ -45,6 +45,21 @@ namespace com.IvanMurzak.Godot.MCP
         // _ExitTree. Lets a terminal / AI agent inject fake states + simulate user actions on the live dock.
         DevControlServer? _devControl;
 
+        // Guards Teardown() so the body runs at most once per plugin instance — it is reachable from BOTH
+        // _ExitTree (the normal plugin-disable path) AND the GodotMcpAssemblyResolver.ReloadTeardown hook
+        // (the Godot "Build Project" hot-reload path, which never calls _ExitTree). Whichever fires first
+        // wins; the second is a no-op. Not volatile/locked: both entry points run on the editor main thread
+        // (Godot raises the ALC Unloading event on the main thread, and _ExitTree is a main-thread callback),
+        // so there is no cross-thread race to protect against.
+        bool _torndown;
+
+        // The live plugin instance the static ReloadTeardown closure reaches. Set in _EnterTree, cleared in
+        // Teardown. The ALC-unloading hook (a static event handler in GodotMcpAssemblyResolver) has no
+        // instance to call into otherwise — this is the Godot analog of Unity's static
+        // UnityMcpPluginRuntime.Instance. Only the most-recent _EnterTree owns it; a stale instance never
+        // overwrites a newer one because _EnterTree always sets Current = this last.
+        static GodotMcpPlugin? Current;
+
         public override void _EnterTree()
         {
             // Install the process-wide log collector first so every lifecycle line below (resolver
@@ -76,6 +91,18 @@ namespace com.IvanMurzak.Godot.MCP
             // GodotMcpAssemblyResolver for the full rationale.
             GodotMcpAssemblyResolver.Log = msg => Log(msg);
             GodotMcpAssemblyResolver.Install();
+
+            // Arm the reload-safe teardown for the Godot "Build Project" hot-reload path. A C# rebuild
+            // raises an AssemblyLoadContext unload WITHOUT first calling this EditorPlugin's _ExitTree, so
+            // the connection threads + GC handles that pin the (collectible) addon ALC open would otherwise
+            // never be released — producing "Failed to unload assemblies" and a flood of
+            // "delegate_handle.value == nullptr". GodotMcpAssemblyResolver subscribes the ALC's Unloading
+            // event (from its ModuleInitializer) and invokes ReloadTeardown when it fires. We point it at
+            // THIS instance's Teardown via Current; the same Teardown also runs from _ExitTree, guarded so it
+            // executes at most once. Set Current LAST so this instance owns the static hook.
+            Current = this;
+            _torndown = false;
+            GodotMcpAssemblyResolver.ReloadTeardown = static () => Current?.Teardown(fromReload: true);
 
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
             // lives in the editor SceneTree and gets _Process ticks for the lifetime of the plugin.
@@ -226,43 +253,200 @@ namespace com.IvanMurzak.Godot.MCP
 
         public override void _ExitTree()
         {
-            if (_devControl != null)
+            // Route through the single idempotent teardown. On a normal plugin-disable this is the only
+            // teardown trigger; on a "Build Project" hot-reload the ALC-unloading hook usually fires FIRST
+            // (and _ExitTree may not fire at all), so this call is then a no-op via the _torndown guard.
+            Teardown(fromReload: false);
+        }
+
+        /// <summary>
+        /// Single, idempotent teardown reachable from BOTH <see cref="_ExitTree"/> (normal plugin disable)
+        /// and the <see cref="GodotMcpAssemblyResolver.ReloadTeardown"/> hook (the Godot "Build Project"
+        /// hot-reload, which raises an <see cref="System.Runtime.Loader.AssemblyLoadContext"/> unload WITHOUT
+        /// calling <see cref="_ExitTree"/> — the path the old <c>_ExitTree</c>-only teardown missed entirely).
+        ///
+        /// <para>
+        /// Order matters and each step is independently wrapped so one failure cannot abort the rest (and,
+        /// critically, cannot escape the ALC-unloading handler, where a throw would abort the unload):
+        /// <list type="number">
+        ///   <item><b>Dev-control listener FIRST</b> — its <c>Dispose</c> stops the <c>HttpListener</c> and
+        ///   joins the accept thread, releasing a running thread that pins the collectible context.</item>
+        ///   <item><b><c>DisconnectAndDrain(2s)</c></b> — the LOAD-BEARING step: cancels the reconnect intent
+        ///   then runs the reused client's GRACEFUL <c>Disconnect</c> (StopAsync + DisposeAsync) on a
+        ///   background thread and bounded-waits for it on the main thread, so the SignalR receive loop + any
+        ///   in-flight HTTP reconnect are actually JOINED — not just fire-and-forgotten. A bare
+        ///   <c>DisconnectImmediate()</c> left those threads running inside the collectible ALC, so Godot's
+        ///   unload (which does not abort threads) failed; draining them first is what lets the unload
+        ///   succeed and makes both "Failed to unload assemblies" and the <c>delegate_handle null</c> flood
+        ///   vanish.</item>
+        ///   <item><b>Dispose the connection</b> — releases the R3 subscriptions + the plugin instance.</item>
+        ///   <item><b>Free the dock + dispatcher (MAIN-THREAD ONLY)</b> — severs the native signal Callables by
+        ///   tearing down the dock subtree. (All dock Godot-signal connections are now OBJECT+METHOD Callables,
+        ///   which can no longer emit the <c>delegate_handle.value == nullptr</c> symptom regardless; freeing the
+        ///   subtree still severs them deterministically.)
+        ///   These call <c>Node.Free()</c>, which is only legal on the editor main thread; the ALC Unloading
+        ///   event is raised on the main thread so that holds here, but the block is still guarded so that
+        ///   if it ever runs off-main-thread the (pure-managed) steps 1–3 still run and the Node frees are
+        ///   skipped rather than crashing. We do NOT marshal through <see cref="MainThreadDispatcher"/> — it
+        ///   is being torn down and its <c>Enqueue</c> throws once its instance is gone.</item>
+        ///   <item><b>Null the process-wide statics</b> — log collector, error-capture router, and the
+        ///   <see cref="Current"/>/<see cref="GodotMcpAssemblyResolver.ReloadTeardown"/> hook.</item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        /// <param name="fromReload">
+        /// <c>true</c> when invoked from the ALC-unloading hook (diagnostic only — the teardown body is the
+        /// same on both paths).
+        /// </param>
+        void Teardown(bool fromReload)
+        {
+            if (_torndown)
+                return;
+            _torndown = true;
+
+            // 1) Stop the dev-control listener FIRST — releases its bound socket + joins the accept thread.
+            try
             {
-                _devControl.Dispose();
-                _devControl = null;
+                if (_devControl != null)
+                {
+                    _devControl.Dispose();
+                    _devControl = null;
+                }
+            }
+            catch (System.Exception ex) { TryLogTeardownError("dev-control dispose", ex); }
+
+            // 2) Reload-safe disconnect that DRAINS (joins) the connection's background threads — THE key fix.
+            //    A bare DisconnectImmediate() only cancels + fire-and-forgets HubConnection.DisposeAsync(), so
+            //    the SignalR receive loop + an in-flight HTTP reconnect kept running inside the collectible ALC
+            //    and made Godot's unload fail (it does not abort threads). DisconnectAndDrain runs the graceful
+            //    StopAsync+DisposeAsync on a background thread and bounded-waits (2s) on the main thread, so
+            //    those threads are joined before the unload proceeds. 2s keeps the whole hook bounded (~3s):
+            //    a refused-localhost reconnect aborts fast (RST); a black-holed host could exceed the timeout,
+            //    in which case the bounded wait returns and we proceed anyway. Must precede the connection
+            //    Dispose (Dispose also disconnects, but doing the drain explicitly first joins the threads
+            //    while the plugin is still live and keeps the ordering obvious).
+            try
+            {
+                _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2));
+            }
+            catch (System.Exception ex) { TryLogTeardownError("disconnect-and-drain", ex); }
+
+            // 3) Dispose the connection — releases the R3 subscriptions and the plugin instance.
+            try
+            {
+                if (_connection != null)
+                {
+                    _connection.Dispose();
+                    _connection = null;
+                }
+            }
+            catch (System.Exception ex) { TryLogTeardownError("connection dispose", ex); }
+
+            // 4) MAIN-THREAD ONLY: free the dock + dispatcher. These touch Godot Nodes (Node.Free), which is
+            //    only legal on the editor main thread. The ALC Unloading event and _ExitTree both run on the
+            //    main thread, so this normally executes; the guard is a safety net so an unexpected off-thread
+            //    caller skips the Node frees instead of crashing the host. Steps 1–3 above are pure-managed and
+            //    always run.
+            if (MainThreadDispatcher.IsMainThread)
+            {
+                FreeNodes();
+            }
+            else
+            {
+                TryLog("[Godot-MCP] teardown ran off the main thread; skipping Node.Free (connection torn down).");
             }
 
-            if (_connection != null)
+            TryLog("[Godot-MCP] plugin unloaded");
+
+            // 5) Null the process-wide statics so a stale buffer/router/hook does not outlive this instance.
+            try { GodotLogCollector.Current = null; } catch { /* swallow during unload */ }
+
+            // Drop the engine error-capture router. The registered Godot Logger (4.5+) stays in the engine's
+            // logger list (no managed remove API), but clearing Current stops validation sessions leaking
+            // across a reload and lets the router be GC-eligible once the engine drops it.
+            try { ScriptErrorCapture.Current = null; } catch { /* swallow during unload */ }
+
+            // Release the static reload hook so a torn-down instance is not reachable from the resolver and
+            // can be collected. Only clear if WE are the current owner (a newer _EnterTree may already have
+            // claimed it).
+            try
             {
-                _connection.Dispose();
-                _connection = null;
+                if (ReferenceEquals(Current, this))
+                {
+                    Current = null;
+                    GodotMcpAssemblyResolver.ReloadTeardown = null;
+                }
             }
+            catch { /* swallow during unload */ }
+        }
 
-            if (_dock != null)
+        /// <summary>
+        /// The main-thread-only portion of <see cref="Teardown"/>: synchronously free the dock subtree and the
+        /// dispatcher. Split out so the main-thread guard in <see cref="Teardown"/> reads cleanly. No managed
+        /// signal-delegate sweep is needed — all dock Godot-signal connections are object+method Callables that
+        /// are severed when the subtree is freed.
+        /// </summary>
+        void FreeNodes()
+        {
+            try
             {
-                // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
-                RemoveControlFromDocks(_dock);
-                _dock.QueueFree();
-                _dock = null;
-            }
+                if (_dock != null)
+                {
+                    // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
+                    RemoveControlFromDocks(_dock);
 
-            if (_dispatcher != null)
+                    // SYNCHRONOUS free (Free, not QueueFree) on the unload path. A DEFERRED QueueFree would not
+                    // run the dock subtree's own _ExitTree disconnect logic until the next idle frame — AFTER the
+                    // ALC unload has already been attempted — leaving the panels' pure-managed C# EVENT
+                    // subscriptions (the connection/server-manager events the panels +=/-= in _EnterTree/_ExitTree)
+                    // still rooted into the unloading context. Free() tears the whole subtree down NOW, running
+                    // every child's _ExitTree (panels unsubscribe their connection events) and severing every
+                    // native signal connection deterministically before the context unloads. (The dock's
+                    // Godot-signal connections are object+method Callables, which never enter the ManagedCallable
+                    // registry and so can no longer emit the historical "delegate_handle.value == nullptr" flood;
+                    // see godotengine/godot#78513.) Transient child windows (FeatureListWindow /
+                    // SerializationCheckWindow) are parented under the dock, so this frees them too.
+                    _dock.Free();
+                    _dock = null;
+                }
+            }
+            catch (System.Exception ex) { TryLogTeardownError("dock free", ex); }
+
+            try
             {
-                _dispatcher.QueueFree();
-                _dispatcher = null;
+                if (_dispatcher != null)
+                {
+                    // Synchronous free for the same reason as the dock: the dispatcher pumps main-thread work
+                    // and holds registered per-tick delegates; freeing it deterministically here ensures no
+                    // dispatcher-rooted managed state survives into the unload.
+                    _dispatcher.Free();
+                    _dispatcher = null;
+                }
             }
+            catch (System.Exception ex) { TryLogTeardownError("dispatcher free", ex); }
 
-            Log("[Godot-MCP] plugin unloaded");
+            // No KeepAlive sweep is needed anymore: every dock signal connection is an OBJECT+METHOD Callable
+            // (not a C# delegate/lambda), so none of them is a ManagedCallable and none can survive into the ALC
+            // unload as a leftover managed connection. The dock Free() above severs every native connection
+            // deterministically as it tears the subtree down.
+        }
 
-            // Release the collector so a stale buffer does not outlive this plugin instance (a fresh one
-            // is installed on the next _EnterTree).
-            GodotLogCollector.Current = null;
+        /// <summary>
+        /// Best-effort log helper for the teardown path. Wrapped because mid-reload the Godot logging API
+        /// (<c>GD.Print</c>) or the log collector may already be unavailable; a teardown diagnostic must
+        /// never throw on the ALC-unloading path.
+        /// </summary>
+        static void TryLog(string message)
+        {
+            try { Log(message); }
+            catch { /* logging itself must not break teardown */ }
+        }
 
-            // Drop the engine error-capture router too. The registered Godot Logger (4.5+) lives in the
-            // engine's logger list; we intentionally do NOT remove it (Godot has no remove-logger managed
-            // API and the editor process owns its lifetime), but clearing Current stops validation sessions
-            // from leaking across a plugin reload and lets the router be GC-eligible once the engine drops it.
-            ScriptErrorCapture.Current = null;
+        /// <summary>Best-effort error-log helper for a named teardown step (never throws).</summary>
+        static void TryLogTeardownError(string step, System.Exception ex)
+        {
+            try { LogError($"[Godot-MCP] teardown step '{step}' failed: {ex.Message}"); }
+            catch { /* swallow — teardown must not throw on the unload path */ }
         }
     }
 }

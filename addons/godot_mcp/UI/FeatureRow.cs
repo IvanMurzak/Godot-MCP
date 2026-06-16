@@ -90,9 +90,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsVertical = SizeFlags.ShrinkBegin
             };
             DockStyle.ApplyOpenButton(openButton);
-            DockStyle.ConnectPressed(openButton, () => _onOpen(Kind));
+            // Object+method Callable to this row's own instance method (no captured-lambda delegate connection).
+            DockStyle.ConnectPressed(openButton, this, MethodName.OnOpenPressed);
             AddChild(openButton);
         }
+
+        /// <summary>Open-button <c>pressed</c> handler (object+method Callable): raise the panel's open callback for this kind.</summary>
+        public void OnOpenPressed() => _onOpen(Kind);
 
         /// <summary>Show the "&lt;Title&gt;: enabled / total" counts (+ "~N tokens total" for tools).</summary>
         public void ShowCounts(int enabled, int total, int enabledTokenCount)

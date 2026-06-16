@@ -62,6 +62,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         OptionButton? _logLevelSelector;
         Label? _logLevelOverrideNote;
 
+        // The ConnectionPanel.ConfigChanged → AgentConfiguratorsPanel.Refresh bridge, stored in a field (not an
+        // inline lambda) so it can be deterministically removed on teardown. An inline `+= () => ...` was a genuine
+        // delegate leak: it was never stored and never `-=`d, so it stayed rooted on the ConnectionPanel's C# event
+        // across the dock's lifetime and contributed a leftover managed connection at assembly unload. Wired with
+        // the same remove-then-add _EnterTree / -= _ExitTree discipline the connection panels use, so a benign dock
+        // reparent re-arms it and a permanent free drops it.
+        System.Action? _configChangedHandler;
+
         /// <summary>
         /// Construct the dock wired to the live <paramref name="connection"/> so its connection panel can
         /// show status and drive Connect/Disconnect/mode/URL. <see cref="GodotMcpPlugin"/> owns the
@@ -73,6 +81,36 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection = connection;
             Name = DockTitle;
             BuildUi();
+        }
+
+        /// <summary>
+        /// (Re)arm the dock's own cross-panel wiring on every tree entry — including the re-attach the editor
+        /// performs during dock-layout restore (which fires <see cref="_ExitTree"/> → <c>_EnterTree</c>). Currently
+        /// just the <see cref="ConnectionPanel.ConfigChanged"/> → <see cref="AgentConfiguratorsPanel.Refresh"/>
+        /// bridge. Remove-then-add so a re-entry never double-subscribes; pairs with <see cref="_ExitTree"/>. The
+        /// per-control signal/button wiring is owned by each panel's own _EnterTree, not here.
+        /// </summary>
+        public override void _EnterTree()
+        {
+            if (_connectionPanel != null && _configChangedHandler != null)
+            {
+                _connectionPanel.ConfigChanged -= _configChangedHandler;
+                _connectionPanel.ConfigChanged += _configChangedHandler;
+            }
+        }
+
+        /// <summary>
+        /// Tear down the dock's own cross-panel wiring on tree exit. Fires both on a benign dock reparent (re-armed
+        /// by <see cref="_EnterTree"/>) and on the permanent plugin-unload free; in both cases removing the stored
+        /// <see cref="_configChangedHandler"/> from the connection panel's event drops the only delegate this dock
+        /// roots directly, so nothing leaks into a C# assembly unload (issue #132). Per-control Godot-signal
+        /// connections are OBJECT+METHOD Callables (not delegates), so they need no managed sweep — they are severed
+        /// when each child's subtree is freed on the unload path.
+        /// </summary>
+        public override void _ExitTree()
+        {
+            if (_connectionPanel != null && _configChangedHandler != null)
+                _connectionPanel.ConfigChanged -= _configChangedHandler;
         }
 
         /// <summary>
@@ -213,8 +251,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
                 // When the user changes the server URL / mode / auth / token, re-render the AI-agent section so the
                 // selected agent re-checks its on-disk config and surfaces "Reconfiguration Required" + the Reconfigure
-                // button (mirrors Unity, where each configurator re-evaluates on a settings change).
-                _connectionPanel.ConfigChanged += () => _agentConfiguratorsPanel?.Refresh();
+                // button (mirrors Unity, where each configurator re-evaluates on a settings change). Stored in a field
+                // (see _configChangedHandler) and wired in _EnterTree (remove-then-add) so it is torn down cleanly on
+                // teardown rather than leaking as an un-removable inline lambda.
+                _configChangedHandler = () => _agentConfiguratorsPanel?.Refresh();
 
                 // MCP-features section — tools/prompts/resources counts + per-item enable/disable windows. Placed
                 // AFTER the AI-agent section (Unity order), wired to the live connection's managers.
@@ -253,7 +293,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _logLevelSelector = new OptionButton { Name = "LogLevelSelector" };
             foreach (GodotMcpLogLevel level in System.Enum.GetValues(typeof(GodotMcpLogLevel)))
                 _logLevelSelector.AddItem(level.ToString(), (int)level);
-            _logLevelSelector.ItemSelected += DockStyle.KeepAlive(_logLevelSelector, (OptionButton.ItemSelectedEventHandler)OnLogLevelSelected);
+            // Object+method Callable (not delegate +=) so the connection never enters the ManagedCallable
+            // hot-reload registry.
+            _logLevelSelector.Connect(OptionButton.SignalName.ItemSelected, new Callable(this, MethodName.OnLogLevelSelected));
             row.AddChild(_logLevelSelector);
 
             _logLevelOverrideNote = new Label
@@ -273,7 +315,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// logger provider reads the level live on every call. No-op when an env override pins the live level
         /// (the selector is disabled in that case, so this should not fire, but it is guarded defensively).
         /// </summary>
-        void OnLogLevelSelected(long id)
+        public void OnLogLevelSelected(long id)
         {
             if (_connection == null)
                 return;

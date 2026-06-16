@@ -920,6 +920,85 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
         }
 
+        /// <summary>
+        /// Reload-safe, fully-SYNCHRONOUS disconnect for the editor hot-reload / assembly-unload path. Calls
+        /// the reused client's <see cref="IConnection.DisconnectImmediate"/> (exposed on
+        /// <see cref="IMcpPlugin"/> via the McpPlugin package): it cancels the internal CTS, flips the
+        /// client's own <c>KeepConnected</c>/reconnect intent to <c>false</c> (killing the auto-reconnect
+        /// loop), and fire-and-forgets <c>HubConnection.DisposeAsync()</c> — spawning NO awaited Task. This
+        /// is the LOAD-BEARING step that lets the addon's collectible <see cref="System.Runtime.Loader.AssemblyLoadContext"/>
+        /// actually unload on a Godot "Build Project": the live SignalR connection (HubConnection +
+        /// HttpClient + reconnect loop + R3 subscriptions) otherwise keeps running threads / strong GC
+        /// handles that pin the context open, producing <c>Failed to unload assemblies</c> +
+        /// <c>delegate_handle.value == nullptr</c>. Deliberately does NOT call the graceful async
+        /// <see cref="Disconnect"/> path — awaiting it can deadlock the unload thread. Idempotent and
+        /// defensively wrapped: safe to call when no plugin exists or when already torn down. Mirrors the
+        /// Unity reference's <c>Startup.TryDisconnectAndCleanup</c> → <c>plugin.DisconnectImmediate()</c>.
+        /// </summary>
+        public void DisconnectImmediate()
+        {
+            var plugin = _plugin;
+            if (plugin == null)
+                return;
+
+            try
+            {
+                plugin.DisconnectImmediate();
+            }
+            catch (Exception ex)
+            {
+                // Emergency-shutdown path: never let a disconnect failure escape into the ALC-unloading
+                // handler (an exception there would abort the very unload we are trying to enable).
+                try { GD.PushError($"[Godot-MCP] immediate disconnect failed: {ex.Message}"); }
+                catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+        }
+
+        /// <summary>
+        /// Reload-safe, best-effort teardown for the Godot "Build Project" hot-reload / assembly-unload path,
+        /// built ONLY on the McpPlugin 6.7.0 public API. Cancels the live connection via the reused client's
+        /// synchronous <see cref="IConnection.DisconnectImmediate"/> (kills the auto-reconnect loop + fire-and-
+        /// forgets the HubConnection teardown) and then disposes the plugin (releases R3 subscriptions + the
+        /// manager). Both steps are independently try/catch-wrapped and never throw — safe to call from the
+        /// ALC-unloading handler, where a throw would abort the very unload it is trying to enable.
+        ///
+        /// <para>
+        /// This is intentionally a fire-and-forget stop, NOT a blocking drain: live testing established that
+        /// the connection threads are NOT what pins the collectible <see cref="System.Runtime.Loader.AssemblyLoadContext"/>
+        /// open (the residual "Failed to unload assemblies" come from static refs into the collectible
+        /// assembly, addressed separately — see <see cref="GodotMcpAssemblyResolver.OnAssemblyUnloading"/>).
+        /// So there is no need to block the editor main thread on any async API here. The
+        /// <paramref name="timeout"/> is accepted for call-site compatibility and is otherwise unused.
+        /// </para>
+        ///
+        /// Idempotent and defensively wrapped: safe to call with no plugin (no-op) and never throws into the
+        /// ALC-unloading handler.
+        /// </summary>
+        /// <param name="timeout">Accepted for call-site compatibility; not used by this synchronous teardown.</param>
+        public void DisconnectAndDrain(TimeSpan timeout)
+        {
+            var plugin = _plugin;
+            if (plugin == null)
+                return;
+
+            // 1) Synchronous immediate disconnect (6.7.0): cancels the CTS, flips the client's KeepConnected
+            //    to false (killing the auto-reconnect loop), and fire-and-forgets the HubConnection teardown.
+            try { plugin.DisconnectImmediate(); }
+            catch (Exception ex)
+            {
+                try { GD.PushError($"[Godot-MCP] immediate disconnect (drain) failed: {ex.Message}"); }
+                catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+
+            // 2) Final plugin Dispose (6.7.0): releases the R3 subscriptions + the manager (idempotent).
+            try { plugin.Dispose(); }
+            catch (Exception ex)
+            {
+                try { GD.PushError($"[Godot-MCP] plugin dispose (drain) failed: {ex.Message}"); }
+                catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+        }
+
         public void Dispose()
         {
             _stateSubscription.Dispose();
@@ -951,6 +1030,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             if (_plugin != null)
             {
+                try
+                {
+                    // Reload-safe disconnect BEFORE Dispose: cancel the CTS, kill the reconnect loop, and
+                    // tear down the HubConnection synchronously so no running thread / GC handle survives to
+                    // pin a collectible ALC open. Cheap and idempotent when already disconnected. Doing it
+                    // here (not only in the unload handler) means EVERY teardown path — _ExitTree, Reconnect,
+                    // ALC-unloading — gets the immediate disconnect, so the symptom can never depend on which
+                    // path tore the plugin down.
+                    _plugin.DisconnectImmediate();
+                }
+                catch (Exception ex)
+                {
+                    try { GD.PushError($"[Godot-MCP] immediate disconnect (pre-dispose) failed: {ex.Message}"); }
+                    catch { /* GD may be unavailable mid-reload */ }
+                }
+
                 try
                 {
                     _plugin.Dispose();

@@ -105,7 +105,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var names = GodotAgentConfiguratorRegistry.AgentNames;
             for (int i = 0; i < names.Count; i++)
                 _agentSelector.AddItem(names[i], i);
-            _agentSelector.ItemSelected += DockStyle.KeepAlive(_agentSelector, (OptionButton.ItemSelectedEventHandler)OnAgentSelected);
+            // Object+method Callable (not a delegate +=) so it never enters the ManagedCallable hot-reload registry.
+            _agentSelector.Connect(OptionButton.SignalName.ItemSelected, new Callable(this, MethodName.OnAgentSelected));
             row.AddChild(_agentSelector);
 
             // Swappable per-agent view — wrapped in the ONE blue frame-group this section gets (Unity frames the
@@ -125,7 +126,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ShowAgent(index);
         }
 
-        void OnAgentSelected(long index)
+        public void OnAgentSelected(long index)
         {
             var i = (int)index;
             var all = GodotAgentConfiguratorRegistry.All;
@@ -325,12 +326,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _revealButton = new Button { Name = "Reveal", Text = "Reveal token" };
             DockStyle.ApplySecondaryButton(_revealButton);
-            DockStyle.ConnectPressed(_revealButton, OnRevealToggled);
+            DockStyle.ConnectPressed(_revealButton, this, MethodName.OnRevealToggled);
             snippetActions.AddChild(_revealButton);
 
             var copyButton = new Button { Name = "Copy", Text = "Copy" };
             DockStyle.ApplySecondaryButton(copyButton);
-            DockStyle.ConnectPressed(copyButton, OnCopyPressed);
+            DockStyle.ConnectPressed(copyButton, this, MethodName.OnCopyPressed);
             snippetActions.AddChild(copyButton);
         }
 
@@ -388,14 +389,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var configActions = new HBoxContainer { Name = "ConfigActions" };
             statusRow.AddChild(configActions);
 
-            // Button order mirrors Unity: Remove first (left), Configure second (right).
+            // Button order mirrors Unity: Remove first (left), Configure second (right). Connected via
+            // object+method Callables to parameterless instance handlers that re-resolve the agent + config path
+            // off the panel's live state (no captured-lambda delegate connection).
             _removeButton = new Button { Name = "Remove", Text = "Remove" };
             DockStyle.ApplyAlertButton(_removeButton);
-            DockStyle.ConnectPressed(_removeButton, () => OnRemovePressed(agent, configPath));
+            DockStyle.ConnectPressed(_removeButton, this, MethodName.OnRemoveButtonPressed);
             configActions.AddChild(_removeButton);
 
             _configureButton = new Button { Name = "Configure", Text = "Configure" };
-            DockStyle.ConnectPressed(_configureButton, () => OnConfigurePressed(agent, configPath));
+            DockStyle.ConnectPressed(_configureButton, this, MethodName.OnConfigureButtonPressed);
             configActions.AddChild(_configureButton);
             // Configure/Reconfigure text, primary-vs-secondary styling, and Remove visibility are all driven by
             // RefreshStatus() (called at the end of BuildAgentView) off the live IsConfigured() state.
@@ -446,7 +449,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             }
         }
 
-        void OnRevealToggled()
+        public void OnRevealToggled()
         {
             _revealToken = !_revealToken;
             if (_revealButton != null)
@@ -454,7 +457,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             RefreshSnippet();
         }
 
-        void OnCopyPressed()
+        public void OnCopyPressed()
         {
             if (_current == null)
                 return;
@@ -462,6 +465,32 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Copy ALWAYS uses the real token — writing the user's own client config is the point. Never logged.
             var snippet = _current.BuildSnippet(McpUrl, Token, maskToken: false);
             DisplayServer.ClipboardSet(snippet);
+        }
+
+        /// <summary>
+        /// Configure-button <c>pressed</c> handler (object+method Callable). Re-resolves the current agent + its
+        /// config path off the live panel state (the same values the row was built from) so no captured-lambda
+        /// delegate is needed. No-op if the agent has no writable config path.
+        /// </summary>
+        public void OnConfigureButtonPressed()
+        {
+            if (_current == null)
+                return;
+            var configPath = ResolveConfigPath(_current);
+            if (configPath == null)
+                return;
+            OnConfigurePressed(_current, configPath);
+        }
+
+        /// <summary>Remove-button <c>pressed</c> handler (object+method Callable). Mirrors <see cref="OnConfigureButtonPressed"/>.</summary>
+        public void OnRemoveButtonPressed()
+        {
+            if (_current == null)
+                return;
+            var configPath = ResolveConfigPath(_current);
+            if (configPath == null)
+                return;
+            OnRemovePressed(_current, configPath);
         }
 
         void OnConfigurePressed(GodotAgentConfigurator agent, string configPath)
@@ -607,6 +636,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             "macOS" => AgentOs.MacOS,
             _ => AgentOs.Linux,
         };
+
+        // No KeepAlive teardown is needed: every signal here is an OBJECT+METHOD Callable (the agent selector +
+        // the per-agent Reveal/Copy/Configure/Remove buttons all connect to this panel's instance methods), which
+        // is not a ManagedCallable and never enters the native registry the Build-Project hot-reload iterates. The
+        // target controls are kept alive by the tree and freed with the panel.
     }
 }
 #endif

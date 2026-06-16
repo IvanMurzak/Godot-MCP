@@ -39,9 +39,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// <para>
     /// Editor-only (<c>#if TOOLS</c>): it builds live Godot UI <see cref="Node"/>s and reads the editor
     /// selection, so it is verified via the headless Godot smoke (<c>test.md</c> Suite 3), not the plain-xUnit
-    /// host. Every signal connection retains a strong managed reference to its delegate via
-    /// <see cref="DockStyle.KeepAlive{T}"/> / <see cref="DockStyle.ConnectPressed"/> so the "delegate_handle.value
-    /// is null" GC crash cannot occur (mirrors the dock-wide signal-retention discipline).
+    /// host. Every Godot-signal connection is an OBJECT+METHOD <see cref="Callable"/> (<c>new Callable(this,
+    /// MethodName.…)</c>), never a C# delegate — so it is not a ManagedCallable and cannot trigger the
+    /// <c>delegate_handle.value == nullptr</c> Build-Project hot-reload flood (mirrors the dock-wide discipline).
     /// </para>
     /// </summary>
     [Tool]
@@ -68,6 +68,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         GodotObject? _target;
         string _fullOutputText = string.Empty;
 
+        // The Copy button's label before the transient "Copied!" flash, restored by the timer's object+method
+        // handler (OnCopyFlashTimeout) ~1.5s later. Stored on the instance so the handler needs no captured state.
+        string _copyButtonOriginalText = "Copy";
+
         public SerializationCheckWindow()
         {
             Name = "SerializationCheckWindow";
@@ -76,8 +80,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             MinSize = new Vector2I(400, 500);
             Unresizable = false;
 
-            // Free the window when the OS/editor close button (the X) is pressed — no leaks.
-            CloseRequested += DockStyle.KeepAlive<Action>(this, OnClosePressed);
+            // Free the window when the OS/editor close button (the X) is pressed — no leaks. Object+method
+            // Callable (not a delegate +=) so it never enters the ManagedCallable hot-reload registry.
+            Connect(Window.SignalName.CloseRequested, new Callable(this, MethodName.OnClosePressed));
 
             BuildUi();
         }
@@ -121,8 +126,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 BaseType = nameof(Resource),
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
             };
-            _resourcePicker.ResourceChanged += DockStyle.KeepAlive<EditorResourcePicker.ResourceChangedEventHandler>(
-                _resourcePicker, OnResourcePicked);
+            // Object+method Callable (not a delegate +=) so it never enters the ManagedCallable hot-reload registry.
+            _resourcePicker.Connect(EditorResourcePicker.SignalName.ResourceChanged, new Callable(this, MethodName.OnResourcePicked));
             root.AddChild(_resourcePicker);
 
             var selectionRow = new HBoxContainer { Name = "SelectionRow", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -135,7 +140,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 MouseDefaultCursorShape = Control.CursorShape.PointingHand
             };
             DockStyle.ApplySecondaryButton(useSelectionButton);
-            DockStyle.ConnectPressed(useSelectionButton, OnUseSelectionPressed);
+            DockStyle.ConnectPressed(useSelectionButton, this, MethodName.OnUseSelectionPressed);
             selectionRow.AddChild(useSelectionButton);
 
             _selectionLabel = new Label
@@ -164,7 +169,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 MouseDefaultCursorShape = Control.CursorShape.PointingHand
             };
             DockStyle.ApplyCompactPrimaryButton(serializeButton);
-            DockStyle.ConnectPressed(serializeButton, OnSerializePressed);
+            DockStyle.ConnectPressed(serializeButton, this, MethodName.OnSerializePressed);
             actionRow.AddChild(serializeButton);
             root.AddChild(actionRow);
 
@@ -219,7 +224,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _copyButton.OffsetTop = -34;
             _copyButton.OffsetRight = -8;
             _copyButton.OffsetBottom = -8;
-            DockStyle.ConnectPressed(_copyButton, OnCopyPressed);
+            DockStyle.ConnectPressed(_copyButton, this, MethodName.OnCopyPressed);
             copyAnchor.AddChild(_copyButton);
         }
 
@@ -246,7 +251,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>The resource picker changed → make that Resource the target and clear any node selection.</summary>
-        void OnResourcePicked(Resource? resource)
+        public void OnResourcePicked(Resource? resource)
         {
             _target = resource;
             if (resource != null)
@@ -257,7 +262,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// Adopt the first node of the current editor selection as the target. Clears the resource picker so
         /// the two pickers do not silently disagree about which object is "the target".
         /// </summary>
-        void OnUseSelectionPressed()
+        public void OnUseSelectionPressed()
         {
             Node? node = null;
             try
@@ -283,7 +288,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _selectionLabel.Text = $"Node: {node.Name} ({node.GetClass()})";
         }
 
-        void OnSerializePressed()
+        public void OnSerializePressed()
         {
             // The resource picker is the target when no node was explicitly adopted via "Use Editor Selection".
             var target = _target ?? _resourcePicker.EditedResource;
@@ -348,21 +353,29 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _outputText.Text = _fullOutputText;
         }
 
-        void OnCopyPressed()
+        public void OnCopyPressed()
         {
             DisplayServer.ClipboardSet(_fullOutputText);
 
-            var original = _copyButton.Text;
+            _copyButtonOriginalText = _copyButton.Text;
             _copyButton.Text = "Copied!";
 
-            // Flip the label back after ~1.5s. The timer is owned by the button (freed with the window), and
-            // the callback re-checks validity so a window closed mid-flash never touches a freed control.
+            // Flip the label back after ~1.5s via an OBJECT+METHOD Callable to this window's instance handler (no
+            // delegate Callable). The handler re-checks validity so a window closed mid-flash never touches a
+            // freed control. The timer fires once, so a single connection is fine.
             var timer = GetTree().CreateTimer(1.5);
-            timer.Timeout += DockStyle.KeepAlive<Action>(_copyButton, () =>
-            {
-                if (IsInstanceValid(_copyButton))
-                    _copyButton.Text = original;
-            });
+            timer.Connect(SceneTreeTimer.SignalName.Timeout, new Callable(this, MethodName.OnCopyFlashTimeout));
+        }
+
+        /// <summary>
+        /// Restore the Copy button's label after the "Copied!" flash. Connected to the one-shot timer's
+        /// <c>timeout</c> via an object+method <see cref="Callable"/>. Re-checks the button's validity so a window
+        /// closed mid-flash never touches a freed control.
+        /// </summary>
+        public void OnCopyFlashTimeout()
+        {
+            if (IsInstanceValid(_copyButton))
+                _copyButton.Text = _copyButtonOriginalText;
         }
 
         /// <summary>Pop the window up centred and visible. Called by the footer after parenting it into the tree.</summary>
@@ -371,7 +384,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             PopupCentered(Size);
         }
 
-        void OnClosePressed()
+        public void OnClosePressed()
         {
             // QueueFree frees the window and all children next idle frame — no leaks.
             QueueFree();
