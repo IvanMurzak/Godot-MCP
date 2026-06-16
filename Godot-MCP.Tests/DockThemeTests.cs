@@ -63,7 +63,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Bumped above Unity's literal px values: Godot's editor renders a smaller glyph at the same px, so
             // the headers/section-titles looked undersized in the dock. See the DockTheme docs for each.
             Assert.Equal(24, DockTheme.FontSizeHeader);
-            Assert.Equal(18, DockTheme.FontSizeSectionTitle);
+            Assert.Equal(20, DockTheme.FontSizeSectionTitle);
             Assert.Equal(13, DockTheme.FontSizeSubLabel);
         }
 
@@ -86,9 +86,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void TokenSubLabel_Palette_MatchesBriefReferenceValues()
         {
-            // "~N tokens total" sub-label: gray rgb(150,150,150). Font bumped 11→13 (Godot renders smaller).
+            // "~N tokens total" sub-label: gray rgb(150,150,150). Font bumped 11→15 (Godot renders smaller; operator polish).
             AssertRgb8(DockTheme.ColorTokenSubLabel, 150, 150, 150);
-            Assert.Equal(13, DockTheme.FontSizeTokenSubLabel);
+            Assert.Equal(15, DockTheme.FontSizeTokenSubLabel);
         }
 
         [Fact]
@@ -139,14 +139,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // track bg rgba(255,255,255, 0.05)
             AssertRgba8(DockTheme.SegmentTrackBackground, 255, 255, 255, 0.05f);
             Assert.Equal(6, DockTheme.SegmentTrackCornerRadius);
-            Assert.Equal(2, DockTheme.SegmentTrackPadding);
+            Assert.Equal(1, DockTheme.SegmentTrackPadding);
         }
 
         [Fact]
         public void SegmentSelected_MatchesBriefRgbaAndSizing()
         {
-            // selected highlight rgba(0,0,0, 0.4)
-            AssertRgba8(DockTheme.SegmentSelectedBackground, 0, 0, 0, 0.4f);
+            // selected highlight: solid lighter-gray raised pill Color8(100,100,100) so the active segment is
+            // clearly distinct from the muted track (was a barely-visible translucent darken).
+            AssertRgba8(DockTheme.SegmentSelectedBackground, 100, 100, 100, 1.0f);
             Assert.Equal(4, DockTheme.SegmentSelectedCornerRadius);
         }
 
