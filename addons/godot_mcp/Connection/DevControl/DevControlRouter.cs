@@ -43,6 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             ControlSelectAgent,
             ControlClick,
             ControlSetSegment,
+            ControlCloudAuthorize,
         }
 
         /// <summary>
@@ -60,6 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             ("POST", "/control/select-agent",     Command.ControlSelectAgent),
             ("POST", "/control/click",            Command.ControlClick),
             ("POST", "/control/set-segment",      Command.ControlSetSegment),
+            ("POST", "/control/cloud-authorize",  Command.ControlCloudAuthorize),
         };
 
         /// <summary>

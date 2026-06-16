@@ -233,6 +233,21 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
                         ok ? "{\"ok\":true}" : $"{{\"ok\":false,\"error\":\"segment not present {JsonInner(control)}/{JsonInner(option)}\"}}");
                     break;
                 }
+                case DevControlRouter.Command.ControlCloudAuthorize:
+                {
+                    // DEV-ONLY: simulate a successful Cloud authorization (persist token + reconnect) so the
+                    // auth UI + reconnect path are testable without a live OAuth. The token is freeform.
+                    var token = GetString(root, "token");
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        TryWrite(context, 400, "{\"ok\":false,\"error\":\"missing token\"}");
+                        break;
+                    }
+                    var ok = RunOnMainThread(() => _dock.DevCloudAuthorize(token!));
+                    TryWrite(context, ok ? 200 : 409,
+                        ok ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"connection panel not present\"}");
+                    break;
+                }
                 default:
                     TryWrite(context, 404, "{\"ok\":false,\"error\":\"unhandled command\"}");
                     break;

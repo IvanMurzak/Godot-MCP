@@ -918,6 +918,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (!ReferenceEquals(_deviceAuthFlow, flow))
                 return;
 
+            ApplyAuthorizedToken(token);
+        }
+
+        /// <summary>
+        /// Persist a freshly-obtained Cloud token, refresh the masked field + alerts, and reconnect so the new
+        /// bearer is used (Cloud mode only). Shared by the real device-auth flow
+        /// (<see cref="PersistAuthorizedToken"/>) and the DEV-ONLY <see cref="DevSimulateCloudAuthorized"/> so
+        /// both drive the identical persist → reconnect path. MUST run on the editor main thread.
+        /// </summary>
+        void ApplyAuthorizedToken(string token)
+        {
             _connection.Config.CloudToken = token;
             _connection.Save();
             ApplyCloudAuthState();
@@ -929,6 +940,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             ConfigChanged?.Invoke(); // cloud token changed → agent section re-checks config
         }
+
+        /// <summary>
+        /// DEV-ONLY: simulate a successful Cloud device-authorization by persisting <paramref name="token"/>
+        /// through the EXACT same path the real flow uses (<see cref="ApplyAuthorizedToken"/>) — set + save the
+        /// token, refresh the masked field / Revoke button / alerts, and Reconnect(). Lets the dev-control
+        /// bridge exercise the "authorized → persist → reconnect" path (and the stale-rejection guard) without a
+        /// live browser OAuth round-trip. No-op behavior is identical to the real flow; never logs the token.
+        /// </summary>
+        public void DevSimulateCloudAuthorized(string token) => ApplyAuthorizedToken(token);
 
         /// <summary>
         /// Revoke the stored cloud token: clear it, persist, revert the UI to the Authorize state, and (if

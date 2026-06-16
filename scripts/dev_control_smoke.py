@@ -141,6 +141,20 @@ class Smoke:
         self.step("click authorize (cancel)", "POST", "/control/click", {"target": "authorize"}, ACCEPT_CLICK)
         self.step("click revoke", "POST", "/control/click", {"target": "revoke"}, ACCEPT_CLICK)
 
+        print("\n== Cloud auth UI: simulate authorize -> persist -> revoke ==")
+        # Drive the real persist path (DevSimulateCloudAuthorized): token field fills, Revoke appears, the
+        # "Authorization Required" alert clears. (Reconnect only fires when the ACTIVE mode is Cloud — under a
+        # GODOT_MCP_CONNECTION_MODE override the testbed's active mode may be Custom; row visibility still
+        # follows the persisted mode we set here.)
+        self.step("mode=cloud (persisted)", "POST", "/control/set-segment", {"control": "mode", "option": "cloud"}, ACCEPT_OK)
+        self.step("cloud-authorize", "POST", "/control/cloud-authorize", {"token": "smoke-cloud-token-123"}, ACCEPT_OK)
+        self.assert_state("token stored", "cloudTokenPresent", "true")
+        self.assert_state("revoke now visible", "revokeButtonVisible", "true")
+        self.assert_state("auth-required alert cleared", "authRequiredAlertVisible", "false")
+        self.step("cloud-authorize (empty -> 400)", "POST", "/control/cloud-authorize", {"token": ""}, {400})
+        self.step("click revoke", "POST", "/control/click", {"target": "revoke"}, ACCEPT_CLICK)
+        self.assert_state("token cleared after revoke", "cloudTokenPresent", "false")
+
         print("\n== agent configurators: select + per-agent buttons ==")
         for agent in ("claude-code", "cursor", "vscode", "claude-desktop"):
             st, _ = self.step(f"select agent={agent}", "POST", "/control/select-agent", {"agent": agent}, {200, 404})
