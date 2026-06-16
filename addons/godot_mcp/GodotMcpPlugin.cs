@@ -178,6 +178,15 @@ namespace com.IvanMurzak.Godot.MCP
             try
             {
                 _connection = new GodotMcpConnection();
+
+                // Resolve the persisted + .env config layers BEFORE building the dock UI. The connection /
+                // AI-agent panels read the config at construction time, so the saved connection mode, cloud/
+                // custom token, auth option, and selected agent must already be loaded — otherwise the dock
+                // paints from built-in defaults (Cloud with an EMPTY cloud token → spurious "Authorize" prompt;
+                // the default agent instead of the persisted one) until a later mode-switch heals it. See
+                // GodotMcpConnection.ResolveConfig. Start() re-calls it idempotently (guarded), so this is the
+                // single source of the first-load config; a resolve failure must not block dock/boot.
+                _connection.ResolveConfig();
             }
             catch (System.Exception ex)
             {
@@ -388,10 +397,24 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         void FreeNodes()
         {
+            // On a FAILED hot-reload (godotengine/godot#78513 — the collectible ALC could not unload), Godot may
+            // have ALREADY disposed the managed wrappers (this EditorPlugin, the dock, the dispatcher) BEFORE this
+            // ALC-unloading teardown runs. Touching a disposed GodotObject throws ObjectDisposedException — which is
+            // benign here (Godot already freed it), so guard every native access with IsInstanceValid and treat an
+            // ObjectDisposedException as "already gone" rather than logging a spurious teardown ERROR. (This became
+            // observable once the connection actually connects on boot — see GodotMcpConnection.ResolveConfig — so
+            // the unload races a live connection's threads.)
             try
             {
                 if (_dock != null)
                 {
+                    // Skip when Godot has already disposed this plugin or the dock — nothing left for us to free.
+                    if (!GodotObject.IsInstanceValid(this) || !GodotObject.IsInstanceValid(_dock))
+                    {
+                        _dock = null;
+                    }
+                    else
+                    {
                     // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
                     RemoveControlFromDocks(_dock);
 
@@ -408,21 +431,28 @@ namespace com.IvanMurzak.Godot.MCP
                     // SerializationCheckWindow) are parented under the dock, so this frees them too.
                     _dock.Free();
                     _dock = null;
+                    }
                 }
             }
+            catch (System.ObjectDisposedException) { _dock = null; /* Godot already disposed the plugin/dock during the failed unload — benign. */ }
             catch (System.Exception ex) { TryLogTeardownError("dock free", ex); }
 
             try
             {
                 if (_dispatcher != null)
                 {
-                    // Synchronous free for the same reason as the dock: the dispatcher pumps main-thread work
-                    // and holds registered per-tick delegates; freeing it deterministically here ensures no
-                    // dispatcher-rooted managed state survives into the unload.
-                    _dispatcher.Free();
+                    // Skip when Godot has already disposed the dispatcher — nothing left for us to free.
+                    if (GodotObject.IsInstanceValid(_dispatcher))
+                    {
+                        // Synchronous free for the same reason as the dock: the dispatcher pumps main-thread work
+                        // and holds registered per-tick delegates; freeing it deterministically here ensures no
+                        // dispatcher-rooted managed state survives into the unload.
+                        _dispatcher.Free();
+                    }
                     _dispatcher = null;
                 }
             }
+            catch (System.ObjectDisposedException) { _dispatcher = null; /* already disposed by Godot's unload — benign. */ }
             catch (System.Exception ex) { TryLogTeardownError("dispatcher free", ex); }
 
             // No KeepAlive sweep is needed anymore: every dock signal connection is an OBJECT+METHOD Callable

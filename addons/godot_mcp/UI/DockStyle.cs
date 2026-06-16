@@ -324,7 +324,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         static void ApplyCompactButtonBase(Button button, Color normal, Color hover)
         {
-            ApplyButtonBackground(button, normal, hover, DockTheme.ButtonSecondaryCornerRadius, hMargin: 8, vMargin: 2);
+            ApplyButtonBackground(button, normal, hover, DockTheme.ButtonSecondaryCornerRadius, hMargin: 8, vMargin: 0);
             button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeCompactButton);
             button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
         }
@@ -747,7 +747,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     Name = "Segment" + i,
                     Text = options[i],
                     ToggleMode = true,
-                    Flat = true,
+                    // Flat=false so the overridden "normal" stylebox actually DRAWS — a flat button suppresses its
+                    // background, which is why the ACTIVE segment's highlight pill never showed. Unselected segments
+                    // override to a transparent box, so only the selected one paints its pill.
+                    Flat = false,
                     CustomMinimumSize = new Vector2(DockTheme.SegmentMinWidth, 0)
                 };
                 // Carry the per-segment click state on the segment instance (index + the track it reports into +
@@ -825,8 +828,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 box.SetCornerRadiusAll(DockTheme.SegmentSelectedCornerRadius);
                 box.ContentMarginLeft = 8;
                 box.ContentMarginRight = 8;
-                box.ContentMarginTop = 2;
-                box.ContentMarginBottom = 2;
+                box.ContentMarginTop = 1;
+                box.ContentMarginBottom = 1;
                 segment.AddThemeStyleboxOverride("normal", box);
                 segment.AddThemeStyleboxOverride("hover", box);
                 segment.AddThemeStyleboxOverride("pressed", box);
@@ -848,8 +851,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     box.SetCornerRadiusAll(DockTheme.SegmentSelectedCornerRadius);
                     box.ContentMarginLeft = 8;
                     box.ContentMarginRight = 8;
-                    box.ContentMarginTop = 2;
-                    box.ContentMarginBottom = 2;
+                    box.ContentMarginTop = 1;
+                    box.ContentMarginBottom = 1;
                     return box;
                 }
                 segment.AddThemeStyleboxOverride("normal", Transparent());

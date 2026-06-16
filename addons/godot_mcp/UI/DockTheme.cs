@@ -56,7 +56,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public const int FontSizeHeader = 24;
 
         /// <summary>Section-title font size (px) — bold (e.g. "MCP Features", the agent name, extension names).</summary>
-        public const int FontSizeSectionTitle = 18;
+        public const int FontSizeSectionTitle = 20;
 
         /// <summary>Timeline / sub-label font size (px) — bold.</summary>
         public const int FontSizeSubLabel = 13;
@@ -72,21 +72,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>The MCP-features token sub-label font size (px) — the "~N tokens total" line. Bumped above
         /// Unity's literal 11px because Godot's editor renders a larger base font, so 11px looked tiny here.</summary>
-        public const int FontSizeTokenSubLabel = 13;
+        public const int FontSizeTokenSubLabel = 15;
 
         /// <summary>Compact-button font size (px) — Unity's <c>.btn-compact</c> (Configure / Reconfigure / Remove /
         /// Generate). Small so the buttons stay ~20px tall.</summary>
-        public const int FontSizeCompactButton = 12;
+        public const int FontSizeCompactButton = 15;
 
         /// <summary>Underlined section labels (Skills / Model Context Protocol / the connection timeline points
         /// "Godot" / "MCP server" / "AI agent"). Bold; larger than Unity's literal 13px to read well in Godot.</summary>
-        public const int FontSizeUnderlinedLabel = 16;
+        public const int FontSizeUnderlinedLabel = 21;
 
         /// <summary>The right-aligned config/skills PATH font size (px) — smaller than its header so the path is quiet.</summary>
         public const int FontSizeConfigPath = 14;
 
         /// <summary>Inline link font size (px) — the "Download" / "Tutorial" agent links. Smaller than the body.</summary>
-        public const int FontSizeLink = 15;
+        public const int FontSizeLink = 17;
 
         // --- Status dot (Unity _status-indicators.uss) ---------------------------------------------------------
 
@@ -131,8 +131,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Compact / secondary button corner radius (px).</summary>
         public const int ButtonSecondaryCornerRadius = 4;
 
-        /// <summary>Compact / secondary button height (px).</summary>
-        public const int ButtonSecondaryHeight = 20;
+        /// <summary>Compact / secondary button height (px). Trimmed so the compact action buttons (Configure /
+        /// Reconfigure / Remove / Generate / Stop / Revoke / Authorize) read shorter with the larger compact font.</summary>
+        public const int ButtonSecondaryHeight = 14;
 
         /// <summary>Alert / Remove button background — dark-red <c>Color8(88,44,44)</c> (hover brightens to red).</summary>
         public static readonly (float R, float G, float B) ButtonAlert = (88f / 255f, 44f / 255f, 44f / 255f);
@@ -252,16 +253,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Segmented-control track corner radius (px).</summary>
         public const int SegmentTrackCornerRadius = 6;
 
-        /// <summary>Segmented-control track inner padding (px) around the segments.</summary>
-        public const int SegmentTrackPadding = 2;
+        /// <summary>Segmented-control track inner padding (px) around the segments. Tight so the Custom/Cloud
+        /// toggle reads short, not a chunky tall pill.</summary>
+        public const int SegmentTrackPadding = 1;
 
-        /// <summary>SELECTED-segment highlight background — <c>rgba(0,0,0, 0.4)</c> (the dark pill under the active segment).</summary>
-        public static readonly (float R, float G, float B, float A) SegmentSelectedBackground = (0f, 0f, 0f, 0.4f);
+        /// <summary>SELECTED-segment highlight background — a solid lighter-gray raised pill
+        /// <c>Color8(100,100,100)</c> so the ACTIVE segment (Custom / Cloud) is clearly distinct from the muted
+        /// track, not a barely-visible translucent darken.</summary>
+        public static readonly (float R, float G, float B, float A) SegmentSelectedBackground = (100f / 255f, 100f / 255f, 100f / 255f, 1f);
 
         /// <summary>Selected-segment highlight corner radius (px).</summary>
         public const int SegmentSelectedCornerRadius = 4;
 
-        /// <summary>Selected-segment text colour — cyan <c>Color8(175,232,230)</c> (reuses the primary cyan).</summary>
+        /// <summary>Selected-segment text colour — light cyan on the lighter active pill (on-theme "active" accent).</summary>
         public static readonly (float R, float G, float B) SegmentSelectedText = ButtonPrimary;
 
         /// <summary>Unselected-segment text colour — muted gray (reuses the description muted gray).</summary>

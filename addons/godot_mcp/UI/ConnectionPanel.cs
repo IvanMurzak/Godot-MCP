@@ -72,6 +72,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Panel _timelineServerCircle = null!;
         Panel _timelineAgentCircle = null!;
 
+        // The MCP-server timeline point (circle + server card), captured so the WHOLE point can be hidden in
+        // Cloud mode. The Unity gold reference shows NO "MCP server" point in Cloud — just the Godot connection
+        // status + the AI-agent point (the cloud token/Authorize row lives above the timeline, under the header).
+        // The MCP-server point (Server URL, Start, Transport, Authorization) is Custom-mode only.
+        HBoxContainer _serverTimelinePoint = null!;
+
         // Godot point: the underlined "Godot" label (now carries the status — "Godot" / "Godot: connecting..." /
         // "Godot: connected") + a single Connect/Stop toggle button.
         PanelContainer _godotUnderline = null!;
@@ -141,6 +147,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>Re-sync cadence: re-read + re-apply the live connection status this often (seconds).</summary>
         const double ResyncIntervalSeconds = 0.5;
+
+        /// <summary>
+        /// Vertical offset (px) that drops a timeline status dot down so its CENTER lines up with the middle of the
+        /// underlined point label next to it. Derived from the label/dot sizes — roughly
+        /// (underlined-label line height − dot diameter) / 2 — so it tracks <see cref="DockTheme.FontSizeUnderlinedLabel"/>
+        /// (a bigger label needs a larger drop). Tuned live against the dock.
+        /// </summary>
+        const int TimelineCircleTopOffset = 13;
 
         public ConnectionPanel(GodotMcpConnection connection)
         {
@@ -250,6 +264,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 () => _connection.Connect());
             AddChild(_connectionRequiredAlert);
 
+            // --- Cloud-mode auth row (masked token + Revoke/Authorize), DIRECTLY under the header and ABOVE
+            //     the timeline (Unity gold reference). Shown only in Cloud mode; in Cloud the MCP-server
+            //     timeline point is hidden entirely, so this row must NOT live inside the server card. ---
+            BuildCloudAuthRow();
+
             // --- Vertical timeline: Godot -> MCP server -> AI agent ---
             var timeline = new VBoxContainer { Name = "Timeline" };
             timeline.AddThemeConstantOverride("separation", 0);
@@ -269,7 +288,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             godotContent.AddChild(_godotUnderline);
             godotContent.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
             godotContent.AddChild(_connectButton);
-            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: 4));
+            timeline.AddChild(MakeTimelinePoint(_timelineGodotCircle, godotContent, isLast: false, circleTopOffset: TimelineCircleTopOffset));
 
             // Point 2 — MCP server: a frame-group card with the server URL / cloud auth + authorization rows.
             _timelineServerCircle = DockStyle.TimelineCircle("ServerCircle", ConnectionPanelView.TimelinePointState.Disconnected);
@@ -278,8 +297,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // The "MCP server" label now lives INSIDE the card (see BuildServerCard) so it's framed by the rounded
             // rectangle, like Unity's frame-mcp-server. The server circle is offset down to line up with it.
             BuildServerCard(serverContent);
-            timeline.AddChild(MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false,
-                circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + 3));
+            _serverTimelinePoint = MakeTimelinePoint(_timelineServerCircle, serverContent, isLast: false,
+                circleTopOffset: DockTheme.CardMargin + DockTheme.CardContentPadding + TimelineCircleTopOffset);
+            timeline.AddChild(_serverTimelinePoint);
 
             // Point 3 — AI agent: circle + label, LAST point (no connecting line below).
             _timelineAgentCircle = DockStyle.TimelineCircle("AgentCircle", ConnectionPanelView.TimelinePointState.Disconnected);
@@ -292,7 +312,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplyDescription(_agentLabel);
             _agentLabel.AutowrapMode = TextServer.AutowrapMode.Off; // single line — never wrap to one char per line in the narrow row
             agentContent.AddChild(_agentLabel);
-            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: 4));
+            timeline.AddChild(MakeTimelinePoint(_timelineAgentCircle, agentContent, isLast: true, circleTopOffset: TimelineCircleTopOffset));
         }
 
         /// <summary>
@@ -392,14 +412,34 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _localServerRow.AddChild(serverLine);
 
-            // --- Cloud-mode auth section (shown only in Cloud mode): device-code login ---
-            _cloudAuthRow = new VBoxContainer { Name = "CloudAuthRow" };
+            // --- Env/.env override note (shown when a process env / .env value forces mode or host) ---
+            _overrideNote = new Label
+            {
+                Name = "OverrideNote",
+                Text = "Overridden by environment (GODOT_MCP_*) — UI changes won't take effect.",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
+            _overrideNote.AddThemeColorOverride("font_color", new Color(0.92f, 0.74f, 0.20f));
+            card.AddChild(_overrideNote);
+
+            // The MCP-server config IS wrapped in the blue frame-group card — this is one of the only two frames
+            // the dock keeps (Unity's `frame-mcp-server`). The Server URL row inside is now inline (label + input).
+            parent.AddChild(DockStyle.Card(card, "Server"));
+        }
+
+        /// <summary>
+        /// Build the Cloud-mode auth row — masked cloud token field + Revoke/Authorize + a status line — and add
+        /// it DIRECTLY to the panel, under the header and above the timeline (Unity gold reference). Shown only in
+        /// Cloud mode (toggled by <see cref="ApplyModeVisibility"/>). It deliberately lives OUTSIDE the MCP-server
+        /// card because in Cloud mode that entire timeline point is hidden — the cloud token UI must survive.
+        /// </summary>
+        void BuildCloudAuthRow()
+        {
+            _cloudAuthRow = new VBoxContainer { Name = "CloudAuthRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _cloudAuthRow.AddThemeConstantOverride("separation", 4);
-            card.AddChild(_cloudAuthRow);
+            AddChild(_cloudAuthRow);
 
-            _cloudAuthRow.AddChild(new Label { Name = "CloudTokenLabel", Text = "Cloud Token" });
-
-            var cloudTokenLine = new HBoxContainer { Name = "CloudTokenLine" };
+            var cloudTokenLine = new HBoxContainer { Name = "CloudTokenLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _cloudAuthRow.AddChild(cloudTokenLine);
 
             _cloudTokenField = new LineEdit
@@ -414,34 +454,33 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             cloudTokenLine.AddChild(_cloudTokenField);
 
-            _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
-            DockStyle.ConnectPressed(_authorizeButton, this, MethodName.OnAuthorizeButtonPressed);
-            cloudTokenLine.AddChild(_authorizeButton);
-
             _revokeButton = new Button { Name = "RevokeButton", Text = "Revoke" };
             DockStyle.ConnectPressed(_revokeButton, this, MethodName.OnRevokeButtonPressed);
             cloudTokenLine.AddChild(_revokeButton);
 
+            _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
+            DockStyle.ConnectPressed(_authorizeButton, this, MethodName.OnAuthorizeButtonPressed);
+            cloudTokenLine.AddChild(_authorizeButton);
+
             _cloudAuthStatus = new Label
             {
                 Name = "CloudAuthStatus",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                Visible = false // hidden until there's a message — an empty label would otherwise reserve a line and
+                                // open a large gap between the token row and the timeline in Cloud mode.
             };
             _cloudAuthRow.AddChild(_cloudAuthStatus);
+        }
 
-            // --- Env/.env override note (shown when a process env / .env value forces mode or host) ---
-            _overrideNote = new Label
-            {
-                Name = "OverrideNote",
-                Text = "Overridden by environment (GODOT_MCP_*) — UI changes won't take effect.",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart
-            };
-            _overrideNote.AddThemeColorOverride("font_color", new Color(0.92f, 0.74f, 0.20f));
-            card.AddChild(_overrideNote);
-
-            // The MCP-server config IS wrapped in the blue frame-group card — this is one of the only two frames
-            // the dock keeps (Unity's `frame-mcp-server`). The Server URL row inside is now inline (label + input).
-            parent.AddChild(DockStyle.Card(card, "Server"));
+        /// <summary>
+        /// Set the Cloud-auth status line text and collapse the label when the text is empty (so an empty status
+        /// does not reserve a blank line that pushes the timeline down in Cloud mode). Single sink for every
+        /// status update (device-auth flow, revoke, server rejection).
+        /// </summary>
+        void SetCloudAuthStatusText(string text)
+        {
+            _cloudAuthStatus.Text = text;
+            _cloudAuthStatus.Visible = !string.IsNullOrEmpty(text);
         }
 
         /// <summary>
@@ -781,6 +820,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _modeSegmented,
                 SegmentedControlModel.IndexOf(ModeOptions, ModeLabelForMode(persistedMode)));
 
+            // The ENTIRE MCP-server timeline point (circle + Server URL / Start / Transport / Authorization card)
+            // is Custom-mode only. In Cloud mode it is hidden, leaving the timeline as Godot -> AI agent and the
+            // cloud token/Authorize row (above the timeline) as the only server-side UI (Unity gold reference).
+            _serverTimelinePoint.Visible = persistedCustom;
             _customHostRow.Visible = persistedCustom;
             _cloudAuthRow.Visible = !persistedCustom;
 
@@ -901,7 +944,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
 
             // Status line. UserCode is safe to show; the access token never reaches this string.
-            _cloudAuthStatus.Text = ConnectionPanelView.CloudAuthStatusMessage(state, flow.UserCode, flow.ErrorMessage);
+            SetCloudAuthStatusText(ConnectionPanelView.CloudAuthStatusMessage(state, flow.UserCode, flow.ErrorMessage));
             _authorizeButton.Text = ConnectionPanelView.CloudAuthButtonText(state);
 
             // Open the verification URL so the user can approve in the browser.
@@ -959,7 +1002,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             _connection.Config.CloudToken = null;
             _connection.Save();
-            _cloudAuthStatus.Text = "Token revoked.";
+            SetCloudAuthStatusText("Token revoked.");
             ApplyCloudAuthState();
             ApplyAlertVisibility(_connection.ConnectionStatus);
 
@@ -981,7 +1024,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _connection.Config.CloudToken = null;
             _connection.Save();
-            _cloudAuthStatus.Text = "Authorization rejected by server — press Authorize.";
+            SetCloudAuthStatusText("Authorization rejected by server — press Authorize.");
             ApplyCloudAuthState();
             ApplyAlertVisibility(_connection.ConnectionStatus);
 
