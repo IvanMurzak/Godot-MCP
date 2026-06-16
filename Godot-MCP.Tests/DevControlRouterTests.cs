@@ -126,6 +126,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("reveal", "reveal")]
         [InlineData("Copy", "copy")]
         [InlineData("generate-token", "generate-token")]
+        [InlineData("Check", "check")]
         public void TryNormalizeClickTarget_NormalizesKnown(string target, string expected)
         {
             Assert.True(DevControlRouter.TryNormalizeClickTarget(target, out var normalized));
