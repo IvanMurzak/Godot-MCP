@@ -946,13 +946,32 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try
             {
                 var ok = await plugin.Connect();
+
+                // A Reconnect()/Dispose() may have superseded THIS plugin while its connect was in flight (e.g. a
+                // rapid Custom<->Cloud mode switch). The new plugin drives its own connect — don't report on a
+                // plugin we no longer own.
+                if (!ReferenceEquals(_plugin, plugin))
+                    return;
+
                 if (ok)
                     GD.Print("[Godot-MCP] connected.");
                 else
                     GD.PushWarning("[Godot-MCP] initial connect returned false; client will keep retrying if KeepConnected.");
             }
+            catch (ObjectDisposedException)
+            {
+                // Expected teardown race, NOT a failure: a concurrent Reconnect()/Dispose() disposed this plugin
+                // (and its internal SemaphoreSlim gate) while the connect above was awaiting. The replacement
+                // plugin, if any, runs its own ConnectAsync. Swallow quietly so a fast mode switch does not log a
+                // spurious "connect failed: Cannot access a disposed object." error.
+            }
             catch (Exception ex)
             {
+                // If this plugin was superseded mid-connect, any resulting exception is part of that teardown
+                // race — ignore it; only a failure on the CURRENT plugin is a real connect error.
+                if (!ReferenceEquals(_plugin, plugin))
+                    return;
+
                 GD.PushError($"[Godot-MCP] connect failed: {ex.Message}");
             }
         }
