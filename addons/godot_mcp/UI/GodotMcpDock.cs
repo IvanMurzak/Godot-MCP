@@ -401,6 +401,31 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// DEV-ONLY: paint <paramref name="count"/> fake connected AI agents onto the dock's AI-agent point (green dot
+        /// + rows + "(N connected)" summary). A count of 0 clears the override (re-converges to the live list).
+        /// </summary>
+        public void DevInjectAgents(int count)
+        {
+            if (_connectionPanel == null)
+                throw new System.InvalidOperationException("connection panel not present (no live connection)");
+            if (count <= 0)
+            {
+                _connectionPanel.DevClearAgentsOverride();
+                return;
+            }
+            var agents = new System.Collections.Generic.List<com.IvanMurzak.McpPlugin.Common.Model.McpClientData>();
+            for (int i = 1; i <= count; i++)
+                agents.Add(new com.IvanMurzak.McpPlugin.Common.Model.McpClientData
+                {
+                    IsConnected = true,
+                    ClientTitle = $"AI Agent {i}",
+                    ClientVersion = "1.0.0",
+                    SessionId = $"dev-session-{i}"
+                });
+            _connectionPanel.DevInjectAgents(agents);
+        }
+
+        /// <summary>
         /// DEV-ONLY: drive the Custom-mode Server URL field as a user would — set the LineEdit text and emit
         /// its <c>text_submitted</c> signal so the panel runs its real commit/validate/reconnect path.
         /// </summary>
@@ -580,6 +605,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             AppendJson(sb, "serverUrl", hostField?.Text); sb.Append(',');
             AppendJson(sb, "selectedAgent", selectedAgent); sb.Append(',');
             AppendJson(sb, "agentConfigStatus", Text("Status")); sb.Append(',');
+            // Live AI-agent SESSION display (distinct from the agent CONFIGURATOR status above): the muted summary
+            // suffix ("(N connected)") + the number of rendered per-agent rows.
+            AppendJson(sb, "agentSessionSummary", Text("AgentSuffix")); sb.Append(',');
+            sb.Append("\"agentSessionRows\":")
+              .Append((FindChild("AgentList", recursive: true, owned: false) as VBoxContainer)?.GetChildCount() ?? 0)
+              .Append(',');
             sb.Append("\"agentAlertPresent\":").Append(alert != null ? "true" : "false").Append(',');
             sb.Append("\"agentAlertVisible\":").Append(alert is { Visible: true } ? "true" : "false").Append(',');
             // --- Connection mode + Cloud-auth UI truth (so the dev-control auth flow is fully assertable) ---
