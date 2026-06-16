@@ -127,6 +127,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         Reflector? _publishedReflector;
 
         /// <summary>
+        /// Guards <see cref="ResolveConfig"/> so the persisted + <c>.env</c> layers are applied to
+        /// <see cref="_config"/> exactly once. Set the first time config is resolved (by <see cref="ResolveConfig"/>,
+        /// called from the plugin boot BEFORE the dock UI is built, or lazily from <see cref="Start"/>), so a later
+        /// <see cref="Start"/> / <see cref="Reconnect"/> re-entry does not re-read the files (and would never clobber
+        /// a live UI edit with the on-disk value mid-session).
+        /// </summary>
+        bool _configResolved;
+
+        /// <summary>
         /// Live subscription to the reused client's <see cref="IConnection.ConnectionState"/> +
         /// <see cref="IConnection.KeepConnected"/> reactive properties. Re-created on every
         /// <see cref="Start"/> (a new plugin instance exposes new properties) and disposed on
@@ -235,17 +244,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             }
 
-            // PRECEDENCE: process env > .env file > persisted config > built-in default.
-            // 1) Seed the SERIALIZED-config layer first (lowest layer above the built-in defaults), so the
-            //    .env and live process-env layers below override it — never the other way around.
-            ApplyPersistedConfig();
-
-            // 2) Layer the project-root `.env` BENEATH the live process-env overrides the config already
-            //    applies in its getters. Godot is launched from the GUI (no inherited shell exports), so a
-            //    committed `res://.env` is how a project self-configures its MCP host/token. Process env
-            //    still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
-            //    see GodotMcpEnvFile's precedence note.
-            ApplyProjectEnvFile();
+            // Resolve the persisted + .env config layers (idempotent). The plugin boot calls ResolveConfig()
+            // BEFORE building the dock UI so the panels render from the SAVED mode/token/agent rather than the
+            // built-in defaults (the first-load "Cloud token empty / Authorize prompted / wrong agent restored"
+            // bug); this lazy call covers a Start() reached without that pre-step. A no-op once already resolved.
+            ResolveConfig();
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
@@ -817,6 +820,40 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 GD.PushError($"[Godot-MCP] disconnect failed: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Apply the config precedence layers — persisted serialized config, then the project-root <c>.env</c> —
+        /// onto <see cref="_config"/>, beneath the live process-env overrides the config getters apply. Idempotent
+        /// and guarded by <see cref="_configResolved"/>: safe to call repeatedly, runs the file reads only once.
+        ///
+        /// <para>
+        /// CRITICAL ORDERING: the plugin boot (<c>GodotMcpPlugin.BootMcp</c>) calls this BEFORE constructing the
+        /// dock so the connection / AI-agent panels read the SAVED connection mode, cloud/custom token, auth
+        /// option, and selected agent at build time — not the built-in defaults. Building the dock first (the old
+        /// order) painted the UI from defaults (Cloud with an EMPTY cloud token → "Authorize" prompt; the
+        /// default <c>claude-code</c> agent instead of the persisted one), and only a later mode-switch — which
+        /// re-reads the by-then-loaded config — "healed" the display. Resolving here first removes that whole
+        /// class of first-load staleness.
+        /// </para>
+        /// </summary>
+        public void ResolveConfig()
+        {
+            if (_configResolved)
+                return;
+            _configResolved = true;
+
+            // PRECEDENCE: process env > .env file > persisted config > built-in default.
+            // 1) Seed the SERIALIZED-config layer first (lowest layer above the built-in defaults), so the
+            //    .env and live process-env layers below override it — never the other way around.
+            ApplyPersistedConfig();
+
+            // 2) Layer the project-root `.env` BENEATH the live process-env overrides the config already
+            //    applies in its getters. Godot is launched from the GUI (no inherited shell exports), so a
+            //    committed `res://.env` is how a project self-configures its MCP host/token. Process env
+            //    still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
+            //    see GodotMcpEnvFile's precedence note.
+            ApplyProjectEnvFile();
         }
 
         /// <summary>

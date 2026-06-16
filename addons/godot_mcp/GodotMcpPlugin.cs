@@ -178,6 +178,15 @@ namespace com.IvanMurzak.Godot.MCP
             try
             {
                 _connection = new GodotMcpConnection();
+
+                // Resolve the persisted + .env config layers BEFORE building the dock UI. The connection /
+                // AI-agent panels read the config at construction time, so the saved connection mode, cloud/
+                // custom token, auth option, and selected agent must already be loaded — otherwise the dock
+                // paints from built-in defaults (Cloud with an EMPTY cloud token → spurious "Authorize" prompt;
+                // the default agent instead of the persisted one) until a later mode-switch heals it. See
+                // GodotMcpConnection.ResolveConfig. Start() re-calls it idempotently (guarded), so this is the
+                // single source of the first-load config; a resolve failure must not block dock/boot.
+                _connection.ResolveConfig();
             }
             catch (System.Exception ex)
             {
