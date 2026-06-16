@@ -42,6 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             ControlServerUrl,
             ControlSelectAgent,
             ControlClick,
+            ControlSetSegment,
         }
 
         /// <summary>
@@ -58,6 +59,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             ("POST", "/control/server-url",       Command.ControlServerUrl),
             ("POST", "/control/select-agent",     Command.ControlSelectAgent),
             ("POST", "/control/click",            Command.ControlClick),
+            ("POST", "/control/set-segment",      Command.ControlSetSegment),
         };
 
         /// <summary>
@@ -143,6 +145,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
         static readonly HashSet<string> ClickTargets = new(StringComparer.OrdinalIgnoreCase)
         {
             "configure", "reconfigure", "remove", "connect", "start-server", "generate",
+            // Cloud-mode device-auth buttons (the pair that first surfaced the GC'd-signal-delegate crash) +
+            // the agent-snippet Reveal/Copy buttons — so the smoke harness can exercise EVERY dock button.
+            // "generate" is the Skills panel's Generate button; "generate-token" is the Custom-mode token
+            // "New" button (distinct node) — both reachable so neither is left untested.
+            "authorize", "revoke", "reveal", "copy", "generate-token",
         };
 
         /// <summary>
@@ -161,6 +168,47 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             }
 
             normalized = string.Empty;
+            return false;
+        }
+
+        /// <summary>
+        /// The segmented controls the bridge can drive, each with its ordered option vocabulary (lowercase).
+        /// <c>mode</c> selects the connection mode (Custom/Cloud); <c>auth</c> selects the Custom-mode
+        /// Authorization "transport" (none/required). The option's INDEX in the list is the segment index the
+        /// dock emits <c>pressed</c> on. Kept pure-managed so the vocabulary is unit-tested.
+        /// </summary>
+        static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> SegmentVocabulary =
+            new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["mode"] = new[] { "custom", "cloud" },
+                ["auth"] = new[] { "none", "required" },
+            };
+
+        /// <summary>
+        /// Validate a segmented-control <paramref name="control"/> ("mode" | "auth") + <paramref name="option"/>
+        /// (case-insensitive) and resolve them to the canonical lowercase control name and the option's segment
+        /// <paramref name="index"/>. Returns <c>false</c> (index <c>-1</c>) for an unknown control or option so
+        /// the server can answer a 400. See <see cref="SegmentVocabulary"/>.
+        /// </summary>
+        public static bool TryNormalizeSegment(string? control, string? option, out string normalizedControl, out int index)
+        {
+            normalizedControl = string.Empty;
+            index = -1;
+
+            var c = (control ?? string.Empty).Trim().ToLowerInvariant();
+            if (!SegmentVocabulary.TryGetValue(c, out var options))
+                return false;
+
+            var o = (option ?? string.Empty).Trim().ToLowerInvariant();
+            for (int i = 0; i < options.Count; i++)
+            {
+                if (string.Equals(options[i], o, StringComparison.Ordinal))
+                {
+                    normalizedControl = c;
+                    index = i;
+                    return true;
+                }
+            }
             return false;
         }
     }

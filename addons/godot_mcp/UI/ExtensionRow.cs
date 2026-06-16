@@ -78,7 +78,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsVertical = SizeFlags.ShrinkBegin
             };
             DockStyle.ApplyPrimaryButton(_actionButton);
-            _actionButton.Pressed += () => _onAction(Descriptor);
+            DockStyle.ConnectPressed(_actionButton, () => _onAction(Descriptor));
             AddChild(_actionButton);
         }
 

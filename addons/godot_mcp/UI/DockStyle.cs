@@ -34,6 +34,41 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static Color Rgb((float R, float G, float B) c) => new Color(c.R, c.G, c.B);
         public static Color Rgba((float R, float G, float B, float A) c) => new Color(c.R, c.G, c.B, c.A);
 
+        // --- Signal-handler retention -------------------------------------------------------------------------
+        // Godot roots a C# signal-handler delegate only via a native GCHandle on the connection. In the editor
+        // (GC pressure, assembly reloads) that delegate can be collected out from under the connection; firing
+        // the signal afterwards raises
+        //   managed_callable.cpp: Parameter "delegate_handle.value" is null
+        //   Can't get method on CallableCustom "Delegate::Invoke"
+        //   Error calling from signal 'pressed' ... Method not found
+        // and the handler SILENTLY never runs (e.g. the Authorize button does nothing). Keeping a STRONG managed
+        // reference to each connected delegate — tied to the lifetime of the control that owns the connection —
+        // prevents this (the Godot docs' "keep a reference to delegates connected to signals" rule). The table is
+        // keyed weakly by the owner, so a freed control's handlers become collectable again (no leak).
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GodotObject, List<System.Delegate>> _signalDelegates = new();
+
+        /// <summary>
+        /// Retain a strong managed reference to <paramref name="handler"/> for as long as <paramref name="owner"/>
+        /// (the control that owns the signal connection) is alive, then RETURN it so it can be used directly in a
+        /// <c>signal += DockStyle.KeepAlive(owner, handler)</c> connection. Always connect the RETURNED delegate so
+        /// the rooted instance is exactly the one Godot wraps in its <see cref="Callable"/>; rooting a different
+        /// (even equal) delegate would not protect the connected one. Prevents the "delegate_handle.value is null"
+        /// crash described above.
+        /// </summary>
+        public static T KeepAlive<T>(GodotObject owner, T handler) where T : System.Delegate
+        {
+            _signalDelegates.GetOrCreateValue(owner).Add(handler);
+            return handler;
+        }
+
+        /// <summary>
+        /// Connect <paramref name="button"/>'s <c>Pressed</c> signal to <paramref name="handler"/> while retaining a
+        /// strong managed reference to it (see <see cref="KeepAlive{T}"/>) so the delegate cannot be garbage-collected
+        /// out from under the connection. Prefer this over a bare <c>button.Pressed += handler</c> everywhere in the dock.
+        /// </summary>
+        public static void ConnectPressed(BaseButton button, System.Action handler)
+            => button.Pressed += KeepAlive(button, handler);
+
         // --- Bold font (Unity's `-unity-font-style: bold` on headers / section-titles / timeline-labels) ----------
         // Godot Labels have no font-style flag; bold requires a bold Font resource. In the editor the bold face is
         // available from the editor theme ("bold" under "EditorFonts"). Resolved once and cached; degrades to no-op
@@ -380,7 +415,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             ApplyIconAndText(button, text, iconFileName);
 
-            button.Pressed += () => onPressed();
+            ConnectPressed(button, onPressed);
             return button;
         }
 
@@ -412,7 +447,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             ApplyIconAndText(button, text, iconFileName);
 
-            button.Pressed += () => onPressed();
+            ConnectPressed(button, onPressed);
             return button;
         }
 
@@ -437,7 +472,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             button.AddThemeColorOverride("font_hover_color", link.Lightened(0.2f));
             button.AddThemeColorOverride("font_pressed_color", link);
             button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeLink); // smaller than the body (Download / Tutorial links)
-            button.Pressed += () => OS.ShellOpen(url);
+            ConnectPressed(button, () => OS.ShellOpen(url));
             return button;
         }
 
@@ -544,7 +579,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var button = new Button { Name = "AlertButton", Text = buttonText };
             ApplyPrimaryButton(button);
             button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            button.Pressed += () => onPressed();
+            ConnectPressed(button, onPressed);
             col.AddChild(button);
 
             return panel;
@@ -721,7 +756,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 segment.AddThemeFontSizeOverride("font_size", DockTheme.SegmentFontSize);
                 ApplySegmentStyle(segment, SegmentedControlModel.IsSelected(i, clamped));
 
-                segment.Pressed += () =>
+                segment.Pressed += KeepAlive<System.Action>(segment, () =>
                 {
                     // Compare against the AUTHORITATIVE index stashed on the track, not against any probe of
                     // native ButtonPressed flags (which can report two-pressed/zero-pressed on mono/Linux).
@@ -740,7 +775,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     // discipline; a caller that DOES call SetSegmentedSelection just re-asserts the same index.
                     SetSegmentedSelection(track, index);
                     onSelected(index);
-                };
+                });
                 track.AddChild(segment);
             }
 
@@ -964,11 +999,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             content.AddThemeConstantOverride("separation", 2);
             container.AddChild(content);
 
-            toggle.Toggled += pressed =>
+            toggle.Toggled += KeepAlive<BaseButton.ToggledEventHandler>(toggle, pressed =>
             {
                 content.Visible = pressed;
                 toggle.Text = (pressed ? "▾ " : "▸ ") + title;
-            };
+            });
 
             return (container, content);
         }

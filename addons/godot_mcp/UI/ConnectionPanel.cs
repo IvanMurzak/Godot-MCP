@@ -260,7 +260,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplySubLabel(_statusLabel);
 
             _connectButton = new Button { Name = "ConnectButton" };
-            _connectButton.Pressed += OnConnectButtonPressed;
+            DockStyle.ConnectPressed(_connectButton, OnConnectButtonPressed);
 
             var godotContent = new HBoxContainer { Name = "GodotContent", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             godotContent.AddThemeConstantOverride("separation", 8);
@@ -331,8 +331,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             DockStyle.ApplyInput(_hostField);
             // Commit on Enter and on focus-out (mirrors the Unity reference's FocusOut commit).
-            _hostField.TextSubmitted += OnHostSubmitted;
-            _hostField.FocusExited += OnHostFocusExited;
+            _hostField.TextSubmitted += DockStyle.KeepAlive(_hostField, (LineEdit.TextSubmittedEventHandler)OnHostSubmitted);
+            _hostField.FocusExited += DockStyle.KeepAlive(_hostField, (System.Action)OnHostFocusExited);
             hostLine.AddChild(_hostField);
 
             // --- Authorization (Custom mode only): none | required (segmented) ---
@@ -368,7 +368,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             tokenLine.AddChild(_tokenField);
 
             _generateTokenButton = new Button { Name = "GenerateTokenButton", Text = "New" };
-            _generateTokenButton.Pressed += OnGenerateTokenPressed;
+            DockStyle.ConnectPressed(_generateTokenButton, OnGenerateTokenPressed);
             tokenLine.AddChild(_generateTokenButton);
 
             // --- Local-server hosting row (Custom mode only): Start/Stop the version-matched server binary ---
@@ -387,7 +387,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             serverLine.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
             _serverStartStopButton = new Button { Name = "LocalServerStartStopButton" };
-            _serverStartStopButton.Pressed += OnServerStartStopPressed;
+            DockStyle.ConnectPressed(_serverStartStopButton, OnServerStartStopPressed);
             serverLine.AddChild(_serverStartStopButton);
 
             _localServerRow.AddChild(serverLine);
@@ -415,11 +415,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             cloudTokenLine.AddChild(_cloudTokenField);
 
             _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
-            _authorizeButton.Pressed += OnAuthorizeButtonPressed;
+            DockStyle.ConnectPressed(_authorizeButton, OnAuthorizeButtonPressed);
             cloudTokenLine.AddChild(_authorizeButton);
 
             _revokeButton = new Button { Name = "RevokeButton", Text = "Revoke" };
-            _revokeButton.Pressed += OnRevokeButtonPressed;
+            DockStyle.ConnectPressed(_revokeButton, OnRevokeButtonPressed);
             cloudTokenLine.AddChild(_revokeButton);
 
             _cloudAuthStatus = new Label

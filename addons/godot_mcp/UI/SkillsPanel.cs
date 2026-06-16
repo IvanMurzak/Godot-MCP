@@ -160,14 +160,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Name = "AutoGenerateToggle",
                 ButtonPressed = _connection.Config.GenerateSkillFiles
             };
-            _autoGenerateToggle.Toggled += OnAutoGenerateToggled;
+            _autoGenerateToggle.Toggled += DockStyle.KeepAlive(_autoGenerateToggle, (BaseButton.ToggledEventHandler)OnAutoGenerateToggled);
             controlRow.AddChild(_autoGenerateToggle);
 
             controlRow.AddChild(new Control { Name = "SkillsSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
             var generateButton = new Button { Name = "Generate", Text = "Generate" };
             DockStyle.ApplySecondaryButton(generateButton); // compact gray (Unity's .btn-compact), not the big primary
-            generateButton.Pressed += OnGeneratePressed;
+            DockStyle.ConnectPressed(generateButton, OnGeneratePressed);
             controlRow.AddChild(generateButton);
 
             // --- Last-result status line (muted; turns amber on failure). HIDDEN until there's a result, so the
