@@ -35,8 +35,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
     [Tool]
     public partial class SupportFooter : VBoxContainer
     {
-        // Footer text size — the "Found an issue?" prompt, the thanks paragraph, and the sign-off.
-        const int FooterFontSize = 16;
+        // Footer text size — the "Found an issue?" prompt, the thanks paragraph, and the sign-off. Normal body
+        // size (was an undersized 16) so the footer reads at the same scale as the rest of the dock.
+        const int FooterFontSize = 18;
 
         public SupportFooter()
         {
@@ -90,6 +91,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             thanks.AddThemeFontSizeOverride("normal_font_size", FooterFontSize);
             thanks.AddThemeFontSizeOverride("bold_font_size", FooterFontSize);
+            // Strip the editor theme's default RichTextLabel panel background so the thanks paragraph blends with
+            // the dock instead of sitting in a custom-coloured text box.
+            thanks.AddThemeStyleboxOverride("normal", new StyleBoxEmpty());
             AddChild(thanks);
 
             // --- Sign-off + Gold "GitHub Star" on ONE row: "Sincerely, Ivan Murzak" on the LEFT and the star

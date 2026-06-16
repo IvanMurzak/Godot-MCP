@@ -154,7 +154,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// (underlined-label line height − dot diameter) / 2 — so it tracks <see cref="DockTheme.FontSizeUnderlinedLabel"/>
         /// (a bigger label needs a larger drop). Tuned live against the dock.
         /// </summary>
-        const int TimelineCircleTopOffset = 7;
+        const int TimelineCircleTopOffset = 13;
 
         public ConnectionPanel(GodotMcpConnection connection)
         {
