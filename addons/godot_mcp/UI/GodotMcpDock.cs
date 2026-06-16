@@ -429,6 +429,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 "revoke" => "RevokeButton",
                 "reveal" => "Reveal",
                 "copy" => "Copy",
+                "check" => "Check",                        // Footer "Check" → opens the Serialization Check window
                 _ => null,
             };
             if (nodeName == null)

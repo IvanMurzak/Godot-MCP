@@ -150,6 +150,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             // "generate" is the Skills panel's Generate button; "generate-token" is the Custom-mode token
             // "New" button (distinct node) — both reachable so neither is left untested.
             "authorize", "revoke", "reveal", "copy", "generate-token",
+            // The footer's "Check" button — opens the Serialization Check window (the Godot port of Unity's
+            // "Check" button). Reachable so the smoke harness can prove the footer button is wired + its
+            // Pressed delegate is rooted (the GC'd-signal-delegate fix).
+            "check",
         };
 
         /// <summary>
