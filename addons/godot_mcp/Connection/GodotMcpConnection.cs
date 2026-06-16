@@ -26,6 +26,7 @@ using Godot;
 using Microsoft.AspNetCore.SignalR.Client;
 using R3;
 using McpVersion = com.IvanMurzak.McpPlugin.Common.Version;
+using McpClientData = com.IvanMurzak.McpPlugin.Common.Model.McpClientData;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
@@ -162,6 +163,24 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         readonly SerialDisposable _featuresSubscription = new();
 
         /// <summary>
+        /// Live subscription to the reused client's <see cref="IMcpManager.OnClientsChanged"/> stream — fired on the
+        /// editor main thread whenever an MCP client (AI agent: Copilot / Claude / …) connects OR disconnects,
+        /// carrying the full active-client list. Re-created on every <see cref="Start"/> and released on plugin
+        /// teardown (same <see cref="SerialDisposable"/> discipline as <see cref="_featuresSubscription"/>), so a
+        /// reconnect never leaks a stale subscription.
+        /// </summary>
+        readonly SerialDisposable _agentsSubscription = new();
+
+        /// <summary>
+        /// The last-seen snapshot of connected MCP clients (AI agents). Replaced atomically on the editor main
+        /// thread by <see cref="UpdateActiveAgents"/> right before <see cref="AgentsUpdated"/> fires, so a UI handler
+        /// reading <see cref="ActiveAgents"/> always sees the value that triggered the event. Volatile so the
+        /// reference write is visible across threads (it is seeded off the SignalR thread's snapshot in
+        /// <see cref="SubscribeToAgentUpdates"/>).
+        /// </summary>
+        volatile IReadOnlyList<McpClientData> _activeAgents = Array.Empty<McpClientData>();
+
+        /// <summary>
         /// Holds the last reduced status (so <see cref="ConnectionStatus"/> is readable without a live
         /// plugin) and owns the de-dup rule. Pure-managed (<see cref="ConnectionStatusTracker"/>) so the
         /// status path — de-dup, late-subscriber convergence, reconnect reset — is unit-tested in the
@@ -225,6 +244,25 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// managers. Re-wired to the new managers on every <see cref="Start"/>/<see cref="Reconnect"/>.
         /// </summary>
         public event Action? FeaturesUpdated;
+
+        /// <summary>
+        /// The current set of connected MCP clients (AI agents) — Copilot / Claude / Cursor / … — as reported by the
+        /// reused client's <see cref="IMcpManager.ActiveClients"/>. Empty before <see cref="Start"/> / after
+        /// teardown, and (in Cloud mode) auth-scoped to THIS plugin's own agents by the server's
+        /// <c>ShouldNotifySession</c> strategy. The dock's AI-agent timeline point renders this list and turns its
+        /// dot green when it is non-empty. Read on the editor main thread (the value is refreshed there before
+        /// <see cref="AgentsUpdated"/> fires).
+        /// </summary>
+        public IReadOnlyList<McpClientData> ActiveAgents => _activeAgents;
+
+        /// <summary>
+        /// Raised whenever the set of connected AI agents changes (a client connected or disconnected — the reused
+        /// client's <see cref="IMcpManager.OnClientsChanged"/> fired). ALWAYS marshalled onto the Godot editor main
+        /// thread, so the dock's AI-agent section may refresh by touching <see cref="Godot.Control"/>s directly.
+        /// Carries no payload — the handler re-reads <see cref="ActiveAgents"/>. Re-wired to the new manager on every
+        /// <see cref="Start"/>/<see cref="Reconnect"/>.
+        /// </summary>
+        public event Action? AgentsUpdated;
 
         public GodotMcpConnection(GodotMcpConfig? config = null)
         {
@@ -331,6 +369,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             SubscribeToConnectionState(_plugin);
             SubscribeToFeatureUpdates(_plugin);
+            SubscribeToAgentUpdates(_plugin);
 
             // Auto-generate the selected agent's skills (SKILL.md-per-tool) when the toggle is ON. Runs AFTER the
             // plugin Build so the tool registry the engine reads from is populated. GenerateSkillFilesIfNeeded only
@@ -457,6 +496,63 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             _featuresSubscription.Disposable = Observable.Merge(streams)
                 .Subscribe(_ => RaiseFeaturesUpdated());
+        }
+
+        /// <summary>
+        /// Subscribe to the freshly-built plugin's <see cref="IMcpManager.OnClientsChanged"/> stream (fires on an AI
+        /// agent connect OR disconnect with the full active-client list) and surface it as the editor-main-thread
+        /// <see cref="AgentsUpdated"/> event the dock's AI-agent point refreshes from. Seeds <see cref="_activeAgents"/>
+        /// from the manager's current <see cref="IMcpManager.ActiveClients"/> snapshot so a late subscriber (or a
+        /// reconnect into an already-populated server) shows agents that connected before this subscription. Stored in
+        /// a <see cref="SerialDisposable"/> so a later <see cref="Start"/> replaces it cleanly; a null manager clears
+        /// the list. Mirrors <see cref="SubscribeToFeatureUpdates"/>.
+        /// </summary>
+        void SubscribeToAgentUpdates(IMcpPlugin plugin)
+        {
+            var mgr = plugin.McpManager;
+            if (mgr == null)
+            {
+                _agentsSubscription.Disposable = null;
+                _activeAgents = Array.Empty<McpClientData>();
+                return;
+            }
+
+            // Seed from the current snapshot (runs inline on Start → editor main thread).
+            _activeAgents = mgr.ActiveClients ?? Array.Empty<McpClientData>();
+
+            _agentsSubscription.Disposable = mgr.OnClientsChanged
+                .Subscribe(clients =>
+                {
+                    // Drop emissions from a plugin a Reconnect() has already superseded (mirrors the status/auth
+                    // subscriptions): a stale agent-list must not overwrite the new plugin's state.
+                    if (!ReferenceEquals(_plugin, plugin))
+                        return;
+                    UpdateActiveAgents(plugin, clients);
+                });
+        }
+
+        /// <summary>
+        /// Cache the new connected-agent snapshot and raise <see cref="AgentsUpdated"/> — BOTH on the editor main
+        /// thread (the R3 stream fires off the SignalR thread), so the panel reads a consistent <see cref="ActiveAgents"/>
+        /// when the event fires. Re-checks the stale-plugin guard on the main thread for an emission enqueued just
+        /// before a <see cref="Reconnect"/> swap. Mirrors the marshalling discipline of <see cref="PublishStatus"/>.
+        /// </summary>
+        void UpdateActiveAgents(IMcpPlugin plugin, IReadOnlyList<McpClientData> clients)
+        {
+            var snapshot = clients ?? Array.Empty<McpClientData>();
+
+            void Apply()
+            {
+                if (!ReferenceEquals(_plugin, plugin))
+                    return;
+                _activeAgents = snapshot;
+                AgentsUpdated?.Invoke();
+            }
+
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(Apply);
+            else
+                Apply();
         }
 
         /// <summary>
@@ -1060,6 +1156,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _stateSubscription.Dispose();
             _authRejectedSubscription.Dispose();
             _featuresSubscription.Dispose();
+            _agentsSubscription.Dispose();
             DisposePlugin();
         }
 
@@ -1077,6 +1174,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _stateSubscription.Disposable = null;
             _authRejectedSubscription.Disposable = null;
             _featuresSubscription.Disposable = null;
+            _agentsSubscription.Disposable = null;
+            _activeAgents = Array.Empty<McpClientData>();
 
             // Clear the ambient reflector if it is the one we published, so a stale instance does not
             // outlive the connection that owned it.

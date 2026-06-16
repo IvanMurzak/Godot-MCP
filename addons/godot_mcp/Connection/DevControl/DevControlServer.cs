@@ -187,6 +187,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
                     TryWrite(context, 200, "{\"ok\":true}");
                     break;
                 }
+                case DevControlRouter.Command.InjectAgents:
+                {
+                    // Body: {"count": N}. N>0 paints N fake connected AI agents onto the dock; N<=0 clears the override.
+                    var count = 0;
+                    if (root.HasValue && root.Value.TryGetProperty("count", out var countEl) &&
+                        countEl.ValueKind == JsonValueKind.Number && countEl.TryGetInt32(out var parsedCount))
+                        count = parsedCount;
+                    RunOnMainThread(() => { _dock.DevInjectAgents(count); return true; });
+                    TryWrite(context, 200, "{\"ok\":true}");
+                    break;
+                }
                 case DevControlRouter.Command.ControlServerUrl:
                 {
                     var url = GetString(root, "url");
