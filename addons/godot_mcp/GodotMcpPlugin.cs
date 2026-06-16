@@ -358,11 +358,22 @@ namespace com.IvanMurzak.Godot.MCP
             //    always run.
             if (MainThreadDispatcher.IsMainThread)
             {
+                // Remove the engine error Logger (4.5+) registered in _EnterTree via OS.AddLogger. THIS is the
+                // godotengine/godot#78513 fix: the engine holds a strong handle to a GodotObject defined in the
+                // COLLECTIBLE addon assembly, which roots the hot-reload ALC and makes its unload fail with the
+                // ".NET: Failed to unload assemblies" flood. OS.RemoveLogger is an engine call and MUST run on
+                // the main thread (mirroring OS.AddLogger), so it lives inside this main-thread guard. Uninstall
+                // is idempotent + defensive (swallows removal failure) and also clears ScriptErrorCapture.Current.
+                try { GodotScriptErrorLoggerBridge.Uninstall(); }
+                catch (System.Exception ex) { TryLogTeardownError("engine-logger uninstall", ex); }
+
                 FreeNodes();
             }
             else
             {
-                TryLog("[Godot-MCP] teardown ran off the main thread; skipping Node.Free (connection torn down).");
+                // Off-thread teardown skips OS.RemoveLogger (an engine call). Acceptable: the #78513 ALC-unload
+                // path is always main-thread, so the logger is always removed before an unload that matters.
+                TryLog("[Godot-MCP] teardown ran off the main thread; skipping Node.Free + engine-logger remove (connection torn down).");
             }
 
             TryLog("[Godot-MCP] plugin unloaded");
@@ -370,9 +381,11 @@ namespace com.IvanMurzak.Godot.MCP
             // 5) Null the process-wide statics so a stale buffer/router/hook does not outlive this instance.
             try { GodotLogCollector.Current = null; } catch { /* swallow during unload */ }
 
-            // Drop the engine error-capture router. The registered Godot Logger (4.5+) stays in the engine's
-            // logger list (no managed remove API), but clearing Current stops validation sessions leaking
-            // across a reload and lets the router be GC-eligible once the engine drops it.
+            // Drop the engine error-capture router unconditionally. On 4.5+ the main-thread guard above already
+            // called GodotScriptErrorLoggerBridge.Uninstall() (which removes the engine Logger via
+            // OS.RemoveLogger AND nulls Current); this pure-managed re-clear is a belt-and-suspenders that also
+            // covers the off-thread teardown path (where RemoveLogger is skipped) so a stale validation session
+            // never leaks across a reload regardless of which thread tore the plugin down.
             try { ScriptErrorCapture.Current = null; } catch { /* swallow during unload */ }
 
             // Release the static reload hook so a torn-down instance is not reachable from the resolver and

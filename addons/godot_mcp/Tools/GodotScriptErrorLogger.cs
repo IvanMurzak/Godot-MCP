@@ -89,6 +89,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class GodotScriptErrorLoggerBridge
     {
+        // The Logger we registered with OS.AddLogger, retained so Uninstall can hand the SAME instance to
+        // OS.RemoveLogger on teardown. The engine holds a strong native+managed handle to this object; that
+        // handle is what roots the collectible AssemblyLoadContext (the logger type is DEFINED in the
+        // collectible addon assembly), so leaving it registered makes the hot-reload ALC unload fail with the
+        // godotengine/godot#78513 ".NET: Failed to unload assemblies" flood. Static field => one registration
+        // per loaded assembly, which matches the single boot-time TryInstall.
+        static GodotScriptErrorLogger? _installed;
+
         /// <summary>
         /// Install the engine-error logger and return the router it feeds. The router's <see cref="ScriptErrorCapture.LogSink"/>
         /// is wired to <paramref name="collector"/> so passive engine errors land in <c>console-get-logs</c>.
@@ -108,8 +116,64 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var logger = new GodotScriptErrorLogger(capture);
             OS.AddLogger(logger); // static API in GodotSharp 4.5
 
+            _installed = logger; // retain so Uninstall() can remove the exact same instance
             ScriptErrorCapture.Current = capture;
             return capture;
+        }
+
+        /// <summary>
+        /// Reverse <see cref="TryInstall"/>: remove the registered <see cref="Logger"/> from the engine via
+        /// <see cref="OS.RemoveLogger(Logger)"/> (a public static API in GodotSharp 4.5+ — see
+        /// <c>GodotSharp.xml</c> "Remove a custom logger added by OS.AddLogger"), then free the logger's native
+        /// counterpart and clear the router. This drops the engine's strong handle to a GodotObject defined in
+        /// the collectible addon assembly, which is what lets the hot-reload ALC actually unload (closing the
+        /// godotengine/godot#78513 ".NET: Failed to unload assemblies" flood on Alt+B rebuild).
+        ///
+        /// <para>
+        /// MAIN-THREAD ONLY: <see cref="OS.RemoveLogger"/> is an engine call and mirrors the
+        /// <see cref="OS.AddLogger"/> in <c>GodotMcpPlugin._EnterTree</c>; the caller must invoke this from the
+        /// editor main thread (the #78513 ALC-unload path always is). Idempotent (safe to call when nothing is
+        /// installed, and safe to call twice) and defensive (a removal failure is swallowed — teardown must not
+        /// crash).
+        /// </para>
+        /// </summary>
+        public static void Uninstall()
+        {
+            var logger = _installed;
+            _installed = null;
+
+            if (logger != null)
+            {
+                // RemoveLogger drops the engine's reference; Free() then releases the native counterpart so its
+                // native handle cannot keep re-pinning the collectible ALC. Both are best-effort — a throw here
+                // must not abort the rest of teardown (the connection/dock are already being torn down).
+                try
+                {
+                    OS.RemoveLogger(logger); // static API in GodotSharp 4.5+
+                }
+                catch (Exception)
+                {
+                    // Swallow: removal failing must not crash teardown. Worst case the logger stays registered
+                    // and the #78513 flood persists — no worse than the pre-fix behavior.
+                }
+
+                try
+                {
+                    // The Logger is a GodotObject with a native object behind it. After the engine drops its
+                    // reference, free that native object so its handle does not re-root the ALC. IsInstanceValid
+                    // guards against a double-free if Godot already disposed it on a failed reload.
+                    if (GodotObject.IsInstanceValid(logger))
+                        logger.Free();
+                }
+                catch (Exception)
+                {
+                    // Swallow: a disposed/already-freed logger throwing here is benign during unload.
+                }
+            }
+
+            // Always clear the router so a stale capture/validation session never leaks across a reload, even if
+            // nothing was installed (e.g. collector was null at boot). Pure-managed — cannot fault on the engine.
+            try { ScriptErrorCapture.Current = null; } catch { /* swallow during unload */ }
         }
     }
 }
