@@ -368,21 +368,55 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     // R3 fires off the SignalR thread; hop to the editor main thread before raising the
                     // event so subscribers (the dock) can touch Control nodes directly. A missing
                     // dispatcher (between editor reloads) degrades to a direct call rather than throwing.
+                    // Same stale-plugin guard as the auth-rejected subscription below: a status emitted by a
+                    // plugin a Reconnect() has already superseded must not overwrite the new plugin's status
+                    // (it would briefly flip the label before the re-sync corrects it). Re-checked on the main
+                    // thread too, for a callback enqueued just before the swap.
+                    if (!ReferenceEquals(_plugin, plugin))
+                        return;
+
                     if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() => PublishStatus(status, marshalled: true));
-                    else
+                        MainThreadDispatcher.Enqueue(() =>
+                        {
+                            if (ReferenceEquals(_plugin, plugin))
+                                PublishStatus(status, marshalled: true);
+                        });
+                    else if (ReferenceEquals(_plugin, plugin))
                         PublishStatus(status, marshalled: false);
                 });
 
             // Surface the reused client's authorization-rejected stream as a main-thread event the dock can
             // act on (clear the rejected token, revert to Authorize). R3 fires off the SignalR thread, so we
             // hop to the editor main thread before raising, mirroring the status subscription above.
+            //
+            // STALE-REJECTION GUARD (the "authorized but stays red" bug): in Cloud mode WITHOUT a token the
+            // connection sits in a reject→retry loop, so OnAuthorizationRejected fires continuously. When the
+            // user authorizes, PersistAuthorizedToken sets CloudToken and calls Reconnect(), which disposes
+            // THIS plugin and builds a fresh one with the token. A rejection emitted by this (now-superseded)
+            // plugin must NOT reach the dock afterwards — the dock's handler nulls CloudToken, which would wipe
+            // the freshly-authorized token and flip the new connection back to "Authorization Required" (red).
+            // Guard at BOTH the emit boundary and again on the main thread (a callback enqueued just before the
+            // swap must re-check): only raise while this subscription's plugin is still the active _plugin.
             _authRejectedSubscription.Disposable = plugin.OnAuthorizationRejected
                 .Subscribe(_ =>
                 {
+                    if (!ReferenceEquals(_plugin, plugin))
+                    {
+                        // Superseded by a Reconnect — drop the stale rejection. Traced so a Cloud-auth
+                        // re-test can SEE the race being suppressed; if the dock instead logs "server
+                        // rejected the authorization token; cleared" AFTER authorizing, that is a GENUINE
+                        // rejection from the live connection (token/header/expiry), not this race.
+                        LogTrace("[Godot-MCP] dropped a stale authorization-rejection from a superseded connection (post-Reconnect).");
+                        return;
+                    }
+
                     if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() => AuthorizationRejected?.Invoke());
-                    else
+                        MainThreadDispatcher.Enqueue(() =>
+                        {
+                            if (ReferenceEquals(_plugin, plugin))
+                                AuthorizationRejected?.Invoke();
+                        });
+                    else if (ReferenceEquals(_plugin, plugin))
                         AuthorizationRejected?.Invoke();
                 });
         }
