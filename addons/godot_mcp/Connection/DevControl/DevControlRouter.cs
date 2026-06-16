@@ -147,7 +147,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             "configure", "reconfigure", "remove", "connect", "start-server", "generate",
             // Cloud-mode device-auth buttons (the pair that first surfaced the GC'd-signal-delegate crash) +
             // the agent-snippet Reveal/Copy buttons — so the smoke harness can exercise EVERY dock button.
-            "authorize", "revoke", "reveal", "copy",
+            // "generate" is the Skills panel's Generate button; "generate-token" is the Custom-mode token
+            // "New" button (distinct node) — both reachable so neither is left untested.
+            "authorize", "revoke", "reveal", "copy", "generate-token",
         };
 
         /// <summary>

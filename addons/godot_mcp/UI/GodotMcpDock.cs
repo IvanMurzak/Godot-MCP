@@ -423,7 +423,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 "remove" => "Remove",
                 "connect" => "ConnectButton",
                 "start-server" => "LocalServerStartStopButton",
-                "generate" => "Generate",
+                "generate" => "Generate",                  // Skills panel's "Generate" button
+                "generate-token" => "GenerateTokenButton", // Custom-mode auth token "New" button (distinct)
                 "authorize" => "AuthorizeButton",
                 "revoke" => "RevokeButton",
                 "reveal" => "Reveal",

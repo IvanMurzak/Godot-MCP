@@ -120,7 +120,8 @@ class Smoke:
         self.assert_state("server-url applied", "serverUrl", "localhost:5300")
         self.step("auth=none", "POST", "/control/set-segment", {"control": "auth", "option": "none"}, ACCEPT_OK)
         self.step("auth=required", "POST", "/control/set-segment", {"control": "auth", "option": "required"}, ACCEPT_OK)
-        self.step("click generate (token)", "POST", "/control/click", {"target": "generate"}, ACCEPT_CLICK)
+        self.step("click generate-token (New)", "POST", "/control/click", {"target": "generate-token"}, ACCEPT_CLICK)
+        self.step("click generate (skills)", "POST", "/control/click", {"target": "generate"}, ACCEPT_CLICK)
         self.step("click connect", "POST", "/control/click", {"target": "connect"}, ACCEPT_CLICK)
         self.step("click start-server", "POST", "/control/click", {"target": "start-server"}, ACCEPT_CLICK)
 
