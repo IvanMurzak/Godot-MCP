@@ -480,6 +480,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// DEV-ONLY: simulate a successful Cloud authorization — persist <paramref name="token"/> through the
+        /// dock's REAL persist+reconnect path (<see cref="ConnectionPanel.DevSimulateCloudAuthorized"/>), so the
+        /// auth UI (masked field, Revoke button, alert visibility) and the reconnect/stale-rejection guard can be
+        /// exercised without a live browser OAuth round-trip. Returns false when the connection panel is absent.
+        /// </summary>
+        public bool DevCloudAuthorize(string token)
+        {
+            if (_connectionPanel == null)
+                return false;
+            _connectionPanel.DevSimulateCloudAuthorized(token ?? string.Empty);
+            return true;
+        }
+
+        /// <summary>
         /// DEV-ONLY: a JSON snapshot of what the dock is currently rendering — connection status label,
         /// Connect-button text, the Server URL field, the selected agent name, the agent config status text,
         /// and whether the AI-agent "AgentAlert" node is present + visible. Read by <c>GET /state</c> so a
@@ -491,8 +505,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 (FindChild(name, recursive: true, owned: false) as Label)?.Text;
             string? ButtonText(string name) =>
                 (FindChild(name, recursive: true, owned: false) as Button)?.Text;
+            // A node is "visible" only when present AND its IsVisibleInTree (so a hidden ancestor — e.g. the
+            // whole CloudAuthRow — correctly reports its children as not-visible).
+            bool VisibleInTree(string name) =>
+                FindChild(name, recursive: true, owned: false) is Control c && c.IsVisibleInTree();
 
             var hostField = FindChild("HostField", recursive: true, owned: false) as LineEdit;
+            var cloudTokenField = FindChild("CloudTokenField", recursive: true, owned: false) as LineEdit;
+            // Cloud vs Custom is observable from which mode-row is shown (CustomHostRow only in Custom mode).
+            var connectionMode = VisibleInTree("CustomHostRow") ? "Custom" : "Cloud";
             var agentSelector = FindChild("AgentSelector", recursive: true, owned: false) as OptionButton;
             string? selectedAgent = null;
             if (agentSelector != null && agentSelector.Selected >= 0)
@@ -515,7 +536,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
             AppendJson(sb, "selectedAgent", selectedAgent); sb.Append(',');
             AppendJson(sb, "agentConfigStatus", Text("Status")); sb.Append(',');
             sb.Append("\"agentAlertPresent\":").Append(alert != null ? "true" : "false").Append(',');
-            sb.Append("\"agentAlertVisible\":").Append(alert is { Visible: true } ? "true" : "false");
+            sb.Append("\"agentAlertVisible\":").Append(alert is { Visible: true } ? "true" : "false").Append(',');
+            // --- Connection mode + Cloud-auth UI truth (so the dev-control auth flow is fully assertable) ---
+            // connectionMode reflects the DISPLAYED/persisted mode (which row is editable). When an env/.env
+            // override forces a different ACTIVE mode, the OverrideNote is shown — surface it so a tester knows
+            // the live connection mode differs from the displayed one (e.g. testbed .env pins Custom).
+            AppendJson(sb, "connectionMode", connectionMode); sb.Append(',');
+            sb.Append("\"modeOverrideNoteVisible\":").Append(VisibleInTree("OverrideNote") ? "true" : "false").Append(',');
+            sb.Append("\"cloudTokenPresent\":").Append(!string.IsNullOrEmpty(cloudTokenField?.Text) ? "true" : "false").Append(',');
+            sb.Append("\"revokeButtonVisible\":").Append(VisibleInTree("RevokeButton") ? "true" : "false").Append(',');
+            sb.Append("\"authRequiredAlertVisible\":").Append(VisibleInTree("AuthRequiredAlert") ? "true" : "false").Append(',');
+            sb.Append("\"connectionRequiredAlertVisible\":").Append(VisibleInTree("ConnectionRequiredAlert") ? "true" : "false").Append(',');
+            AppendJson(sb, "cloudAuthStatus", Text("CloudAuthStatus"));
             sb.Append('}');
             return sb.ToString();
         }

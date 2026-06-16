@@ -34,6 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("POST", "/control/select-agent", DevControlRouter.Command.ControlSelectAgent)]
         [InlineData("POST", "/control/click", DevControlRouter.Command.ControlClick)]
         [InlineData("POST", "/control/set-segment", DevControlRouter.Command.ControlSetSegment)]
+        [InlineData("POST", "/control/cloud-authorize", DevControlRouter.Command.ControlCloudAuthorize)]
         public void Route_MapsKnownRoutes(string method, string path, DevControlRouter.Command expected)
         {
             Assert.Equal(expected, DevControlRouter.Route(method, path));
