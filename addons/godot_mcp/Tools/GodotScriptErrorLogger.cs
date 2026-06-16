@@ -108,6 +108,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (collector == null)
                 return null;
 
+            // Symmetric with Uninstall: tear down any prior registration FIRST. In the normal paired
+            // _EnterTree/_ExitTree lifecycle _installed is already null here, but a stray double-install
+            // (two _EnterTree without an intervening Teardown) would otherwise overwrite _installed without
+            // OS.RemoveLogger/Free()-ing the previous logger — leaking it registered in the engine, which
+            // re-pins the collectible ALC (the exact godot#78513 unload failure this bridge removes) AND
+            // orphans it beyond Uninstall's reach. Uninstall is idempotent, so this is a safe no-op when
+            // nothing is installed.
+            Uninstall();
+
             var capture = new ScriptErrorCapture
             {
                 LogSink = (logType, message) => collector.Append(logType, message),
