@@ -249,7 +249,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void OnResourcePicked(Resource? resource)
         {
             _target = resource;
-            _selectionLabel.Text = resource != null ? string.Empty : _selectionLabel.Text;
             if (resource != null)
                 _selectionLabel.Text = string.Empty;
         }
