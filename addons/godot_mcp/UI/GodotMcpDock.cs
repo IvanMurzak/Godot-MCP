@@ -232,7 +232,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 Name = "Body",
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
-            Body.AddThemeConstantOverride("separation", 8);
+            // Wider separation so the dark 1px section dividers (Connection / AI agent / MCP features / …) get
+            // visible breathing room above and below — the sections read as distinct bands, not a dense stack.
+            Body.AddThemeConstantOverride("separation", 14);
             content.AddChild(Body);
 
             // Connection + AI-agent + MCP-features sections — only when a live connection was threaded in.

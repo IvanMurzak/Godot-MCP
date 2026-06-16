@@ -59,7 +59,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 SizeFlagsVertical = SizeFlags.ShrinkBegin
             };
-            leftColumn.AddThemeConstantOverride("separation", 2);
+            // Tight: the "~N tokens total" sub-label hugs the count header directly above it (no gap).
+            leftColumn.AddThemeConstantOverride("separation", 0);
             AddChild(leftColumn);
 
             _countLabel = new Label

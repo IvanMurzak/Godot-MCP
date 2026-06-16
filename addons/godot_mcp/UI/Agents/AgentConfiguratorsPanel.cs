@@ -201,7 +201,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 headerRow.AddChild(icon);
 
             var headerCol = new VBoxContainer { Name = "AgentHeaderCol", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            headerCol.AddThemeConstantOverride("separation", 0); // tight: name directly over the Download/Tutorial links
+            headerCol.AddThemeConstantOverride("separation", -3); // pull the Download/Tutorial links up snug under the agent name
             headerRow.AddChild(headerCol);
 
             // Agent name (Unity's `agentName` section-title, 16px). Mirrors Unity, which shows the selected agent's

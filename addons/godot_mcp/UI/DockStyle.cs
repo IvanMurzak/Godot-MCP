@@ -324,7 +324,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         static void ApplyCompactButtonBase(Button button, Color normal, Color hover)
         {
-            ApplyButtonBackground(button, normal, hover, DockTheme.ButtonSecondaryCornerRadius, hMargin: 8, vMargin: 2);
+            ApplyButtonBackground(button, normal, hover, DockTheme.ButtonSecondaryCornerRadius, hMargin: 8, vMargin: 1);
             button.AddThemeFontSizeOverride("font_size", DockTheme.FontSizeCompactButton);
             button.CustomMinimumSize = new Vector2(0, DockTheme.ButtonSecondaryHeight);
         }
