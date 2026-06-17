@@ -12,7 +12,7 @@
     single assembly. So this csproj must declare the same NuGet
     PackageReferences the addon's scripts depend on, otherwise the addon's C#
     will not compile here. Keep these pins in lockstep with ../Godot-MCP.csproj
-    (com.IvanMurzak.ReflectorNet 5.3.1, com.IvanMurzak.McpPlugin 6.7.0).
+    (com.IvanMurzak.ReflectorNet 5.3.1, com.IvanMurzak.McpPlugin 6.9.1).
 
     SDK pin note: Godot.NET.Sdk/4.3.0 is the engine floor the addon supports
     (matches ../Godot-MCP.csproj). The .NET SDK package is published to
