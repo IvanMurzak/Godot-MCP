@@ -1,0 +1,21 @@
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_88692866f8a457::t_cbcd56436927df 415-431
+Godot-MCP.Tests/GodotMcpReflectorCacheTeardownTests.cs
+  s_88692866f8a457::t_afae0bf7e96107 1-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "c5a160c7c7aac8bbc36f6c2d2e67a59410a3bef9",
+  "prompts": {},
+  "sessions": {
+    "s_88692866f8a457": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2977a50-af66-49ec-9bc3-af770d89759d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
