@@ -412,6 +412,23 @@ namespace com.IvanMurzak.Godot.MCP
             // that cannot be source-generated. Best-effort + fully defensive (see GodotMcpStjReflectionCache).
             try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
+            // Drop ReflectorNet's process-wide static reflection caches. They live in the NON-collectible Default
+            // ALC (the resolver loads ReflectorNet there) but, during tool registration / parameter-schema build /
+            // serialization, get populated with entries that reference THIS collectible addon assembly's types:
+            //   • TypeUtils type-name caches hold resolved addon `Type` objects (a Type roots its assembly's ALC);
+            //   • TypeMemberUtils field/property caches hold addon `FieldInfo`/`PropertyInfo` (a member roots its
+            //     DeclaringType's ALC).
+            // Either is a non-collectible→collectible strong static reference = a godot#78513 root (the "Build/
+            // tool-registration FAILS while CreateDefaultReflector alone PASSES" bisection signature). ReflectorNet
+            // already exposes the clears; the addon just has to call them on teardown (mirrors the MainThread.Instance
+            // and STJ clears above). Pure-managed statics → safe on any thread; the reloaded assembly repopulates
+            // lazily on next use. No ReflectorNet/McpPlugin change or pin bump required.
+            try { com.IvanMurzak.ReflectorNet.Utils.TypeMemberUtils.ClearAllCaches(); } catch { /* swallow during unload */ }
+            try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearTypeCache(); } catch { /* swallow during unload */ }
+            try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearAssemblyTypeCache(); } catch { /* swallow during unload */ }
+            try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearExactAssemblyTypeCache(); } catch { /* swallow during unload */ }
+            try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearEnumerableItemTypeCache(); } catch { /* swallow during unload */ }
+
             // Release the static reload hook so a torn-down instance is not reachable from the resolver and
             // can be collected. Only clear if WE are the current owner (a newer _EnterTree may already have
             // claimed it).
