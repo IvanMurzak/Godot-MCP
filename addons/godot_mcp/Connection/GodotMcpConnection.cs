@@ -324,6 +324,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // injected GD.* + log-collector sink below.
             var loggerProvider = new GodotMcpLoggerProvider(() => _config.ActiveLogLevel, RouteFrameworkLog);
 
+            // OPT IN to McpPlugin's bounded reconnect + fast connect timeout. The Godot editor addon lives in a
+            // COLLECTIBLE AssemblyLoadContext, so an UNREACHABLE server retried forever would keep a negotiate
+            // in-flight and pin the ALC on a C# hot-reload (godotengine/godot#78513). Giving up after a few
+            // failures (and failing the connect fast) settles the connection into idle-Disconnected so reloads are
+            // clean; the dock can reconnect once the server is up. These are McpPlugin defaults of 0 (= unlimited,
+            // the historical behaviour Unity/Unreal keep) — we set them here so the opt-in is addon-local.
+            _config.MaxConsecutiveConnectionFailures = 4;
+            _config.ConnectTimeoutSeconds = 5;
+
             var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
                 // Prune the heavy assemblies so neither the tool/prompt/resource scan NOR the
@@ -1115,26 +1124,30 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// ALC-unloading handler, where a throw would abort the very unload it is trying to enable.
         ///
         /// <para>
-        /// This is intentionally a fire-and-forget stop, NOT a blocking drain: live testing established that
-        /// the connection threads are NOT what pins the collectible <see cref="System.Runtime.Loader.AssemblyLoadContext"/>
-        /// open (the residual "Failed to unload assemblies" come from static refs into the collectible
-        /// assembly, addressed separately — see <see cref="GodotMcpAssemblyResolver.OnAssemblyUnloading"/>).
-        /// So there is no need to block the editor main thread on any async API here. The
-        /// <paramref name="timeout"/> is accepted for call-site compatibility and is otherwise unused.
+        /// godot#78513 is MULTI-ROOT. One root is the connection transport: <see cref="IConnection.DisconnectImmediate"/>
+        /// only DISPATCHES the HubConnection teardown (it does not wait), so the SignalR HttpClient /
+        /// SocketsHttpHandler connection-pool timer + WebSocket receive loop are still running when the
+        /// collectible <see cref="System.Runtime.Loader.AssemblyLoadContext"/> unloads — pinning it. The other
+        /// root (ReflectorNet's static MainThread.Instance) is cleared in <c>GodotMcpPlugin.Teardown</c>.
+        /// This method bounded-JOINS the dispatched teardown via <see cref="IConnection.WaitForImmediateTeardown"/>
+        /// (McpPlugin 6.8.x), so the transport's threads/handles are released BEFORE the unload. The disposal
+        /// runs on the thread pool, so the bounded main-thread wait cannot deadlock the editor main = unload
+        /// thread. <paramref name="timeout"/> bounds the wait (a reachable/refused endpoint clears in a few ms;
+        /// a black-holed host is capped at the timeout).
         /// </para>
         ///
         /// Idempotent and defensively wrapped: safe to call with no plugin (no-op) and never throws into the
         /// ALC-unloading handler.
         /// </summary>
-        /// <param name="timeout">Accepted for call-site compatibility; not used by this synchronous teardown.</param>
+        /// <param name="timeout">Upper bound on the wait for the dispatched connection teardown to complete.</param>
         public void DisconnectAndDrain(TimeSpan timeout)
         {
             var plugin = _plugin;
             if (plugin == null)
                 return;
 
-            // 1) Synchronous immediate disconnect (6.7.0): cancels the CTS, flips the client's KeepConnected
-            //    to false (killing the auto-reconnect loop), and fire-and-forgets the HubConnection teardown.
+            // 1) Synchronous immediate disconnect: cancels the CTS, flips KeepConnected to false (killing the
+            //    auto-reconnect loop), and DISPATCHES the HubConnection teardown to a background thread.
             try { plugin.DisconnectImmediate(); }
             catch (Exception ex)
             {
@@ -1142,7 +1155,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 catch { /* GD may be unavailable mid-reload; swallow */ }
             }
 
-            // 2) Final plugin Dispose (6.7.0): releases the R3 subscriptions + the manager (idempotent).
+            // 1.5) Bounded-JOIN that dispatched teardown BEFORE Dispose (which would tear down the manager and
+            //      abandon the task) and before the ALC unload — so the SignalR transport's running threads /
+            //      GC handles are actually released, not just signalled. Non-blocking-on-async (thread-pool
+            //      task), so no deadlock on the editor main = unload thread. THE connection root of godot#78513.
+            try { plugin.WaitForImmediateTeardown(timeout); }
+            catch (Exception ex)
+            {
+                try { GD.PushError($"[Godot-MCP] wait-for-immediate-teardown (drain) failed: {ex.Message}"); }
+                catch { /* GD may be unavailable mid-reload; swallow */ }
+            }
+
+            // 2) Final plugin Dispose (idempotent): releases the R3 subscriptions + the manager.
             try { plugin.Dispose(); }
             catch (Exception ex)
             {

@@ -62,22 +62,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         // --- Environment-variable names (Godot analog of UNITY_MCP_*). ---
 
         /// <summary>Overrides the cloud base URL (analogous to <c>UNITY_MCP_CLOUD_URL</c>).</summary>
-        public const string EnvCloudUrl = "GODOT_MCP_CLOUD_URL";
+        public const string EnvCloudUrl = GodotMcpEnv.CloudUrl;
 
         /// <summary>Overrides the custom-mode server host (used only in <see cref="GodotMcpConnectionMode.Custom"/>).</summary>
-        public const string EnvHost = "GODOT_MCP_HOST";
+        public const string EnvHost = GodotMcpEnv.Host;
 
         /// <summary>Supplies the bearer token (routed to cloud or custom token by active mode).</summary>
-        public const string EnvToken = "GODOT_MCP_TOKEN";
+        public const string EnvToken = GodotMcpEnv.Token;
 
         /// <summary>Forces the connection mode (<c>Cloud</c> / <c>Custom</c>, case-insensitive).</summary>
-        public const string EnvConnectionMode = "GODOT_MCP_CONNECTION_MODE";
+        public const string EnvConnectionMode = GodotMcpEnv.ConnectionMode;
 
         /// <summary>
         /// Forces the Custom-mode authorization option (<c>None</c> / <c>Required</c>, case-insensitive).
         /// The Godot analog of Unity-MCP's <c>UNITY_MCP_AUTH_OPTION</c>.
         /// </summary>
-        public const string EnvAuthOption = "GODOT_MCP_AUTH_OPTION";
+        public const string EnvAuthOption = GodotMcpEnv.AuthOption;
 
         /// <summary>
         /// Forces the plugin's log-verbosity threshold (<c>Trace</c> / <c>Debug</c> / <c>Info</c> /
@@ -85,7 +85,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <c>UNITY_MCP_LOG_LEVEL</c>. Honored live by <see cref="ActiveLogLevel"/> so a smoke run can be
         /// driven at <c>Trace</c> without touching the persisted config.
         /// </summary>
-        public const string EnvLogLevel = "GODOT_MCP_LOG_LEVEL";
+        public const string EnvLogLevel = GodotMcpEnv.LogLevel;
 
         // --- Defaults. ---
 
