@@ -34,7 +34,7 @@
   <!-- Mirror of ../Godot-MCP.csproj package pins (must stay in lockstep). -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.7.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.9.1" />
   </ItemGroup>
 
 </Project>
