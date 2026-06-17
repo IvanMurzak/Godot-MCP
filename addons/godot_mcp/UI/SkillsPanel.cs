@@ -23,7 +23,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// the resolved skills output path (right-aligned, ellipsis, muted), an "Auto-generate" toggle bound to
     /// <see cref="GodotMcpConfig.GenerateSkillFiles"/> (persist + Save), a "Generate" button, and a last-result status
     /// line; when the agent does NOT support skills it shows a single muted "Skills not supported by this agent" line
-    /// (gated on <see cref="GodotAgentConfigurator.SupportsSkills"/>, exactly like Unity gates its skills UI to Claude).
+    /// (gated on the shared <c>AiAgentConfigurator.SupportsSkills</c>, exactly like Unity gates its skills UI).
     ///
     /// <para>
     /// The generation ENGINE ships in the reused <c>com.IvanMurzak.McpPlugin</c> pin
@@ -37,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// <para>
     /// Editor-only (<c>#if TOOLS</c>): it constructs live Godot UI nodes and reads the live config off the threaded-in
     /// connection. The supported/path DECISION lives in the pure-managed <see cref="SkillsPlan"/> +
-    /// <see cref="AgentConfigPaths"/> (CI-unit-tested); this class is verified via the headless Godot smoke
+    /// <see cref="SkillsPathUtils"/> (CI-unit-tested); this class is verified via the headless Godot smoke
     /// (<c>test.md</c> Suite 3).
     /// </para>
     /// </summary>
@@ -140,7 +140,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // full absolute path as the tooltip. The label still ellipsis-truncates if the relative form is long.
             if (_pathLabel != null)
             {
-                _pathLabel.Text = AgentConfigPaths.ToDisplayPath(plan.SkillsDir!, ProjectRoot());
+                _pathLabel.Text = SkillsPathUtils.ToDisplayPath(plan.SkillsDir!, ProjectRoot());
                 _pathLabel.TooltipText = plan.SkillsDir!;
             }
 
@@ -294,18 +294,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         // --- live resolution off the connection config / editor ----------------------------------------------
 
-        /// <summary>Resolve the skills plan for the persisted-selected agent against the live editor path values.</summary>
+        /// <summary>Resolve the skills plan for the persisted-selected agent (shared registry) against the live project root.</summary>
         SkillsPlan ResolvePlan()
         {
-            var agent = GodotAgentConfiguratorRegistry.GetByAgentId(_connection.Config.SelectedAgentId);
-            var os = MapOs(OS.GetName());
-            var home = OS.GetEnvironment("USERPROFILE");
-            if (string.IsNullOrEmpty(home))
-                home = OS.GetEnvironment("HOME");
-            var appData = OS.GetEnvironment("APPDATA");
-            var projectRoot = ProjectRoot();
-
-            return SkillsPlan.Resolve(agent, os, home, appData, projectRoot);
+            var agent = GodotAgentConfigurators.GetByAgentId(_connection.Config.SelectedAgentId);
+            return SkillsPlan.Resolve(agent, ProjectRoot());
         }
 
         /// <summary>The absolute Godot project root (<c>res://</c> globalized, trailing slash stripped).</summary>
@@ -329,14 +322,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return false;
             }
         }
-
-        /// <summary>Map Godot's <c>OS.GetName()</c> ("Windows"/"macOS"/"Linux"/…) onto the injectable <see cref="AgentOs"/>.</summary>
-        static AgentOs MapOs(string godotOsName) => godotOsName switch
-        {
-            "Windows" => AgentOs.Windows,
-            "macOS" => AgentOs.MacOS,
-            _ => AgentOs.Linux,
-        };
 
         // No KeepAlive teardown is needed: every signal here is an OBJECT+METHOD Callable (the auto-generate
         // checkbox connects to its own instance method; the Generate button connects to this panel's instance

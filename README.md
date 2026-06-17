@@ -268,14 +268,14 @@ match the addon's `Godot-MCP.csproj`):
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.9.1" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.10.0" />
 </ItemGroup>
 ```
 
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.3.1` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `6.9.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `6.10.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 
 Run `dotnet restore` so the packages land in your NuGet cache, then build. **No manual DLL copying is
 required** — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet

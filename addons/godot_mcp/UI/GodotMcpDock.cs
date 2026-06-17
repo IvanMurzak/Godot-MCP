@@ -447,10 +447,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ?? throw new System.InvalidOperationException("AgentSelector not found");
 
             // Resolve by registry agent-id first (stable), then fall back to the visible display name.
-            var index = Agents.GodotAgentConfiguratorRegistry.GetIndexByAgentId(idOrName);
+            var index = Agents.GodotAgentConfigurators.GetIndexByAgentId(idOrName);
             if (index < 0)
             {
-                var names = Agents.GodotAgentConfiguratorRegistry.AgentNames;
+                var names = Agents.GodotAgentConfigurators.AgentNames;
                 for (int i = 0; i < names.Count; i++)
                 {
                     if (string.Equals(names[i], idOrName, System.StringComparison.OrdinalIgnoreCase))
