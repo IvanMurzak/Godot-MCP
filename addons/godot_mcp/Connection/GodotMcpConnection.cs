@@ -324,6 +324,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // injected GD.* + log-collector sink below.
             var loggerProvider = new GodotMcpLoggerProvider(() => _config.ActiveLogLevel, RouteFrameworkLog);
 
+            // OPT IN to McpPlugin's bounded reconnect + fast connect timeout. The Godot editor addon lives in a
+            // COLLECTIBLE AssemblyLoadContext, so an UNREACHABLE server retried forever would keep a negotiate
+            // in-flight and pin the ALC on a C# hot-reload (godotengine/godot#78513). Giving up after a few
+            // failures (and failing the connect fast) settles the connection into idle-Disconnected so reloads are
+            // clean; the dock can reconnect once the server is up. These are McpPlugin defaults of 0 (= unlimited,
+            // the historical behaviour Unity/Unreal keep) — we set them here so the opt-in is addon-local.
+            _config.MaxConsecutiveConnectionFailures = 4;
+            _config.ConnectTimeoutSeconds = 5;
+
             var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
                 // Prune the heavy assemblies so neither the tool/prompt/resource scan NOR the
