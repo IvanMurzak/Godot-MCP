@@ -702,15 +702,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (!_config.GenerateSkillFiles)
                 return;
 
-            var agent = GodotAgentConfiguratorRegistry.GetByAgentId(_config.SelectedAgentId);
-            var os = MapAgentOs(OS.GetName());
-            var home = OS.GetEnvironment("USERPROFILE");
-            if (string.IsNullOrEmpty(home))
-                home = OS.GetEnvironment("HOME");
-            var appData = OS.GetEnvironment("APPDATA");
+            var agent = GodotAgentConfigurators.GetByAgentId(_config.SelectedAgentId);
             var projectRoot = ProjectSettings.GlobalizePath("res://").TrimEnd('/');
 
-            var plan = SkillsPlan.Resolve(agent, os, home, appData, projectRoot);
+            var plan = SkillsPlan.Resolve(agent, projectRoot);
             if (!plan.Supported || string.IsNullOrEmpty(plan.SkillsDir))
                 return;
 
@@ -749,14 +744,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 GD.PushError($"[Godot-MCP] auto-generate skills failed: {ex.Message}");
             }
         }
-
-        /// <summary>Map Godot's <c>OS.GetName()</c> ("Windows"/"macOS"/"Linux"/…) onto the injectable <see cref="AgentOs"/>.</summary>
-        static AgentOs MapAgentOs(string godotOsName) => godotOsName switch
-        {
-            "Windows" => AgentOs.Windows,
-            "macOS" => AgentOs.MacOS,
-            _ => AgentOs.Linux,
-        };
 
         /// <summary>
         /// Enumerate the live items of a feature kind as pure-managed <see cref="FeatureRowItem"/> view-models

@@ -13,37 +13,26 @@ using System.Linq;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.Godot.MCP.UI.Agents;
-using com.IvanMurzak.Godot.MCP.UI.Agents.Impl;
 using Xunit;
+using AgentConfig = com.IvanMurzak.McpPlugin.AgentConfig;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// Pins the pure-managed Skills-generation surface (issue #64): the per-agent skills-dir resolver
-    /// (<see cref="AgentConfigPaths.ClaudeCodeSkills"/>), the relative-path safety guard
-    /// (<see cref="AgentConfigPaths.IsSafeRelativeSkillsPath"/>), the <see cref="GodotAgentConfigurator.SupportsSkills"/>
-    /// / <see cref="GodotAgentConfigurator.SkillsDir"/> capability (overridden only for Claude Code), the registry's
-    /// skills-capability set, the <see cref="SkillsPlan"/> resolution, and the auto-generate-ON config default. The
-    /// dock UI (<c>SkillsPanel.cs</c>, <c>#if TOOLS</c>) is verified via the headless Godot smoke (test.md Suite 3) —
-    /// NOT here.
+    /// Pins the Godot-side pure-managed Skills surface AFTER the #142 convergence onto the shared
+    /// <c>com.IvanMurzak.McpPlugin.AgentConfig</c> module: the skills-path display + relative-path safety guard
+    /// (<see cref="SkillsPathUtils"/>), the <see cref="SkillsPlan"/> resolution over the shared
+    /// <see cref="AgentConfig.AiAgentConfigurator"/>, the Godot registry VIEW
+    /// (<see cref="GodotAgentConfigurators"/> — Unity-only agent filtered out), and the auto-generate-ON config
+    /// default. The shared configurator/JSON/path logic is unit-tested upstream in MCP-Plugin-dotnet; the dock UI
+    /// (<c>SkillsPanel.cs</c>, <c>AgentConfiguratorsPanel.cs</c>, <c>#if TOOLS</c>) is verified via the headless
+    /// Godot smoke (test.md Suite 3) — NOT here.
     /// </summary>
     public class SkillsTests
     {
         const string ProjectRoot = "/home/dev/MyGodotProject";
-        const string Home = "/home/dev";
-        const string AppData = @"C:\Users\dev\AppData\Roaming";
 
-        // --- AgentConfigPaths.ClaudeCodeSkills ---------------------------------------------------------------
-
-        [Fact]
-        public void ClaudeCodeSkills_ResolvesProjectLocalDotClaudeSkills()
-        {
-            var dir = AgentConfigPaths.ClaudeCodeSkills(ProjectRoot);
-            var expected = Path.Combine(ProjectRoot, ".claude", "skills");
-            Assert.Equal(expected, dir);
-        }
-
-        // --- AgentConfigPaths.IsSafeRelativeSkillsPath -------------------------------------------------------
+        // --- SkillsPathUtils.IsSafeRelativeSkillsPath -------------------------------------------------------
 
         [Theory]
         [InlineData(null)]            // null → falls back to default (safe)
@@ -53,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("a/b/c")]
         public void IsSafeRelativeSkillsPath_AllowsCleanRelativePaths(string? path)
         {
-            Assert.True(AgentConfigPaths.IsSafeRelativeSkillsPath(path));
+            Assert.True(SkillsPathUtils.IsSafeRelativeSkillsPath(path));
         }
 
         [Theory]
@@ -64,7 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(@"..\escape")]   // backslash traversal normalized
         public void IsSafeRelativeSkillsPath_RejectsTraversal(string path)
         {
-            Assert.False(AgentConfigPaths.IsSafeRelativeSkillsPath(path));
+            Assert.False(SkillsPathUtils.IsSafeRelativeSkillsPath(path));
         }
 
         [Theory]
@@ -79,36 +68,36 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             // The rejection MUST be OS-independent — these are all absolute/rooted forms regardless of host OS.
             // (Regression guard for the CI failure where Path.IsPathRooted("C:\\Windows") was false on Linux.)
-            Assert.False(AgentConfigPaths.IsSafeRelativeSkillsPath(path));
+            Assert.False(SkillsPathUtils.IsSafeRelativeSkillsPath(path));
         }
 
-        // --- AgentConfigPaths.ToDisplayPath (issue #105) ----------------------------------------------------
+        // --- SkillsPathUtils.ToDisplayPath -------------------------------------------------------------------
 
         [Fact]
         public void ToDisplayPath_InsideProject_ReturnsRelative()
         {
             var skillsDir = Path.Combine(ProjectRoot, ".claude", "skills"); // /home/dev/MyGodotProject/.claude/skills
-            Assert.Equal(".claude/skills", AgentConfigPaths.ToDisplayPath(skillsDir, ProjectRoot));
+            Assert.Equal(".claude/skills", SkillsPathUtils.ToDisplayPath(skillsDir, ProjectRoot));
         }
 
         [Fact]
         public void ToDisplayPath_EqualToProjectRoot_ReturnsDot()
         {
-            Assert.Equal(".", AgentConfigPaths.ToDisplayPath(ProjectRoot, ProjectRoot));
+            Assert.Equal(".", SkillsPathUtils.ToDisplayPath(ProjectRoot, ProjectRoot));
             // Trailing-slash on the path must not defeat the equality check.
-            Assert.Equal(".", AgentConfigPaths.ToDisplayPath(ProjectRoot + "/", ProjectRoot));
+            Assert.Equal(".", SkillsPathUtils.ToDisplayPath(ProjectRoot + "/", ProjectRoot));
         }
 
         [Fact]
         public void ToDisplayPath_OutsideProject_ReturnsAbsoluteUnchanged()
         {
             const string outside = "/somewhere/else/.claude/skills";
-            Assert.Equal(outside, AgentConfigPaths.ToDisplayPath(outside, ProjectRoot));
+            Assert.Equal(outside, SkillsPathUtils.ToDisplayPath(outside, ProjectRoot));
 
             // A sibling path that merely shares a prefix STRING but is not a child directory must NOT be treated as
             // inside (the trailing-slash boundary guards against `/home/dev/MyGodotProject-other`).
             const string sibling = "/home/dev/MyGodotProject-other/.claude/skills";
-            Assert.Equal(sibling, AgentConfigPaths.ToDisplayPath(sibling, ProjectRoot));
+            Assert.Equal(sibling, SkillsPathUtils.ToDisplayPath(sibling, ProjectRoot));
         }
 
         [Theory]
@@ -120,7 +109,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("/home/dev/proj/.claude/skills", @"\home\dev\proj", ".claude/skills")]
         public void ToDisplayPath_NormalizesSeparatorsAndTrailingSlashes(string absolutePath, string projectRoot, string expected)
         {
-            Assert.Equal(expected, AgentConfigPaths.ToDisplayPath(absolutePath, projectRoot));
+            Assert.Equal(expected, SkillsPathUtils.ToDisplayPath(absolutePath, projectRoot));
         }
 
         [Theory]
@@ -128,87 +117,99 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("")]
         public void ToDisplayPath_NullOrEmptyPath_ReturnsInputUnchanged(string? absolutePath)
         {
-            Assert.Equal(absolutePath, AgentConfigPaths.ToDisplayPath(absolutePath!, ProjectRoot));
+            Assert.Equal(absolutePath, SkillsPathUtils.ToDisplayPath(absolutePath!, ProjectRoot));
         }
 
         [Fact]
         public void ToDisplayPath_EmptyProjectRoot_ReturnsAbsoluteUnchanged()
         {
             const string abs = "/home/dev/proj/.claude/skills";
-            Assert.Equal(abs, AgentConfigPaths.ToDisplayPath(abs, string.Empty));
+            Assert.Equal(abs, SkillsPathUtils.ToDisplayPath(abs, string.Empty));
         }
 
-        // --- Per-agent capability (SupportsSkills / SkillsDir) ----------------------------------------------
+        // --- Shared registry VIEW (GodotAgentConfigurators) -------------------------------------------------
 
         [Fact]
-        public void ClaudeCode_SupportsSkills_AndResolvesSkillsDir()
+        public void Registry_ExcludesUnityOnlyAgent_ButKeepsTheRest()
         {
-            var agent = new ClaudeCodeConfigurator();
-            Assert.True(agent.SupportsSkills);
+            var ids = GodotAgentConfigurators.All.Select(a => a.AgentId).ToList();
 
-            var dir = agent.SkillsDir(AgentOs.Linux, Home, AppData, ProjectRoot);
-            Assert.Equal(Path.Combine(ProjectRoot, ".claude", "skills"), dir);
+            // The Unity-Editor-specific agent is filtered out for Godot.
+            Assert.DoesNotContain(GodotAgentConfigurators.ExcludedAgentId, ids);
+            Assert.Null(GodotAgentConfigurators.GetByAgentId(GodotAgentConfigurators.ExcludedAgentId));
+
+            // The Godot-relevant agents survive, in the shared display order (Custom last).
+            Assert.Contains("claude-code", ids);
+            Assert.Contains("other-custom", ids);
+            Assert.Equal("other-custom", ids.Last());
+
+            // The filtered view = the shared registry minus exactly the excluded agent.
+            Assert.Equal(AgentConfig.AiAgentConfiguratorRegistry.All.Count - 1, GodotAgentConfigurators.All.Count);
         }
 
         [Fact]
-        public void NonClaudeCodeAgents_DoNotSupportSkills_AndReturnNullSkillsDir()
+        public void Registry_GetIndexByAgentId_RoundTrips()
         {
-            foreach (var agent in GodotAgentConfiguratorRegistry.All.Where(a => a.AgentId != "claude-code"))
+            for (int i = 0; i < GodotAgentConfigurators.All.Count; i++)
             {
-                Assert.False(agent.SupportsSkills);
-                Assert.Null(agent.SkillsDir(AgentOs.Linux, Home, AppData, ProjectRoot));
+                var id = GodotAgentConfigurators.All[i].AgentId;
+                Assert.Equal(i, GodotAgentConfigurators.GetIndexByAgentId(id));
             }
+            Assert.Equal(-1, GodotAgentConfigurators.GetIndexByAgentId("does-not-exist"));
+            Assert.Equal(-1, GodotAgentConfigurators.GetIndexByAgentId(null));
         }
 
-        /// <summary>
-        /// The registry's skills-capable set is EXACTLY {claude-code} for v1 (owner-approved Claude-Code-only). A
-        /// non-null SkillsDir lines up with SupportsSkills for every agent (no half-implemented capability).
-        /// </summary>
-        [Fact]
-        public void Registry_ExactlyClaudeCodeSupportsSkills_WithNonNullDir()
-        {
-            var skillsCapable = GodotAgentConfiguratorRegistry.All
-                .Where(a => a.SupportsSkills)
-                .Select(a => a.AgentId)
-                .ToList();
-
-            Assert.Equal(new[] { "claude-code" }, skillsCapable);
-
-            foreach (var agent in GodotAgentConfiguratorRegistry.All)
-            {
-                var dir = agent.SkillsDir(AgentOs.Linux, Home, AppData, ProjectRoot);
-                // SkillsDir is non-null EXACTLY when the agent supports skills.
-                Assert.Equal(agent.SupportsSkills, dir != null);
-            }
-        }
-
-        // --- SkillsPlan.Resolve ------------------------------------------------------------------------------
+        // --- SkillsPlan.Resolve over the shared configurator ------------------------------------------------
 
         [Fact]
-        public void SkillsPlan_Resolve_ClaudeCode_IsSupported_WithDir()
+        public void SkillsPlan_Resolve_SkillsCapableAgent_IsSupported_WithProjectRelativeDir()
         {
-            var plan = SkillsPlan.Resolve(new ClaudeCodeConfigurator(), AgentOs.Linux, Home, AppData, ProjectRoot);
+            var claude = GodotAgentConfigurators.GetByAgentId("claude-code");
+            Assert.NotNull(claude);
+            Assert.True(claude!.SupportsSkills);
+
+            Assert.NotNull(claude.SkillsPath);
+
+            var plan = SkillsPlan.Resolve(claude, ProjectRoot);
             Assert.True(plan.Supported);
-            Assert.Equal(Path.Combine(ProjectRoot, ".claude", "skills"), plan.SkillsDir);
+            Assert.NotNull(plan.SkillsDir);
+            // The shared SkillsPath is a project-relative path combined with the project root here.
+            Assert.Equal(Path.Combine(ProjectRoot, claude.SkillsPath!), plan.SkillsDir);
         }
 
         [Fact]
         public void SkillsPlan_Resolve_NullAgent_IsUnsupported()
         {
-            var plan = SkillsPlan.Resolve(null, AgentOs.Linux, Home, AppData, ProjectRoot);
+            var plan = SkillsPlan.Resolve(null, ProjectRoot);
             Assert.False(plan.Supported);
             Assert.Null(plan.SkillsDir);
         }
 
         [Fact]
-        public void SkillsPlan_Resolve_UnsupportedAgent_IsUnsupported()
+        public void SkillsPlan_Resolve_NonSkillsAgent_IsUnsupported()
         {
-            var cursor = GodotAgentConfiguratorRegistry.GetByAgentId("cursor");
-            Assert.NotNull(cursor);
+            // Claude Desktop is one of the shared agents that does NOT support skills.
+            var noSkills = GodotAgentConfigurators.All.FirstOrDefault(a => !a.SupportsSkills);
+            Assert.NotNull(noSkills);
 
-            var plan = SkillsPlan.Resolve(cursor, AgentOs.Linux, Home, AppData, ProjectRoot);
+            var plan = SkillsPlan.Resolve(noSkills, ProjectRoot);
             Assert.False(plan.Supported);
             Assert.Null(plan.SkillsDir);
+        }
+
+        [Fact]
+        public void SkillsPlan_SupportedFlag_MatchesConfiguratorSupportsSkills_ForEveryAgent()
+        {
+            foreach (var agent in GodotAgentConfigurators.All)
+            {
+                var plan = SkillsPlan.Resolve(agent, ProjectRoot);
+                // Supported iff the shared configurator advertises a safe, non-empty skills path.
+                var expectSupported = agent.SupportsSkills
+                    && !string.IsNullOrEmpty(agent.SkillsPath)
+                    && SkillsPathUtils.IsSafeRelativeSkillsPath(agent.SkillsPath);
+                Assert.Equal(expectSupported, plan.Supported);
+                Assert.Equal(plan.Supported, plan.SkillsDir != null);
+            }
         }
 
         // --- Config default (auto-generate ON) ---------------------------------------------------------------
