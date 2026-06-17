@@ -158,7 +158,7 @@ assembly, the addon's C# only compiles if the **consumer's `.csproj` declares th
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.7.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.9.1" />
 </ItemGroup>
 ```
 
