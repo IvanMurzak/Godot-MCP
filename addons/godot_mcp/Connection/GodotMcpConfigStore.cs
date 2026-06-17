@@ -41,18 +41,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     public static class GodotMcpConfigStore
     {
         /// <summary>
-        /// Shared serialization options. Indented for human-readability of the on-disk file; the config's
-        /// own <c>[JsonPropertyName]</c> attributes drive the property names (<c>host</c>/<c>token</c>/
-        /// <c>cloudToken</c>/<c>connectionMode</c>), and the enum is written by name (matching how the
-        /// <c>.env</c>/process-env layers parse <c>GODOT_MCP_CONNECTION_MODE</c>).
-        /// </summary>
-        static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            WriteIndented = true,
-            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-        };
-
-        /// <summary>
         /// Load the persisted <see cref="GodotMcpConfig"/> from <paramref name="path"/>. Returns the
         /// deserialized config on success, or <c>null</c> when the file is missing, empty, unreadable, or
         /// corrupt — a missing/corrupt config file is the common first-run case, NOT an error, so this
@@ -81,7 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             try
             {
-                return JsonSerializer.Deserialize<GodotMcpConfig>(json, SerializerOptions);
+                return JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
             }
             catch (JsonException)
             {
@@ -108,7 +96,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(config, SerializerOptions);
+            var json = JsonSerializer.Serialize(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
             File.WriteAllText(path, json);
         }
 

@@ -234,7 +234,7 @@ namespace com.IvanMurzak.Godot.MCP
                 return !string.IsNullOrEmpty(fromProcess) ? fromProcess : GodotMcpEnvFile.LookupRaw(envPath, key);
             }
 
-            if (ResolveDevVar("GODOT_MCP_DEV_CONTROL") != "1")
+            if (ResolveDevVar(GodotMcpEnv.DevControl) != "1")
                 return;
 
             if (_dock == null)
@@ -244,7 +244,7 @@ namespace com.IvanMurzak.Godot.MCP
             }
 
             var port = DevControlServer.DefaultPort;
-            var portEnv = ResolveDevVar("GODOT_MCP_DEV_CONTROL_PORT");
+            var portEnv = ResolveDevVar(GodotMcpEnv.DevControlPort);
             if (!string.IsNullOrEmpty(portEnv) && int.TryParse(portEnv, out var parsed) && parsed > 0 && parsed <= 65535)
                 port = parsed;
 
@@ -387,6 +387,30 @@ namespace com.IvanMurzak.Godot.MCP
             // covers the off-thread teardown path (where RemoveLogger is skipped) so a stale validation session
             // never leaks across a reload regardless of which thread tore the plugin down.
             try { ScriptErrorCapture.Current = null; } catch { /* swallow during unload */ }
+
+            // Drop ReflectorNet's static MainThread.Instance when it points at OUR GodotMainThread — one of the
+            // two godot#78513 ALC pins (the other is the connection transport, bounded-joined in
+            // GodotMcpConnection.DisposePlugin). GodotMcpAssemblyResolver loads ReflectorNet into the
+            // NON-collectible Default ALC, so a static field there holding a GodotMainThread (defined in THIS
+            // collectible addon ALC) roots the whole context and blocks the "Build Project" hot-reload unload —
+            // the same cross-ALC pin class the resolver already fixes for its own Default.Resolving hook.
+            // Clearing it releases the root so the ALC can unload. Pure-managed static assignment → safe on any
+            // thread, so it lives in this always-run section; the reloaded assembly re-installs its own
+            // GodotMainThread via _EnterTree. Guarded by `is GodotMainThread` so a newer instance's install is
+            // not clobbered, and try/catch so it can never throw out of the unload.
+            try
+            {
+                if (com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance is GodotMainThread)
+                    com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance = null!;
+            }
+            catch { /* swallow during unload */ }
+
+            // Drop System.Text.Json's process-wide reflection-emit member-accessor cache, which holds compiled
+            // accessor delegates over THIS collectible assembly's types (config / device-auth DTOs / tool
+            // models routed through ReflectorNet, …) and is a systematic root of godot#78513. One clear
+            // releases every STJ-cached addon type at once — including the reflection-based ReflectorNet path
+            // that cannot be source-generated. Best-effort + fully defensive (see GodotMcpStjReflectionCache).
+            try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
             // Release the static reload hook so a torn-down instance is not reachable from the resolver and
             // can be collected. Only clear if WE are the current owner (a newer _EnterTree may already have

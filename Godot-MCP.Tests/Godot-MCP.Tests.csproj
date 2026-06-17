@@ -52,6 +52,7 @@
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
+    <Compile Include="..\addons\godot_mcp\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
     <!-- Project-root `.env` loader: pure-managed parser + precedence applier (no Godot native types,
          no #if TOOLS). The editor wiring (ProjectSettings.GlobalizePath) lives in GodotMcpConnection.cs
@@ -61,6 +62,8 @@
          precedence layer (no Godot native types, no #if TOOLS). The editor wiring that resolves the
          user:// path lives in GodotMcpConnection.cs (#if TOOLS); the path-injectable core is unit-tested. -->
     <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigJsonContext.cs" Link="Source\GodotMcpConfigJsonContext.cs" />
+    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpStjReflectionCache.cs" Link="Source\GodotMcpStjReflectionCache.cs" />
     <!-- Log-level config + gate + logger/provider — all pure-managed (no Godot native types, no #if TOOLS):
          the GodotMcpLogLevel enum + GodotMcpLogGate (Microsoft LogLevel → GodotMcpLogLevel mapping/gating),
          and the GodotMcpLogger/GodotMcpLoggerProvider that route the reused framework's logging to an
