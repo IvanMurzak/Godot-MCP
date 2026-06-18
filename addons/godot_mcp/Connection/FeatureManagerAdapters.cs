@@ -7,7 +7,6 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-#if TOOLS
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
@@ -21,8 +20,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// <see cref="IPromptManager"/> / <see cref="IResourceManager"/>). The three managers expose the same
     /// shape (enumerate / count / is-enabled / set-enabled) under different method names; this collapses them
     /// to one surface so <see cref="GodotMcpConnection"/> and the dock's features UI can address any kind
-    /// generically via <see cref="GodotMcpFeatureKind"/>. Editor-only (<c>#if TOOLS</c>): it depends on the
-    /// reused client types, which are only present once the connection assembly is loaded. The map merge/
+    /// generically via <see cref="GodotMcpFeatureKind"/>. Pure-managed and runtime-agnostic (outside
+    /// <c>#if TOOLS</c>): it depends only on the reused McpPlugin client types — present in both the editor
+    /// and an exported game build once the connection is up — and on the pure-managed
+    /// <see cref="FeatureRowItem"/> view-model, never on a Godot editor API. It rides outside the guard
+    /// alongside <see cref="GodotMcpConnection"/>, whose <c>FeatureManager(...)</c> binds it. The map merge/
     /// capture decisions stay pure-managed in <see cref="GodotMcpFeatureStateMerge"/> and the filter/row
     /// view-model shaping in <see cref="FeatureFilter"/> / <see cref="FeatureRowItem"/>; this adapter is the
     /// thin live-manager binding that maps each live descriptor into a pure-managed <see cref="FeatureRowItem"/>
@@ -129,4 +131,3 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public void SetEnabled(string name, bool enabled) => _manager.SetResourceEnabled(name, enabled);
     }
 }
-#endif

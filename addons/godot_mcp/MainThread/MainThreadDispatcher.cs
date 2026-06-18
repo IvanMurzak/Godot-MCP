@@ -7,7 +7,6 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-#if TOOLS
 #nullable enable
 using System;
 using System.Collections.Concurrent;
@@ -165,4 +164,3 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         }
     }
 }
-#endif
