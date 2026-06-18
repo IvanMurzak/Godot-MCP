@@ -99,6 +99,10 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
   - [Local server — let the addon download & run it for you](#local-server--let-the-addon-download--run-it-for-you)
   - [Build & run the server manually (advanced)](#build--run-the-server-manually-advanced)
 - [Customize Tools](#customize-tools)
+- [Runtime usage (in-game)](#runtime-usage-in-game)
+  - [Sample: a live game-state tool](#sample-a-live-game-state-tool)
+  - [Where the server URL and token come from](#where-the-server-url-and-token-come-from)
+  - [Security: opt-in only, default OFF](#security-opt-in-only-default-off)
 - [How Godot MCP Architecture Works](#how-godot-mcp-architecture-works)
 - [Building & contributing](#building--contributing)
 - [License](#license)
@@ -454,6 +458,205 @@ public partial class Tool_MyFeature
 Return a structured data model (ReflectorNet-serialized) or `void` for side-effect-only ops — never ad-hoc
 string formatting for parseable output. Use `string? optional = null` parameters (nullable + default) to
 mark them as optional for the LLM.
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Runtime usage (in-game)
+
+Everything above runs the MCP connection **inside the Godot editor** (the `[Tool]` `EditorPlugin` boots
+it for you). Godot-MCP can *also* run inside a **running / exported game build** (debug **or** release) —
+the Godot analog of Unity-MCP's runtime mode. This lets an LLM read and drive your **live game state**:
+imagine a Chess game whose bot logic you outsource to an LLM by exposing a couple of tools.
+
+Two things make runtime mode different from editor mode, and both are deliberate:
+
+- **It never auto-connects.** The editor plugin connects on boot; a game build does **not**. *You* write
+  the opt-in code and decide when (if ever) to call `Connect()`.
+- **There are no tools by default — strictly manual.** The runtime ships **zero** MCP tools. You register
+  every `[AiToolType]` tool yourself, in your own code. (The addon's 7 editor tool families are gated by
+  `#if TOOLS` and don't even compile into a game build, so they can never leak in.)
+
+The entry point is `GodotMcpRuntime.Initialize(...)` (namespace `com.IvanMurzak.Godot.MCP.Runtime`).
+Write it once — e.g. from a Godot **autoload**'s `_Ready()` so a `SceneTree` exists:
+
+```csharp
+using System.Reflection;
+using com.IvanMurzak.Godot.MCP.Connection;   // GodotMcpConnectionMode, GodotMcpAuthOption
+using com.IvanMurzak.Godot.MCP.Runtime;      // GodotMcpRuntime
+using Godot;
+
+public partial class GameMcp : Node
+{
+    private GodotMcpRuntimeHandle? _mcp;
+
+    public override async void _Ready()
+    {
+        // 1) Build the connection (default OFF — nothing connects yet).
+        _mcp = GodotMcpRuntime.Initialize(builder =>
+        {
+            builder.WithConfig(config =>
+            {
+                config.ConnectionMode = GodotMcpConnectionMode.Custom;   // your own server
+                config.Host           = "http://localhost:8080";         // prefer loopback
+                config.AuthOption     = GodotMcpAuthOption.Required;      // require a bearer token
+                config.Token          = "your-secret-token";
+            });
+
+            // 2) Opt YOUR tools in. Zero tools by default — this is the only way they get registered.
+            builder.WithToolsFromAssembly(Assembly.GetExecutingAssembly());
+            //   …or register specific families: builder.WithTools(typeof(GameMcpTools));
+        }).Build();
+
+        // 3) Connect — explicit, the security-required opt-in. Retries in the background while
+        //    KeepConnected is true (the default).
+        await _mcp.Connect();
+    }
+
+    public override async void _ExitTree()
+    {
+        // 4) Disconnect on shutdown (or whenever you want to stop exposing tools).
+        if (_mcp is not null)
+            await _mcp.Disconnect();
+    }
+}
+```
+
+Builder surface (all fluent / chainable):
+
+| Call | What it does |
+| ---- | ------------ |
+| `GodotMcpRuntime.Initialize(configure)` | Begin configuring; returns a `GodotMcpRuntimeBuilder`. `configure` may be `null` for the zero-tool, env-configured default. |
+| `builder.WithConfig(Action<GodotMcpConfig>)` | Set `Host` / `Token` / `ConnectionMode` / `AuthOption` in code. Multiple calls compose in order. |
+| `builder.WithToolsFromAssembly(Assembly)` | Register every `[AiToolType]` class in an assembly (usually `Assembly.GetExecutingAssembly()`). |
+| `builder.WithTools(params Type[])` | Register specific `[AiToolType]` classes when a whole-assembly scan is too broad. |
+| `builder.WithoutMainThreadDispatcher()` | Skip the automatic main-thread-dispatcher bootstrap (only if you install your own autoload dispatcher). |
+| `builder.Build()` | Finalize; returns a **default-OFF** `GodotMcpRuntimeHandle`. |
+| `handle.Connect()` / `handle.Disconnect()` | Open / close the connection. `handle.Dispose()` tears it down on shutdown. |
+
+> `Initialize().Build()` also guarantees a main-thread dispatcher `Node` in the running `SceneTree` (so
+> tool handlers can marshal Godot API calls onto the engine main thread), unless you opt out with
+> `WithoutMainThreadDispatcher()`. Call it once a `SceneTree` is live (e.g. from an autoload `_Ready`).
+
+## Sample: a live game-state tool
+
+A runtime tool is written exactly like an editor tool — a `partial class` decorated `[AiToolType]`, each
+method decorated `[AiTool("tool-name", …)]` with a `[Description]` on the method and each parameter. Any
+Godot API call (`Node`, `SceneTree`, …) **must** run on the engine main thread — marshal it through
+`MainThread.Instance.Run(...)` (ReflectorNet's `MainThread`, backed by the dispatcher `Initialize()`
+bootstrapped for you).
+
+This Godot analog of Unity-MCP's "Chess bot" sample exposes the **live running `SceneTree`** to the LLM —
+a pure-managed `game-ping` round-trip plus a `game-scene-tree-summary` that reads real `Node` state:
+
+```csharp
+using System.ComponentModel;
+using com.IvanMurzak.McpPlugin;              // [AiToolType], [AiTool]
+using com.IvanMurzak.ReflectorNet.Utils;     // MainThread
+using Godot;
+
+[AiToolType]
+public partial class GameMcpTools
+{
+    [AiTool("game-ping", Title = "Game Ping", ReadOnlyHint = true, IdempotentHint = true)]
+    [Description("Runtime readiness probe. Echoes 'message' back, or returns 'pong-from-game' when omitted.")]
+    public string GamePing(
+        [Description("Optional message to echo back. When null/empty, returns 'pong-from-game'.")]
+        string? message = null)
+    {
+        return string.IsNullOrEmpty(message) ? "pong-from-game" : message;
+    }
+
+    [AiTool("game-scene-tree-summary", Title = "Game Scene-Tree Summary", ReadOnlyHint = true)]
+    [Description("Summary of the LIVE running game's SceneTree (current scene + root child node names).")]
+    public SceneTreeSummary GameSceneTreeSummary()
+    {
+        // Touch the live SceneTree on the engine main thread — MainThread.Instance was installed by
+        // GodotMcpRuntime.Initialize(...). Touching Node APIs off the main thread would fault.
+        return MainThread.Instance.Run(() =>
+        {
+            var summary = new SceneTreeSummary();
+            if (Engine.GetMainLoop() is not SceneTree tree || tree.Root == null)
+            {
+                summary.CurrentSceneName = "<no-scene-tree>";
+                return summary;
+            }
+
+            summary.CurrentSceneName = tree.CurrentScene?.Name ?? "<none>";
+            summary.RootChildCount   = tree.Root.GetChildCount();
+            foreach (var child in tree.Root.GetChildren())
+                summary.RootChildNames.Add(child.Name);
+            return summary;
+        });
+    }
+}
+
+// Structured result (ReflectorNet-serialized — never ad-hoc string formatting for parseable output).
+public sealed class SceneTreeSummary
+{
+    public string CurrentSceneName { get; set; } = string.Empty;
+    public int RootChildCount { get; set; }
+    public System.Collections.Generic.List<string> RootChildNames { get; set; } = new();
+}
+```
+
+Register it from the `Initialize(...)` block above (`WithToolsFromAssembly(Assembly.GetExecutingAssembly())`
+picks it up automatically), connect, and the LLM can now call `game-ping` / `game-scene-tree-summary`
+against your live game. Real example outsourcing bot logic: a `chess-do-turn` tool that calls into your
+game controller on the main thread, plus a `chess-get-board` tool returning a structured board model.
+
+> Same `[AiToolType]`/`[AiTool]`/`MainThread.Instance.Run(...)` contract as the editor [Customize
+> Tools](#customize-tools) section — the only difference is that in a game build *you* register the tools
+> and *you* call `Connect()`.
+
+## Where the server URL and token come from
+
+A game build never auto-loads the editor's saved config (that's an editor-only convenience). You supply
+host/token one of two ways — and they **compose**, with env winning over code at resolution time:
+
+1. **In code** — `builder.WithConfig(c => { c.Host = …; c.Token = …; })`, as above.
+2. **Out-of-band** — `GODOT_MCP_*` process environment variables or a project `.env` file (read **live**
+   by `GodotMcpConfig`, so a build can be reconfigured without recompiling):
+
+   | Environment variable | Values | Description |
+   | -------------------- | ------ | ----------- |
+   | `GODOT_MCP_CONNECTION_MODE` | `Cloud` / `Custom` | Connection mode (a loopback host implies `Custom`). |
+   | `GODOT_MCP_CLOUD_URL` | URL | Override the Cloud base URL (default `https://ai-game.dev`). |
+   | `GODOT_MCP_HOST` | URL | Custom-mode server host (default `http://localhost:8080`). |
+   | `GODOT_MCP_AUTH_OPTION` | `None` / `Required` | Whether Custom mode sends a bearer token. |
+   | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
+   | `GODOT_MCP_LOG_LEVEL` | `Trace`…`None` | Log-verbosity threshold. |
+
+   ```bash
+   export GODOT_MCP_CONNECTION_MODE=Custom
+   export GODOT_MCP_HOST=http://localhost:8080
+   export GODOT_MCP_AUTH_OPTION=Required
+   export GODOT_MCP_TOKEN=your-secret-token
+   ```
+
+- **Cloud mode** (`GodotMcpConnectionMode.Cloud`) connects to `https://ai-game.dev` (override with
+  `GODOT_MCP_CLOUD_URL`).
+- **Custom mode** (`GodotMcpConnectionMode.Custom`) connects to your own server — a local dev server,
+  self-hosted, or a loopback address. **This is the recommended mode for a shipped game** (see below).
+
+## Security: opt-in only, default OFF
+
+Exposing an MCP server inside a shipped game opens a **remote-control surface**: anything your registered
+tools can do, a connected MCP client can drive. Godot-MCP's runtime is built so this can only happen
+**deliberately**:
+
+- **Opt-in only / default OFF.** Building a handle does **not** connect. Nothing happens until *your* code
+  calls `Connect()`. There is no auto-connect path in a game build.
+- **Zero tools by default.** A runtime with no `WithTools…` call registers **nothing**. The attack surface
+  is exactly the set of tools you chose to register — no more.
+- **No persisted-config auto-load.** A game build never silently reads a saved config file; host/token
+  come only from your code or `GODOT_MCP_*` env / `.env`.
+- **Prefer loopback + a required token.** For local tooling, bind to a loopback host
+  (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = GodotMcpAuthOption.Required` with a real
+  `Token`. Avoid exposing the connection on a public interface in a release build unless you have
+  explicitly designed and secured that surface.
+
+A short standalone copy of this contract lives in
+[`docs/runtime-security.md`](docs/runtime-security.md).
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
