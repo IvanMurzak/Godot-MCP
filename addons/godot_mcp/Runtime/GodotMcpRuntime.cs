@@ -71,7 +71,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// <param name="configure">
         /// Configures the connection — <see cref="GodotMcpRuntimeBuilder.WithConfig"/> for host/token/mode,
         /// <see cref="GodotMcpRuntimeBuilder.WithToolsFromAssembly"/> / <see cref="GodotMcpRuntimeBuilder.WithTools"/>
-        /// to opt tools in. May be <c>null</c> for the zero-tool, env/.env-configured default.
+        /// to opt tools in, and the analogous <see cref="GodotMcpRuntimeBuilder.WithPromptsFromAssembly"/> /
+        /// <see cref="GodotMcpRuntimeBuilder.WithPrompts"/> + <see cref="GodotMcpRuntimeBuilder.WithResourcesFromAssembly"/> /
+        /// <see cref="GodotMcpRuntimeBuilder.WithResources"/> to opt prompts and resources in (each
+        /// independently optional). May be <c>null</c> for the zero-tool/prompt/resource, env/.env-configured default.
         /// </param>
         public static GodotMcpRuntimeBuilder Initialize(Action<GodotMcpRuntimeBuilder>? configure = null)
         {
@@ -131,6 +134,27 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             if (builder.ToolTypes.Count > 0)
                 mcpBuilder.WithTools(builder.ToolTypes.ToArray());
+
+            // 4b) Register the developer's opted-in prompts + resources. ZERO of each by default and
+            //     INDEPENDENTLY optional from tools (a game may register prompts and/or resources without
+            //     any tools, or vice versa). Mirrors the tools conditionals above 1:1 and the editor path's
+            //     WithPromptsFromAssembly/WithResourcesFromAssembly calls (GodotMcpConnection.Start). The
+            //     by-type WithPrompts/WithResources(params Type[]) overloads exist on McpPluginBuilder
+            //     alongside the FromAssembly(IEnumerable<Assembly>) variants, so this matches Build()'s tools
+            //     shape exactly. Editor prompt/resource families (if any) are #if TOOLS and don't compile
+            //     into a game build, so a WithPromptsFromAssembly/WithResourcesFromAssembly over the addon
+            //     assembly can't pull them in.
+            if (builder.PromptAssemblies.Count > 0)
+                mcpBuilder.WithPromptsFromAssembly(builder.PromptAssemblies);
+
+            if (builder.PromptTypes.Count > 0)
+                mcpBuilder.WithPrompts(builder.PromptTypes.ToArray());
+
+            if (builder.ResourceAssemblies.Count > 0)
+                mcpBuilder.WithResourcesFromAssembly(builder.ResourceAssemblies);
+
+            if (builder.ResourceTypes.Count > 0)
+                mcpBuilder.WithResources(builder.ResourceTypes.ToArray());
 
             var plugin = mcpBuilder.Build(reflector);
 

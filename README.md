@@ -472,8 +472,10 @@ Two things make runtime mode different from editor mode, and both are deliberate
 
 - **It never auto-connects.** The editor plugin connects on boot; a game build does **not**. *You* write
   the opt-in code and decide when (if ever) to call `Connect()`.
-- **There are no tools by default — strictly manual.** The runtime ships **zero** MCP tools. You register
-  every `[AiToolType]` tool yourself, in your own code. (The addon's 7 editor tool families are gated by
+- **There are no tools, prompts, or resources by default — strictly manual.** The runtime ships **zero**
+  MCP tools, prompts, **and** resources. You register every `[AiToolType]` tool, `[AiPromptType]` prompt,
+  and `[AiResourceType]` resource yourself, in your own code — and each kind is **independently optional**
+  (register prompts without any tools, or vice versa). (The addon's editor tool families are gated by
   `#if TOOLS` and don't even compile into a game build, so they can never leak in.)
 
 The entry point is `GodotMcpRuntime.Initialize(...)` (namespace `com.IvanMurzak.Godot.MCP.Runtime`).
@@ -502,9 +504,15 @@ public partial class GameMcp : Node
                 config.Token          = "your-secret-token";
             });
 
-            // 2) Opt YOUR tools in. Zero tools by default — this is the only way they get registered.
-            builder.WithToolsFromAssembly(Assembly.GetExecutingAssembly());
-            //   …or register specific families: builder.WithTools(typeof(GameMcpTools));
+            // 2) Opt YOUR tools / prompts / resources in. Zero of each by default — this is the only way
+            //    they get registered, and each kind is independently optional.
+            builder.WithToolsFromAssembly(Assembly.GetExecutingAssembly());     // [AiToolType] classes
+            builder.WithPromptsFromAssembly(Assembly.GetExecutingAssembly());   // [AiPromptType] classes
+            builder.WithResourcesFromAssembly(Assembly.GetExecutingAssembly()); // [AiResourceType] classes
+            //   …or register specific families:
+            //   builder.WithTools(typeof(GameMcpTools));
+            //   builder.WithPrompts(typeof(GameMcpPrompts));
+            //   builder.WithResources(typeof(GameMcpResources));
         }).Build();
 
         // 3) Connect — explicit, the security-required opt-in. Retries in the background while
@@ -529,6 +537,10 @@ Builder surface (all fluent / chainable):
 | `builder.WithConfig(Action<GodotMcpConfig>)` | Set `Host` / `Token` / `ConnectionMode` / `AuthOption` in code. Multiple calls compose in order. |
 | `builder.WithToolsFromAssembly(Assembly)` | Register every `[AiToolType]` class in an assembly (usually `Assembly.GetExecutingAssembly()`). |
 | `builder.WithTools(params Type[])` | Register specific `[AiToolType]` classes when a whole-assembly scan is too broad. |
+| `builder.WithPromptsFromAssembly(Assembly)` | Register every `[AiPromptType]` class in an assembly. Independent of tools/resources. |
+| `builder.WithPrompts(params Type[])` | Register specific `[AiPromptType]` classes. |
+| `builder.WithResourcesFromAssembly(Assembly)` | Register every `[AiResourceType]` class in an assembly. Independent of tools/prompts. |
+| `builder.WithResources(params Type[])` | Register specific `[AiResourceType]` classes. |
 | `builder.WithoutMainThreadDispatcher()` | Skip the automatic main-thread-dispatcher bootstrap (only if you install your own autoload dispatcher). |
 | `builder.Build()` | Finalize; returns a **default-OFF** `GodotMcpRuntimeHandle`. |
 | `handle.Connect()` / `handle.Disconnect()` | Open / close the connection. `handle.Dispose()` tears it down on shutdown. |
@@ -607,6 +619,69 @@ game controller on the main thread, plus a `chess-get-board` tool returning a st
 > Same `[AiToolType]`/`[AiTool]`/`MainThread.Instance.Run(...)` contract as the editor [Customize
 > Tools](#customize-tools) section — the only difference is that in a game build *you* register the tools
 > and *you* call `Connect()`.
+
+## Sample: a prompt and a resource
+
+Tools are not the only thing you can expose — MCP also has **prompts** (reusable instruction templates an
+LLM can request by name) and **resources** (addressable, read-only content the LLM can fetch by URI). They
+register exactly like tools: a `partial class` decorated `[AiPromptType]` / `[AiResourceType]`, with each
+member decorated `[AiPrompt(...)]` / `[AiResource(...)]` and a `[Description]`. Register your prompt and
+resource classes the same way you register tools — `WithPromptsFromAssembly(...)` /
+`WithResourcesFromAssembly(...)` (or the by-type `WithPrompts(...)` / `WithResources(...)`) from the
+`Initialize(...)` block above. **Each kind is independently optional** — a game can expose prompts and/or
+resources with no tools at all.
+
+```csharp
+using System.ComponentModel;
+using com.IvanMurzak.McpPlugin;               // [AiPromptType], [AiPrompt], [AiResourceType], [AiResource]
+using com.IvanMurzak.McpPlugin.Common.Model;  // Role, ResponseResourceContent
+using com.IvanMurzak.ReflectorNet.Utils;      // MainThread
+using Godot;
+
+// A PROMPT — a named, reusable instruction the LLM can request. Returns the prompt text; Role marks who
+// the message is from. Set Enabled = false to ship a prompt registered-but-off until you flip it on.
+[AiPromptType]
+public partial class GameMcpPrompts
+{
+    [AiPrompt(Name = "explain-game-state", Role = Role.User)]
+    [Description("Ask the assistant to summarize the current game state for the player.")]
+    public string ExplainGameState()
+    {
+        return "Read the live SceneTree via the game tools and explain the current game state in one paragraph.";
+    }
+}
+
+// A RESOURCE — addressable read-only content fetched by URI. Route is the URI template; the method
+// returns ResponseResourceContent[]. Any Godot API access marshals onto the main thread, exactly like a tool.
+[AiResourceType]
+public partial class GameMcpResources
+{
+    [AiResource(
+        Name = "Live SceneTree node names",
+        Route = "game://scene-tree/nodes",
+        MimeType = "application/json",
+        Description = "The root child node names of the live running game's SceneTree.")]
+    public ResponseResourceContent[] SceneTreeNodes(string uri)
+    {
+        return MainThread.Instance.Run(() =>
+        {
+            var names = new System.Collections.Generic.List<string>();
+            if (Engine.GetMainLoop() is SceneTree tree && tree.Root != null)
+            {
+                foreach (var child in tree.Root.GetChildren())
+                    names.Add(child.Name);
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(names);
+            return new[] { ResponseResourceContent.CreateText(uri, json, "application/json") };
+        });
+    }
+}
+```
+
+> Same independently-optional, manual-registration contract as tools. The `[AiPrompt]`/`[AiResource]`
+> attribute names, `Role` enum, and `ResponseResourceContent` helper all come from the reused
+> `com.IvanMurzak.McpPlugin` package the editor path already uses — nothing Godot-specific to learn.
 
 ## Where the server URL and token come from
 
