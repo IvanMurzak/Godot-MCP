@@ -223,6 +223,21 @@
          target vocabulary. The editor HttpListener transport (DevControlServer.cs) is #if TOOLS and verified
          live (curl the editor), NOT compiled here; the routing/parsing core is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Connection\DevControl\DevControlRouter.cs" Link="Source\DevControlRouter.cs" />
+    <!-- Runtime (in-game) entry point — pure-managed builder accumulation + handle wrapper (no #if TOOLS).
+         GodotMcpRuntimeBuilder is fully pure-managed (config-action / tool-type accumulation) and is what
+         these unit tests exercise. GodotMcpRuntime.Build()/GodotMcpRuntimeHandle make native Godot + SignalR
+         calls (Engine.GetMainLoop, McpPluginBuilder.Build) that fault in this binary-less xUnit host, so the
+         tests stop at the builder/config surface — the full Build() + Connect() path is proven by the
+         ExportRelease (TOOLS-undefined) compile + the headless Godot runtime smoke (T3), not here. The two
+         non-builder files are still compiled in so the builder's Build() reference resolves. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntimeBuilder.cs" Link="Source\GodotMcpRuntimeBuilder.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntime.cs" Link="Source\GodotMcpRuntime.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntimeHandle.cs" Link="Source\GodotMcpRuntimeHandle.cs" />
+    <!-- Main-thread dispatcher pair — GodotMcpRuntime.EnsureMainThreadDispatcher references both. Pure-managed
+         types (MainThreadDispatcher is a Godot Node, but constructing it is a Suite-3 concern; the runtime
+         builder-only tests never instantiate it). Compiled in so the runtime sources resolve their usings. -->
+    <Compile Include="..\addons\godot_mcp\MainThread\MainThreadDispatcher.cs" Link="Source\MainThreadDispatcher.cs" />
+    <Compile Include="..\addons\godot_mcp\MainThread\GodotMainThread.cs" Link="Source\GodotMainThread.cs" />
   </ItemGroup>
 
 </Project>
