@@ -44,6 +44,7 @@ const changes = [
   updateJsonVersion('cli/package.json', nextVersion),
   updatePackageLock('cli/package-lock.json', nextVersion),
   updateFallbackVersion('addons/godot_mcp/Connection/GodotMcpConnection.cs', nextVersion),
+  updateFallbackVersion('addons/godot_mcp/Runtime/GodotMcpRuntime.cs', nextVersion),
   updateAssetLibrarySubmission('docs/assetlib/SUBMISSION.md', nextVersion),
 ].filter(Boolean);
 
