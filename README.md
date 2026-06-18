@@ -83,6 +83,10 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 # Contents
 
 - [Quick Start](#quick-start)
+- [Working with AI](#working-with-ai)
+  - [Best practices for AI requests](#best-practices-for-ai-requests)
+  - [Discovering capabilities](#discovering-capabilities)
+  - [Official links](#official-links)
 - [Tools Reference](#tools-reference)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -102,6 +106,118 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 - [How Godot MCP Architecture Works](#how-godot-mcp-architecture-works)
 - [Building & contributing](#building--contributing)
 - [License](#license)
+
+![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Working with AI
+
+**Godot-MCP (branded "AI Game Developer — Godot") is an MCP addon for the Godot Editor.** It is the bridge,
+not the AI model and not a replacement for your code editor: you bring an MCP-compatible AI client (Claude,
+Cursor, Copilot, Gemini, Codex, Cline, Windsurf, …) and the addon gives that agent hands inside your live
+Godot project. It exposes Godot Editor operations — building and editing the scene tree (nodes),
+opening/saving `.tscn` scenes, finding and mutating `.tres`/`.res` resources, reading/creating/updating both
+**C# (`.cs`)** and **GDScript (`.gd`)** scripts and attaching them to nodes, capturing screenshots, and a C#
+reflection escape hatch — as **AI Tools**, so the agent can drive the editor through natural language and
+read structured results back. It is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
+
+The chain is always: **AI client ⇄ MCP server (cloud `ai-game.dev` or your self-hosted server) ⇄ Godot-MCP
+addon ⇄ live Godot Editor.** The editor must be open with the addon enabled and the status green — the addon
+drives a **live editor**, it is not a headless code generator. Run the `ping` tool first to confirm the
+whole path is connected before asking for real work.
+
+## Best practices for AI requests
+
+You talk to the agent in plain language; the agent picks the right tool(s) from the catalog and executes
+them. A good first request is **small, concrete, and verifiable**.
+
+- **State the concrete outcome, not the tool.** Say *"Create a `Camera3D` and a cube in the current
+  scene"*, not *"call node-create then node-modify"*. The agent maps intent to tools.
+- **Reference the current context.** "In the active scene", "under the `World` node", "on the selected
+  node" — the addon has read tools (`node-find`, `scene-get-data`, `editor-selection-get`) so the agent can
+  resolve these.
+- **Keep the first request tiny.** One scene, one node, one script. Verify it worked in the editor, then
+  build up. Big multi-step asks are fine once you trust the loop.
+- **Ask for a screenshot to verify visually.** *"…then take a screenshot of the viewport so I can see it."*
+  Screenshot tools return a PNG the agent can also read back, closing the loop.
+- **Let the agent read errors and self-correct.** The console tools (`console-get-logs`) return structured
+  logs, so *"compile it and fix any errors"* is a valid, powerful request.
+- **Name things you'll refer back to.** *"Create a node named `Hero`"* lets the next request say *"move the
+  `Hero`"* unambiguously — "move the cube" is ambiguous if there are five.
+- **Call out the script language.** Godot's Script family handles **both `.cs` and `.gd`**, so say which one
+  you want (see the C#/GDScript examples below).
+
+A reliable shape for a first request:
+
+> **"In the current scene, create `<thing>` named `<name>`, set `<one property>`, then take a screenshot."**
+
+**Example prompts** (copy-pasteable, adapted from the Godot capability map):
+
+1. **Scene + camera + mesh:** *"Add a `Node3D` scene with a `Camera3D` and a `MeshInstance3D` cube, then
+   save it as `Main.tscn`."*
+2. **Node tree edit:** *"Add a `MeshInstance3D` cube under the `World` node, move it to the origin, and name
+   it `Hero`."*
+3. **Resource workflow:** *"Create a new `StandardMaterial3D` resource for the floor, then set its albedo
+   color to grey."*
+4. **Procedural / playful:** *"Create 3 cubes in a circle with radius 2."* (the README's signature example)
+5. **C# script:** *"Create a `HealthBar.cs` script with a public float `Health` and a `_Ready` method, then
+   attach it to the `Player` node."*
+6. **GDScript:** *"Create a `Patrol.gd` GDScript with a `_process(delta)` method, then attach it to the
+   `Enemy` node."*
+7. **Run + verify:** *"Run the game, then take a screenshot of the viewport."* (Godot launches the game in a
+   **separate process**, so a game screenshot differs from an editor-viewport capture.)
+8. **Reflection escape hatch (C#):** *"Find every C# method whose name contains `spawn`, then call
+   `MyTools.GenerateLevel` with seed 42."*
+
+> **Tip — Resource-typed properties.** Some Resource-typed properties (e.g. assigning a `Mesh` onto a node)
+> can't be set directly via `node-modify`; the reliable pattern is to **instance a `.tscn` sub-scene** via
+> `node-create` with `instanceScenePath`. Property paths are PascalCase.
+
+## Discovering capabilities
+
+You don't need to memorize tool ids — discovery is conversational. The addon exposes **36 built-in tools
+grouped into 10 families**, and your MCP client fetches the full catalog (with each tool's JSON schema) on
+connect, so the agent can list and describe everything it can do.
+
+The 10 families, at a glance:
+
+| Family | What it covers |
+| --- | --- |
+| **ping** | Lightweight readiness probe — echoes a message / returns `pong`. |
+| **node** | Find, create (optionally instancing a `.tscn`), modify, reparent, duplicate, delete nodes. |
+| **scene** | Open, save, create, list-opened, get-data for `.tscn` scenes. |
+| **resource** | Find, get-data, modify, create, move, delete `.tres`/`.res` resources. |
+| **filesystem** | List the `res://` tree (via the editor file index); reimport files. |
+| **script** | Read, create, update, delete **`.cs` or `.gd`** scripts; attach a script to a node. |
+| **screenshot** | Viewport, camera, and isolated-node renders (PNG the LLM can inspect). |
+| **editor** | Application get/set state (run/stop the game); selection get/set. |
+| **console** | Read (with filtering) and clear the plugin's collected editor logs. |
+| **reflection** | Find and call any C# method across loaded assemblies (the escape hatch). |
+
+All 36 tools are **core** — they're available the moment the addon is enabled, with no extra packages to
+install. See the full [Tools Reference](#tools-reference) below for every tool id and description.
+
+**Discovery recipe** — ask the agent, in order:
+
+1. *"Ping the Godot addon to check the connection."* (`ping`)
+2. *"List every tool you can call right now, grouped by the 10 families."*
+3. *"Give me a one-line summary of what each family is for."*
+4. *"Show me the node tree of the main scene."* (`scene-get-data`)
+5. *"Can you write both C# and GDScript here?"* (yes — the Script family handles `.cs` and `.gd`)
+6. *"What resources are in the project?"* (`resource-find`)
+7. Pick one family and ask for a tiny concrete action + a viewport screenshot.
+
+You can also ask the agent to **describe a specific tool** (*"what parameters does `node-create` take?"* —
+MCP tools carry JSON schemas) or use the **reflection escape hatch** (`reflection-method-find` /
+`reflection-method-call`) to discover and invoke any C# method that isn't covered by a dedicated tool.
+
+## Official links
+
+- Website / cloud backend: **[ai-game.dev](https://ai-game.dev)**
+- Documentation: **[ai-game.dev/docs](https://ai-game.dev/docs)**
+- Godot tools registry: **[ai-game.dev/docs/tools/godot](https://ai-game.dev/docs/tools/godot)**
+- Godot engine page: **[ai-game.dev/engines/godot](https://ai-game.dev/engines/godot)**
+- Source: [github.com/IvanMurzak/Godot-MCP](https://github.com/IvanMurzak/Godot-MCP) · `godot-cli` on
+  [npm](https://www.npmjs.com/package/godot-cli) · [Discord](https://discord.gg/cfbdMZX99G)
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
