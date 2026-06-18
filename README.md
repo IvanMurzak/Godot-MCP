@@ -473,7 +473,7 @@ Two things make runtime mode different from editor mode, and both are deliberate
 - **It never auto-connects.** The editor plugin connects on boot; a game build does **not**. *You* write
   the opt-in code and decide when (if ever) to call `Connect()`.
 - **There are no tools by default — strictly manual.** The runtime ships **zero** MCP tools. You register
-  every `[AiToolType]` tool yourself, in your own code. (The addon's 9 editor tool families are gated by
+  every `[AiToolType]` tool yourself, in your own code. (The addon's 7 editor tool families are gated by
   `#if TOOLS` and don't even compile into a game build, so they can never leak in.)
 
 The entry point is `GodotMcpRuntime.Initialize(...)` (namespace `com.IvanMurzak.Godot.MCP.Runtime`).

@@ -16,10 +16,10 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   attack surface is exactly the set of `[AiToolType]` classes you opt in via
   `builder.WithToolsFromAssembly(...)` / `builder.WithTools(...)` — no more. With none registered, the
   connection still builds and connects with an empty tool set (exactly Unity-MCP's model).
-- **Editor tool families cannot leak in.** The addon's 9 editor tool families (`Tool_Node`,
-  `Tool_Scene`, `Tool_Resource`, `Tool_FileSystem`, `Tool_Script`, `Tool_Screenshot`, `Tool_Editor`,
-  and the editor surfaces of others) are gated by `#if TOOLS` and do **not compile** into an exported
-  game build. Even a `WithToolsFromAssembly(...)` over the addon's own assembly cannot register them.
+- **Editor tool families cannot leak in.** The addon's 7 editor tool families (`Tool_Node`,
+  `Tool_Scene`, `Tool_Resource`, `Tool_FileSystem`, `Tool_Script`, `Tool_Screenshot`, `Tool_Editor`)
+  are gated by `#if TOOLS` and do **not compile** into an exported game build. Even a
+  `WithToolsFromAssembly(...)` over the addon's own assembly cannot register them.
 - **No persisted-config auto-load.** A game build never silently reads a saved (`user://`) config file —
   that is an editor-only convenience. Host and token come only from your code (`WithConfig`) or from
   `GODOT_MCP_*` process environment / a project `.env`, which `GodotMcpConfig` reads live.
@@ -42,11 +42,11 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
       config.ConnectionMode = GodotMcpConnectionMode.Custom;
       config.Host           = "http://localhost:8080";   // loopback
       config.AuthOption     = GodotMcpAuthOption.Required;
-      config.Token          = "your-secret-token";
+      config.Token          = "your-secret-token";  // discouraged: see the env-var form below — don't ship a hard-coded secret
   });
   ```
 
-  Or out-of-band, so the build carries no embedded secret:
+  Prefer the out-of-band form below, so the build carries no embedded secret:
 
   ```bash
   export GODOT_MCP_CONNECTION_MODE=Custom
