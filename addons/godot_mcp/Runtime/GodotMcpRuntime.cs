@@ -208,14 +208,14 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             var dispatcher = new MainThreadDispatcher { Name = DispatcherNodeName };
 
-            // Add under the tree root. Use CallDeferred when off the main thread / mid-tree-iteration so the
-            // add is applied on a safe frame boundary; add directly when already on the main thread at build.
-            if (MainThreadDispatcher.IsMainThread)
-                tree.Root.AddChild(dispatcher);
-            else
-                tree.Root.CallDeferred(Node.MethodName.AddChild, dispatcher);
+            // Add under the tree root via CallDeferred so the add lands on a safe frame boundary regardless
+            // of the calling thread or whether we are mid-tree-iteration. (A direct AddChild is never safe to
+            // take here: MainThreadDispatcher.MainThreadId stays -1 until a dispatcher's _EnterTree runs, so
+            // IsMainThread is false on this first-install path even on the engine main thread — and a second
+            // Initialize().Build() already returned at the Instance != null guard above.)
+            tree.Root.CallDeferred(Node.MethodName.AddChild, dispatcher);
 
-            GD.Print($"[Godot-MCP] runtime main-thread dispatcher installed ('{DispatcherNodeName}').");
+            GD.Print($"[Godot-MCP] runtime main-thread dispatcher scheduled ('{DispatcherNodeName}').");
         }
     }
 }
