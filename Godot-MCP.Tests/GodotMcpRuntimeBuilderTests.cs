@@ -114,6 +114,144 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Throws<ArgumentNullException>(() => builder.WithConfig(null!));
         }
 
+        // --- Prompts: mirror the tools tests exactly (accumulate + dedup + null-guard + empty-by-default).
+        //     Prompt/resource registration is INDEPENDENTLY optional from tools; a builder can register
+        //     prompts while leaving HasNoTools true. The accumulation logic is type-agnostic, so the
+        //     CI-friendly Tool_Ping plus arbitrary BCL/test types double as distinct Type/Assembly fixtures
+        //     here (the editor-gated tool families are #if TOOLS and not compiled into this xUnit assembly).
+
+        [Fact]
+        public void Builder_ByDefault_RegistersZeroPrompts()
+        {
+            var builder = GodotMcpRuntime.Initialize();
+
+            Assert.Empty(builder.PromptAssemblies);
+            Assert.Empty(builder.PromptTypes);
+        }
+
+        [Fact]
+        public void WithPromptsFromAssembly_AccumulatesAndDeduplicates()
+        {
+            var asm = typeof(Tool_Ping).Assembly;
+            var builder = GodotMcpRuntime.Initialize(b =>
+            {
+                b.WithPromptsFromAssembly(asm);
+                b.WithPromptsFromAssembly(asm); // duplicate — must be de-duplicated
+            });
+
+            Assert.Single(builder.PromptAssemblies);
+            Assert.Same(asm, builder.PromptAssemblies[0]);
+            // Prompts are independent of tools — registering a prompt assembly must NOT flip HasNoTools.
+            Assert.True(builder.HasNoTools);
+        }
+
+        [Fact]
+        public void WithPrompts_AccumulatesTypes_IgnoresNullsAndDuplicates()
+        {
+            var builder = GodotMcpRuntime.Initialize(b =>
+                b.WithPrompts(typeof(Tool_Ping), typeof(Tool_Ping), null!));
+
+            Assert.Single(builder.PromptTypes);
+            Assert.Equal(typeof(Tool_Ping), builder.PromptTypes[0]);
+            Assert.True(builder.HasNoTools);
+        }
+
+        [Fact]
+        public void WithPromptsFromAssembly_Null_Throws()
+        {
+            var builder = GodotMcpRuntime.Initialize();
+            Assert.Throws<ArgumentNullException>(() => builder.WithPromptsFromAssembly(null!));
+        }
+
+        [Fact]
+        public void WithPrompts_NullArray_IsNoOp()
+        {
+            var builder = GodotMcpRuntime.Initialize(b => b.WithPrompts(null!));
+            Assert.Empty(builder.PromptTypes);
+        }
+
+        // --- Resources: mirror the prompts tests exactly.
+
+        [Fact]
+        public void Builder_ByDefault_RegistersZeroResources()
+        {
+            var builder = GodotMcpRuntime.Initialize();
+
+            Assert.Empty(builder.ResourceAssemblies);
+            Assert.Empty(builder.ResourceTypes);
+        }
+
+        [Fact]
+        public void WithResourcesFromAssembly_AccumulatesAndDeduplicates()
+        {
+            var asm = typeof(Tool_Ping).Assembly;
+            var builder = GodotMcpRuntime.Initialize(b =>
+            {
+                b.WithResourcesFromAssembly(asm);
+                b.WithResourcesFromAssembly(asm); // duplicate — must be de-duplicated
+            });
+
+            Assert.Single(builder.ResourceAssemblies);
+            Assert.Same(asm, builder.ResourceAssemblies[0]);
+            Assert.True(builder.HasNoTools);
+        }
+
+        [Fact]
+        public void WithResources_AccumulatesTypes_IgnoresNullsAndDuplicates()
+        {
+            var builder = GodotMcpRuntime.Initialize(b =>
+                b.WithResources(typeof(Tool_Ping), typeof(Tool_Ping), null!));
+
+            Assert.Single(builder.ResourceTypes);
+            Assert.Equal(typeof(Tool_Ping), builder.ResourceTypes[0]);
+            Assert.True(builder.HasNoTools);
+        }
+
+        [Fact]
+        public void WithResourcesFromAssembly_Null_Throws()
+        {
+            var builder = GodotMcpRuntime.Initialize();
+            Assert.Throws<ArgumentNullException>(() => builder.WithResourcesFromAssembly(null!));
+        }
+
+        [Fact]
+        public void WithResources_NullArray_IsNoOp()
+        {
+            var builder = GodotMcpRuntime.Initialize(b => b.WithResources(null!));
+            Assert.Empty(builder.ResourceTypes);
+        }
+
+        // --- Prompts + resources + tools accumulate INDEPENDENTLY in a single builder.
+
+        [Fact]
+        public void Tools_Prompts_Resources_AccumulateIndependently()
+        {
+            // Distinct arbitrary Type fixtures — the accumulation buckets are type-agnostic; only Tool_Ping
+            // is compiled into this xUnit assembly, so use BCL/test types for the prompt/resource slots.
+            var toolType = typeof(Tool_Ping);
+            var promptType = typeof(string);
+            var resourceType = typeof(GodotMcpRuntimeBuilderTests);
+            var asm = toolType.Assembly;
+            var builder = GodotMcpRuntime.Initialize(b =>
+            {
+                b.WithTools(toolType);
+                b.WithPrompts(promptType);
+                b.WithResources(resourceType);
+                b.WithPromptsFromAssembly(asm);
+                b.WithResourcesFromAssembly(asm);
+            });
+
+            Assert.False(builder.HasNoTools);
+            Assert.Single(builder.ToolTypes);
+            Assert.Equal(toolType, builder.ToolTypes[0]);
+            Assert.Single(builder.PromptTypes);
+            Assert.Equal(promptType, builder.PromptTypes[0]);
+            Assert.Single(builder.ResourceTypes);
+            Assert.Equal(resourceType, builder.ResourceTypes[0]);
+            Assert.Single(builder.PromptAssemblies);
+            Assert.Single(builder.ResourceAssemblies);
+        }
+
         [Fact]
         public void WithTools_NullArray_IsNoOp()
         {

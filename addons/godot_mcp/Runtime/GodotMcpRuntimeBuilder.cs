@@ -47,6 +47,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         readonly List<Action<GodotMcpConfig>> _configActions = new();
         readonly List<Assembly> _toolAssemblies = new();
         readonly List<Type> _toolTypes = new();
+        readonly List<Assembly> _promptAssemblies = new();
+        readonly List<Type> _promptTypes = new();
+        readonly List<Assembly> _resourceAssemblies = new();
+        readonly List<Type> _resourceTypes = new();
 
         /// <summary>
         /// Whether <see cref="GodotMcpRuntime.Initialize"/> should guarantee a
@@ -119,6 +123,76 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
+        /// Opt every <c>[AiPromptType]</c>/<c>[AiPrompt]</c> class declared in <paramref name="assembly"/> into
+        /// the runtime prompt set. The common case is <c>Assembly.GetExecutingAssembly()</c> so a game
+        /// registers its own prompts. Multiple calls accumulate; duplicate assemblies are de-duplicated at
+        /// build time. Returns <c>this</c> for chaining. <b>Independently optional from tools/resources</b> —
+        /// a game can register prompts without registering any tools (zero prompts by default).
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithPromptsFromAssembly(Assembly assembly)
+        {
+            if (assembly == null)
+                throw new ArgumentNullException(nameof(assembly));
+
+            if (!_promptAssemblies.Contains(assembly))
+                _promptAssemblies.Add(assembly);
+            return this;
+        }
+
+        /// <summary>
+        /// Opt specific <c>[AiPromptType]</c> classes into the runtime prompt set (when a whole-assembly scan
+        /// is too broad). Null entries are ignored; duplicates are de-duplicated at build time. Returns
+        /// <c>this</c> for chaining.
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithPrompts(params Type[] promptTypes)
+        {
+            if (promptTypes == null)
+                return this;
+
+            foreach (var type in promptTypes)
+            {
+                if (type != null && !_promptTypes.Contains(type))
+                    _promptTypes.Add(type);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Opt every <c>[AiResourceType]</c>/<c>[AiResource]</c> class declared in <paramref name="assembly"/>
+        /// into the runtime resource set. The common case is <c>Assembly.GetExecutingAssembly()</c> so a game
+        /// registers its own resources. Multiple calls accumulate; duplicate assemblies are de-duplicated at
+        /// build time. Returns <c>this</c> for chaining. <b>Independently optional from tools/prompts</b> —
+        /// a game can register resources without registering any tools (zero resources by default).
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithResourcesFromAssembly(Assembly assembly)
+        {
+            if (assembly == null)
+                throw new ArgumentNullException(nameof(assembly));
+
+            if (!_resourceAssemblies.Contains(assembly))
+                _resourceAssemblies.Add(assembly);
+            return this;
+        }
+
+        /// <summary>
+        /// Opt specific <c>[AiResourceType]</c> classes into the runtime resource set (when a whole-assembly
+        /// scan is too broad). Null entries are ignored; duplicates are de-duplicated at build time. Returns
+        /// <c>this</c> for chaining.
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithResources(params Type[] resourceTypes)
+        {
+            if (resourceTypes == null)
+                return this;
+
+            foreach (var type in resourceTypes)
+            {
+                if (type != null && !_resourceTypes.Contains(type))
+                    _resourceTypes.Add(type);
+            }
+            return this;
+        }
+
+        /// <summary>
         /// Skip the automatic <see cref="MainThreadDispatch.MainThreadDispatcher"/> bootstrap. Use this only
         /// when the game already installs a dispatcher itself (e.g. as a Godot autoload) AND has called
         /// <see cref="MainThreadDispatch.GodotMainThread.Install"/>. With the bootstrap skipped and no
@@ -152,6 +226,18 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
         /// <summary>The individual tool types the developer opted in via <see cref="WithTools"/>.</summary>
         internal IReadOnlyList<Type> ToolTypes => _toolTypes;
+
+        /// <summary>The assemblies the developer opted in via <see cref="WithPromptsFromAssembly"/>.</summary>
+        internal IReadOnlyList<Assembly> PromptAssemblies => _promptAssemblies;
+
+        /// <summary>The individual prompt types the developer opted in via <see cref="WithPrompts"/>.</summary>
+        internal IReadOnlyList<Type> PromptTypes => _promptTypes;
+
+        /// <summary>The assemblies the developer opted in via <see cref="WithResourcesFromAssembly"/>.</summary>
+        internal IReadOnlyList<Assembly> ResourceAssemblies => _resourceAssemblies;
+
+        /// <summary>The individual resource types the developer opted in via <see cref="WithResources"/>.</summary>
+        internal IReadOnlyList<Type> ResourceTypes => _resourceTypes;
 
         /// <summary>True when the developer registered no tools at all (the empty-tool-set default).</summary>
         internal bool HasNoTools => _toolAssemblies.Count == 0 && _toolTypes.Count == 0;
