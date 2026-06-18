@@ -7,7 +7,6 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-#if TOOLS
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -48,8 +47,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </list>
     /// </para>
     ///
-    /// This type is editor-only (<c>#if TOOLS</c>): it instantiates the SignalR client and is driven
-    /// by <see cref="GodotMcpPlugin"/>'s tree lifecycle.
+    /// This type is runtime-agnostic (it lives OUTSIDE <c>#if TOOLS</c> so it also compiles into an
+    /// exported, non-editor game build): it instantiates the reused SignalR client and owns the
+    /// connection lifecycle, depending only on pure-managed config / view-model / reflector helpers and
+    /// the Godot <i>runtime</i> API (<see cref="Godot.Node"/>, <see cref="GD"/>, <c>ProjectSettings</c>),
+    /// never on a Godot editor API. In the editor it is driven by <see cref="GodotMcpPlugin"/>'s tree
+    /// lifecycle; the sole editor-only coupling — installing the editor <c>ResourceLoader</c> resolver
+    /// into the (pure-managed) Resource reflection converter — is guarded by <c>#if TOOLS</c> at its one
+    /// call site in <see cref="Start"/>, so the exported build wires up the reflector without it.
     /// </summary>
     public sealed class GodotMcpConnection : IDisposable
     {
@@ -293,7 +298,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // Wire the editor-side ResourceLoader.Load resolution into the (pure-managed) Resource
             // reflection converter so node-modify can assign a Resource-typed property by ref (res:// path /
             // instance id). The converter lives outside #if TOOLS; this installs the native resolver.
+            //
+            // EDITOR-ONLY COUPLING (the single one in the connect path): Tool_Resource — and the editor
+            // ResourceLoader/EditorInterface wiring it depends on — is itself gated by #if TOOLS, so it does
+            // NOT compile into an exported game build. Guard the call so the runtime-agnostic connection
+            // compiles with TOOLS undefined; in a non-editor build the Resource converter simply has no
+            // native resolver installed here (a runtime entry point can inject its own resolver later — T2).
+#if TOOLS
             Tools.Tool_Resource.InstallReflectionResolver();
+#endif
 
             // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)
             // share the exact converter set registered here instead of building their own.
@@ -1225,4 +1238,3 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
     }
 }
-#endif
