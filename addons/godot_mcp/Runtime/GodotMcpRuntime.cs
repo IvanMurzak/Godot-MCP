@@ -108,6 +108,26 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             if (builder.InstallDispatcher)
                 EnsureMainThreadDispatcher();
 
+            // 2b) Install in-game runtime ERROR CAPTURE when opted in (default OFF). Registers the engine 4.5+
+            //     OS.AddLogger hook + the C# unhandled/unobserved-Task exception hooks so errors raised in the
+            //     RUNNING game are captured and surfaced via the runtime-errors-* tool (issue #160). Idempotent
+            //     + best-effort; the handle uninstalls it on Dispose (capturedRuntimeErrors flag below). Done
+            //     before the connection is built so capture is live the moment the game runs — including
+            //     errors raised during the very first frame after Build().
+            var capturedRuntimeErrors = false;
+            if (builder.CaptureRuntimeErrors)
+            {
+                try
+                {
+                    RuntimeErrorCapture.Install();
+                    capturedRuntimeErrors = true;
+                }
+                catch (Exception ex)
+                {
+                    GD.PushWarning($"[Godot-MCP] runtime error capture failed to install: {ex.Message}");
+                }
+            }
+
             // 3) Build the reflector with the Godot value-type / ref converters and publish it as the ambient
             //    one so tool handlers share the exact converter set (mirrors GodotMcpConnection.Start). The
             //    editor ResourceLoader resolver (Tool_Resource.InstallReflectionResolver) is intentionally
@@ -158,7 +178,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             var plugin = mcpBuilder.Build(reflector);
 
-            return new GodotMcpRuntimeHandle(plugin, config);
+            return new GodotMcpRuntimeHandle(plugin, config, uninstallErrorCaptureOnDispose: capturedRuntimeErrors);
         }
 
         /// <summary>

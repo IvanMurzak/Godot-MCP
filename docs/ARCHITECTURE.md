@@ -42,8 +42,9 @@ addons/godot_mcp/
 ├── Icons/                     # dock icons (res:// loaded; editor-only assets)
 ├── Runtime/                   # un-gated — COMPILES INTO A GAME BUILD
 │   ├── GodotMcpRuntime.cs            # in-game entry point: GodotMcpRuntime.Initialize(...)
-│   ├── GodotMcpRuntimeBuilder.cs     # fluent builder (WithConfig / WithTools / …)
+│   ├── GodotMcpRuntimeBuilder.cs     # fluent builder (WithConfig / WithTools / WithRuntimeErrorCapture / …)
 │   ├── GodotMcpRuntimeHandle.cs      # disposable handle over a running connection
+│   ├── RuntimeErrorCapture.cs        # installs in-game error capture (OS.AddLogger 4.5+ + C# fault hooks)
 │   ├── GodotMcpEnv.cs
 │   ├── Connection/                   # connection core, config, env/store, logger, resolver,
 │   │                                 #   token gen, server-view (version parse), STJ cache
@@ -51,8 +52,11 @@ addons/godot_mcp/
 │   ├── Reflection/                   # reflector factory + Godot value-type converters + GodotAssemblyUtils
 │   ├── Data/                         # pure-managed result/ref models (NodeRef, ResourceRef, …)
 │   ├── Extensions/                   # extension registry/installer planning logic (pure-managed)
-│   └── Tools/                        # RUNTIME-SAFE tools: Tool_Ping, Tool_Console*, Tool_Reflection*
-│                                     #   + pure helpers (NodePathNormalizer, ResPathNormalizer, …)
+│   └── Tools/                        # RUNTIME-SAFE tools: Tool_Ping, Tool_Console*, Tool_Reflection*,
+│                                     #   Tool_RuntimeErrors* (in-game runtime-error capture, opt-in)
+│                                     #   + the engine-error logger bridge (GodotScriptErrorLogger*, 4.5+,
+│                                     #   shared by the editor AND the in-game runtime) + pure helpers
+│                                     #   (NodePathNormalizer, ResPathNormalizer, RuntimeErrorCollector, …)
 └── Editor/                    # #if TOOLS — STRIPPED FROM A GAME BUILD (editor-only)
     ├── GodotMcpPlugin.cs             # the [Tool] EditorPlugin entry (boots the dock + connection)
     ├── Connection/                   # editor server lifecycle (GodotMcpServerManager), device-auth
@@ -119,9 +123,31 @@ var handle = GodotMcpRuntime
 Everything this path needs lives under `Runtime/` and compiles into the game build: the
 entry point + builder + handle, the connection core, the main-thread dispatcher, the
 reflector, the assembly resolver, and the runtime-safe tools (`ping`, `console-*`,
-`reflection-*`). The editor tool families are **not** available here — they are `#if TOOLS`
-and don't exist in the game build by design (they require `EditorInterface` and a live
-editor).
+`reflection-*`, and the opt-in `runtime-errors-*`). The editor tool families are **not**
+available here — they are `#if TOOLS` and don't exist in the game build by design (they
+require `EditorInterface` and a live editor).
+
+#### In-game runtime error capture (issue #160)
+
+A subtlety worth calling out: the engine-error logger bridge
+(`Runtime/Tools/GodotScriptErrorLogger.cs`) is gated by `#if GODOT4_5_OR_GREATER` **but not**
+by `#if TOOLS` — because `OS.AddLogger` / `Godot.Logger` are **engine (runtime) APIs**, not
+editor APIs. That is what lets the *same* bridge serve two callers:
+
+- the **editor** (`Editor/GodotMcpPlugin.cs`) installs it to capture engine script errors
+  raised in-editor (feeding `console-get-logs` / `script-validate`), and
+- the **in-game runtime** (`Runtime/RuntimeErrorCapture.cs`, opt-in via
+  `GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture())`) installs it to capture
+  errors raised in the **running game** — GDScript runtime errors, `push_error`/`push_warning`,
+  shader errors — plus C# unhandled / unobserved-`Task` exceptions (with full managed stack
+  traces) via `AppDomain.UnhandledException` / `TaskScheduler.UnobservedTaskException`. The
+  captured rows are ring-buffered (`RuntimeErrorCollector`) and surfaced via the
+  `runtime-errors-*` tool with monotonic-sequence since-poll / clear semantics.
+
+This is why those files live under `Runtime/` and pass the boundary guard: they reference no
+editor-only API (only `OS` + `Godot.Logger`), so they ship into a game build. On Godot < 4.5
+the bridge's `#else` stub compiles in (no `OS.AddLogger`), so the engine channel degrades
+gracefully to a no-op while the C# fault channels still work.
 
 ## The Editor → Runtime dependency rule
 

@@ -100,6 +100,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
   - [Build & run the server manually (advanced)](#build--run-the-server-manually-advanced)
 - [Customize Tools](#customize-tools)
 - [Runtime usage (in-game)](#runtime-usage-in-game)
+  - [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)
   - [Sample: a live game-state tool](#sample-a-live-game-state-tool)
   - [Where the server URL and token come from](#where-the-server-url-and-token-come-from)
   - [Security: opt-in only, default OFF](#security-opt-in-only-default-off)
@@ -542,12 +543,67 @@ Builder surface (all fluent / chainable):
 | `builder.WithResourcesFromAssembly(Assembly)` | Register every `[AiResourceType]` class in an assembly. Independent of tools/prompts. |
 | `builder.WithResources(params Type[])` | Register specific `[AiResourceType]` classes. |
 | `builder.WithoutMainThreadDispatcher()` | Skip the automatic main-thread-dispatcher bootstrap (only if you install your own autoload dispatcher). |
+| `builder.WithRuntimeErrorCapture()` | Capture errors raised in the **running game** (GDScript runtime errors, `push_error`/`push_warning`, shader errors via the Godot 4.5+ engine hook; C# unhandled / unobserved-`Task` exceptions with full stack traces) and register the `runtime-errors-*` tool so an agent can poll them. **OFF by default.** See ["Capturing in-game runtime errors"](#capturing-in-game-runtime-errors) below. |
 | `builder.Build()` | Finalize; returns a **default-OFF** `GodotMcpRuntimeHandle`. |
 | `handle.Connect()` / `handle.Disconnect()` | Open / close the connection. `handle.Dispose()` tears it down on shutdown. |
 
 > `Initialize().Build()` also guarantees a main-thread dispatcher `Node` in the running `SceneTree` (so
 > tool handlers can marshal Godot API calls onto the engine main thread), unless you opt out with
 > `WithoutMainThreadDispatcher()`. Call it once a `SceneTree` is live (e.g. from an autoload `_Ready`).
+
+## Capturing in-game runtime errors
+
+In editor mode, `console-get-logs` and `script-validate` surface the plugin's own logs and GDScript
+*parse* errors. But errors raised inside a **running game** — a GDScript *runtime* error (a null
+dereference, a bad index), a `push_error`/`push_warning`, a shader error, or a C# unhandled exception —
+are not visible to an agent through those editor tools. Without this, an agent can launch the game, poll
+for logs, see silence, and wrongly conclude the game is healthy. This is the gap that blocks an unattended
+"keep fixing until no errors" loop for real gameplay/runtime bugs.
+
+Opt in with **`WithRuntimeErrorCapture()`**:
+
+```csharp
+_mcp = GodotMcpRuntime.Initialize(builder =>
+{
+    builder.WithConfig(cfg => { /* host / token … */ });
+    builder.WithRuntimeErrorCapture();   // capture in-game runtime errors + expose the runtime-errors-* tool
+}).Build();
+
+await _mcp.Connect();
+```
+
+That single call installs three best-effort capture channels and registers the `runtime-errors-*` tool:
+
+1. **Engine error stream (Godot 4.5+)** — registers a `Godot.Logger` via `OS.AddLogger`, so GDScript
+   runtime errors, `push_error`/`push_warning`, and shader errors raised in the running game are captured
+   with their **origin** (`file` / `line` / `function`).
+2. **C# unhandled exceptions** — `AppDomain.CurrentDomain.UnhandledException`, with the **full managed
+   stack trace**.
+3. **C# unobserved `Task` exceptions** — `TaskScheduler.UnobservedTaskException`, with the **full managed
+   stack trace**. (It only observes for logging — it does **not** call `SetObserved()`, so your game's own
+   escalation behavior is unchanged.)
+
+An MCP client polls the captured errors with the `runtime-errors-get` tool (and clears the buffer with
+`runtime-errors-clear`):
+
+| Tool | What it returns / does |
+| ---- | ---------------------- |
+| `runtime-errors-get` | A bounded, newest-kept list of `{ sequence, message, type, source, file, line, function, stackTrace, timestamp }`. Pass the previous result's `highestSequence` as `sinceSequence` to poll only **new** errors — the "did anything break since I last looked?" loop. Returns `available:false` when capture was never enabled (so an empty list is never mistaken for health). |
+| `runtime-errors-clear` | Clears the captured buffer (the monotonic `sequence` counter is preserved, so a pre-clear `sinceSequence` poll still behaves). |
+
+> **Stack-trace fidelity (read this).** The two error *sources* differ in depth:
+> - **Engine errors** (`source: Engine`) carry the error's **origin** — `file:line` and the originating
+>   `function` — plus the message and a `type` (`Error` / `Warning` / `Script` / `Shader`). They do **not**
+>   carry a deep multi-frame GDScript call stack (`OS.AddLogger` yields the origin, not a backtrace), so
+>   `stackTrace` is `null` for them.
+> - **C# faults** (`source: UnhandledException` / `UnobservedTaskException`) carry the **full managed stack
+>   trace** (inner exceptions inlined) in `stackTrace`, plus the CLR exception type name in `type`.
+
+> **Graceful degradation.** On **Godot < 4.5** there is no `OS.AddLogger` managed hook, so the engine
+> channel is silently unavailable — the C# exception channels still work, and `runtime-errors-get` still
+> functions (it just won't see GDScript runtime errors). And like the rest of runtime mode, capture is
+> **strictly opt-in** — without `WithRuntimeErrorCapture()` nothing is hooked and there is no behavior
+> change. Disposing the handle (`handle.Dispose()`) uninstalls the hooks.
 
 ## Sample: a live game-state tool
 
