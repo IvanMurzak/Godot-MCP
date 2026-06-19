@@ -1,6 +1,6 @@
 {
   "name": "godot-cli",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Cross-platform CLI tool for Godot-MCP (Skills & MCP). Resolves and launches the Godot editor with MCP connection env vars, runs MCP/system tools over HTTP, probes server health, configures AI agents (Claude Code, Cursor, VS Code, …), and enables/disables the godot_mcp addon. Works with Claude Code, Cursor, Copilot, and any MCP client.",
   "type": "module",
   "main": "dist/lib.js",
