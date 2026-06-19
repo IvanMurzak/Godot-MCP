@@ -57,7 +57,7 @@ jobs:
           mkdir -p "${TEST_PROJECT}/addons"
           cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
-          test -f "${TEST_PROJECT}/addons/godot_mcp/GodotMcpPlugin.cs"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/Editor/GodotMcpPlugin.cs"
 
       - name: Import the project (generate .godot layout)
         shell: bash
