@@ -78,28 +78,33 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             lock (_gate)
             {
                 if (_installed && _collector != null)
+                {
+                    // Idempotent re-entry. The engine logger lives in the bridge's SEPARATE static
+                    // (GodotScriptErrorLoggerBridge._installed), not in our _installed flag, so it could have
+                    // been torn down independently (e.g. an editor-side Uninstall) while ours stayed true.
+                    // Re-assert it: the bridge's TryInstall is non-destructive (a no-op when still installed,
+                    // a fresh registration when it was removed), so this never clobbers a live logger.
+                    TryInstallEngineLogger(_collector);
                     return _collector;
+                }
 
                 var collector = new RuntimeErrorCollector();
+
+                // Publish state BEFORE wiring the fault hooks so a throw mid-subscribe still leaves the capture
+                // discoverable AND uninstallable: Uninstall() keys on _installed, and unsubscribes only the
+                // handlers it finds assigned — so a partially-installed pass never leaks a handler for the
+                // process lifetime.
+                RuntimeErrorCollector.Current = collector;
+                _collector = collector;
+                _installed = true;
 
                 // 1) Engine error stream (Godot 4.5+). Wire a structured ErrorSink so engine errors land as
                 //    full RuntimeError rows (file/line/function/type). On < 4.5 the bridge stub returns null —
                 //    this channel is absent; the C# channels below still capture managed faults.
-                var engineInstalled = false;
-                try
-                {
-                    var capture = new ScriptErrorCapture
-                    {
-                        ErrorSink = record => collector.Append(RuntimeErrorFactory.FromEngine(record)),
-                    };
-                    engineInstalled = GodotScriptErrorLoggerBridge.TryInstall(capture) != null;
-                }
-                catch (Exception ex)
-                {
-                    GD.PushWarning($"[Godot-MCP] runtime engine-error capture not installed: {ex.Message}");
-                }
+                var engineInstalled = TryInstallEngineLogger(collector);
 
-                // 2) C# unhandled exceptions — full managed stack trace.
+                // 2) C# unhandled exceptions — full managed stack trace. Field assigned first, then subscribed,
+                //    so even a throw between the two leaves Uninstall() with a handler reference to detach.
                 _domainHandler = (_, args) =>
                 {
                     try
@@ -126,16 +131,35 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
                 };
                 TaskScheduler.UnobservedTaskException += _taskHandler;
 
-                RuntimeErrorCollector.Current = collector;
-                _collector = collector;
-                _installed = true;
-
                 GD.Print(engineInstalled
                     ? "[Godot-MCP] runtime error capture installed (engine 4.5+ logger + C# exception hooks)."
                     : "[Godot-MCP] runtime error capture installed (C# exception hooks only; engine logger " +
                       "requires Godot 4.5+).");
 
                 return collector;
+            }
+        }
+
+        /// <summary>
+        /// Register the Godot 4.5+ engine-error logger feeding <paramref name="collector"/> via the bridge,
+        /// returning true when the engine channel is live. Best-effort: a registration failure (e.g. an
+        /// unexpected host) is swallowed to a warning so the C# fault channels still install. Pre-&lt; 4.5 the
+        /// bridge stub returns null and this returns false (documented degradation). Call under <c>_gate</c>.
+        /// </summary>
+        static bool TryInstallEngineLogger(RuntimeErrorCollector collector)
+        {
+            try
+            {
+                var capture = new ScriptErrorCapture
+                {
+                    ErrorSink = record => collector.Append(RuntimeErrorFactory.FromEngine(record)),
+                };
+                return GodotScriptErrorLoggerBridge.TryInstall(capture) != null;
+            }
+            catch (Exception ex)
+            {
+                GD.PushWarning($"[Godot-MCP] runtime engine-error capture not installed: {ex.Message}");
+                return false;
             }
         }
 

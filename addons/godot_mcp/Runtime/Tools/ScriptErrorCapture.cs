@@ -182,7 +182,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             // Structured capture (in-game runtime): forward the full origin so runtime-errors-get can return
             // file/line/function/type, not just a flattened line. Always fires (errors are not session-gated).
-            ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text));
+            // Wrapped for parity with the in-game C# fault handlers: this runs on the engine's (multi-threaded)
+            // log callback, so a throwing sink must never escape back into the engine.
+            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text)); }
+            catch { /* a captured engine-error sink must never throw back into the engine callback */ }
 
             // Validation capture: only script errors, only while a session is open.
             if (kind != EngineErrorKind.Script)

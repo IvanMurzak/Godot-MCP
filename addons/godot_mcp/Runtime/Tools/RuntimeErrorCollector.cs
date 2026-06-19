@@ -115,11 +115,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// exist than the cap, the NEWEST are kept and <paramref name="truncated"/> is set true — so an agent
         /// reading deltas never silently misses the most recent fault. Returns fresh copies so the caller can
         /// serialize off the lock.
+        /// <para>
+        /// <paramref name="maxEntries"/> has a hard floor of 1: a value &lt; 1 is clamped up to 1 (this is the
+        /// reusable buffer's defensive contract — it never returns an empty page for a non-positive cap). The
+        /// <c>runtime-errors-get</c> tool surface is stricter and rejects <c>maxEntries &lt; 1</c> with an
+        /// <see cref="ArgumentException"/> before reaching here, so the clamp is the inner-layer safety net for
+        /// direct callers, not the validated tool path.
+        /// </para>
         /// </summary>
         public RuntimeError[] QuerySince(long sinceSequence, int maxEntries, out bool truncated)
         {
             if (maxEntries < 1)
-                maxEntries = 1;
+                maxEntries = 1; // floor; the tool layer rejects < 1 upstream — see the doc remark above.
 
             lock (_gate)
             {

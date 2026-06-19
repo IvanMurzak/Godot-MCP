@@ -110,6 +110,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // collectible addon assembly), so leaving it registered makes the hot-reload ALC unload fail with the
         // godotengine/godot#78513 ".NET: Failed to unload assemblies" flood. Static field => one registration
         // per loaded assembly, which matches the single boot-time TryInstall.
+        //
+        // Separate-process safety: the editor (Editor/GodotMcpPlugin.cs) and the in-game runtime
+        // (Runtime/RuntimeErrorCapture.cs) BOTH register through this bridge, but Godot launches the running
+        // game (F5 / "Play") as a SEPARATE OS PROCESS — the editor and the game never share an address space,
+        // so each process owns its own copy of this static and one cannot tear down or clobber the other's
+        // registration. The non-destructive guard in TryInstall below additionally protects against a stray
+        // in-process double-install (e.g. a re-init) so it never silently leaks the prior logger.
         static GodotScriptErrorLogger? _installed;
 
         /// <summary>
@@ -146,13 +153,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (capture == null)
                 return null;
 
-            // Symmetric with Uninstall: tear down any prior registration FIRST. In the normal paired
-            // install/uninstall lifecycle _installed is already null here, but a stray double-install would
-            // otherwise overwrite _installed without OS.RemoveLogger/Free()-ing the previous logger — leaking
-            // it registered in the engine, which re-pins the collectible ALC (the exact godot#78513 unload
-            // failure this bridge removes) AND orphans it beyond Uninstall's reach. Uninstall is idempotent,
-            // so this is a safe no-op when nothing is installed.
-            Uninstall();
+            // Non-destructive when ALREADY installed: do NOT tear down a live registration to replace it. In
+            // the normal paired install/uninstall lifecycle _installed is null here, but a stray double-install
+            // must not OS.RemoveLogger/Dispose the engine's current logger out from under it (which would both
+            // re-pin the collectible ALC — the exact godot#78513 unload failure this bridge removes — and orphan
+            // the prior registration beyond Uninstall's reach). Treat the already-installed case as a no-op and
+            // return the live router. (Editor and in-game runtime are separate OS processes — see the _installed
+            // field note — so this guard only ever fires for an in-process re-init, never cross-context.)
+            if (_installed != null)
+                return ScriptErrorCapture.Current;
 
             var logger = new GodotScriptErrorLogger(capture);
             OS.AddLogger(logger); // static API in GodotSharp 4.5
