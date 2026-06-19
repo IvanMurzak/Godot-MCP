@@ -359,7 +359,7 @@ The server itself is the shared, engine-agnostic
 **[GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server)** — one server binary
 (`gamedev-mcp-server`) serving Unity-MCP, Godot-MCP, and Unreal-MCP. It is released from its own repo on
 its own version line; this addon **pins** the server version it consumes (the `ServerVersion` constant in
-`addons/godot_mcp/Connection/GodotMcpServerView.cs`).
+`addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`).
 
 ## Local server — let the addon download & run it for you
 

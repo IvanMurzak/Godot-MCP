@@ -31,7 +31,7 @@ export interface SkillFamily {
 /**
  * The Godot-MCP tool-family catalog. Mirrors the 10 families documented in
  * `Godot-MCP/CLAUDE.md` § Tool families and the `[AiToolType]` classes under
- * `addons/godot_mcp/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
+ * `addons/godot_mcp/Runtime/Tools/` and `addons/godot_mcp/Editor/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
  * an MCP client invokes.
  */
 export const SKILL_FAMILIES: readonly SkillFamily[] = [
