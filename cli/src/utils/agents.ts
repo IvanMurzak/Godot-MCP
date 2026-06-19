@@ -9,7 +9,7 @@ import * as path from 'path';
 
 /**
  * An AI-agent MCP-client configurator. Mirrors the Godot addon's
- * `GodotAgentConfigurator` registry (`addons/godot_mcp/UI/Agents/`), adapted
+ * `GodotAgentConfigurator` registry (`addons/godot_mcp/Editor/UI/Agents/`), adapted
  * to the CLI's file-writing surface, and brought to parity with the Unity CLI's
  * agent roster (`Unity-MCP/cli/src/utils/agents.ts`). Each agent knows where its
  * MCP-client config lives and what HTTP-transport server entry to write.

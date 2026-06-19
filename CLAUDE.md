@@ -22,7 +22,7 @@ the `WaitForImmediateTeardown` API + opt-in bounded-reconnect this addon uses fo
 
 ## Tool families
 
-Tools live in `addons/godot_mcp/Tools/` — one `[AiToolType]` `partial class Tool_<Family>` per family,
+Tools live in `addons/godot_mcp/Runtime/Tools/` (pure-managed families) and `addons/godot_mcp/Editor/Tools/` (editor-only families) — one `[AiToolType]` `partial class Tool_<Family>` per family,
 with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
 names mirror Unity-MCP where sensible. The 10 families:
 
@@ -98,7 +98,7 @@ The MCP server lives in its own shared repo: [GameDev-MCP-Server](https://github
 (binary `gamedev-mcp-server`, release assets `gamedev-mcp-server-<rid>.zip`, Docker
 `aigamedeveloper/mcp-server`) — one engine-agnostic server consumed by Unity-MCP, Godot-MCP, and
 Unreal-MCP. The addon downloads the release pinned by the `ServerVersion` constant in
-`addons/godot_mcp/Connection/GodotMcpServerView.cs`. **Server version pin:** bumping the consumed server =
+`addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`. **Server version pin:** bumping the consumed server =
 changing that constant; the pinned `v<ServerVersion>` release (with all 7 RID zips) must already exist on
 GameDev-MCP-Server BEFORE cutting an addon release that pins it.
 
@@ -122,7 +122,7 @@ System.IO.FileNotFoundException: Could not load file or assembly 'ReflectorNet, 
 This is a known, long-standing Godot limitation for C# addons with external dependencies
 (godotengine/godot-proposals#9074, godotengine/godot#112701).
 
-**The fix** lives in `addons/godot_mcp/Connection/GodotMcpAssemblyResolver.cs`. It hooks
+**The fix** lives in `addons/godot_mcp/Runtime/Connection/GodotMcpAssemblyResolver.cs`. It hooks
 `AssemblyLoadContext.Default.Resolving` and answers the misses itself, per assembly name, in order:
 
 1. **Same-directory probe** — `<name>.dll` next to the project assembly (covers consumers who copy deps

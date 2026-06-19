@@ -19,7 +19,7 @@ released from its own repo on its own version line. See
 ## Server version pin (shared GameDev-MCP-Server)
 
 The addon downloads and runs the shared server release pinned by the **`ServerVersion` constant** in
-[`addons/godot_mcp/Connection/GodotMcpServerView.cs`](../addons/godot_mcp/Connection/GodotMcpServerView.cs).
+[`addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`](../addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs).
 The addon version (`plugin.cfg`, 0.x) and the server version (8.x) are **decoupled** — never derive one
 from the other. Bumping the consumed server = changing the `ServerVersion` constant. **Ordering rule:** the
 pinned `v<ServerVersion>` release (with all 7 `gamedev-mcp-server-<rid>.zip` assets) must already exist on

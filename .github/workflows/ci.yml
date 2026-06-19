@@ -6,6 +6,25 @@ on:
   pull_request:
 
 jobs:
+  # Fast Runtime/Editor boundary guard — no .NET build, runs in milliseconds. Fails the PR
+  # if any addons/godot_mcp/Runtime/**/*.cs file references an editor-only Godot API
+  # (EditorInterface/EditorPlugin/EditorFileSystem/EditorScript) in un-guarded shipping code.
+  # See scripts/check-runtime-boundary.py and docs/ARCHITECTURE.md.
+  runtime-boundary:
+    name: runtime/editor boundary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Check Runtime/ does not leak editor-only APIs
+        run: python scripts/check-runtime-boundary.py --verbose
+
   build:
     name: dotnet build (.NET 8)
     runs-on: ubuntu-latest
