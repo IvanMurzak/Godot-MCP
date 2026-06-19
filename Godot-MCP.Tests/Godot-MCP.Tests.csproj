@@ -34,89 +34,89 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\addons\godot_mcp\Data\NodeRef.cs" Link="Source\NodeRef.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\ResourceRef.cs" Link="Source\ResourceRef.cs" />
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverter.cs" Link="Source\GodotStructReflectionConverter.cs" />
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\NodeRef.cs" Link="Source\NodeRef.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceRef.cs" Link="Source\ResourceRef.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotStructReflectionConverter.cs" Link="Source\GodotStructReflectionConverter.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotStructReflectionConverters.cs" Link="Source\GodotStructReflectionConverters.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotNodePathJsonConverter.cs" Link="Source\GodotNodePathJsonConverter.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotReflectorFactory.cs" Link="Source\GodotReflectorFactory.cs" />
     <!-- Scan-set enumerator — pure-BCL. Pinned by GodotAssemblyUtilsTests (issue #102): must span all
          load contexts, because Godot loads the project assembly (hosting every [AiToolType] class)
          into its own collectible non-default AssemblyLoadContext. -->
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotAssemblyUtils.cs" Link="Source\GodotAssemblyUtils.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotAssemblyUtils.cs" Link="Source\GodotAssemblyUtils.cs" />
     <!-- Resource reference converter — pure-managed (matches Godot.Resource + derived types by inheritance
          distance; (de)serializes the ResourceRef shape). The native ResourceLoader.Load resolution is
          injected under #if TOOLS (Tool_Resource.ReflectionResolver.cs, verified via the Suite-3 smoke); the
          type-matching + ref shaping are unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Reflection\Godot_Resource_ReflectionConverter.cs" Link="Source\Godot_Resource_ReflectionConverter.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\Godot_Resource_ReflectionConverter.cs" Link="Source\Godot_Resource_ReflectionConverter.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
-    <Compile Include="..\addons\godot_mcp\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
     <!-- Project-root `.env` loader: pure-managed parser + precedence applier (no Godot native types,
          no #if TOOLS). The editor wiring (ProjectSettings.GlobalizePath) lives in GodotMcpConnection.cs
          (#if TOOLS), verified via the headless smoke; the parse/apply core is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpEnvFile.cs" Link="Source\GodotMcpEnvFile.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpEnvFile.cs" Link="Source\GodotMcpEnvFile.cs" />
     <!-- Config persistence store: pure-managed System.Text.Json load/save of the serialized-config
          precedence layer (no Godot native types, no #if TOOLS). The editor wiring that resolves the
          user:// path lives in GodotMcpConnection.cs (#if TOOLS); the path-injectable core is unit-tested. -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpConfigJsonContext.cs" Link="Source\GodotMcpConfigJsonContext.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpStjReflectionCache.cs" Link="Source\GodotMcpStjReflectionCache.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfigStore.cs" Link="Source\GodotMcpConfigStore.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfigJsonContext.cs" Link="Source\GodotMcpConfigJsonContext.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpStjReflectionCache.cs" Link="Source\GodotMcpStjReflectionCache.cs" />
     <!-- Log-level config + gate + logger/provider — all pure-managed (no Godot native types, no #if TOOLS):
          the GodotMcpLogLevel enum + GodotMcpLogGate (Microsoft LogLevel → GodotMcpLogLevel mapping/gating),
          and the GodotMcpLogger/GodotMcpLoggerProvider that route the reused framework's logging to an
          injected sink (the GD.* sink itself is wired in GodotMcpConnection.cs, #if TOOLS, verified via the
          Suite-3 smoke). The gate + logger routing are unit-tested here with a capturing sink. -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLogLevel.cs" Link="Source\GodotMcpLogLevel.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLogger.cs" Link="Source\GodotMcpLogger.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpLoggerProvider.cs" Link="Source\GodotMcpLoggerProvider.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLogLevel.cs" Link="Source\GodotMcpLogLevel.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLogger.cs" Link="Source\GodotMcpLogger.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLoggerProvider.cs" Link="Source\GodotMcpLoggerProvider.cs" />
     <!-- MCP-features enable-map — pure-managed (no Godot native types, no #if TOOLS, no McpPlugin dependency):
          the per-kind feature-state list (GodotMcpFeatureMap/GodotMcpFeatureState) that GodotMcpConfig serializes,
          and the merge/capture logic (GodotMcpFeatureStateMerge) the boot-reapply + window-toggle drive. The live
          IToolManager/IPromptManager/IResourceManager wiring (FeatureManagerAdapters.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3); the merge rules are unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureState.cs" Link="Source\GodotMcpFeatureState.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureMap.cs" Link="Source\GodotMcpFeatureMap.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpFeatureStateMerge.cs" Link="Source\GodotMcpFeatureStateMerge.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpFeatureState.cs" Link="Source\GodotMcpFeatureState.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpFeatureMap.cs" Link="Source\GodotMcpFeatureMap.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpFeatureStateMerge.cs" Link="Source\GodotMcpFeatureStateMerge.cs" />
     <!-- URL-safe bearer-token generator: pure-managed (RandomNumberGenerator + Convert), no Godot native
          types / no #if TOOLS. Output is random, so the tests pin FORMAT invariants (length/charset). -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpTokenGenerator.cs" Link="Source\GodotMcpTokenGenerator.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpTokenGenerator.cs" Link="Source\GodotMcpTokenGenerator.cs" />
     <!-- Cloud device-code auth core: the HTTP transport (mockable HttpMessageHandler) + the flow state
          machine. Both pure-managed (no Godot native types, no #if TOOLS), so the device flow is unit-tested
          here with a fake handler + injected delay/clock; the editor wiring lives in the #if TOOLS
          ConnectionPanel (browser-open + token persistence), verified via the headless smoke (test.md Suite 3). -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotDeviceAuthService.cs" Link="Source\GodotDeviceAuthService.cs" />
-    <Compile Include="..\addons\godot_mcp\Connection\GodotDeviceAuthFlow.cs" Link="Source\GodotDeviceAuthFlow.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthService.cs" Link="Source\GodotDeviceAuthService.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthFlow.cs" Link="Source\GodotDeviceAuthFlow.cs" />
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
     <!-- Scene/Node tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
          structured result models, the property-patch model, the path normalizer, and the ambient
          reflector accessor. The editor-driving tool methods (Tool_Node.*.cs / Tool_Scene.*.cs) are
          #if TOOLS and verified via the headless Godot smoke (test.md Suite 3), not here. -->
-    <Compile Include="..\addons\godot_mcp\Data\NodeData.cs" Link="Source\NodeData.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\SceneData.cs" Link="Source\SceneData.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
-    <Compile Include="..\addons\godot_mcp\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\NodeData.cs" Link="Source\NodeData.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\SceneData.cs" Link="Source\SceneData.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
     <!-- Resource/FileSystem tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
          the structured result models and the res:// path normalizer. The editor-driving handlers
          (Tool_Resource.*.cs / Tool_FileSystem.*.cs) are #if TOOLS and verified via the headless Godot
          smoke (test.md Suite 3), not here. -->
-    <Compile Include="..\addons\godot_mcp\Data\FileSystemEntry.cs" Link="Source\FileSystemEntry.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\FileSystemListing.cs" Link="Source\FileSystemListing.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\ResourceInfo.cs" Link="Source\ResourceInfo.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\ResourceFindResult.cs" Link="Source\ResourceFindResult.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\ResPathNormalizer.cs" Link="Source\ResPathNormalizer.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\FileSystemEntry.cs" Link="Source\FileSystemEntry.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\FileSystemListing.cs" Link="Source\FileSystemListing.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceInfo.cs" Link="Source\ResourceInfo.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceFindResult.cs" Link="Source\ResourceFindResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ResPathNormalizer.cs" Link="Source\ResPathNormalizer.cs" />
     <!-- Script tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
          structured result model and the language/path helper. The editor-driving handlers
          (Tool_Script.*.cs) are #if TOOLS and verified via the headless Godot smoke (test.md Suite 3),
          not here. -->
-    <Compile Include="..\addons\godot_mcp\Data\ScriptInfo.cs" Link="Source\ScriptInfo.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\ScriptLang.cs" Link="Source\ScriptLang.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptInfo.cs" Link="Source\ScriptInfo.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptLang.cs" Link="Source\ScriptLang.cs" />
     <!-- script-validate diagnostics — pure-managed (no Godot native types, no #if TOOLS): the diagnostic
          result models (ScriptDiagnostic / ScriptDiagnosticsResult + their enums) and the ScriptErrorCapture
          router that classifies + routes engine-error callbacks (passive log capture + on-demand validation
@@ -124,14 +124,14 @@
          #if GODOT4_5_OR_GREATER (4.5+ only) and the editor-driving Validate handler (Tool_Script.Validate.cs)
          is #if TOOLS — both verified via the headless Godot smoke (test.md Suite 3); the models + router are
          unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Data\ScriptDiagnostic.cs" Link="Source\ScriptDiagnostic.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\ScriptDiagnosticsResult.cs" Link="Source\ScriptDiagnosticsResult.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\ScriptErrorCapture.cs" Link="Source\ScriptErrorCapture.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnostic.cs" Link="Source\ScriptDiagnostic.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnosticsResult.cs" Link="Source\ScriptDiagnosticsResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptErrorCapture.cs" Link="Source\ScriptErrorCapture.cs" />
     <!-- Screenshot tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
          size-cap clamping, framing trig, view-direction table, and hex-color parse. The editor-driving
          handlers (Tool_Screenshot.*.cs) are #if TOOLS and encode a real Godot Image, so they are verified
          via the headless/windowed Godot smoke (test.md Suite 3), not here. -->
-    <Compile Include="..\addons\godot_mcp\Tools\ScreenshotMath.cs" Link="Source\ScreenshotMath.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScreenshotMath.cs" Link="Source\ScreenshotMath.cs" />
     <!-- Editor introspection tool family (editor-state / console-logs / selection / reflection) —
          pure-managed pieces only (no Godot native types, no #if TOOLS): the structured result models,
          the log severity enum, and the in-memory log collector. The editor-driving handlers
@@ -139,17 +139,17 @@
          Godot smoke (test.md Suite 3); the console/reflection tool handlers (Tool_Console.*.cs /
          Tool_Reflection.*.cs) live outside #if TOOLS but their editor effect is a Suite-3 concern —
          here we unit-test the collector + models. -->
-    <Compile Include="..\addons\godot_mcp\Data\EditorStateData.cs" Link="Source\EditorStateData.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
-    <Compile Include="..\addons\godot_mcp\Data\SelectionData.cs" Link="Source\SelectionData.cs" />
-    <Compile Include="..\addons\godot_mcp\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\EditorStateData.cs" Link="Source\EditorStateData.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\SelectionData.cs" Link="Source\SelectionData.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
     <!-- Connection-panel presentation logic — pure-managed (no Godot native types, no #if TOOLS): the
          HubConnectionState+keepConnected → ConnectionStatus reduction, label/button/colour mappings, and
          server-URL validation. The editor Control wiring (ConnectionPanel.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3); the view logic is unit-tested here. The SignalR
          HubConnectionState enum it switches on is provided transitively by com.IvanMurzak.McpPlugin. -->
-    <Compile Include="..\addons\godot_mcp\UI\ConnectionPanelView.cs" Link="Source\ConnectionPanelView.cs" />
-    <Compile Include="..\addons\godot_mcp\UI\AgentSessionView.cs" Link="Source\AgentSessionView.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\ConnectionPanelView.cs" Link="Source\ConnectionPanelView.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\AgentSessionView.cs" Link="Source\AgentSessionView.cs" />
     <!-- Local-server hosting view logic — pure-managed (no Godot native types, no #if TOOLS): the
          GodotMcpServerStatus enum, the platform→RID/asset-name mapping, the exact version-match, the release
          download-URL construction, the launch-arg builder (port=… plugin-timeout=… client-transport=… …),
@@ -158,32 +158,32 @@
          headless Godot smoke + are operator-pending until a real release; the deterministic decisions are
          unit-tested here (cross-platform: every method is a string/enum transform, so the same assertions
          hold on the Linux CI runner). -->
-    <Compile Include="..\addons\godot_mcp\Connection\GodotMcpServerView.cs" Link="Source\GodotMcpServerView.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpServerView.cs" Link="Source\GodotMcpServerView.cs" />
     <!-- Segmented-control state model — pure-managed (no Godot native types, no #if TOOLS): the
          value→index / selected-predicate / clamp rules for the reusable segmented control (Custom|Cloud,
          none|required). The editor builder (DockStyle.SegmentedControl, #if TOOLS) consumes these and is
          verified via the headless Godot smoke (test.md Suite 3); the index/selection logic is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\SegmentedControlModel.cs" Link="Source\SegmentedControlModel.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\SegmentedControlModel.cs" Link="Source\SegmentedControlModel.cs" />
     <!-- Dock design palette — pure-managed (no Godot native types, no #if TOOLS): the colour/size/font
          constants + the ConnectionStatus → status-dot colour mapping that DockStyle (#if TOOLS) consumes.
          The editor StyleBox/Theme wiring (DockStyle.cs) is #if TOOLS and verified via the headless Godot
          smoke (test.md Suite 3); the palette numbers + dot-colour rule are unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\DockTheme.cs" Link="Source\DockTheme.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\DockTheme.cs" Link="Source\DockTheme.cs" />
     <!-- Connection status tracker — pure-managed (no Godot native types, no #if TOOLS): the current-status
          holder + de-dup rule extracted out of GodotMcpConnection.PublishStatus (issue #42). The editor
          Timer/_Process wiring that drives the periodic re-sync stays in ConnectionPanel.cs (#if TOOLS,
          verified via the headless Godot smoke, test.md Suite 3); the de-dup / convergence / reset logic
          is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\ConnectionStatusTracker.cs" Link="Source\ConnectionStatusTracker.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\ConnectionStatusTracker.cs" Link="Source\ConnectionStatusTracker.cs" />
     <!-- Support-footer link constants — pure-managed (no Godot native types, no #if TOOLS): the static
          URLs/copy opened by the dock footer. The editor Control wiring (SupportFooter.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the constants are unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\SupportFooterLinks.cs" Link="Source\SupportFooterLinks.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\SupportFooterLinks.cs" Link="Source\SupportFooterLinks.cs" />
     <!-- Features-panel presentation logic — pure-managed (no Godot native types, no #if TOOLS): the
          "<Title>: X / Y" count label, the "~N tokens" sub-label, per-kind titles, and the "—" placeholder.
          The editor Control wiring (FeaturesPanel.cs / FeatureRow.cs / FeatureListWindow.cs) is #if TOOLS and
          verified via the headless Godot smoke (test.md Suite 3); the label formatting is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\FeaturesPanelView.cs" Link="Source\FeaturesPanelView.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\FeaturesPanelView.cs" Link="Source\FeaturesPanelView.cs" />
     <!-- Feature list filter + row view-model — pure-managed (no Godot native types, no #if TOOLS): the
          FeatureStatusFilter enum, the FeatureRowItem/FeatureArgument records, the status+text filter chain
          (FeatureFilter.Apply), the "Filtered: X, Total: Y" stat formatter, and the JSON-schema argument parser
@@ -191,38 +191,38 @@
          IPromptManager/IResourceManager → FeatureRowItem mapping (FeatureManagerAdapters.cs) and the editor
          window Control wiring (FeatureListWindow.cs) are #if TOOLS and verified via the headless Godot smoke
          (test.md Suite 3); the filter/stat/parse logic is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\FeatureFilter.cs" Link="Source\FeatureFilter.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\FeatureFilter.cs" Link="Source\FeatureFilter.cs" />
     <!-- AI-agent configurators — converged onto the shared com.IvanMurzak.McpPlugin.AgentConfig module (issue #142).
          Godot retired its local configurator copy; the only Godot-side pure-managed pieces unit-tested here are the
          shared-registry VIEW (GodotAgentConfigurators — filters out the Unity-only agent) and the skills-path
          display/safety utilities (SkillsPathUtils). The shared module's own configurator/JSON/path logic is
          unit-tested upstream in MCP-Plugin-dotnet. The dock UI (AgentConfiguratorsPanel.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3). -->
-    <Compile Include="..\addons\godot_mcp\UI\Agents\GodotAgentConfigurators.cs" Link="Source\GodotAgentConfigurators.cs" />
-    <Compile Include="..\addons\godot_mcp\UI\SkillsPathUtils.cs" Link="Source\SkillsPathUtils.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\Agents\GodotAgentConfigurators.cs" Link="Source\GodotAgentConfigurators.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\SkillsPathUtils.cs" Link="Source\SkillsPathUtils.cs" />
     <!-- Skills card presentation model — pure-managed (no Godot native types, no #if TOOLS): the supported/path
          resolution (SkillsPlan) the dock's Skills card renders, now sourced from the shared configurator's
          SupportsSkills/SkillsPath. The editor Control wiring (SkillsPanel.cs) is #if TOOLS and verified via the
          headless Godot smoke (test.md Suite 3); the plan resolution is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\UI\SkillsPlan.cs" Link="Source\SkillsPlan.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\UI\SkillsPlan.cs" Link="Source\SkillsPlan.cs" />
     <!-- Extensions install infrastructure — pure-managed (no Godot native types, no #if TOOLS): the descriptor
          record + empty registry, the install planner (PackageReference add / version-bump as a pure XML transform,
          preserving siblings — the KEY tested seam), the installed-state detector (parse PackageReferences + per-
          descriptor state + version compare), the IO seam interface + orchestrator, and the dock placeholder copy.
          The editor wiring (ConsumerProjectFile.cs, ExtensionsPanel.cs, ExtensionRow.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3); the plan/detect/install logic is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Extensions\GodotExtensionDescriptor.cs" Link="Source\GodotExtensionDescriptor.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\GodotExtensionRegistry.cs" Link="Source\GodotExtensionRegistry.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionInstallPlanner.cs" Link="Source\ExtensionInstallPlanner.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\InstalledStateDetector.cs" Link="Source\InstalledStateDetector.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\IConsumerProjectFile.cs" Link="Source\IConsumerProjectFile.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionInstaller.cs" Link="Source\ExtensionInstaller.cs" />
-    <Compile Include="..\addons\godot_mcp\Extensions\ExtensionsPanelText.cs" Link="Source\ExtensionsPanelText.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\GodotExtensionDescriptor.cs" Link="Source\GodotExtensionDescriptor.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\GodotExtensionRegistry.cs" Link="Source\GodotExtensionRegistry.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\ExtensionInstallPlanner.cs" Link="Source\ExtensionInstallPlanner.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\InstalledStateDetector.cs" Link="Source\InstalledStateDetector.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\IConsumerProjectFile.cs" Link="Source\IConsumerProjectFile.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\ExtensionInstaller.cs" Link="Source\ExtensionInstaller.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\ExtensionsPanelText.cs" Link="Source\ExtensionsPanelText.cs" />
     <!-- DEV-ONLY inject/control bridge ROUTER — pure-managed (no Godot native types, no #if TOOLS): the
          (method, path) → command-id route table + the connection/server status-string parsers + the click-
          target vocabulary. The editor HttpListener transport (DevControlServer.cs) is #if TOOLS and verified
          live (curl the editor), NOT compiled here; the routing/parsing core is unit-tested here. -->
-    <Compile Include="..\addons\godot_mcp\Connection\DevControl\DevControlRouter.cs" Link="Source\DevControlRouter.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\DevControl\DevControlRouter.cs" Link="Source\DevControlRouter.cs" />
     <!-- Runtime (in-game) entry point — pure-managed builder accumulation + handle wrapper (no #if TOOLS).
          GodotMcpRuntimeBuilder is fully pure-managed (config-action / tool-type accumulation) and is what
          these unit tests exercise. GodotMcpRuntime.Build()/GodotMcpRuntimeHandle make native Godot + SignalR
@@ -236,8 +236,8 @@
     <!-- Main-thread dispatcher pair — GodotMcpRuntime.EnsureMainThreadDispatcher references both. Pure-managed
          types (MainThreadDispatcher is a Godot Node, but constructing it is a Suite-3 concern; the runtime
          builder-only tests never instantiate it). Compiled in so the runtime sources resolve their usings. -->
-    <Compile Include="..\addons\godot_mcp\MainThread\MainThreadDispatcher.cs" Link="Source\MainThreadDispatcher.cs" />
-    <Compile Include="..\addons\godot_mcp\MainThread\GodotMainThread.cs" Link="Source\GodotMainThread.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\MainThread\MainThreadDispatcher.cs" Link="Source\MainThreadDispatcher.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\MainThread\GodotMainThread.cs" Link="Source\GodotMainThread.cs" />
   </ItemGroup>
 
 </Project>
