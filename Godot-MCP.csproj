@@ -26,9 +26,16 @@
     sources (which reference packages this game assembly does not, e.g. xUnit) get
     compiled into the game assembly and break the build:
       - Godot-MCP.Tests/   — the xUnit unit-test project.
+      - Godot-Tests/       — the headless CI testbed project (owns Godot-Tests.csproj). It holds the
+                             issue-#186 runtime-integration harness (Harness/RuntimeHarness.cs), whose
+                             namespace + test-project assembly identity would leak into the addon assembly
+                             and break the required `dotnet build (.NET 8)` gate (the sibling-project glob
+                             trap — see conventions.md). The harness only ever compiles inside
+                             Godot-Tests.csproj, driven by the Godot editor/CLI in the harness workflow.
   -->
   <ItemGroup>
     <Compile Remove="Godot-MCP.Tests/**/*.cs" />
+    <Compile Remove="Godot-Tests/**/*.cs" />
   </ItemGroup>
 
 </Project>

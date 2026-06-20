@@ -75,12 +75,30 @@ jobs:
       tag_exists: ${{ steps.tag_exists.outputs.exists }}
       version_changed: ${{ steps.version_changed.outputs.changed }}
       should_release: ${{ steps.gate.outputs.should_release }}
+      server_version: ${{ steps.server_version.outputs.server_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # Single-source the harness server version from the addon's authoritative constant
+      # (GodotMcpServerView.ServerVersion) so the advisory runtime-harness legs download the
+      # server release the addon actually pins — never a stale hardcoded default.
+      - name: Read ServerVersion from the addon constant
+        id: server_version
+        run: |
+          set -euo pipefail
+          src="addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs"
+          server_version="$(grep -oE 'ServerVersion[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$src" \
+            | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')"
+          if [ -z "${server_version}" ]; then
+            echo "::error::Could not read ServerVersion from ${src}"
+            exit 1
+          fi
+          echo "server_version=${server_version}" >> "$GITHUB_OUTPUT"
+          echo "Addon-pinned server version: ${server_version}"
 
       # plugin.cfg is an INI file, so read its `version="x.y.z"` line directly
       # rather than with npm-get-version-action (which expects a package.json).
@@ -209,6 +227,37 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  # godot_mcp runtime INTEGRATION harness across the Godot engine matrix (mono):
+  # downloads the released gamedev-mcp-server, boots a headless game with the
+  # in-game runtime + error capture, and asserts the live SignalR roundtrip +
+  # runtime-error capture (issue #186). Gates the release alongside the addon-load
+  # smoke so a transport/capture regression cannot ship in a release.
+  # serverVersion is single-sourced from the addon constant (check-version-tag.server_version),
+  # so these advisory legs download the server release the addon actually pins.
+  runtime-harness-4-3:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.3.0"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+
+  runtime-harness-4-4:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.4.0"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+
+  runtime-harness-4-5:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.5.1"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+
   # NOTE: the MCP server is NOT built or released here anymore. The addon consumes the
   # shared GameDev-MCP-Server (https://github.com/IvanMurzak/GameDev-MCP-Server), whose
   # own release workflow publishes the `gamedev-mcp-server-<rid>.zip` assets the addon
@@ -224,6 +273,15 @@ jobs:
   # own releases.
   release-addon:
     runs-on: ubuntu-latest
+    # The release gate depends ONLY on the DETERMINISTIC test legs (check-version-tag,
+    # the .NET build+test, the cli node tests, and the addon-LOAD godot smoke). The
+    # runtime-harness-4-{3,4,5} legs are deliberately NOT in this `needs:` array: they are
+    # an end-to-end INTEGRATION harness that downloads an external server release and runs a
+    # live, concurrency-sensitive roundtrip — a transient harness flake or an unavailable
+    # upstream server release must NEVER block a Godot-MCP release. The harness legs still
+    # RUN on the release trigger (in parallel, providing advisory signal against the live
+    # server version); they are just decoupled from the release gate. They remain BLOCKING on
+    # PR CI (test_pull_request.yml), so main is always harness-green before a release is cut.
     needs:
       [
         check-version-tag,

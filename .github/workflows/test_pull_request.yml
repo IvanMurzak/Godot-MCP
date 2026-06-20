@@ -12,6 +12,12 @@
 #   (b) godot-mcp-cli node tests (20/22) via the reusable test_cli.yml
 #   (c) the godot_mcp addon-load smoke across Godot 4.3 / 4.4 / 4.5 (mono) via
 #       the reusable test_godot_plugin.yml
+#   (d) the runtime INTEGRATION harness across Godot 4.3 / 4.4 / 4.5 (mono) via
+#       the reusable test_godot_runtime_harness.yml — downloads the released
+#       gamedev-mcp-server, boots a HEADLESS GAME with the in-game runtime +
+#       error capture, asserts a live SignalR roundtrip AND runtime-error capture
+#       (issue #186). This is the half the #if TOOLS-excluded xUnit suite cannot
+#       reach (connect/handshake/dispatch + in-game capture).
 #
 # NOTE: ci.yml is intentionally left untouched and still runs on push + PR; its
 # job display name `dotnet build (.NET 8)` remains the canonical required check.
@@ -83,3 +89,58 @@ jobs:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.5.1"
+
+  # Single-source the server version the harness downloads from the addon's authoritative
+  # constant (GodotMcpServerView.ServerVersion) instead of trusting the reusable workflow's
+  # hardcoded default. This guarantees the harness ALWAYS runs against the server release the
+  # addon actually pins; bumping the addon's ServerVersion automatically bumps the harness.
+  resolve-server-version:
+    runs-on: ubuntu-latest
+    outputs:
+      serverVersion: ${{ steps.read.outputs.serverVersion }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read ServerVersion from the addon constant
+        id: read
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs"
+          version="$(grep -oE 'ServerVersion[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$src" \
+            | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')"
+          if [ -z "${version}" ]; then
+            echo "::error::Could not read ServerVersion from ${src}"
+            exit 1
+          fi
+          echo "serverVersion=${version}" >> "$GITHUB_OUTPUT"
+          echo "Addon-pinned server version: ${version}"
+
+  # (d) the godot_mcp runtime INTEGRATION harness across the Godot engine matrix
+  #     (mono). Each leg downloads the released gamedev-mcp-server, boots a
+  #     headless game with the in-game runtime + error capture, and asserts the
+  #     live SignalR roundtrip + runtime-error capture (issue #186). The 4.5 leg
+  #     asserts the engine GDScript backtrace (#163); 4.3/4.4 assert graceful stub
+  #     degradation. The serverVersion is single-sourced from the addon constant
+  #     (resolve-server-version) so the harness tracks the addon's pinned server.
+  runtime-harness-4-3:
+    needs: [resolve-server-version]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.3.0"
+      serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
+
+  runtime-harness-4-4:
+    needs: [resolve-server-version]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.4.0"
+      serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
+
+  runtime-harness-4-5:
+    needs: [resolve-server-version]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.5.1"
+      serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
