@@ -33,12 +33,15 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
     {
         readonly IMcpPlugin _plugin;
         readonly GodotMcpConfig _config;
+        readonly bool _uninstallErrorCaptureOnDispose;
         int _disposed;
 
-        internal GodotMcpRuntimeHandle(IMcpPlugin plugin, GodotMcpConfig config)
+        internal GodotMcpRuntimeHandle(IMcpPlugin plugin, GodotMcpConfig config,
+            bool uninstallErrorCaptureOnDispose = false)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            _uninstallErrorCaptureOnDispose = uninstallErrorCaptureOnDispose;
         }
 
         /// <summary>The resolved connection config (host / token / mode) this handle connects with.</summary>
@@ -85,6 +88,15 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             try { _plugin.Dispose(); }
             catch { /* best-effort: never throw out of Dispose */ }
+
+            // Uninstall in-game runtime error capture IFF this handle's Build installed it (opt-in via
+            // WithRuntimeErrorCapture). Removes the engine logger + the AppDomain/TaskScheduler fault hooks and
+            // clears RuntimeErrorCollector.Current. Idempotent + defensive in RuntimeErrorCapture.Uninstall.
+            if (_uninstallErrorCaptureOnDispose)
+            {
+                try { RuntimeErrorCapture.Uninstall(); }
+                catch { /* best-effort: never throw out of Dispose */ }
+            }
         }
 
         void ThrowIfDisposed()

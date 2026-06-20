@@ -7,13 +7,25 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// GODOT 4.5+ ONLY. Godot.Logger / OS.AddLogger do NOT exist in the addon's SDK floor (Godot.NET.Sdk/4.3.0),
-// so referencing them outside this guard would break the required `dotnet build (.NET 8)` CI gate (which
-// pins 4.3.0) with CS0246. The Godot.NET.Sdk defines GODOT4_5_OR_GREATER only when building against the
-// 4.5+ SDK (e.g. the infra testbed pins 4.5.1), so this whole file compiles in on 4.5+ and out on 4.3/4.4.
-// On the floor, GodotScriptErrorLoggerBridge.TryInstall is a no-op stub (see the #else partial below) and
-// script-validate falls back to the per-file Reload() error-code probe (Tool_Script.Validate.cs).
-#if TOOLS && GODOT4_5_OR_GREATER
+// GODOT 4.5+ ONLY (NOT editor-only). Godot.Logger / OS.AddLogger do NOT exist in the addon's SDK floor
+// (Godot.NET.Sdk/4.3.0), so referencing them outside this guard would break the required
+// `dotnet build (.NET 8)` CI gate (which pins 4.3.0) with CS0246. The Godot.NET.Sdk defines
+// GODOT4_5_OR_GREATER only when building against the 4.5+ SDK (e.g. the infra testbed pins 4.5.1), so this
+// whole file compiles in on 4.5+ and out on 4.3/4.4. On the floor, GodotScriptErrorLoggerBridge.TryInstall
+// is a no-op stub (see GodotScriptErrorLogger.Stub.cs) and script-validate falls back to the per-file
+// Reload() error-code probe (Tool_Script.Validate.cs).
+//
+// This file lives under Runtime/ and is NOT gated by #if TOOLS: OS.AddLogger / Godot.Logger are ENGINE
+// (runtime) APIs, not editor APIs — available inside a running / exported game as well as the editor. Two
+// consumers install the SAME bridge:
+//   * the editor boot (Editor/GodotMcpPlugin.cs) captures engine script errors raised IN-EDITOR, and
+//   * the in-game runtime (Runtime/RuntimeErrorCapture.cs) captures engine errors raised in the RUNNING
+//     GAME (GDScript runtime errors, push_error/push_warning, shader errors) — closing the gap where in-game
+//     runtime errors were invisible to the agent (issue #160).
+// The runtime/editor boundary guard (scripts/check-runtime-boundary.py) passes this file because it
+// references no editor-only API (EditorInterface / EditorPlugin / EditorFileSystem / EditorScript) — only
+// the engine OS singleton + Godot.Logger.
+#if GODOT4_5_OR_GREATER
 #nullable enable
 using System;
 using com.IvanMurzak.Godot.MCP.Data;
@@ -65,7 +77,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 line: line,
                 // 'code' is the failed C++ condition string; 'rationale' is the human error text.
                 message: code,
-                rationale: rationale);
+                rationale: rationale,
+                // 'function' is the originating function name — forwarded so the in-game runtime's structured
+                // ErrorSink can populate RuntimeError.Function (the editor passive-log path ignores it).
+                function: function);
         }
 
         // We intentionally do NOT override _LogMessage: ordinary print()/stdout traffic is already covered by
@@ -95,32 +110,58 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // collectible addon assembly), so leaving it registered makes the hot-reload ALC unload fail with the
         // godotengine/godot#78513 ".NET: Failed to unload assemblies" flood. Static field => one registration
         // per loaded assembly, which matches the single boot-time TryInstall.
+        //
+        // Separate-process safety: the editor (Editor/GodotMcpPlugin.cs) and the in-game runtime
+        // (Runtime/RuntimeErrorCapture.cs) BOTH register through this bridge, but Godot launches the running
+        // game (F5 / "Play") as a SEPARATE OS PROCESS — the editor and the game never share an address space,
+        // so each process owns its own copy of this static and one cannot tear down or clobber the other's
+        // registration. The non-destructive guard in TryInstall below additionally protects against a stray
+        // in-process double-install (e.g. a re-init) so it never silently leaks the prior logger.
         static GodotScriptErrorLogger? _installed;
 
         /// <summary>
         /// Install the engine-error logger and return the router it feeds. The router's <see cref="ScriptErrorCapture.LogSink"/>
         /// is wired to <paramref name="collector"/> so passive engine errors land in <c>console-get-logs</c>.
         /// Returns null only if <paramref name="collector"/> is null (nothing to wire) — callers treat null as
-        /// "unavailable". Idempotent-friendly: the caller installs once at boot.
+        /// "unavailable". Idempotent-friendly: the caller installs once at boot. This is the EDITOR path
+        /// (Editor/GodotMcpPlugin.cs); the in-game runtime uses the <see cref="TryInstall(ScriptErrorCapture)"/>
+        /// overload to wire a structured <see cref="ScriptErrorCapture.ErrorSink"/> instead.
         /// </summary>
         public static ScriptErrorCapture? TryInstall(GodotLogCollector collector)
         {
             if (collector == null)
                 return null;
 
-            // Symmetric with Uninstall: tear down any prior registration FIRST. In the normal paired
-            // _EnterTree/_ExitTree lifecycle _installed is already null here, but a stray double-install
-            // (two _EnterTree without an intervening Teardown) would otherwise overwrite _installed without
-            // OS.RemoveLogger/Free()-ing the previous logger — leaking it registered in the engine, which
-            // re-pins the collectible ALC (the exact godot#78513 unload failure this bridge removes) AND
-            // orphans it beyond Uninstall's reach. Uninstall is idempotent, so this is a safe no-op when
-            // nothing is installed.
-            Uninstall();
-
             var capture = new ScriptErrorCapture
             {
                 LogSink = (logType, message) => collector.Append(logType, message),
             };
+
+            return TryInstall(capture);
+        }
+
+        /// <summary>
+        /// Install the engine-error logger feeding a caller-supplied <paramref name="capture"/> router and
+        /// publish it as <see cref="ScriptErrorCapture.Current"/>. The IN-GAME RUNTIME path
+        /// (Runtime/RuntimeErrorCapture.cs): the caller pre-wires <paramref name="capture"/>'s
+        /// <see cref="ScriptErrorCapture.ErrorSink"/> so engine errors raised in the running game are captured
+        /// as structured <see cref="Data.RuntimeError"/> rows. Returns the same <paramref name="capture"/> on
+        /// success, or null if it was null. Main-thread only (mirrors <see cref="OS.AddLogger"/>).
+        /// </summary>
+        public static ScriptErrorCapture? TryInstall(ScriptErrorCapture capture)
+        {
+            if (capture == null)
+                return null;
+
+            // Non-destructive when ALREADY installed: do NOT tear down a live registration to replace it. In
+            // the normal paired install/uninstall lifecycle _installed is null here, but a stray double-install
+            // must not OS.RemoveLogger/Dispose the engine's current logger out from under it (which would both
+            // re-pin the collectible ALC — the exact godot#78513 unload failure this bridge removes — and orphan
+            // the prior registration beyond Uninstall's reach). Treat the already-installed case as a no-op and
+            // return the live router. (Editor and in-game runtime are separate OS processes — see the _installed
+            // field note — so this guard only ever fires for an in-process re-init, never cross-context.)
+            if (_installed != null)
+                return ScriptErrorCapture.Current;
 
             var logger = new GodotScriptErrorLogger(capture);
             OS.AddLogger(logger); // static API in GodotSharp 4.5

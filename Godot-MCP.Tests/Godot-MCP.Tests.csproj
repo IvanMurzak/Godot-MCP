@@ -127,6 +127,28 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnostic.cs" Link="Source\ScriptDiagnostic.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnosticsResult.cs" Link="Source\ScriptDiagnosticsResult.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptErrorCapture.cs" Link="Source\ScriptErrorCapture.cs" />
+    <!-- In-game runtime ERROR CAPTURE (issue #160) — pure-managed pieces only (no Godot native types, no
+         #if TOOLS): the RuntimeError row + source enum, the RuntimeErrorsResult model, the bounded ring-buffer
+         RuntimeErrorCollector (monotonic sequence + since-marker poll), the RuntimeErrorFactory (engine-record
+         + C#-exception → RuntimeError mapping), and the runtime-errors-* tool handlers (read the collector).
+         The capture INSTALLER (RuntimeErrorCapture.cs) touches OS.AddLogger/GD.Print + the static AppDomain/
+         TaskScheduler events (faults in this binary-less host) and the engine Logger subclass
+         (GodotScriptErrorLogger.cs) is #if GODOT4_5_OR_GREATER — both verified via the headless Godot runtime
+         smoke (test.md Suite 3); the models + collector + factory + tool handlers are unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\RuntimeError.cs" Link="Source\RuntimeError.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\RuntimeErrorsResult.cs" Link="Source\RuntimeErrorsResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\RuntimeErrorCollector.cs" Link="Source\RuntimeErrorCollector.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\RuntimeErrorFactory.cs" Link="Source\RuntimeErrorFactory.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_RuntimeErrors.cs" Link="Source\Tool_RuntimeErrors.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_RuntimeErrors.Get.cs" Link="Source\Tool_RuntimeErrors.Get.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_RuntimeErrors.Clear.cs" Link="Source\Tool_RuntimeErrors.Clear.cs" />
+    <!-- Engine-error logger bridge — RuntimeErrorCapture references GodotScriptErrorLoggerBridge. The real
+         bridge (GodotScriptErrorLogger.cs) is #if GODOT4_5_OR_GREATER (compiled OUT at the 4.3.0 test pin), so
+         only the no-op stub (#if !GODOT4_5_OR_GREATER) compiles in here — matching what the addon's 4.3 floor
+         build (and the < 4.5 export) sees. Both are included so the resolution is identical to the addon; the
+         4.5+ Logger subclass + OS.AddLogger path is exercised by the headless Godot 4.5 smoke (test.md Suite 3). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotScriptErrorLogger.cs" Link="Source\GodotScriptErrorLogger.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotScriptErrorLogger.Stub.cs" Link="Source\GodotScriptErrorLogger.Stub.cs" />
     <!-- Screenshot tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
          size-cap clamping, framing trig, view-direction table, and hex-color parse. The editor-driving
          handlers (Tool_Screenshot.*.cs) are #if TOOLS and encode a real Godot Image, so they are verified
@@ -233,6 +255,13 @@
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntimeBuilder.cs" Link="Source\GodotMcpRuntimeBuilder.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntime.cs" Link="Source\GodotMcpRuntime.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpRuntimeHandle.cs" Link="Source\GodotMcpRuntimeHandle.cs" />
+    <!-- Runtime error-capture INSTALLER — referenced by GodotMcpRuntime.Build()/Handle.Dispose(), so it must
+         compile in for those to resolve. It references GD.Print/GD.PushWarning + the AppDomain/TaskScheduler
+         static events (all present at the 4.3.0 test pin; the 4.5-only OS.AddLogger is reached only through
+         the #if-guarded bridge, which is the stub here). The builder-only runtime tests never call Install()
+         (it would touch the live engine and fault in this binary-less host), so it stays compiled-but-uncalled,
+         exactly like GodotMcpRuntime.Build(). Its pure-managed mapping is unit-tested via RuntimeErrorFactory. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\RuntimeErrorCapture.cs" Link="Source\RuntimeErrorCapture.cs" />
     <!-- Main-thread dispatcher pair — GodotMcpRuntime.EnsureMainThreadDispatcher references both. Pure-managed
          types (MainThreadDispatcher is a Godot Node, but constructing it is a Suite-3 concern; the runtime
          builder-only tests never instantiate it). Compiled in so the runtime sources resolve their usings. -->

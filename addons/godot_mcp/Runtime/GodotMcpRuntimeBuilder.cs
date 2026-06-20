@@ -61,6 +61,15 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// </summary>
         internal bool InstallDispatcher { get; private set; } = true;
 
+        /// <summary>
+        /// Whether <see cref="GodotMcpRuntime.Build"/> should install in-game runtime error capture (the
+        /// engine 4.5+ <c>OS.AddLogger</c> hook + C# unhandled / unobserved-Task exception hooks) and register
+        /// the <c>runtime-errors-*</c> tool so captured errors are retrievable. OFF by default — the
+        /// security/secure-by-default posture: nothing is captured and no hooks are installed unless the
+        /// developer opts in via <see cref="WithRuntimeErrorCapture"/>. See <c>RuntimeErrorCapture</c>.
+        /// </summary>
+        internal bool CaptureRuntimeErrors { get; private set; } = false;
+
         internal GodotMcpRuntimeBuilder() { }
 
         /// <summary>
@@ -202,6 +211,34 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         public GodotMcpRuntimeBuilder WithoutMainThreadDispatcher()
         {
             InstallDispatcher = false;
+            return this;
+        }
+
+        /// <summary>
+        /// Enable in-game runtime ERROR CAPTURE: at <see cref="Build"/> the runtime installs the engine 4.5+
+        /// <c>OS.AddLogger</c> hook (capturing GDScript runtime errors, <c>push_error</c>/<c>push_warning</c>,
+        /// and shader errors raised in the RUNNING game) plus the C# <c>AppDomain.UnhandledException</c> /
+        /// <c>TaskScheduler.UnobservedTaskException</c> hooks (capturing unhandled managed exceptions with full
+        /// stack traces), and registers the <c>runtime-errors-*</c> tool so the agent can poll the captured
+        /// errors. This is the in-game answer to "did the running game raise any error?" — closing the gap
+        /// (issue #160) where only editor-side script errors were visible.
+        ///
+        /// <para>
+        /// <b>OFF by default</b> (the secure/opt-in posture): without this call nothing is captured and no
+        /// fault hooks are installed. On Godot &lt; 4.5 the engine logger channel is unavailable (documented
+        /// graceful degradation), but the C# exception channels still work. Disposing the
+        /// <see cref="GodotMcpRuntimeHandle"/> uninstalls the hooks. Idempotent — calling twice registers the
+        /// tool once (the builder de-duplicates) and the runtime installs capture once.
+        /// </para>
+        ///
+        /// Returns <c>this</c> for chaining.
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithRuntimeErrorCapture()
+        {
+            CaptureRuntimeErrors = true;
+            // Auto-register the runtime-errors tool so the captured errors are actually reachable by the agent.
+            // De-duplicated by WithTools, so this is safe to compose with an explicit registration.
+            WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_RuntimeErrors));
             return this;
         }
 

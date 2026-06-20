@@ -13,7 +13,12 @@
 // is compiled IN. TryInstall is a no-op that installs nothing, so ScriptErrorCapture.Current stays null:
 // passive engine-log capture is unavailable and script-validate falls back to the per-file Reload()
 // error-code probe (Coarse fidelity).
-#if TOOLS && !GODOT4_5_OR_GREATER
+//
+// Like its 4.5+ counterpart this stub lives under Runtime/ and is NOT gated by #if TOOLS — it ships into a
+// game build so the in-game runtime error-capture (Runtime/RuntimeErrorCapture.cs) compiles and degrades
+// gracefully on a < 4.5 export (TryInstall returns null → no engine-error capture, but the C# unhandled-
+// exception hooks still work; see issue #160).
+#if !GODOT4_5_OR_GREATER
 #nullable enable
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -26,8 +31,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class GodotScriptErrorLoggerBridge
     {
-        /// <summary>No-op on Godot &lt; 4.5; always returns null. (Signature matches the 4.5+ bridge.)</summary>
+        /// <summary>No-op on Godot &lt; 4.5; always returns null. (Signature matches the 4.5+ bridge — the
+        /// editor passive-log path.)</summary>
         public static ScriptErrorCapture? TryInstall(GodotLogCollector collector) => null;
+
+        /// <summary>No-op on Godot &lt; 4.5; always returns null. (Signature matches the 4.5+ bridge — the
+        /// in-game runtime structured-capture path. On the floor there is no engine error stream to hook, so
+        /// the runtime degrades to C#-exception capture only; see RuntimeErrorCapture.)</summary>
+        public static ScriptErrorCapture? TryInstall(ScriptErrorCapture capture) => null;
 
         /// <summary>
         /// No-op on Godot &lt; 4.5 (nothing was installed, so there is nothing to remove). Matches the 4.5+

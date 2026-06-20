@@ -33,6 +33,35 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     }
 
     /// <summary>
+    /// One structured engine-error callback forwarded to <see cref="ScriptErrorCapture.ErrorSink"/> — the
+    /// full origin (kind + file + line + function + already-resolved human message), distinct from the
+    /// flattened single-line form <see cref="ScriptErrorCapture.LogSink"/> receives. Consumed by the in-game
+    /// runtime to build <see cref="Data.RuntimeError"/> rows that preserve file/line/function. Pure-managed.
+    /// </summary>
+    public readonly struct EngineErrorRecord
+    {
+        /// <summary>The engine error category (Error / Warning / Script / Shader).</summary>
+        public EngineErrorKind Kind { get; }
+        /// <summary>Origin source path (res:// or absolute), or null/empty when the engine omitted it.</summary>
+        public string? FilePath { get; }
+        /// <summary>1-based origin line, or -1 when unknown.</summary>
+        public int Line { get; }
+        /// <summary>Origin function name, or null/empty when the engine omitted it.</summary>
+        public string? Function { get; }
+        /// <summary>The resolved human-readable error text (rationale preferred, else the C++ condition).</summary>
+        public string Message { get; }
+
+        public EngineErrorRecord(EngineErrorKind kind, string? filePath, int line, string? function, string message)
+        {
+            Kind = kind;
+            FilePath = filePath;
+            Line = line;
+            Function = function;
+            Message = message;
+        }
+    }
+
+    /// <summary>
     /// Pure-managed router for engine log/error callbacks captured via Godot 4.5's <c>OS.AddLogger</c> hook.
     /// It does TWO independent jobs from a single engine callback, decoupled from the Godot type so both are
     /// unit-testable:
@@ -72,6 +101,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// real collector; unit tests inject a fake). May be null (capture-session-only mode).
         /// </summary>
         public Action<GodotLogType, string>? LogSink { get; set; }
+
+        /// <summary>
+        /// Optional STRUCTURED sink for full engine-error records (kind + file + line + function + message),
+        /// distinct from the flattened-string <see cref="LogSink"/>. The in-game runtime
+        /// (<c>RuntimeErrorCapture</c>) wires this so engine errors raised in a running game are captured as
+        /// structured <see cref="Data.RuntimeError"/> rows for the <c>runtime-errors-get</c> tool — preserving
+        /// the origin fields the formatted log line collapses. Invoked on every engine callback regardless of
+        /// validation-session state (errors fire whether or not a <see cref="BeginSession"/> is open). May be
+        /// null (the editor passive-log path leaves it unset and uses <see cref="LogSink"/> only).
+        /// </summary>
+        public Action<EngineErrorRecord>? ErrorSink { get; set; }
 
         /// <summary>True while a validation capture session is open (see <see cref="BeginSession"/>).</summary>
         public bool SessionActive
@@ -118,13 +158,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Route one engine callback. Appends to <see cref="LogSink"/> (passive capture, always) and — when a
-        /// session is open and the callback is a <see cref="EngineErrorKind.Script"/> error whose file matches
-        /// the session target (see <see cref="BeginSession"/>) — records a structured diagnostic.
-        /// <paramref name="line"/> may be -1 when unknown; <paramref name="filePath"/> is the engine source
-        /// path (kept as-is; it may be a <c>res://</c> or absolute path). Thread-safe.
+        /// Route one engine callback. Appends to <see cref="LogSink"/> (passive flattened capture, always),
+        /// forwards a structured record to <see cref="ErrorSink"/> (always, when wired — the in-game runtime's
+        /// path), and — when a session is open and the callback is a <see cref="EngineErrorKind.Script"/> error
+        /// whose file matches the session target (see <see cref="BeginSession"/>) — records a structured
+        /// diagnostic. <paramref name="line"/> may be -1 when unknown; <paramref name="filePath"/> is the engine
+        /// source path (kept as-is; it may be a <c>res://</c> or absolute path); <paramref name="function"/> is
+        /// the originating function name (may be null/empty when the engine omits it). Thread-safe.
         /// </summary>
-        public void Route(EngineErrorKind kind, string? filePath, int line, string? message, string? rationale)
+        public void Route(EngineErrorKind kind, string? filePath, int line, string? message, string? rationale,
+            string? function = null)
         {
             // Build the human line: prefer the engine "rationale" (the actual error text) and fall back to
             // the C++ assertion "message" (the failed condition) when no rationale is present.
@@ -136,6 +179,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             // Passive capture: surface a path:line prefix so console-get-logs is self-describing.
             LogSink?.Invoke(logType, FormatLogLine(kind, filePath, line, text));
+
+            // Structured capture (in-game runtime): forward the full origin so runtime-errors-get can return
+            // file/line/function/type, not just a flattened line. Always fires (errors are not session-gated).
+            // Wrapped for parity with the in-game C# fault handlers: this runs on the engine's (multi-threaded)
+            // log callback, so a throwing sink must never escape back into the engine.
+            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text)); }
+            catch { /* a captured engine-error sink must never throw back into the engine callback */ }
 
             // Validation capture: only script errors, only while a session is open.
             if (kind != EngineErrorKind.Script)
