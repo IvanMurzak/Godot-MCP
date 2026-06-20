@@ -100,6 +100,12 @@
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
+    <!-- Bounded-teardown drain diagnostics — pure-BCL (no Godot native types, no #if TOOLS): the
+         timeout->warning DECISION for DisconnectAndDrain's WaitForImmediateTeardown bounded wait (issue #189).
+         Routes the single warning through an injectable Action&lt;string&gt; sink (the GD.PushWarning wiring lives in
+         GodotMcpConnection.cs, which is editor/runtime-coupled and verified via the headless Godot smoke); the
+         drained->no-warning / timeout->warning decision + message shape are unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpDrainDiagnostics.cs" Link="Source\GodotMcpDrainDiagnostics.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
     <!-- Scene/Node tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
          structured result models, the property-patch model, the path normalizer, and the ambient

@@ -269,6 +269,29 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public event Action? AgentsUpdated;
 
+        /// <summary>
+        /// Wire the pure-managed <see cref="GodotMcpDrainDiagnostics"/> seam's warning sink to a defensively
+        /// wrapped <see cref="GD.PushWarning(string)"/> exactly once, when this type is first touched (which is
+        /// guaranteed before any <see cref="DisconnectAndDrain"/> call). The seam stays Godot-free + unit-testable;
+        /// the actual editor/runtime warning is emitted through this swallow-on-fault wrapper so a timeout report
+        /// never throws into the ALC-unloading teardown path even if GD is unavailable mid editor-reload.
+        /// </summary>
+        static GodotMcpConnection()
+        {
+            GodotMcpDrainDiagnostics.Warn = PushWarningSafe;
+        }
+
+        /// <summary>
+        /// Emit a warning via <see cref="GD.PushWarning(string)"/>, swallowing any failure (GD may be unavailable
+        /// mid editor-reload). Same defensive discipline as the inline <c>try { GD.Push* } catch { }</c> call sites
+        /// in <see cref="DisconnectAndDrain"/> — diagnostics must never break the boot/unload path.
+        /// </summary>
+        static void PushWarningSafe(string message)
+        {
+            try { GD.PushWarning(message); }
+            catch { /* GD may be unavailable mid-reload; swallow */ }
+        }
+
         public GodotMcpConnection(GodotMcpConfig? config = null)
         {
             _config = config ?? new GodotMcpConfig();
@@ -1159,12 +1182,25 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             //      abandon the task) and before the ALC unload — so the SignalR transport's running threads /
             //      GC handles are actually released, not just signalled. Non-blocking-on-async (thread-pool
             //      task), so no deadlock on the editor main = unload thread. THE connection root of godot#78513.
-            try { plugin.WaitForImmediateTeardown(timeout); }
+            //
+            //      WaitForImmediateTeardown returns a bool: true = drained within the bound (or nothing pending /
+            //      already disposed); false = the bounded wait TIMED OUT (a black-holed host that never finished
+            //      the dispatched teardown) or faulted. On a timeout we still proceed with Dispose + the ALC
+            //      unload (the correct bounded behaviour — the timeout value + proceed-anyway semantics are
+            //      UNCHANGED), but proceeding silently re-introduces the godot#78513 symptom (live transport
+            //      threads/handles may briefly outlive the reload). Surface that as exactly ONE diagnostic
+            //      WARNING (not an error — proceeding is still correct) via the pure-managed, unit-testable
+            //      GodotMcpDrainDiagnostics seam; the completion path emits nothing. The warning itself is
+            //      defensively wrapped (the seam swallows a faulting sink) so it never throws into the unload.
+            bool drained = true;
+            try { drained = plugin.WaitForImmediateTeardown(timeout); }
             catch (Exception ex)
             {
+                drained = false; // treat a fault like a timeout — the teardown did not provably drain.
                 try { GD.PushError($"[Godot-MCP] wait-for-immediate-teardown (drain) failed: {ex.Message}"); }
                 catch { /* GD may be unavailable mid-reload; swallow */ }
             }
+            GodotMcpDrainDiagnostics.ReportDrainResult(drained, timeout);
 
             // 2) Final plugin Dispose (idempotent): releases the R3 subscriptions + the manager.
             try { plugin.Dispose(); }
