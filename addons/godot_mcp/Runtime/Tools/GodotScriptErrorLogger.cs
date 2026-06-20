@@ -152,10 +152,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var list = new List<RuntimeErrorFrame>(frameCount);
                 for (int i = 0; i < frameCount; i++)
                 {
+                    // Normalize the engine line to RuntimeErrorFrame's "-1 == unknown" sentinel: Godot reports
+                    // 0 (not -1) for a frame with no usable line info (e.g. a function-signature frame, or a
+                    // release export without call-stack line tracking — godotengine/godot#106484). Left raw, a
+                    // 0-line frame would render "res://x.gd:0" and serialize line:0, contradicting the contract
+                    // that ToString()/serialization treat <0 as "no line".
+                    var frameLine = backtrace.GetFrameLine(i);
                     list.Add(new RuntimeErrorFrame(
                         function: backtrace.GetFrameFunction(i),
                         file: backtrace.GetFrameFile(i),
-                        line: backtrace.GetFrameLine(i)));
+                        line: frameLine > 0 ? frameLine : -1));
                 }
 
                 if (list.Count == 0)
@@ -170,34 +176,34 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Render a human-readable stack-trace string for a captured backtrace, prefixing the script-language
-        /// name. Prefers the engine's <see cref="ScriptBacktrace.Format()"/>; falls back to joining the
-        /// already-materialized <paramref name="frames"/> if Format() returns empty.
+        /// Render a human-readable stack-trace string for a captured backtrace. Prefers the engine's
+        /// <see cref="ScriptBacktrace.Format()"/>, which is ALREADY self-heading — it emits its own
+        /// "&lt;language&gt; backtrace (most recent call first):" header — so we return it verbatim and do NOT
+        /// add a second language prefix (which would double-head the output). Only the managed-join fallback
+        /// (used when Format() returns empty) gets a "&lt;language&gt; backtrace:" prefix, since the joined
+        /// frames carry no header of their own.
         /// </summary>
         static string BuildStackTraceString(global::Godot.ScriptBacktrace backtrace, List<RuntimeErrorFrame> frames)
         {
-            string? language = null;
-            try { language = backtrace.GetLanguageName(); } catch { /* best-effort label */ }
-
-            string body;
             string? formatted = null;
             try { formatted = backtrace.Format(); } catch { /* fall back to the managed join below */ }
 
+            // Format() already prepends its own "<language> backtrace (...)" header — return it as-is.
             if (!string.IsNullOrWhiteSpace(formatted))
+                return formatted!;
+
+            // Managed-join fallback: the joined frames have no header, so synthesize one from the language.
+            var sb = new StringBuilder();
+            foreach (var frame in frames)
             {
-                body = formatted!;
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append(frame.ToString());
             }
-            else
-            {
-                var sb = new StringBuilder();
-                foreach (var frame in frames)
-                {
-                    if (sb.Length > 0)
-                        sb.Append('\n');
-                    sb.Append(frame.ToString());
-                }
-                body = sb.ToString();
-            }
+            var body = sb.ToString();
+
+            string? language = null;
+            try { language = backtrace.GetLanguageName(); } catch { /* best-effort label */ }
 
             return string.IsNullOrEmpty(language)
                 ? body

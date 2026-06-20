@@ -145,6 +145,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Unknown line drops the :line suffix; unknown function falls back to <unknown>.
             Assert.Equal("at _ready res://m.gd", new RuntimeErrorFrame("_ready", "res://m.gd", -1).ToString());
             Assert.Equal("at <unknown>", new RuntimeErrorFrame(null, null, -1).ToString());
+            // A line of 0 is NOT treated as "unknown" by the frame itself — only <0 is. This is the contract
+            // that forces GodotScriptErrorLogger.MaterializeBacktrace to normalize Godot's 0 (no line info) to
+            // the -1 sentinel at materialization, rather than letting a bare "res://m.gd:0" reach the agent.
+            Assert.Equal("at _ready res://m.gd:0", new RuntimeErrorFrame("_ready", "res://m.gd", 0).ToString());
         }
 
         [Fact]
