@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -200,6 +201,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     await src.CopyToAsync(dst);
                 }
 
+                // FAIL-CLOSED INTEGRITY GATE (verify-before-execute). The zip is on disk but UNTRUSTED. Before
+                // extracting or launching it, download the release's SHA256SUMS manifest (sibling of the zip
+                // URL under the same v<ServerVersion> tag), compute the downloaded zip's SHA256 (pure BCL), and
+                // compare against the manifest entry for THIS RID. On MISMATCH / MISSING entry / unparsable
+                // manifest we delete the temp zip and return the existing download-failure path WITHOUT
+                // extracting or launching — an unverified binary must NEVER be executed (a compromised release
+                // asset or a trusted-CA MITM would otherwise yield arbitrary code execution; issue #192).
+                var assetZipName = GodotMcpServerView.AssetZipName(os, arch);
+                if (!await VerifyDownloadedArchive(archivePath, serverVersion, assetZipName))
+                {
+                    try { File.Delete(archivePath); } catch { /* best effort */ }
+                    return false;
+                }
+
                 _log($"[Godot-MCP] unpacking GameDev-MCP-Server binary to: {platformFolder}");
                 // The shared GameDev-MCP-Server release zips are NOT layout-uniform: the win zips are FLAT
                 // (gamedev-mcp-server.exe at the zip root) while the osx/linux zips wrap the binary in a
@@ -257,6 +272,108 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 _logError($"[Godot-MCP] failed to download/unpack server binary: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// The number of attempts for the SHA256SUMS manifest fetch (1 initial + retries) before we
+        /// fail-closed. A TRANSIENT network error on the manifest fetch is retried (the binary is already
+        /// downloaded; only the integrity manifest is missing) — but a persistent failure NEVER falls through
+        /// to executing an unverified binary.
+        /// </summary>
+        const int Sha256SumsFetchAttempts = 3;
+
+        /// <summary>Backoff between SHA256SUMS fetch attempts.</summary>
+        static readonly TimeSpan Sha256SumsRetryDelay = TimeSpan.FromSeconds(1.0);
+
+        /// <summary>
+        /// Fail-closed verify-before-execute gate. Downloads the release's <c>SHA256SUMS</c> manifest (with a
+        /// bounded transient-retry), computes the downloaded zip's SHA256 (pure BCL
+        /// <see cref="SHA256.HashData(System.ReadOnlySpan{byte})"/> — no new deps), and compares against the
+        /// manifest entry for <paramref name="assetZipName"/> via the pure-managed
+        /// <see cref="GodotMcpServerView.VerifyZipChecksum"/>. Returns true ONLY when the digest matched the
+        /// manifest. Every failure path — a manifest we could not fetch after all retries, an unparsable
+        /// manifest, a missing entry, or a digest mismatch — returns false with a clear, actionable error so
+        /// the caller skips extraction/launch. Never throws.
+        /// </summary>
+        async Task<bool> VerifyDownloadedArchive(string archivePath, string serverVersion, string assetZipName)
+        {
+            var sumsUrl = GodotMcpServerView.Sha256SumsUrl(serverVersion);
+
+            // 1) Fetch the integrity manifest (bounded transient-retry). A null result means every attempt
+            //    failed — fail-closed (do NOT execute an unverified binary).
+            var sha256SumsText = await FetchSha256SumsText(sumsUrl);
+            if (sha256SumsText == null)
+            {
+                _logError(
+                    $"[Godot-MCP] refusing to launch server: could not download the {GodotMcpServerView.Sha256SumsAssetName} " +
+                    $"integrity manifest from {sumsUrl} after {Sha256SumsFetchAttempts} attempt(s). " +
+                    "The downloaded binary was NOT verified and will not be executed (fail-closed).");
+                return false;
+            }
+
+            // 2) Compute the downloaded zip's SHA256 (pure BCL).
+            string actualHexDigest;
+            try
+            {
+                await using var zipStream = File.OpenRead(archivePath);
+                var hashBytes = await SHA256.HashDataAsync(zipStream);
+                actualHexDigest = Convert.ToHexString(hashBytes); // upper-case hex; compare is case-insensitive
+            }
+            catch (Exception ex)
+            {
+                _logError($"[Godot-MCP] refusing to launch server: failed to compute the downloaded zip's SHA256: {ex.Message}");
+                return false;
+            }
+
+            // 3) Parse + compare via the pure-managed verifier (unit-tested with no Godot binary).
+            var verdict = GodotMcpServerView.VerifyZipChecksum(sha256SumsText, assetZipName, actualHexDigest);
+            if (verdict != GodotMcpServerView.ChecksumVerdict.Verified)
+            {
+                _logError(
+                    $"[Godot-MCP] refusing to launch server: {GodotMcpServerView.ChecksumFailureReason(verdict, assetZipName)}. " +
+                    "The binary will not be extracted or executed (fail-closed).");
+                return false;
+            }
+
+            _log($"[Godot-MCP] verified '{assetZipName}' against {GodotMcpServerView.Sha256SumsAssetName} (SHA256 OK).");
+            return true;
+        }
+
+        /// <summary>
+        /// Download the <c>SHA256SUMS</c> manifest text with a bounded transient-retry. Returns the manifest
+        /// body, or null when every attempt failed (the fail-closed signal). The manifest is small text — read
+        /// it fully into a string. Never throws.
+        /// </summary>
+        async Task<string?> FetchSha256SumsText(string sumsUrl)
+        {
+            for (var attempt = 1; attempt <= Sha256SumsFetchAttempts; attempt++)
+            {
+                try
+                {
+                    using var client = new HttpClient();
+                    using var response = await client.GetAsync(sumsUrl);
+                    response.EnsureSuccessStatusCode();
+                    return await response.Content.ReadAsStringAsync();
+                }
+                catch (Exception ex)
+                {
+                    if (attempt < Sha256SumsFetchAttempts)
+                    {
+                        _logWarning(
+                            $"[Godot-MCP] {GodotMcpServerView.Sha256SumsAssetName} fetch attempt {attempt}/{Sha256SumsFetchAttempts} " +
+                            $"failed ({ex.Message}); retrying…");
+                        try { await Task.Delay(Sha256SumsRetryDelay); } catch { /* ignore */ }
+                    }
+                    else
+                    {
+                        _logWarning(
+                            $"[Godot-MCP] {GodotMcpServerView.Sha256SumsAssetName} fetch attempt {attempt}/{Sha256SumsFetchAttempts} " +
+                            $"failed ({ex.Message}).");
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
