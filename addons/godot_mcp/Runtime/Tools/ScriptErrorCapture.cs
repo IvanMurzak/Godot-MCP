@@ -37,6 +37,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// full origin (kind + file + line + function + already-resolved human message), distinct from the
     /// flattened single-line form <see cref="ScriptErrorCapture.LogSink"/> receives. Consumed by the in-game
     /// runtime to build <see cref="Data.RuntimeError"/> rows that preserve file/line/function. Pure-managed.
+    ///
+    /// <para>
+    /// On Godot 4.5+, an engine SCRIPT error also carries the deep multi-frame GDScript call stack (issue
+    /// #163): <see cref="Frames"/> is the ALREADY-MATERIALIZED list of managed frame primitives, and
+    /// <see cref="StackTrace"/> is the engine's formatted backtrace string. Both are copied off the live
+    /// non-thread-safe <c>ScriptBacktrace</c> inside the logger callback on the originating thread — this
+    /// record only ever holds plain managed values, never a live Godot handle, so it is safe to forward
+    /// across the thread boundary into the collector. On &lt; 4.5 (or for non-script engine errors) both are
+    /// null/empty, preserving the origin-only behavior.
+    /// </para>
     /// </summary>
     public readonly struct EngineErrorRecord
     {
@@ -51,13 +61,37 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>The resolved human-readable error text (rationale preferred, else the C++ condition).</summary>
         public string Message { get; }
 
+        /// <summary>
+        /// The deep multi-frame backtrace, innermost-first, materialized off Godot 4.5+'s
+        /// <c>ScriptBacktrace</c> (issue #163). Null/empty when no backtrace was available (Godot &lt; 4.5,
+        /// release builds without call-stack tracking, or a non-script error). Always plain managed values —
+        /// never a live Godot object.
+        /// </summary>
+        public IReadOnlyList<RuntimeErrorFrame>? Frames { get; }
+
+        /// <summary>
+        /// The engine's formatted backtrace string (from <c>ScriptBacktrace.Format()</c>), or null when no
+        /// backtrace was available. A human-readable multi-line rendering of <see cref="Frames"/>, surfaced as
+        /// <see cref="Data.RuntimeError.StackTrace"/>.
+        /// </summary>
+        public string? StackTrace { get; }
+
         public EngineErrorRecord(EngineErrorKind kind, string? filePath, int line, string? function, string message)
+            : this(kind, filePath, line, function, message, frames: null, stackTrace: null)
+        {
+        }
+
+        public EngineErrorRecord(EngineErrorKind kind, string? filePath, int line, string? function, string message,
+            IReadOnlyList<RuntimeErrorFrame>? frames, string? stackTrace)
         {
             Kind = kind;
             FilePath = filePath;
             Line = line;
             Function = function;
             Message = message;
+            // Normalize an empty backtrace to null so consumers have a single "no frames" sentinel.
+            Frames = frames != null && frames.Count > 0 ? frames : null;
+            StackTrace = string.IsNullOrEmpty(stackTrace) ? null : stackTrace;
         }
     }
 
@@ -165,9 +199,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// diagnostic. <paramref name="line"/> may be -1 when unknown; <paramref name="filePath"/> is the engine
         /// source path (kept as-is; it may be a <c>res://</c> or absolute path); <paramref name="function"/> is
         /// the originating function name (may be null/empty when the engine omits it). Thread-safe.
+        /// <para>
+        /// <paramref name="frames"/> / <paramref name="stackTrace"/> carry the deep multi-frame GDScript
+        /// backtrace (issue #163), already materialized off Godot 4.5+'s non-thread-safe
+        /// <c>ScriptBacktrace</c> INSIDE the logger callback (on the originating thread) by the caller — this
+        /// router only ever receives plain managed values, never a live Godot object, so the thread-safety
+        /// invariant is preserved. Both are null/empty for the editor passive-log path and on Godot &lt; 4.5.
+        /// </para>
         /// </summary>
         public void Route(EngineErrorKind kind, string? filePath, int line, string? message, string? rationale,
-            string? function = null)
+            string? function = null, IReadOnlyList<RuntimeErrorFrame>? frames = null, string? stackTrace = null)
         {
             // Build the human line: prefer the engine "rationale" (the actual error text) and fall back to
             // the C++ assertion "message" (the failed condition) when no rationale is present.
@@ -180,11 +221,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // Passive capture: surface a path:line prefix so console-get-logs is self-describing.
             LogSink?.Invoke(logType, FormatLogLine(kind, filePath, line, text));
 
-            // Structured capture (in-game runtime): forward the full origin so runtime-errors-get can return
-            // file/line/function/type, not just a flattened line. Always fires (errors are not session-gated).
-            // Wrapped for parity with the in-game C# fault handlers: this runs on the engine's (multi-threaded)
-            // log callback, so a throwing sink must never escape back into the engine.
-            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text)); }
+            // Structured capture (in-game runtime): forward the full origin + deep backtrace so
+            // runtime-errors-get can return file/line/function/type AND the multi-frame stack, not just a
+            // flattened line. Always fires (errors are not session-gated). Wrapped for parity with the in-game
+            // C# fault handlers: this runs on the engine's (multi-threaded) log callback, so a throwing sink
+            // must never escape back into the engine.
+            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text, frames, stackTrace)); }
             catch { /* a captured engine-error sink must never throw back into the engine callback */ }
 
             // Validation capture: only script errors, only while a session is open.
