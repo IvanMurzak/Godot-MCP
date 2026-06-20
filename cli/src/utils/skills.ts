@@ -325,13 +325,27 @@ export function addonToolDirs(repoRoot: string): string[] {
  *   names) collapses each multi-file family to ONE entry automatically.
  * - The regex tolerates other attributes/whitespace between `[AiToolType]` and the
  *   class declaration, and an optional access modifier on the class.
+ * - Sub-tool families use a COMPOUND class name (`Tool_Editor_Selection` adds the
+ *   `editor-selection-*` tools to the `editor` family). We capture the whole
+ *   `Tool_<Seg1>[_<Seg2>...]` suffix and attribute it to its FIRST segment
+ *   (`Tool_Editor_Selection` → `Editor`), so a sub-tool class lands in its parent
+ *   family instead of being silently dropped (which would happen if the capture
+ *   stopped at the first `_`). The trailing `Set<string>` dedups the parent family
+ *   when both `Tool_Editor` and `Tool_Editor_Selection` exist.
+ * - The attribute MUST bind to its IMMEDIATELY-following type declaration: the gap
+ *   between `[AiToolType]` and `Tool_<Family>` may contain only other attributes,
+ *   doc comments, and whitespace — never an intervening type keyword. This stops a
+ *   stray `[AiToolType]` on a non-`Tool_` type from being misattributed to a later
+ *   `Tool_` class in the same file.
  */
 export function discoverAddonToolFamilies(repoRoot: string): string[] {
-  // `[AiToolType]` (possibly with args), then any amount of attributes/whitespace,
-  // then `partial class Tool_<Family>`. `[\s\S]*?` is non-greedy so it stops at the
-  // first class declaration after the attribute.
+  // `[AiToolType]` (possibly with args), then ONLY attributes / doc-comments /
+  // whitespace (no intervening `class`/`struct`/`interface`/`enum`/`record`
+  // keyword — `(?:(?!\b(?:class|struct|interface|enum|record)\b)[\s\S])*?` forbids
+  // crossing one), then `partial class Tool_<Family>` where `<Family>` is the full
+  // compound suffix (`Editor`, `Editor_Selection`, ...). First segment = the family.
   const familyRe =
-    /\[AiToolType[^\]]*\][\s\S]*?\bpartial\s+class\s+Tool_([A-Za-z][A-Za-z0-9]*)\b/g;
+    /\[AiToolType[^\]]*\](?:(?!\b(?:class|struct|interface|enum|record)\b)[\s\S])*?\bpartial\s+class\s+Tool_([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z][A-Za-z0-9]*)*)\b/g;
   const found = new Set<string>();
 
   for (const dir of addonToolDirs(repoRoot)) {
@@ -342,7 +356,9 @@ export function discoverAddonToolFamilies(repoRoot: string): string[] {
       let m: RegExpExecArray | null;
       familyRe.lastIndex = 0;
       while ((m = familyRe.exec(src)) !== null) {
-        found.add(m[1]);
+        // Attribute a compound sub-tool class (`Tool_Editor_Selection`) to its
+        // parent family by taking the FIRST `_`-delimited segment (`Editor`).
+        found.add(m[1].split('_')[0]);
       }
     }
   }
