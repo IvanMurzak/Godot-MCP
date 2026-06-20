@@ -697,6 +697,112 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Single(builder.ToolTypes, t => t == typeof(Tool_RuntimeErrors));
         }
 
+        // ---- Build leak-guard: a post-install Build() throw must not leak the global hooks (issue #165) ----
+        //
+        // GodotMcpRuntime.Build() opts capture in (RuntimeErrorCapture.Install) and only later constructs the
+        // GodotMcpRuntimeHandle that owns Uninstall(). Before the fix, an exception on the fallible build path
+        // between those two points (the reflector/converter setup, McpPluginBuilder.Build, the WithTools/Prompts/
+        // Resources scans, or the handle construction) escaped with the PROCESS-WIDE engine OS.AddLogger +
+        // AppDomain.UnhandledException + TaskScheduler.UnobservedTaskException hooks still registered for the life
+        // of the game and RuntimeErrorCollector.Current orphaned, with no handle to ever tear them down.
+        //
+        // The fix DEFERS the install to the very end and binds it to the handle construction in the testable
+        // GodotMcpRuntime.InstallCaptureThenBuildHandle, which rolls capture back if the post-install step throws.
+        // These tests drive that helper directly (the full Build() path touches native Godot — Engine.GetMainLoop,
+        // GD.Print, OS.AddLogger — and faults in the binary-less xUnit host). The _installForTests /
+        // _uninstallForTests seams substitute a pure-managed install/uninstall so the REAL RuntimeErrorCapture
+        // static state (IsInstalled / RuntimeErrorCollector.Current) can be asserted without calling GD.Print.
+
+        [Fact]
+        public void InstallCaptureThenBuildHandle_PostInstallThrow_UninstallsCapture_NoLeak()
+        {
+            WithPureManagedCaptureSeams(() =>
+            {
+                Assert.False(RuntimeErrorCapture.IsInstalled); // clean precondition
+                Assert.Null(RuntimeErrorCollector.Current);
+
+                var ex = Record.Exception(() => GodotMcpRuntime.InstallCaptureThenBuildHandle(
+                    captureRequested: true,
+                    buildHandle: captured =>
+                    {
+                        // Capture must already be live by the time the handle factory runs (deferred-install
+                        // contract): the factory is told to wire up Dispose-time uninstall.
+                        Assert.True(captured);
+                        Assert.True(RuntimeErrorCapture.IsInstalled);
+                        Assert.NotNull(RuntimeErrorCollector.Current);
+                        throw new InvalidOperationException("simulated post-install build failure");
+                    }));
+
+                // The original fault propagates...
+                Assert.IsType<InvalidOperationException>(ex);
+                Assert.Equal("simulated post-install build failure", ex!.Message);
+
+                // ...and the global hooks were rolled back — NO leak (the issue #165 acceptance criterion).
+                Assert.False(RuntimeErrorCapture.IsInstalled);
+                Assert.Null(RuntimeErrorCollector.Current);
+            });
+        }
+
+        [Fact]
+        public void InstallCaptureThenBuildHandle_SuccessPath_LeavesCaptureInstalled()
+        {
+            WithPureManagedCaptureSeams(() =>
+            {
+                var sawCaptured = false;
+                GodotMcpRuntime.InstallCaptureThenBuildHandle(
+                    captureRequested: true,
+                    buildHandle: captured =>
+                    {
+                        sawCaptured = captured;
+                        return null!; // a real IMcpPlugin-backed handle is unavailable here; the value is unused.
+                    });
+
+                // Success path: capture stays installed (the handle would uninstall it on Dispose), and the
+                // factory was told capture is owned by this build.
+                Assert.True(sawCaptured);
+                Assert.True(RuntimeErrorCapture.IsInstalled);
+                Assert.NotNull(RuntimeErrorCollector.Current);
+
+                // Cleanup for the next test (the WithPureManagedCaptureSeams finally also restores Current).
+                RuntimeErrorCapture.Uninstall();
+                Assert.False(RuntimeErrorCapture.IsInstalled);
+            });
+        }
+
+        [Fact]
+        public void InstallCaptureThenBuildHandle_NotRequested_NeverInstalls_EvenWhenBuildThrows()
+        {
+            WithPureManagedCaptureSeams(() =>
+            {
+                var uninstallCalled = false;
+                var priorUninstall = GetUninstallSeam();
+                SetUninstallSeam(() => { uninstallCalled = true; });
+                try
+                {
+                    var ex = Record.Exception(() => GodotMcpRuntime.InstallCaptureThenBuildHandle(
+                        captureRequested: false,
+                        buildHandle: captured =>
+                        {
+                            Assert.False(captured);            // capture was never requested
+                            throw new InvalidOperationException("boom");
+                        }));
+
+                    Assert.IsType<InvalidOperationException>(ex);
+                    Assert.False(RuntimeErrorCapture.IsInstalled);  // nothing was ever installed
+                    Assert.Null(RuntimeErrorCollector.Current);
+                    Assert.False(uninstallCalled);                  // no rollback when capture wasn't installed
+                }
+                finally { SetUninstallSeam(priorUninstall); }
+            });
+        }
+
+        [Fact]
+        public void InstallCaptureThenBuildHandle_NullFactory_Throws()
+        {
+            Assert.Throws<ArgumentNullException>(() =>
+                GodotMcpRuntime.InstallCaptureThenBuildHandle(captureRequested: false, buildHandle: null!));
+        }
+
         // ---- helpers: install/teardown the process-wide collector around a test --------------------
 
         static void WithCollector(Action<RuntimeErrorCollector> body)
@@ -714,6 +820,43 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             RuntimeErrorCollector.Current = null;
             try { body(); }
             finally { RuntimeErrorCollector.Current = prior; }
+        }
+
+        // ---- helpers: drive GodotMcpRuntime's capture seams with a PURE-MANAGED install/uninstall ------------
+        //
+        // GodotMcpRuntime._installForTests / _uninstallForTests are internal static delegates reachable by name
+        // here (the test project Compile-includes GodotMcpRuntime.cs, so it is the same assembly). Pointing them
+        // at RuntimeErrorCapture.InstallForTestsWithoutEngineHooks / Uninstall lets InstallCaptureThenBuildHandle
+        // exercise the REAL RuntimeErrorCapture static lifecycle without calling GD.Print / OS.AddLogger (which
+        // crash the binary-less xUnit host). Always restores the prior seam + Current and force-uninstalls so a
+        // failed assertion can never leak install state into a sibling test.
+
+        static Action? GetUninstallSeam() => GodotMcpRuntime._uninstallForTests;
+        static void SetUninstallSeam(Action? value) => GodotMcpRuntime._uninstallForTests = value;
+
+        static void WithPureManagedCaptureSeams(Action body)
+        {
+            var priorInstall = GodotMcpRuntime._installForTests;
+            var priorUninstall = GodotMcpRuntime._uninstallForTests;
+            var priorCurrent = RuntimeErrorCollector.Current;
+
+            // Make sure no prior install state bleeds in.
+            RuntimeErrorCapture.Uninstall();
+
+            GodotMcpRuntime._installForTests = () => RuntimeErrorCapture.InstallForTestsWithoutEngineHooks();
+            GodotMcpRuntime._uninstallForTests = RuntimeErrorCapture.Uninstall;
+            try
+            {
+                body();
+            }
+            finally
+            {
+                // Force-uninstall regardless of how body() exited, then restore seams + Current.
+                try { RuntimeErrorCapture.Uninstall(); } catch { /* best-effort cleanup */ }
+                GodotMcpRuntime._installForTests = priorInstall;
+                GodotMcpRuntime._uninstallForTests = priorUninstall;
+                RuntimeErrorCollector.Current = priorCurrent;
+            }
         }
     }
 }
