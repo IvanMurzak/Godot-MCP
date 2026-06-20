@@ -311,5 +311,58 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 : (line >= 0 ? $" {filePath}:{line}" : $" {filePath}");
             return $"[{kind}]{loc} — {text}";
         }
+
+        /// <summary>
+        /// Pure-managed install/rebind coordinator shared by the engine-logger bridge (issue #171). Decides what
+        /// the bridge does when asked to install <paramref name="incoming"/>, given whether a logger is already
+        /// live (<paramref name="liveCapture"/> is the capture that logger currently forwards into, or null when
+        /// nothing is registered). This logic is the load-bearing fix and is decoupled from the native
+        /// <c>OS.AddLogger</c> path so it is unit-testable in the binary-less xUnit host: the real Godot 4.5+
+        /// bridge calls this to make the SAME decision, then performs the native side effect the result names.
+        /// <list type="bullet">
+        /// <item><see cref="BridgeInstallAction.RegisterNew"/> — nothing was live; register a new logger.</item>
+        /// <item><see cref="BridgeInstallAction.Rebind"/> — a logger is live on a DIFFERENT capture; repoint it
+        /// at <paramref name="incoming"/> WITHOUT re-registering (no OS.RemoveLogger/AddLogger churn). This is
+        /// the path that closes #171: it stops engine errors routing to a stale capture's collector.</item>
+        /// <item><see cref="BridgeInstallAction.AlreadyCurrent"/> — a logger is live on the SAME capture; a
+        /// benign idempotent re-assert (RuntimeErrorCapture.Install's re-entry path). No side effect needed.</item>
+        /// </list>
+        /// In all non-null-incoming cases <see cref="Current"/> ends up equal to <paramref name="incoming"/> so
+        /// the published router never lags the live logger. Returns the action the caller must apply.
+        /// </summary>
+        public static BridgeInstallAction PlanBridgeInstall(ScriptErrorCapture? liveCapture, ScriptErrorCapture incoming)
+        {
+            if (incoming == null)
+                throw new ArgumentNullException(nameof(incoming));
+
+            BridgeInstallAction action;
+            if (liveCapture == null)
+                action = BridgeInstallAction.RegisterNew;
+            else if (ReferenceEquals(liveCapture, incoming))
+                action = BridgeInstallAction.AlreadyCurrent;
+            else
+                action = BridgeInstallAction.Rebind;
+
+            // The published router must always track the capture the live logger ends up forwarding into — set it
+            // here so neither the RegisterNew nor the Rebind caller can forget and leave Current pointing at a
+            // stale capture (the very desync #171 is about).
+            Current = incoming;
+            return action;
+        }
+    }
+
+    /// <summary>
+    /// What the engine-logger bridge must do for a given install request — the outcome of
+    /// <see cref="ScriptErrorCapture.PlanBridgeInstall"/>. Pure-managed so the decision is unit-testable apart
+    /// from the native <c>OS.AddLogger</c> side effect each value names (issue #171).
+    /// </summary>
+    public enum BridgeInstallAction
+    {
+        /// <summary>No logger was live; register a new one via <c>OS.AddLogger</c>.</summary>
+        RegisterNew = 0,
+        /// <summary>A logger is live on a DIFFERENT capture; repoint it at the incoming one (no re-register).</summary>
+        Rebind = 1,
+        /// <summary>A logger is live on the SAME capture; benign idempotent re-assert — no side effect.</summary>
+        AlreadyCurrent = 2,
     }
 }

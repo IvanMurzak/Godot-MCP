@@ -57,9 +57,36 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public sealed partial class GodotScriptErrorLogger : Logger
     {
-        readonly ScriptErrorCapture _capture;
+        // The router the live logger forwards every engine callback into. NOT readonly: a re-entrant
+        // install (issue #171) must be able to REBIND this to a fresh capture without removing+re-adding the
+        // engine Logger (OS.RemoveLogger/AddLogger), so the single registered logger always feeds whichever
+        // ScriptErrorCapture is current. Volatile so the rebind written on the main (install) thread is visible
+        // to the engine's multi-threaded _LogError callback without a lock on the hot error path.
+        volatile ScriptErrorCapture _capture;
 
         public GodotScriptErrorLogger(ScriptErrorCapture capture)
+        {
+            _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        }
+
+        /// <summary>
+        /// The router this live logger currently forwards into. Exposed so the bridge can detect a
+        /// sink-identity mismatch on a re-entrant install (issue #171) and rebind rather than silently keep
+        /// routing engine errors to a stale capture (whose sink feeds a collector the current handle no longer
+        /// reads — the #160 silent-quiet failure).
+        /// </summary>
+        public ScriptErrorCapture Capture => _capture;
+
+        /// <summary>
+        /// Repoint this already-registered logger at a NEW <paramref name="capture"/> WITHOUT touching
+        /// <see cref="OS.AddLogger"/>/<see cref="OS.RemoveLogger"/>. Used by the bridge's re-entrant install
+        /// path (issue #171): an independent engine-logger teardown + a re-install would otherwise leave the
+        /// single live logger forwarding to the FIRST capture's sink (routing errors to an orphaned collector),
+        /// because the engine still holds the original Logger instance. Rebinding the field keeps the single
+        /// registration but makes the new capture authoritative. The write is volatile, so the engine's
+        /// off-thread <see cref="_LogError"/> sees the new router immediately.
+        /// </summary>
+        public void RebindCapture(ScriptErrorCapture capture)
         {
             _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         }
@@ -280,22 +307,38 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (capture == null)
                 return null;
 
-            // Non-destructive when ALREADY installed: do NOT tear down a live registration to replace it. In
-            // the normal paired install/uninstall lifecycle _installed is null here, but a stray double-install
-            // must not OS.RemoveLogger/Dispose the engine's current logger out from under it (which would both
-            // re-pin the collectible ALC — the exact godot#78513 unload failure this bridge removes — and orphan
-            // the prior registration beyond Uninstall's reach). Treat the already-installed case as a no-op and
-            // return the live router. (Editor and in-game runtime are separate OS processes — see the _installed
-            // field note — so this guard only ever fires for an in-process re-init, never cross-context.)
-            if (_installed != null)
-                return ScriptErrorCapture.Current;
+            // Decide RegisterNew / Rebind / AlreadyCurrent via the pure-managed coordinator so this native path
+            // and the unit tests share ONE decision (issue #171). PlanBridgeInstall also republishes
+            // ScriptErrorCapture.Current = capture, so the published router never lags the live logger.
+            var action = ScriptErrorCapture.PlanBridgeInstall(_installed?.Capture, capture);
+            switch (action)
+            {
+                case BridgeInstallAction.AlreadyCurrent:
+                    // Benign idempotent re-assert (RuntimeErrorCapture.Install's re-entry with the same capture).
+                    return capture;
 
-            var logger = new GodotScriptErrorLogger(capture);
-            OS.AddLogger(logger); // static API in GodotSharp 4.5
+                case BridgeInstallAction.Rebind:
+                    // ALREADY installed on a DIFFERENT capture — issue #171. REBIND the single live logger to the
+                    // new capture rather than (a) OS.RemoveLogger/AddLogger churn (which re-pins the collectible
+                    // ALC — the godot#78513 unload failure this bridge removes) or (b) silently keeping the OLD
+                    // capture (the bug: the live logger would keep forwarding to the FIRST capture's sink, so
+                    // engine errors land in a collector the current handle no longer reads → runtime-errors-get
+                    // falls silently quiet, the #160 failure this feature prevents). Surface the rebind so a
+                    // stale-sink regression is never silent again.
+                    GD.PushWarning(
+                        "[Godot-MCP] engine error-logger re-installed with a new capture; rebinding the live " +
+                        "logger to it so runtime errors route to the current collector (issue #171).");
+                    _installed!.RebindCapture(capture);
+                    return capture;
 
-            _installed = logger; // retain so Uninstall() can remove the exact same instance
-            ScriptErrorCapture.Current = capture;
-            return capture;
+                case BridgeInstallAction.RegisterNew:
+                default:
+                    var logger = new GodotScriptErrorLogger(capture);
+                    OS.AddLogger(logger); // static API in GodotSharp 4.5
+
+                    _installed = logger; // retain so Uninstall() can remove the exact same instance
+                    return capture;
+            }
         }
 
         /// <summary>

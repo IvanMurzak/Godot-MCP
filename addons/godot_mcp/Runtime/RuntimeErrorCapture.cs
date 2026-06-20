@@ -60,6 +60,19 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         static UnhandledExceptionEventHandler? _domainHandler;
         static EventHandler<UnobservedTaskExceptionEventArgs>? _taskHandler;
 
+        // ── Engine-logger bridge + log seams (issue #171) ─────────────────────────────────────────────────
+        //
+        // The real engine logger registers through GodotScriptErrorLoggerBridge.TryInstall / .Uninstall, which
+        // call OS.AddLogger / OS.RemoveLogger — native Godot APIs that FAULT (AccessViolationException) in the
+        // binary-less xUnit host. The install summary also calls GD.Print (native). These delegate seams let a
+        // unit test substitute a PURE-MANAGED fake bridge + log so the re-entrant rebind path (install →
+        // independent bridge teardown → re-install) can be exercised and asserted without a Godot binary. In
+        // production all are null and the real static bridge / GD.Print run. Mirrors the
+        // GodotMcpRuntime._installForTests / _uninstallForTests pattern. Internal: test-only.
+        internal static Func<ScriptErrorCapture, ScriptErrorCapture?>? _bridgeInstallForTests;
+        internal static Action? _bridgeUninstallForTests;
+        internal static Action<string>? _logForTests;
+
         /// <summary>True while capture is installed (an engine logger and/or the C# fault hooks are live).</summary>
         public static bool IsInstalled
         {
@@ -82,8 +95,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
                     // Idempotent re-entry. The engine logger lives in the bridge's SEPARATE static
                     // (GodotScriptErrorLoggerBridge._installed), not in our _installed flag, so it could have
                     // been torn down independently (e.g. an editor-side Uninstall) while ours stayed true.
-                    // Re-assert it: the bridge's TryInstall is non-destructive (a no-op when still installed,
-                    // a fresh registration when it was removed), so this never clobbers a live logger.
+                    // Re-assert it via a FRESH capture bound to _collector: if the bridge logger is gone the
+                    // bridge registers anew; if it is still live but on a STALE capture (issue #171), the bridge
+                    // REBINDS it to this fresh capture so engine errors route to _collector — the live collector
+                    // this handle reads — instead of a collector left orphaned by a prior install/uninstall cycle.
                     TryInstallEngineLogger(_collector);
                     return _collector;
                 }
@@ -131,10 +146,14 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
                 };
                 TaskScheduler.UnobservedTaskException += _taskHandler;
 
-                GD.Print(engineInstalled
+                var summary = engineInstalled
                     ? "[Godot-MCP] runtime error capture installed (engine 4.5+ logger + C# exception hooks)."
                     : "[Godot-MCP] runtime error capture installed (C# exception hooks only; engine logger " +
-                      "requires Godot 4.5+).");
+                      "requires Godot 4.5+).";
+                if (_logForTests != null)
+                    _logForTests(summary);
+                else
+                    GD.Print(summary);
 
                 return collector;
             }
@@ -199,11 +218,16 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         {
             try
             {
+                // Build a FRESH capture each call whose ErrorSink targets the CURRENT collector, then hand it to
+                // the bridge. On a re-entrant install (issue #171) the bridge REBINDS its single live logger to
+                // this new capture (see GodotScriptErrorLoggerBridge.TryInstall), so engine errors always route
+                // to the collector the live handle reads — never a stale one left over from a prior install.
                 var capture = new ScriptErrorCapture
                 {
                     ErrorSink = record => collector.Append(RuntimeErrorFactory.FromEngine(record)),
                 };
-                return GodotScriptErrorLoggerBridge.TryInstall(capture) != null;
+                var install = _bridgeInstallForTests ?? GodotScriptErrorLoggerBridge.TryInstall;
+                return install(capture) != null;
             }
             catch (Exception ex)
             {
@@ -225,7 +249,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
                 if (!_installed)
                     return;
 
-                try { GodotScriptErrorLoggerBridge.Uninstall(); }
+                try { (_bridgeUninstallForTests ?? GodotScriptErrorLoggerBridge.Uninstall)(); }
                 catch { /* swallow: a logger-removal failure must not break teardown */ }
 
                 if (_domainHandler != null)
