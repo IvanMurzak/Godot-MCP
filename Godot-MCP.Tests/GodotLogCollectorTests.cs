@@ -130,11 +130,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void TeardownLeavesBufferReadable_ReinstallReplaces()
         {
-            // Model the plugin lifecycle: _EnterTree installs a buffer, lines are captured, then teardown
-            // happens. Issue #173: teardown must NOT null Current — the buffer stays readable so
-            // console-get-logs still surfaces the teardown-window diagnostics. (The plugin no longer assigns
-            // null; this test pins the OBSERVABLE contract — a previously-installed buffer remains queryable
-            // and is only displaced by the next install.)
+            // Issue #173 background: teardown must NOT null Current — the buffer stays readable so
+            // console-get-logs still surfaces the teardown-window diagnostics, and only the next _EnterTree
+            // install displaces it.
+            //
+            // SCOPE of this test: it pins the GodotLogCollector.Current PROPERTY contract only —
+            // last-writer-wins, and a previously-installed buffer stays queryable until the next assignment.
+            // It does NOT (and cannot) invoke GodotMcpPlugin.Teardown, which needs a live Godot host, so it
+            // would NOT catch a regression that re-added a `Current = null` to the plugin's teardown body.
+            // That teardown-null regression is guarded by code review + the Suite-3 headless smoke (see the
+            // testbed runbook), NOT by this unit test. The `// ... teardown runs here ...` line below models
+            // the property-level no-op, not an actual plugin teardown call.
             var session1 = new GodotLogCollector();
             GodotLogCollector.Current = session1;
             session1.Append(GodotLogType.Error, "teardown-window failure");
@@ -160,9 +166,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Reproduce the issue #173 race: a background thread continuously routes log lines through
             // GodotLogCollector.Current?.Append(...) (exactly what RouteFrameworkLog / Log* do off-thread)
             // while the "main thread" repeatedly swaps Current to a freshly installed buffer (the _EnterTree
-            // path). The Volatile read/write contract must guarantee the reader only ever observes a valid,
-            // fully-constructed collector reference (or null between the initial state and the first install)
-            // — never a torn reference — and the loop must complete without an exception.
+            // path).
+            //
+            // NOTE on what this test does and does NOT prove: this is a SMOKE / LIVENESS test, not a
+            // discriminating guard for the Volatile read/write contract. On the x86/x64 arch the CI runs,
+            // reference-sized reads/writes are already atomic AND effectively acquire/release (x86-TSO), so
+            // deleting the Volatile would NOT make this test fail here — the discipline only matters on a
+            // weak memory model (e.g. ARM), which this suite never executes on. So treat a green result as
+            // "the off-thread null-conditional Append path runs to completion under a swap storm without
+            // crashing", NOT as "no torn reference is possible". The torn-read correctness rests on the
+            // Volatile annotations in GodotLogCollector being kept (verified by review), not on this assert.
             const int swaps = 200;
             const int appendThreads = 4;
 
