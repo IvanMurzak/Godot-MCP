@@ -141,6 +141,55 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
+        /// Test-only installer that wires the PURE-MANAGED channels exactly as <see cref="Install"/> does — the
+        /// AppDomain.UnhandledException + TaskScheduler.UnobservedTaskException hooks — and publishes the backing
+        /// <see cref="RuntimeErrorCollector"/> as <see cref="RuntimeErrorCollector.Current"/>, but SKIPS the engine
+        /// 4.5+ logger registration and the <c>GD.Print</c> summary line. Both of those call into native Godot,
+        /// which faults (<c>AccessViolationException</c>, aborting the runner) in the binary-less xUnit host — so a
+        /// unit test cannot exercise the real <see cref="Install"/>. After this call <see cref="IsInstalled"/> is
+        /// true and <see cref="RuntimeErrorCollector.Current"/> is non-null, and <see cref="Uninstall"/> (which
+        /// touches no native Godot) tears it back down — exactly the install/uninstall lifecycle the issue #165
+        /// leak-guard test needs to assert on the REAL static state. Not part of the production API.
+        /// </summary>
+        internal static RuntimeErrorCollector InstallForTestsWithoutEngineHooks()
+        {
+            lock (_gate)
+            {
+                if (_installed && _collector != null)
+                    return _collector;
+
+                var collector = new RuntimeErrorCollector();
+                RuntimeErrorCollector.Current = collector;
+                _collector = collector;
+                _installed = true;
+
+                _domainHandler = (_, args) =>
+                {
+                    try
+                    {
+                        collector.Append(RuntimeErrorFactory.FromException(
+                            RuntimeErrorSource.UnhandledException, args.ExceptionObject as Exception));
+                    }
+                    catch { /* a fault handler must never throw */ }
+                };
+                AppDomain.CurrentDomain.UnhandledException += _domainHandler;
+
+                _taskHandler = (_, args) =>
+                {
+                    try
+                    {
+                        collector.Append(RuntimeErrorFactory.FromException(
+                            RuntimeErrorSource.UnobservedTaskException, args.Exception));
+                    }
+                    catch { /* a fault handler must never throw */ }
+                };
+                TaskScheduler.UnobservedTaskException += _taskHandler;
+
+                return collector;
+            }
+        }
+
+        /// <summary>
         /// Register the Godot 4.5+ engine-error logger feeding <paramref name="collector"/> via the bridge,
         /// returning true when the engine channel is live. Best-effort: a registration failure (e.g. an
         /// unexpected host) is swallowed to a warning so the C# fault channels still install. Pre-&lt; 4.5 the

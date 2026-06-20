@@ -108,26 +108,6 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             if (builder.InstallDispatcher)
                 EnsureMainThreadDispatcher();
 
-            // 2b) Install in-game runtime ERROR CAPTURE when opted in (default OFF). Registers the engine 4.5+
-            //     OS.AddLogger hook + the C# unhandled/unobserved-Task exception hooks so errors raised in the
-            //     RUNNING game are captured and surfaced via the runtime-errors-* tool (issue #160). Idempotent
-            //     + best-effort; the handle uninstalls it on Dispose (capturedRuntimeErrors flag below). Done
-            //     before the connection is built so capture is live the moment the game runs — including
-            //     errors raised during the very first frame after Build().
-            var capturedRuntimeErrors = false;
-            if (builder.CaptureRuntimeErrors)
-            {
-                try
-                {
-                    RuntimeErrorCapture.Install();
-                    capturedRuntimeErrors = true;
-                }
-                catch (Exception ex)
-                {
-                    GD.PushWarning($"[Godot-MCP] runtime error capture failed to install: {ex.Message}");
-                }
-            }
-
             // 3) Build the reflector with the Godot value-type / ref converters and publish it as the ambient
             //    one so tool handlers share the exact converter set (mirrors GodotMcpConnection.Start). The
             //    editor ResourceLoader resolver (Tool_Resource.InstallReflectionResolver) is intentionally
@@ -178,8 +158,88 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             var plugin = mcpBuilder.Build(reflector);
 
-            return new GodotMcpRuntimeHandle(plugin, config, uninstallErrorCaptureOnDispose: capturedRuntimeErrors);
+            // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
+            //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the
+            //    McpPluginBuilder.Build reflection scan, the WithTools/Prompts/Resources type scans) never leaves
+            //    the PROCESS-WIDE hooks (engine 4.5+ OS.AddLogger + the C# unhandled / unobserved-Task exception
+            //    handlers) registered for the lifetime of the game with no GodotMcpRuntimeHandle to ever uninstall
+            //    them (issue #165). At this point everything fallible has already succeeded, and the only step
+            //    remaining is constructing the handle that owns Uninstall() — so capture install + handle
+            //    construction are bound together in InstallCaptureThenBuildHandle, which rolls capture back if the
+            //    handle construction (or anything else after install) throws.
+            return InstallCaptureThenBuildHandle(
+                captureRequested: builder.CaptureRuntimeErrors,
+                buildHandle: captured => new GodotMcpRuntimeHandle(
+                    plugin, config, uninstallErrorCaptureOnDispose: captured));
         }
+
+        /// <summary>
+        /// The issue #165 leak-guard, factored out of <see cref="Build"/> so it is unit-testable without a live
+        /// Godot runtime or a real <c>IMcpPlugin</c>. When <paramref name="captureRequested"/>, install in-game
+        /// runtime error capture (engine 4.5+ <c>OS.AddLogger</c> hook + the C# unhandled / unobserved-Task
+        /// exception hooks, published as <see cref="Tools.RuntimeErrorCollector.Current"/>), then build the handle
+        /// via <paramref name="buildHandle"/> (passed the captured-flag so the handle uninstalls on Dispose). The
+        /// install + handle construction are bound so that if <paramref name="buildHandle"/> throws — or anything
+        /// between install and a returned handle does — the PROCESS-WIDE hooks are uninstalled before the throw
+        /// escapes, instead of leaking for the game's lifetime with no handle to ever tear them down.
+        ///
+        /// <para>Install is best-effort (a failure degrades to a warning, exactly as issue #160 intended); the
+        /// rollback is best-effort + idempotent (<see cref="RuntimeErrorCapture.Uninstall"/> is a no-op when
+        /// nothing is installed) and never masks the original fault. The <c>_installForTests</c> /
+        /// <c>_uninstallForTests</c> seams let a unit test substitute pure-managed install/uninstall that do not
+        /// call into native Godot (<c>GD.Print</c>/<c>OS.AddLogger</c>), which would crash the binary-less xUnit
+        /// host; both are null in production.</para>
+        /// </summary>
+        internal static GodotMcpRuntimeHandle InstallCaptureThenBuildHandle(
+            bool captureRequested, Func<bool, GodotMcpRuntimeHandle> buildHandle)
+        {
+            if (buildHandle == null)
+                throw new ArgumentNullException(nameof(buildHandle));
+
+            var capturedRuntimeErrors = false;
+            if (captureRequested)
+            {
+                try
+                {
+                    (_installForTests ?? RuntimeErrorCaptureInstall)();
+                    capturedRuntimeErrors = true;
+                }
+                catch (Exception ex)
+                {
+                    GD.PushWarning($"[Godot-MCP] runtime error capture failed to install: {ex.Message}");
+                }
+            }
+
+            try
+            {
+                return buildHandle(capturedRuntimeErrors);
+            }
+            catch
+            {
+                // The handle that owns Uninstall() was never returned, so roll the capture install back here
+                // rather than leak the process-wide hooks. Only attempted when THIS call installed capture.
+                if (capturedRuntimeErrors)
+                {
+                    try { (_uninstallForTests ?? RuntimeErrorCapture.Uninstall)(); }
+                    catch { /* swallow: a teardown failure must not mask the original build fault */ }
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Default capture installer used by <see cref="InstallCaptureThenBuildHandle"/> — the real
+        /// <see cref="RuntimeErrorCapture.Install"/>, discarding the returned collector (it is published as
+        /// <see cref="Tools.RuntimeErrorCollector.Current"/> internally). Indirected through a delegate so a unit
+        /// test can substitute a pure-managed install that does not touch native Godot.
+        /// </summary>
+        static void RuntimeErrorCaptureInstall() => RuntimeErrorCapture.Install();
+
+        /// <summary>Test seam: overrides the capture installer in <see cref="InstallCaptureThenBuildHandle"/>. Null in production.</summary>
+        internal static Action? _installForTests;
+
+        /// <summary>Test seam: overrides the capture uninstaller in <see cref="InstallCaptureThenBuildHandle"/>'s rollback. Null in production.</summary>
+        internal static Action? _uninstallForTests;
 
         /// <summary>
         /// Resolve the addon version reported in the MCP handshake from
