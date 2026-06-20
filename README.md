@@ -1,11 +1,13 @@
 <div align="center" width="100%">
 
-## ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/ai-developer-header.svg?raw=true)
+  <h1>✨ AI Game Developer — <i>Godot MCP</i></h1>
 
 [![MCP](https://badge.mcpx.dev 'MCP Server')](https://modelcontextprotocol.io/introduction)
 [![npm](https://img.shields.io/npm/v/godot-cli?label=godot-cli&logo=npm&labelColor=333A41 'godot-cli on npm')](https://www.npmjs.com/package/godot-cli)
-[![Godot](https://img.shields.io/badge/Godot-4.3%E2%80%934.5-478CBF?style=flat&logo=godotengine&logoColor=white&labelColor=333A41 'Godot 4.3–4.5, C#/.NET (mono)')](https://godotengine.org/)
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet&logoColor=white&labelColor=333A41 '.NET 8')](https://dotnet.microsoft.com/)
+[![Godot](https://img.shields.io/badge/Godot-4.3%2B-478CBF?style=flat&logo=godotengine&logoColor=white&labelColor=333A41 'Godot 4.3+, C#/.NET (mono)')](https://godotengine.org/)
+[![Godot Editor](https://img.shields.io/badge/Editor-X?style=flat&logo=godotengine&logoColor=white&labelColor=333A41&color=2A2A2A 'Godot Editor supported')](https://godotengine.org/)
+[![Godot Runtime](https://img.shields.io/badge/Runtime-X?style=flat&logo=godotengine&logoColor=white&labelColor=333A41&color=2A2A2A 'Godot Runtime supported')](https://godotengine.org/)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&labelColor=333A41 '.NET 8')](https://dotnet.microsoft.com/)
 [![release](https://github.com/IvanMurzak/Godot-MCP/workflows/release/badge.svg 'release')](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/release.yml)</br>
 [![Discord](https://img.shields.io/badge/Discord-Join-7289da?logo=discord&logoColor=white&labelColor=333A41 'Join')](https://discord.gg/cfbdMZX99G)
 [![Stars](https://img.shields.io/github/stars/IvanMurzak/Godot-MCP 'Stars')](https://github.com/IvanMurzak/Godot-MCP/stargazers)
