@@ -28,6 +28,8 @@
 #if GODOT4_5_OR_GREATER
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Text;
 using com.IvanMurzak.Godot.MCP.Data;
 using Godot;
 
@@ -39,11 +41,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// registration (via <see cref="OS.AddLogger"/>) that powers BOTH feature deliverables: passive
     /// engine-log capture into <c>console-get-logs</c> AND on-demand <c>script-validate</c> diagnostics
     /// (the router collects <see cref="EngineErrorKind.Script"/> rows while a validation session is open).
+    /// It is ALSO the source of the deep multi-frame GDScript backtrace surfaced by <c>runtime-errors-get</c>
+    /// (issue #163): the engine hands a <see cref="ScriptBacktrace"/> array to <see cref="_LogError"/>, which
+    /// this class materializes into managed primitives before forwarding.
     ///
     /// <para>
     /// Godot calls <see cref="_LogError"/> from the thread the error originated on, so all buffer writes
-    /// happen inside <see cref="ScriptErrorCapture"/> under its lock. We do NOT touch any non-thread-safe
-    /// Godot object here — only forward primitives — so the multi-threaded callback is safe.
+    /// happen inside <see cref="ScriptErrorCapture"/> under its lock. <see cref="ScriptBacktrace"/> is a
+    /// NON-thread-safe Godot object; we read it ONLY here, on the originating thread, copying each frame's
+    /// function/file/line into plain <see cref="RuntimeErrorFrame"/> primitives (and the engine's formatted
+    /// string) BEFORE handing the record to <see cref="ScriptErrorCapture.Route"/>. No live Godot object is
+    /// ever stored or forwarded across the thread boundary — that invariant is what keeps the multi-threaded
+    /// callback safe.
     /// </para>
     /// </summary>
     public sealed partial class GodotScriptErrorLogger : Logger
@@ -57,8 +66,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         // NOTE: the engine's abstract _LogError binds 'errorType' as Int32 (not the Logger.ErrorType enum),
         // so the override MUST use 'int' to match — the enum values (Error=0/Warning=1/Script=2/Shader=3)
-        // are mapped from the int below. The 'scriptBacktraces' parameter is accepted but unused (we forward
-        // primitives only, keeping the multi-threaded callback free of non-thread-safe Godot object access).
+        // are mapped from the int below.
         public override void _LogError(
             string function,
             string file,
@@ -71,6 +79,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // otherwise bind 'Godot.Collections' to 'com.IvanMurzak.Godot.Collections' (CS0234).
             global::Godot.Collections.Array<global::Godot.ScriptBacktrace> scriptBacktraces)
         {
+            // Materialize the deep multi-frame backtrace NOW, on the originating thread, while the
+            // non-thread-safe ScriptBacktrace objects are still valid in this callback's frame. The result is
+            // pure managed primitives — safe to forward across the thread boundary into the collector. Any
+            // fault while reading the engine objects is swallowed to a null backtrace (origin-only) rather
+            // than escaping back into the engine's log path.
+            IReadOnlyList<RuntimeErrorFrame>? frames = null;
+            string? stackTrace = null;
+            try
+            {
+                MaterializeBacktrace(scriptBacktraces, out frames, out stackTrace);
+            }
+            catch
+            {
+                // A backtrace read failure must never abort error capture — degrade to origin-only.
+                frames = null;
+                stackTrace = null;
+            }
+
             _capture.Route(
                 kind: MapKind(errorType),
                 filePath: file,
@@ -80,7 +106,102 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 rationale: rationale,
                 // 'function' is the originating function name — forwarded so the in-game runtime's structured
                 // ErrorSink can populate RuntimeError.Function (the editor passive-log path ignores it).
-                function: function);
+                function: function,
+                // Deep GDScript backtrace (issue #163), already copied to managed primitives above.
+                frames: frames,
+                stackTrace: stackTrace);
+        }
+
+        // ── Backtrace materialization (originating-thread only) ──────────────────────────────────────────
+        //
+        // CRITICAL THREAD-SAFETY INVARIANT: every ScriptBacktrace access below happens synchronously inside
+        // _LogError, on the thread the error originated on. ScriptBacktrace is a RefCounted Godot object and
+        // is NOT thread-safe; we never store or return one — only the plain managed primitives we copy out of
+        // it. The out-params are the ONLY things that cross back to Route() / the collector / another thread.
+
+        /// <summary>
+        /// Copy the engine's per-language <see cref="ScriptBacktrace"/> array into managed primitives:
+        /// <paramref name="frames"/> (innermost-first, function/file/line per frame) and
+        /// <paramref name="stackTrace"/> (the engine's <see cref="ScriptBacktrace.Format()"/> string). Picks
+        /// the FIRST non-empty backtrace in the array — Godot orders them by language and the script language
+        /// that raised the error has the populated stack (GDScript at runtime); a non-empty pick yields the
+        /// real call stack rather than an empty sibling-language entry. Both out-params are null when no
+        /// non-empty backtrace exists (release builds without call-stack tracking, or a pure-engine error),
+        /// preserving the origin-only fallback.
+        /// </summary>
+        static void MaterializeBacktrace(
+            global::Godot.Collections.Array<global::Godot.ScriptBacktrace>? scriptBacktraces,
+            out IReadOnlyList<RuntimeErrorFrame>? frames,
+            out string? stackTrace)
+        {
+            frames = null;
+            stackTrace = null;
+
+            if (scriptBacktraces == null || scriptBacktraces.Count == 0)
+                return;
+
+            foreach (var backtrace in scriptBacktraces)
+            {
+                if (backtrace == null || backtrace.IsEmpty())
+                    continue;
+
+                var frameCount = backtrace.GetFrameCount();
+                if (frameCount <= 0)
+                    continue;
+
+                var list = new List<RuntimeErrorFrame>(frameCount);
+                for (int i = 0; i < frameCount; i++)
+                {
+                    list.Add(new RuntimeErrorFrame(
+                        function: backtrace.GetFrameFunction(i),
+                        file: backtrace.GetFrameFile(i),
+                        line: backtrace.GetFrameLine(i)));
+                }
+
+                if (list.Count == 0)
+                    continue;
+
+                frames = list;
+                // The engine's own formatted rendering is the most faithful human-readable string; fall back
+                // to a managed join only if Format() yields nothing (shouldn't, for a non-empty backtrace).
+                stackTrace = BuildStackTraceString(backtrace, list);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Render a human-readable stack-trace string for a captured backtrace, prefixing the script-language
+        /// name. Prefers the engine's <see cref="ScriptBacktrace.Format()"/>; falls back to joining the
+        /// already-materialized <paramref name="frames"/> if Format() returns empty.
+        /// </summary>
+        static string BuildStackTraceString(global::Godot.ScriptBacktrace backtrace, List<RuntimeErrorFrame> frames)
+        {
+            string? language = null;
+            try { language = backtrace.GetLanguageName(); } catch { /* best-effort label */ }
+
+            string body;
+            string? formatted = null;
+            try { formatted = backtrace.Format(); } catch { /* fall back to the managed join below */ }
+
+            if (!string.IsNullOrWhiteSpace(formatted))
+            {
+                body = formatted!;
+            }
+            else
+            {
+                var sb = new StringBuilder();
+                foreach (var frame in frames)
+                {
+                    if (sb.Length > 0)
+                        sb.Append('\n');
+                    sb.Append(frame.ToString());
+                }
+                body = sb.ToString();
+            }
+
+            return string.IsNullOrEmpty(language)
+                ? body
+                : $"{language} backtrace:\n{body}";
         }
 
         // We intentionally do NOT override _LogMessage: ordinary print()/stdout traffic is already covered by

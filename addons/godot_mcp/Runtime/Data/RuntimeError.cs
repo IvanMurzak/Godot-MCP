@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
@@ -57,12 +58,16 @@ namespace com.IvanMurzak.Godot.MCP.Data
     /// Field availability depends on the <see cref="Source"/>:
     /// <list type="bullet">
     /// <item><b><see cref="RuntimeErrorSource.Engine"/></b> (Godot 4.5+ logger hook): <see cref="File"/>,
-    /// <see cref="Line"/>, <see cref="Function"/> are the error's ORIGIN; <see cref="StackTrace"/> is null
-    /// (the engine hook yields the origin, not a deep GDScript backtrace).</item>
+    /// <see cref="Line"/>, <see cref="Function"/> are the error's ORIGIN. On Godot 4.5+ a GDScript runtime
+    /// error ALSO carries the deep multi-frame call stack (issue #163): <see cref="Frames"/> is the ordered
+    /// (innermost-first) backtrace and <see cref="StackTrace"/> is its formatted rendering. On Godot &lt; 4.5
+    /// (or when no backtrace was tracked) <see cref="Frames"/> is null/empty and <see cref="StackTrace"/> is
+    /// null (origin only).</item>
     /// <item><b><see cref="RuntimeErrorSource.UnhandledException"/> /
     /// <see cref="RuntimeErrorSource.UnobservedTaskException"/></b>: <see cref="StackTrace"/> carries the
     /// full managed stack; <see cref="File"/>/<see cref="Line"/>/<see cref="Function"/> are empty/-1 (the
-    /// origin is inside the stack trace).</item>
+    /// origin is inside the stack trace) and <see cref="Frames"/> is null (the managed stack lives in the
+    /// string).</item>
     /// </list>
     /// </para>
     ///
@@ -107,9 +112,18 @@ namespace com.IvanMurzak.Godot.MCP.Data
         public string Function { get; set; } = string.Empty;
 
         [JsonInclude, JsonPropertyName("stackTrace")]
-        [Description("Full managed stack trace for a C# fault (UnhandledException / UnobservedTaskException); " +
-            "null for engine errors (the 4.5 logger hook yields the origin, not a deep GDScript backtrace).")]
+        [Description("Stack trace string: for a C# fault (UnhandledException / UnobservedTaskException) the " +
+            "full managed stack; for a Godot 4.5+ engine GDScript error the formatted multi-frame backtrace " +
+            "(see 'frames'); null for engine errors with no tracked backtrace (Godot < 4.5 or release builds " +
+            "without call-stack tracking).")]
         public string? StackTrace { get; set; } = null;
+
+        [JsonInclude, JsonPropertyName("frames")]
+        [Description("Structured deep backtrace for a Godot 4.5+ engine GDScript error: ordered stack frames " +
+            "(innermost-first), each with function / file / line. Null for managed C# faults (their stack is " +
+            "in 'stackTrace') and for engine errors with no tracked backtrace (Godot < 4.5 or release builds " +
+            "without call-stack tracking).")]
+        public List<RuntimeErrorFrame>? Frames { get; set; } = null;
 
         [JsonInclude, JsonPropertyName("timestamp")]
         [Description("UTC timestamp when the error was captured.")]
@@ -125,7 +139,8 @@ namespace com.IvanMurzak.Godot.MCP.Data
             int line = -1,
             string? function = null,
             string? stackTrace = null,
-            DateTime? timestamp = null)
+            DateTime? timestamp = null,
+            List<RuntimeErrorFrame>? frames = null)
         {
             Source = source;
             Message = message ?? string.Empty;
@@ -134,6 +149,7 @@ namespace com.IvanMurzak.Godot.MCP.Data
             Line = line;
             Function = function ?? string.Empty;
             StackTrace = string.IsNullOrEmpty(stackTrace) ? null : stackTrace;
+            Frames = frames != null && frames.Count > 0 ? frames : null;
             Timestamp = timestamp ?? DateTime.UtcNow;
         }
 

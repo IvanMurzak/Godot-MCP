@@ -145,7 +145,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>Defensive deep-ish copy so a returned row can be serialized/mutated off the lock without
-        /// touching the buffered instance.</summary>
+        /// touching the buffered instance. The deep backtrace (issue #163) is copied into a FRESH frame list so
+        /// the returned row never aliases the buffered row's frames; the frames themselves are immutable-by-use
+        /// plain primitives, so a shallow element copy is sufficient.</summary>
         static RuntimeError Copy(RuntimeError e) => new(
             source: e.Source,
             message: e.Message,
@@ -154,7 +156,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             line: e.Line,
             function: e.Function,
             stackTrace: e.StackTrace,
-            timestamp: e.Timestamp)
+            timestamp: e.Timestamp,
+            frames: e.Frames != null ? new List<RuntimeErrorFrame>(e.Frames) : null)
         {
             Sequence = e.Sequence,
         };

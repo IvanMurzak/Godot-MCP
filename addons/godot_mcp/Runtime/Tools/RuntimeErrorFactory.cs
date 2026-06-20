@@ -9,6 +9,8 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Data;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -28,12 +30,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         /// <summary>
         /// Build a <see cref="RuntimeError"/> from an engine error-stream callback. The engine yields the
-        /// ORIGIN (file / line / function) + message + kind, but NOT a deep GDScript call stack, so
-        /// <see cref="RuntimeError.StackTrace"/> stays null (documented fidelity limit). The engine kind is
-        /// rendered as the <see cref="RuntimeError.Type"/> string (Error / Warning / Script / Shader).
+        /// ORIGIN (file / line / function) + message + kind. On Godot 4.5+ a GDScript runtime error ALSO
+        /// carries the deep multi-frame call stack (issue #163): the record's already-materialized
+        /// <see cref="EngineErrorRecord.Frames"/> become <see cref="RuntimeError.Frames"/> and its
+        /// <see cref="EngineErrorRecord.StackTrace"/> becomes <see cref="RuntimeError.StackTrace"/>. On Godot
+        /// &lt; 4.5 (or for an engine error with no tracked backtrace) both stay null/empty — the documented
+        /// origin-only fallback. The engine kind is rendered as the <see cref="RuntimeError.Type"/> string
+        /// (Error / Warning / Script / Shader).
         /// </summary>
         public static RuntimeError FromEngine(EngineErrorRecord record)
         {
+            // Copy the record's frames into a fresh List<> the RuntimeError owns — the record's IReadOnlyList
+            // is already plain managed primitives (materialized off the non-thread-safe ScriptBacktrace inside
+            // the logger callback), so this is a pure managed copy with no Godot object involved.
+            List<RuntimeErrorFrame>? frames = record.Frames != null && record.Frames.Count > 0
+                ? record.Frames.ToList()
+                : null;
+
             return new RuntimeError(
                 source: RuntimeErrorSource.Engine,
                 message: record.Message ?? string.Empty,
@@ -41,7 +54,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 file: record.FilePath,
                 line: record.Line,
                 function: record.Function,
-                stackTrace: null);
+                stackTrace: record.StackTrace,
+                frames: frames);
         }
 
         /// <summary>

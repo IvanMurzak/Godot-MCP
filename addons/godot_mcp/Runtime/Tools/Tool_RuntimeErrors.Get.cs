@@ -40,8 +40,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  - 'maxEntries' (default 100, min 1): cap the returned page (newest kept; 'truncated' flags a cap).\n" +
             "Result (RuntimeErrorsResult): 'available' (false when the game did not enable runtime error " +
             "capture — then an empty list proves nothing), 'ok' (no error-severity entries), the 'errors' " +
-            "[{ sequence, message, type, source, file, line, function, stackTrace, timestamp }] oldest-first, " +
-            "counts, 'highestSequence' (poll with it next), and a 'truncated' flag.")]
+            "[{ sequence, message, type, source, file, line, function, stackTrace, frames, timestamp }] " +
+            "oldest-first, counts, 'highestSequence' (poll with it next), and a 'truncated' flag. On Godot " +
+            "4.5+ a GDScript runtime error also carries 'frames' (the deep multi-frame call stack, " +
+            "innermost-first, each { function, file, line }) and a formatted 'stackTrace'.")]
         public RuntimeErrorsResult Get
         (
             [Description("Return only errors with a sequence number greater than this. Pass the previous " +

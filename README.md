@@ -588,16 +588,21 @@ An MCP client polls the captured errors with the `runtime-errors-get` tool (and 
 
 | Tool | What it returns / does |
 | ---- | ---------------------- |
-| `runtime-errors-get` | A bounded, newest-kept list of `{ sequence, message, type, source, file, line, function, stackTrace, timestamp }`. Pass the previous result's `highestSequence` as `sinceSequence` to poll only **new** errors — the "did anything break since I last looked?" loop. Returns `available:false` when capture was never enabled (so an empty list is never mistaken for health). |
+| `runtime-errors-get` | A bounded, newest-kept list of `{ sequence, message, type, source, file, line, function, stackTrace, frames, timestamp }`. Pass the previous result's `highestSequence` as `sinceSequence` to poll only **new** errors — the "did anything break since I last looked?" loop. Returns `available:false` when capture was never enabled (so an empty list is never mistaken for health). |
 | `runtime-errors-clear` | Clears the captured buffer (the monotonic `sequence` counter is preserved, so a pre-clear `sinceSequence` poll still behaves). |
 
 > **Stack-trace fidelity (read this).** The two error *sources* differ in depth:
 > - **Engine errors** (`source: Engine`) carry the error's **origin** — `file:line` and the originating
->   `function` — plus the message and a `type` (`Error` / `Warning` / `Script` / `Shader`). They do **not**
->   carry a deep multi-frame GDScript call stack (`OS.AddLogger` yields the origin, not a backtrace), so
->   `stackTrace` is `null` for them.
+>   `function` — plus the message and a `type` (`Error` / `Warning` / `Script` / `Shader`). On **Godot
+>   4.5+**, a GDScript runtime error **also** carries the **deep multi-frame call stack**: `frames` is the
+>   ordered (innermost-first) backtrace — each `{ function, file, line }` — and `stackTrace` is the engine's
+>   formatted rendering of it. On **Godot < 4.5** (or a release build without call-stack tracking) `frames`
+>   is `null` and `stackTrace` is `null` (origin only). The frames are materialized off the engine's
+>   non-thread-safe `ScriptBacktrace` **inside the logger callback on the originating thread** — only plain
+>   managed values ever cross into the collector, never a live engine object.
 > - **C# faults** (`source: UnhandledException` / `UnobservedTaskException`) carry the **full managed stack
->   trace** (inner exceptions inlined) in `stackTrace`, plus the CLR exception type name in `type`.
+>   trace** (inner exceptions inlined) in `stackTrace`, plus the CLR exception type name in `type`. (`frames`
+>   is `null` — the managed stack lives in the `stackTrace` string.)
 
 > **Graceful degradation.** On **Godot < 4.5** there is no `OS.AddLogger` managed hook, so the engine
 > channel is silently unavailable — the C# exception channels still work, and `runtime-errors-get` still

@@ -136,6 +136,7 @@
          (GodotScriptErrorLogger.cs) is #if GODOT4_5_OR_GREATER — both verified via the headless Godot runtime
          smoke (test.md Suite 3); the models + collector + factory + tool handlers are unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Data\RuntimeError.cs" Link="Source\RuntimeError.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\RuntimeErrorFrame.cs" Link="Source\RuntimeErrorFrame.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\RuntimeErrorsResult.cs" Link="Source\RuntimeErrorsResult.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\RuntimeErrorCollector.cs" Link="Source\RuntimeErrorCollector.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\RuntimeErrorFactory.cs" Link="Source\RuntimeErrorFactory.cs" />
