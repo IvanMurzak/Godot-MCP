@@ -1,6 +1,9 @@
 node_modules/
 dist/
 
+# vitest v8 coverage output (REPORTING-only; published as a CI artifact, never committed).
+coverage/
+
 # The repo-root .gitignore excludes `bin/` (a C#/Godot build-output dir). This
 # package's bin/ holds the committed CLI entrypoint shim, so re-include it.
 !/bin/

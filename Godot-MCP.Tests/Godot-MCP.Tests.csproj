@@ -16,6 +16,14 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- Code-coverage collector for the XPlat Code Coverage data collector (dotnet test collect flag).
+         TEST-ONLY dev dependency: it drives the built-in collector to emit coverage.cobertura.xml under
+         TestResults/. It is NOT a consumed runtime pin and never ships in the addon. Coverage is
+         REPORTING-ONLY: there is no failing threshold gate (see .github/workflows ci.yml / test_pull_request.yml). -->
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <!--
