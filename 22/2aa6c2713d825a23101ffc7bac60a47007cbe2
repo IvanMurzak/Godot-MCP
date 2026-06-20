@@ -1,0 +1,19 @@
+cli/tests/skills-addon-parity.test.ts
+  s_061d04fe51d036::t_9ffb518bc6ba65 22-23,132-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "222aa6c2713d825a23101ffc7bac60a47007cbe2",
+  "prompts": {},
+  "sessions": {
+    "s_061d04fe51d036": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e91881c-94d8-4d41-b0b1-fe8f4a058c7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
