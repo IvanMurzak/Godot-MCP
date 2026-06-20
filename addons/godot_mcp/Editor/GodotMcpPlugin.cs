@@ -298,8 +298,11 @@ namespace com.IvanMurzak.Godot.MCP
         ///   if it ever runs off-main-thread the (pure-managed) steps 1–3 still run and the Node frees are
         ///   skipped rather than crashing. We do NOT marshal through <see cref="MainThreadDispatcher"/> — it
         ///   is being torn down and its <c>Enqueue</c> throws once its instance is gone.</item>
-        ///   <item><b>Null the process-wide statics</b> — log collector, error-capture router, and the
-        ///   <see cref="Current"/>/<see cref="GodotMcpAssemblyResolver.ReloadTeardown"/> hook.</item>
+        ///   <item><b>Null the process-wide statics</b> — error-capture router and the
+        ///   <see cref="Current"/>/<see cref="GodotMcpAssemblyResolver.ReloadTeardown"/> hook. The log
+        ///   collector (<see cref="GodotLogCollector.Current"/>) is deliberately NOT nulled — leaving its
+        ///   bounded managed buffer readable preserves teardown/reload-window diagnostics for
+        ///   <c>console-get-logs</c>, and the next <c>_EnterTree</c> replaces it.</item>
         /// </list>
         /// </para>
         /// </summary>
@@ -378,8 +381,15 @@ namespace com.IvanMurzak.Godot.MCP
 
             TryLog("[Godot-MCP] plugin unloaded");
 
-            // 5) Null the process-wide statics so a stale buffer/router/hook does not outlive this instance.
-            try { GodotLogCollector.Current = null; } catch { /* swallow during unload */ }
+            // 5) Null the process-wide statics so a stale router/hook does not outlive this instance.
+            //    NOTE: GodotLogCollector.Current is DELIBERATELY left in place — see below. Nulling the log
+            //    buffer here would wipe exactly the teardown / reload-window diagnostics an operator most
+            //    wants (the background framework log-routing path reads Current?.Append off arbitrary threads;
+            //    a null would silently drop those lines). The buffer is harmless to leave: it is a bounded
+            //    ring of plain managed LogEntry rows, it pins no Godot native object / no collectible-ALC type,
+            //    and the next _EnterTree replaces it (last-writer-wins) so it cannot accumulate across reloads.
+            //    The Current swap itself is Volatile (GodotLogCollector.Current) so the background reader sees
+            //    the install without a torn read.
 
             // Drop the engine error-capture router unconditionally. On 4.5+ the main-thread guard above already
             // called GodotScriptErrorLoggerBridge.Uninstall() (which removes the engine Logger via
