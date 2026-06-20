@@ -44,7 +44,19 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         public static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == MainThreadId;
 
         static readonly ConcurrentQueue<Action> _actions = new ConcurrentQueue<Action>();
-        static MainThreadDispatcher? _instance;
+
+        /// <summary>
+        /// The currently-installed dispatcher, or <c>null</c> when none is in the tree. <b>Marked
+        /// <c>volatile</c></b> so its store/load is ordered relative to the <see cref="_hasEverEntered"/>
+        /// volatile publish: <see cref="_EnterTree"/> writes <c>_instance = this</c> BEFORE
+        /// <c>_hasEverEntered = true</c>, and a background-thread <see cref="Enqueue"/> reads <c>_hasEverEntered</c>
+        /// then <c>_instance</c>. Without the acquire/release semantics a reader could observe a fresh
+        /// <c>_hasEverEntered==true</c> against a stale <c>_instance==null</c> at the trailing boot edge and throw
+        /// even though a live dispatcher is already in the tree — reintroducing the issue #169 symptom one frame
+        /// later. The two volatile accesses keep the "is there an instance / has one ever entered" decision
+        /// reading a coherent pair.
+        /// </summary>
+        static volatile MainThreadDispatcher? _instance;
 
         /// <summary>
         /// Test-only override of "a dispatcher is currently in the tree." Production NEVER sets this — it is
@@ -69,8 +81,12 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// when one arrives), <c>true</c> = "booted then torn down" (plugin unloaded / between editor reloads —
         /// fail fast so a pending awaiter does not hang on a queue nothing will drain). Written only on the
         /// editor main thread (<see cref="_EnterTree"/>); read in the otherwise-thread-safe <see cref="Enqueue"/>.
-        /// A benign read/write straddle of the boot edge resolves the same either way: it either buffers an
-        /// action a live dispatcher will drain next tick, or it throws on a torn-down dispatcher — both correct.
+        /// Both this flag and <see cref="_instance"/> are <c>volatile</c>, so the <see cref="_EnterTree"/> publish
+        /// order (write <c>_instance</c> first, then this flag) is preserved for a concurrent reader: a fresh
+        /// <c>_hasEverEntered==true</c> can never be paired with a stale <c>_instance==null</c>, so a live, just-booted
+        /// dispatcher is never mistaken for a torn-down one (which would wrongly throw). The remaining boot-edge
+        /// straddle is benign and resolves the same either way: it either buffers an action a live dispatcher will
+        /// drain next tick, or it throws only on a genuinely torn-down dispatcher — both correct.
         /// </summary>
         static volatile bool _hasEverEntered;
 
@@ -161,7 +177,9 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             // Drain anything buffered before this first dispatcher arrived (issue #169: tool handlers that
             // marshalled to the main thread in the Build()-returns → deferred-AddChild window). Running it
             // here — on the engine main thread, which is where _EnterTree fires — flushes the early-boot
-            // backlog immediately rather than waiting for the first _Process tick, and preserves FIFO order.
+            // backlog as soon as the dispatcher enters the tree rather than waiting for the first _Process
+            // tick, and preserves FIFO order. (An action enqueued AFTER this loop observes the queue empty
+            // is not lost — it is picked up on the next _Process tick, which runs exactly once per frame.)
             DrainQueue();
         }
 
