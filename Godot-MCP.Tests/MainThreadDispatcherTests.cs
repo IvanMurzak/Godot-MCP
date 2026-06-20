@@ -44,6 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </para>
     /// </summary>
     [Collection(nameof(MainThreadDispatcherTests))]
+    [CollectionDefinition(nameof(MainThreadDispatcherTests), DisableParallelization = true)]
     public class MainThreadDispatcherTests : IDisposable
     {
         public MainThreadDispatcherTests() => ResetState();
