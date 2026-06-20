@@ -30,7 +30,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// host with no Godot binary. The capture INSTALLER (<c>RuntimeErrorCapture.Install</c>, which registers
     /// the engine logger via <c>OS.AddLogger</c> + the AppDomain/TaskScheduler hooks) and the 4.5 engine
     /// Logger subclass are verified by the headless Godot runtime smoke (test.md Suite 3).
+    ///
+    /// <para>
+    /// Several facts here mutate the <see cref="RuntimeErrorCapture"/> family of process-wide statics
+    /// (<see cref="RuntimeErrorCollector.Current"/>, the install-state / <see cref="RuntimeErrorCapture.IsInstalled"/>,
+    /// and the <c>GodotMcpRuntime._installForTests</c> / <c>_uninstallForTests</c> seams), so this class joins the
+    /// shared serial <see cref="RuntimeErrorCaptureSerialCollection"/> — the SAME collection as
+    /// <see cref="RuntimeErrorCaptureRebindTests"/> — so the two never race that shared state (issue #195). Each
+    /// fact still snapshots/restores the statics in a finally via the local helpers below.
+    /// </para>
     /// </summary>
+    [Collection(RuntimeErrorCaptureSerialCollection.Name)]
     public class RuntimeErrorCaptureTests
     {
         // ---- RuntimeError / RuntimeErrorsResult serialization ------------------------------------

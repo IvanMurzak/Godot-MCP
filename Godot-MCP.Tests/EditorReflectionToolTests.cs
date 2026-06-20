@@ -209,27 +209,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(0, c.Count);
         }
 
-        // ---- GetOrCreate fallback ----------------------------------------------------------------
-
-        [Fact]
-        public void GetOrCreate_WhenCurrentNull_ReturnsAndCachesFresh()
-        {
-            var saved = GodotLogCollector.Current;
-            try
-            {
-                GodotLogCollector.Current = null;
-                var first = GodotLogCollector.GetOrCreate();
-                Assert.NotNull(first);
-                // Caches into Current, so a second call returns the SAME instance.
-                Assert.Same(first, GodotLogCollector.GetOrCreate());
-                Assert.Same(first, GodotLogCollector.Current);
-            }
-            finally
-            {
-                GodotLogCollector.Current = saved;
-            }
-        }
-
         // ---- Models: serialization round-trips ---------------------------------------------------
 
         [Fact]
@@ -311,6 +290,43 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Empty(back!.Nodes);
             Assert.Null(back.ActiveNode);
             Assert.Equal(0, back.Count);
+        }
+    }
+
+    /// <summary>
+    /// The single <see cref="GodotLogCollector.GetOrCreate"/> fallback fact that mutates the process-wide
+    /// <see cref="GodotLogCollector.Current"/> static — extracted out of the otherwise-parallel
+    /// <see cref="EditorReflectionToolTests"/> so it joins the serial
+    /// <see cref="GodotLogCollectorCurrentCollection"/> (shared with <see cref="GodotLogCollectorTests"/> /
+    /// <see cref="ConsoleToolTests"/>) and can never race the concurrent <c>Current = null</c> in their ctors
+    /// (issue #195). Snapshots/restores <c>Current</c> around the test, mirroring those classes' pattern, so
+    /// it is non-destructive even when run alongside them in the same serial collection.
+    /// </summary>
+    [Collection(GodotLogCollectorCurrentCollection.Name)]
+    public class GodotLogCollectorGetOrCreateTests : IDisposable
+    {
+        readonly GodotLogCollector? _savedCurrent;
+
+        public GodotLogCollectorGetOrCreateTests()
+        {
+            _savedCurrent = GodotLogCollector.Current;
+            GodotLogCollector.Current = null;
+        }
+
+        public void Dispose()
+        {
+            GodotLogCollector.Current = _savedCurrent;
+        }
+
+        [Fact]
+        public void GetOrCreate_WhenCurrentNull_ReturnsAndCachesFresh()
+        {
+            GodotLogCollector.Current = null;
+            var first = GodotLogCollector.GetOrCreate();
+            Assert.NotNull(first);
+            // Caches into Current, so a second call returns the SAME instance.
+            Assert.Same(first, GodotLogCollector.GetOrCreate());
+            Assert.Same(first, GodotLogCollector.Current);
         }
     }
 }

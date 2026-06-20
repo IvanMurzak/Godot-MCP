@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System;
 using System.Linq;
 using System.Text.Json;
 using com.IvanMurzak.Godot.MCP.Data;
@@ -328,24 +329,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Route_StaticCurrent_IsSettableAndClearable()
-        {
-            var prior = ScriptErrorCapture.Current;
-            try
-            {
-                var c = new ScriptErrorCapture();
-                ScriptErrorCapture.Current = c;
-                Assert.Same(c, ScriptErrorCapture.Current);
-                ScriptErrorCapture.Current = null;
-                Assert.Null(ScriptErrorCapture.Current);
-            }
-            finally
-            {
-                ScriptErrorCapture.Current = prior;
-            }
-        }
-
-        [Fact]
         public void Diagnostics_SortBySeverity_ErrorsBeforeWarnings()
         {
             // Mirrors the ordering Tool_Script.Validate applies before returning.
@@ -357,5 +340,54 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             list.Sort((a, b) => a.Severity.CompareTo(b.Severity));
             Assert.Equal(ScriptDiagnosticSeverity.Error, list.First().Severity);
         }
+    }
+
+    /// <summary>
+    /// The single <see cref="ScriptDiagnosticsTests"/> fact that mutates the process-wide
+    /// <see cref="ScriptErrorCapture.Current"/> static — extracted here so the other ~21 facts of
+    /// <see cref="ScriptDiagnosticsTests"/> (all driving LOCAL <c>new ScriptErrorCapture()</c> instances, never
+    /// the static) stay in the default parallel pool. This class joins the serial
+    /// <see cref="ScriptErrorCaptureCurrentCollection"/> so it can never race the
+    /// <c>ScriptErrorCapture.Current</c> reads/writes in <see cref="RuntimeErrorCaptureRebindTests"/> (issue
+    /// #195), and snapshots/restores <c>Current</c> in its ctor/Dispose.
+    /// </summary>
+    [Collection(ScriptErrorCaptureCurrentCollection.Name)]
+    public class ScriptErrorCaptureCurrentTests : IDisposable
+    {
+        readonly ScriptErrorCapture? _savedCurrent;
+
+        public ScriptErrorCaptureCurrentTests()
+        {
+            _savedCurrent = ScriptErrorCapture.Current;
+        }
+
+        public void Dispose()
+        {
+            ScriptErrorCapture.Current = _savedCurrent;
+        }
+
+        [Fact]
+        public void Route_StaticCurrent_IsSettableAndClearable()
+        {
+            var c = new ScriptErrorCapture();
+            ScriptErrorCapture.Current = c;
+            Assert.Same(c, ScriptErrorCapture.Current);
+            ScriptErrorCapture.Current = null;
+            Assert.Null(ScriptErrorCapture.Current);
+        }
+    }
+
+    /// <summary>
+    /// Dedicated serial collection for writers of the process-wide <see cref="ScriptErrorCapture.Current"/>
+    /// static (issue #195). <see cref="RuntimeErrorCaptureRebindTests"/> also writes that static, but it lives
+    /// in the broader <see cref="RuntimeErrorCaptureSerialCollection"/>; since a test class can join only ONE
+    /// collection, this dedicated collection serializes <see cref="ScriptErrorCaptureCurrentTests"/> on its own.
+    /// The drift-guard (<c>TestIsolationGuardTests</c>) only requires SOME <c>[Collection]</c> on a static
+    /// writer — both collections satisfy that.
+    /// </summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public sealed class ScriptErrorCaptureCurrentCollection
+    {
+        public const string Name = "ScriptErrorCapture.Current (serial)";
     }
 }
