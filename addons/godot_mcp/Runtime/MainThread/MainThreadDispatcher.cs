@@ -188,11 +188,17 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             if (ReferenceEquals(_instance, this))
                 _instance = null;
 
-            // Drain anything left so pending awaiters do not hang forever. NOTE: this runs each
-            // queued action's FULL body during teardown — those bodies may touch the SceneTree
-            // while the editor is tearing the dispatcher down. Callers must not assume the tree is
-            // fully alive in work that could still be pending at _ExitTree time.
-            DrainQueue();
+            // Drain anything left so pending awaiters do not hang forever, but BOUND the drain to the
+            // items already queued at this moment (see DrainQueueBounded). The unbounded DrainQueue used
+            // on the normal _Process tick keeps draining until the queue empties; at teardown that is a
+            // liveness hazard, because an action body (or, before GodotMainThread switched to
+            // RunContinuationsAsynchronously, an awaiter continuation) that re-enqueues could make the
+            // loop run forever while the editor is mid-teardown. Snapshotting the count first means a body
+            // that re-enqueues lands its work in the queue but does NOT extend this drain — the teardown
+            // terminates deterministically. (NOTE: a drained body still runs its FULL body here and may
+            // touch the SceneTree while the editor tears the dispatcher down; callers must not assume the
+            // tree is fully alive in work that could still be pending at _ExitTree time.)
+            DrainQueueBounded();
         }
 
         public override void _Process(double delta)
@@ -219,17 +225,45 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         {
             while (_actions.TryDequeue(out var action))
             {
-                try
-                {
-                    action.Invoke();
-                }
-                catch (Exception ex)
-                {
-                    // The action is responsible for routing its own exceptions back to its awaiter
-                    // (GodotMainThread wraps the body in a try/catch). A throw here would only mean a
-                    // bug in the action wrapper itself; surface it without killing the pump loop.
-                    GD.PushError($"[Godot-MCP] MainThreadDispatcher action threw: {ex}");
-                }
+                InvokeDrained(action);
+            }
+        }
+
+        /// <summary>
+        /// Drain only the actions already queued at the moment this is called — at most a snapshot of the
+        /// current <see cref="ConcurrentQueue{T}.Count"/> — so a drained body that re-enqueues cannot make
+        /// the loop run unboundedly. Used at <see cref="_ExitTree"/> teardown, where the unbounded
+        /// <see cref="DrainQueue"/> would be a liveness hazard against re-enqueueing work while the editor is
+        /// tearing the dispatcher down. Re-enqueued items are simply left in the queue (no live dispatcher
+        /// will drain them afterward; <see cref="Enqueue"/> then fails fast for any later caller because
+        /// <see cref="_hasEverEntered"/> is set). FIFO order of the snapshot is preserved.
+        /// </summary>
+        static void DrainQueueBounded()
+        {
+            // Snapshot the bound BEFORE dequeuing. ConcurrentQueue.Count is a point-in-time read; capturing it
+            // first caps the iteration at the items present now, so any item a drained body re-enqueues is not
+            // pulled into this same drain pass.
+            var budget = _actions.Count;
+            for (var i = 0; i < budget && _actions.TryDequeue(out var action); i++)
+            {
+                InvokeDrained(action);
+            }
+        }
+
+        /// <summary>
+        /// Invoke one drained action, swallowing and surfacing any throw without killing the pump loop. The
+        /// action is responsible for routing its own exceptions back to its awaiter (GodotMainThread wraps the
+        /// body in a try/catch). A throw here would only mean a bug in the action wrapper itself.
+        /// </summary>
+        static void InvokeDrained(Action action)
+        {
+            try
+            {
+                action.Invoke();
+            }
+            catch (Exception ex)
+            {
+                GD.PushError($"[Godot-MCP] MainThreadDispatcher action threw: {ex}");
             }
         }
 
@@ -265,17 +299,25 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
 
         /// <summary>
         /// Test-only: model the dispatcher leaving the tree (teardown). Mirrors <see cref="_ExitTree"/>'s
-        /// pure-managed effects — mark no instance present and drain anything still pending — so that a
+        /// pure-managed effects — mark no instance present and drain anything still pending via the SAME
+        /// bounded drain teardown uses — so that the unit tests exercise the real termination guarantee and a
         /// subsequent <see cref="Enqueue"/> takes the post-teardown fail-fast branch.
         /// </summary>
         internal static void SimulateInstanceExitedForTests()
         {
             _instancePresentForTests = false;
-            DrainQueue();
+            DrainQueueBounded();
         }
 
         /// <summary>Test-only: drain the buffered actions on the calling thread (no Node, no tick).</summary>
         internal static void DrainForTests() => DrainQueue();
+
+        /// <summary>
+        /// Test-only: model the bounded teardown drain (<see cref="_ExitTree"/>) directly, WITHOUT also
+        /// flipping the instance-present flag. Lets a test assert the snapshot-and-bound termination guarantee
+        /// against a re-enqueueing body in isolation from the fail-fast lifecycle transition.
+        /// </summary>
+        internal static void DrainBoundedForTests() => DrainQueueBounded();
 
         /// <summary>
         /// Test-only: reset ALL static lifecycle state to its pre-boot defaults. Static state outlives a

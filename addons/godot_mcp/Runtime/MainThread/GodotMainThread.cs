@@ -81,10 +81,21 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// Enqueue <paramref name="body"/> on the dispatcher and return a task that completes with the
         /// body's result, or faults with its exception. Mirrors the TaskCompletionSource pattern in
         /// Unity-MCP's <c>UnityMainThread.Dispatch</c>.
+        /// <para>
+        /// The TCS is created with <see cref="TaskCreationOptions.RunContinuationsAsynchronously"/> (the same
+        /// option <c>DevControlServer.RunOnMainThread</c> already uses) so the awaiter's continuation is posted
+        /// to the thread pool instead of running INLINE on whatever thread completes the TCS. The body is
+        /// completed from <see cref="MainThreadDispatcher.DrainQueue"/>, which runs on the editor main thread —
+        /// including during <c>MainThreadDispatcher._ExitTree</c> teardown. Without this option a continuation
+        /// (e.g. more <c>await MainThread.Instance.Run(...)</c> work that touches the SceneTree) would execute
+        /// synchronously on the pump thread mid-teardown, a re-entrancy / SceneTree-touch hazard; it would also
+        /// let a re-enqueueing continuation extend the drain inline. Posting continuations off-thread keeps the
+        /// pump tick (and the bounded teardown drain) free of caller-supplied continuation bodies.
+        /// </para>
         /// </summary>
         static Task<T> Dispatch<T>(Func<T> body)
         {
-            var tcs = new TaskCompletionSource<T>();
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             MainThreadDispatcher.Enqueue(() =>
             {

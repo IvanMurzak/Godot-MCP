@@ -44,6 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </para>
     /// </summary>
     [Collection(nameof(MainThreadDispatcherTests))]
+    [CollectionDefinition(nameof(MainThreadDispatcherTests), DisableParallelization = true)]
     public class MainThreadDispatcherTests : IDisposable
     {
         public MainThreadDispatcherTests() => ResetState();
@@ -227,6 +228,120 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.True(task.IsCompletedSuccessfully);
             Assert.Equal(42, await task); // already completed — await just unwraps it without blocking
+        }
+
+        // ---- Bounded teardown drain (#179: terminate against re-enqueueing bodies) --------------------------
+
+        [Fact]
+        public void TeardownDrain_IsBounded_TerminatesWhenDrainedBodyReEnqueues()
+        {
+            // Boot, then queue an action whose body re-enqueues a fresh action every time it runs. On the
+            // PRE-FIX code _ExitTree used the unbounded DrainQueue (while (TryDequeue)), so this body would
+            // re-feed the loop forever and teardown would hang. The bounded teardown drain snapshots the
+            // current count first, so it runs only the items present at entry and the re-enqueued item is
+            // left in the queue — the drain terminates.
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+
+            var runs = 0;
+            void ReEnqueueingBody()
+            {
+                runs++;
+                if (runs < 1_000_000) // would loop a million times under the unbounded drain; bounded runs once
+                    MainThreadDispatcher.Enqueue(ReEnqueueingBody);
+            }
+            MainThreadDispatcher.Enqueue(ReEnqueueingBody);
+            Assert.Equal(1, MainThreadDispatcher.PendingActionCountForTests);
+
+            // Bounded teardown drain: snapshot is 1, so the body runs exactly once. It re-enqueues one item,
+            // which is NOT pulled into this same pass. Termination is the assertion — no hang/no overflow.
+            MainThreadDispatcher.DrainBoundedForTests();
+
+            Assert.Equal(1, runs); // ran exactly the one snapshotted item, not the re-enqueued follow-on
+            Assert.Equal(1, MainThreadDispatcher.PendingActionCountForTests); // the re-enqueue is left queued
+        }
+
+        [Fact]
+        public void TeardownViaExit_DrainsPendingOnce_ThenFailsFast()
+        {
+            // The bounded drain through the real teardown seam (SimulateInstanceExited → DrainQueueBounded).
+            // Two non-re-enqueueing bodies are pending at teardown; the bounded drain runs BOTH (the snapshot
+            // is 2) and terminates, and once torn down a later Enqueue fails fast so a pending awaiter cannot
+            // hang on a queue nothing will drain.
+            //
+            // NOTE: this test deliberately does NOT re-enqueue from a drained body. During the real teardown
+            // seam _instancePresentForTests is already false, so a body that re-enqueued would take Enqueue's
+            // post-teardown throw branch; that InvalidOperationException would be caught by the drain's
+            // InvokeDrained and routed to GD.PushError, which P/Invokes into the (absent) Godot native binary
+            // and faults the binary-less xUnit host. That throw→GD.PushError path is correct in a real editor;
+            // the snapshot-and-bound TERMINATION guarantee against a re-enqueueing body is asserted separately
+            // by TeardownDrain_IsBounded_TerminatesWhenDrainedBodyReEnqueues (which keeps the instance present
+            // so the re-enqueue succeeds and never reaches GD.PushError).
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+
+            var runs = 0;
+            MainThreadDispatcher.Enqueue(() => runs++);
+            MainThreadDispatcher.Enqueue(() => runs++);
+            Assert.Equal(2, MainThreadDispatcher.PendingActionCountForTests);
+
+            MainThreadDispatcher.SimulateInstanceExitedForTests(); // bounded teardown drain — must terminate
+
+            Assert.Equal(2, runs);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+            Assert.Throws<InvalidOperationException>(() => MainThreadDispatcher.Enqueue(() => { }));
+        }
+
+        // ---- Continuations don't run inline on the pump/drain thread (#179) ---------------------------------
+
+        [Fact]
+        public async Task GodotMainThread_Dispatch_ContinuationDoesNotRunInlineOnDrainThread()
+        {
+            // GodotMainThread.Dispatch builds its TaskCompletionSource with RunContinuationsAsynchronously, so
+            // an awaiter's continuation is posted to the thread pool — NOT executed inline on whatever thread
+            // completes the TCS. The completing thread here is the drain thread (DrainForTests below = the
+            // _Process / _ExitTree pump in production). On the PRE-FIX default-ctor TCS, SetResult from the
+            // drain thread would run the continuation synchronously ON the drain thread, which mid-teardown is
+            // the SceneTree-touch / re-entrancy hazard #179 fixes.
+            GodotMainThread.Install();
+            var mt = com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance;
+
+            // Dispatch from a background thread (so it is not the captured main thread and takes the Dispatch
+            // → Enqueue path), leaving a pending task buffered until we drain.
+            Task<int>? task = null;
+            var bg = new Thread(() => { task = mt.RunAsync(() => 7); });
+            bg.Start();
+            bg.Join();
+            Assert.NotNull(task);
+            Assert.False(task!.IsCompleted);
+
+            // Attach a continuation that records WHICH thread it runs on. ExecuteSynchronously asks the runtime
+            // to run it inline on the completing thread IF the TCS allows synchronous continuations — which is
+            // exactly what RunContinuationsAsynchronously forbids. So with the fix this continuation can never
+            // observe the drain thread.
+            var continuationThreadId = 0;
+            var continuationRan = new ManualResetEventSlim(false);
+            var cont = task.ContinueWith(_ =>
+                {
+                    continuationThreadId = Thread.CurrentThread.ManagedThreadId;
+                    continuationRan.Set();
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            // Drain on THIS thread — models the main-thread pump completing the buffered body.
+            var drainThreadId = Thread.CurrentThread.ManagedThreadId;
+            MainThreadDispatcher.DrainForTests();
+
+            // The body completed the task, but with RunContinuationsAsynchronously the continuation was posted
+            // off-thread; it must NOT have run inline during the drain on this thread.
+            Assert.True(task.IsCompletedSuccessfully);
+            Assert.False(continuationRan.IsSet); // not run inline on the drain thread
+
+            // It does still run — just asynchronously, on a thread that is NOT the drain thread.
+            Assert.True(continuationRan.Wait(TimeSpan.FromSeconds(5)), "continuation never ran asynchronously");
+            Assert.NotEqual(drainThreadId, continuationThreadId);
+            Assert.Equal(7, await task);
+            await cont;
         }
     }
 }
