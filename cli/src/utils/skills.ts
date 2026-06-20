@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 // Godot-MCP skill catalog + SKILL.md content generation.
 //
 // The Godot analog of Unity-MCP's server-side skill generation. Unlike the
@@ -29,10 +32,17 @@ export interface SkillFamily {
 }
 
 /**
- * The Godot-MCP tool-family catalog. Mirrors the 10 families documented in
+ * The Godot-MCP tool-family catalog. Mirrors the 11 families documented in
  * `Godot-MCP/CLAUDE.md` § Tool families and the `[AiToolType]` classes under
  * `addons/godot_mcp/Runtime/Tools/` and `addons/godot_mcp/Editor/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
  * an MCP client invokes.
+ *
+ * Each family's `title` is the addon's `Tool_<title>` class-name suffix (e.g.
+ * `FileSystem` → `Tool_FileSystem`, `RuntimeErrors` → `Tool_RuntimeErrors`). That
+ * join key is what the CI cross-check (`discoverAddonToolFamilies`, exercised by
+ * `cli/tests/skills-addon-parity.test.ts`) uses to fail the build if this catalog
+ * ever drifts from the addon's actual `[AiToolType]` classes — so a new addon tool
+ * family cannot ship without a matching catalog entry here.
  */
 export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
@@ -131,6 +141,24 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
     tools: [
       { name: 'reflection-method-find', description: 'Find methods on an engine type by name/signature.' },
       { name: 'reflection-method-call', description: 'Invoke a method reflectively with serialized arguments.' },
+    ],
+  },
+  {
+    id: 'runtime-errors',
+    title: 'RuntimeErrors',
+    summary:
+      'Poll errors raised inside the RUNNING game (NOT the editor) — GDScript runtime errors, push_error/push_warning, shader errors, and C# unhandled/unobserved-Task exceptions, with multi-frame GDScript backtraces on Godot 4.5+.',
+    tools: [
+      {
+        name: 'runtime-errors-get',
+        description:
+          'Read captured in-game runtime errors (oldest-first, newest-kept page). Returns `available:false` when the game never enabled runtime-error capture, so an empty list is never mistaken for health; poll only new errors by passing the previous result\'s `highestSequence` as `sinceSequence`.',
+      },
+      {
+        name: 'runtime-errors-clear',
+        description:
+          'Clear the captured in-game runtime-error buffer (a no-op when capture is not enabled). The monotonic sequence counter is preserved, so a pre-clear `sinceSequence` poll still behaves correctly.',
+      },
     ],
   },
   {
@@ -246,4 +274,94 @@ export function buildSkillFiles(): SkillFile[] {
     files.push(buildFamilySkill(fam));
   }
   return files;
+}
+
+// ---------------------------------------------------------------------------
+// CI cross-check: catalog ⇄ addon tool-family parity
+//
+// `SKILL_FAMILIES` above is hand-maintained, but it must stay in lockstep with
+// the addon's ACTUAL tool families — the `[AiToolType] partial class Tool_<Family>`
+// classes under `addons/godot_mcp/{Runtime,Editor}/Tools/`. When a new family ships
+// in the addon (as `runtime-errors` did in #161/#162) but nobody updates this
+// catalog, the CLI silently stops advertising it. The parity test
+// (`cli/tests/skills-addon-parity.test.ts`) compares the two sets and fails CI on
+// any divergence, so the catalog can never quietly fall behind the addon again.
+//
+// Join key: each catalog family's `title` is exactly the addon class-name suffix
+// (`Tool_<title>`). A naive PascalCase→kebab transform would NOT work — the addon
+// has `Tool_FileSystem` (catalog id `filesystem`, no hyphen) and `Tool_RuntimeErrors`
+// (catalog id `runtime-errors`, hyphenated) — so we match on the class-name suffix,
+// not on a derived slug.
+// ---------------------------------------------------------------------------
+
+/** Catalog (skills.ts) side of the parity check: the `Tool_<title>` suffixes the CLI advertises. */
+export function catalogToolFamilyClassSuffixes(): string[] {
+  return SKILL_FAMILIES.map((f) => f.title).sort();
+}
+
+/**
+ * Resolve the addon's `Tools/` source directories relative to a repo root. The
+ * cross-check passes the Godot-MCP repo root (the directory that contains both
+ * `cli/` and `addons/`); each tool-family base file lives under one of these two
+ * folders (Runtime = pure-managed families, Editor = `#if TOOLS` families).
+ */
+export function addonToolDirs(repoRoot: string): string[] {
+  return [
+    path.join(repoRoot, 'addons', 'godot_mcp', 'Runtime', 'Tools'),
+    path.join(repoRoot, 'addons', 'godot_mcp', 'Editor', 'Tools'),
+  ];
+}
+
+/**
+ * Addon side of the parity check: discover every tool family declared in the addon
+ * by scanning for `[AiToolType] ... partial class Tool_<Family>` in the `.cs` sources
+ * under the addon `Tools/` directories. Returns the sorted set of `<Family>` suffixes
+ * (e.g. `Node`, `FileSystem`, `RuntimeErrors`).
+ *
+ * Robustness notes:
+ * - Tool families are partial classes split across files (`Tool_RuntimeErrors.cs`,
+ *   `Tool_RuntimeErrors.Get.cs`, `Tool_RuntimeErrors.Clear.cs`). Only the base file
+ *   carries the `[AiToolType]` attribute, so keying on `[AiToolType]` (not on file
+ *   names) collapses each multi-file family to ONE entry automatically.
+ * - The regex tolerates other attributes/whitespace between `[AiToolType]` and the
+ *   class declaration, and an optional access modifier on the class.
+ * - Sub-tool families use a COMPOUND class name (`Tool_Editor_Selection` adds the
+ *   `editor-selection-*` tools to the `editor` family). We capture the whole
+ *   `Tool_<Seg1>[_<Seg2>...]` suffix and attribute it to its FIRST segment
+ *   (`Tool_Editor_Selection` → `Editor`), so a sub-tool class lands in its parent
+ *   family instead of being silently dropped (which would happen if the capture
+ *   stopped at the first `_`). The trailing `Set<string>` dedups the parent family
+ *   when both `Tool_Editor` and `Tool_Editor_Selection` exist.
+ * - The attribute MUST bind to its IMMEDIATELY-following type declaration: the gap
+ *   between `[AiToolType]` and `Tool_<Family>` may contain only other attributes,
+ *   doc comments, and whitespace — never an intervening type keyword. This stops a
+ *   stray `[AiToolType]` on a non-`Tool_` type from being misattributed to a later
+ *   `Tool_` class in the same file.
+ */
+export function discoverAddonToolFamilies(repoRoot: string): string[] {
+  // `[AiToolType]` (possibly with args), then ONLY attributes / doc-comments /
+  // whitespace (no intervening `class`/`struct`/`interface`/`enum`/`record`
+  // keyword — `(?:(?!\b(?:class|struct|interface|enum|record)\b)[\s\S])*?` forbids
+  // crossing one), then `partial class Tool_<Family>` where `<Family>` is the full
+  // compound suffix (`Editor`, `Editor_Selection`, ...). First segment = the family.
+  const familyRe =
+    /\[AiToolType[^\]]*\](?:(?!\b(?:class|struct|interface|enum|record)\b)[\s\S])*?\bpartial\s+class\s+Tool_([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z][A-Za-z0-9]*)*)\b/g;
+  const found = new Set<string>();
+
+  for (const dir of addonToolDirs(repoRoot)) {
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir)) {
+      if (!entry.endsWith('.cs')) continue;
+      const src = fs.readFileSync(path.join(dir, entry), 'utf-8');
+      let m: RegExpExecArray | null;
+      familyRe.lastIndex = 0;
+      while ((m = familyRe.exec(src)) !== null) {
+        // Attribute a compound sub-tool class (`Tool_Editor_Selection`) to its
+        // parent family by taking the FIRST `_`-delimited segment (`Editor`).
+        found.add(m[1].split('_')[0]);
+      }
+    }
+  }
+
+  return [...found].sort();
 }
