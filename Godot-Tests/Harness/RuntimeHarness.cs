@@ -114,6 +114,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             GD.Print($"[harness] starting (godot={report.GodotVersion}, engineLoggerExpected={report.EngineLoggerExpected}, requireConnect={requireConnect}, timeout={timeoutSeconds}s).");
 
+            // ONE shared wall-clock deadline for the WHOLE connect+capture phase. Both PollConnectedAsync
+            // and PollCapturedAsync poll against this same instant — the capture phase inherits whatever is
+            // LEFT after connect, it does NOT get a fresh full budget. (If each got its own
+            // TimeSpan.FromSeconds(timeoutSeconds) the harness could run up to ~2x the intended budget and
+            // outlive the workflow's wait-on-game window — issue #196.)
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(timeoutSeconds);
+
             try
             {
                 // 1) Build the in-game runtime: opt the addon's tools in (so the server's tool list — incl.
@@ -150,8 +157,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
                 // 4) Poll for the live SignalR state to reach Connected (robust — NOT a fixed sleep). The
                 //    reused client may report Connected slightly after Connect() returns; poll the plugin's
-                //    ConnectionState reactive property until Connected or the budget expires.
-                report.Connected = await PollConnectedAsync(TimeSpan.FromSeconds(timeoutSeconds));
+                //    ConnectionState reactive property until Connected or the shared deadline expires. In
+                //    capture-only mode (requireConnect=false) we do NOT burn the shared budget waiting for a
+                //    connection we don't need — that would starve the capture phase of the budget it relies
+                //    on to drive + re-seed the C# escalation (issue #196). We record the current state and
+                //    move on, leaving the whole budget for PollCapturedAsync.
+                report.Connected = await PollConnectedAsync(requireConnect, deadline);
                 GD.Print($"[harness] connect phase done. initialConnect={initialConnect}, connected={report.Connected}.");
 
                 // 5) Raise the three representative runtime errors.
@@ -159,8 +170,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
                 // 6) Poll the collector until all the expected rows have landed (capture is multi-threaded;
                 //    the engine logger + AppDomain/TaskScheduler hooks append from arbitrary threads). Robust
-                //    wait, capped by the same budget.
-                await PollCapturedAsync(report, TimeSpan.FromSeconds(timeoutSeconds));
+                //    wait, capped by the SAME shared deadline (the remaining budget after connect, not a fresh
+                //    full one). This loop also DRIVES the C# unobserved-Task finalizer escalation + re-seeds.
+                await PollCapturedAsync(report, deadline);
 
                 // 7) Snapshot the captured rows into the report.
                 Snapshot(report);
@@ -234,12 +246,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         {
             // Create + abandon a faulted Task inside a non-inlined local so the JIT cannot keep it rooted.
             FaultAndAbandon();
-            // The unobserved-exception escalation fires from the Task finalizer — force it deterministically.
-            for (var i = 0; i < 4; i++)
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-            }
+            // SEED ONLY: one immediate fast GC pass to try to fire the finalizer escalation now. The OLD
+            // fixed 4-pass loop is intentionally gone — a fixed pass count is exactly the GC-timing race
+            // that intermittently failed runtime-harness-4-4 (slow/contended runner => 4 passes not enough,
+            // and nothing re-drove it). The budget-bounded GC-drive + re-seed now lives in PollCapturedAsync,
+            // which retries until the row lands or the SHARED wall-clock deadline expires. A future reader
+            // MUST NOT restore the fixed loop here (issue #196).
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             GC.Collect();
         }
 
@@ -254,13 +268,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
         // --- Robust polling (no blind sleeps) ---------------------------------------------------------
 
-        async Task<bool> PollConnectedAsync(TimeSpan budget)
+        async Task<bool> PollConnectedAsync(bool requireConnect, DateTime deadline)
         {
             var plugin = _handle?.Plugin;
             if (plugin == null)
                 return false;
 
-            var deadline = DateTime.UtcNow + budget;
+            // Capture-only smoke (requireConnect=false): do NOT spend the shared budget waiting for a
+            // connection we don't require — snapshot the current state and return immediately so the WHOLE
+            // budget is left for PollCapturedAsync to drive the C# escalation. When connect IS required (CI),
+            // poll up to the shared deadline as before; in CI the local server is already up, so this returns
+            // fast and the capture phase still inherits the bulk of the budget.
+            if (!requireConnect)
+                return plugin.ConnectionState.CurrentValue == HubConnectionState.Connected;
+
             while (DateTime.UtcNow < deadline)
             {
                 if (plugin.ConnectionState.CurrentValue == HubConnectionState.Connected)
@@ -270,9 +291,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             return plugin.ConnectionState.CurrentValue == HubConnectionState.Connected;
         }
 
-        async Task PollCapturedAsync(HarnessReport report, TimeSpan budget)
+        // Polls the collector until every expected row has landed OR the SHARED deadline expires. Unlike the
+        // old version (which only frame-waited), this DRIVES the C# unobserved-Task finalizer escalation each
+        // iteration while the C# row is still missing, and RE-SEEDS the faulted Task on a ~2s backoff so a
+        // first fault that was swallowed (slow/contended runner — the runtime-harness-4-4 GC-timing flake of
+        // issue #196) self-heals within the budget. The GC-drive + re-seed are gated on `!haveCSharp`, so the
+        // engine-row wait on Godot 4.5+ is NOT regressed (no extra GC churn once the C# row is present).
+        //
+        // NOTE — scope: only the C# unobserved-Task escalation is timing-fragile (it depends on a finalizer
+        // GC pass). The engine GDScript runtime error / push_error / push_warning rows are pushed
+        // synchronously by the engine 4.5+ logger channel and need no re-raise here; re-raising them is
+        // intentionally OUT OF SCOPE for this de-flake (issue #196).
+        async Task PollCapturedAsync(HarnessReport report, DateTime deadline)
         {
-            var deadline = DateTime.UtcNow + budget;
+            var lastReseed = DateTime.UtcNow;
             while (DateTime.UtcNow < deadline)
             {
                 var collector = RuntimeErrorCollector.Current;
@@ -290,6 +322,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                     var enginePartDone = !report.EngineLoggerExpected || (haveEngineRuntime && havePushErr && havePushWarn);
                     if (haveCSharp && enginePartDone)
                         return;
+
+                    // C# row still missing — actively drive the finalizer escalation (budget-bounded
+                    // replacement for the removed fixed 4-pass loop in RaiseUnobservedTaskException), and
+                    // re-seed the faulted Task on a ~2s backoff so a swallowed first fault self-heals.
+                    if (!haveCSharp)
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        GC.Collect();
+
+                        if (DateTime.UtcNow - lastReseed > TimeSpan.FromSeconds(2))
+                        {
+                            FaultAndAbandon();
+                            lastReseed = DateTime.UtcNow;
+                        }
+                    }
                 }
                 await WaitFramesAsync(5);
             }
