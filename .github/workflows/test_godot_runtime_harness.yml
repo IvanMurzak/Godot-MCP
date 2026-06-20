@@ -94,7 +94,9 @@ jobs:
             echo "engine_logger_expected=0" >> "$GITHUB_OUTPUT"
           fi
           # Pin the testbed build SDK to the matrix Godot version (disposable checkout).
-          sed -i "s#Godot.NET.Sdk/[0-9][0-9.]*#Godot.NET.Sdk/${GODOT_VERSION}#" "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
+          # Anchor on the Sdk="..." attribute so ONLY the <Project Sdk=...> pin (line 1) is
+          # rewritten — comment mentions of Godot.NET.Sdk/4.3.0 elsewhere in the csproj are left intact.
+          sed -i "s#Sdk=\"Godot.NET.Sdk/[0-9][0-9.]*\"#Sdk=\"Godot.NET.Sdk/${GODOT_VERSION}\"#" "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
           echo "Pinned ${TEST_PROJECT}.csproj SDK:"
           head -1 "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
 
@@ -225,17 +227,27 @@ jobs:
           echo "harness game exit code: ${GAME_RC}"
           echo "----- game.log (tail) -----"; tail -n 80 game.log || true
 
+          # Run the per-field asserter FIRST (non-fatally) so its readable per-version diagnosis
+          # of the structured result prints BEFORE the generic roundtrip hard-fail below — on the
+          # fast-quit race where the roundtrip poll missed but the harness still wrote a result,
+          # the field-level "what was/wasn't captured" diagnosis is the actionable signal.
+          ASSERT_RC=0
+          python scripts/assert_runtime_harness.py \
+            --result "$RESULT" \
+            --engine-logger-expected "${ENGINE_LOGGER_EXPECTED}" \
+            --require-connect 1 || ASSERT_RC=$?
+
           if [ "$ROUNDTRIP_OK" != "1" ]; then
             echo "::error::the live tool roundtrip (POST /api/tools/ping) never succeeded — the game's plugin did not connect+dispatch."
             exit 1
           fi
 
-          # Independent, field-by-field assertion of the structured result (on top of the
-          # harness's own exit code) for a readable per-version diagnosis.
-          python scripts/assert_runtime_harness.py \
-            --result "$RESULT" \
-            --engine-logger-expected "${ENGINE_LOGGER_EXPECTED}" \
-            --require-connect 1
+          # Authoritative gate: the field-by-field assertion must pass (the diagnostic run above
+          # already printed its findings; this re-asserts the exit code as the pass/fail gate).
+          if [ "$ASSERT_RC" != "0" ]; then
+            echo "::error::the structured-result assertion (assert_runtime_harness.py) failed — see the per-field diagnosis above."
+            exit "$ASSERT_RC"
+          fi
 
           if [ "$GAME_RC" != "0" ]; then
             echo "::error::the harness game exited non-zero (${GAME_RC}) — its own pass/fail gate failed."
