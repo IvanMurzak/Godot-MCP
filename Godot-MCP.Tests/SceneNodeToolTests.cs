@@ -212,40 +212,57 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(string.Empty, NodePathNormalizer.Normalize(null!, "Main"));
         }
 
-        // ---- GodotMcpReflector -------------------------------------------------------------------
+    }
+
+    /// <summary>
+    /// The two <see cref="GodotMcpReflector.GetOrCreate"/> facts that mutate the process-wide
+    /// <see cref="GodotMcpReflector.Current"/> static — extracted out of the otherwise-parallel
+    /// <see cref="SceneNodeToolTests"/> so they join the serial <see cref="GodotMcpReflectorCurrentCollection"/>
+    /// and can never race another class that touches that static (issue #195: currently unraced, but the same
+    /// bare-mutator antipattern as the other three statics, so it is guarded pre-emptively and enforced by the
+    /// drift-guard). Snapshots/restores <c>Current</c> in the ctor/Dispose so the suite is non-destructive.
+    /// </summary>
+    [Collection(GodotMcpReflectorCurrentCollection.Name)]
+    public class GodotMcpReflectorCurrentTests : System.IDisposable
+    {
+        readonly Reflector? _savedCurrent;
+
+        public GodotMcpReflectorCurrentTests()
+        {
+            _savedCurrent = GodotMcpReflector.Current;
+        }
+
+        public void Dispose()
+        {
+            GodotMcpReflector.Current = _savedCurrent;
+        }
 
         [Fact]
         public void GodotMcpReflector_GetOrCreate_FallsBack_WhenNoCurrent()
         {
-            var saved = GodotMcpReflector.Current;
-            try
-            {
-                GodotMcpReflector.Current = null;
-                var reflector = GodotMcpReflector.GetOrCreate();
-                Assert.NotNull(reflector);
-                // The fallback is NOT cached into Current (the connection remains the sole owner).
-                Assert.Null(GodotMcpReflector.Current);
-            }
-            finally
-            {
-                GodotMcpReflector.Current = saved;
-            }
+            GodotMcpReflector.Current = null;
+            var reflector = GodotMcpReflector.GetOrCreate();
+            Assert.NotNull(reflector);
+            // The fallback is NOT cached into Current (the connection remains the sole owner).
+            Assert.Null(GodotMcpReflector.Current);
         }
 
         [Fact]
         public void GodotMcpReflector_GetOrCreate_ReturnsCurrent_WhenSet()
         {
-            var saved = GodotMcpReflector.Current;
-            try
-            {
-                var mine = new Reflector();
-                GodotMcpReflector.Current = mine;
-                Assert.Same(mine, GodotMcpReflector.GetOrCreate());
-            }
-            finally
-            {
-                GodotMcpReflector.Current = saved;
-            }
+            var mine = new Reflector();
+            GodotMcpReflector.Current = mine;
+            Assert.Same(mine, GodotMcpReflector.GetOrCreate());
         }
+    }
+
+    /// <summary>
+    /// Dedicated serial collection for writers of the process-wide <see cref="GodotMcpReflector.Current"/>
+    /// static (issue #195), keeping the rest of <see cref="SceneNodeToolTests"/> parallel.
+    /// </summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public sealed class GodotMcpReflectorCurrentCollection
+    {
+        public const string Name = "GodotMcpReflector.Current (serial)";
     }
 }

@@ -48,8 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// saves + restores that state in a finally, so a failed assertion can never leak into another test.
     /// </para>
     /// </summary>
-    [Collection(nameof(RuntimeErrorCaptureRebindTests))]
-    [CollectionDefinition(nameof(RuntimeErrorCaptureRebindTests), DisableParallelization = true)]
+    [Collection(RuntimeErrorCaptureSerialCollection.Name)]
     public class RuntimeErrorCaptureRebindTests
     {
         // ── PlanBridgeInstall: the pure-managed decision the real bridge shares ─────────────────────────────
@@ -318,5 +317,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             try { body(); }
             finally { ScriptErrorCapture.Current = prior; }
         }
+    }
+
+    /// <summary>
+    /// Shared serial collection for EVERY test class that mutates the <see cref="RuntimeErrorCapture"/>
+    /// family of process-wide statics — <see cref="RuntimeErrorCollector.Current"/>, the
+    /// <see cref="RuntimeErrorCapture"/> install-state / <see cref="RuntimeErrorCapture.IsInstalled"/>, and the
+    /// <c>GodotMcpRuntime._installForTests</c> / <c>_uninstallForTests</c> seams. Both
+    /// <see cref="RuntimeErrorCaptureTests"/> and <see cref="RuntimeErrorCaptureRebindTests"/> join it so the
+    /// two never run in parallel against that shared install state (issue #195): previously
+    /// <c>RuntimeErrorCaptureTests</c> was bare/parallel while <c>RuntimeErrorCaptureRebindTests</c> sat in its
+    /// own (self-named) collection, an active latent race. One shared <c>DisableParallelization</c> collection
+    /// serializes them together.
+    /// </summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public sealed class RuntimeErrorCaptureSerialCollection
+    {
+        public const string Name = "RuntimeErrorCapture (serial)";
     }
 }
