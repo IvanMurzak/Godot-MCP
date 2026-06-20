@@ -1,0 +1,265 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# │  See the LICENSE file in the project root for more information.  │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# Reusable workflow: the issue-#186 RUNTIME INTEGRATION harness. Unlike the
+# addon-LOAD smoke (test_godot_plugin.yml, which only boots the editor and greps
+# "[Godot-MCP] plugin loaded"), this boots a HEADLESS GAME of the in-repo
+# Godot-Tests/ project with the in-game Godot-MCP runtime + runtime-error capture
+# enabled, downloads + runs the released gamedev-mcp-server, and asserts the WHOLE
+# end-to-end path that today's CI never exercises (the entire transport is
+# #if TOOLS-excluded from the xUnit suite):
+#
+#   1. the live SignalR transport connects + handshakes (download the released
+#      gamedev-mcp-server, run it Authorization=none on a fixed port, the headless
+#      game connects to it);
+#   2. a live tool roundtrip works (the workflow POSTs `ping` to the server while
+#      the game holds the connection — succeeds ONLY once the game's plugin is
+#      connected, so it proves connect + handshake + dispatch in one call);
+#   3. runtime-errors capture returns, on the 4.5.1 leg, the engine GDScript
+#      runtime error WITH the #163 multi-frame backtrace + push_error/push_warning
+#      + the C# exception with a stack; on the 4.3/4.4 legs it asserts graceful
+#      stub degradation (no engine logger; frames null) while the C# channel still
+#      captures.
+#
+# Called once per matrix version by test_pull_request.yml.
+name: Test Godot Runtime Harness
+
+on:
+  workflow_call:
+    inputs:
+      godotVersion:
+        description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
+        required: true
+        type: string
+      serverVersion:
+        description: "GameDev-MCP-Server release version to download + run (the addon's pinned ServerVersion)."
+        required: false
+        default: "8.0.0"
+        type: string
+
+jobs:
+  runtime-harness:
+    name: runtime harness ${{ inputs.godotVersion }} (mono)
+    runs-on: ubuntu-latest
+    env:
+      TEST_PROJECT: Godot-Tests
+      # Fixed local port the server listens on and the game connects to (loopback, auth=none).
+      SERVER_PORT: "5400"
+      SERVER_VERSION: ${{ inputs.serverVersion }}
+      # The runner is ubuntu-latest x64, so the release asset + extracted binary are fixed.
+      SERVER_ASSET: gamedev-mcp-server-linux-x64.zip
+      SERVER_BIN: gamedev-mcp-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Godot ${{ inputs.godotVersion }} (mono)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godotVersion }}
+          use-dotnet: true
+          include-templates: false
+
+      - name: Report Godot version
+        shell: bash
+        run: godot --version --headless
+
+      # The engine 4.5+ logger channel (OS.AddLogger / Godot.Logger / ScriptBacktrace) only
+      # compiles in when the build's Godot.NET.Sdk version is >= 4.5 (it defines
+      # GODOT4_5_OR_GREATER). The committed Godot-Tests.csproj pins the addon's engine FLOOR
+      # (Godot.NET.Sdk/4.3.0); the addon-load smoke only needs the floor. For THIS runtime leg
+      # we must build with the SDK matching the matrix Godot version so the engine logger is
+      # present on 4.5+ and absent on 4.3/4.4 — exactly the per-version behavior we assert.
+      # The checkout is disposable, so we rewrite the SDK pin in place per leg.
+      - name: Compute leg expectations + pin build SDK to the matrix version
+        id: leg
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT_VERSION="${{ inputs.godotVersion }}"
+          MINOR="$(echo "$GODOT_VERSION" | cut -d. -f2)"
+          if [ "$MINOR" -ge 5 ]; then
+            echo "engine_logger_expected=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "engine_logger_expected=0" >> "$GITHUB_OUTPUT"
+          fi
+          # Pin the testbed build SDK to the matrix Godot version (disposable checkout).
+          sed -i "s#Godot.NET.Sdk/[0-9][0-9.]*#Godot.NET.Sdk/${GODOT_VERSION}#" "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
+          echo "Pinned ${TEST_PROJECT}.csproj SDK:"
+          head -1 "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
+
+      - name: Copy addon into the test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${TEST_PROJECT}/addons/godot_mcp"
+          mkdir -p "${TEST_PROJECT}/addons"
+          cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
+
+      - name: Download the released gamedev-mcp-server
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p server
+          # Pull the EXACT release asset the addon's GodotMcpServerView.DownloadUrl would fetch
+          # (https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v<ver>/<asset>).
+          gh release download "v${SERVER_VERSION}" \
+            --repo IvanMurzak/GameDev-MCP-Server \
+            --pattern "${SERVER_ASSET}" \
+            --dir server --clobber
+          unzip -o -q "server/${SERVER_ASSET}" -d server/bin
+          chmod +x "server/bin/${SERVER_BIN}"
+          test -x "server/bin/${SERVER_BIN}"
+
+      - name: Start the server (Authorization=none, streamableHttp, fixed port)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Same launch shape as GodotMcpServerView.BuildLaunchArguments:
+          #   port=<p> plugin-timeout=<t> client-transport=streamableHttp authorization=none
+          nohup "server/bin/${SERVER_BIN}" \
+            port="${SERVER_PORT}" \
+            plugin-timeout=10000 \
+            client-transport=streamableHttp \
+            authorization=none \
+            > server.log 2>&1 &
+          echo "$!" > server.pid
+          # Wait-for-ready: poll the /help health endpoint (200 when the HTTP host is up).
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${SERVER_PORT}/help" || true)"
+            if [ "$code" = "200" ]; then
+              echo "server ready after ${i}s (/help -> 200)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::server did not become ready on port ${SERVER_PORT} within 60s."
+          echo "----- server.log -----"; cat server.log || true
+          exit 1
+
+      - name: Import the project (generate .godot layout)
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Cold checkout has no .godot/. Headless import materializes it; benign teardown
+          # warnings/non-zero exits are not fatal (same caveat as test_godot_plugin.yml).
+          godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
+          echo "Import pass complete."
+
+      - name: Build C# (addon + harness compile into the project assembly)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # dotnet build is deterministic (Godot.NET.Sdk resolves GodotSharp from nuget.org for
+          # the SDK pinned above). The addon's *.cs + Harness/*.cs glob into THIS project
+          # assembly, so a successful build proves the addon AND the harness compile against the
+          # frozen pins at the matrix SDK version.
+          dotnet build "${TEST_PROJECT}/${TEST_PROJECT}.csproj" --configuration Debug 2>&1 | tee build.log
+          if ! ls "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.dll >/dev/null 2>&1; then
+            echo "::error::C# build did not produce Godot-MCP-Tests.dll — the addon/harness failed to compile."
+            cat build.log || true
+            exit 1
+          fi
+
+      - name: Run the headless game harness + assert a live tool roundtrip
+        shell: bash
+        env:
+          ENGINE_LOGGER_EXPECTED: ${{ steps.leg.outputs.engine_logger_expected }}
+        run: |
+          set -uo pipefail
+          RESULT="$(pwd)/harness-result.json"
+          rm -f "$RESULT"
+
+          # Boot the headless GAME (NOT --editor): project.godot's run/main_scene is
+          # Harness/Main.tscn, whose RuntimeHarness.cs (gated by GODOT_MCP_HARNESS=1) builds the
+          # in-game runtime, connects to the local server, raises the runtime errors, writes the
+          # structured result, and quits with a pass/fail code. The addon reads host/mode/auth
+          # from its own GODOT_MCP_* env contract.
+          GODOT_MCP_HARNESS=1 \
+          GODOT_MCP_HARNESS_RESULT="$RESULT" \
+          GODOT_MCP_HARNESS_REQUIRE_CONNECT=1 \
+          GODOT_MCP_HARNESS_TIMEOUT_SECONDS=90 \
+          GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED="${ENGINE_LOGGER_EXPECTED}" \
+          GODOT_MCP_CONNECTION_MODE=Custom \
+          GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
+          GODOT_MCP_AUTH_OPTION=None \
+            godot --headless --path "${TEST_PROJECT}" > game.log 2>&1 &
+          GAME_PID=$!
+
+          # While the game holds the connection, poll the server's direct tool-call API for a
+          # `ping` roundtrip. It returns the echoed value ONLY once the game's plugin is
+          # connected + handshaken (an unconnected server returns a 500 "Response data is null"),
+          # so a success here proves connect + handshake + live tool dispatch in one call.
+          ROUNDTRIP_OK=0
+          for i in $(seq 1 90); do
+            if ! kill -0 "$GAME_PID" 2>/dev/null; then
+              echo "game exited before the ping roundtrip landed (i=${i})."
+              break
+            fi
+            resp="$(curl -s -X POST "http://localhost:${SERVER_PORT}/api/tools/ping" \
+              -H 'Content-Type: application/json' -d '{"message":"harness-186"}' || true)"
+            if echo "$resp" | grep -q 'harness-186'; then
+              echo "tool roundtrip OK: ping -> ${resp}"
+              ROUNDTRIP_OK=1
+              break
+            fi
+            sleep 1
+          done
+
+          # Wait for the harness game to finish and capture its exit code.
+          GAME_RC=0
+          wait "$GAME_PID" || GAME_RC=$?
+          echo "harness game exit code: ${GAME_RC}"
+          echo "----- game.log (tail) -----"; tail -n 80 game.log || true
+
+          if [ "$ROUNDTRIP_OK" != "1" ]; then
+            echo "::error::the live tool roundtrip (POST /api/tools/ping) never succeeded — the game's plugin did not connect+dispatch."
+            exit 1
+          fi
+
+          # Independent, field-by-field assertion of the structured result (on top of the
+          # harness's own exit code) for a readable per-version diagnosis.
+          python scripts/assert_runtime_harness.py \
+            --result "$RESULT" \
+            --engine-logger-expected "${ENGINE_LOGGER_EXPECTED}" \
+            --require-connect 1
+
+          if [ "$GAME_RC" != "0" ]; then
+            echo "::error::the harness game exited non-zero (${GAME_RC}) — its own pass/fail gate failed."
+            exit 1
+          fi
+
+      - name: Stop the server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-harness-${{ inputs.godotVersion }}-logs
+          path: |
+            import.log
+            build.log
+            game.log
+            server.log
+            harness-result.json
+          if-no-files-found: ignore
+          retention-days: 7

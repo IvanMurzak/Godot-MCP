@@ -209,6 +209,32 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  # godot_mcp runtime INTEGRATION harness across the Godot engine matrix (mono):
+  # downloads the released gamedev-mcp-server, boots a headless game with the
+  # in-game runtime + error capture, and asserts the live SignalR roundtrip +
+  # runtime-error capture (issue #186). Gates the release alongside the addon-load
+  # smoke so a transport/capture regression cannot ship in a release.
+  runtime-harness-4-3:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.3.0"
+
+  runtime-harness-4-4:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.4.0"
+
+  runtime-harness-4-5:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.5.1"
+
   # NOTE: the MCP server is NOT built or released here anymore. The addon consumes the
   # shared GameDev-MCP-Server (https://github.com/IvanMurzak/GameDev-MCP-Server), whose
   # own release workflow publishes the `gamedev-mcp-server-<rid>.zip` assets the addon
@@ -232,6 +258,9 @@ jobs:
         test-godot-4-3,
         test-godot-4-4,
         test-godot-4-5,
+        runtime-harness-4-3,
+        runtime-harness-4-4,
+        runtime-harness-4-5,
       ]
     if: needs.check-version-tag.outputs.should_release == 'true'
     outputs:

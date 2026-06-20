@@ -39,6 +39,36 @@ alongside the `dotnet build (.NET 8)` + xUnit job and the `godot-mcp-cli` node
 tests. The live matrix only runs in the PR's own GitHub CI run (the runners
 download Godot).
 
+## Runtime integration harness (issue #186)
+
+Beyond the addon-LOAD smoke above, `Harness/` holds a RUNTIME INTEGRATION harness
+that boots a **headless GAME** (not the editor) and exercises the whole end-to-end
+path the `#if TOOLS`-excluded xUnit suite cannot reach — live SignalR connect +
+handshake + tool dispatch, and in-game runtime-error capture:
+
+- `Harness/Main.tscn` — `project.godot`'s `run/main_scene`; its root node carries
+  `RuntimeHarness.cs`.
+- `Harness/RuntimeHarness.cs` — gated by `GODOT_MCP_HARNESS=1` (a normal load/run is
+  untouched). On boot it `GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture())
+  .Build()` + `.Connect()`s to a LOCAL `gamedev-mcp-server`, raises a GDScript runtime
+  fault + `push_error`/`push_warning` + a C# unobserved-Task exception, reads them back
+  via `RuntimeErrorCollector.Current.QuerySince(...)`, writes a structured JSON result
+  (path = `GODOT_MCP_HARNESS_RESULT`), and quits with a pass/fail exit code.
+- `Harness/Faulty.gd` — a small call chain whose innermost frame calls a nonexistent
+  method, producing a genuine engine GDScript runtime error with a deep multi-frame
+  backtrace (issue #163) on Godot 4.5+.
+
+`.github/workflows/test_godot_runtime_harness.yml` (reusable, input `godotVersion`)
+downloads the released `gamedev-mcp-server` (`v<ServerVersion>`), runs it
+`authorization=none` on a fixed port, builds the testbed C# with the SDK matching the
+matrix Godot version (so the engine 4.5+ logger compiles in on 4.5 and is stubbed on
+4.3/4.4), boots the headless harness game, POSTs `ping` to the server while the game
+holds the connection (proving connect + handshake + dispatch), and asserts the result
+via `scripts/assert_runtime_harness.py`. The **4.5.1** leg asserts the engine GDScript
+backtrace + `push_error`/`push_warning`; the **4.3/4.4** legs assert graceful stub
+degradation (no engine logger, frames null) while the C# channel still captures.
+`test_pull_request.yml` and `release.yml` both fan it out across 4.3 / 4.4 / 4.5.
+
 ## Local run
 
 Mirror the CI smoke against the infra testbed instead (it junctions the live

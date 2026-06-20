@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+; CI runtime-harness main scene (issue #186). Its root node carries RuntimeHarness.cs,
+; which on _Ready (when GODOT_MCP_HARNESS=1) boots the in-game Godot-MCP runtime, connects
+; to a local gamedev-mcp-server, raises representative runtime errors, writes a structured
+; result file, and quits with a pass/fail exit code. When the env flag is absent the script
+; returns immediately, so opening/running this project normally is unaffected.
+
+[ext_resource type="Script" path="res://Harness/RuntimeHarness.cs" id="1_harness"]
+
+[node name="RuntimeHarness" type="Node"]
+script = ExtResource("1_harness")

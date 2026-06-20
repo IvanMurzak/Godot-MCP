@@ -16,6 +16,11 @@ config_version=5
 
 config/name="Godot-MCP-Tests"
 config/description="Minimal headless CI testbed verifying the godot_mcp addon loads across Godot 4.3/4.4/4.5 (mono). No game content."
+; run/main_scene points at the issue-#186 runtime-integration harness so a HEADLESS GAME run
+; (godot --headless --path Godot-Tests, NOT --editor) boots Harness/Main.tscn → RuntimeHarness.cs.
+; The harness only does anything when GODOT_MCP_HARNESS=1, so the existing editor-load smoke
+; (--editor --quit) and a normal run are unaffected.
+run/main_scene="res://Harness/Main.tscn"
 config/features=PackedStringArray("4.3", "C#")
 
 [dotnet]
