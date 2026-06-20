@@ -57,8 +57,8 @@ Tools and connects them to an MCP server through the hosted cloud backend at ai-
 self-hosted server. The MCP / reflection stack is shared with Unity-MCP and consumed from nuget.org as
 NuGet package references (not forked).
 
-36 built-in tools across 10 families: ping, node, scene, resource, filesystem, script, screenshot,
-editor, console, and reflection. Tool names mirror Unity-MCP where sensible (scene-*, node-*, ...).
+39 built-in tools across 11 families: ping, node, scene, resource, filesystem, script, screenshot,
+editor, console, reflection, and runtime-errors. Tool names mirror Unity-MCP where sensible (scene-*, node-*, ...).
 
 Requirements:
 - Godot 4.3+ — the C#/.NET (mono) edition. The standard GDScript-only build cannot compile the addon.
@@ -67,7 +67,7 @@ Requirements:
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the two NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet  version 5.3.1
-  com.IvanMurzak.McpPlugin     version 6.9.1
+  com.IvanMurzak.McpPlugin     version 6.10.0
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
 global-packages folder.

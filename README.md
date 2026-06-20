@@ -43,7 +43,7 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **38 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 11 families for operating the Godot Editor
+- ✔️ **39 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 11 families for operating the Godot Editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
 - ✔️ **Scene & Node control** — Build and edit the scene tree, open/save `.tscn` scenes, mutate `.tres`/`.res` resources
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
@@ -115,7 +115,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **38 built-in tools** grouped into **11 families**. Tool names mirror Unity-MCP where
+Godot-MCP ships **39 built-in tools** grouped into **11 families**. Tool names mirror Unity-MCP where
 sensible (`scene-*`, `node-*`, …). Every tool returns a structured, [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)-serialized
 result (or a PNG image for screenshots). All editor tools are available immediately after the addon is
 enabled — no extra configuration required. The **runtime-errors** family is the exception: it surfaces
@@ -129,7 +129,7 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 | **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
 | **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
 | **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node. |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node and validating GDScript. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
 | **editor** | `editor-application-get-state`, `editor-application-set-state`, `editor-selection-get`, `editor-selection-set` | Read/drive the editor run-and-play lifecycle (Godot launches the game in a separate process) and the current selection. |
 | **console** | `console-get-logs`, `console-clear-logs` | Read and clear the plugin's editor log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). |
@@ -178,6 +178,7 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 - `script-update` — Update an existing script file's contents.
 - `script-delete` — Delete a script file.
 - `script-attach-to-node` — Attach a script to a node.
+- `script-validate` — Validate GDScript (.gd) files and return structured parse/compile diagnostics.
 
 **screenshot**
 

@@ -19,6 +19,8 @@ import { fileURLToPath } from 'url';
 import {
   catalogToolFamilyClassSuffixes,
   discoverAddonToolFamilies,
+  catalogToolIds,
+  discoverAddonToolIds,
   addonToolDirs,
 } from '../src/utils/skills.js';
 import * as fs from 'fs';
@@ -125,5 +127,137 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
 
     // Belt-and-suspenders: the full sets are equal.
     expect(catalog).toEqual(addon);
+  });
+});
+
+describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
+  // The family cross-check above passes when a NEW TOOL is added to an EXISTING
+  // family (the `script-validate` regression: added to `Tool_Script`, never
+  // advertised by the CLI catalog — the family set was unchanged, so the family
+  // diff stayed green). This block diffs the per-TOOL id set so that gap is caught.
+
+  it('the addon ships the script-validate tool (regression anchor for #197)', () => {
+    // The specific tool whose absence from the catalog motivated this block.
+    const addonIds = discoverAddonToolIds(REPO_ROOT);
+    expect(addonIds).toContain('script-validate');
+  });
+
+  it('discovers exactly 39 addon tool ids', () => {
+    // Anchors the ground-truth count so an addon tool added/removed without a
+    // catalog update is caught here too (not only by the set-equality assert).
+    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(39);
+  });
+
+  it('the CLI catalog advertises exactly 39 tools', () => {
+    expect(catalogToolIds()).toHaveLength(39);
+  });
+
+  it('catalog tool ids exactly match the addon `*ToolId` constants (no per-tool drift)', () => {
+    const catalog = catalogToolIds(); // skills.ts tool names, sorted
+    const addon = discoverAddonToolIds(REPO_ROOT); // addon `*ToolId` ids, sorted
+
+    const inAddonNotInCatalog = addon.filter((t) => !catalog.includes(t));
+    const inCatalogNotInAddon = catalog.filter((t) => !addon.includes(t));
+
+    // Human-readable diagnostics pointing the maintainer at skills.ts + README.
+    expect(
+      inAddonNotInCatalog,
+      `Addon tools with NO entry in cli/src/utils/skills.ts § SKILL_FAMILIES: ` +
+        `[${inAddonNotInCatalog.join(', ')}]. Add the tool to its family's \`tools\` array ` +
+        `(and update README.md's Tools Reference + count).`,
+    ).toEqual([]);
+
+    expect(
+      inCatalogNotInAddon,
+      `skills.ts catalog tools with NO backing addon \`*ToolId\` constant: ` +
+        `[${inCatalogNotInAddon.join(', ')}]. Remove the stale catalog entry or fix its name.`,
+    ).toEqual([]);
+
+    // Belt-and-suspenders: the full sets are equal.
+    expect(catalog).toEqual(addon);
+  });
+});
+
+describe('docs single-source: counts + McpPlugin version derive from addon source + csproj', () => {
+  // The doc surfaces (README headline + Asset Library submission template + its
+  // mirrored SUBMISSION.md, plus CLAUDE.md) must state the SAME tool/family count
+  // the addon actually ships, and the Asset Library template must state the SAME
+  // McpPlugin version the csproj pins. Deriving the expected values from the addon
+  // source + csproj (not hard-coding them) keeps the addon + pin the single source
+  // of truth — so the next drift fails CI instead of shipping in a submission edit.
+
+  const expectedToolCount = discoverAddonToolIds(REPO_ROOT).length;
+  const expectedFamilyCount = discoverAddonToolFamilies(REPO_ROOT).length;
+
+  function readRepoFile(rel: string): string {
+    return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
+  }
+
+  // Tolerances baked into the regexes (verified against the real files):
+  // - `N built-in Tools` is CASE-INSENSITIVE — README:46 capitalizes "Tools".
+  // - `N families` is bold/word-boundary tolerant — README:118 wraps "**11 families**".
+  function toolCountRe(): RegExp {
+    return new RegExp(`${expectedToolCount} built-in tools`, 'i');
+  }
+  function familyCountRe(): RegExp {
+    return new RegExp(`\\b${expectedFamilyCount}\\b[^\\n]*?\\bfamilies\\b`, 'i');
+  }
+
+  it('expected counts derive non-vacuously from the addon source', () => {
+    expect(expectedToolCount).toBe(39);
+    expect(expectedFamilyCount).toBe(11);
+  });
+
+  const countDocs = [
+    'README.md',
+    '.github/assetlib/edit.hbs',
+    'docs/assetlib/SUBMISSION.md',
+    'CLAUDE.md',
+  ];
+
+  for (const rel of countDocs) {
+    it(`${rel} states the addon-derived tool count (${expectedToolCount})`, () => {
+      const text = readRepoFile(rel);
+      expect(
+        toolCountRe().test(text),
+        `${rel} should contain "${expectedToolCount} built-in tools" (case-insensitive). ` +
+          `If the addon's tool count changed, update ${rel} to match discoverAddonToolIds().`,
+      ).toBe(true);
+    });
+
+    it(`${rel} states the addon-derived family count (${expectedFamilyCount})`, () => {
+      const text = readRepoFile(rel);
+      expect(
+        familyCountRe().test(text),
+        `${rel} should reference "${expectedFamilyCount} families" (bold/spacing tolerant). ` +
+          `If the addon's family count changed, update ${rel} to match discoverAddonToolFamilies().`,
+      ).toBe(true);
+    });
+  }
+
+  it('the Asset Library template + mirror state the csproj-derived McpPlugin version', () => {
+    // Single source of truth for the pin = Godot-MCP.csproj.
+    const csproj = readRepoFile('Godot-MCP.csproj');
+    const pinMatch = csproj.match(/McpPlugin"\s+Version="([0-9.]+)"/);
+    expect(pinMatch, 'Godot-MCP.csproj must declare a com.IvanMurzak.McpPlugin PackageReference').not.toBeNull();
+    const expectedMcpPlugin = pinMatch![1];
+    expect(expectedMcpPlugin).toBe('6.10.0');
+
+    // edit.hbs renders `com.IvanMurzak.McpPlugin     version 6.10.0` — tolerate the
+    // literal lowercase word `version` and runs of spaces between name and version.
+    const versionAdjacencyRe = new RegExp(
+      `com\\.IvanMurzak\\.McpPlugin\\s+(?:version\\s+)?${expectedMcpPlugin.replace(/\./g, '\\.')}`,
+      'i',
+    );
+
+    for (const rel of ['.github/assetlib/edit.hbs', 'docs/assetlib/SUBMISSION.md']) {
+      const text = readRepoFile(rel);
+      expect(
+        versionAdjacencyRe.test(text),
+        `${rel} should state McpPlugin version ${expectedMcpPlugin} adjacent to the package name ` +
+          `(it renders "com.IvanMurzak.McpPlugin     version ${expectedMcpPlugin}"). ` +
+          `Keep it in lockstep with Godot-MCP.csproj's pin.`,
+      ).toBe(true);
+    }
   });
 });
