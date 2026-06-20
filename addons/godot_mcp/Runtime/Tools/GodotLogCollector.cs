@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using com.IvanMurzak.Godot.MCP.Data;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -43,16 +44,48 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         readonly object _gate = new();
         readonly Queue<LogEntry> _entries = new(Capacity);
 
+        /// <summary>Backing field for <see cref="Current"/>; accessed only through Volatile read/write.</summary>
+        static GodotLogCollector? _current;
+
         /// <summary>
         /// Process-wide collector used by the plugin's logging path and read by the <c>console-*</c>
-        /// tools. Assigned once at editor boot; tools fall back to a fresh empty collector via
-        /// <see cref="GetOrCreate"/> when the plugin has not booted (e.g. a direct unit call), so the
-        /// tool layer never hard-depends on the editor lifecycle.
+        /// tools. Assigned at editor boot (each <c>_EnterTree</c> installs a fresh buffer) and read by
+        /// the framework log-routing path (<c>GodotMcpConnection.RouteFrameworkLog</c> + the plugin
+        /// <c>Log*</c> helpers), which run on ARBITRARY background threads. The reference swap therefore
+        /// goes through <see cref="Volatile.Write{T}(ref T, T)"/> and reads go through
+        /// <see cref="Volatile.Read{T}(ref T)"/> so the transition is published without torn reads and
+        /// is immediately visible to the background readers — a plain auto-property would expose the
+        /// reader to a stale/torn reference on a weak memory model.
+        ///
+        /// <para>
+        /// Deliberately NOT nulled on teardown: nulling here would wipe the buffer exactly when the
+        /// teardown / reload-window diagnostics matter most (the reader would see <c>null</c> and silently
+        /// drop those lines). Instead the buffer stays readable until the next <c>_EnterTree</c> installs a
+        /// new one (last-writer-wins), so <c>console-get-logs</c> can still surface the most recent session's
+        /// lines after a plugin disable / hot-reload.
+        /// </para>
         /// </summary>
-        public static GodotLogCollector? Current { get; set; }
+        public static GodotLogCollector? Current
+        {
+            get => Volatile.Read(ref _current);
+            set => Volatile.Write(ref _current, value);
+        }
 
-        /// <summary>Return <see cref="Current"/> when set, otherwise a fresh empty collector.</summary>
-        public static GodotLogCollector GetOrCreate() => Current ??= new GodotLogCollector();
+        /// <summary>
+        /// Return <see cref="Current"/> when set, otherwise atomically install a fresh empty collector and
+        /// return it. Uses <see cref="Interlocked.CompareExchange{T}(ref T, T, T)"/> so two concurrent
+        /// callers cannot each publish a different buffer (the loser discards its candidate and adopts the
+        /// winner's), keeping a single process-wide collector even under a race.
+        /// </summary>
+        public static GodotLogCollector GetOrCreate()
+        {
+            var existing = Volatile.Read(ref _current);
+            if (existing != null)
+                return existing;
+
+            var candidate = new GodotLogCollector();
+            return Interlocked.CompareExchange(ref _current, candidate, null) ?? candidate;
+        }
 
         /// <summary>Append a captured line, evicting the oldest when at <see cref="Capacity"/>.</summary>
         public void Append(LogEntry entry)
