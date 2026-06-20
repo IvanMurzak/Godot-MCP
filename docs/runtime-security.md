@@ -60,6 +60,14 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   reviewed decision.
 - **Do not embed long-lived secrets in the shipped binary.** Prefer `GODOT_MCP_TOKEN` from the
   environment over a hard-coded `config.Token` so the token is not extractable from the build.
+- **Enable runtime-error capture only on a trusted connection.** `builder.WithRuntimeErrorCapture()` is
+  **OFF by default**. When enabled, captured errors forward the **full** message and (for C# faults) the
+  **full managed stack trace** to the connected agent via the `runtime-errors-get` tool. Those strings can
+  embed sensitive runtime data — absolute filesystem paths, machine/user names, query strings, or a
+  secret/token that surfaced in an exception message or argument. That is the intended diagnostic value,
+  but it widens the data exposed over the connection. Enable it only on a loopback host with
+  `AuthOption = GodotMcpAuthOption.Required` and a real token — never on an unauthenticated public
+  interface in a release build.
 
 ## Environment variables
 
@@ -74,3 +82,42 @@ The runtime config (`GodotMcpConfig`) reads these `GODOT_MCP_*` variables live (
 | `GODOT_MCP_AUTH_OPTION` | `None` / `Required` | Whether Custom mode sends a bearer token. |
 | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
 | `GODOT_MCP_LOG_LEVEL` | `Trace` / `Debug` / `Info` / `Warning` / `Error` / `None` | Log-verbosity threshold. |
+
+## Editor-side surfaces (accepted posture)
+
+The contract above is for a **game build**. Two editor-side surfaces are documented here for completeness;
+both are **by design** today (no encryption / no shared-secret is implemented yet — those are deferred,
+parity-constrained decisions to coordinate across the Unity / Godot / Unreal siblings).
+
+### Editor token storage is plaintext at rest
+
+When you connect the **editor plugin** (Cloud device-auth, or a Custom-mode token), it persists your
+connection config to **`user://godot-mcp-config.json`** (Godot resolves `user://` to the per-platform user
+data directory via `ProjectSettings.GlobalizePath`). The bearer token (`token`) and Cloud token
+(`cloudToken`) are written as **plaintext JSON** — they are **not** encrypted and **not** stored in an OS
+keystore.
+
+- **Trust assumption: the local user account.** Anyone who can read your user data directory can read the
+  token. Treat `user://godot-mcp-config.json` as a secret — don't commit it, sync it to a shared drive, or
+  paste it.
+- **Rotation.** Clear the saved token in the dock (or delete the file) and reconnect.
+- **Precedence.** A `GODOT_MCP_TOKEN` process-env / `.env` value always shadows the persisted token at
+  resolution time and is **not** written back into this file — so a CI / shared machine can run without
+  ever persisting a token to disk.
+
+### The dev-control bridge is unauthenticated but gated OFF
+
+A development-only inject/control HTTP bridge (`DevControlServer`) exists for driving the editor dock from
+tests / a terminal. It is **unauthenticated**, but its security boundary is threefold:
+
+1. **Editor-only.** It is compiled behind `#if TOOLS`, so it does not exist in an exported game build.
+2. **Loopback-only.** It binds **`127.0.0.1`** exclusively — never a routable interface.
+3. **Env-gated OFF.** It is constructed and started **only when `GODOT_MCP_DEV_CONTROL=1`** (exactly `1`).
+   An unset / any-other value means the bridge never listens — a shipped addon, and any normal editor
+   session, never opens the surface.
+
+That env gate is **load-bearing**: it is the single thing standing between "dev scaffolding" and "an
+unauthenticated control surface on the live dock". It is enforced by a pure-managed predicate
+(`DevControlGate.IsEnabled`) with a unit test (`DevControlGateTests`) **and** a boot-time assertion at the
+construction site (`DevControlGate.AssertEnabledOrThrow`), so a regression that wires the bridge on without
+the env var fails fast in CI and at runtime rather than silently shipping enabled.

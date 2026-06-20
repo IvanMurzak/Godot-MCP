@@ -615,6 +615,16 @@ An MCP client polls the captured errors with the `runtime-errors-get` tool (and 
 > **strictly opt-in** — without `WithRuntimeErrorCapture()` nothing is hooked and there is no behavior
 > change. Disposing the handle (`handle.Dispose()`) uninstalls the hooks.
 
+> ⚠️ **Security — information disclosure.** Captured errors forward the **full** message and (for C#
+> faults) the **full managed stack trace** to the connected agent through `runtime-errors-get`. Those
+> strings can embed sensitive runtime data — absolute filesystem paths, machine/user names, query
+> strings, or a secret/token that happened to appear in an exception message or argument. That is the
+> intended diagnostic value, but it widens what is exposed over the connection. Enable
+> `WithRuntimeErrorCapture()` **only on a trusted connection**: a loopback host (`http://localhost:…` /
+> `127.0.0.1`) with `AuthOption = GodotMcpAuthOption.Required` and a real token — never an
+> unauthenticated public interface in a release build. See [Security](#security-opt-in-only-default-off)
+> and [`docs/runtime-security.md`](docs/runtime-security.md).
+
 ## Sample: a live game-state tool
 
 A runtime tool is written exactly like an editor tool — a `partial class` decorated `[AiToolType]`, each
@@ -795,6 +805,31 @@ tools can do, a connected MCP client can drive. Godot-MCP's runtime is built so 
   (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = GodotMcpAuthOption.Required` with a real
   `Token`. Avoid exposing the connection on a public interface in a release build unless you have
   explicitly designed and secured that surface.
+- **Runtime-error capture forwards sensitive data.** `WithRuntimeErrorCapture()` is **OFF by default**.
+  When enabled, captured messages and stack traces are sent verbatim to the connected agent via
+  `runtime-errors-get` and may contain absolute paths, machine/user names, or a secret that appeared in
+  an exception — so enable it only on a trusted loopback + token connection (full note under
+  [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)).
+
+### Editor-side security notes (accepted posture)
+
+The points above are about a **game build**. Two editor-side surfaces are documented here for completeness;
+both are **by design** today:
+
+- **Editor token storage is plaintext at rest.** When you connect the editor plugin (Cloud device-auth or
+  a Custom-mode token), the plugin persists your connection config — including the bearer token (`token`)
+  and Cloud token (`cloudToken`) — as **plaintext JSON** in `user://godot-mcp-config.json` (resolved per
+  Godot's `user://` data directory). It is **not** encrypted or stored in an OS keystore. The trust
+  assumption is the **local user account**: anyone with read access to your user data directory can read
+  the token. Treat that file as a secret — don't commit it, sync it, or share it. To rotate, clear the
+  saved token in the dock (or delete the file) and reconnect. (Process-env / `.env` overrides via
+  `GODOT_MCP_TOKEN` always shadow the persisted value and are not written back to this file.)
+- **The dev-control bridge is unauthenticated but gated OFF.** A development-only inject/control HTTP
+  bridge exists for driving the editor dock in tests. It is **unauthenticated**, but its security boundary
+  is threefold: it is editor-only (`#if TOOLS`, never compiled into a game), binds **`127.0.0.1`** only,
+  and starts **only when `GODOT_MCP_DEV_CONTROL=1`** — a shipped addon (and any editor session without the
+  env var) never listens. That env gate is load-bearing and enforced by a unit test + a boot-time
+  assertion, so it can never silently ship enabled.
 
 A short standalone copy of this contract lives in
 [`docs/runtime-security.md`](docs/runtime-security.md).

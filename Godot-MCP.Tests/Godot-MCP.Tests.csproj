@@ -246,6 +246,11 @@
          target vocabulary. The editor HttpListener transport (DevControlServer.cs) is #if TOOLS and verified
          live (curl the editor), NOT compiled here; the routing/parsing core is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Editor\Connection\DevControl\DevControlRouter.cs" Link="Source\DevControlRouter.cs" />
+    <!-- DEV-ONLY inject/control bridge ENV GATE — pure-managed (no Godot native types, no #if TOOLS): the
+         load-bearing "GODOT_MCP_DEV_CONTROL must be exactly 1" predicate + construction-site guard. The bridge
+         (DevControlServer.cs) is unauthenticated and #if TOOLS / loopback-only; this gate is its security
+         boundary, so the predicate + assert are unit-tested here (DevControlGateTests) to keep it load-bearing. -->
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\DevControl\DevControlGate.cs" Link="Source\DevControlGate.cs" />
     <!-- Runtime (in-game) entry point — pure-managed builder accumulation + handle wrapper (no #if TOOLS).
          GodotMcpRuntimeBuilder is fully pure-managed (config-action / tool-type accumulation) and is what
          these unit tests exercise. GodotMcpRuntime.Build()/GodotMcpRuntimeHandle make native Godot + SignalR

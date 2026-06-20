@@ -43,7 +43,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "[{ sequence, message, type, source, file, line, function, stackTrace, frames, timestamp }] " +
             "oldest-first, counts, 'highestSequence' (poll with it next), and a 'truncated' flag. On Godot " +
             "4.5+ a GDScript runtime error also carries 'frames' (the deep multi-frame call stack, " +
-            "innermost-first, each { function, file, line }) and a formatted 'stackTrace'.")]
+            "innermost-first, each { function, file, line }) and a formatted 'stackTrace'.\n" +
+            "SECURITY: messages and stack traces are forwarded verbatim and may contain sensitive runtime " +
+            "data (absolute filesystem paths, machine/user names, or a secret that appeared in an exception). " +
+            "Capture is OFF by default and the developer must enable it via WithRuntimeErrorCapture(); enable " +
+            "it only on a trusted loopback + token connection.")]
         public RuntimeErrorsResult Get
         (
             [Description("Return only errors with a sequence number greater than this. Pass the previous " +

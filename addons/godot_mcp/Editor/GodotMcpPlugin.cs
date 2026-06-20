@@ -234,7 +234,11 @@ namespace com.IvanMurzak.Godot.MCP
                 return !string.IsNullOrEmpty(fromProcess) ? fromProcess : GodotMcpEnvFile.LookupRaw(envPath, key);
             }
 
-            if (ResolveDevVar(GodotMcpEnv.DevControl) != "1")
+            // The dev-control bridge is UNAUTHENTICATED; this env gate (plus the 127.0.0.1 bind and #if TOOLS)
+            // is its only security boundary. Resolve once and gate through the pure, unit-pinned predicate so the
+            // "exactly 1 enables it" contract lives in one CI-testable place (DevControlGate).
+            var devControlValue = ResolveDevVar(GodotMcpEnv.DevControl);
+            if (!DevControlGate.IsEnabled(devControlValue))
                 return;
 
             if (_dock == null)
@@ -250,6 +254,12 @@ namespace com.IvanMurzak.Godot.MCP
 
             try
             {
+                // Load-bearing assertion: the env gate MUST hold at the construction site. The early-return
+                // above already guarantees it, so this never throws in normal operation — its purpose is to make
+                // the gate provably load-bearing, so any future refactor that reaches here with the gate off
+                // fails fast instead of opening an unauthenticated loopback control surface. (DevControlGateTests
+                // pins this.)
+                DevControlGate.AssertEnabledOrThrow(devControlValue);
                 _devControl = new DevControlServer(_dock, port);
                 _devControl.Start();
             }
