@@ -231,6 +231,18 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// tool once (the builder de-duplicates) and the runtime installs capture once.
         /// </para>
         ///
+        /// <para>
+        /// <b>SECURITY — information disclosure.</b> Captured errors forward the <em>full</em> exception
+        /// message and (for C# faults) the <em>full managed stack trace</em> to the connected MCP agent via
+        /// <c>runtime-errors-get</c>. Those strings can embed sensitive runtime data — absolute filesystem
+        /// paths, machine/user names, query strings, or a secret/token that happened to appear in an exception
+        /// message or argument. That is the intended diagnostic value, but it means enabling capture widens
+        /// the data exposed over the connection. Enable it <b>only on a trusted connection</b>: prefer a
+        /// loopback host (<c>http://localhost:…</c> / <c>127.0.0.1</c>) with <c>AuthOption =
+        /// GodotMcpAuthOption.Required</c> and a real token — never an unauthenticated public interface in a
+        /// release build. See <c>docs/runtime-security.md</c> and the README "Security: opt-in only" section.
+        /// </para>
+        ///
         /// Returns <c>this</c> for chaining.
         /// </summary>
         public GodotMcpRuntimeBuilder WithRuntimeErrorCapture()
