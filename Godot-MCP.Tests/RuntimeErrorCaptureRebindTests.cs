@@ -150,11 +150,50 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Install_OnSurvivingLogger_RebindsWithoutReRegistering_AndRoutesToNewCollector()
+        {
+            // Pins the load-bearing one-registration invariant (godot#78513): when a logger is ALREADY live and
+            // Install() hands the bridge a fresh capture, the bridge must REBIND the existing registration at the
+            // new capture WITHOUT a second OS.AddLogger. A re-register would re-pin the collectible addon ALC, the
+            // exact churn the rebind exists to avoid. Asserted via the fake's registration counter (incremented
+            // ONLY on the RegisterNew action) — collapsing Rebind into RegisterNew, in the fake OR the prod bridge,
+            // would bump it and fail this test, so it pins that the two actions stay distinct.
+            var fakeBridge = new FakeEngineLoggerBridge();
+            WithFakeBridge(fakeBridge, () =>
+            {
+                // 1) A logger is already live, forwarding to a stale capture nobody reads (models the editor's own
+                //    log capture, or a prior install whose logger was never removed). This is a RegisterNew.
+                var staleErrors = new List<EngineErrorRecord>();
+                var staleCapture = new ScriptErrorCapture { ErrorSink = r => staleErrors.Add(r) };
+                fakeBridge.TryInstall(staleCapture);
+                Assert.Equal(1, fakeBridge.RegistrationCount); // first registration
+
+                // 2) Install() builds a fresh capture wired to collector B and hands it to the already-live bridge,
+                //    which must REBIND (different capture) — repointing the SAME registration, NOT adding a second.
+                var collectorB = RuntimeErrorCapture.Install();
+                Assert.Equal(1, fakeBridge.RegistrationCount); // STILL 1 — rebind reused the registration
+                Assert.NotSame(staleCapture, fakeBridge.LiveCapture); // and the live logger advanced off the stale one
+
+                // 3) A freshly-routed engine error lands in collector B (the rebind took), NOT the stale sink.
+                fakeBridge.RaiseEngineError("res://b.gd", 7, "boom-B");
+                Assert.Equal(1, collectorB.Count);
+                Assert.Empty(staleErrors);
+                Assert.Same(collectorB, RuntimeErrorCollector.Current);
+                Assert.Equal("boom-B", collectorB.QuerySince(0, 100, out _).Single().Message);
+            });
+        }
+
+        [Fact]
         public void Reinstall_AfterFullCycle_RoutesEngineErrorsToTheNewCollector()
         {
             // install A → full RuntimeErrorCapture.Uninstall (drops the bridge logger) → Install B → route:
             // the new collector B receives the error and the dropped collector A does not. Complements the
             // surviving-logger test above with the clean teardown/re-register path.
+            // NOTE: because Uninstall() drops the live logger (the fake's _live goes null), the second Install()
+            // resolves to RegisterNew, NOT Rebind — so this test pins the clean teardown/re-register cycle, it
+            // does NOT exercise the rebind branch. The rebind itself is pinned by
+            // PlanBridgeInstall_DifferentCapture_RequestsRebind_AndRepublishesIncoming and
+            // Install_WhenBridgeAlreadyLiveOnAnotherCapture_RebindsLiveLoggerToRuntimeCollector_NotStale.
             var fakeBridge = new FakeEngineLoggerBridge();
             WithFakeBridge(fakeBridge, () =>
             {
@@ -186,9 +225,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         sealed class FakeEngineLoggerBridge
         {
             ScriptErrorCapture? _live; // the one registered logger's current capture (null when none registered)
+            int _registrations;       // how many times a NEW logger was registered (RegisterNew only, never Rebind)
 
             public bool HasLiveLogger => _live != null;
             public ScriptErrorCapture? LiveCapture => _live;
+
+            /// <summary>
+            /// Count of <see cref="BridgeInstallAction.RegisterNew"/> actions — i.e. real <c>OS.AddLogger</c>
+            /// registrations. A Rebind reuses the existing registration and MUST leave this unchanged: re-adding
+            /// the logger would re-pin the collectible addon ALC (godot#78513), the very churn the rebind exists
+            /// to avoid. Pins the one-registration invariant the production bridge guarantees.
+            /// </summary>
+            public int RegistrationCount => _registrations;
 
             public ScriptErrorCapture? TryInstall(ScriptErrorCapture capture)
             {
@@ -201,11 +249,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 {
                     case BridgeInstallAction.AlreadyCurrent:
                         break; // live logger already on this capture — nothing to do
-                    case BridgeInstallAction.Rebind:
                     case BridgeInstallAction.RegisterNew:
+                        // Real bridge: OS.AddLogger(new logger) — a fresh native registration.
+                        _registrations++;
+                        _live = capture;
+                        break;
+                    case BridgeInstallAction.Rebind:
                     default:
-                        // Both register-new and rebind end with the single live logger forwarding to `capture`.
-                        // (Real bridge: RegisterNew = OS.AddLogger(new logger); Rebind = logger.RebindCapture.)
+                        // Real bridge: logger.RebindCapture — repoint the SAME registered logger, NO re-register
+                        // (so _registrations stays put: no OS.RemoveLogger/AddLogger churn, no ALC re-pin).
                         _live = capture;
                         break;
                 }
