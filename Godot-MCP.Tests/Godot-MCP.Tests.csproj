@@ -159,13 +159,18 @@
          pure-managed pieces only (no Godot native types, no #if TOOLS): the structured result models,
          the log severity enum, and the in-memory log collector. The editor-driving handlers
          (Tool_Editor.*.cs / Tool_Editor.Selection.*.cs) are #if TOOLS and verified via the headless
-         Godot smoke (test.md Suite 3); the console/reflection tool handlers (Tool_Console.*.cs /
-         Tool_Reflection.*.cs) live outside #if TOOLS but their editor effect is a Suite-3 concern —
-         here we unit-test the collector + models. -->
+         Godot smoke (test.md Suite 3). The console tool handlers (Tool_Console.*.cs) live OUTSIDE
+         #if TOOLS and only touch the pure-managed GodotLogCollector — they are a thin wrapper over the
+         collector (maxEntries validation + Query/Clear delegation), so they are unit-tested here
+         (ConsoleToolTests). The reflection tool handlers (Tool_Reflection.*.cs) drive the editor reflector
+         and remain a Suite-3 concern. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Data\EditorStateData.cs" Link="Source\EditorStateData.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\SelectionData.cs" Link="Source\SelectionData.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.cs" Link="Source\Tool_Console.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.GetLogs.cs" Link="Source\Tool_Console.GetLogs.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.ClearLogs.cs" Link="Source\Tool_Console.ClearLogs.cs" />
     <!-- Connection-panel presentation logic — pure-managed (no Godot native types, no #if TOOLS): the
          HubConnectionState+keepConnected → ConnectionStatus reduction, label/button/colour mappings, and
          server-URL validation. The editor Control wiring (ConnectionPanel.cs) is #if TOOLS and verified
