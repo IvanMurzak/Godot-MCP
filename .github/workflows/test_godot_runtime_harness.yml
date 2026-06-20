@@ -51,9 +51,14 @@ jobs:
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
       SERVER_PORT: "5400"
       SERVER_VERSION: ${{ inputs.serverVersion }}
-      # The runner is ubuntu-latest x64, so the release asset + extracted binary are fixed.
+      # The runner is ubuntu-latest x64, so the release asset is fixed. The binary's FILENAME
+      # inside the zip is fixed (gamedev-mcp-server), but its PATH is not: the released zip is a
+      # dotnet-publish-per-RID layout that nests the payload under a <rid>/ subdir
+      # (linux-x64/gamedev-mcp-server, NOT a flat gamedev-mcp-server at the zip root). The
+      # download step resolves the real path with `find` and exports it; downstream steps read
+      # that resolved path — never a hardcoded server/bin/<name>.
       SERVER_ASSET: gamedev-mcp-server-linux-x64.zip
-      SERVER_BIN: gamedev-mcp-server
+      SERVER_BIN_NAME: gamedev-mcp-server
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,6 +115,7 @@ jobs:
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
 
       - name: Download the released gamedev-mcp-server
+        id: server
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,16 +129,34 @@ jobs:
             --pattern "${SERVER_ASSET}" \
             --dir server --clobber
           unzip -o -q "server/${SERVER_ASSET}" -d server/bin
-          chmod +x "server/bin/${SERVER_BIN}"
-          test -x "server/bin/${SERVER_BIN}"
+          # The release zip is a dotnet-publish-per-RID layout: the binary is NOT at the zip root,
+          # it lives under a <rid>/ subdir (server/bin/linux-x64/gamedev-mcp-server). Resolve the
+          # real path with `find` so a future layout change (flat vs nested) can't re-break this —
+          # the filename is the stable contract, the directory is not.
+          SERVER_BIN="$(find server/bin -type f -name "${SERVER_BIN_NAME}" | head -n1)"
+          if [ -z "${SERVER_BIN}" ]; then
+            echo "::error::could not locate '${SERVER_BIN_NAME}' under server/bin after extracting ${SERVER_ASSET}."
+            echo "----- server/bin contents -----"; ls -laR server/bin || true
+            exit 1
+          fi
+          chmod +x "${SERVER_BIN}"
+          test -x "${SERVER_BIN}"
+          echo "resolved server binary: ${SERVER_BIN}"
+          # Export the resolved path so the downstream start-server step launches the SAME binary.
+          echo "bin=${SERVER_BIN}" >> "$GITHUB_OUTPUT"
 
       - name: Start the server (Authorization=none, streamableHttp, fixed port)
         shell: bash
+        env:
+          # The path the download step resolved via `find` (nested <rid>/ layout), so this
+          # launches the SAME binary that was chmod'd — never a hardcoded server/bin/<name>.
+          SERVER_BIN: ${{ steps.server.outputs.bin }}
         run: |
           set -euo pipefail
+          test -x "${SERVER_BIN}"
           # Same launch shape as GodotMcpServerView.BuildLaunchArguments:
           #   port=<p> plugin-timeout=<t> client-transport=streamableHttp authorization=none
-          nohup "server/bin/${SERVER_BIN}" \
+          nohup "${SERVER_BIN}" \
             port="${SERVER_PORT}" \
             plugin-timeout=10000 \
             client-transport=streamableHttp \
