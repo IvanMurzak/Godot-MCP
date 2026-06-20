@@ -24,7 +24,7 @@ the `WaitForImmediateTeardown` API + opt-in bounded-reconnect this addon uses fo
 
 Tools live in `addons/godot_mcp/Runtime/Tools/` (pure-managed families) and `addons/godot_mcp/Editor/Tools/` (editor-only families) — one `[AiToolType]` `partial class Tool_<Family>` per family,
 with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
-names mirror Unity-MCP where sensible. The 10 families:
+names mirror Unity-MCP where sensible. The 11 families:
 
 | Family (class) | Tools | `#if TOOLS`? |
 | --- | --- | --- |
@@ -38,6 +38,7 @@ names mirror Unity-MCP where sensible. The 10 families:
 | `Tool_Editor` | `editor-application-get-state`/`-set-state`, `editor-selection-get`/`-set` | yes (editor) |
 | `Tool_Console` | `console-get-logs`/`-clear-logs` | no (pure-managed collector) |
 | `Tool_Reflection` | `reflection-method-find`/`-call` | no (engine-agnostic ReflectorNet) |
+| `Tool_RuntimeErrors` | `runtime-errors-get`/`-clear` | no (pure-managed; in-game, OFF by default — see `WithRuntimeErrorCapture()`) |
 
 Editor-driving families live behind `#if TOOLS` (they touch `EditorInterface`/live `Node`/`Resource`);
 their pure-managed result models + helpers live OUTSIDE the guard so they are CI-unit-testable. The
@@ -80,7 +81,10 @@ AI-agent skill files (a `SKILL.md`-per-tool-family) under the agent's skills pat
 generates the files **locally** from a built-in catalog of the addon's tool families — the Godot server
 exposes no skill-generate HTTP endpoint, so no server or live editor is required. (The addon *additionally*
 auto-generates skills addon-side on plugin boot via `GenerateSkillFilesIfNeeded`; the CLI command is the
-server-less, scriptable path.)
+server-less, scriptable path.) That catalog (`cli/src/utils/skills.ts` § `SKILL_FAMILIES`) is
+hand-maintained, so a CI cross-check (`cli/tests/skills-addon-parity.test.ts`) diffs its family set against
+the addon's actual `[AiToolType] Tool_<Family>` classes and **fails on divergence** — keep the catalog, the
+§ Tool families table above, and the README in lockstep when adding/removing a family.
 
 ```bash
 cd cli

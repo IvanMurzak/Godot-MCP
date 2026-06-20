@@ -40,7 +40,7 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **36 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 10 families for operating the Godot Editor
+- ✔️ **38 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 11 families for operating the Godot Editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
 - ✔️ **Scene & Node control** — Build and edit the scene tree, open/save `.tscn` scenes, mutate `.tres`/`.res` resources
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
@@ -112,10 +112,12 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **36 built-in tools** grouped into **10 families**. Tool names mirror Unity-MCP where
+Godot-MCP ships **38 built-in tools** grouped into **11 families**. Tool names mirror Unity-MCP where
 sensible (`scene-*`, `node-*`, …). Every tool returns a structured, [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)-serialized
-result (or a PNG image for screenshots). All tools are available immediately after the addon is enabled —
-no extra configuration required.
+result (or a PNG image for screenshots). All editor tools are available immediately after the addon is
+enabled — no extra configuration required. The **runtime-errors** family is the exception: it surfaces
+errors from the *running game* and is **OFF by default** — opt in with `builder.WithRuntimeErrorCapture()`
+(see [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)).
 
 | Family | Tools | What it does |
 | --- | --- | --- |
@@ -129,9 +131,7 @@ no extra configuration required.
 | **editor** | `editor-application-get-state`, `editor-application-set-state`, `editor-selection-get`, `editor-selection-set` | Read/drive the editor run-and-play lifecycle (Godot launches the game in a separate process) and the current selection. |
 | **console** | `console-get-logs`, `console-clear-logs` | Read and clear the plugin's editor log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | Find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet — the engine-agnostic escape hatch. |
-
-<details>
-  <summary>Per-tool descriptions</summary>
+| **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | Poll errors raised inside the **running game** (NOT the editor) — GDScript runtime errors, `push_error`/`push_warning`, shader errors, and C# unhandled / unobserved-`Task` exceptions, with multi-frame GDScript backtraces on Godot 4.5+. **OFF by default** — opt in with `builder.WithRuntimeErrorCapture()`. |
 
 **ping**
 
@@ -198,6 +198,11 @@ no extra configuration required.
 
 - `reflection-method-find` — Find C# methods (including private) across every loaded assembly.
 - `reflection-method-call` — Call any C# method with input parameters and get the result.
+
+**runtime-errors** (in-game; **OFF by default** — enable with `builder.WithRuntimeErrorCapture()`)
+
+- `runtime-errors-get` — Read captured in-game runtime errors (oldest-first, newest-kept page); poll only new errors via `sinceSequence`. Returns `available:false` when capture was never enabled, so an empty list is never mistaken for health.
+- `runtime-errors-clear` — Clear the captured in-game runtime-error buffer (a no-op when capture is not enabled); the monotonic sequence counter is preserved.
 
 </details>
 
