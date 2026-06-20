@@ -100,6 +100,7 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
       { name: 'script-read', description: 'Read the source of a script file.' },
       { name: 'script-create', description: 'Create a new script file.' },
       { name: 'script-update', description: 'Replace or patch the contents of a script.' },
+      { name: 'script-validate', description: 'Validate GDScript (.gd) files and return structured parse/compile diagnostics.' },
       { name: 'script-delete', description: 'Delete a script file.' },
       { name: 'script-attach-to-node', description: 'Attach a script to a node in the scene.' },
     ],
@@ -359,6 +360,53 @@ export function discoverAddonToolFamilies(repoRoot: string): string[] {
         // Attribute a compound sub-tool class (`Tool_Editor_Selection`) to its
         // parent family by taking the FIRST `_`-delimited segment (`Editor`).
         found.add(m[1].split('_')[0]);
+      }
+    }
+  }
+
+  return [...found].sort();
+}
+
+// ---------------------------------------------------------------------------
+// CI cross-check: catalog ⇄ addon tool-ID parity (the per-TOOL drift-guard)
+//
+// `discoverAddonToolFamilies` above guards the FAMILY set, but a tool can be
+// added to an EXISTING family in the addon (as `script-validate` was added to
+// `Tool_Script`) without changing the family set — so the family cross-check
+// passes while the catalog silently lacks the new tool. These two helpers diff
+// the catalog's tool-ID set against the addon's actual `*ToolId` constants so a
+// missing/extra individual tool fails CI too (`skills-addon-parity.test.ts`).
+// ---------------------------------------------------------------------------
+
+/** Catalog (skills.ts) side of the per-tool parity check: every advertised tool name, sorted. */
+export function catalogToolIds(): string[] {
+  return SKILL_FAMILIES.flatMap((f) => f.tools.map((t) => t.name)).sort();
+}
+
+/**
+ * Addon side of the per-tool parity check: discover every tool id declared in the
+ * addon by scanning for `public const string <Name>ToolId = "<tool-id>"` in the
+ * `.cs` sources under the addon `Tools/` directories. Returns the sorted, deduped
+ * set of tool ids (e.g. `node-find`, `script-validate`, `runtime-errors-get`).
+ *
+ * Each tool family declares one `public const string <Name>ToolId = "<id>"` per
+ * tool (the `[AiTool(<Name>ToolId, ...)]` identifier an MCP client invokes). The
+ * regex captures the quoted kebab-case id; the `Set` dedups in case a constant is
+ * ever referenced twice. Mirrors `discoverAddonToolFamilies`'s addon-source scan.
+ */
+export function discoverAddonToolIds(repoRoot: string): string[] {
+  const toolIdRe = /public\s+const\s+string\s+\w+ToolId\s*=\s*"([a-z][a-z0-9-]*)"/g;
+  const found = new Set<string>();
+
+  for (const dir of addonToolDirs(repoRoot)) {
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir)) {
+      if (!entry.endsWith('.cs')) continue;
+      const src = fs.readFileSync(path.join(dir, entry), 'utf-8');
+      let m: RegExpExecArray | null;
+      toolIdRe.lastIndex = 0;
+      while ((m = toolIdRe.exec(src)) !== null) {
+        found.add(m[1]);
       }
     }
   }
