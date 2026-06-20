@@ -32,4 +32,16 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test
+        run: npm test -- --coverage
+
+      # Coverage REPORTING only — no failing threshold (vitest v8 provider). Publishes the
+      # report so progress is measurable; the gate never turns red on low coverage. Per-node
+      # artifact name avoids upload-artifact@v4 duplicate-name collisions across the matrix.
+      - name: Upload CLI coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-coverage-node-${{ matrix.node-version }}
+          path: cli/coverage/**
+          if-no-files-found: warn
+          retention-days: 7
