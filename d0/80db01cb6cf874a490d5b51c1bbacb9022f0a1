@@ -1,0 +1,27 @@
+docs/assetlib/SUBMISSION.md
+  s_9e1686e62c1946::t_9026436dea9b3e 26-27
+  s_9e1686e62c1946::t_bc5889d0060dfa 36-40,46
+  s_9e1686e62c1946::t_dd15ba9265094e 49-50
+.gitattributes
+  s_9e1686e62c1946::t_1ab58d3a0103a8 1-28
+docs/RELEASING.md
+  s_9e1686e62c1946::t_3f5533ce76793d 100-104
+  s_9e1686e62c1946::t_816e6958f90c20 112-116
+  s_9e1686e62c1946::t_c05a27be1f4177 123-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d080db01cb6cf874a490d5b51c1bbacb9022f0a1",
+  "prompts": {},
+  "sessions": {
+    "s_9e1686e62c1946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4945dacf-1249-4028-8a7f-8121d8c118b7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

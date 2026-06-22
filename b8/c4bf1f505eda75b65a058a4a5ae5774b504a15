@@ -1,0 +1,23 @@
+addons/godot_mcp/Tools/Tool_FileSystem.List.cs
+  s_e36a2a3c4d1c6f::t_7ff54c046941ba 68
+addons/godot_mcp/Tools/Tool_Resource.Create.cs
+  s_e36a2a3c4d1c6f::t_d6fd92f79e2e4b 55-58
+addons/godot_mcp/Tools/Tool_FileSystem.Reimport.cs
+  s_e36a2a3c4d1c6f::t_027317b5f20be4 63-67,73,76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b8c4bf1f505eda75b65a058a4a5ae5774b504a15",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

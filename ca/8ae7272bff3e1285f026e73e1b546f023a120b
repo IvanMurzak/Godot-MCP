@@ -1,0 +1,61 @@
+Godot-MCP.Tests/GodotMcpFeatureMapPersistenceTests.cs
+  s_e36a2a3c4d1c6f::t_13d596cfcd8c4b 1-134
+addons/godot_mcp/Connection/FeatureManagerAdapters.cs
+  s_e36a2a3c4d1c6f::t_c131b4b436f13c 1-100
+addons/godot_mcp/UI/FeatureListWindow.cs
+  s_e36a2a3c4d1c6f::t_643c960e0feeb9 1-163
+addons/godot_mcp/Connection/GodotMcpFeatureStateMerge.cs
+  s_e36a2a3c4d1c6f::t_9d6ac8c30429a7 1-119
+addons/godot_mcp/UI/FeaturesPanelView.cs
+  s_e36a2a3c4d1c6f::t_9f3bc512f75b5c 1-58
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_40f4adadf15c6c 319-406
+  s_e36a2a3c4d1c6f::t_b812f5d800f57f 612,616
+  s_e36a2a3c4d1c6f::t_5fc6dbe24b778b 205-210
+  s_e36a2a3c4d1c6f::t_27e9363dc29e7c 266-305
+  s_e36a2a3c4d1c6f::t_70d7b72811c58a 599
+  s_e36a2a3c4d1c6f::t_135610891e02a9 101-108,265
+  s_e36a2a3c4d1c6f::t_f1e90337d5f912 13-14
+  s_e36a2a3c4d1c6f::t_ffd5947f620569 212
+  s_e36a2a3c4d1c6f::t_adc624f67fcf4b 83-91
+  s_e36a2a3c4d1c6f::t_d0fe9a9f970471 141-149
+Godot-MCP.Tests/GodotMcpFeatureStateMergeTests.cs
+  s_e36a2a3c4d1c6f::t_bfcf3d1100c4f1 1-166
+addons/godot_mcp/UI/FeatureRow.cs
+  s_e36a2a3c4d1c6f::t_3ac6a1cb2e12bd 1-91
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_064ea36460477f 126-130
+  s_e36a2a3c4d1c6f::t_e0cf5442c3be7c 55-62
+addons/godot_mcp/UI/FeaturesPanel.cs
+  s_e36a2a3c4d1c6f::t_9ef87b50e5d532 1-129
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_4182761b1dedc3 114-120
+  s_e36a2a3c4d1c6f::t_7ce0939baf4039 138
+  s_e36a2a3c4d1c6f::t_a710a6af810918 53
+addons/godot_mcp/Connection/GodotMcpFeatureMap.cs
+  s_e36a2a3c4d1c6f::t_73d41b0be923d1 1-79
+Godot-MCP.Tests/FeaturesPanelViewTests.cs
+  s_e36a2a3c4d1c6f::t_16ae47cc335b33 1-62
+addons/godot_mcp/Connection/GodotMcpConfig.cs
+  s_e36a2a3c4d1c6f::t_d1e0a2577854b9 122-131
+addons/godot_mcp/Connection/GodotMcpFeatureState.cs
+  s_e36a2a3c4d1c6f::t_628994b3aabbab 1-45
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_e36a2a3c4d1c6f::t_11e174b95478c6 118-119,135-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ca8ae7272bff3e1285f026e73e1b546f023a120b",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

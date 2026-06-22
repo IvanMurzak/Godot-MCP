@@ -1,0 +1,39 @@
+addons/godot_mcp/Data/ScriptInfo.cs
+  s_e36a2a3c4d1c6f::t_65f86998f2e715 1-63
+addons/godot_mcp/Tools/Tool_Script.Create.cs
+  s_e36a2a3c4d1c6f::t_ebb1f16b88ce90 1-68
+addons/godot_mcp/Tools/Tool_Script.Update.cs
+  s_e36a2a3c4d1c6f::t_fd6dd77fd957aa 1-68
+Godot-MCP.Tests/ScriptToolTests.cs
+  s_e36a2a3c4d1c6f::t_affa33dc0693c2 1-169
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_58632a27fa9428 69-74
+addons/godot_mcp/Tools/Tool_Script.cs
+  s_e36a2a3c4d1c6f::t_fa695174e283e0 120-174
+  s_e36a2a3c4d1c6f::t_b5aec0064977b2 1-119,175-177
+addons/godot_mcp/Tools/Tool_Script.AttachToNode.cs
+  s_e36a2a3c4d1c6f::t_7ea3f071ed1779 1-53,55-93
+  s_e36a2a3c4d1c6f::t_dbc5182d98466d 54
+addons/godot_mcp/Tools/Tool_Script.Read.cs
+  s_e36a2a3c4d1c6f::t_c6e172922d3891 1-96
+addons/godot_mcp/Tools/ScriptLang.cs
+  s_e36a2a3c4d1c6f::t_84fa3e26bb0f97 1-101
+addons/godot_mcp/Tools/Tool_Script.Delete.cs
+  s_e36a2a3c4d1c6f::t_f24b7d7d3e6ae3 1-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4fd05d09604d6e883e14e46e7a030862940d79cf",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

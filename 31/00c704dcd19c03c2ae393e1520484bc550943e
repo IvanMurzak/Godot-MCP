@@ -1,0 +1,21 @@
+addons/godot_mcp/Tools/ScriptErrorCapture.cs
+  s_cb9891c329452d::t_21ff0b735741a3 184-190,197
+Godot-MCP.Tests/ScriptDiagnosticsTests.cs
+  s_cb9891c329452d::t_dd9ac6ae12dd38 241-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "3100c704dcd19c03c2ae393e1520484bc550943e",
+  "prompts": {},
+  "sessions": {
+    "s_cb9891c329452d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "de59d46b-298d-4b2e-aa1e-21cf926a684c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

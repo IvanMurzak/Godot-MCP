@@ -1,0 +1,55 @@
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_e36a2a3c4d1c6f::t_aaf5dd152b9dc2 139-143
+addons/godot_mcp/UI/Agents/Impl/CustomConfigurator.cs
+  s_e36a2a3c4d1c6f::t_de94b7a905a179 1-28
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_ee7873d1f459f1 133-138,140
+  s_e36a2a3c4d1c6f::t_94004586fe33b3 54,139
+  s_e36a2a3c4d1c6f::t_54f7a82b1a321a 230
+addons/godot_mcp/UI/Agents/Impl/ClaudeCodeConfigurator.cs
+  s_e36a2a3c4d1c6f::t_e71b601db1e1e0 1-27
+addons/godot_mcp/UI/Agents/GodotAgentConfigurator.cs
+  s_e36a2a3c4d1c6f::t_bc8369c9213a76 1-97
+addons/godot_mcp/UI/Agents/Impl/CursorConfigurator.cs
+  s_e36a2a3c4d1c6f::t_b55eb555074982 1-27
+Godot-MCP.Tests/GodotMcpConfigStoreTests.cs
+  s_e36a2a3c4d1c6f::t_8416f8a7587aa5 84-118
+addons/godot_mcp/Connection/GodotMcpConfig.cs
+  s_e36a2a3c4d1c6f::t_1a487f0fadd285 150,266-299
+  s_e36a2a3c4d1c6f::t_24e4d9f5c91f72 151-158
+addons/godot_mcp/UI/Agents/Impl/ClaudeDesktopConfigurator.cs
+  s_e36a2a3c4d1c6f::t_1cf3092b30d954 1-28
+Godot-MCP.Tests/GodotMcpConfigTests.cs
+  s_e36a2a3c4d1c6f::t_9f1ace5afc8289 315-374
+Godot-MCP.Tests/AgentConfiguratorTests.cs
+  s_e36a2a3c4d1c6f::t_f3748913a614aa 1-326
+addons/godot_mcp/UI/Agents/GodotAgentConfiguratorRegistry.cs
+  s_e36a2a3c4d1c6f::t_672ffc603c5bf5 1-70
+addons/godot_mcp/UI/Agents/AgentConfigJson.cs
+  s_e36a2a3c4d1c6f::t_9b83319bc3bb91 1-203
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_e36a2a3c4d1c6f::t_bea92de44677bf 130-132,134-135,137-140
+  s_e36a2a3c4d1c6f::t_68f02c7ff73a11 1-129,133,136,141-322
+addons/godot_mcp/UI/Agents/AgentConfigPaths.cs
+  s_e36a2a3c4d1c6f::t_0cd7a7ba7993fd 1-69
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_ce8f44c99bb3c4 145-157
+addons/godot_mcp/UI/Agents/Impl/VisualStudioCodeConfigurator.cs
+  s_e36a2a3c4d1c6f::t_002c67cea2fed1 1-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f1423a23dcb8baea385c586eaacaf4340eb3eb6d",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

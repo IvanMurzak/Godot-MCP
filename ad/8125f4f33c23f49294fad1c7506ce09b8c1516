@@ -1,0 +1,54 @@
+addons/godot_mcp/Tools/Tool_FileSystem.cs
+  s_e36a2a3c4d1c6f::t_c82829a6335025 1-40
+addons/godot_mcp/Tools/Tool_Resource.cs
+  s_e36a2a3c4d1c6f::t_51973e4558b271 1-142
+addons/godot_mcp/Tools/Tool_Resource.Move.cs
+  s_e36a2a3c4d1c6f::t_96fd72613546f4 1-97
+addons/godot_mcp/Data/FileSystemListing.cs
+  s_e36a2a3c4d1c6f::t_252a8afc83adb8 1-54
+addons/godot_mcp/Tools/Tool_FileSystem.List.cs
+  s_e36a2a3c4d1c6f::t_a586594b9dcbe4 81-83
+  s_e36a2a3c4d1c6f::t_f08309265bff56 79
+  s_e36a2a3c4d1c6f::t_b357b5004dfa3d 1-78,80,84-122
+addons/godot_mcp/Tools/Tool_FileSystem.Reimport.cs
+  s_e36a2a3c4d1c6f::t_89960527a7e89c 1-96
+addons/godot_mcp/Data/ResourceFindResult.cs
+  s_e36a2a3c4d1c6f::t_3255a2fc3b4b96 1-42
+addons/godot_mcp/Tools/ResPathNormalizer.cs
+  s_e36a2a3c4d1c6f::t_1726186761cb7b 1-76
+addons/godot_mcp/Tools/Tool_Resource.GetData.cs
+  s_e36a2a3c4d1c6f::t_67b5079a41b105 1-69
+addons/godot_mcp/Tools/Tool_Resource.Create.cs
+  s_e36a2a3c4d1c6f::t_616252f6afb1eb 1-69,80-81,83-92
+  s_e36a2a3c4d1c6f::t_72a42f93328e1a 70-79,82
+addons/godot_mcp/Tools/Tool_Resource.Modify.cs
+  s_e36a2a3c4d1c6f::t_f5ed3ac6bbe737 1-167
+addons/godot_mcp/Tools/Tool_Resource.Find.cs
+  s_e36a2a3c4d1c6f::t_cce4ccdc1e1ce9 1-163
+Godot-MCP.Tests/ResourceFsToolTests.cs
+  s_e36a2a3c4d1c6f::t_16e1d3aea9d47e 1-220
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_c1dd0763f045b0 60-68
+addons/godot_mcp/Tools/Tool_Resource.Delete.cs
+  s_e36a2a3c4d1c6f::t_75202acf273d4f 1-75
+addons/godot_mcp/Data/FileSystemEntry.cs
+  s_e36a2a3c4d1c6f::t_688407e22d2ed3 1-58
+addons/godot_mcp/Data/ResourceInfo.cs
+  s_e36a2a3c4d1c6f::t_faef2fdf672246 1-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ad8125f4f33c23f49294fad1c7506ce09b8c1516",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

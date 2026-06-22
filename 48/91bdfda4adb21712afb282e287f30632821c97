@@ -1,0 +1,24 @@
+docs/RELEASING.md
+  s_d32cf30e6600b5::t_4a03d3fbab448d 54-64
+scripts/bump-version.mjs
+  s_d32cf30e6600b5::t_c40cd2b656585c 22,24-27,100,114,189-193
+  s_d32cf30e6600b5::t_4e72825d40f20c 142-143
+  s_d32cf30e6600b5::t_9c335826ac0f87 1-7,17-21,23,28-50,52-54,59-65,67-71,73-99,101-113,115-141,144-188,194-200,202-204,209-221,223-243,249-250,252-257,259-260,262-263,265-271
+  s_d32cf30e6600b5::t_b3465ce0b817ae 8-16,51,55-58,66,72,201,205-208,222,244-248,251,258,261,264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4891bdfda4adb21712afb282e287f30632821c97",
+  "prompts": {},
+  "sessions": {
+    "s_d32cf30e6600b5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ebd54-ea22-7780-bee6-e1e37ecf3329",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

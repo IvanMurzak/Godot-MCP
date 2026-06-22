@@ -1,0 +1,29 @@
+Godot-MCP.Tests/SceneNodeToolTests.cs
+  s_e36a2a3c4d1c6f::t_f92f387d9df8b2 162-169
+addons/godot_mcp/Tools/Tool_Node.Modify.cs
+  s_e36a2a3c4d1c6f::t_e08ad48f78b922 80-84,87-95,114-122,126-134
+addons/godot_mcp/Tools/NodePathNormalizer.cs
+  s_e36a2a3c4d1c6f::t_bc5bded76d34ef 34-39
+addons/godot_mcp/Tools/Tool_Node.Find.cs
+  s_e36a2a3c4d1c6f::t_d34505773f01c2 36-38
+addons/godot_mcp/Tools/Tool_Node.cs
+  s_e36a2a3c4d1c6f::t_32eb2b833daccf 130
+addons/godot_mcp/Tools/Tool_Scene.Save.cs
+  s_e36a2a3c4d1c6f::t_4497cebcf7e740 54-56,58-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "bda4ccb2c48c12368a459a843644dfc1531da2f7",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
