@@ -274,7 +274,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// <c>version=</c> (the live parsed value above is the source of truth; this is only the degraded
         /// fallback). Mirrors <c>GodotMcpConnection.FallbackPluginVersion</c>.
         /// </summary>
-        const string FallbackPluginVersion = "0.11.1";
+        const string FallbackPluginVersion = "0.12.0";
 
         /// <summary>
         /// Ensure a <see cref="MainThreadDispatcher"/> Node exists in the running game's
