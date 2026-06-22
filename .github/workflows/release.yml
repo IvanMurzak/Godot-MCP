@@ -227,6 +227,30 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  # from-scratch terminal-install E2E across the Godot engine matrix (mono). Gates
+  # the release alongside the addon-load smoke so a broken from-scratch terminal
+  # install (create-project + install-plugin) can NEVER ship in a release.
+  e2e-install-4-3:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.3.0"
+
+  e2e-install-4-4:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.4.0"
+
+  e2e-install-4-5:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.5.1"
+
   # godot_mcp runtime INTEGRATION harness across the Godot engine matrix (mono):
   # downloads the released gamedev-mcp-server, boots a headless game with the
   # in-game runtime + error capture, and asserts the live SignalR roundtrip +
@@ -290,6 +314,9 @@ jobs:
         test-godot-4-3,
         test-godot-4-4,
         test-godot-4-5,
+        e2e-install-4-3,
+        e2e-install-4-4,
+        e2e-install-4-5,
       ]
     if: needs.check-version-tag.outputs.should_release == 'true'
     outputs:

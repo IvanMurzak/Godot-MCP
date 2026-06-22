@@ -55,31 +55,37 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 
 # Quick Start
 
-Get up and running in a few steps using the [`godot-cli`](https://www.npmjs.com/package/godot-cli) (the Godot analog of `unity-mcp-cli`):
-
-> **Prerequisite:** first add the addon files and the two NuGet packages to your project — see
-> [Installation](#installation) Steps 1–2. `install-plugin` below only flips the `project.godot`
-> enable flag; it does not copy the addon or add the NuGet pins, so the editor cannot load the plugin
-> without them.
+Get up and running from a terminal using the [`godot-cli`](https://www.npmjs.com/package/godot-cli) (the Godot analog of `unity-mcp-cli`) — no manual file copying or csproj editing required:
 
 ```bash
 # 1. Install godot-cli
 npm install -g godot-cli
 
-# 2. Enable the godot_mcp addon in your Godot C# project (addon files + NuGet pins must already be present)
+# 2. (Optional) Scaffold a fresh Godot C# project — skip if you already have one
+godot-cli create-project --dotnet ./MyGodotProject
+
+# 3. Install the godot_mcp addon: downloads addons/godot_mcp/ from the matching
+#    GitHub release, adds the required NuGet packages to your .csproj, and enables
+#    the plugin in project.godot — all idempotently
 godot-cli install-plugin ./MyGodotProject
 
-# 3. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
+# 4. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
 godot-cli setup-mcp claude-code ./MyGodotProject
 
-# 4. Open the Godot editor (auto-connects with the right GODOT_MCP_* env vars)
+# 5. Open the Godot editor (auto-connects with the right GODOT_MCP_* env vars)
 godot-cli open ./MyGodotProject
 
-# 5. Wait until the plugin answers the readiness probe
+# 6. Wait until the plugin answers the readiness probe
 godot-cli wait-for-ready ./MyGodotProject
 ```
 
 That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it happen. ✨
+
+> **Offline / dev install:** `install-plugin --source <path-to>/addons/godot_mcp` copies the addon from
+> a local directory instead of downloading it. Prefer the matching release version with
+> `install-plugin --version <x.y.z>` if you need a specific addon build. The manual route (copy the
+> addon + add the NuGet packages yourself) is still documented under [Installation](#installation)
+> Steps 1–2 for the Asset Library / hand-managed flows.
 
 > See the [full CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for every command, editor-resolution order, and connection env vars.
 
@@ -233,6 +239,13 @@ not compile.
 
 Pick **one** of the following ways to get the `addons/godot_mcp/` folder into your Godot C# project.
 
+> **Fully automated (recommended for terminal workflows):**
+> [`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject` does **all of
+> Step 1 and Step 2 in one command** — it downloads `addons/godot_mcp/` from the matching GitHub release,
+> adds the two NuGet packages to your `.csproj`, and enables the plugin in `project.godot`, idempotently.
+> Use `--source <path>/addons/godot_mcp` to install from a local copy offline. The manual Options A–C
+> below remain for in-editor (Asset Library) and hand-managed installs.
+
 ### Option A — Godot Asset Library (recommended)
 
 The easiest path: install directly from inside the editor.
@@ -260,11 +273,11 @@ directory by hand.
 
 ---
 
-After the files are in place, **enable** the plugin:
-**Project → Project Settings → Plugins → Godot-MCP → Enable** (or run
-[`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject`, which flips the
-same enable flag in `project.godot` — it does **not** copy the addon files, so the files from Option A/B/C
-must already be present). On a successful load the editor Output panel prints:
+After the files are in place (Options A–C), **enable** the plugin:
+**Project → Project Settings → Plugins → Godot-MCP → Enable**. (If you used the fully-automated
+[`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin` above, the plugin is already
+enabled and the NuGet packages are already added — skip straight to [Step 3](#step-3-install-an-ai-agent).)
+On a successful load the editor Output panel prints:
 
 ```
 [Godot-MCP] plugin loaded

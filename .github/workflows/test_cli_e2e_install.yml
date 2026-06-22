@@ -1,0 +1,165 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# Reusable workflow: prove the FROM-SCRATCH terminal install actually produces a
+# WORKING Godot project. On a clean runner this runs the REAL `godot-cli` flow a
+# user would run — there is no committed test project; everything is scaffolded by
+# the CLI itself:
+#
+#   1. build the CLI (cli/) from source;
+#   2. in a temp dir, `godot-cli create-project --dotnet`;
+#   3. `godot-cli install-plugin --source <repo>/addons/godot_mcp` — the offline /
+#      CI path (no GitHub release exists for un-merged code; the default download
+#      path is unit-tested with a mocked fetch in cli/tests). This materializes
+#      addons/godot_mcp/, adds the two NuGet PackageReferences to the generated
+#      csproj, and enables the plugin in project.godot;
+#   4. import the project + `dotnet build` (the addon globs into the project
+#      assembly, so a green build proves it compiles against the addon's pins);
+#   5. boot the headless Godot editor and assert "[Godot-MCP] plugin loaded" AND
+#      no FileNotFoundException / assembly-resolution error.
+#
+# Modeled on test_godot_plugin.yml (same chickensoft-games/setup-godot mono +
+# .NET 8 toolchain), but it never copies a pre-made addon into a committed test
+# project — it drives the actual terminal commands, so a regression in
+# create-project / install-plugin (the from-scratch story) BREAKS this gate.
+# Called once per matrix version by test_pull_request.yml and release.yml.
+name: Test CLI E2E Install
+
+on:
+  workflow_call:
+    inputs:
+      godotVersion:
+        description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
+        required: true
+        type: string
+
+jobs:
+  e2e-install:
+    name: e2e install ${{ inputs.godotVersion }} (mono)
+    runs-on: ubuntu-latest
+    env:
+      # The scaffolded project lives OUTSIDE the repo checkout so the install is a
+      # genuine from-scratch consumer (not the in-repo addon source dir).
+      WORK: ${{ github.workspace }}/.e2e-consumer
+      PROJECT_NAME: E2EConsumer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Godot ${{ inputs.godotVersion }} (mono)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godotVersion }}
+          use-dotnet: true
+          include-templates: false
+
+      - name: Report Godot version
+        shell: bash
+        run: godot --version --headless
+
+      - name: Build the CLI from source
+        shell: bash
+        working-directory: ./cli
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          test -f bin/godot-cli.js
+
+      - name: Scaffold a fresh --dotnet project (the real terminal flow)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${WORK}"
+          mkdir -p "${WORK}"
+          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" create-project \
+            --dotnet --name "${PROJECT_NAME}" "${WORK}/project"
+          test -f "${WORK}/project/project.godot"
+          test -f "${WORK}/project/${PROJECT_NAME}.csproj"
+
+      - name: Install the addon from the repo source (--source, offline/CI path)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" install-plugin \
+            --source "${GITHUB_WORKSPACE}/addons/godot_mcp" "${WORK}/project"
+          # Addon files materialized.
+          test -f "${WORK}/project/addons/godot_mcp/plugin.cfg"
+          test -f "${WORK}/project/addons/godot_mcp/Editor/GodotMcpPlugin.cs"
+          # Both NuGet pins added to the generated consumer csproj.
+          grep -q 'com.IvanMurzak.ReflectorNet' "${WORK}/project/${PROJECT_NAME}.csproj"
+          grep -q 'com.IvanMurzak.McpPlugin' "${WORK}/project/${PROJECT_NAME}.csproj"
+          # Plugin enabled in project.godot.
+          grep -q 'res://addons/godot_mcp/plugin.cfg' "${WORK}/project/project.godot"
+
+      - name: Import the project (generate .godot layout)
+        shell: bash
+        run: |
+          set -uo pipefail
+          # A cold project has no .godot/. Headless import materializes the
+          # .godot/mono layout; it prints benign "progress dialog" warnings and
+          # may exit non-zero on teardown — neither is fatal (the real gates are
+          # the dotnet build + the plugin-loaded assertion below). Mirrors
+          # test_godot_plugin.yml's import step.
+          godot --headless --path "${WORK}/project" --import --quit 2>&1 | tee "${WORK}/import.log" || true
+          echo "Import pass complete."
+
+      - name: Build C# (addon compiles into the consumer assembly)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build "${WORK}/project/${PROJECT_NAME}.csproj" \
+            --configuration Debug 2>&1 | tee "${WORK}/build.log"
+          if ! ls "${WORK}/project"/.godot/mono/temp/bin/*/${PROJECT_NAME}.dll >/dev/null 2>&1; then
+            echo "::error::C# build did not produce ${PROJECT_NAME}.dll — the from-scratch install does not compile against the addon's NuGet pins."
+            cat "${WORK}/build.log" || true
+            exit 1
+          fi
+
+      - name: Boot editor headless and assert the addon loads
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path "${WORK}/project" --editor --quit \
+            2>&1 | tee "${WORK}/editor-boot.log" || true
+
+          echo "----- editor-boot.log -----"
+          cat "${WORK}/editor-boot.log"
+
+          if ! grep -qF "[Godot-MCP] plugin loaded" "${WORK}/editor-boot.log"; then
+            echo "::error::'[Godot-MCP] plugin loaded' was NOT found — the from-scratch terminal install did not load on Godot ${{ inputs.godotVersion }}."
+            exit 1
+          fi
+
+          if grep -qE "FileNotFoundException|Could not load file or assembly|Cannot open file|Failed to load script|Unable to load addon|addon .* failed" "${WORK}/editor-boot.log"; then
+            echo "::error::An assembly-resolution / addon-load error appeared in the editor boot output on Godot ${{ inputs.godotVersion }}."
+            exit 1
+          fi
+
+          echo "Godot ${{ inputs.godotVersion }}: from-scratch terminal install loaded cleanly."
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-install-${{ inputs.godotVersion }}-logs
+          path: |
+            ${{ env.WORK }}/import.log
+            ${{ env.WORK }}/build.log
+            ${{ env.WORK }}/editor-boot.log
+          if-no-files-found: ignore
+          retention-days: 7
