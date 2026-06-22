@@ -42,8 +42,9 @@ const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
  * boundary; returns a `{ kind: 'success' | 'failure' }` union. Idempotent: a
  * re-run that finds the addon present, the pins present, and the plugin already
  * enabled reports `changed: false` and makes no writes. On a download/copy
- * failure the project is left as found (the addon dir is only swapped in after a
- * successful fetch+extract; a partial extraction is rolled back).
+ * failure the project is left as found: both paths materialize into a temp
+ * sibling and only swap it into the addon dir after a fully successful
+ * fetch+extract / copy, so a partial materialization is rolled back.
  */
 export async function installPlugin(opts: InstallPluginOptions): Promise<InstallPluginResult> {
   const warnings: string[] = [];
@@ -70,7 +71,7 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
     const materialize = await materializeAddon(projectPath, opts, warnings);
 
     // 2. Patch the consumer csproj with the addon's NuGet PackageReferences.
-    const csproj = patchConsumerCsproj(projectPath, warnings);
+    const csproj = patchConsumerCsproj(projectPath, warnings, opts.onProgress);
 
     // 3. Enable the plugin in project.godot.
     const text = fs.readFileSync(projectGodotPath, 'utf-8');
@@ -130,7 +131,7 @@ async function materializeAddon(
 
   if (opts.source !== undefined && opts.source !== '') {
     const sourceDir = resolveAddonSourceDir(opts.source);
-    copyAddonFromLocal(sourceDir, addonDir, opts.onProgress);
+    copyAddonFromLocal(sourceDir, projectPath, addonDir, opts.onProgress);
     emitProgress(opts.onProgress, {
       phase: 'addon-materialized',
       message: `Copied addon from ${sourceDir}`,
@@ -197,35 +198,64 @@ function resolveAddonSourceDir(source: string): string {
   );
 }
 
-/** Recursively copy a local addon dir into the project's addons/godot_mcp/ (replacing). */
-function copyAddonFromLocal(sourceDir: string, addonDir: string, onProgress?: ProgressCallback): void {
-  emitProgress(onProgress, { phase: 'addon-extracting', message: `Copying addon from ${sourceDir}` });
-  // Replace any existing addon dir to keep the copy deterministic + idempotent.
-  fs.rmSync(addonDir, { recursive: true, force: true });
-  fs.mkdirSync(addonDir, { recursive: true });
-  fs.cpSync(sourceDir, addonDir, { recursive: true });
-  if (!fs.existsSync(path.join(addonDir, 'plugin.cfg'))) {
-    throw new Error(`Copy completed but ${path.join(addonDir, 'plugin.cfg')} is missing.`);
+/**
+ * Materialize the addon into a fresh staging sibling via `fill`, then atomically
+ * swap it into `addonDir`. A mid-fill failure leaves the existing addon untouched
+ * (staging is discarded), honoring the install's documented rollback guarantee.
+ * Shared by both the local-copy and download/extract paths.
+ */
+function stageThenSwapAddon(
+  projectPath: string,
+  addonDir: string,
+  fill: (staging: string) => void,
+): void {
+  const addonReal = path.resolve(addonDir);
+  const staging = path.resolve(projectPath, `.godot-mcp-addon-staging-${process.pid}-${Date.now()}`);
+  fs.rmSync(staging, { recursive: true, force: true });
+  fs.mkdirSync(staging, { recursive: true });
+  try {
+    fill(staging);
+    // Swap staging -> addonDir only after `fill` fully succeeded.
+    fs.rmSync(addonReal, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(addonReal), { recursive: true });
+    fs.renameSync(staging, addonReal);
+  } finally {
+    // Best-effort cleanup if the swap didn't consume staging.
+    fs.rmSync(staging, { recursive: true, force: true });
   }
+}
+
+/**
+ * Recursively copy a local addon dir into the project's addons/godot_mcp/. Stages
+ * into a temp sibling and swaps, so a mid-copy failure leaves the existing addon
+ * intact (matching the download path's rollback guarantee). Deterministic +
+ * idempotent: the swap replaces any existing addon dir.
+ */
+function copyAddonFromLocal(
+  sourceDir: string,
+  projectPath: string,
+  addonDir: string,
+  onProgress?: ProgressCallback,
+): void {
+  emitProgress(onProgress, { phase: 'addon-extracting', message: `Copying addon from ${sourceDir}` });
+  stageThenSwapAddon(projectPath, addonDir, (staging) => {
+    fs.cpSync(sourceDir, staging, { recursive: true });
+    if (!fs.existsSync(path.join(staging, 'plugin.cfg'))) {
+      throw new Error(`Copy completed but ${path.join(sourceDir, 'plugin.cfg')} did not yield a plugin.cfg.`);
+    }
+  });
 }
 
 /**
  * Write the zip entries that live under `addons/godot_mcp/` into the project. The
  * release zip expands to `addons/godot_mcp/...`, so entries are written relative
  * to the project root. Path-safety: every resolved target MUST stay inside the
- * project's addons/godot_mcp dir (reject zip-slip `../` traversal). The target
- * addon dir is replaced so the install is deterministic + idempotent.
+ * staging dir (reject zip-slip `../` traversal). The target addon dir is replaced
+ * atomically so the install is deterministic + idempotent and rollback-safe.
  */
 function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir: string): void {
-  const addonReal = path.resolve(addonDir);
-  // Stage into a temp sibling, then swap, so a mid-extract failure leaves the
-  // existing addon intact.
-  const staging = path.resolve(projectPath, `.godot-mcp-addon-staging-${process.pid}-${Date.now()}`);
-  fs.rmSync(staging, { recursive: true, force: true });
-  fs.mkdirSync(staging, { recursive: true });
-
-  let wrotePluginCfg = false;
-  try {
+  stageThenSwapAddon(projectPath, addonDir, (staging) => {
+    let wrotePluginCfg = false;
     for (const entry of entries) {
       // Only the addons/godot_mcp/ subtree is relevant.
       const prefix = 'addons/godot_mcp/';
@@ -252,15 +282,7 @@ function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir:
         'Downloaded addon zip did not contain addons/godot_mcp/plugin.cfg — the archive is not a valid godot_mcp addon release.',
       );
     }
-
-    // Swap staging -> addonDir.
-    fs.rmSync(addonReal, { recursive: true, force: true });
-    fs.mkdirSync(path.dirname(addonReal), { recursive: true });
-    fs.renameSync(staging, addonReal);
-  } finally {
-    // Best-effort cleanup if the swap didn't consume staging.
-    fs.rmSync(staging, { recursive: true, force: true });
-  }
+  });
 }
 
 /**
@@ -271,8 +293,12 @@ function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir:
  * project), the patch is skipped with a warning — the addon's C# cannot compile
  * without one, but that is the consumer's project shape to fix.
  */
-function patchConsumerCsproj(projectPath: string, warnings: string[]): CsprojPatchOutcome {
-  const csprojPath = findConsumerCsproj(projectPath);
+function patchConsumerCsproj(
+  projectPath: string,
+  warnings: string[],
+  onProgress?: ProgressCallback,
+): CsprojPatchOutcome {
+  const csprojPath = findConsumerCsproj(projectPath, warnings);
   if (csprojPath === null) {
     warnings.push(
       'No .csproj found at the project root — the godot_mcp addon is C# and needs a Godot.NET.Sdk project. ' +
@@ -285,6 +311,11 @@ function patchConsumerCsproj(projectPath: string, warnings: string[]): CsprojPat
   const patched = addAddonPackageReferences(before);
   if (patched.changed) {
     fs.writeFileSync(csprojPath, patched.text);
+    emitProgress(onProgress, {
+      phase: 'csproj-patched',
+      message: `Added addon PackageReferences to ${csprojPath}`,
+      csprojPath,
+    });
   }
 
   return {
@@ -299,7 +330,7 @@ function patchConsumerCsproj(projectPath: string, warnings: string[]): CsprojPat
 }
 
 /** The single `*.csproj` directly at the project root, or null when none/ambiguous. */
-function findConsumerCsproj(projectPath: string): string | null {
+function findConsumerCsproj(projectPath: string, warnings: string[]): string | null {
   let names: string[];
   try {
     names = fs.readdirSync(projectPath).filter((n) => n.toLowerCase().endsWith('.csproj'));
@@ -309,9 +340,15 @@ function findConsumerCsproj(projectPath: string): string | null {
   if (names.length === 0) return null;
   // A scaffolded Godot project has exactly one root csproj. If there are several,
   // pick deterministically (first alphabetically) — better than failing the whole
-  // install; a warning is not added because all root csprojs compile into the same
-  // Godot assembly and would all need the pins.
+  // install; all root csprojs compile into the same Godot assembly and would each
+  // need the pins, but warn so the heuristic's choice is observable.
   names.sort();
+  if (names.length > 1) {
+    warnings.push(
+      `Multiple .csproj files found at the project root (${names.join(', ')}); patched ${names[0]}. ` +
+        'If a different one is the Godot project, add the addon PackageReferences to it as well.',
+    );
+  }
   return path.join(projectPath, names[0]);
 }
 

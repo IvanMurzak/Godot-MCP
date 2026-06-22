@@ -69,6 +69,17 @@ function detectIndent(text: string): string {
   return m ? m[1] : '    ';
 }
 
+/**
+ * Detect the dominant line ending of the csproj so inserted/appended XML matches
+ * it (a CRLF csproj should not gain bare-LF lines). Returns `\r\n` when CRLF
+ * line endings outnumber bare-LF ones, else `\n`.
+ */
+function detectEol(text: string): '\n' | '\r\n' {
+  const crlf = (text.match(/\r\n/g) ?? []).length;
+  const lf = (text.match(/\n/g) ?? []).length - crlf;
+  return crlf > lf ? '\r\n' : '\n';
+}
+
 export function addAddonPackageReferences(
   csprojText: string,
   requiredRefs: readonly AddonPackageReference[] = ADDON_PACKAGE_REFERENCES,
@@ -76,6 +87,7 @@ export function addAddonPackageReferences(
   const changes: CsprojPatchChange[] = [];
   let text = csprojText;
   const indent = detectIndent(text);
+  const eol = detectEol(text);
 
   // First pass: reconcile any references that already exist (possibly at a
   // different version). Collect the ones still missing for the append pass.
@@ -102,20 +114,20 @@ export function addAddonPackageReferences(
   // already holds a <PackageReference> (group them together); else append a fresh
   // <ItemGroup> just before </Project>.
   if (missing.length > 0) {
-    const block = missing.map((ref) => `${indent}${renderRef(ref)}`).join('\n');
+    const block = missing.map((ref) => `${indent}${renderRef(ref)}`).join(eol);
 
     const pkgItemGroupClose = findPackageReferenceItemGroupClose(text);
     if (pkgItemGroupClose !== -1) {
       // Insert the missing refs just before that ItemGroup's closing tag.
-      text = `${text.slice(0, pkgItemGroupClose)}${block}\n${text.slice(pkgItemGroupClose)}`;
+      text = `${text.slice(0, pkgItemGroupClose)}${block}${eol}${text.slice(pkgItemGroupClose)}`;
     } else {
       // No PackageReference ItemGroup — append a new one before </Project>.
       const groupIndent = indent.length >= 2 ? indent.slice(0, Math.floor(indent.length / 2)) : '  ';
-      const newGroup = `${groupIndent}<ItemGroup>\n${block}\n${groupIndent}</ItemGroup>\n`;
+      const newGroup = `${groupIndent}<ItemGroup>${eol}${block}${eol}${groupIndent}</ItemGroup>${eol}`;
       const closeIdx = text.lastIndexOf('</Project>');
       if (closeIdx === -1) {
         // Not a recognizable csproj; append best-effort at EOF.
-        text = `${text}\n${newGroup}`;
+        text = `${text}${eol}${newGroup}`;
       } else {
         text = `${text.slice(0, closeIdx)}${newGroup}${text.slice(closeIdx)}`;
       }
