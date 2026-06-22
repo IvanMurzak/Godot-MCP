@@ -90,6 +90,27 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  # (e) from-scratch terminal-install E2E across the Godot engine matrix (mono):
+  #     build the CLI, scaffold a --dotnet project, run the REAL `install-plugin`
+  #     (materialize addon + add NuGet pins + enable), dotnet build, and assert the
+  #     editor boots with "[Godot-MCP] plugin loaded". This guards the documented
+  #     terminal Quick Start — a regression in create-project / install-plugin that
+  #     breaks a from-scratch install breaks this gate.
+  e2e-install-4-3:
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.3.0"
+
+  e2e-install-4-4:
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.4.0"
+
+  e2e-install-4-5:
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.5.1"
+
   # Single-source the server version the harness downloads from the addon's authoritative
   # constant (GodotMcpServerView.ServerVersion) instead of trusting the reusable workflow's
   # hardcoded default. This guarantees the harness ALWAYS runs against the server release the

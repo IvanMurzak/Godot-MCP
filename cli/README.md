@@ -34,8 +34,8 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
-| `install-plugin [path]` | Enable the `godot_mcp` addon in `project.godot` `[editor_plugins]`. |
-| `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]`. |
+| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s to the project `.csproj`, and enable the plugin. Idempotent. |
+| `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
 
 ### Editor resolution (`open`)
@@ -96,6 +96,33 @@ exposes no skill-generate HTTP endpoint, so no server or running editor is requi
 *additionally* auto-generates skills in-process on plugin boot via
 `GodotMcpConnection.Start` → `GenerateSkillFilesIfNeeded`; the CLI command is the
 server-less, scriptable path that does not need a live editor.)
+
+## `install-plugin`
+
+`godot-cli install-plugin [path]` is a **real installer** — it makes a from-scratch terminal install
+produce a working project, in one idempotent command:
+
+```bash
+godot-cli install-plugin ./MyGodotProject                      # download the matching release + install
+godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # pin a specific addon release
+godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # offline / dev copy
+```
+
+It performs three steps:
+
+1. **Materialize `res://addons/godot_mcp/`.** By default it downloads `godot-mcp-addon-<version>.zip`
+   over HTTPS from **github.com only** (the `IvanMurzak/Godot-MCP` release `v<version>`; the version
+   defaults to the CLI's own version). Non-`github.com` hosts and plain `http` are rejected. With
+   `--source <path>` it copies the addon from a local directory instead (no network) — `<path>` may be a
+   directory that *is* `addons/godot_mcp` or one that *contains* it.
+2. **Add the NuGet packages** the addon needs (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`)
+   to the project's `.csproj`, idempotently — adding when missing, reconciling a stale version, and
+   leaving a correct pin untouched. The versions are single-sourced from the addon's own
+   `Godot-MCP.csproj` pins, so the scaffold can never drift.
+3. **Enable the plugin** in `project.godot` `[editor_plugins]`.
+
+It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public
+boundary) and idempotent — re-running on an already-installed project reports no change.
 
 ## Library API
 

@@ -16,6 +16,11 @@
 export type ProgressEvent =
   | { phase: 'start'; message: string }
   | { phase: 'manifest-patched'; message: string; manifestPath: string }
+  // installPlugin (materialize addon) phases
+  | { phase: 'addon-downloading'; message: string; url: string }
+  | { phase: 'addon-extracting'; message: string }
+  | { phase: 'addon-materialized'; message: string; addonDir: string; source: 'download' | 'local' }
+  | { phase: 'csproj-patched'; message: string; csprojPath: string }
   // createProject phases
   | { phase: 'project-scaffolded'; message: string; projectPath: string }
   // openProject phases
@@ -294,7 +299,52 @@ export type RunSystemToolFailure = RunToolFailure;
 export interface InstallPluginOptions {
   /** Absolute or relative path to the Godot project root. */
   godotProjectPath: string;
+  /**
+   * Local directory to copy `addons/godot_mcp/` from instead of downloading it
+   * from the GitHub release (offline / dev / CI path). When set, no network call
+   * is made; the directory must contain the addon files (a `plugin.cfg`).
+   */
+  source?: string;
+  /**
+   * Addon release version to download (`<version>` in
+   * `godot-mcp-addon-<version>.zip`, tag `v<version>`). Defaults to the CLI's own
+   * version. Ignored when `source` is set. Used only on the download path.
+   */
+  version?: string;
+  /**
+   * Skip materializing the addon files (download / copy) and only enable the
+   * plugin + patch the csproj. Restores the pre-installer behavior for callers
+   * that manage the addon files themselves.
+   */
+  skipMaterialize?: boolean;
+  /**
+   * Injectable fetch for tests (mock the GitHub download). Defaults to
+   * `globalThis.fetch`. Used only on the download path.
+   */
+  fetchImpl?: typeof fetch;
   onProgress?: ProgressCallback;
+}
+
+/** What `install-plugin` did to materialize the `addons/godot_mcp/` files. */
+export interface AddonMaterializeOutcome {
+  /** Where the addon files came from. `skipped` when `skipMaterialize` was set. */
+  source: 'download' | 'local' | 'skipped';
+  /** Absolute path to the materialized `addons/godot_mcp/` directory. */
+  addonDir: string;
+  /** The download URL used (download path only). */
+  downloadUrl?: string;
+  /** The local source directory used (`--source` path only). */
+  sourceDir?: string;
+}
+
+/** What `install-plugin` did to the consumer `.csproj`'s PackageReferences. */
+export interface CsprojPatchOutcome {
+  /** Absolute path to the consumer `.csproj` that was patched, if one was found. */
+  csprojPath?: string;
+  /** True when the csproj text was modified. */
+  changed: boolean;
+  /** Per-package summary: each addon pin's add / update / unchanged outcome. */
+  packages: { id: string; action: 'added' | 'updated' | 'unchanged'; version: string }[];
 }
 
 export interface InstallPluginSuccess {
@@ -304,6 +354,10 @@ export interface InstallPluginSuccess {
   changed: boolean;
   projectGodotPath: string;
   enabledPlugins: string[];
+  /** Addon-files materialization outcome (download / local copy / skipped). */
+  materialize: AddonMaterializeOutcome;
+  /** Consumer csproj PackageReference patch outcome. */
+  csproj: CsprojPatchOutcome;
   warnings: string[];
 }
 

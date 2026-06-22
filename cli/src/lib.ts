@@ -62,6 +62,8 @@ export type {
   InstallPluginResult,
   InstallPluginSuccess,
   InstallPluginFailure,
+  AddonMaterializeOutcome,
+  CsprojPatchOutcome,
   RemovePluginOptions,
   RemovePluginResult,
   RemovePluginSuccess,
