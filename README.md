@@ -72,7 +72,8 @@ godot-cli install-plugin ./MyGodotProject
 # 4. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
 godot-cli setup-mcp claude-code ./MyGodotProject
 
-# 5. Open the Godot editor (auto-connects with the right GODOT_MCP_* env vars)
+# 5. Open the Godot editor — builds the C# assembly first (so the addon loads on
+#    the very first open) then auto-connects with the right GODOT_MCP_* env vars
 godot-cli open ./MyGodotProject
 
 # 6. Wait until the plugin answers the readiness probe

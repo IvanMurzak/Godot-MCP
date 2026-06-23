@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
+import { buildCommand } from './commands/build.js';
 import { openCommand } from './commands/open.js';
 import { runToolCommand } from './commands/run-tool.js';
 import { runSystemToolCommand } from './commands/run-system-tool.js';
@@ -29,6 +30,7 @@ program
 
 // Register all subcommands
 const subcommands = [
+  buildCommand,
   closeCommand,
   configureCommand,
   createProjectCommand,

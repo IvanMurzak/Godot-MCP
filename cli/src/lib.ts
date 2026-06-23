@@ -14,6 +14,7 @@
 // via the `exports` field in package.json).
 
 export { openProject } from './lib/open.js';
+export { buildProject } from './lib/build.js';
 export { createProject } from './lib/create-project.js';
 export { runTool, runSystemTool } from './lib/run-tool.js';
 export { setupMcp, listAgentIds } from './lib/setup-mcp.js';
@@ -32,6 +33,12 @@ export type {
   OpenProjectFailure,
   OpenProjectAuthOption,
   OpenProjectConnectionMode,
+  // build-project
+  BuildProjectOptions,
+  BuildProjectResult,
+  BuildProjectSuccess,
+  BuildProjectFailure,
+  BuildSkipReason,
   // create-project
   CreateProjectOptions,
   CreateProjectResult,
