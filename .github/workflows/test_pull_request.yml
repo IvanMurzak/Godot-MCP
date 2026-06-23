@@ -10,9 +10,12 @@
 # Fans out, with fail-fast disabled so every leg reports independently:
 #   (a) .NET build + xUnit  — a PR-aggregate copy of ci.yml's build/test
 #   (b) godot-mcp-cli node tests (20/22) via the reusable test_cli.yml
-#   (c) the godot_mcp addon-load smoke across Godot 4.3 / 4.4 / 4.5 (mono) via
-#       the reusable test_godot_plugin.yml
-#   (d) the runtime INTEGRATION harness across Godot 4.3 / 4.4 / 4.5 (mono) via
+#   (c) the godot_mcp addon-load smoke across Godot 4.3 / 4.4 / 4.5 / 4.6 / 4.7
+#       (mono) via the reusable test_godot_plugin.yml
+#   (e) the from-scratch terminal-install E2E across the same Godot matrix
+#       (test_cli_e2e_install.yml) — MUST stay in lockstep with release.yml's
+#       e2e-install legs so a green PR can never produce a red release gate.
+#   (d) the runtime INTEGRATION harness across Godot 4.3 / 4.4 / 4.5 / 4.6 / 4.7 (mono) via
 #       the reusable test_godot_runtime_harness.yml — downloads the released
 #       gamedev-mcp-server, boots a HEADLESS GAME with the in-game runtime +
 #       error capture, asserts a live SignalR roundtrip AND runtime-error capture
@@ -90,6 +93,16 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  test-godot-4-6:
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.6.3"
+
+  test-godot-4-7:
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.7.0"
+
   # (e) from-scratch terminal-install E2E across the Godot engine matrix (mono):
   #     build the CLI, scaffold a --dotnet project, run the REAL `install-plugin`
   #     (materialize addon + add NuGet pins + enable), dotnet build, and assert the
@@ -110,6 +123,16 @@ jobs:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.5.1"
+
+  e2e-install-4-6:
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.6.3"
+
+  e2e-install-4-7:
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.7.0"
 
   # Single-source the server version the harness downloads from the addon's authoritative
   # constant (GodotMcpServerView.ServerVersion) instead of trusting the reusable workflow's
@@ -164,4 +187,18 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.5.1"
+      serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
+
+  runtime-harness-4-6:
+    needs: [resolve-server-version]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.6.3"
+      serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
+
+  runtime-harness-4-7:
+    needs: [resolve-server-version]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.7.0"
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
