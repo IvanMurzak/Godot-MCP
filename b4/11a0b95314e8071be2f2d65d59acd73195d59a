@@ -1,0 +1,19 @@
+cli/src/commands/build.ts
+  s_122f29be78f9f3::t_9e42ff737fbef7 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "b411a0b95314e8071be2f2d65d59acd73195d59a",
+  "prompts": {},
+  "sessions": {
+    "s_122f29be78f9f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3eb59068-3b42-4d80-a3c8-a8ce7f1efee3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
