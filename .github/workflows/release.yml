@@ -39,7 +39,7 @@
 #
 # The release is gated on the full test set as `needs:` — the .NET build+test,
 # the godot-mcp-cli node tests (test_cli.yml), and the Godot engine smoke matrix
-# (test_godot_plugin.yml for 4.3/4.4/4.5). The release proceeds only if all pass.
+# (test_godot_plugin.yml for 4.3 → 4.7). The release proceeds only if all pass.
 #
 # Manual dispatch (workflow_dispatch) bypasses the version_changed check (there
 # is no push diff to inspect) but STILL honors tag_exists — a dispatch cuts a
@@ -227,6 +227,20 @@ jobs:
     with:
       godotVersion: "4.5.1"
 
+  test-godot-4-6:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.6.3"
+
+  test-godot-4-7:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.7.0"
+
   # from-scratch terminal-install E2E across the Godot engine matrix (mono). Gates
   # the release alongside the addon-load smoke so a broken from-scratch terminal
   # install (create-project + install-plugin) can NEVER ship in a release.
@@ -250,6 +264,20 @@ jobs:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.5.1"
+
+  e2e-install-4-6:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.6.3"
+
+  e2e-install-4-7:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.7.0"
 
   # godot_mcp runtime INTEGRATION harness across the Godot engine matrix (mono):
   # downloads the released gamedev-mcp-server, boots a headless game with the
@@ -282,6 +310,22 @@ jobs:
       godotVersion: "4.5.1"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
 
+  runtime-harness-4-6:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.6.3"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+
+  runtime-harness-4-7:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.7.0"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+
   # NOTE: the MCP server is NOT built or released here anymore. The addon consumes the
   # shared GameDev-MCP-Server (https://github.com/IvanMurzak/GameDev-MCP-Server), whose
   # own release workflow publishes the `gamedev-mcp-server-<rid>.zip` assets the addon
@@ -298,8 +342,11 @@ jobs:
   release-addon:
     runs-on: ubuntu-latest
     # The release gate depends ONLY on the DETERMINISTIC test legs (check-version-tag,
-    # the .NET build+test, the cli node tests, and the addon-LOAD godot smoke). The
-    # runtime-harness-4-{3,4,5} legs are deliberately NOT in this `needs:` array: they are
+    # the .NET build+test, the cli node tests, the addon-LOAD godot smoke, and the
+    # from-scratch e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
+    # in lockstep with test_pull_request.yml's matrix so a green PR can never produce a red
+    # release gate — when you add/remove a Godot version, edit BOTH files together. The
+    # runtime-harness-4-{3..7} legs are deliberately NOT in this `needs:` array: they are
     # an end-to-end INTEGRATION harness that downloads an external server release and runs a
     # live, concurrency-sensitive roundtrip — a transient harness flake or an unavailable
     # upstream server release must NEVER block a Godot-MCP release. The harness legs still
@@ -314,9 +361,13 @@ jobs:
         test-godot-4-3,
         test-godot-4-4,
         test-godot-4-5,
+        test-godot-4-6,
+        test-godot-4-7,
         e2e-install-4-3,
         e2e-install-4-4,
         e2e-install-4-5,
+        e2e-install-4-6,
+        e2e-install-4-7,
       ]
     if: needs.check-version-tag.outputs.should_release == 'true'
     outputs:
