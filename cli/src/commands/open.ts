@@ -127,7 +127,10 @@ export const openCommand = new Command('open')
               break;
             }
             case 'build-skipped': {
+              // GDScript-only project: no C# to compile. Correct the spinner so
+              // it doesn't leave "Building C# assembly..." implying a build ran.
               verbose('No .csproj at project root — skipping build (GDScript-only).');
+              spinner.text = 'Locating Godot editor...';
               break;
             }
             case 'build-succeeded': {

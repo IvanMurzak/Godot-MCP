@@ -30,6 +30,19 @@ export const buildCommand = new Command('build')
       projectPath,
       configuration: options.configuration,
       dotnetPath: options.dotnetPath,
+      onProgress: (event) => {
+        switch (event.phase) {
+          case 'build-running':
+            spinner.text = `Building ${event.csprojPath} ...`;
+            verbose(`Build command: ${event.command}`);
+            break;
+          case 'build-skipped':
+            verbose('No .csproj at project root — skipping build (GDScript-only).');
+            break;
+          default:
+            break;
+        }
+      },
     });
 
     if (result.kind === 'failure') {
@@ -50,6 +63,9 @@ export const buildCommand = new Command('build')
       ui.label('Project', result.projectPath);
       if (result.csprojPath) ui.label('Built', result.csprojPath);
       if (result.configuration) ui.label('Configuration', result.configuration);
+      // Surface the captured `dotnet build` output in verbose mode — otherwise
+      // a slow non-incremental first build shows only a static spinner.
+      if (result.output) verbose(result.output.trim());
     }
 
     for (const warning of result.warnings) {
