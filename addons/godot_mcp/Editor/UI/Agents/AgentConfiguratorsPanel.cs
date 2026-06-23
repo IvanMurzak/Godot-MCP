@@ -82,7 +82,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// URL + token + mode off the connection's <see cref="GodotMcpConfig"/> and persists the selected agent via
         /// the connection's <c>Save</c>). Only built by the dock when a live connection exists.
         /// </summary>
-                /// <summary>
+        /// <summary>
         /// Parameterless ctor for Godot's C# hot-reload bridge (godotengine/godot#51626): a "Build Project"
         /// reload re-instantiates every live [Tool] script via its parameterless ctor, so a parameter-only
         /// class throws MissingMemberException ("does not define a parameterless constructor") and breaks the
@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// dock (see GodotMcpPlugin's reload re-entry), so this re-instantiated shell is a discarded orphan —
         /// it only has to exist without faulting.
         /// </summary>
-        public AgentConfiguratorsPanel() {{ }}
+        public AgentConfiguratorsPanel() { }
 
         public AgentConfiguratorsPanel(GodotMcpConnection connection)
         {

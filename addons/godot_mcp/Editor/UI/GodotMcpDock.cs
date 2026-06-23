@@ -71,12 +71,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
         System.Action? _configChangedHandler;
 
         /// <summary>
-        /// Construct the dock wired to the live <paramref name="connection"/> so its connection panel can
-        /// show status and drive Connect/Disconnect/mode/URL. <see cref="GodotMcpPlugin"/> owns the
-        /// connection and threads it through here. A null connection (defensive / design-preview) builds the
-        /// header-only chrome with no connection panel.
-        /// </summary>
-        /// <summary>
         /// Parameterless constructor required by Godot's C# hot-reload bridge: on a "Build Project" reload
         /// (godotengine/godot#51626) the engine re-instantiates every live <c>[Tool]</c> script via its
         /// parameterless ctor, and a class with only a parameter ctor throws
@@ -87,6 +81,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public GodotMcpDock() : this(null) { }
 
+        /// <summary>
+        /// Construct the dock wired to the live <paramref name="connection"/> so its connection panel can
+        /// show status and drive Connect/Disconnect/mode/URL. <see cref="GodotMcpPlugin"/> owns the
+        /// connection and threads it through here. A null connection (defensive / design-preview) builds the
+        /// header-only chrome with no connection panel.
+        /// </summary>
         public GodotMcpDock(GodotMcpConnection? connection)
         {
             _connection = connection;

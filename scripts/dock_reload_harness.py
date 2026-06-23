@@ -43,7 +43,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -179,8 +178,18 @@ def main() -> int:
         # 4) The decisive assertion: the dock must be in-tree again after the reload.
         ok, dock = wait_for_dock(base_url, args.reload_deadline, args.request_timeout)
         if not ok:
-            log("::error::dock did NOT survive the in-session C# rebuild — diagInsideTree is not true after the "
-                "reload (the godot#51626 'missing AI Game Developer tab' regression).")
+            # Distinguish the two failure causes: dock is None means /state never answered (the
+            # dev-control bridge — which lives on the freed dock — never re-bound after the reload),
+            # vs a dock dict whose diagInsideTree is not true (the bridge re-bound but the dock itself
+            # did not re-register). Both are the godot#51626 regression, but the cause differs.
+            if dock is None:
+                log("::error::the dev-control bridge never answered /state after the reload — the "
+                    "dock+bridge were freed by the ALC unload and never re-registered (godot#51626 "
+                    "'missing AI Game Developer tab' regression).")
+            else:
+                log("::error::dock did NOT survive the in-session C# rebuild — the bridge re-bound but "
+                    "diagInsideTree is not true after the reload (the godot#51626 'missing AI Game "
+                    "Developer tab' regression).")
             log(f"[harness] last /state dock: {dock!r}")
             return 1
 
@@ -193,7 +202,9 @@ def main() -> int:
     finally:
         # Always stop the editor + flush the log.
         try:
-            editor.send_signal(signal.SIGTERM)
+            # terminate() is cross-platform (SIGTERM on POSIX, TerminateProcess on Windows) so the
+            # documented Windows local-repro path works as well as the ubuntu-only CI gate.
+            editor.terminate()
             editor.wait(timeout=15)
         except Exception:
             try:
