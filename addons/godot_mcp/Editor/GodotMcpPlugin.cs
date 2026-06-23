@@ -166,6 +166,11 @@ namespace com.IvanMurzak.Godot.MCP
 
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
             // lives in the editor SceneTree and gets _Process ticks for the lifetime of the plugin.
+            // FreeStaleNode first so the hot-reload re-entry (BootAfterReload, deferred to a later idle
+            // frame) is idempotent even if the ALC-unload Teardown has not yet freed the prior instance's
+            // dispatcher/dock on this matrix version: re-creating without freeing would orphan the old
+            // dispatcher child + add a duplicate. (The normal first boot has nothing to free.)
+            FreeStaleNode(ref _dispatcher);
             _dispatcher = new MainThreadDispatcher { Name = DispatcherNodeName };
             AddChild(_dispatcher);
 
@@ -189,6 +194,15 @@ namespace com.IvanMurzak.Godot.MCP
         {
             try
             {
+                // Idempotent across the hot-reload re-entry path (BootAfterReload): if a prior dock is
+                // still live (Teardown not yet run on this matrix version when the deferred boot lands),
+                // remove + free it before re-creating so we never add a SECOND "AI Game Developer" control.
+                if (_dock != null)
+                {
+                    if (GodotObject.IsInstanceValid(_dock))
+                        RemoveControlFromDocks(_dock);
+                    FreeStaleNode(ref _dock);
+                }
                 _dock = new GodotMcpDock(connection);
                 AddControlToDock(DockSlot.RightUl, _dock);
             }
@@ -593,6 +607,25 @@ namespace com.IvanMurzak.Godot.MCP
             // (not a C# delegate/lambda), so none of them is a ManagedCallable and none can survive into the ALC
             // unload as a leftover managed connection. The dock Free() above severs every native connection
             // deterministically as it tears the subtree down.
+        }
+
+        /// <summary>
+        /// Free a still-live Node referenced by <paramref name="node"/> and null the reference, so the
+        /// hot-reload re-boot (<see cref="BootAfterReload"/>) can re-create dock/dispatcher idempotently
+        /// even if <see cref="Teardown"/> has not yet freed the prior instance's nodes on this Godot
+        /// version. A null or already-disposed node just clears the reference (nothing to free). Defensive
+        /// throughout — re-boot runs deferred, possibly racing a partial teardown, and must not fault.
+        /// </summary>
+        static void FreeStaleNode<T>(ref T? node) where T : global::Godot.Node
+        {
+            try
+            {
+                if (node != null && GodotObject.IsInstanceValid(node))
+                    node.Free();
+            }
+            catch (System.ObjectDisposedException) { /* already gone — benign */ }
+            catch (System.Exception ex) { TryLogTeardownError("free stale node", ex); }
+            node = null;
         }
 
         /// <summary>

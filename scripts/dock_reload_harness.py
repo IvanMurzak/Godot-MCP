@@ -90,13 +90,17 @@ def count_marker(log_path: str, marker: str) -> int:
 
 def trigger_in_session_rebuild(csproj: str, touch_file: str, config: str) -> None:
     """Rewrite the project assembly on disk so Godot's HotReloadAssemblyWatcher reloads it in-session."""
-    # Touch a source file so the incremental build actually re-emits the assembly (a newer mtime is
-    # what is_assembly_reloading_needed() checks). os.utime to "now" is enough.
+    # Touch a source file so the build sees a changed input. The mtime bump alone is NOT enough to
+    # guarantee a fresh DLL: an incremental `dotnet build` can decide nothing changed and skip the
+    # compile, so the assembly mtime never advances and Godot's HotReloadAssemblyWatcher (which compares
+    # assembly mtime) never fires — the harness would then fail RED for an infra reason, not the
+    # regression. --no-incremental forces a full rebuild that ALWAYS re-emits the assembly with a newer
+    # write time, making the in-session reload trigger deterministic across the whole Godot matrix.
     now = time.time()
     os.utime(touch_file, (now, now))
-    log(f"[harness] touched {touch_file}; rebuilding to produce a newer assembly ...")
+    log(f"[harness] touched {touch_file}; full (non-incremental) rebuild to produce a newer assembly ...")
     proc = subprocess.run(
-        ["dotnet", "build", csproj, "--configuration", config],
+        ["dotnet", "build", csproj, "--configuration", config, "--no-incremental"],
         capture_output=True, text=True,
     )
     if proc.returncode != 0:
@@ -136,11 +140,16 @@ def main() -> int:
 
     log(f"[harness] booting headless editor: {args.godot} --headless --path {args.project} --editor")
     log_fh = open(log_file, "w", encoding="utf-8")
-    # Hold the editor OPEN (no --quit): the in-session reload needs a live session.
-    editor = subprocess.Popen(
-        [args.godot, "--headless", "--path", args.project, "--editor"],
-        stdout=log_fh, stderr=subprocess.STDOUT, env=env,
-    )
+    # Hold the editor OPEN (no --quit): the in-session reload needs a live session. Spawn inside a guard
+    # so a Popen failure (e.g. the godot binary is missing) closes the log handle instead of leaking it.
+    try:
+        editor = subprocess.Popen(
+            [args.godot, "--headless", "--path", args.project, "--editor"],
+            stdout=log_fh, stderr=subprocess.STDOUT, env=env,
+        )
+    except Exception:
+        log_fh.close()
+        raise
 
     rc = 1
     try:
