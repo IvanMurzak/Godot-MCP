@@ -11,6 +11,7 @@ import {
   ENV_TOKEN,
 } from '../utils/connection.js';
 import { emitProgress } from './progress.js';
+import { buildProject } from './build.js';
 import type {
   OpenEnvInputs,
   OpenProjectAuthOption,
@@ -100,6 +101,7 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
   const warnings: string[] = [];
   let resolvedProjectPath: string | undefined;
   let resolvedEditorPath: string | undefined;
+  let built = false;
 
   try {
     const { projectPath } = resolveProjectPath(options.projectPath, process.cwd());
@@ -139,7 +141,39 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
         projectPath,
         warnings,
         alreadyRunning: true,
+        built: false,
       };
+    }
+
+    // Build the C# assembly BEFORE launching the editor, so a fresh first open
+    // finds a compiled assembly when it instantiates enabled EditorPlugins
+    // (otherwise the editor shows "Unable to load addon script … Disabling the
+    // addon"). GDScript-only projects are skipped inside buildProject. Opt out
+    // with `build: false`. A build failure aborts the open — launching anyway
+    // would reproduce the very disable-addon failure this guards against.
+    if (options.build !== false) {
+      const buildResult = await buildProject({
+        projectPath,
+        configuration: options.buildConfiguration,
+        dotnetPath: options.dotnetPath,
+        spawnImpl: options.buildSpawnImpl,
+        onProgress: options.onProgress,
+      });
+      if (buildResult.kind === 'failure') {
+        throw new Error(
+          `Build before open failed; not launching the editor (it would disable the addon).\n${buildResult.errorMessage}`,
+        );
+      }
+      for (const w of buildResult.warnings) warnings.push(w);
+      built = !buildResult.skipped;
+      if (!buildResult.skipped && buildResult.csprojPath !== undefined) {
+        emitProgress(options.onProgress, {
+          phase: 'build-succeeded',
+          message: 'C# assembly built before launch.',
+          csprojPath: buildResult.csprojPath,
+          configuration: buildResult.configuration ?? 'Debug',
+        });
+      }
     }
 
     // Locate the Godot binary.
@@ -206,6 +240,7 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
       editorPid: pid,
       projectPath,
       warnings,
+      built,
     };
   } catch (err: unknown) {
     const errorObj = err instanceof Error ? err : new Error(String(err));

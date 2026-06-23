@@ -25,7 +25,8 @@ Requires Node `^20.19.0 || >=22.12.0`.
 
 | Command | What it does |
 | --- | --- |
-| `open [path]` | Resolve the Godot editor binary and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. |
+| `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. |
+| `build [path]` | Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching. |
 | `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. |
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
@@ -37,6 +38,22 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s to the project `.csproj`, and enable the plugin. Idempotent. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
+
+### Build before open (`open` / `build`)
+
+`open` **builds the project's C# assembly before launching the editor**. Godot instantiates an
+enabled addon's `EditorPlugin` as soon as the editor loads — so on a *fresh* first open of a C#
+project that was never built, no assembly exists yet and Godot fails with
+`Unable to load addon script 'res://addons/godot_mcp/Editor/GodotMcpPlugin.cs' … Disabling the addon`.
+Building first guarantees the assembly is present when the addon is instantiated.
+
+- The build is the same one `godot-cli build` runs: `dotnet build <project>.csproj --configuration Debug`.
+- **GDScript-only projects** (no `.csproj` at the root) are skipped automatically — there is nothing to compile.
+- The build runs **unconditionally** for C# projects; `dotnet build` is incremental, so an up-to-date
+  project is a fast no-op. Pass `--no-build` to `open` to skip it (e.g. you already built, or want to
+  open as fast as possible).
+- If the build **fails**, `open` does **not** launch the editor (launching would just reproduce the
+  disable-addon failure); the error is surfaced instead.
 
 ### Editor resolution (`open`)
 

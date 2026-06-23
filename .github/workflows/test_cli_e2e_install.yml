@@ -17,15 +17,22 @@
 #      path is unit-tested with a mocked fetch in cli/tests). This materializes
 #      addons/godot_mcp/, adds the two NuGet PackageReferences to the generated
 #      csproj, and enables the plugin in project.godot;
-#   4. import the project + `dotnet build` (the addon globs into the project
-#      assembly, so a green build proves it compiles against the addon's pins);
+#   4. import the project, then build the C# with the CLI's OWN build path
+#      (`godot-cli build` — the same build `godot-cli open` runs before launch),
+#      NOT a hand-rolled `dotnet build`. The addon globs into the project
+#      assembly, so a green build proves it compiles against the addon's pins;
 #   5. boot the headless Godot editor and assert "[Godot-MCP] plugin loaded" AND
-#      no FileNotFoundException / assembly-resolution error.
+#      no FileNotFoundException / "Unable to load addon" / assembly-resolution
+#      error.
 #
 # Modeled on test_godot_plugin.yml (same chickensoft-games/setup-godot mono +
 # .NET 8 toolchain), but it never copies a pre-made addon into a committed test
 # project — it drives the actual terminal commands, so a regression in
-# create-project / install-plugin (the from-scratch story) BREAKS this gate.
+# create-project / install-plugin / the build-before-open path (the from-scratch
+# story) BREAKS this gate. Because step 4 uses `godot-cli build` instead of a raw
+# `dotnet build`, the gate also catches the original "first open disables the
+# addon" bug: if the CLI stops building before open, nothing else produces the
+# assembly and the plugin-loaded assertion goes red.
 # Called once per matrix version by test_pull_request.yml and release.yml.
 name: Test CLI E2E Install
 
@@ -118,14 +125,21 @@ jobs:
           godot --headless --path "${WORK}/project" --import --quit 2>&1 | tee "${WORK}/import.log" || true
           echo "Import pass complete."
 
-      - name: Build C# (addon compiles into the consumer assembly)
+      - name: Build C# via the CLI's OWN build-before-open path (no hand-rolled dotnet build)
         shell: bash
         run: |
           set -euo pipefail
-          dotnet build "${WORK}/project/${PROJECT_NAME}.csproj" \
-            --configuration Debug 2>&1 | tee "${WORK}/build.log"
+          # This is the crux of the regression guard: build the C# assembly with
+          # the SAME `godot-cli build` path that `godot-cli open` runs before it
+          # launches the editor — NOT a hand-rolled `dotnet build`. If the CLI ever
+          # stops building before open (the original "Unable to load addon …
+          # Disabling the addon" bug), `godot-cli build` is the only thing
+          # producing the assembly here, so the plugin-loaded assertion below goes
+          # red. A raw `dotnet build` would have masked exactly that gap.
+          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" build \
+            "${WORK}/project" 2>&1 | tee "${WORK}/build.log"
           if ! ls "${WORK}/project"/.godot/mono/temp/bin/*/${PROJECT_NAME}.dll >/dev/null 2>&1; then
-            echo "::error::C# build did not produce ${PROJECT_NAME}.dll — the from-scratch install does not compile against the addon's NuGet pins."
+            echo "::error::godot-cli build did not produce ${PROJECT_NAME}.dll — the CLI's build-before-open path does not compile the from-scratch install against the addon's NuGet pins."
             cat "${WORK}/build.log" || true
             exit 1
           fi

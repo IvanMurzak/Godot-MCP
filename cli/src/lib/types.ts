@@ -23,6 +23,10 @@ export type ProgressEvent =
   | { phase: 'csproj-patched'; message: string; csprojPath: string }
   // createProject phases
   | { phase: 'project-scaffolded'; message: string; projectPath: string }
+  // buildProject phases (also emitted by openProject when it builds first)
+  | { phase: 'build-running'; message: string; csprojPath: string; command: string }
+  | { phase: 'build-skipped'; message: string; reason: BuildSkipReason }
+  | { phase: 'build-succeeded'; message: string; csprojPath: string; configuration: string }
   // openProject phases
   | { phase: 'editor-resolved'; message: string; editorPath: string }
   | {
@@ -111,6 +115,53 @@ export interface SetupSkillsFailure {
 export type SetupSkillsResult = SetupSkillsSuccess | SetupSkillsFailure;
 
 // ---------------------------------------------------------------------------
+// build-project
+// ---------------------------------------------------------------------------
+
+/** Why a build was skipped rather than run. */
+export type BuildSkipReason = 'no-csproj';
+
+export interface BuildProjectOptions {
+  /** Path to the Godot project to build. Defaults to `process.cwd()`. */
+  projectPath?: string;
+  /** MSBuild configuration to compile. Defaults to `Debug` (CI parity). */
+  configuration?: string;
+  /** Explicit `dotnet` executable path. Defaults to `dotnet` on `PATH`. */
+  dotnetPath?: string;
+  /** Injectable `child_process.spawn` for tests (mock the build). */
+  spawnImpl?: typeof import('child_process').spawn;
+  onProgress?: ProgressCallback;
+}
+
+export interface BuildProjectSuccess {
+  kind: 'success';
+  success: true;
+  projectPath: string;
+  /** True when the project had no C# to build (GDScript-only). */
+  skipped: boolean;
+  /** Set when `skipped` is true. */
+  skipReason?: BuildSkipReason;
+  /** The `.csproj` that was built (absent when skipped). */
+  csprojPath?: string;
+  /** The MSBuild configuration compiled (absent when skipped). */
+  configuration?: string;
+  /** Captured `dotnet build` stdout+stderr (absent when skipped). */
+  output?: string;
+  warnings: string[];
+}
+
+export interface BuildProjectFailure {
+  kind: 'failure';
+  success: false;
+  projectPath?: string;
+  warnings: string[];
+  errorMessage: string;
+  error: Error;
+}
+
+export type BuildProjectResult = BuildProjectSuccess | BuildProjectFailure;
+
+// ---------------------------------------------------------------------------
 // open-project
 // ---------------------------------------------------------------------------
 
@@ -125,6 +176,19 @@ export interface OpenProjectOptions {
   projectPath?: string;
   /** Explicit Godot editor executable path (skips resolution). */
   editorPath?: string;
+  /**
+   * Build the C# assembly (`dotnet build`) before launching the editor so a
+   * fresh first open loads the addon instead of failing with "Unable to load
+   * addon script … Disabling the addon". Defaults to `true`. Set `false` to skip
+   * (GDScript-only projects are skipped automatically — see `buildProject`).
+   */
+  build?: boolean;
+  /** MSBuild configuration for the pre-open build. Defaults to `Debug`. */
+  buildConfiguration?: string;
+  /** Explicit `dotnet` executable path for the pre-open build. */
+  dotnetPath?: string;
+  /** Injectable `child_process.spawn` for the pre-open build (tests). */
+  buildSpawnImpl?: typeof import('child_process').spawn;
   /** If `true`, skip wiring the GODOT_MCP_* env vars onto the editor process. */
   noConnect?: boolean;
   /** MCP server host — sets `GODOT_MCP_HOST`. */
@@ -151,6 +215,12 @@ export interface OpenProjectSuccess {
   warnings: string[];
   /** True when an editor was already running for this project; launch skipped. */
   alreadyRunning?: boolean;
+  /**
+   * Whether the C# assembly was built before launch: `true` when a build ran,
+   * `false` when skipped (`--no-build`, a GDScript-only project, or an
+   * already-running editor short-circuit).
+   */
+  built?: boolean;
 }
 
 export interface OpenProjectFailure {

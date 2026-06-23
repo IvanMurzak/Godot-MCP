@@ -39,6 +39,8 @@ export const openCommand = new Command('open')
   .argument('[path]', 'Path to the Godot project (defaults to current directory)')
   .option('--path <path>', 'Path to the Godot project (defaults to current directory)')
   .option('--editor-path <path>', 'Explicit path to the Godot editor executable (skips discovery)')
+  .option('--no-build', 'Skip building the C# assembly before launching (GDScript-only projects skip automatically)')
+  .option('--build-configuration <cfg>', 'MSBuild configuration for the pre-open build (default: Debug)')
   .option('--no-connect', 'Open without MCP connection environment variables')
   .option('--url <url>', 'MCP server host to connect to (sets GODOT_MCP_HOST)')
   .option('--cloud-url <url>', 'Cloud base URL override (sets GODOT_MCP_CLOUD_URL)')
@@ -52,6 +54,8 @@ export const openCommand = new Command('open')
       options: {
         path?: string;
         editorPath?: string;
+        build?: boolean;
+        buildConfiguration?: string;
         connect?: boolean;
         url?: string;
         cloudUrl?: string;
@@ -99,11 +103,15 @@ export const openCommand = new Command('open')
         process.exit(1);
       }
 
-      const spinner = ui.startSpinner('Locating Godot editor...');
+      const spinner = ui.startSpinner(
+        options.build === false ? 'Locating Godot editor...' : 'Building C# assembly...',
+      );
 
       const result = await openProject({
         projectPath,
         editorPath: options.editorPath,
+        build: options.build !== false,
+        buildConfiguration: options.buildConfiguration,
         noConnect: options.connect === false,
         url: options.url,
         cloudUrl: options.cloudUrl,
@@ -113,6 +121,22 @@ export const openCommand = new Command('open')
         logLevel: options.logLevel,
         onProgress: (event) => {
           switch (event.phase) {
+            case 'build-running': {
+              spinner.text = `Building ${event.csprojPath} ...`;
+              verbose(`Build command: ${event.command}`);
+              break;
+            }
+            case 'build-skipped': {
+              verbose('No .csproj at project root — skipping build (GDScript-only).');
+              break;
+            }
+            case 'build-succeeded': {
+              spinner.success('C# assembly built');
+              verbose(`Built: ${event.csprojPath} (${event.configuration})`);
+              spinner.text = 'Locating Godot editor...';
+              spinner.start();
+              break;
+            }
             case 'editor-resolved': {
               spinner.success('Godot editor located');
               verbose(`Editor path: ${event.editorPath}`);
