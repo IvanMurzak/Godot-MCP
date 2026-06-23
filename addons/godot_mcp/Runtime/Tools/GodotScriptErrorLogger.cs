@@ -62,7 +62,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // engine Logger (OS.RemoveLogger/AddLogger), so the single registered logger always feeds whichever
         // ScriptErrorCapture is current. Volatile so the rebind written on the main (install) thread is visible
         // to the engine's multi-threaded _LogError callback without a lock on the hot error path.
-        volatile ScriptErrorCapture _capture;
+        // Nullable because the parameterless ctor (hot-reload re-instantiation, below) leaves it unset — that
+        // orphan never gets registered with the engine, so it is never routed into; _LogError null-guards it.
+        volatile ScriptErrorCapture? _capture;
+
+        /// <summary>
+        /// Parameterless ctor for Godot's C# hot-reload bridge (godotengine/godot#51626): a "Build Project"
+        /// reload re-instantiates every live engine-registered <see cref="Logger"/> via its parameterless ctor,
+        /// so a parameter-only class throws <c>MissingMemberException</c> and breaks the reload. Our teardown
+        /// removed the REAL logger via <c>OS.RemoveLogger</c> before the reload, and the reloaded plugin
+        /// re-installs a fresh one, so this re-instantiated shell is a never-routed-into orphan — <see cref="_capture"/>
+        /// stays null and <see cref="_LogError"/> null-guards it.
+        /// </summary>
+        public GodotScriptErrorLogger() { }
 
         public GodotScriptErrorLogger(ScriptErrorCapture capture)
         {
@@ -75,7 +87,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// routing engine errors to a stale capture (whose sink feeds a collector the current handle no longer
         /// reads — the #160 silent-quiet failure).
         /// </summary>
-        public ScriptErrorCapture Capture => _capture;
+        public ScriptErrorCapture? Capture => _capture;
 
         /// <summary>
         /// Repoint this already-registered logger at a NEW <paramref name="capture"/> WITHOUT touching
@@ -106,6 +118,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // otherwise bind 'Godot.Collections' to 'com.IvanMurzak.Godot.Collections' (CS0234).
             global::Godot.Collections.Array<global::Godot.ScriptBacktrace> scriptBacktraces)
         {
+            // Null-guard the router: a hot-reload-re-instantiated orphan (parameterless ctor) has no capture
+            // and is never the registered logger, but guard defensively so a stray engine callback is a no-op
+            // rather than a NullReferenceException escaping back into the engine's log path.
+            var capture = _capture;
+            if (capture == null)
+                return;
+
             // Materialize the deep multi-frame backtrace NOW, on the originating thread, while the
             // non-thread-safe ScriptBacktrace objects are still valid in this callback's frame. The result is
             // pure managed primitives — safe to forward across the thread boundary into the collector. Any
@@ -124,7 +143,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 stackTrace = null;
             }
 
-            _capture.Route(
+            capture.Route(
                 kind: MapKind(errorType),
                 filePath: file,
                 line: line,

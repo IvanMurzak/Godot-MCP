@@ -1,0 +1,145 @@
+# ┌──────────────────────────────────────────────────────────────────┐
+# │  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+# │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+# │  Copyright (c) 2026 Ivan Murzak                                  │
+# │  Licensed under the Apache License, Version 2.0.                 │
+# └──────────────────────────────────────────────────────────────────┘
+#
+# Reusable workflow: the godotengine/godot#51626 IN-SESSION-REBUILD dock-survival
+# guard. Unlike test_godot_plugin.yml (which only boots `--editor --quit` and greps
+# "[Godot-MCP] plugin loaded" — a clean boot that does NOT exercise an in-session
+# C# reload), this boots a HEADLESS editor and HOLDS IT OPEN with the DEV-ONLY
+# dev-control bridge enabled, asserts the "AI Game Developer" dock is in the editor
+# dock tree, then triggers a GENUINE in-session C# rebuild by rewriting the project
+# assembly on disk (Godot's HotReloadAssemblyWatcher reloads it mid-session), and
+# asserts the dock STILL in the tree after the reload.
+#
+# On the pre-fix addon the reloaded EditorPlugin never re-adds the dock, the
+# dev-control bridge (which lives on the freed dock) never comes back, and the
+# harness fails RED. On the fixed addon the reloaded plugin re-registers a fresh
+# dock + bridge and the harness passes. (Verified RED-on-pre-fix / GREEN-on-fix
+# locally on Godot 4.5.1 mono.)
+#
+# Called once per matrix version by test_pull_request.yml AND release.yml — keep
+# the two matrices in lockstep (4.3.0 / 4.4.0 / 4.5.1 / 4.6.3 / 4.7.0).
+name: Test Godot Dock Reload
+
+on:
+  workflow_call:
+    inputs:
+      godotVersion:
+        description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
+        required: true
+        type: string
+
+jobs:
+  dock-reload:
+    name: dock reload ${{ inputs.godotVersion }} (mono)
+    runs-on: ubuntu-latest
+    env:
+      # The in-repo test project. The addon is copied into <TEST_PROJECT>/addons/
+      # at runtime (a dev junction does not survive checkout). Same project the
+      # addon-load smoke + runtime harness use.
+      TEST_PROJECT: Godot-Tests
+      # Loopback-only dev-control bridge port the harness polls.
+      DEV_CONTROL_PORT: "9920"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Setup Godot ${{ inputs.godotVersion }} (mono)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godotVersion }}
+          use-dotnet: true
+          include-templates: false
+
+      - name: Report Godot version
+        shell: bash
+        run: godot --version --headless
+
+      - name: Copy addon into the test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${TEST_PROJECT}/addons/godot_mcp"
+          mkdir -p "${TEST_PROJECT}/addons"
+          cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
+          test -f "${TEST_PROJECT}/addons/godot_mcp/Editor/GodotMcpPlugin.cs"
+
+      - name: Pin the testbed build SDK to the matrix Godot version
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The committed Godot-Tests.csproj pins the addon engine FLOOR (Godot.NET.Sdk/4.3.0).
+          # For an in-session RELOAD we want the editor and the build to agree on the SDK so the
+          # HotReloadAssemblyWatcher reliably detects the rebuilt assembly across versions. The
+          # checkout is disposable, so rewrite ONLY the <Project Sdk=...> pin per leg (anchor on
+          # the Sdk="..." attribute so comment mentions of 4.3.0 are left intact). Mirrors the
+          # runtime-harness leg.
+          GODOT_VERSION="${{ inputs.godotVersion }}"
+          sed -i "s#Sdk=\"Godot.NET.Sdk/[0-9][0-9.]*\"#Sdk=\"Godot.NET.Sdk/${GODOT_VERSION}\"#" "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
+          echo "Pinned ${TEST_PROJECT}.csproj SDK:"
+          head -1 "${TEST_PROJECT}/${TEST_PROJECT}.csproj"
+
+      - name: Import the project (generate .godot layout)
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Cold checkout has no .godot/. Headless import materializes it; benign teardown
+          # warnings / non-zero exits are not fatal (same caveat as test_godot_plugin.yml).
+          godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
+          echo "Import pass complete."
+
+      - name: Build C# (addon compiles into the project assembly)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Deterministic build (Godot.NET.Sdk resolves GodotSharp from nuget.org). This seeds the
+          # FIRST assembly the editor loads on boot; the harness rebuilds it again mid-session to
+          # trigger the in-session reload.
+          dotnet build "${TEST_PROJECT}/${TEST_PROJECT}.csproj" --configuration Debug 2>&1 | tee build.log
+          if ! ls "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.dll >/dev/null 2>&1; then
+            echo "::error::C# build did not produce Godot-MCP-Tests.dll — the addon failed to compile."
+            cat build.log || true
+            exit 1
+          fi
+
+      - name: In-session rebuild — assert the dock survives
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The harness boots the editor headless + held-open with the dev-control bridge, asserts
+          # the dock is in-tree, rewrites the assembly on disk (a genuine in-session rebuild that
+          # Godot's HotReloadAssemblyWatcher picks up), waits for the ALC reload, and asserts the
+          # dock is STILL in-tree. Exit 0 = survived; non-zero = the godot#51626 regression.
+          python scripts/dock_reload_harness.py \
+            --godot "$(command -v godot)" \
+            --project "${TEST_PROJECT}" \
+            --csproj "${TEST_PROJECT}/${TEST_PROJECT}.csproj" \
+            --port "${DEV_CONTROL_PORT}" \
+            --boot-deadline 120 \
+            --reload-deadline 120
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dock-reload-${{ inputs.godotVersion }}-logs
+          path: |
+            import.log
+            build.log
+            ${{ env.TEST_PROJECT }}/harness-editor.log
+          if-no-files-found: ignore
+          retention-days: 7
