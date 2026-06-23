@@ -218,7 +218,13 @@ describe('CLI integration', () => {
         '; Engine configuration file.\nconfig_version=5\n\n[application]\n\nconfig/name="Test"\n',
       );
 
-      const install = runCli(['install-plugin', '--path', tmpDir]);
+      // install-plugin defaults to DOWNLOADING the addon for the CLI's own version;
+      // in a dev checkout that version's GitHub release may not exist yet (so every
+      // release-version bump would 404 here). Install from the in-repo addon via
+      // --source so this integration test is hermetic — no network, no dependency on
+      // a published release.
+      const addonSource = path.resolve(__dirname, '..', '..', 'addons', 'godot_mcp');
+      const install = runCli(['install-plugin', '--path', tmpDir, '--source', addonSource]);
       expect(install.exitCode).toBe(0);
       let text = fs.readFileSync(path.join(tmpDir, 'project.godot'), 'utf-8');
       expect(text).toContain('[editor_plugins]');
