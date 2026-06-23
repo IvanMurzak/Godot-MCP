@@ -117,6 +117,19 @@ jobs:
             exit 1
           fi
 
+          # Boot-time McpPlugin ctor skill-gen exception guard. McpPlugin 6.10.0 auto-runs skill generation in
+          # its constructor and (after removing the silent CWD fallback, upstream #107) THROWS
+          # InvalidOperationException "Cannot resolve relative SkillsPath 'SKILLS' …" when the addon hands it a
+          # config with a relative SkillsPath and no ProjectRootPath. The ctor catches+logs it, so it is
+          # non-fatal (the plugin still loads) — but it spams an ERROR + stack on every boot and the ctor's own
+          # skill generation never runs. The addon must prime the config so ctor-time generation resolves to
+          # <project>/.claude/skills instead of throwing (SkillsBootstrap.PrimeForCtorSkillGeneration). Anchor on
+          # the exception-message text, which is version-stable, rather than McpPlugin's internal log prefix.
+          if grep -qE "Cannot resolve relative SkillsPath|initial skill generation skipped|skill auto-generation skipped" editor-boot.log; then
+            echo "::error::McpPlugin ctor skill-generation exception appeared in the editor boot output on Godot ${{ inputs.godotVersion }} (the addon did not set ConnectionConfig.ProjectRootPath / an absolute SkillsPath before McpPluginBuilder.Build())."
+            exit 1
+          fi
+
           echo "Godot ${{ inputs.godotVersion }}: addon loaded cleanly."
 
       - name: Upload logs on failure
