@@ -1,0 +1,26 @@
+scripts/test_scan_editor_boot_log.py
+  s_122f29be78f9f3::t_3d75eb269fba39 1-22,25-36,41-46,52-55,57-60,62-71,73-74,80,82-83,86-92,108,119-131
+  s_122f29be78f9f3::t_83ae03068dfa98 23-24,37-40,47-51,56,61,72,75-79,81,84-85,93-107,109-118
+scripts/scan_editor_boot_log.py
+  s_122f29be78f9f3::t_5d0e379601017d 1-29,45-90,92-95,104-119,121,129,132-136,151-162,166-168,170-186,194-197,202-244
+  s_122f29be78f9f3::t_19a0ed2ea94eab 120,122-128,130-131,137-150
+  s_122f29be78f9f3::t_4fee47478cf38f 30-44
+  s_122f29be78f9f3::t_0593681523f82e 163-165,169,187-193,198-201
+  s_122f29be78f9f3::t_e7e95279aa2583 91,96-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "20300fb7f9cdf4ee1164d0760d124ac3b725856c",
+  "prompts": {},
+  "sessions": {
+    "s_122f29be78f9f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3eb59068-3b42-4d80-a3c8-a8ce7f1efee3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
