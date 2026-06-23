@@ -369,6 +369,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _config.MaxConsecutiveConnectionFailures = 4;
             _config.ConnectTimeoutSeconds = 5;
 
+            // Prime the config for McpPlugin 6.10.0's CTOR-time skill generation BEFORE Build() runs. The ctor
+            // auto-calls GenerateSkillFilesIfNeeded() at construction; 6.10.0 removed the silent CWD fallback
+            // (upstream #107), so with the default RELATIVE SkillsPath ("SKILLS") and an unset ProjectRootPath it
+            // throws InvalidOperationException (caught+logged by the ctor, but spamming an ERROR + stack on every
+            // boot and skipping the ctor's own generation). Point it at the SAME <project>/.claude/skills
+            // destination the post-build MaybeAutoGenerateSkills uses (an absolute SkillsPath removes the throw via
+            // ResolveSkillsPath's rooted branch), or disable ctor-time generation when the agent has no skills dir —
+            // so no stray SKILLS/ directory is ever written. Pure-managed decision (SkillsBootstrap); the res://
+            // resolution is the only Godot dependency.
+            SkillsBootstrap.PrimeForCtorSkillGeneration(
+                _config,
+                GodotAgentConfigurators.GetByAgentId(_config.SelectedAgentId),
+                ProjectSettings.GlobalizePath("res://").TrimEnd('/'));
+
             var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
                 // Prune the heavy assemblies so neither the tool/prompt/resource scan NOR the

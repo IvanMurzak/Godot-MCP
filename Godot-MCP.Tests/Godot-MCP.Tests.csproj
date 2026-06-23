@@ -247,6 +247,12 @@
          SupportsSkills/SkillsPath. The editor Control wiring (SkillsPanel.cs) is #if TOOLS and verified via the
          headless Godot smoke (test.md Suite 3); the plan resolution is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Editor\UI\SkillsPlan.cs" Link="Source\SkillsPlan.cs" />
+    <!-- Ctor-time skill-gen priming decision — pure-managed (no Godot native types, no #if TOOLS): decides how the
+         live ConnectionConfig is primed BEFORE McpPluginBuilder.Build() so McpPlugin 6.10.0's ctor auto-skill-gen
+         resolves to <project>/.claude/skills instead of throwing on the relative default SkillsPath (the boot-time
+         ctor skill-gen exception fix). The res:// → absolute-root resolution stays in GodotMcpConnection.Start
+         (#if TOOLS-coupled call site); the supported/path decision is unit-tested here. -->
+    <Compile Include="..\addons\godot_mcp\Editor\UI\SkillsBootstrap.cs" Link="Source\SkillsBootstrap.cs" />
     <!-- Extensions install infrastructure — pure-managed (no Godot native types, no #if TOOLS): the descriptor
          record + empty registry, the install planner (PackageReference add / version-bump as a pure XML transform,
          preserving siblings — the KEY tested seam), the installed-state detector (parse PackageReferences + per-
