@@ -33,7 +33,7 @@ export const buildCommand = new Command('build')
       onProgress: (event) => {
         switch (event.phase) {
           case 'build-running':
-            spinner.text = `Building ${event.csprojPath} ...`;
+            spinner.text = `Building ${path.basename(event.csprojPath)} ...`;
             verbose(`Build command: ${event.command}`);
             break;
           case 'build-skipped':
