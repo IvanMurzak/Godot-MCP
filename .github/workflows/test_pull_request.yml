@@ -103,6 +103,38 @@ jobs:
     with:
       godotVersion: "4.7.0"
 
+  # (f) the in-session-rebuild dock-survival guard across the Godot engine matrix
+  #     (mono) via the reusable test_godot_dock_reload.yml — boots a headless editor
+  #     held open with the dev-control bridge, triggers a GENUINE in-session C#
+  #     rebuild (rewrites the assembly on disk → Godot's HotReloadAssemblyWatcher
+  #     hot-reloads it), and asserts the "AI Game Developer" dock SURVIVES the reload
+  #     (godotengine/godot#51626 "missing dock tab" regression). MUST stay in lockstep
+  #     with release.yml's dock-reload legs.
+  dock-reload-4-3:
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.3.0"
+
+  dock-reload-4-4:
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.4.0"
+
+  dock-reload-4-5:
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.5.1"
+
+  dock-reload-4-6:
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.6.3"
+
+  dock-reload-4-7:
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.7.0"
+
   # (e) from-scratch terminal-install E2E across the Godot engine matrix (mono):
   #     build the CLI, scaffold a --dotnet project, run the REAL `install-plugin`
   #     (materialize addon + add NuGet pins + enable), dotnet build, and assert the

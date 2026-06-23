@@ -60,7 +60,67 @@ namespace com.IvanMurzak.Godot.MCP
         // overwrites a newer one because _EnterTree always sets Current = this last.
         static GodotMcpPlugin? Current;
 
+        /// <summary>
+        /// Constructor — the load-bearing seam for surviving a Godot "Build Project" hot-reload
+        /// (godotengine/godot#51626). A C# rebuild re-instantiates this <see cref="EditorPlugin"/> script
+        /// IN PLACE: the native plugin node never leaves the editor tree, so <see cref="_EnterTree"/> is NOT
+        /// called again — yet <see cref="Teardown"/> (run from the ALC-unloading hook) already freed the dock.
+        /// The result, with no compensating action, is the "AI Game Developer" tab silently disappearing until
+        /// the addon is disabled/re-enabled (the user-reported bug).
+        ///
+        /// <para>
+        /// We distinguish the two paths by <see cref="Godot.Node.IsInsideTree"/> at ctor time:
+        /// <list type="bullet">
+        ///   <item>NORMAL first boot — Godot constructs the plugin BEFORE adding it to the editor tree, so
+        ///   <c>IsInsideTree()</c> is <c>false</c>; <see cref="_EnterTree"/> performs the boot. The ctor does
+        ///   nothing.</item>
+        ///   <item>HOT-RELOAD re-instantiation — the node is ALREADY in the tree, so <c>IsInsideTree()</c> is
+        ///   <c>true</c>; <see cref="_EnterTree"/> will not fire. We re-run the boot (which re-adds the dock +
+        ///   dev-control bridge) deferred to the next idle frame, because <see cref="EditorPlugin.AddControlToDock"/>
+        ///   requires the plugin to be live in the editor tree.</item>
+        /// </list>
+        /// Verified empirically on a headless 4.5.1 editor: on reload the ctor runs with
+        /// <c>IsInsideTree()==true</c> while <c>_EnterTree</c> does not re-fire; deferring the boot re-registers
+        /// the dock and the "AI Game Developer" tab returns.
+        /// </para>
+        /// </summary>
+        public GodotMcpPlugin()
+        {
+            if (IsInsideTree())
+            {
+                Log("[Godot-MCP] reload re-instantiation detected — re-registering dock on next idle frame.");
+                // Defer to the next idle frame: the plugin is in-tree but mid-reload; AddControlToDock and the
+                // dock subtree build are safest once the reload settles. Callable.From → CallDeferred avoids a
+                // captured-lambda delegate connection (consistent with the dock's object+method Callable style).
+                Callable.From(BootAfterReload).CallDeferred();
+            }
+        }
+
+        /// <summary>
+        /// Re-run the full editor boot after a hot-reload re-instantiation (see the constructor). Bails if the
+        /// plugin was removed from the tree before the deferred call landed. Routes through the SAME
+        /// <see cref="EnterTreeBoot"/> the normal <see cref="_EnterTree"/> path uses, so a reloaded plugin is
+        /// indistinguishable from a freshly-booted one (resolver + dispatcher + connection + dock + bridge).
+        /// </summary>
+        void BootAfterReload()
+        {
+            if (!IsInsideTree())
+                return; // removed before the deferred frame — nothing to boot
+            EnterTreeBoot();
+        }
+
         public override void _EnterTree()
+        {
+            EnterTreeBoot();
+        }
+
+        /// <summary>
+        /// The shared boot body, reused by the normal <see cref="_EnterTree"/> path AND the hot-reload
+        /// re-entry path (<see cref="BootAfterReload"/>). Installs the log collector + assembly resolver, arms
+        /// the reload-safe teardown, builds the dispatcher, then <see cref="BootMcp"/> (connection + dock +
+        /// dev-control bridge).
+        /// </summary>
+        void EnterTreeBoot()
         {
             // Install the process-wide log collector first so every lifecycle line below (resolver
             // probes, plugin-loaded, connection state) is captured for the 'console-get-logs' tool.

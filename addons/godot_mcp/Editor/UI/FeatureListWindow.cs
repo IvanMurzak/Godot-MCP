@@ -49,6 +49,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>The full, unfiltered item set for this kind, captured on (re)populate; the filter runs over it.</summary>
         IReadOnlyList<FeatureRowItem> _allItems = System.Array.Empty<FeatureRowItem>();
 
+                /// <summary>
+        /// Parameterless ctor for Godot's C# hot-reload bridge (godotengine/godot#51626): a "Build Project"
+        /// reload re-instantiates every live [Tool] script via its parameterless ctor, so a parameter-only
+        /// class throws MissingMemberException ("does not define a parameterless constructor") and breaks the
+        /// reload (it crashed the editor before this was added). The reloaded plugin re-adds a FRESH, wired
+        /// dock (see GodotMcpPlugin's reload re-entry), so this re-instantiated shell is a discarded orphan —
+        /// it only has to exist without faulting.
+        /// </summary>
+        public FeatureListWindow() {{ }}
+
         public FeatureListWindow(GodotMcpConnection connection, GodotMcpFeatureKind kind)
         {
             _connection = connection;

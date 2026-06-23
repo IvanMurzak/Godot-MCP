@@ -76,6 +76,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// connection and threads it through here. A null connection (defensive / design-preview) builds the
         /// header-only chrome with no connection panel.
         /// </summary>
+        /// <summary>
+        /// Parameterless constructor required by Godot's C# hot-reload bridge: on a "Build Project" reload
+        /// (godotengine/godot#51626) the engine re-instantiates every live <c>[Tool]</c> script via its
+        /// parameterless ctor, and a class with only a parameter ctor throws
+        /// <c>MissingMemberException: ... does not define a parameterless constructor</c> (which crashed the
+        /// editor before this was added). The reloaded plugin re-adds a FRESH, fully-wired dock (see
+        /// <c>GodotMcpPlugin</c>'s reload re-entry), so this re-instantiated shell is a discarded orphan — it
+        /// only has to exist without faulting. It builds the header-only chrome (null connection) defensively.
+        /// </summary>
+        public GodotMcpDock() : this(null) { }
+
         public GodotMcpDock(GodotMcpConnection? connection)
         {
             _connection = connection;
@@ -623,7 +634,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
             sb.Append("\"revokeButtonVisible\":").Append(VisibleInTree("RevokeButton") ? "true" : "false").Append(',');
             sb.Append("\"authRequiredAlertVisible\":").Append(VisibleInTree("AuthRequiredAlert") ? "true" : "false").Append(',');
             sb.Append("\"connectionRequiredAlertVisible\":").Append(VisibleInTree("ConnectionRequiredAlert") ? "true" : "false").Append(',');
-            AppendJson(sb, "cloudAuthStatus", Text("CloudAuthStatus"));
+            AppendJson(sb, "cloudAuthStatus", Text("CloudAuthStatus")); sb.Append(',');
+            // --- Dock-registration diagnostics (the godot#51626 "missing AI Game Developer tab" guard) ---
+            // After an in-session C# rebuild, Godot's hot-reload frees this dock and (unfixed) never re-adds it.
+            // These three fields let a headless dev-control harness ASSERT the dock is actually wired into the
+            // editor dock tree — not merely that the bridge answered. diagInsideTree is THE assertion: it is the
+            // VBoxContainer dock's IsInsideTree(), true only while the dock is parented under an editor dock slot.
+            // diagParentPath / diagParentType surface where it is docked (or "<null>" when orphaned) for diagnosis.
+            sb.Append("\"diagInsideTree\":").Append(IsInsideTree() ? "true" : "false").Append(',');
+            // GetParentOrNull<Node>() returns null when un-parented (a plain GetParent() would log an error).
+            var parent = IsInsideTree() ? GetParentOrNull<Node>() : null;
+            AppendJson(sb, "diagParentPath", parent != null ? (string)parent.GetPath() : "<null>"); sb.Append(',');
+            AppendJson(sb, "diagParentType", parent != null ? parent.GetClass() : "<null>");
             sb.Append('}');
             return sb.ToString();
         }

@@ -57,6 +57,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// connection's <c>Save</c>, and drives the connection's live plugin to generate). Only built by the dock when
         /// a live connection exists (the AI-agent / features cards share the same connection-null guard).
         /// </summary>
+                /// <summary>
+        /// Parameterless ctor for Godot's C# hot-reload bridge (godotengine/godot#51626): a "Build Project"
+        /// reload re-instantiates every live [Tool] script via its parameterless ctor, so a parameter-only
+        /// class throws MissingMemberException ("does not define a parameterless constructor") and breaks the
+        /// reload (it crashed the editor before this was added). The reloaded plugin re-adds a FRESH, wired
+        /// dock (see GodotMcpPlugin's reload re-entry), so this re-instantiated shell is a discarded orphan —
+        /// it only has to exist without faulting.
+        /// </summary>
+        public SkillsPanel() {{ }}
+
         public SkillsPanel(GodotMcpConnection connection)
         {
             _connection = connection;

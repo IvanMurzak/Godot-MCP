@@ -241,6 +241,47 @@ jobs:
     with:
       godotVersion: "4.7.0"
 
+  # in-session-rebuild dock-survival guard across the Godot engine matrix (mono):
+  # boots a headless editor held open with the dev-control bridge, triggers a genuine
+  # in-session C# rebuild, and asserts the "AI Game Developer" dock SURVIVES the hot
+  # reload (godotengine/godot#51626). Gates the release alongside the addon-load smoke
+  # so the "missing dock tab" regression can NEVER ship. MUST stay in lockstep with
+  # test_pull_request.yml's dock-reload-4-{3..7} legs.
+  dock-reload-4-3:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.3.0"
+
+  dock-reload-4-4:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.4.0"
+
+  dock-reload-4-5:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.5.1"
+
+  dock-reload-4-6:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.6.3"
+
+  dock-reload-4-7:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.should_release == 'true'
+    uses: ./.github/workflows/test_godot_dock_reload.yml
+    with:
+      godotVersion: "4.7.0"
+
   # from-scratch terminal-install E2E across the Godot engine matrix (mono). Gates
   # the release alongside the addon-load smoke so a broken from-scratch terminal
   # install (create-project + install-plugin) can NEVER ship in a release.
@@ -342,8 +383,9 @@ jobs:
   release-addon:
     runs-on: ubuntu-latest
     # The release gate depends ONLY on the DETERMINISTIC test legs (check-version-tag,
-    # the .NET build+test, the cli node tests, the addon-LOAD godot smoke, and the
-    # from-scratch e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
+    # the .NET build+test, the cli node tests, the addon-LOAD godot smoke, the
+    # in-session-rebuild dock-survival guard (dock-reload), and the from-scratch
+    # e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
     # in lockstep with test_pull_request.yml's matrix so a green PR can never produce a red
     # release gate — when you add/remove a Godot version, edit BOTH files together. The
     # runtime-harness-4-{3..7} legs are deliberately NOT in this `needs:` array: they are
@@ -363,6 +405,11 @@ jobs:
         test-godot-4-5,
         test-godot-4-6,
         test-godot-4-7,
+        dock-reload-4-3,
+        dock-reload-4-4,
+        dock-reload-4-5,
+        dock-reload-4-6,
+        dock-reload-4-7,
         e2e-install-4-3,
         e2e-install-4-4,
         e2e-install-4-5,
