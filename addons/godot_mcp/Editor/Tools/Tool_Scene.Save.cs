@@ -41,8 +41,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                var editedRoot = EditorInterface.Singleton.GetEditedSceneRoot()
-                    ?? throw new Exception("No scene is currently being edited; nothing to save.");
+                var editedRoot = EditorToolGuards.GetEditedSceneRootOrThrow("No scene is currently being edited; nothing to save.");
 
                 if (!string.IsNullOrEmpty(path))
                 {

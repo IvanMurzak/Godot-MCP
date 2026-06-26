@@ -68,8 +68,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return MainThread.Instance.Run(() =>
             {
                 var result = new ResourceFindResult();
-                var efs = EditorInterface.Singleton.GetResourceFilesystem()
-                    ?? throw new Exception("Editor resource filesystem is not available.");
+                var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
 
                 // 1) Direct lookup by uid (mapped to a res:// path).
                 if (hasUid)
@@ -87,8 +86,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         ? (ResolveUidToPath(resourcePath!) ?? throw new ArgumentException($"uid '{resourcePath}' does not resolve to any resource.", nameof(resourcePath)))
                         : resourcePath!;
 
-                    if (!ResourceLoader.Exists(resPath))
-                        throw new ArgumentException($"No resource exists at '{resPath}'.", nameof(resourcePath));
+                    EditorToolGuards.RequireResourceExists(resPath, nameof(resourcePath));
 
                     AddSingle(result, resPath);
                     return result;

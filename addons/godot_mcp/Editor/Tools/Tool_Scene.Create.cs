@@ -53,13 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     throw new ArgumentException($"resourcePath must end with '.tscn' or '.scn'; got '{resourcePath}'.", nameof(resourcePath));
 
                 var className = string.IsNullOrEmpty(rootTypeClassName) ? "Node" : rootTypeClassName!;
-                if (!ClassDB.ClassExists(className))
-                    throw new ArgumentException($"Unknown Godot class '{className}'.", nameof(rootTypeClassName));
-                if (!ClassDB.CanInstantiate(className))
-                    throw new ArgumentException($"Godot class '{className}' cannot be instantiated.", nameof(rootTypeClassName));
-
-                var root = ClassDB.Instantiate(className).As<Node>()
-                    ?? throw new ArgumentException($"Godot class '{className}' did not instantiate to a Node.", nameof(rootTypeClassName));
+                var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(className, nameof(rootTypeClassName));
 
                 if (!string.IsNullOrEmpty(rootName))
                     root.Name = rootName;
@@ -75,12 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     // nested target path (e.g. 'res://levels/level_2.tscn') saves instead of failing with
                     // CantOpen, matching Tool_Resource.Create and Unity's CreateAsset behavior.
                     var targetDir = ResPathNormalizer.ParentDir(resourcePath);
-                    if (!DirAccess.DirExistsAbsolute(targetDir))
-                    {
-                        var mkErr = DirAccess.MakeDirRecursiveAbsolute(targetDir);
-                        if (mkErr != Error.Ok)
-                            throw new Exception($"Failed to create target directory '{targetDir}': {mkErr}.");
-                    }
+                    EditorToolGuards.EnsureDirectoryExists(targetDir);
 
                     var saveErr = ResourceSaver.Save(packed, resourcePath);
                     if (saveErr != Error.Ok)
@@ -97,8 +86,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 EditorInterface.Singleton.GetResourceFilesystem().UpdateFile(resourcePath);
                 EditorInterface.Singleton.OpenSceneFromPath(resourcePath);
 
-                var editedRoot = EditorInterface.Singleton.GetEditedSceneRoot()
-                    ?? throw new Exception($"Created '{resourcePath}' but the editor has no edited scene root afterwards.");
+                var editedRoot = EditorToolGuards.GetEditedSceneRootOrThrow($"Created '{resourcePath}' but the editor has no edited scene root afterwards.");
 
                 return ToActiveSceneData(editedRoot);
             });

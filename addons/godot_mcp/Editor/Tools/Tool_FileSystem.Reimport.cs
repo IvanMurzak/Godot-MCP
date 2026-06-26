@@ -46,8 +46,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                var efs = EditorInterface.Singleton.GetResourceFilesystem()
-                    ?? throw new Exception("Editor resource filesystem is not available.");
+                var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
 
                 var hasFiles = files != null && files.Count > 0;
 

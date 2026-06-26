@@ -167,12 +167,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // nested target (e.g. 'res://scripts/ai/Brain.cs') works, mirroring Tool_Resource.Create.
             var slash = resPath.LastIndexOf('/');
             var targetDir = slash >= 0 ? resPath.Substring(0, slash + 1) : ResPathNormalizer.ResScheme;
-            if (!DirAccess.DirExistsAbsolute(targetDir))
-            {
-                var mkErr = DirAccess.MakeDirRecursiveAbsolute(targetDir);
-                if (mkErr != Error.Ok)
-                    throw new Exception($"Failed to create target directory '{targetDir}': {mkErr}.");
-            }
+            EditorToolGuards.EnsureDirectoryExists(targetDir);
 
             using (var file = FileAccess.Open(resPath, FileAccess.ModeFlags.Write))
             {

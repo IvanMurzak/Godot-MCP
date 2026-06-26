@@ -46,8 +46,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 var dirPath = ResPathNormalizer.NormalizeDir(path);
 
-                var efs = EditorInterface.Singleton.GetResourceFilesystem()
-                    ?? throw new Exception("Editor resource filesystem is not available.");
+                var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
 
                 var dir = efs.GetFilesystemPath(dirPath)
                     ?? throw new ArgumentException($"Directory '{dirPath}' was not found in the project filesystem.", nameof(path));
