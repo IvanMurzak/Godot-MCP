@@ -81,7 +81,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             }
             catch (Exception ex)
             {
-                GD.PushError($"[dev-control] failed to bind {BaseUrl}: {ex.Message}");
+                GodotMcpLog.Error($"[dev-control] failed to bind {BaseUrl}: {ex.Message}");
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             };
             _acceptThread.Start();
 
-            GD.Print($"[dev-control] Listening on http://{BindHost}:{_port}");
+            GodotMcpLog.Info($"[dev-control] Listening on http://{BindHost}:{_port}");
         }
 
         void AcceptLoop()

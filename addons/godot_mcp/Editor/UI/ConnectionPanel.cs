@@ -829,7 +829,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             {
                 // Reject: restore the displayed value to the current configured host.
                 _hostField.Text = _connection.Config.CustomHost;
-                GD.PushWarning($"[Godot-MCP] ignored invalid server URL: '{text}' (must be an absolute http/https URL).");
+                GodotMcpLog.Warning($"[Godot-MCP] ignored invalid server URL: '{text}' (must be an absolute http/https URL).");
                 return;
             }
 
@@ -1082,7 +1082,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyCloudAuthState();
             ApplyAlertVisibility(_connection.ConnectionStatus);
 
-            GD.PushWarning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
+            GodotMcpLog.Warning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
         }
 
         /// <summary>

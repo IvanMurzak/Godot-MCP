@@ -202,7 +202,10 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 
 **console**
 
-- `console-get-logs` — Read the plugin's collected editor logs (with filtering).
+- `console-get-logs` — Read the plugin's collected editor logs (with filtering). This includes the
+  plugin's connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load,
+  skill-gen, dev-control, dispatcher, and runtime-capture warnings), which route through the same
+  capture sink as its framework logs.
 - `console-clear-logs` — Clear the collected log cache.
 
 **reflection**

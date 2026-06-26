@@ -206,7 +206,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
                 }
                 catch (Exception ex)
                 {
-                    GD.PushWarning($"[Godot-MCP] runtime error capture failed to install: {ex.Message}");
+                    GodotMcpLog.Warning($"[Godot-MCP] runtime error capture failed to install: {ex.Message}");
                 }
             }
 
@@ -302,7 +302,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             if (Engine.GetMainLoop() is not SceneTree tree || tree.Root == null)
             {
-                GD.PushWarning(
+                GodotMcpLog.Warning(
                     "[Godot-MCP] runtime dispatcher bootstrap: no live SceneTree yet — tool handlers cannot " +
                     "marshal to the main thread until a MainThreadDispatcher is in the tree. Call " +
                     "GodotMcpRuntime.Initialize(...).Build() once the SceneTree is available (e.g. from an " +
@@ -319,7 +319,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             // Initialize().Build() already returned at the Instance != null guard above.)
             tree.Root.CallDeferred(Node.MethodName.AddChild, dispatcher);
 
-            GD.Print($"[Godot-MCP] runtime main-thread dispatcher scheduled ('{DispatcherNodeName}').");
+            GodotMcpLog.Info($"[Godot-MCP] runtime main-thread dispatcher scheduled ('{DispatcherNodeName}').");
         }
     }
 }

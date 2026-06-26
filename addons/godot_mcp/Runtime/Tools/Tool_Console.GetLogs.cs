@@ -28,7 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )]
         [Description("Retrieve captured Godot-MCP editor log lines, newest-first. The Godot analog of " +
             "Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log hook, so this returns " +
-            "the plugin's own captured editor activity (not the entire Godot editor console).\n" +
+            "the plugin's own captured editor activity (not the entire Godot editor console) — including its " +
+            "connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load, skill-gen, " +
+            "dev-control, dispatcher, and runtime-capture warnings).\n" +
             "Inputs:\n" +
             "  - 'maxEntries' (default 100, min 1): caps the returned array (most-recent lines kept).\n" +
             "  - 'logTypeFilter' (default null = all): restrict to Log / Warning / Error.\n" +
