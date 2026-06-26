@@ -43,10 +43,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Matches a top-level GDScript <c>class_name &lt;Identifier&gt;</c> declaration and captures the
         /// declared name. Anchored at line start (after optional leading whitespace) so a <c>class_name</c>
         /// token inside a comment (<c># class_name Foo</c>) or mid-expression is not picked up. <c>class_name</c>
-        /// must precede an identifier (letter/underscore then word chars). Multiline + culture-invariant.
+        /// must precede an identifier: a Unicode letter or underscore, then Unicode letters / decimal digits /
+        /// underscores — GDScript 4 permits non-ASCII identifiers (e.g. <c>class_name Αρχή</c>), so the capture
+        /// uses <c>\p{L}</c>/<c>\p{Nd}</c> rather than ASCII-only classes, keeping it consistent with
+        /// <see cref="IsIdentifierChar"/> (which already uses the Unicode-aware <c>char.IsLetterOrDigit</c>).
+        /// Multiline + culture-invariant.
         /// </summary>
         static readonly Regex ClassNameDeclPattern = new(
-            @"^[ \t]*class_name[ \t]+([A-Za-z_][A-Za-z0-9_]*)",
+            @"^[ \t]*class_name[ \t]+([\p{L}_][\p{L}\p{Nd}_]*)",
             RegexOptions.Multiline | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         /// <summary>

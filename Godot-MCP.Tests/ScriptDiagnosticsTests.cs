@@ -447,6 +447,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void ExtractClassNames_FindsDeclaration_WithNonAsciiIdentifier()
+        {
+            // GDScript 4 permits Unicode letters in identifiers, so `class_name Αρχή` is valid. The extractor's
+            // capture group is Unicode-aware (\p{L}\p{Nd}) — an ASCII-only [A-Za-z0-9_] class would return empty
+            // here, leaving the #194 self-hide false positive un-suppressed for non-ASCII class_name files.
+            var names = ScriptDiagnosticsFilter.ExtractClassNames("class_name Αρχή\nextends RefCounted\n");
+            var only = Assert.Single(names);
+            Assert.Equal("Αρχή", only);
+        }
+
+        [Fact]
         public void ExtractClassNames_NullOrEmpty_ReturnsEmpty()
         {
             Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(null));
@@ -507,6 +518,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 "Class \"Board\" hides a global script class.", source));
             Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
                 "Some unrelated parse error.", source));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_True_ForNonAsciiDeclaredClassName()
+        {
+            // End-to-end #194 reproduction for a non-ASCII class_name: extraction (Unicode-aware capture) AND the
+            // whole-identifier match (IsIdentifierChar uses char.IsLetterOrDigit, already Unicode-aware) must agree
+            // so the self-hide row is suppressed. With an ASCII-only extractor this returned false (un-suppressed).
+            const string source = "class_name Αρχή\nextends RefCounted\n";
+            Assert.True(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Αρχή\" hides a global script class.", source));
+            // A genuine conflict against a DIFFERENT (non-ASCII) class this file does not declare is NOT suppressed.
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Τέλος\" hides a global script class.", source));
         }
     }
 
