@@ -60,25 +60,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         $"or '{ResourceMoveToolId}'/'{ResourceDeleteToolId}' to relocate/remove it first.", nameof(resourcePath));
 
                 var className = string.IsNullOrEmpty(typeClassName) ? "Resource" : typeClassName!;
-                if (!ClassDB.ClassExists(className))
-                    throw new ArgumentException($"Unknown Godot class '{className}'.", nameof(typeClassName));
-                if (!ClassDB.CanInstantiate(className))
-                    throw new ArgumentException($"Godot class '{className}' cannot be instantiated (abstract/virtual).", nameof(typeClassName));
-                if (!ClassDB.IsParentClass(className, "Resource"))
-                    throw new ArgumentException($"Godot class '{className}' does not derive from Resource.", nameof(typeClassName));
-
-                var resource = ClassDB.Instantiate(className).As<Resource>()
-                    ?? throw new ArgumentException($"Godot class '{className}' did not instantiate to a Resource.", nameof(typeClassName));
+                var resource = EditorToolGuards.ValidateClassDbInstantiation<Resource>(
+                    className, nameof(typeClassName), requireParentClass: "Resource");
 
                 // ResourceSaver.Save does NOT create missing parent directories — create them first so a
                 // nested target path (e.g. 'res://materials/wood.tres') works like Unity's CreateAsset.
                 var targetDir = ResPathNormalizer.ParentDir(resPath);
-                if (!DirAccess.DirExistsAbsolute(targetDir))
-                {
-                    var mkErr = DirAccess.MakeDirRecursiveAbsolute(targetDir);
-                    if (mkErr != Error.Ok)
-                        throw new Exception($"Failed to create target directory '{targetDir}': {mkErr}.");
-                }
+                EditorToolGuards.EnsureDirectoryExists(targetDir);
 
                 var saveErr = ResourceSaver.Save(resource, resPath);
                 if (saveErr != Error.Ok)

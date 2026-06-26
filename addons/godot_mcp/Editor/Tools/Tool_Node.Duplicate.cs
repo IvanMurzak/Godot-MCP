@@ -40,8 +40,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                var root = EditorInterface.Singleton.GetEditedSceneRoot()
-                    ?? throw new Exception("No scene is currently being edited.");
+                var root = EditorToolGuards.GetEditedSceneRootOrThrow();
 
                 var node = ResolveNode(nodeRef, out var error)
                     ?? throw new ArgumentException(error ?? "Node not found.", nameof(nodeRef));

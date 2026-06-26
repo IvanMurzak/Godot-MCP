@@ -43,8 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 if (!resourcePath.StartsWith("res://", StringComparison.Ordinal))
                     throw new ArgumentException($"resourcePath must be a 'res://' path; got '{resourcePath}'.", nameof(resourcePath));
-                if (!ResourceLoader.Exists(resourcePath))
-                    throw new ArgumentException($"No scene resource exists at '{resourcePath}'.", nameof(resourcePath));
+                EditorToolGuards.RequireResourceExists(resourcePath, nameof(resourcePath), $"No scene resource exists at '{resourcePath}'.");
 
                 EditorInterface.Singleton.OpenSceneFromPath(resourcePath);
 

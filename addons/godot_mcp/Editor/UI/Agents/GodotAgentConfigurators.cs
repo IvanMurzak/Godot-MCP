@@ -43,8 +43,13 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// <summary>Every Godot-visible configurator, in display order (Custom last, Unity AI excluded).</summary>
         public static IReadOnlyList<AgentConfig.AiAgentConfigurator> All => _configurators;
 
+        // The display names, materialized once: the underlying configurator set is fixed at compile time
+        // (the shared registry is static and immutable), so there is no need to rebuild the list per read.
+        static readonly IReadOnlyList<string> _agentNames =
+            _configurators.Select(c => c.AgentName).ToList();
+
         /// <summary>The display names, in display order — populates the dock's agent dropdown.</summary>
-        public static IReadOnlyList<string> AgentNames => _configurators.Select(c => c.AgentName).ToList();
+        public static IReadOnlyList<string> AgentNames => _agentNames;
 
         /// <summary>The configurator with the given <paramref name="agentId"/>, or null when absent / id is empty / excluded.</summary>
         public static AgentConfig.AiAgentConfigurator? GetByAgentId(string? agentId)

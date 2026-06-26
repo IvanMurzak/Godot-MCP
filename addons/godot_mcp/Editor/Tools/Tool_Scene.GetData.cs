@@ -43,8 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                var root = EditorInterface.Singleton.GetEditedSceneRoot()
-                    ?? throw new Exception("No scene is currently being edited.");
+                var root = EditorToolGuards.GetEditedSceneRootOrThrow();
 
                 // Walk the whole tree when -1 is requested; otherwise honor the explicit bound. A very
                 // large sentinel is used for "unbounded" so Tool_Node.ToNodeData can stay depth-counted.
