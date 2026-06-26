@@ -134,10 +134,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             lock (manager._gate)
             {
                 // Mirror GodotScriptErrorLoggerBridge.TryInstall(GodotLogCollector): a fresh router whose passive
-                // LogSink flattens each engine error/warning into a console-get-logs line.
+                // LogSink flattens each engine error/warning into a console-get-logs line. Reads the stored
+                // _logCollector field (== collector, assigned in the ctor above) so the editor profile's buffer is
+                // a genuine read, symmetric with the runtime profile's _runtimeCollector.
                 var capture = new ScriptErrorCapture
                 {
-                    LogSink = (logType, message) => collector.Append(logType, message),
+                    LogSink = (logType, message) => manager._logCollector!.Append(logType, message),
                 };
                 manager._bridgeInstall(capture);
                 manager._installed = true;
