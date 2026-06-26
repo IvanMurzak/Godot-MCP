@@ -45,6 +45,12 @@ namespace com.IvanMurzak.Godot.MCP
         // _ExitTree. Lets a terminal / AI agent inject fake states + simulate user actions on the live dock.
         DevControlServer? _devControl;
 
+        // Owns the editor engine-logger channel lifecycle (install in _EnterTree, teardown in Teardown) via
+        // ErrorCaptureManager's editor profile — replacing the prior direct GodotScriptErrorLoggerBridge
+        // TryInstall/Uninstall call sites so the engine-logger install/teardown + statics-clearing live in one
+        // owner (the two scattered teardown clears collapsed into ErrorCaptureManager.Teardown).
+        ErrorCaptureManager? _errorCapture;
+
         // Guards Teardown() so the body runs at most once per plugin instance — it is reachable from BOTH
         // _ExitTree (the normal plugin-disable path) AND the GodotMcpAssemblyResolver.ReloadTeardown hook
         // (the Godot "Build Project" hot-reload path, which never calls _ExitTree). Whichever fires first
@@ -135,7 +141,15 @@ namespace com.IvanMurzak.Godot.MCP
             // not take down plugin load.
             try
             {
-                GodotScriptErrorLoggerBridge.TryInstall(GodotLogCollector.Current);
+                // Route the editor passive-log channel through ErrorCaptureManager's editor profile. It builds the
+                // same ScriptErrorCapture { LogSink = collector.Append } the bridge's GodotLogCollector overload did
+                // and installs it via GodotScriptErrorLoggerBridge.TryInstall (→ PlanBridgeInstall). The returned
+                // manager owns the teardown (OS.RemoveLogger + ScriptErrorCapture.Current null) in Teardown below.
+                _errorCapture = ErrorCaptureManager.InstallEditor(
+                    GodotLogCollector.Current,
+                    bridgeInstall: GodotScriptErrorLoggerBridge.TryInstall,
+                    bridgeUninstall: GodotScriptErrorLoggerBridge.Uninstall,
+                    log: Log);
             }
             catch (System.Exception ex)
             {
@@ -451,14 +465,17 @@ namespace com.IvanMurzak.Godot.MCP
             //    always run.
             if (MainThreadDispatcher.IsMainThread)
             {
-                // Remove the engine error Logger (4.5+) registered in _EnterTree via OS.AddLogger. THIS is the
+                // Tear down the editor engine-logger channel (4.5+) installed in _EnterTree. THIS is the
                 // godotengine/godot#78513 fix: the engine holds a strong handle to a GodotObject defined in the
                 // COLLECTIBLE addon assembly, which roots the hot-reload ALC and makes its unload fail with the
-                // ".NET: Failed to unload assemblies" flood. OS.RemoveLogger is an engine call and MUST run on
-                // the main thread (mirroring OS.AddLogger), so it lives inside this main-thread guard. Uninstall
-                // is idempotent + defensive (swallows removal failure) and also clears ScriptErrorCapture.Current.
-                try { GodotScriptErrorLoggerBridge.Uninstall(); }
+                // ".NET: Failed to unload assemblies" flood. ErrorCaptureManager.Teardown removes the engine Logger
+                // via the bridge (OS.RemoveLogger — an engine call that MUST run on the main thread, mirroring
+                // OS.AddLogger, so it lives inside this main-thread guard) AND nulls ScriptErrorCapture.Current,
+                // collapsing the two formerly-scattered editor clears into one owner. Idempotent + defensive
+                // (swallows removal failure).
+                try { _errorCapture?.Teardown(); }
                 catch (System.Exception ex) { TryLogTeardownError("engine-logger uninstall", ex); }
+                _errorCapture = null;
 
                 FreeNodes();
             }
@@ -475,12 +492,11 @@ namespace com.IvanMurzak.Godot.MCP
             //    NOTE: GodotLogCollector.Current is DELIBERATELY left in place (NOT nulled) — see the
             //    "Null the process-wide statics" item in this method's XML doc for the full rationale (#173).
 
-            // Drop the engine error-capture router unconditionally. On 4.5+ the main-thread guard above already
-            // called GodotScriptErrorLoggerBridge.Uninstall() (which removes the engine Logger via
-            // OS.RemoveLogger AND nulls Current); this pure-managed re-clear is a belt-and-suspenders that also
-            // covers the off-thread teardown path (where RemoveLogger is skipped) so a stale validation session
-            // never leaks across a reload regardless of which thread tore the plugin down.
-            try { ScriptErrorCapture.Current = null; } catch { /* swallow during unload */ }
+            // (The engine error-capture router teardown is now owned by ErrorCaptureManager.Teardown — called inside
+            //  the main-thread guard above — which removes the engine Logger AND nulls ScriptErrorCapture.Current in
+            //  one place. The prior pure-managed belt-and-suspenders `ScriptErrorCapture.Current = null` re-clear
+            //  here was removed as redundant per the error-capture-unification design: editor teardown always runs
+            //  on the main thread, so the guarded Teardown always runs.)
 
             // Drop ReflectorNet's static MainThread.Instance when it points at OUR GodotMainThread — one of the
             // two godot#78513 ALC pins (the other is the connection transport, bounded-joined in

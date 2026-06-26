@@ -299,6 +299,13 @@
          (it would touch the live engine and fault in this binary-less host), so it stays compiled-but-uncalled,
          exactly like GodotMcpRuntime.Build(). Its pure-managed mapping is unit-tested via RuntimeErrorFactory. -->
     <Compile Include="..\addons\godot_mcp\Runtime\RuntimeErrorCapture.cs" Link="Source\RuntimeErrorCapture.cs" />
+    <!-- Error-capture lifecycle coordinator — the instance-based facade RuntimeErrorCapture (and the editor
+         GodotMcpPlugin) delegate install/rebind/teardown to. Pure-managed (no Godot native types, no #if TOOLS,
+         references only the version-agnostic GodotScriptErrorLoggerBridge), so it is unit-testable here via the
+         existing FakeEngineLoggerBridge seam (ErrorCaptureManagerTests + the forwarded RuntimeErrorCaptureRebindTests).
+         The editor profile's OS.AddLogger/OS.RemoveLogger touches are behind delegate seams; verified live via the
+         headless Godot smoke (test.md Suite 3). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ErrorCaptureManager.cs" Link="Source\ErrorCaptureManager.cs" />
     <!-- Main-thread dispatcher pair — GodotMcpRuntime.EnsureMainThreadDispatcher references both. Pure-managed
          types (MainThreadDispatcher is a Godot Node, but constructing it is a Suite-3 concern; the runtime
          builder-only tests never instantiate it). Compiled in so the runtime sources resolve their usings. -->
