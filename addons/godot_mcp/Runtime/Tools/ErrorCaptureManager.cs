@@ -235,7 +235,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// uses the two-phase <see cref="CreateRuntime"/> + <see cref="InstallRuntimeProfile"/> instead, so it can
         /// publish the manager reference before the hooks wire (leak-safety).
         /// </summary>
-        public static ErrorCaptureManager InstallRuntime(
+        internal static ErrorCaptureManager InstallRuntime(
             Func<ScriptErrorCapture, ScriptErrorCapture?> bridgeInstall,
             Action bridgeUninstall,
             Action<string> log)
