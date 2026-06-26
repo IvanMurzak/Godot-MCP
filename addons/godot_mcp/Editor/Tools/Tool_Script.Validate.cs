@@ -188,6 +188,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var capture = ScriptErrorCapture.Current;
             capture?.BeginSession(resPath);
             Error err;
+            ScriptDiagnostic[] captured = Array.Empty<ScriptDiagnostic>();
             using (var probe = new GDScript { SourceCode = content })
             {
                 try
@@ -197,22 +198,38 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 finally
                 {
                     if (capture != null)
-                    {
-                        var captured = capture.EndSession();
-                        diagnostics.AddRange(captured);
-                    }
+                        captured = capture.EndSession();
                 }
             }
+            diagnostics.AddRange(captured);
 
             // 4.5+ precise path: the session captured the engine's script errors for THIS file (the session's
-            // path-match filter restricts rows to resPath, plus any pathless rows the engine emitted, which are
-            // stamped with resPath below). When present, those structured rows ARE the diagnostics.
-            if (capture != null && diagnostics.Count > 0)
+            // path-match filter restricts rows to resPath — including the throwaway probe's anonymous
+            // 'gdscript://' rows, which ScriptErrorCapture.Route remaps onto resPath, issue #194 — plus any
+            // pathless rows the engine emitted, stamped with resPath below). Gate on whether the session
+            // captured ANY structured rows (NOT on diagnostics.Count): when it did, those rows ARE the
+            // diagnostics and we must NOT also fall through to the coarse Error-code fallback below — even if
+            // self-hide suppression empties the list (a valid class_name script must end up ok:true, not get a
+            // generic ParseError re-added).
+            if (capture != null && captured.Length > 0)
             {
                 // Stamp the path on any rows the engine reported without a file (defensive).
                 foreach (var d in diagnostics)
                     if (string.IsNullOrEmpty(d.Path))
                         d.Path = resPath;
+
+                // Suppress the global-class self-hide FALSE POSITIVE (issue #194): validating a real file's
+                // source through a throwaway probe re-declares any 'class_name X' the file owns, so Godot
+                // reports 'Class "X" hides a global script class.' against X's already-registered global —
+                // which is the file's OWN registration. The real file is valid and opens cleanly in the editor,
+                // so drop those rows (keyed on a class_name the file under validation itself declares). Genuine
+                // parse errors in the same file (and class_name conflicts against OTHER files' names) are
+                // unaffected. Pure-managed classification (ScriptDiagnosticsFilter) so it is CI-unit-tested.
+                var declaredClassNames = ScriptDiagnosticsFilter.ExtractClassNames(content);
+                if (declaredClassNames.Count > 0)
+                    diagnostics.RemoveAll(d =>
+                        ScriptDiagnosticsFilter.IsGlobalClassSelfHide(d.Message, declaredClassNames));
+
                 return diagnostics;
             }
 

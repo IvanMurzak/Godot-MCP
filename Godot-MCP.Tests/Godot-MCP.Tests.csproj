@@ -141,6 +141,12 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnostic.cs" Link="Source\ScriptDiagnostic.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptDiagnosticsResult.cs" Link="Source\ScriptDiagnosticsResult.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptErrorCapture.cs" Link="Source\ScriptErrorCapture.cs" />
+    <!-- script-validate diagnostics POST-FILTER — pure-managed (no Godot native types, no #if TOOLS): the
+         class_name extractor + global-class self-hide false-positive predicate (issue #194). The editor
+         Validate handler (Tool_Script.Validate.cs, #if TOOLS) calls it to drop the spurious "Class X hides a
+         global script class" row a class_name file's own probe re-declaration triggers; the classification is
+         unit-tested here, the live editor wiring via the headless Godot smoke (test.md Suite 3). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptDiagnosticsFilter.cs" Link="Source\ScriptDiagnosticsFilter.cs" />
     <!-- In-game runtime ERROR CAPTURE (issue #160) — pure-managed pieces only (no Godot native types, no
          #if TOOLS): the RuntimeError row + source enum, the RuntimeErrorsResult model, the bounded ring-buffer
          RuntimeErrorCollector (monotonic sequence + since-marker poll), the RuntimeErrorFactory (engine-record
