@@ -1213,10 +1213,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _resyncRegistration?.Dispose();
             _resyncRegistration = null;
 
-            // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel,
-            // and detach its state handler so a late cancellation event can't fire into the freed panel.
-            _deviceAuthFlow?.Cancel();
+            // Detach the device-auth state handler first so a late cancellation event can't fire into the
+            // freed panel, then cancel any in-flight flow so its background poll loop stops touching a freed
+            // panel (detach-before-cancel, mirroring OnAuthorizeButtonPressed).
             DetachDeviceAuthHandler();
+            _deviceAuthFlow?.Cancel();
             _deviceAuthFlow = null;
 
             // NOTE: the local-server manager is NOT disposed here — _ExitTree fires on every dock reparent
