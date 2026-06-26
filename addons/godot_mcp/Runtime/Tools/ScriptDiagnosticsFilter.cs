@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -67,7 +68,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             foreach (Match m in ClassNameDeclPattern.Matches(source))
             {
                 var name = m.Groups[1].Value;
-                if (name.Length > 0 && !names.Contains(name))
+                if (!names.Contains(name))
                     names.Add(name);
             }
             return names;
@@ -89,11 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (message!.IndexOf(HidesGlobalClassMarker, StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
-            foreach (var name in declaredClassNames)
-                if (ContainsWholeIdentifier(message, name))
-                    return true;
-
-            return false;
+            return declaredClassNames.Any(n => ContainsWholeIdentifier(message!, n));
         }
 
         /// <summary>Convenience overload: extract the class names from <paramref name="source"/> and test the
