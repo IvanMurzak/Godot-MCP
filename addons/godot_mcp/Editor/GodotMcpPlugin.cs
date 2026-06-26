@@ -13,7 +13,6 @@ using System.Runtime.CompilerServices;
 using Godot;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Connection.DevControl;
-using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
