@@ -275,7 +275,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             catch (Exception ex)
             {
                 // Never let a generation failure escape the editor UI handler; surface it in the status + Output.
-                GD.PushError($"[Godot-MCP] skill generation failed: {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] skill generation failed: {ex.Message}");
                 SetStatus($"Skill generation failed: {ex.Message}", error: true);
             }
         }

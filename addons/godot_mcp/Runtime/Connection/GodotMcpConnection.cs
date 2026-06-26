@@ -106,7 +106,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // the handshake version to this literal (the local-server download is pinned independently by
             // GodotMcpServerView.ServerVersion), so a silent drift here misreports the plugin version.
             // Guard the warning itself so the never-throws contract holds even if GD is unavailable mid
-            // editor-reload.
+            // editor-reload. Intentionally NOT routed through GodotMcpLog: this runs inside the static
+            // type-initializer (before any GodotLogCollector exists), so the GD.* call is kept direct and
+            // self-guarded — a config read must never depend on collector availability (design §2.3).
             try
             {
                 GD.PushWarning(
@@ -270,26 +272,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public event Action? AgentsUpdated;
 
         /// <summary>
-        /// Wire the pure-managed <see cref="GodotMcpDrainDiagnostics"/> seam's warning sink to a defensively
-        /// wrapped <see cref="GD.PushWarning(string)"/> exactly once, when this type is first touched (which is
+        /// Wire the pure-managed <see cref="GodotMcpDrainDiagnostics"/> seam's warning sink to
+        /// <see cref="GodotMcpLog.Warning(string)"/> exactly once, when this type is first touched (which is
         /// guaranteed before any <see cref="DisconnectAndDrain"/> call). The seam stays Godot-free + unit-testable;
-        /// the actual editor/runtime warning is emitted through this swallow-on-fault wrapper so a timeout report
-        /// never throws into the ALC-unloading teardown path even if GD is unavailable mid editor-reload.
+        /// the actual editor/runtime warning routes through the central <see cref="GodotMcpLog"/> sink, which
+        /// also captures it into <c>console-get-logs</c> and swallows on fault so a timeout report never throws
+        /// into the ALC-unloading teardown path even if GD is unavailable mid editor-reload.
         /// </summary>
         static GodotMcpConnection()
         {
-            GodotMcpDrainDiagnostics.Warn = PushWarningSafe;
-        }
-
-        /// <summary>
-        /// Emit a warning via <see cref="GD.PushWarning(string)"/>, swallowing any failure (GD may be unavailable
-        /// mid editor-reload). Same defensive discipline as the inline <c>try { GD.Push* } catch { }</c> call sites
-        /// in <see cref="DisconnectAndDrain"/> — diagnostics must never break the boot/unload path.
-        /// </summary>
-        static void PushWarningSafe(string message)
-        {
-            try { GD.PushWarning(message); }
-            catch { /* GD may be unavailable mid-reload; swallow */ }
+            GodotMcpDrainDiagnostics.Warn = GodotMcpLog.Warning;
         }
 
         public GodotMcpConnection(GodotMcpConfig? config = null)
@@ -306,7 +298,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             if (_plugin != null)
             {
-                GD.Print("[Godot-MCP] connection already started; ignoring duplicate Start().");
+                GodotMcpLog.Info("[Godot-MCP] connection already started; ignoring duplicate Start().");
                 return;
             }
 
@@ -438,7 +430,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             var mode = _config.ActiveMode;
             var host = _config.Host;
-            GD.Print($"[Godot-MCP] connecting (mode={mode}, host={host}) ...");
+            GodotMcpLog.Info($"[Godot-MCP] connecting (mode={mode}, host={host}) ...");
 
             // Fire-and-forget connect; KeepConnected drives reconnection in the client.
             _ = ConnectAsync();
@@ -665,29 +657,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// The Godot sink the <see cref="GodotMcpLoggerProvider"/> routes the reused framework's log lines
-        /// to: write to the Godot Output by severity (info/debug/trace → <see cref="GD.Print"/>, warning →
-        /// <see cref="GD.PushWarning"/>, error/critical → <see cref="GD.PushError"/>) AND append to
-        /// <see cref="GodotLogCollector.Current"/> so <c>console-get-logs</c> captures the framework lines
-        /// too. The level decision already happened in the logger (this only runs for enabled lines). The
-        /// framework never logs secrets, and this pass-through adds none.
+        /// to: a thin forward to the central <see cref="GodotMcpLog.Route"/> sink, which writes to the Godot
+        /// Output by severity (info/debug/trace → <see cref="GD.Print"/>, warning → <see cref="GD.PushWarning"/>,
+        /// error/critical → <see cref="GD.PushError"/>) AND appends to <see cref="GodotLogCollector.Current"/>
+        /// so <c>console-get-logs</c> captures the framework lines too. The level decision already happened in
+        /// the logger (this only runs for enabled lines). The framework never logs secrets, and this
+        /// pass-through adds none. Sharing the one <see cref="GodotMcpLog"/> path means framework logs and the
+        /// plugin's ad-hoc diagnostics now land in the same capture sink.
         /// </summary>
         static void RouteFrameworkLog(GodotLogType logType, string message)
-        {
-            switch (logType)
-            {
-                case GodotLogType.Error:
-                    GD.PushError(message);
-                    break;
-                case GodotLogType.Warning:
-                    GD.PushWarning(message);
-                    break;
-                default:
-                    GD.Print(message);
-                    break;
-            }
-
-            GodotLogCollector.Current?.Append(logType, message);
-        }
+            => GodotMcpLog.Route(logType, message);
 
         // --- MCP feature enable-map (tools / prompts / resources) -----------------------------------------
 
@@ -768,7 +747,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     var mkdir = DirAccess.MakeDirRecursiveAbsolute(skillsDir);
                     if (mkdir != Error.Ok)
                     {
-                        GD.PushWarning($"[Godot-MCP] auto-generate skills: could not create folder {skillsDir} ({mkdir}).");
+                        GodotMcpLog.Warning($"[Godot-MCP] auto-generate skills: could not create folder {skillsDir} ({mkdir}).");
                         return;
                     }
                 }
@@ -787,11 +766,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     _config.ProjectRootPath = originalProjectRoot;
                 }
 
-                GD.Print($"[Godot-MCP] auto-generate skills: ensured up-to-date skills in {skillsDir}.");
+                GodotMcpLog.Info($"[Godot-MCP] auto-generate skills: ensured up-to-date skills in {skillsDir}.");
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] auto-generate skills failed: {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] auto-generate skills failed: {ex.Message}");
             }
         }
 
@@ -956,11 +935,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try
             {
                 await plugin.Disconnect();
-                GD.Print("[Godot-MCP] disconnected.");
+                GodotMcpLog.Info("[Godot-MCP] disconnected.");
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] disconnect failed: {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] disconnect failed: {ex.Message}");
             }
         }
 
@@ -1014,7 +993,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
             catch (Exception ex)
             {
-                GD.PushWarning($"[Godot-MCP] could not resolve res://.env path: {ex.Message}");
+                GodotMcpLog.Warning($"[Godot-MCP] could not resolve res://.env path: {ex.Message}");
                 return;
             }
 
@@ -1023,7 +1002,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
 
             GodotMcpEnvFile.Apply(_config, values);
-            GD.Print($"[Godot-MCP] applied {values.Count} setting(s) from project .env ({envPath}).");
+            GodotMcpLog.Info($"[Godot-MCP] applied {values.Count} setting(s) from project .env ({envPath}).");
         }
 
         /// <summary>
@@ -1049,7 +1028,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
             catch (Exception ex)
             {
-                GD.PushWarning($"[Godot-MCP] could not resolve persisted config path: {ex.Message}");
+                GodotMcpLog.Warning($"[Godot-MCP] could not resolve persisted config path: {ex.Message}");
                 return;
             }
 
@@ -1058,7 +1037,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
 
             GodotMcpConfigStore.ApplyPersisted(_config, persisted);
-            GD.Print($"[Godot-MCP] loaded persisted config ({path}).");
+            GodotMcpLog.Info($"[Godot-MCP] loaded persisted config ({path}).");
         }
 
         /// <summary>
@@ -1071,11 +1050,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try
             {
                 GodotMcpConfigStore.Save(ConfigFilePath, _config);
-                GD.Print($"[Godot-MCP] saved config ({ConfigFilePath}).");
+                GodotMcpLog.Info($"[Godot-MCP] saved config ({ConfigFilePath}).");
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] failed to save config: {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] failed to save config: {ex.Message}");
             }
         }
 
@@ -1096,9 +1075,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     return;
 
                 if (ok)
-                    GD.Print("[Godot-MCP] connected.");
+                    GodotMcpLog.Info("[Godot-MCP] connected.");
                 else
-                    GD.PushWarning("[Godot-MCP] initial connect returned false; client will keep retrying if KeepConnected.");
+                    GodotMcpLog.Warning("[Godot-MCP] initial connect returned false; client will keep retrying if KeepConnected.");
             }
             catch (ObjectDisposedException)
             {
@@ -1114,7 +1093,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (!ReferenceEquals(_plugin, plugin))
                     return;
 
-                GD.PushError($"[Godot-MCP] connect failed: {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] connect failed: {ex.Message}");
             }
         }
 
@@ -1147,8 +1126,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 // Emergency-shutdown path: never let a disconnect failure escape into the ALC-unloading
                 // handler (an exception there would abort the very unload we are trying to enable).
-                try { GD.PushError($"[Godot-MCP] immediate disconnect failed: {ex.Message}"); }
-                catch { /* GD may be unavailable mid-reload; swallow */ }
+                // GodotMcpLog.Error swallows internally, so no inline try/catch is needed here.
+                GodotMcpLog.Error($"[Godot-MCP] immediate disconnect failed: {ex.Message}");
             }
         }
 
@@ -1188,8 +1167,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try { plugin.DisconnectImmediate(); }
             catch (Exception ex)
             {
-                try { GD.PushError($"[Godot-MCP] immediate disconnect (drain) failed: {ex.Message}"); }
-                catch { /* GD may be unavailable mid-reload; swallow */ }
+                GodotMcpLog.Error($"[Godot-MCP] immediate disconnect (drain) failed: {ex.Message}");
             }
 
             // 1.5) Bounded-JOIN that dispatched teardown BEFORE Dispose (which would tear down the manager and
@@ -1211,8 +1189,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             catch (Exception ex)
             {
                 drained = false; // treat a fault like a timeout — the teardown did not provably drain.
-                try { GD.PushError($"[Godot-MCP] wait-for-immediate-teardown (drain) failed: {ex.Message}"); }
-                catch { /* GD may be unavailable mid-reload; swallow */ }
+                GodotMcpLog.Error($"[Godot-MCP] wait-for-immediate-teardown (drain) failed: {ex.Message}");
             }
             GodotMcpDrainDiagnostics.ReportDrainResult(drained, timeout);
 
@@ -1220,8 +1197,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try { plugin.Dispose(); }
             catch (Exception ex)
             {
-                try { GD.PushError($"[Godot-MCP] plugin dispose (drain) failed: {ex.Message}"); }
-                catch { /* GD may be unavailable mid-reload; swallow */ }
+                GodotMcpLog.Error($"[Godot-MCP] plugin dispose (drain) failed: {ex.Message}");
             }
         }
 
@@ -1271,8 +1247,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 }
                 catch (Exception ex)
                 {
-                    try { GD.PushError($"[Godot-MCP] immediate disconnect (pre-dispose) failed: {ex.Message}"); }
-                    catch { /* GD may be unavailable mid-reload */ }
+                    GodotMcpLog.Error($"[Godot-MCP] immediate disconnect (pre-dispose) failed: {ex.Message}");
                 }
 
                 try
@@ -1281,7 +1256,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 }
                 catch (Exception ex)
                 {
-                    GD.PushError($"[Godot-MCP] error disposing connection: {ex.Message}");
+                    GodotMcpLog.Error($"[Godot-MCP] error disposing connection: {ex.Message}");
                 }
                 _plugin = null;
             }

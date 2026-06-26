@@ -30,6 +30,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using Godot;
 
@@ -344,7 +345,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     // engine errors land in a collector the current handle no longer reads → runtime-errors-get
                     // falls silently quiet, the #160 failure this feature prevents). Surface the rebind so a
                     // stale-sink regression is never silent again.
-                    GD.PushWarning(
+                    GodotMcpLog.Warning(
                         "[Godot-MCP] engine error-logger re-installed with a new capture; rebinding the live " +
                         "logger to it so runtime errors route to the current collector (issue #171).");
                     _installed!.RebindCapture(capture);

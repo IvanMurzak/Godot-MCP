@@ -80,6 +80,13 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLogLevel.cs" Link="Source\GodotMcpLogLevel.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLogger.cs" Link="Source\GodotMcpLogger.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLoggerProvider.cs" Link="Source\GodotMcpLoggerProvider.cs" />
+    <!-- Central diagnostic sink (GD.* by severity + GodotLogCollector append, swallow-on-fault). It touches
+         the Godot runtime GD.* API (like RouteFrameworkLog before it), so it is NOT unit-tested — but several
+         sources compiled in here (MainThreadDispatcher.cs, GodotMcpRuntime.cs, the #if GODOT4_5_OR_GREATER
+         GodotScriptErrorLogger.cs) now route their diagnostics through it, so it must compile in for those to
+         resolve GodotMcpLog. Compiled-but-uncalled in this binary-less host, exactly like RouteFrameworkLog's
+         GD.* sink (issue B / PR-2). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpLog.cs" Link="Source\GodotMcpLog.cs" />
     <!-- MCP-features enable-map — pure-managed (no Godot native types, no #if TOOLS, no McpPlugin dependency):
          the per-kind feature-state list (GodotMcpFeatureMap/GodotMcpFeatureState) that GodotMcpConfig serializes,
          and the merge/capture logic (GodotMcpFeatureStateMerge) the boot-reapply + window-toggle drive. The live

@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
+using com.IvanMurzak.Godot.MCP.Connection;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
@@ -216,7 +217,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
                 }
                 catch (Exception ex)
                 {
-                    GD.PushError($"[Godot-MCP] MainThreadDispatcher per-tick callback threw: {ex}");
+                    GodotMcpLog.Error($"[Godot-MCP] MainThreadDispatcher per-tick callback threw: {ex}");
                 }
             }
         }
@@ -263,7 +264,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] MainThreadDispatcher action threw: {ex}");
+                GodotMcpLog.Error($"[Godot-MCP] MainThreadDispatcher action threw: {ex}");
             }
         }
 

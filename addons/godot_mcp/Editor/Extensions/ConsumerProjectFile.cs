@@ -12,6 +12,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Connection;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Extensions
@@ -58,7 +59,7 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] could not read consumer .csproj '{_path}': {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] could not read consumer .csproj '{_path}': {ex.Message}");
                 return null;
             }
         }
@@ -76,7 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Godot-MCP] could not write consumer .csproj '{_path}': {ex.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] could not write consumer .csproj '{_path}': {ex.Message}");
                 return false;
             }
         }

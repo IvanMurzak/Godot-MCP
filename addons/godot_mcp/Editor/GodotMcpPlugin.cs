@@ -229,27 +229,16 @@ namespace com.IvanMurzak.Godot.MCP
 
         /// <summary>
         /// Print an informational lifecycle line to the Godot output AND capture it into the
-        /// <see cref="GodotLogCollector"/> so it is retrievable via the <c>console-get-logs</c> tool.
+        /// <see cref="GodotLogCollector"/> so it is retrievable via the <c>console-get-logs</c> tool. Thin
+        /// forward to the central <see cref="GodotMcpLog"/> sink (which does both and swallows on fault).
         /// </summary>
-        static void Log(string message)
-        {
-            GD.Print(message);
-            GodotLogCollector.Current?.Append(GodotLogType.Log, message);
-        }
+        static void Log(string message) => GodotMcpLog.Info(message);
 
         /// <summary>Warning-level analog of <see cref="Log"/>.</summary>
-        static void LogWarning(string message)
-        {
-            GD.PushWarning(message);
-            GodotLogCollector.Current?.Append(GodotLogType.Warning, message);
-        }
+        static void LogWarning(string message) => GodotMcpLog.Warning(message);
 
         /// <summary>Error-level analog of <see cref="Log"/>.</summary>
-        static void LogError(string message)
-        {
-            GD.PushError(message);
-            GodotLogCollector.Current?.Append(GodotLogType.Error, message);
-        }
+        static void LogError(string message) => GodotMcpLog.Error(message);
 
         /// <summary>
         /// Build the connection, register the dock wired to it, and boot the MCP connection. Isolated in
@@ -483,10 +472,10 @@ namespace com.IvanMurzak.Godot.MCP
             {
                 // Off-thread teardown skips OS.RemoveLogger (an engine call). Acceptable: the #78513 ALC-unload
                 // path is always main-thread, so the logger is always removed before an unload that matters.
-                TryLog("[Godot-MCP] teardown ran off the main thread; skipping Node.Free + engine-logger remove (connection torn down).");
+                Log("[Godot-MCP] teardown ran off the main thread; skipping Node.Free + engine-logger remove (connection torn down).");
             }
 
-            TryLog("[Godot-MCP] plugin unloaded");
+            Log("[Godot-MCP] plugin unloaded");
 
             // 5) Null the process-wide statics so a stale router/hook does not outlive this instance.
             //    NOTE: GodotLogCollector.Current is DELIBERATELY left in place (NOT nulled) — see the
@@ -645,22 +634,13 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>
-        /// Best-effort log helper for the teardown path. Wrapped because mid-reload the Godot logging API
-        /// (<c>GD.Print</c>) or the log collector may already be unavailable; a teardown diagnostic must
-        /// never throw on the ALC-unloading path.
+        /// Best-effort error-log helper for a named teardown step. Forwards to the central
+        /// <see cref="GodotMcpLog"/> sink, which swallows internally — so this no longer carries its own
+        /// try/catch (mid-reload the Godot logging API or the log collector may be unavailable; a teardown
+        /// diagnostic must never throw on the ALC-unloading path, and <c>GodotMcpLog.Emit</c> guarantees that).
         /// </summary>
-        static void TryLog(string message)
-        {
-            try { Log(message); }
-            catch { /* logging itself must not break teardown */ }
-        }
-
-        /// <summary>Best-effort error-log helper for a named teardown step (never throws).</summary>
         static void TryLogTeardownError(string step, System.Exception ex)
-        {
-            try { LogError($"[Godot-MCP] teardown step '{step}' failed: {ex.Message}"); }
-            catch { /* swallow — teardown must not throw on the unload path */ }
-        }
+            => GodotMcpLog.Error($"[Godot-MCP] teardown step '{step}' failed: {ex.Message}");
     }
 }
 #endif
