@@ -115,6 +115,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
         GodotDeviceAuthFlow? _deviceAuthFlow;
 
+        // The OnStateChanged handler subscribed to _deviceAuthFlow, kept in a NAMED field (not an inline
+        // lambda) so it can be deterministically detached. Each flow gets its own handler because the closure
+        // captures the specific flow instance for OnAuthFlowStateChanged's stale-event guard. Detached before
+        // a new flow replaces the old one (and in _ExitTree) so a superseded flow + its captured closure are
+        // not kept rooted by a dangling subscription — the same delegate-leak discipline GodotMcpDock.cs uses.
+        System.Action<GodotDeviceAuthFlowState>? _deviceAuthStateHandler;
+
         // Local-server hosting (Custom mode): the Start/Stop button on the MCP-server timeline point, the
         // "Local server: …" status line, and the manager that downloads + runs the pinned shared
         // gamedev-mcp-server binary. The server circle (_timelineServerCircle) reflects this LOCAL server's
@@ -937,11 +944,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
+            // Detach the superseded flow's handler before replacing it, so the old flow + its captured closure
+            // are not retained by a dangling subscription (a per-Authorize-click leak otherwise).
+            DetachDeviceAuthHandler();
             _deviceAuthFlow?.Cancel();
             var flow = new GodotDeviceAuthFlow();
             _deviceAuthFlow = flow;
 
-            flow.OnStateChanged += state =>
+            _deviceAuthStateHandler = state =>
             {
                 // OnStateChanged fires on the flow's background task thread; hop to the editor main thread
                 // before touching Controls. A missing dispatcher (between editor reloads) degrades to a
@@ -951,11 +961,25 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 else
                     OnAuthFlowStateChanged(flow, state);
             };
+            flow.OnStateChanged += _deviceAuthStateHandler;
 
             // Fire-and-forget; the state-change handler drives the status/button/browser UI, and the awaited
             // result persists the token (the token NEVER lives on the flow instance — it only flows out as
             // StartAsync's return value, so config writes stay on the main thread via the dispatcher).
             _ = RunAuthFlowAsync(flow);
+        }
+
+        /// <summary>
+        /// Detach the current <see cref="_deviceAuthStateHandler"/> from <see cref="_deviceAuthFlow"/>'s
+        /// <see cref="GodotDeviceAuthFlow.OnStateChanged"/> event and clear the field, so the superseded flow
+        /// and its captured closure are not kept rooted by a dangling subscription. Safe to call when either is
+        /// null (no-op). Idempotent.
+        /// </summary>
+        void DetachDeviceAuthHandler()
+        {
+            if (_deviceAuthFlow != null && _deviceAuthStateHandler != null)
+                _deviceAuthFlow.OnStateChanged -= _deviceAuthStateHandler;
+            _deviceAuthStateHandler = null;
         }
 
         async Task RunAuthFlowAsync(GodotDeviceAuthFlow flow)
@@ -1189,8 +1213,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _resyncRegistration?.Dispose();
             _resyncRegistration = null;
 
-            // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel.
+            // Cancel any in-flight device-auth flow so its background poll loop stops touching a freed panel,
+            // and detach its state handler so a late cancellation event can't fire into the freed panel.
             _deviceAuthFlow?.Cancel();
+            DetachDeviceAuthHandler();
             _deviceAuthFlow = null;
 
             // NOTE: the local-server manager is NOT disposed here — _ExitTree fires on every dock reparent
