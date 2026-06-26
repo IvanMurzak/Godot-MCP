@@ -1,0 +1,51 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpLog.cs
+  s_691219d4926cd4::t_5866c4ca96c894 1-97
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_65d93ecbb6ccf2::t_f3d0204d0f3447 83-89
+README.md
+  s_65d93ecbb6ccf2::t_119a773cfe44b7 205-208
+addons/godot_mcp/Editor/Connection/DevControl/DevControlServer.cs
+  s_65d93ecbb6ccf2::t_45093d5841fe2f 84,95
+addons/godot_mcp/Editor/Extensions/ConsumerProjectFile.cs
+  s_65d93ecbb6ccf2::t_ae797c6c61b01a 15,62,80
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_65d93ecbb6ccf2::t_bc6f93e96b6c71 232-233,235,238,241,475,478,637-640,643
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_65d93ecbb6ccf2::t_e26428108d9bfc 832,1085
+addons/godot_mcp/Editor/UI/SkillsPanel.cs
+  s_65d93ecbb6ccf2::t_6f74a58e913253 278
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_65d93ecbb6ccf2::t_7a8436c1c504fe 109-111,275-276,278-280,284,301,433,660-666,669,750,769,773,938,942,996,1005,1031,1040,1053,1057,1078,1080,1096,1129-1130,1170,1192,1200,1250,1259
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_65d93ecbb6ccf2::t_4c966340d54fc7 209,305,322
+addons/godot_mcp/Runtime/MainThread/MainThreadDispatcher.cs
+  s_65d93ecbb6ccf2::t_43aa9d22be32c2 14,220,267
+addons/godot_mcp/Runtime/Tools/GodotScriptErrorLogger.cs
+  s_65d93ecbb6ccf2::t_6b2d3f20d672db 33,348
+addons/godot_mcp/Runtime/Tools/Tool_Console.GetLogs.cs
+  s_65d93ecbb6ccf2::t_25610d3ed5cc3d 31-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "552258b5a10beade9893d6f0dce04ab5b81b6bde",
+  "prompts": {},
+  "sessions": {
+    "s_65d93ecbb6ccf2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a11de508131ca1667",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_691219d4926cd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a03f9130-abea-4823-a2ca-de912ca1baaf",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
