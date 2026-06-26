@@ -270,6 +270,70 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(2, capture.EndSession().Length);
         }
 
+        // ---- ScriptErrorCapture: anonymous probe-path attribution (issue #194) --------------------
+
+        [Theory]
+        [InlineData("gdscript://-9223369043698707884.gd", true)]
+        [InlineData("GDScript://anything.gd", true)]            // scheme is matched case-insensitively
+        [InlineData("res://scripts/ai.gd", false)]
+        [InlineData(@"C:\proj\scripts\ai.gd", false)]
+        [InlineData("user://x.gd", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        public void IsAnonymousProbePath_DetectsSyntheticGdScriptScheme(string? path, bool expected)
+        {
+            Assert.Equal(expected, ScriptErrorCapture.IsAnonymousProbePath(path));
+        }
+
+        [Fact]
+        public void Session_AnonymousProbePath_IsAttributedToSessionTarget()
+        {
+            // The validate probe is a throwaway GDScript with no ResourcePath, so Godot tags its parse error
+            // with a synthetic 'gdscript://<hash>.gd' name. Before #194 the path-match filter DROPPED that row
+            // (it never equals the res:// target) -> zero structured rows -> generic ParseError fallback. It
+            // must now be KEPT and re-stamped with the file actually under validation.
+            var capture = new ScriptErrorCapture();
+            capture.BeginSession("res://scripts/ai.gd");
+
+            capture.Route(EngineErrorKind.Script, "gdscript://-9223369043698707884.gd", 3,
+                "cond", "Parse Error: Unexpected token.");
+
+            var only = Assert.Single(capture.EndSession());
+            Assert.Equal("res://scripts/ai.gd", only.Path);   // remapped to the real file, not the synthetic name
+            Assert.Equal(3, only.Line);
+            Assert.Equal("Parse Error: Unexpected token.", only.Message);
+        }
+
+        [Fact]
+        public void Route_AnonymousProbePath_LogSink_ShowsSessionTarget_NotSyntheticName()
+        {
+            // console-get-logs (the passive LogSink) must surface the real res:// path during validation, not
+            // the confusing throwaway 'gdscript://<hash>.gd' temp name the engine assigns the probe (#194 #3).
+            var lines = new System.Collections.Generic.List<string>();
+            var capture = new ScriptErrorCapture { LogSink = (_, m) => lines.Add(m) };
+            capture.BeginSession("res://scripts/board.gd");
+
+            capture.Route(EngineErrorKind.Script, "gdscript://-42.gd", 5, "cond", "boom");
+
+            var line = Assert.Single(lines);
+            Assert.Contains("res://scripts/board.gd:5", line);
+            Assert.DoesNotContain("gdscript://", line);
+        }
+
+        [Fact]
+        public void Route_AnonymousProbePath_NoSession_LeavesSyntheticNameInLog()
+        {
+            // With no validation session there is nothing to attribute the synthetic path to, so it is left as
+            // reported (the remap is strictly a validation-session convenience, not a global rewrite).
+            var lines = new System.Collections.Generic.List<string>();
+            var capture = new ScriptErrorCapture { LogSink = (_, m) => lines.Add(m) };
+
+            capture.Route(EngineErrorKind.Script, "gdscript://-42.gd", 5, "cond", "boom");
+
+            var line = Assert.Single(lines);
+            Assert.Contains("gdscript://-42.gd", line);
+        }
+
         [Fact]
         public void Route_IsThreadSafe_OnlyTargetFileSurvivesConcurrentNoise()
         {
@@ -339,6 +403,135 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             };
             list.Sort((a, b) => a.Severity.CompareTo(b.Severity));
             Assert.Equal(ScriptDiagnosticSeverity.Error, list.First().Severity);
+        }
+    }
+
+    /// <summary>
+    /// Pure-managed coverage for <see cref="ScriptDiagnosticsFilter"/> (issue #194): the <c>class_name</c>
+    /// extractor and the global-class self-hide false-positive predicate the editor validator uses to drop the
+    /// spurious "Class X hides a global script class" row a class_name file's own probe re-declaration triggers.
+    /// No Godot binary required (pure string classification), so these run in the default parallel pool.
+    /// </summary>
+    public class ScriptDiagnosticsFilterTests
+    {
+        // ---- ExtractClassNames -------------------------------------------------------------------
+
+        [Fact]
+        public void ExtractClassNames_FindsSingleDeclaration()
+        {
+            var names = ScriptDiagnosticsFilter.ExtractClassNames("class_name AI\nextends RefCounted\n");
+            var only = Assert.Single(names);
+            Assert.Equal("AI", only);
+        }
+
+        [Fact]
+        public void ExtractClassNames_FindsDeclaration_AfterExtends()
+        {
+            // Godot 4 allows `extends` first, then `class_name` on its own line.
+            var names = ScriptDiagnosticsFilter.ExtractClassNames("extends Control\nclass_name Board\n");
+            Assert.Equal(new[] { "Board" }, names);
+        }
+
+        [Fact]
+        public void ExtractClassNames_NoDeclaration_ReturnsEmpty()
+        {
+            Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames("extends Node\nfunc _ready():\n\tpass\n"));
+        }
+
+        [Fact]
+        public void ExtractClassNames_IgnoresCommentedAndMidLineTokens()
+        {
+            // A `class_name` inside a comment, or not at line-start, is NOT a real declaration.
+            var src = "# class_name Ghost\nextends Node\nvar x = \"class_name Nope\"\n";
+            Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(src));
+        }
+
+        [Fact]
+        public void ExtractClassNames_FindsDeclaration_WithNonAsciiIdentifier()
+        {
+            // GDScript 4 permits Unicode letters in identifiers, so `class_name Αρχή` is valid. The extractor's
+            // capture group is Unicode-aware (\p{L}\p{Nd}) — an ASCII-only [A-Za-z0-9_] class would return empty
+            // here, leaving the #194 self-hide false positive un-suppressed for non-ASCII class_name files.
+            var names = ScriptDiagnosticsFilter.ExtractClassNames("class_name Αρχή\nextends RefCounted\n");
+            var only = Assert.Single(names);
+            Assert.Equal("Αρχή", only);
+        }
+
+        [Fact]
+        public void ExtractClassNames_NullOrEmpty_ReturnsEmpty()
+        {
+            Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(null));
+            Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(""));
+        }
+
+        // ---- IsGlobalClassSelfHide ---------------------------------------------------------------
+
+        [Theory]
+        [InlineData("Class \"AI\" hides a global script class.")]
+        [InlineData("Parse Error: Class \"AI\" hides a global script class.")]   // engine "Parse Error:" prefix tolerated
+        [InlineData("class \"AI\" HIDES A GLOBAL SCRIPT CLASS")]                  // marker matched case-insensitively
+        public void IsGlobalClassSelfHide_True_ForDeclaredClassNameHide(string message)
+        {
+            var declared = new[] { "AI" };
+            Assert.True(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(message, declared));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_False_ForGenuineParseError()
+        {
+            var declared = new[] { "AI" };
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Unexpected identifier \"asdfasdf\" in class body.", declared));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_False_WhenHiddenClassIsNotDeclaredByThisFile()
+        {
+            // A genuine conflict against ANOTHER file's global class name (not one THIS file declares) must NOT
+            // be suppressed — only the file's OWN self-hide is the false positive.
+            var declared = new[] { "AI" };
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Board\" hides a global script class.", declared));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_False_WhenFileDeclaresNoClassName()
+        {
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"AI\" hides a global script class.", System.Array.Empty<string>()));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_RequiresWholeIdentifierMatch_NotSubstring()
+        {
+            // "AI" must not match as a substring of "MAIN"/"AItem"; the message names a different class.
+            var declared = new[] { "AI" };
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"MAIN\" hides a global script class.", declared));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_Overload_ExtractsFromSource()
+        {
+            const string source = "class_name Board\nextends RefCounted\n";
+            Assert.True(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Board\" hides a global script class.", source));
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Some unrelated parse error.", source));
+        }
+
+        [Fact]
+        public void IsGlobalClassSelfHide_True_ForNonAsciiDeclaredClassName()
+        {
+            // End-to-end #194 reproduction for a non-ASCII class_name: extraction (Unicode-aware capture) AND the
+            // whole-identifier match (IsIdentifierChar uses char.IsLetterOrDigit, already Unicode-aware) must agree
+            // so the self-hide row is suppressed. With an ASCII-only extractor this returned false (un-suppressed).
+            const string source = "class_name Αρχή\nextends RefCounted\n";
+            Assert.True(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Αρχή\" hides a global script class.", source));
+            // A genuine conflict against a DIFFERENT (non-ASCII) class this file does not declare is NOT suppressed.
+            Assert.False(ScriptDiagnosticsFilter.IsGlobalClassSelfHide(
+                "Class \"Τέλος\" hides a global script class.", source));
         }
     }
 

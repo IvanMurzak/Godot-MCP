@@ -218,15 +218,36 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             var logType = kind == EngineErrorKind.Warning ? GodotLogType.Warning : GodotLogType.Error;
 
+            // issue #194: the script-validate tool reloads a THROWAWAY GDScript with no ResourcePath to harvest
+            // a file's parse errors, so Godot tags those errors with a synthetic 'gdscript://<hash>.gd' name
+            // instead of the real res:// path. While a validation session targets a specific file, remap that
+            // synthetic path to the file actually under validation. This fixes BOTH user-visible symptoms: the
+            // captured diagnostic (and console-get-logs line) now carries the real res:// path, AND the row is
+            // no longer dropped by the path-match filter below (a 'gdscript://' path never equals the res://
+            // target), which previously left validation with zero structured rows → the generic-ParseError
+            // fallback. Only the probe (reloaded synchronously on this thread during the session) produces an
+            // anonymous path, so attributing it to the session target is safe; real off-thread errors carry a
+            // res:// / absolute path and are unaffected. The remap is gated on an open session targeting a file.
+            var effectivePath = filePath;
+            if (IsAnonymousProbePath(filePath))
+            {
+                lock (_gate)
+                {
+                    if (_sessionTarget != null)
+                        effectivePath = _sessionTarget;
+                }
+            }
+
             // Passive capture: surface a path:line prefix so console-get-logs is self-describing.
-            LogSink?.Invoke(logType, FormatLogLine(kind, filePath, line, text));
+            LogSink?.Invoke(logType, FormatLogLine(kind, effectivePath, line, text));
 
             // Structured capture (in-game runtime): forward the full origin + deep backtrace so
             // runtime-errors-get can return file/line/function/type AND the multi-frame stack, not just a
             // flattened line. Always fires (errors are not session-gated). Wrapped for parity with the in-game
             // C# fault handlers: this runs on the engine's (multi-threaded) log callback, so a throwing sink
-            // must never escape back into the engine.
-            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, filePath, line, function, text, frames, stackTrace)); }
+            // must never escape back into the engine. (In-game there is never a validation session, so
+            // effectivePath == filePath there; the remap only ever changes an editor-validation probe path.)
+            try { ErrorSink?.Invoke(new EngineErrorRecord(kind, effectivePath, line, function, text, frames, stackTrace)); }
             catch { /* a captured engine-error sink must never throw back into the engine callback */ }
 
             // Validation capture: only script errors, only while a session is open.
@@ -244,20 +265,33 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // dependency error in ANOTHER script) can fire mid-session and would otherwise be silently
                 // mis-attributed to the file under validation. An empty engine path is kept (the caller stamps
                 // the target path on it) since the engine occasionally omits the source for a script error.
+                // The throwaway probe's anonymous 'gdscript://' path was already remapped to the session target
+                // above, so it passes this filter (matches the target) and is correctly recorded for this file.
                 if (_sessionTarget != null
-                    && !string.IsNullOrEmpty(filePath)
-                    && !PathsMatch(filePath, _sessionTarget))
+                    && !string.IsNullOrEmpty(effectivePath)
+                    && !PathsMatch(effectivePath, _sessionTarget))
                 {
                     return;
                 }
 
                 _session.Add(new ScriptDiagnostic(
-                    path: filePath ?? string.Empty,
+                    path: effectivePath ?? string.Empty,
                     line: line,
                     message: text,
                     severity: ScriptDiagnosticSeverity.Error));
             }
         }
+
+        /// <summary>
+        /// True when <paramref name="path"/> is Godot's synthetic <c>gdscript://&lt;hash&gt;.gd</c> name for a
+        /// <c>GDScript</c> that has no resource path — e.g. the throwaway probe the <c>script-validate</c> tool
+        /// reloads to harvest a file's parse errors (issue #194). Such a path never names a real file on disk,
+        /// so while a validation session is open the router remaps it to the file actually under validation.
+        /// Pure string check (no engine call), so it is unit-testable in the binary-less host.
+        /// </summary>
+        public static bool IsAnonymousProbePath(string? path)
+            => !string.IsNullOrEmpty(path)
+               && path!.StartsWith("gdscript://", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Compare an engine-reported source path against the session target. The session target is always a
