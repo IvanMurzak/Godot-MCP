@@ -38,4 +38,15 @@
     <Compile Remove="Godot-Tests/**/*.cs" />
   </ItemGroup>
 
+  <!--
+    Shared extension catalog (single source of truth — see addons/godot_mcp/extensions.catalog.md). Embedded into the
+    addon assembly so the pure-managed GodotExtensionRegistry can parse the REAL catalog at editor runtime with no
+    res:// / filesystem dependency. The CLI mirrors the same JSON (cli/src/utils/extensions-catalog.ts), enforced
+    byte-equal by a parity test. The LogicalName is fixed so GetManifestResourceStream resolves identically in the
+    addon assembly AND the Godot-MCP.Tests assembly (which embeds the same file under the same name).
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
+  </ItemGroup>
+
 </Project>

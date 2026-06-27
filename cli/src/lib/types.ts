@@ -5,6 +5,8 @@
 //
 // No top-level side effects, no runtime deps beyond TypeScript types.
 
+import type { ExtensionDescriptor } from '../utils/extensions-catalog.js';
+
 // ---------------------------------------------------------------------------
 // Progress events
 // ---------------------------------------------------------------------------
@@ -465,3 +467,66 @@ export interface RemovePluginFailure {
 }
 
 export type RemovePluginResult = RemovePluginSuccess | RemovePluginFailure;
+
+// ---------------------------------------------------------------------------
+// install-extension
+// ---------------------------------------------------------------------------
+
+/**
+ * What `installExtension` did to the consumer `.csproj` — the CLI mirror of the dock's
+ * `ExtensionInstallOutcome`:
+ *  - `added`             — the `<PackageReference>` was newly added (rebuild required).
+ *  - `updated`           — its version was bumped up (rebuild required).
+ *  - `already-up-to-date`— present at an equal/newer version, or the descriptor has no pin (no write).
+ *  - `no-project`        — no consumer `.csproj` was found to install into (nothing written).
+ */
+export type ExtensionInstallOutcome = 'added' | 'updated' | 'already-up-to-date' | 'no-project';
+
+export interface InstallExtensionOptions {
+  /** Absolute or relative path to the Godot project root (holds `project.godot` + the consumer `.csproj`). */
+  godotProjectPath: string;
+  /** The extension `<id>` to install — matched against the catalog by `packageId` (then `name`), case-insensitive. */
+  extensionId: string;
+  /** Override the catalog's pinned version for this install (the `--version` flag). Ignored when empty. */
+  version?: string;
+  /**
+   * Catalog to resolve `extensionId` against. Defaults to the bundled `EXTENSIONS_CATALOG`
+   * (single-sourced from `addons/godot_mcp/extensions.catalog.json`). Injectable for tests.
+   */
+  catalog?: readonly ExtensionDescriptor[];
+  onProgress?: ProgressCallback;
+}
+
+export interface InstallExtensionSuccess {
+  kind: 'success';
+  success: true;
+  /** The classified outcome (added / updated / already-up-to-date / no-project). */
+  outcome: ExtensionInstallOutcome;
+  /** True when the `.csproj` was written (added or updated). */
+  changed: boolean;
+  /** True when a write happened, so the consumer must rebuild solutions (Godot has no programmatic restore). */
+  rebuildRequired: boolean;
+  /** The user-supplied id that resolved to the descriptor. */
+  extensionId: string;
+  /** The resolved descriptor's package id (the `<PackageReference Include>`). */
+  packageId: string;
+  /** Version currently referenced before this install: `null` when not installed, `''` when referenced unversioned. */
+  fromVersion: string | null;
+  /** The version this install targeted (catalog pin or `--version` override), or `null` when unpinned. */
+  toVersion: string | null;
+  /** Absolute path to the consumer `.csproj`, when one was located. */
+  csprojPath?: string;
+  /** A short human-readable status line, safe to print. */
+  message: string;
+  warnings: string[];
+}
+
+export interface InstallExtensionFailure {
+  kind: 'failure';
+  success: false;
+  projectGodotPath?: string;
+  warnings: string[];
+  error: Error;
+}
+
+export type InstallExtensionResult = InstallExtensionSuccess | InstallExtensionFailure;

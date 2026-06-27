@@ -20,21 +20,23 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
     /// dock panel binds to <see cref="All"/> generically.
     ///
     /// <para>
-    /// <b>Ships EMPTY for now.</b> No Godot-MCP extension package exists on nuget.org yet — creating the first real
-    /// extension package + a <c>Godot-AI-Tools-Template</c> repo + the NuGet publish is a SEPARATE follow-up task. The
-    /// dock renders an honest "coming soon" placeholder while <see cref="All"/> is empty (see the
-    /// <c>ExtensionsPanel</c>). To add a real extension once it is published: append ONE
-    /// <see cref="GodotExtensionDescriptor"/> to <see cref="_descriptors"/> below — no other file needs to change.
+    /// The list is sourced from the SHARED catalog <c>addons/godot_mcp/extensions.catalog.json</c> (the single source
+    /// of truth consumed by the dock, the CLI, and — later — the app; see <c>extensions.catalog.md</c>). That JSON is
+    /// embedded into the addon assembly and parsed once by <see cref="GodotExtensionCatalog.LoadEmbedded"/>. To add a
+    /// real extension once it is published: append ONE entry to <c>extensions.catalog.json</c> — no code changes here.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Ships EMPTY for now.</b> No Godot-MCP extension package exists on nuget.org yet, so the catalog's
+    /// <c>extensions</c> array is empty and the dock renders an honest "coming soon" placeholder while
+    /// <see cref="All"/> is empty (see the <c>ExtensionsPanel</c>).
     /// </para>
     /// </summary>
     public static class GodotExtensionRegistry
     {
-        // The extension descriptor list. EMPTY until the first extension package is published (follow-up task). To
-        // add one, append a `new GodotExtensionDescriptor(...)` line here.
-        static readonly IReadOnlyList<GodotExtensionDescriptor> _descriptors = new GodotExtensionDescriptor[]
-        {
-            // (none yet — see the type doc-comment)
-        };
+        // The extension descriptor list, loaded once from the shared embedded catalog JSON (single source of truth).
+        // EMPTY until the first extension package is published — add one by appending to extensions.catalog.json.
+        static readonly IReadOnlyList<GodotExtensionDescriptor> _descriptors = GodotExtensionCatalog.LoadEmbedded();
 
         /// <summary>Every registered extension descriptor, in display order. Empty until the first package ships.</summary>
         public static IReadOnlyList<GodotExtensionDescriptor> All => _descriptors;
