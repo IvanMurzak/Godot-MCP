@@ -54,7 +54,10 @@ export const installExtensionCommand = new Command('install-extension')
         spinner.success(`${result.packageId} is already up to date`);
         break;
       case 'no-project':
-        spinner.error('No project .csproj found');
+        // A no-project result is a kind:'success' outcome (exit 0) — use the success
+        // indicator so the spinner doesn't show a red error contradicting the exit code.
+        // The explanation is surfaced once below via ui.label('Status', result.message).
+        spinner.success('No project .csproj found — nothing to install');
         break;
     }
 

@@ -159,7 +159,12 @@ function appendReference(text: string, descriptor: ExtensionDescriptor): string 
 
   const pkgItemGroupClose = findPackageReferenceItemGroupClose(text);
   if (pkgItemGroupClose !== -1) {
-    return `${text.slice(0, pkgItemGroupClose)}${element}${eol}${text.slice(pkgItemGroupClose)}`;
+    // Insert before the START of the `</ItemGroup>` line, not at the `<` of `</ItemGroup>`
+    // itself: slicing at `pkgItemGroupClose` would absorb the closing tag's indent into the
+    // prefix, so the appended element would inherit that indent on top of its own and
+    // `</ItemGroup>` would lose its indent. Splitting at the line start keeps both aligned.
+    const lineStart = text.lastIndexOf('\n', pkgItemGroupClose) + 1;
+    return `${text.slice(0, lineStart)}${element}${eol}${text.slice(lineStart)}`;
   }
 
   const groupIndent = indent.length >= 2 ? indent.slice(0, Math.floor(indent.length / 2)) : '  ';

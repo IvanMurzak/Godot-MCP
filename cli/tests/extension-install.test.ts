@@ -101,6 +101,20 @@ describe('planExtensionInstall — ADD', () => {
     expect((plan.resultingCsproj.match(/<ItemGroup\b/g) ?? []).length).toBe(2);
   });
 
+  it('indents the appended reference like its siblings and preserves the </ItemGroup> indent', () => {
+    const plan = planExtensionInstall(descriptor(), SampleCsproj);
+    // Regression guard for the appendReference split point: the new <PackageReference>
+    // sits at the same 4-space indent as the existing refs, and the closing </ItemGroup>
+    // keeps its own 2-space indent (slicing at `</ItemGroup>` itself used to absorb the
+    // closing tag's indent into the appended element and strip it from the closing tag).
+    // Normalize EOL so the assertion is checkout-agnostic (autocrlf).
+    expect(plan.resultingCsproj.replace(/\r\n/g, '\n')).toContain(
+      '    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="6.7.0" />\n' +
+        '    <PackageReference Include="com.IvanMurzak.Godot.MCP.ProBuilder" Version="1.2.0" />\n' +
+        '  </ItemGroup>',
+    );
+  });
+
   it('omits the Version attribute when the descriptor has no version', () => {
     const plan = planExtensionInstall(descriptor('com.x', null), SampleCsproj);
     expect(plan.action).toBe('add');
