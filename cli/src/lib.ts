@@ -20,6 +20,12 @@ export { runTool, runSystemTool } from './lib/run-tool.js';
 export { setupMcp, listAgentIds } from './lib/setup-mcp.js';
 export { setupSkills } from './lib/setup-skills.js';
 export { installPlugin, removePlugin } from './lib/install-plugin.js';
+export { installExtension } from './lib/install-extension.js';
+
+// Shared extension catalog (single-sourced from addons/godot_mcp/extensions.catalog.json)
+// + its lookup helpers, so the app can render the same list the dock + CLI install from.
+export { EXTENSIONS_CATALOG, findExtension, hasVersion } from './utils/extensions-catalog.js';
+export type { ExtensionDescriptor, ExtensionTool } from './utils/extensions-catalog.js';
 
 export type {
   // Shared
@@ -75,4 +81,10 @@ export type {
   RemovePluginResult,
   RemovePluginSuccess,
   RemovePluginFailure,
+  // install-extension
+  InstallExtensionOptions,
+  InstallExtensionResult,
+  InstallExtensionSuccess,
+  InstallExtensionFailure,
+  ExtensionInstallOutcome,
 } from './lib/types.js';

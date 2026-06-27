@@ -2,6 +2,18 @@
 
 All notable changes to `godot-cli` are documented in this file.
 
+## Unreleased
+
+- `install-extension <id> [path]` — install a Godot-MCP **extension** (an optional AI-tool-family package)
+  into a Godot C# project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in
+  the project `.csproj` (added when absent, version-bumped only when newer, no-op when up to date), then
+  ask the user to rebuild. Idempotent and behaviorally identical to the in-editor Extensions dock.
+- Added `installExtension` to the library API, plus the shared `EXTENSIONS_CATALOG` + `findExtension`
+  exports so the app can render/install the same list the dock + CLI use.
+- The extension catalog (`addons/godot_mcp/extensions.catalog.json`) is now the single source of truth
+  consumed by all three channels: the dock parses it via an embedded resource, the CLI mirrors it
+  (`extensions-catalog.ts`, parity-tested), and the app imports it from the `godot-cli` library.
+
 ## 0.1.0
 
 Initial release. A cross-platform CLI for Godot-MCP, mirroring `unity-mcp-cli`'s feature set and structure,

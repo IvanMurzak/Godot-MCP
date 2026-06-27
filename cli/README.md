@@ -36,6 +36,7 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s to the project `.csproj`, and enable the plugin. Idempotent. |
+| `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional AI-tool-family package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
 
@@ -141,12 +142,41 @@ It performs three steps:
 It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public
 boundary) and idempotent — re-running on an already-installed project reports no change.
 
+## `install-extension`
+
+`godot-cli install-extension <id> [path]` installs an optional Godot-MCP **extension** (a package that
+adds more AI tool families) into a Godot C# project — the terminal/library channel for the same install
+the in-editor **Extensions** dock performs:
+
+```bash
+godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder ./MyGodotProject   # add/update the PackageReference
+godot-cli install-extension "ProBuilder Tools"                                      # resolve by name; default cwd
+godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder --version 1.3.0     # override the catalog pin
+```
+
+- Resolves `<id>` against the **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` —
+  the single source of truth the dock, the CLI, and the app all consume), matching by package id (then
+  name), case-insensitive.
+- Read-modify-writes a `<PackageReference Include="<packageId>" Version="<version>" />` into the project's
+  root `.csproj`: **added** when absent, version **bumped** only when the catalog (or `--version`) pins a
+  newer version, and a **no-op** when already up to date — then asks you to rebuild (`godot-cli build`) so
+  Godot restores + compiles the new package.
+- Behaviorally identical to the dock's `ExtensionInstaller` (the same add / update / no-op + numeric
+  version-compare rules; verified by a shared scenario set on both sides).
+
+> The catalog ships **empty** until the first Godot-MCP extension package is published, so every `<id>` is
+> currently reported as an unknown extension — there is nothing to install yet.
+
 ## Library API
 
 The package also exports a side-effect-free library (the `.` entry):
 
 ```ts
-import { openProject, runTool, setupMcp, installPlugin } from 'godot-cli';
+import { openProject, runTool, setupMcp, installPlugin, installExtension } from 'godot-cli';
+
+// The shared extension catalog + lookup helpers are exported too, so a GUI (the app)
+// can render the same list the dock + CLI install from:
+import { EXTENSIONS_CATALOG, findExtension } from 'godot-cli';
 ```
 
 Every function returns a discriminated union (`{ kind: 'success', ... }` / `{ kind: 'failure', error }`)

@@ -273,6 +273,7 @@
          The editor wiring (ConsumerProjectFile.cs, ExtensionsPanel.cs, ExtensionRow.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3); the plan/detect/install logic is unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Extensions\GodotExtensionDescriptor.cs" Link="Source\GodotExtensionDescriptor.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Extensions\GodotExtensionCatalog.cs" Link="Source\GodotExtensionCatalog.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Extensions\GodotExtensionRegistry.cs" Link="Source\GodotExtensionRegistry.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Extensions\ExtensionInstallPlanner.cs" Link="Source\ExtensionInstallPlanner.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Extensions\InstalledStateDetector.cs" Link="Source\InstalledStateDetector.cs" />
@@ -318,6 +319,15 @@
          builder-only tests never instantiate it). Compiled in so the runtime sources resolve their usings. -->
     <Compile Include="..\addons\godot_mcp\Runtime\MainThread\MainThreadDispatcher.cs" Link="Source\MainThreadDispatcher.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\MainThread\GodotMainThread.cs" Link="Source\GodotMainThread.cs" />
+  </ItemGroup>
+
+  <!--
+    Same shared extension catalog the addon assembly embeds (Godot-MCP.csproj), under the SAME LogicalName so the
+    registry's GodotExtensionCatalog.LoadEmbedded() resolves it from THIS test assembly too. This is what lets
+    GodotExtensionCatalogTests prove the embedded-resource round-trip without a Godot binary.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\addons\godot_mcp\extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
   </ItemGroup>
 
 </Project>
