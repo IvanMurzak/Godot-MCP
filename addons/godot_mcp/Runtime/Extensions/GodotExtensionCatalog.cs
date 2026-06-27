@@ -63,7 +63,7 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             CatalogDocument? doc;
             try
             {
-                doc = JsonSerializer.Deserialize<CatalogDocument>(json!, _options);
+                doc = JsonSerializer.Deserialize<CatalogDocument>(json, _options);
             }
             catch (JsonException)
             {

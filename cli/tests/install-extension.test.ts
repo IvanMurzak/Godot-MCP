@@ -131,7 +131,10 @@ describe('installExtension — lib logic (parity with the dock ExtensionInstalle
     if (result.kind === 'success') {
       expect(result.outcome).toBe('no-project');
       expect(result.changed).toBe(false);
-      expect(result.warnings.some((w) => w.includes('.csproj'))).toBe(true);
+      // The no-project explanation is surfaced once via result.message (printed as Status),
+      // not duplicated into warnings.
+      expect(result.message).toContain('.csproj');
+      expect(result.warnings.some((w) => w.includes('.csproj'))).toBe(false);
     }
   });
 

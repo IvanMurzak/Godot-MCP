@@ -78,7 +78,6 @@ export async function installExtension(
       const message =
         'No project .csproj found at the project root — open this addon inside a Godot C# project to install extensions. ' +
         `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${descriptor.packageId} PackageReference.`;
-      warnings.push(message);
       emitProgress(opts.onProgress, { phase: 'done', message: 'No project .csproj — nothing installed.' });
       return {
         kind: 'success',
