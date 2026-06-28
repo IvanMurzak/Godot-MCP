@@ -72,6 +72,23 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       { name: 'tilemap-clear', description: 'Clear all cells on a TileMapLayer (the assigned TileSet is kept).' },
     ],
   },
+  {
+    name: 'Navigation Tools',
+    description:
+      'AI MCP tools for Godot navigation (2D & 3D): create regions, agents, and links, set region meshes, configure agents, and inspect navigation nodes.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Navigation',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Navigation',
+    tools: [
+      { name: 'navigation-defaults', description: 'Return the recommended starter config (radius, distances, max speed) for a 2D/3D NavigationAgent.' },
+      { name: 'navigation-region-create', description: 'Create a NavigationRegion2D/NavigationRegion3D node (a navigable area) in the edited scene.' },
+      { name: 'navigation-region-set-mesh', description: "Assign a region's navigation resource (NavigationPolygon in 2D, NavigationMesh in 3D)." },
+      { name: 'navigation-agent-create', description: 'Create a NavigationAgent2D/NavigationAgent3D node (pathfinding + avoidance) in the edited scene.' },
+      { name: 'navigation-agent-configure', description: "Update a NavigationAgent's scalar properties (clamped to valid ranges)." },
+      { name: 'navigation-link-create', description: 'Create a NavigationLink2D/NavigationLink3D node (an off-mesh connection between two points).' },
+      { name: 'navigation-get', description: "Read a navigation node's scalar config (read-only)." },
+    ],
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
