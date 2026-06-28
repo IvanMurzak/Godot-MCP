@@ -56,6 +56,22 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       { name: 'particles-get', description: "Read an emitter's scalar config (read-only)." },
     ],
   },
+  {
+    name: 'Tilemap Tools',
+    description:
+      'AI MCP tools for Godot TileMapLayer (4.3+): create layers, assign tilesets, set/erase cells, and inspect used cells.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Tilemap',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Tilemap',
+    tools: [
+      { name: 'tilemap-create', description: 'Create a TileMapLayer node in the currently edited Godot scene.' },
+      { name: 'tilemap-set-tileset', description: 'Assign a TileSet resource to an existing TileMapLayer.' },
+      { name: 'tilemap-set-cell', description: 'Set a single cell on a TileMapLayer (by map + atlas coords).' },
+      { name: 'tilemap-erase-cell', description: 'Erase a single cell on a TileMapLayer (set it back to empty).' },
+      { name: 'tilemap-get-used-cells', description: 'List the used (non-empty) cells of a TileMapLayer (read-only).' },
+      { name: 'tilemap-clear', description: 'Clear all cells on a TileMapLayer (the assigned TileSet is kept).' },
+    ],
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
