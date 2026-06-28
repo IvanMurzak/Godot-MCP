@@ -35,7 +35,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
       ""gitUrl"": ""https://github.com/IvanMurzak/Godot-MCP"",
       ""tools"": [
         { ""name"": ""probuilder-extrude"", ""description"": ""Extrude faces."" }
-      ]
+      ],
+      ""addonRequired"": {
+        ""name"": ""PhantomCamera"",
+        ""assetLibId"": ""1822"",
+        ""repo"": ""ramokz/phantom-camera"",
+        ""license"": ""MIT""
+      }
     },
     {
       ""name"": ""Floating Ext"",
@@ -64,6 +70,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Parse_ClassBEntry_MapsAddonRequiredBlock()
+        {
+            // CLASS-B: the optional addonRequired block round-trips its four fields and flags the descriptor.
+            var pb = GodotExtensionCatalog.Parse(PopulatedCatalog)[0];
+            Assert.True(pb.RequiresAddon);
+            Assert.NotNull(pb.AddonRequired);
+            Assert.Equal("PhantomCamera", pb.AddonRequired!.Name);
+            Assert.Equal("1822", pb.AddonRequired.AssetLibId);
+            Assert.Equal("ramokz/phantom-camera", pb.AddonRequired.Repo);
+            Assert.Equal("MIT", pb.AddonRequired.License);
+        }
+
+        [Fact]
         public void Parse_OmittedVersion_YieldsNullVersion()
         {
             var list = GodotExtensionCatalog.Parse(PopulatedCatalog);
@@ -72,6 +91,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Null(floating.Version);
             Assert.False(floating.HasVersion);
             Assert.Empty(floating.Tools);
+        }
+
+        [Fact]
+        public void Parse_ClassAEntry_HasNullAddonRequired()
+        {
+            // CLASS-A (no addonRequired block) → AddonRequired is null and RequiresAddon is false.
+            var floating = GodotExtensionCatalog.Parse(PopulatedCatalog)[1];
+            Assert.Null(floating.AddonRequired);
+            Assert.False(floating.RequiresAddon);
         }
 
         [Fact]

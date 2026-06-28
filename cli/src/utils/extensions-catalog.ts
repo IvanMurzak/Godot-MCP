@@ -20,9 +20,28 @@ export interface ExtensionTool {
 }
 
 /**
+ * The third-party Godot addon a CLASS-B extension wraps — mirrors the JSON
+ * `addonRequired` block. Class-A extensions (which wrap a BUILT-IN Godot feature)
+ * OMIT this entirely (`addonRequired` is absent / `undefined`). When present it is
+ * pure presentation metadata so the dock/app/CLI can surface "requires the <name>
+ * addon" + a link; it does NOT affect install logic (the package is still installed
+ * by `packageId` alone — the addon is the consumer's own runtime responsibility).
+ * `name` is the anchor; `assetLibId` (the Godot AssetLib id, stored as a string),
+ * `repo`, and `license` are optional.
+ */
+export interface ExtensionAddonRequirement {
+  readonly name: string;
+  readonly assetLibId: string | null;
+  readonly repo: string | null;
+  readonly license: string | null;
+}
+
+/**
  * One installable extension — the CLI analog of the C# `GodotExtensionDescriptor`.
  * `packageId` is the INSTALL IDENTITY (the `<PackageReference Include="...">`).
  * `version` is `null` for a floating (unpinned) reference.
+ * `addonRequired` is present ONLY for CLASS-B (addon-dependent) extensions; Class-A
+ * entries omit it.
  */
 export interface ExtensionDescriptor {
   readonly name: string;
@@ -31,6 +50,7 @@ export interface ExtensionDescriptor {
   readonly version: string | null;
   readonly gitUrl: string | null;
   readonly tools: readonly ExtensionTool[];
+  readonly addonRequired?: ExtensionAddonRequirement | null;
 }
 
 /**

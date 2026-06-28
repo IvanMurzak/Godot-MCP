@@ -24,7 +24,13 @@ It is consumed by all THREE install channels so they can never drift:
       "gitUrl": "https://github.com/IvanMurzak/...",       // OPTIONAL repo/docs link
       "tools": [                                           // OPTIONAL contributed-tool list
         { "name": "probuilder-extrude", "description": "Extrude faces." }
-      ]
+      ],
+      "addonRequired": {                                   // OPTIONAL — present ONLY for CLASS-B (addon-dependent) extensions
+        "name": "PhantomCamera",                           //   the third-party addon the extension wraps (display name)
+        "assetLibId": "1822",                              //   OPTIONAL Godot AssetLib id (stored as a string)
+        "repo": "ramokz/phantom-camera",                   //   OPTIONAL upstream repo (owner/name or URL)
+        "license": "MIT"                                   //   OPTIONAL addon licence (informational)
+      }
     }
   ]
 }
@@ -39,6 +45,14 @@ It is consumed by all THREE install channels so they can never drift:
   decision (numeric, component-wise compare — `1.10.0` > `1.2.0`). When absent the reference is added
   WITHOUT a `Version` attribute (floating / centrally-managed), and a present reference is never bumped.
 - `name`, `packageId` are REQUIRED and non-empty; entries missing either are ignored by both parsers.
+- `addonRequired` is OPTIONAL and **absent for Class-A extensions** (those wrap a BUILT-IN Godot feature
+  and need no third-party addon). It is present only for **Class-B (addon-dependent)** extensions, which
+  wrap a community addon the consumer must install themselves (e.g. PhantomCamera, Terrain3D). It is pure
+  **presentation metadata** — the dock/app/CLI surface "requires the `<name>` addon" + a link — and does
+  **not** affect install logic (the extension package is still installed by `packageId` alone; the addon is
+  never vendored or downloaded by the installer, it is the consumer's own runtime responsibility). Its
+  `name` is REQUIRED within the block (a block missing it is dropped → reads as absent); `assetLibId` (the
+  Godot AssetLib id, a string), `repo`, and `license` are optional. Both parsers tolerate it being absent.
 
 ## Adding an extension
 
