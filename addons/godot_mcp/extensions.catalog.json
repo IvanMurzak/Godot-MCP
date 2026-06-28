@@ -61,6 +61,22 @@
         { "name": "animation-insert-key", "description": "Insert a keyframe on an animation track." },
         { "name": "animation-get", "description": "Read an AnimationPlayer's libraries, animations, and a clip's tracks (read-only)." }
       ]
+    },
+    {
+      "name": "CSG Tools",
+      "description": "AI MCP tools for Godot CSG (Constructive Solid Geometry): create box/sphere/cylinder primitives and combiners, set boolean operations, and inspect them.",
+      "packageId": "com.IvanMurzak.Godot.MCP.CSG",
+      "version": null,
+      "gitUrl": "https://github.com/IvanMurzak/Godot-AI-CSG",
+      "tools": [
+        { "name": "csg-defaults", "description": "Return the recommended starter config (size / radius / height / segments) for a CSG node of the requested kind." },
+        { "name": "csg-box-create", "description": "Create a CsgBox3D primitive in the currently edited Godot scene." },
+        { "name": "csg-sphere-create", "description": "Create a CsgSphere3D primitive in the currently edited Godot scene." },
+        { "name": "csg-cylinder-create", "description": "Create a CsgCylinder3D primitive in the currently edited Godot scene." },
+        { "name": "csg-combiner-create", "description": "Create a CsgCombiner3D container that groups child CSG shapes for boolean ops." },
+        { "name": "csg-set-operation", "description": "Set an existing CSG node's boolean operation (Union / Intersection / Subtraction)." },
+        { "name": "csg-get", "description": "Read a CSG node's scalar config (read-only)." }
+      ]
     }
   ]
 }
