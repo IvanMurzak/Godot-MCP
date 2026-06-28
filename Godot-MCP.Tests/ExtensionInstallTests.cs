@@ -49,10 +49,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- Descriptor + registry -----------------------------------------------------------------------------
 
         [Fact]
-        public void Registry_ShipsEmpty()
+        public void Registry_ShipsCatalog()
         {
-            Assert.True(GodotExtensionRegistry.IsEmpty);
-            Assert.Empty(GodotExtensionRegistry.All);
+            // The shipped catalog now lists at least the first extension (Godot-AI-Particles).
+            Assert.False(GodotExtensionRegistry.IsEmpty);
+            Assert.NotEmpty(GodotExtensionRegistry.All);
+            Assert.NotNull(GodotExtensionRegistry.GetByPackageId("com.IvanMurzak.Godot.MCP.Particles"));
             Assert.Null(GodotExtensionRegistry.GetByPackageId("anything"));
         }
 
