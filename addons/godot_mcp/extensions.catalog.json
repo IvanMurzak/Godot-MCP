@@ -5,7 +5,7 @@
       "name": "Particles Tools",
       "description": "AI MCP tools for Godot GpuParticles (2D & 3D): create, configure, start/stop, and inspect emitters.",
       "packageId": "com.IvanMurzak.Godot.MCP.Particles",
-      "version": "0.1.0",
+      "version": null,
       "gitUrl": "https://github.com/IvanMurzak/Godot-AI-Particles",
       "tools": [
         { "name": "particles-defaults", "description": "Return the recommended starter config for a 2D/3D emitter." },
