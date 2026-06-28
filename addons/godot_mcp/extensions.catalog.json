@@ -45,6 +45,22 @@
         { "name": "navigation-link-create", "description": "Create a NavigationLink2D/NavigationLink3D node (an off-mesh connection between two points)." },
         { "name": "navigation-get", "description": "Read a navigation node's scalar config (read-only)." }
       ]
+    },
+    {
+      "name": "Animation Tools",
+      "description": "AI MCP tools for Godot AnimationPlayer: create players, libraries, and animations, add tracks, insert keyframes, and inspect them.",
+      "packageId": "com.IvanMurzak.Godot.MCP.Animation",
+      "version": null,
+      "gitUrl": "https://github.com/IvanMurzak/Godot-AI-Animation",
+      "tools": [
+        { "name": "animation-defaults", "description": "Return the recommended starter config (length, loop mode) for a new animation." },
+        { "name": "animation-player-create", "description": "Create an AnimationPlayer node in the currently edited Godot scene." },
+        { "name": "animation-library-add", "description": "Add a new empty AnimationLibrary to an existing AnimationPlayer." },
+        { "name": "animation-create", "description": "Create an Animation in an AnimationPlayer's library (auto-created when missing)." },
+        { "name": "animation-add-track", "description": "Add a value or 3D transform track to an existing Animation." },
+        { "name": "animation-insert-key", "description": "Insert a keyframe on an animation track." },
+        { "name": "animation-get", "description": "Read an AnimationPlayer's libraries, animations, and a clip's tracks (read-only)." }
+      ]
     }
   ]
 }
