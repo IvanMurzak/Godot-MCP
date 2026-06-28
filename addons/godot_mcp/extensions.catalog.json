@@ -77,6 +77,22 @@
         { "name": "csg-set-operation", "description": "Set an existing CSG node's boolean operation (Union / Intersection / Subtraction)." },
         { "name": "csg-get", "description": "Read a CSG node's scalar config (read-only)." }
       ]
+    },
+    {
+      "name": "GridMap Tools",
+      "description": "AI MCP tools for Godot GridMap (3D tile-based maps): create, set/clear cells, assign a MeshLibrary, and inspect.",
+      "packageId": "com.IvanMurzak.Godot.MCP.GridMap",
+      "version": null,
+      "gitUrl": "https://github.com/IvanMurzak/Godot-AI-GridMap",
+      "tools": [
+        { "name": "gridmap-defaults", "description": "Return the recommended starter configuration for a new GridMap node." },
+        { "name": "gridmap-create", "description": "Create a GridMap node in the currently edited Godot scene." },
+        { "name": "gridmap-set-mesh-library", "description": "Assign a MeshLibrary resource to an existing GridMap node." },
+        { "name": "gridmap-set-cell", "description": "Set a single cell of a GridMap to a MeshLibrary item." },
+        { "name": "gridmap-clear-cell", "description": "Clear a single cell of a GridMap." },
+        { "name": "gridmap-clear", "description": "Clear all cells of a GridMap." },
+        { "name": "gridmap-get", "description": "Read a GridMap's scalar config (read-only)." }
+      ]
     }
   ]
 }
