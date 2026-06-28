@@ -24,11 +24,13 @@ describe('install-extension — CLI smoke (command wiring)', () => {
     expect(stdout).toContain('install-extension');
   });
 
-  it('exits 1 with an honest empty-catalog message (no extension published yet)', async () => {
+  it('exits 1 for an unknown id and lists the available extensions', async () => {
     const { stdout, exitCode } = await runCliAsync(['install-extension', 'anything', tmpDir]);
-    // The shipped catalog is empty, so any id is unknown — and the message says so.
+    // The catalog now ships at least one published extension, so an unknown id is
+    // rejected with a message that lists what IS available.
     expect(exitCode).toBe(1);
-    expect(stdout).toContain('catalog is currently empty');
+    expect(stdout).toContain('Unknown extension');
+    expect(stdout).toContain('com.IvanMurzak.Godot.MCP.Particles');
   });
 
   it('exits 1 for a non-Godot project directory', async () => {
