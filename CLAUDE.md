@@ -188,8 +188,15 @@ Binary: `Godot_v4.5.1-stable_mono_win64_console.exe` (the `_console` variant sur
 # (worktree verification) repoint the junction to the worktree addon, then restore it afterwards:
 #   New-Item -ItemType Junction -Path addons\godot_mcp -Target <worktree>\Godot-MCP\addons\godot_mcp
 GODOT=.../Godot_v4.5.1-stable_mono_win64_console.exe
-"$GODOT" --headless --path <infra>/Godot-Test-Project --build-solutions --quit   # builds C#
-"$GODOT" --headless --path <infra>/Godot-Test-Project --editor --quit            # boots editor
+# SAFE PATTERN — three SEPARATE processes. Do NOT lead with cold
+# `--headless --path <testbed> --build-solutions --quit`: that cold single-process path SIGSEGVs
+# (exit 139) on the first C# [Tool] EditorPlugin instantiation, before any managed addon code runs —
+# an UPSTREAM godotengine/godot engine bug (matches godot #81790 / #100805), not an addon defect.
+# Compile via `dotnet build` (deterministic; Godot.NET.Sdk resolves GodotSharp from NuGet) and boot
+# the editor in a separate process instead. This is the pattern CI uses (.github/workflows/test_godot_plugin.yml).
+"$GODOT" --headless --path <infra>/Godot-Test-Project --import --quit             # materialize .godot/ (non-gating)
+dotnet build <infra>/Godot-Test-Project/Godot-Test-Project.csproj -c Debug        # compile C# (deterministic)
+"$GODOT" --headless --path <infra>/Godot-Test-Project --editor --quit             # boots editor (separate process)
 # Expect: "[Godot-MCP] plugin loaded", a stream of "[Godot-MCP] resolved '<dep>' -> <nuget-cache-path>",
 #         and NO FileNotFoundException. If the testbed shows a stale assembly, wipe
 #         .godot/mono/temp/{obj,bin} and rebuild (Godot's incremental build can miss junction edits).
