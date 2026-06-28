@@ -104,8 +104,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void LoadEmbedded_RoundTripsTheShippedCatalog()
         {
-            // The shipped catalog is currently empty, so this proves the embedded resource resolves + parses (an
-            // unresolved resource would ALSO return empty, so we additionally assert the resource is actually present).
+            // This proves the embedded resource resolves + parses (an unresolved resource would return empty, so we
+            // additionally assert the resource is actually present — independent of how many entries it ships).
             var assembly = typeof(GodotExtensionCatalog).Assembly;
             Assert.Contains(GodotExtensionCatalog.EmbeddedResourceName, assembly.GetManifestResourceNames());
 

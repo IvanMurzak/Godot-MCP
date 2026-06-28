@@ -40,12 +40,14 @@ It is consumed by all THREE install channels so they can never drift:
   WITHOUT a `Version` attribute (floating / centrally-managed), and a present reference is never bumped.
 - `name`, `packageId` are REQUIRED and non-empty; entries missing either are ignored by both parsers.
 
-## Ships empty (for now)
+## Adding an extension
 
-No Godot-MCP extension package exists on nuget.org yet, so `extensions` is `[]` and the dock renders an
-honest "coming soon" placeholder. To add the first real extension once it is published: append ONE entry
-to `extensions` here — no other file changes (the dock reads it via the embedded resource; the CLI's
-parity test forces `extensions-catalog.ts` to be updated to match, which the CLI then consumes).
+The first published Godot-MCP extension is **Particles Tools**
+(`com.IvanMurzak.Godot.MCP.Particles`, https://github.com/IvanMurzak/Godot-AI-Particles). To add another
+published extension: append ONE entry to `extensions` here — the dock reads it via the embedded resource,
+and the CLI's parity test (`cli/tests/extensions-catalog-parity.test.ts`) forces the typed mirror
+`cli/src/utils/extensions-catalog.ts` to be updated to match, which the CLI then consumes. (When the
+catalog is empty the dock renders an honest "coming soon" placeholder.)
 
 ## Behavioral parity contract
 

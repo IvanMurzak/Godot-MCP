@@ -41,7 +41,21 @@ export interface ExtensionDescriptor {
  * lockstep with the JSON so adding an entry there forces an update here.
  */
 export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
-  // (none yet — see addons/godot_mcp/extensions.catalog.json / extensions.catalog.md)
+  {
+    name: 'Particles Tools',
+    description:
+      'AI MCP tools for Godot GpuParticles (2D & 3D): create, configure, start/stop, and inspect emitters.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Particles',
+    version: '0.1.0',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Particles',
+    tools: [
+      { name: 'particles-defaults', description: 'Return the recommended starter config for a 2D/3D emitter.' },
+      { name: 'particles-create', description: 'Create a GpuParticles2D/GpuParticles3D node in the edited scene.' },
+      { name: 'particles-configure', description: "Update an emitter's scalar properties (clamped to valid ranges)." },
+      { name: 'particles-set-emitting', description: 'Start or stop emission, optionally restarting first.' },
+      { name: 'particles-get', description: "Read an emitter's scalar config (read-only)." },
+    ],
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
