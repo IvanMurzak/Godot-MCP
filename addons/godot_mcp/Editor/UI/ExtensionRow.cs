@@ -100,7 +100,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 {
                     leftColumn.AddChild(DockStyle.LinkRow($"{Descriptor.PackageId}AddonLinkRow", new[]
                     {
-                        ("AddonRequiredLink", ExtensionsPanelText.AddonRequiredLinkText, addonUrl!)
+                        ("AddonRequiredLink", ExtensionsPanelText.AddonRequiredLinkText, addonUrl)
                     }));
                 }
             }
