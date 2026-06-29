@@ -84,7 +84,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 Assert.NotNull(ext.AddonRequired);
                 var notice = ExtensionsPanelText.AddonRequiredNotice(ext.AddonRequired!);
                 Assert.Contains(ext.AddonRequired!.Name, notice);
-                Assert.False(string.IsNullOrEmpty(ExtensionsPanelText.AddonRequiredUrl(ext.AddonRequired)));
+                Assert.False(string.IsNullOrEmpty(ExtensionsPanelText.AddonRequiredUrl(ext.AddonRequired!)));
             }
         }
     }
