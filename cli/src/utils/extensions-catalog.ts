@@ -183,6 +183,28 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       license: 'MIT',
     },
   },
+  {
+    name: 'Beehave Tools',
+    description:
+      'AI MCP tools for the Godot Beehave addon (behaviour-tree AI): scaffold a tree root, add composites, decorators, and leaf placeholders, and inspect them.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Beehave',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Beehave',
+    tools: [
+      { name: 'beehave-defaults', description: 'Return the recommended starter skeleton (root, tick rate, a composite, and leaf placeholders) for a Beehave behaviour tree.' },
+      { name: 'beehave-tree-create', description: 'Create a BeehaveTree behaviour-tree root in the currently edited Godot scene.' },
+      { name: 'beehave-add-composite', description: 'Add a Selector/Sequence composite under an existing tree or composite.' },
+      { name: 'beehave-add-decorator', description: 'Add an Inverter/Limiter decorator under an existing tree or composite.' },
+      { name: 'beehave-add-leaf', description: 'Add an Action/Condition leaf placeholder under a composite or decorator.' },
+      { name: 'beehave-get', description: "Read a BeehaveTree's scalar config and dump its tree structure (read-only)." },
+    ],
+    addonRequired: {
+      name: 'Beehave',
+      assetLibId: '1349',
+      repo: 'bitbrain/beehave',
+      license: 'MIT',
+    },
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
