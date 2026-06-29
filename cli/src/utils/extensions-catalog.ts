@@ -226,6 +226,28 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       license: 'MIT',
     },
   },
+  {
+    name: 'Terrain3D Tools',
+    description:
+      'AI MCP tools for the Godot Terrain3D addon (TokisanGames heightmap terrain): create terrains, set the data directory, region size, and material, and inspect them.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Terrain3D',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Terrain3D',
+    tools: [
+      { name: 'terrain3d-defaults', description: 'Return the recommended starter config (region size, mesh LODs, mesh size, vertex spacing, data directory) for a Terrain3D node.' },
+      { name: 'terrain3d-create', description: 'Create a Terrain3D node in the currently edited Godot scene (requires the Terrain3D addon).' },
+      { name: 'terrain3d-set-data-directory', description: "Set an existing Terrain3D node's res:// data directory (where region data persists)." },
+      { name: 'terrain3d-set-region-size', description: "Set an existing Terrain3D node's region size (snapped to a valid Terrain3D size)." },
+      { name: 'terrain3d-set-material', description: 'Assign a Terrain3DMaterial to an existing Terrain3D node (created when missing).' },
+      { name: 'terrain3d-get', description: "Read a Terrain3D node's scalar config (read-only)." },
+    ],
+    addonRequired: {
+      name: 'Terrain3D',
+      assetLibId: '3892',
+      repo: 'TokisanGames/Terrain3D',
+      license: 'MIT',
+    },
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
