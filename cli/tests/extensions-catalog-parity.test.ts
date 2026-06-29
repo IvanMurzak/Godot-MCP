@@ -12,6 +12,13 @@ import { EXTENSIONS_CATALOG, type ExtensionDescriptor } from '../src/utils/exten
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_JSON = path.resolve(__dirname, '..', '..', 'addons', 'godot_mcp', 'extensions.catalog.json');
 
+interface CatalogJsonAddonRequired {
+  name?: string;
+  assetLibId?: string | number;
+  repo?: string;
+  license?: string;
+}
+
 interface CatalogJsonEntry {
   name?: string;
   description?: string;
@@ -19,6 +26,25 @@ interface CatalogJsonEntry {
   version?: string;
   gitUrl?: string;
   tools?: { name?: string; description?: string }[];
+  addonRequired?: CatalogJsonAddonRequired;
+}
+
+/** Trim a string-or-number-or-absent field to a non-empty string, else null (assetLibId may be a JSON number). */
+function trimOrNull(v: string | number | undefined): string | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
+/** Normalize the optional CLASS-B `addonRequired` block; absent / nameless → null (mirrors the C# parser's drop rule). */
+function normalizeAddonRequired(a: CatalogJsonAddonRequired | undefined) {
+  if (!a || !a.name || a.name.trim() === '') return null;
+  return {
+    name: a.name.trim(),
+    assetLibId: trimOrNull(a.assetLibId),
+    repo: trimOrNull(a.repo),
+    license: trimOrNull(a.license),
+  };
 }
 
 /** Normalize a raw JSON entry to the canonical ExtensionDescriptor shape (mirrors the C# parser's mapping). */
@@ -32,6 +58,7 @@ function normalizeJsonEntry(e: CatalogJsonEntry): ExtensionDescriptor {
     tools: (e.tools ?? [])
       .filter((t) => t.name && t.name.trim() !== '')
       .map((t) => ({ name: (t.name ?? '').trim(), description: (t.description ?? '').trim() })),
+    addonRequired: normalizeAddonRequired(e.addonRequired),
   };
 }
 
@@ -56,6 +83,16 @@ describe('extensions-catalog parity with addons/godot_mcp/extensions.catalog.jso
       version: d.version,
       gitUrl: d.gitUrl,
       tools: d.tools.map((t) => ({ name: t.name, description: t.description })),
+      // Class-A entries omit addonRequired (undefined) — coalesce to null so they match the JSON side,
+      // which normalizes an absent block to null. A Class-B entry carries the {name, assetLibId, repo, license} block.
+      addonRequired: d.addonRequired
+        ? {
+            name: d.addonRequired.name,
+            assetLibId: d.addonRequired.assetLibId,
+            repo: d.addonRequired.repo,
+            license: d.addonRequired.license,
+          }
+        : null,
     }));
 
     expect(

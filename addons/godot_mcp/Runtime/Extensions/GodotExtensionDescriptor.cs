@@ -13,6 +13,23 @@ using System.Collections.Generic;
 namespace com.IvanMurzak.Godot.MCP.Extensions
 {
     /// <summary>
+    /// The third-party Godot addon a CLASS-B (addon-dependent) extension wraps — mirrors the catalog JSON
+    /// <c>addonRequired</c> block. Class-A extensions (which wrap a BUILT-IN Godot feature) carry <c>null</c>
+    /// here. It is pure presentation metadata so the dock can show "requires the <c>Name</c> addon" + a link;
+    /// it does NOT affect install logic (the extension package is still installed by its <c>PackageId</c> alone —
+    /// the addon is the consumer's own runtime responsibility, never vendored or downloaded by the installer).
+    /// </summary>
+    /// <param name="Name">The third-party addon's display name (e.g. "PhantomCamera"). Required within the block.</param>
+    /// <param name="AssetLibId">Optional Godot AssetLib id (e.g. "1822"), stored as a string.</param>
+    /// <param name="Repo">Optional upstream repository (owner/name or URL).</param>
+    /// <param name="License">Optional addon licence identifier (informational).</param>
+    public sealed record GodotAddonRequirement(
+        string Name,
+        string? AssetLibId = null,
+        string? Repo = null,
+        string? License = null);
+
+    /// <summary>
     /// One tool family the dock's "Extensions" section offers to install into the CONSUMER's Godot project. The
     /// Godot analog of Unity-MCP's <c>ExtensionData</c> (in <c>MainWindowEditor.Extensions.cs</c>), except the
     /// distribution mechanism is a NuGet <c>&lt;PackageReference&gt;</c> in the consumer's game <c>.csproj</c>
@@ -43,13 +60,19 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
     /// The tool entries this extension contributes, each a <c>(Name, Description)</c> pair — shown as the
     /// extension's tool list (mirrors Unity's per-extension tool enumeration). May be empty.
     /// </param>
+    /// <param name="AddonRequired">
+    /// The third-party addon a CLASS-B extension wraps (the catalog <c>addonRequired</c> block). <c>null</c> for
+    /// Class-A extensions (which wrap a built-in Godot feature). Presentation metadata only — see
+    /// <see cref="GodotAddonRequirement"/>.
+    /// </param>
     public sealed record GodotExtensionDescriptor(
         string Name,
         string Description,
         string PackageId,
         string? Version = null,
         string? GitUrl = null,
-        IReadOnlyList<(string Name, string Description)>? Tools = null)
+        IReadOnlyList<(string Name, string Description)>? Tools = null,
+        GodotAddonRequirement? AddonRequired = null)
     {
         /// <summary>The tool entries this extension contributes, never null (an absent list reads as empty).</summary>
         public IReadOnlyList<(string Name, string Description)> Tools { get; init; }
@@ -57,5 +80,8 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
 
         /// <summary>True when a concrete <see cref="Version"/> pin is present (drives the up-to-date / update decision).</summary>
         public bool HasVersion => !string.IsNullOrWhiteSpace(Version);
+
+        /// <summary>True for a CLASS-B (addon-dependent) extension — i.e. <see cref="AddonRequired"/> is present.</summary>
+        public bool RequiresAddon => AddonRequired != null;
     }
 }

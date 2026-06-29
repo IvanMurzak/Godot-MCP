@@ -89,13 +89,23 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
                         .Select(t => (t!.Name!.Trim(), (t.Description ?? string.Empty).Trim()))
                         .ToArray();
 
+                // CLASS-B addon block: present only when its `name` is non-empty; absent / nameless reads as null.
+                var addonRequired = entry.AddonRequired != null && !string.IsNullOrWhiteSpace(entry.AddonRequired.Name)
+                    ? new GodotAddonRequirement(
+                        Name: entry.AddonRequired.Name!.Trim(),
+                        AssetLibId: string.IsNullOrWhiteSpace(entry.AddonRequired.AssetLibId) ? null : entry.AddonRequired.AssetLibId!.Trim(),
+                        Repo: string.IsNullOrWhiteSpace(entry.AddonRequired.Repo) ? null : entry.AddonRequired.Repo!.Trim(),
+                        License: string.IsNullOrWhiteSpace(entry.AddonRequired.License) ? null : entry.AddonRequired.License!.Trim())
+                    : null;
+
                 result.Add(new GodotExtensionDescriptor(
                     Name: entry.Name!.Trim(),
                     Description: (entry.Description ?? string.Empty).Trim(),
                     PackageId: entry.PackageId!.Trim(),
                     Version: string.IsNullOrWhiteSpace(entry.Version) ? null : entry.Version!.Trim(),
                     GitUrl: string.IsNullOrWhiteSpace(entry.GitUrl) ? null : entry.GitUrl!.Trim(),
-                    Tools: tools));
+                    Tools: tools,
+                    AddonRequired: addonRequired));
             }
 
             return result;
@@ -139,12 +149,23 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             [JsonPropertyName("version")] public string? Version { get; set; }
             [JsonPropertyName("gitUrl")] public string? GitUrl { get; set; }
             [JsonPropertyName("tools")] public List<CatalogTool?>? Tools { get; set; }
+            [JsonPropertyName("addonRequired")] public CatalogAddonRequired? AddonRequired { get; set; }
         }
 
         sealed class CatalogTool
         {
             [JsonPropertyName("name")] public string? Name { get; set; }
             [JsonPropertyName("description")] public string? Description { get; set; }
+        }
+
+        // The optional CLASS-B addon block. `assetLibId` is a JSON STRING by schema convention (e.g. "1822");
+        // keeping it a string keeps the dock + CLI mirror + parity test in lockstep with no number/string drift.
+        sealed class CatalogAddonRequired
+        {
+            [JsonPropertyName("name")] public string? Name { get; set; }
+            [JsonPropertyName("assetLibId")] public string? AssetLibId { get; set; }
+            [JsonPropertyName("repo")] public string? Repo { get; set; }
+            [JsonPropertyName("license")] public string? License { get; set; }
         }
     }
 }
