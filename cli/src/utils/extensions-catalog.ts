@@ -160,6 +160,29 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       { name: 'gridmap-get', description: "Read a GridMap's scalar config (read-only)." },
     ],
   },
+  {
+    name: 'PhantomCamera Tools',
+    description:
+      'AI MCP tools for the Godot Phantom Camera addon (Cinemachine-style virtual cameras): create hosts and cameras, set follow/look-at targets and priority, and inspect them.',
+    packageId: 'com.IvanMurzak.Godot.MCP.PhantomCamera',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-PhantomCamera',
+    tools: [
+      { name: 'phantomcamera-defaults', description: 'Return the recommended starter config (priority, follow/look-at mode, damping) for a Phantom Camera.' },
+      { name: 'phantomcamera-host-create', description: 'Ensure a PhantomCameraHost exists under a Camera3D in the edited scene (required by the addon).' },
+      { name: 'phantomcamera-create', description: 'Create a PhantomCamera3D node (a virtual camera) in the currently edited Godot scene.' },
+      { name: 'phantomcamera-set-follow', description: "Set an existing PhantomCamera3D's follow mode and/or follow target." },
+      { name: 'phantomcamera-set-look-at', description: "Set an existing PhantomCamera3D's look-at mode and/or look-at target." },
+      { name: 'phantomcamera-set-priority', description: "Set an existing PhantomCamera3D's priority (higher wins; raising it switches the active camera)." },
+      { name: 'phantomcamera-get', description: "Read an existing PhantomCamera3D's scalar config (read-only)." },
+    ],
+    addonRequired: {
+      name: 'Phantom Camera',
+      assetLibId: '1822',
+      repo: 'ramokz/phantom-camera',
+      license: 'MIT',
+    },
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
