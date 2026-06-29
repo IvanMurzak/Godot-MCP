@@ -205,6 +205,27 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       license: 'MIT',
     },
   },
+  {
+    name: 'Dialogic Tools',
+    description:
+      'AI MCP tools for the Godot Dialogic addon (dialogue / visual novels): create timeline and character resources, append text events, and inspect them.',
+    packageId: 'com.IvanMurzak.Godot.MCP.Dialogic',
+    version: null,
+    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Dialogic',
+    tools: [
+      { name: 'dialogic-defaults', description: 'Return the recommended starter timeline and character config for Dialogic authoring.' },
+      { name: 'dialogic-timeline-create', description: 'Create a Dialogic timeline resource (.dtl), seeded with a first text event.' },
+      { name: 'dialogic-character-create', description: 'Create a Dialogic character resource (.dch) with a display name and color.' },
+      { name: 'dialogic-timeline-add-text', description: 'Append a text event (optionally with a speaker) to an existing Dialogic timeline (.dtl).' },
+      { name: 'dialogic-get', description: "Read a Dialogic timeline (.dtl) or character (.dch) resource's config (read-only)." },
+    ],
+    addonRequired: {
+      name: 'Dialogic',
+      assetLibId: null,
+      repo: 'dialogic-godot/dialogic',
+      license: 'MIT',
+    },
+  },
 ] as const;
 
 /** True when a descriptor carries a concrete version pin (drives the up-to-date / update decision). */
