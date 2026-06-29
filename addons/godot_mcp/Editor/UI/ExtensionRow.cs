@@ -18,7 +18,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// One row of the dock's <see cref="ExtensionsPanel"/> for a single <see cref="GodotExtensionDescriptor"/> —
     /// the Godot <see cref="Control"/> analog of Unity-MCP's <c>ExtensionPanel</c> row. Styled like
     /// <see cref="FeatureRow"/>'s row-top layout (flex-start, space-between): a LEFT column with the extension name
-    /// as a 16px section title over a muted, wrapping description, and a RIGHT action button whose label + skin
+    /// as a 16px section title over a muted, wrapping description (plus, for CLASS-B addon-dependent extensions, a
+    /// "requires the &lt;X&gt; addon" note + a link to that addon), and a RIGHT action button whose label + skin
     /// follow the install state — "Install" / "Update" (primary cyan), "Installed" (disabled), or "Checking…"
     /// (disabled, transient). Editor-only (<c>#if TOOLS</c>): verified via the headless Godot smoke (test.md
     /// Suite 3). Holds NO live connection-event subscriptions — its state is read synchronously by the panel.
@@ -78,6 +79,31 @@ namespace com.IvanMurzak.Godot.MCP.UI
             };
             DockStyle.ApplyDescription(descriptionLabel);
             leftColumn.AddChild(descriptionLabel);
+
+            // CLASS-B (addon-dependent) extensions surface a "requires the <X> addon" note + a link to that addon
+            // (Godot AssetLib when known, else the upstream repo). The extension package still installs by PackageId
+            // alone — the wrapped addon is the consumer's own responsibility (the note makes that explicit). CLASS-A
+            // extensions carry no AddonRequired and skip this block. The note/URL text is pure-managed + unit-tested.
+            if (Descriptor.AddonRequired != null)
+            {
+                var addonNote = new Label
+                {
+                    Name = "AddonRequiredNote",
+                    Text = ExtensionsPanelText.AddonRequiredNotice(Descriptor.AddonRequired),
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill
+                };
+                DockStyle.ApplyDescription(addonNote);
+                leftColumn.AddChild(addonNote);
+
+                var addonUrl = ExtensionsPanelText.AddonRequiredUrl(Descriptor.AddonRequired);
+                if (!string.IsNullOrEmpty(addonUrl))
+                {
+                    leftColumn.AddChild(DockStyle.LinkRow($"{Descriptor.PackageId}AddonLinkRow", new[]
+                    {
+                        ("AddonRequiredLink", ExtensionsPanelText.AddonRequiredLinkText, addonUrl)
+                    }));
+                }
+            }
 
             // --- RIGHT: the install/update/installed action button (state set via ShowState). ---
             _actionButton = new Button
