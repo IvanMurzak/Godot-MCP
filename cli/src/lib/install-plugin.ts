@@ -307,7 +307,7 @@ function patchConsumerCsproj(
   if (csprojPath === null) {
     warnings.push(
       'No .csproj found at the project root — the godot_mcp addon is C# and needs a Godot.NET.Sdk project. ' +
-        `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${ADDON_PACKAGE_REFERENCES.map((r) => r.id).join(' + ')} PackageReferences.`,
+        `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${ADDON_PACKAGE_REFERENCES.map((r) => r.id).join(' + ')} PackageReferences + the EmbeddedResource for the extension catalog.`,
     );
     return { changed: false, packages: [], embeds: [] };
   }

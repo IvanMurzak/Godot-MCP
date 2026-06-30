@@ -256,6 +256,12 @@ describe('installPlugin — --source local copy', () => {
       expect(fs.existsSync(path.join(tmp, 'addons', 'godot_mcp', 'plugin.cfg'))).toBe(true);
       expect(fs.existsSync(path.join(tmp, 'addons', 'godot_mcp', 'Editor', 'GodotMcpPlugin.cs'))).toBe(true);
       expect(result.csproj.changed).toBe(true);
+      // csproj also embeds the extension catalog (else the Extensions panel is empty — issue #246)
+      const csprojText = fs.readFileSync(path.join(tmp, 'MyGame.csproj'), 'utf-8');
+      for (const res of ADDON_EMBEDDED_RESOURCES) {
+        expect(csprojText).toContain(`Include="${res.include}" LogicalName="${res.logicalName}"`);
+        expect(result.csproj.embeds.find((e) => e.include === res.include)?.action).toBe('added');
+      }
       expect(result.enabledPlugins).toContain(GODOT_MCP_PLUGIN_PATH);
     }
   });
@@ -290,6 +296,12 @@ describe('installPlugin — skipMaterialize', () => {
       if (result.kind === 'success') {
         expect(result.materialize.source).toBe('skipped');
         expect(result.csproj.changed).toBe(true);
+        // csproj also embeds the extension catalog (else the Extensions panel is empty — issue #246)
+        const csprojText = fs.readFileSync(path.join(tmp, 'MyGame.csproj'), 'utf-8');
+        for (const res of ADDON_EMBEDDED_RESOURCES) {
+          expect(csprojText).toContain(`Include="${res.include}" LogicalName="${res.logicalName}"`);
+          expect(result.csproj.embeds.find((e) => e.include === res.include)?.action).toBe('added');
+        }
         // warns about the absent addon files
         expect(result.warnings.some((w) => w.includes('plugin.cfg'))).toBe(true);
       }
