@@ -1,0 +1,75 @@
+cli/tests/install-plugin-installer.test.ts
+  s_52bfd8633bca95::t_91f03a355707b8 8
+  s_e3cea916442b5e::t_2f0acb46668dbb 121-126,194,196-202
+cli/src/lib/install-plugin.ts
+  s_52bfd8633bca95::t_6d481087411cce 8
+  s_4a184c28715d9f::t_71d40645f13053 290-292,296-299,312,316-320,323,330-331,336-340
+cli/tests/addon-deps-parity.test.ts
+  s_52bfd8633bca95::t_54762b6bc0c792 5
+  s_52bfd8633bca95::t_529762b39873a5 26-31
+  s_52bfd8633bca95::t_e5eee0184b919a 32-34
+  s_4a184c28715d9f::t_783fb48f0cdc3b 35-36,59-77
+cli/src/utils/addon-deps.ts
+  s_52bfd8633bca95::t_d85faafd730172 25-30,49
+  s_52bfd8633bca95::t_c5e4d4ce87a5f3 31-33
+  s_52bfd8633bca95::t_ae8bf5275c3d49 50-52
+  s_4a184c28715d9f::t_b06fefbfb6953e 34-38,53-64
+cli/tests/csproj-deps.test.ts
+  s_52bfd8633bca95::t_956eba02cac47f 2-3
+  s_52bfd8633bca95::t_63a896c43d85db 7
+  s_e3cea916442b5e::t_49b5b06c8cbea9 129-225
+cli/src/utils/csproj-deps.ts
+  s_52bfd8633bca95::t_a6de44a21b8111 1-6,39-40,45
+  s_52bfd8633bca95::t_0b89b517c6e058 41-44
+  s_52bfd8633bca95::t_e25b7046119af1 46-52,77-91,97-101,103-105,108,193,205,274,283,285,290
+  s_52bfd8633bca95::t_c80ebf06f4a1d1 194-196,202-204
+  s_52bfd8633bca95::t_db2439b83e331b 206-208,271-273
+  s_52bfd8633bca95::t_ea3d47d6a95774 275
+  s_52bfd8633bca95::t_a03f20c7400110 282
+  s_52bfd8633bca95::t_154734125fee77 284
+  s_52bfd8633bca95::t_1b8cf003cc2022 286-289
+  s_52bfd8633bca95::t_6a26c216785fdd 291
+  s_4a184c28715d9f::t_cfc58993307dab 197-201,209-270,295
+cli/README.md
+  s_e3cea916442b5e::t_d5304b3ba86701 38,140-144
+cli/src/lib/types.ts
+  s_e3cea916442b5e::t_abb13842e7d720 412,416,420-421
+CLAUDE.md
+  s_4a184c28715d9f::t_106a1484e4cf3a 162-163,170-173,181-192
+README.md
+  s_4a184c28715d9f::t_45683ccf2e6b7f 68-70,250-251,285-286,297,299-300,307-311,319-324
+cli/src/commands/install-plugin.ts
+  s_4a184c28715d9f::t_f589fab753d9f1 83-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "4ddf34c1b2ab7062997bfe92404a6135a7c4d691",
+  "prompts": {},
+  "sessions": {
+    "s_4a184c28715d9f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4360864a431fd171",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_52bfd8633bca95": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d9bda5b-4e10-4c2c-a34a-3932ba4a1c0e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e3cea916442b5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c575ab56-73e6-4952-bb8b-fef415924e27",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
