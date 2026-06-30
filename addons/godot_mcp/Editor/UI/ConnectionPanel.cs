@@ -47,7 +47,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
     [Tool]
     public partial class ConnectionPanel : VBoxContainer
     {
-        readonly GodotMcpConnection _connection;
+        // = null! suppresses CS8618 for the Godot-required parameterless ctor (below): Godot's hot-reload
+        // re-instantiates [Tool] scripts via new() and cannot set this readonly field; the parameterized
+        // ctor assigns the real value for the live-wired instance.
+        readonly GodotMcpConnection _connection = null!;
 
         /// <summary>
         /// Raised after the user changes any connection setting that affects the RESOLVED MCP-client URL or token
@@ -129,7 +132,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // lifecycle (Stopped/Starting/Running/Stopping) — the connection's own hub state is shown by the
         // Godot circle. This is the #1 "server-less client" carve-out reversal: the plugin can now HOST its
         // own server, not only connect to an external/cloud one.
-        readonly GodotMcpServerManager _serverManager;
+        // = null! suppresses CS8618 for the Godot-required parameterless ctor (see _connection above).
+        readonly GodotMcpServerManager _serverManager = null!;
         VBoxContainer _localServerRow = null!;
         Label _serverStatusLabel = null!;
         Button _serverStartStopButton = null!;

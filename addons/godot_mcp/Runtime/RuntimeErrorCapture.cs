@@ -80,9 +80,16 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         // are read at Install()/Uninstall() time and forwarded into the ErrorCaptureManager ctor. In production
         // all are null and the real static bridge / GD.Print run. Mirrors the
         // GodotMcpRuntime._installForTests / _uninstallForTests pattern. Internal: test-only.
+        //
+        // CS0649 is suppressed here because these seams are assigned ONLY via reflection from
+        // Godot-MCP.Tests; in the addon/testbed build (no test assembly) they are never assigned and the
+        // compiler otherwise warns "field is never assigned to". Keeping the seams (read via `_x ?? <real>`)
+        // is intentional, so suppress rather than remove.
+#pragma warning disable CS0649
         internal static Func<ScriptErrorCapture, ScriptErrorCapture?>? _bridgeInstallForTests;
         internal static Action? _bridgeUninstallForTests;
         internal static Action<string>? _logForTests;
+#pragma warning restore CS0649
 
         /// <summary>True while capture is installed (an engine logger and/or the C# fault hooks are live).</summary>
         public static bool IsInstalled

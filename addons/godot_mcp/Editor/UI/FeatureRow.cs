@@ -31,7 +31,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public GodotMcpFeatureKind Kind { get; }
 
         readonly bool _showTokens;
-        readonly Action<GodotMcpFeatureKind> _onOpen;
+        // = null! suppresses CS8618 for the Godot-required parameterless ctor (below): Godot's hot-reload
+        // re-instantiates [Tool] scripts via new() and cannot set this readonly field; the parameterized
+        // ctor assigns the real value for the live-wired instance.
+        readonly Action<GodotMcpFeatureKind> _onOpen = null!;
 
         Label _countLabel = null!;
         Label? _tokenLabel;
