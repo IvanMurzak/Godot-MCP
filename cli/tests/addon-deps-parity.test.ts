@@ -26,10 +26,18 @@ function parsePins(text: string): Map<string, string> {
 /** Parse `<EmbeddedResource Include="path" LogicalName="name" />` pairs from csproj text. */
 function parseEmbeds(text: string): Map<string, string> {
   const embeds = new Map<string, string>();
-  const re = /<EmbeddedResource\b[^>]*?\bInclude\s*=\s*"([^"]+)"[^>]*?\bLogicalName\s*=\s*"([^"]+)"/gi;
+  // Match each <EmbeddedResource> element, then extract Include + LogicalName from the
+  // captured element text separately — mirrors the production `embeddedResourceRegex`
+  // approach (cli/src/utils/csproj-deps.ts) so the parser stays order-agnostic
+  // (Include / LogicalName in either attribute order).
+  const re = /<EmbeddedResource\b[^>]*?(?:\/>|><\/EmbeddedResource>)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    embeds.set(m[1], m[2]);
+    const include = m[0].match(/\bInclude\s*=\s*"([^"]+)"/i);
+    const logicalName = m[0].match(/\bLogicalName\s*=\s*"([^"]+)"/i);
+    if (include && logicalName) {
+      embeds.set(include[1], logicalName[1]);
+    }
   }
   return embeds;
 }

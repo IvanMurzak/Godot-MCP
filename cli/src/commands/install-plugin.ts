@@ -24,7 +24,7 @@ function cliVersion(): string {
 
 export const installPluginCommand = new Command('install-plugin')
   .description(
-    'Install the godot_mcp addon into a Godot C# project: materialize res://addons/godot_mcp/ (download the matching GitHub release, or --source a local copy), add the required NuGet PackageReferences to the project .csproj, and enable the plugin in project.godot.',
+    'Install the godot_mcp addon into a Godot C# project: materialize res://addons/godot_mcp/ (download the matching GitHub release, or --source a local copy), add the required NuGet PackageReferences and the extension-catalog <EmbeddedResource> to the project .csproj, and enable the plugin in project.godot.',
   )
   .argument('[path]', 'Path to the Godot project')
   .option('--path <path>', 'Path to the Godot project')

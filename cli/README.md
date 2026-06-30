@@ -126,7 +126,7 @@ godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # pin a specific 
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # offline / dev copy
 ```
 
-It performs three steps:
+It performs four steps:
 
 1. **Materialize `res://addons/godot_mcp/`.** By default it downloads `godot-mcp-addon-<version>.zip`
    over HTTPS from **github.com only** (the `IvanMurzak/Godot-MCP` release `v<version>`; the version
