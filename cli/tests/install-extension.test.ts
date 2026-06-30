@@ -65,6 +65,37 @@ describe('installExtension — lib logic (parity with the dock ExtensionInstalle
     expect(refs.get('com.ivanmurzak.reflectornet')).toBe('5.3.1');
   });
 
+  it('writes Version="*" for an unpinned (null-version) catalog entry — the shipped catalog case (#242)', async () => {
+    // The shipped EXTENSIONS_CATALOG ships every entry with version: null. Before #242 this produced a
+    // versionless <PackageReference>, which fails the consumer's `dotnet build` with NU1015. It must float to "*".
+    const floatCatalog: readonly ExtensionDescriptor[] = [{ ...FIXTURE_CATALOG[0], version: null }];
+    const result = await installExtension({
+      godotProjectPath: tmpDir,
+      extensionId: 'com.IvanMurzak.Godot.MCP.ProBuilder',
+      catalog: floatCatalog,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind === 'success') {
+      expect(result.outcome).toBe('added');
+      expect(result.toVersion).toBe('*');
+      expect(result.message).toContain('*');
+    }
+    const csproj = fs.readFileSync(csprojPath, 'utf-8');
+    expect(csproj).toContain('<PackageReference Include="com.IvanMurzak.Godot.MCP.ProBuilder" Version="*" />');
+    expect(parsePackageReferences(csproj).get('com.ivanmurzak.godot.mcp.probuilder')).toBe('*');
+
+    // Idempotent: a second unpinned install over the now-floating reference is a no-op (never re-touches "*").
+    const before = fs.readFileSync(csprojPath, 'utf-8');
+    const second = await installExtension({
+      godotProjectPath: tmpDir,
+      extensionId: 'com.IvanMurzak.Godot.MCP.ProBuilder',
+      catalog: floatCatalog,
+    });
+    expect(second.kind).toBe('success');
+    if (second.kind === 'success') expect(second.outcome).toBe('already-up-to-date');
+    expect(fs.readFileSync(csprojPath, 'utf-8')).toBe(before);
+  });
+
   it('is idempotent — a second install reports already-up-to-date with no write', async () => {
     await installExtension({ godotProjectPath: tmpDir, extensionId: 'com.IvanMurzak.Godot.MCP.ProBuilder', catalog: FIXTURE_CATALOG });
     const before = fs.readFileSync(csprojPath, 'utf-8');

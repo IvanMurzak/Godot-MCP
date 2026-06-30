@@ -115,12 +115,15 @@ describe('planExtensionInstall — ADD', () => {
     );
   });
 
-  it('omits the Version attribute when the descriptor has no version', () => {
+  it('writes Version="*" when the descriptor has no version (NU1015 float — #242)', () => {
+    // Regression for #242: an unpinned (null-version) descriptor must NOT emit a versionless
+    // <PackageReference> (which fails NuGet restore with NU1015) — it floats to "*".
     const plan = planExtensionInstall(descriptor('com.x', null), SampleCsproj);
     expect(plan.action).toBe('add');
+    expect(plan.toVersion).toBe('*');
     const refs = parsePackageReferences(plan.resultingCsproj);
-    expect(refs.has('com.x')).toBe(true);
-    expect(refs.get('com.x')).toBe('');
+    expect(refs.get('com.x')).toBe('*');
+    expect(plan.resultingCsproj).toContain('<PackageReference Include="com.x" Version="*" />');
   });
 
   it('creates an ItemGroup when the project has no PackageReferences', () => {
@@ -160,6 +163,19 @@ describe('planExtensionInstall — UPDATE', () => {
     expect(parsePackageReferences(plan.resultingCsproj).get('com.ivanmurzak.godot.mcp.probuilder')).toBe('1.2.0');
   });
 
+  it('self-heals a versionless reference to Version="*" when the descriptor is unpinned (#242)', () => {
+    const versionless = `<Project Sdk="Godot.NET.Sdk/4.3.0">
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.Godot.MCP.ProBuilder" />
+  </ItemGroup>
+</Project>`;
+    const plan = planExtensionInstall(descriptor(undefined, null), versionless);
+    expect(plan.action).toBe('update');
+    expect(plan.fromVersion).toBe('');
+    expect(plan.toVersion).toBe('*');
+    expect(parsePackageReferences(plan.resultingCsproj).get('com.ivanmurzak.godot.mcp.probuilder')).toBe('*');
+  });
+
   it('updates the child <Version> element form in place (no new attribute)', () => {
     const childForm = `<Project Sdk="Godot.NET.Sdk/4.3.0">
   <ItemGroup>
@@ -190,10 +206,12 @@ describe('planExtensionInstall — NO-OP', () => {
     expect(plan.action).toBe('noop');
   });
 
-  it('no-ops when the descriptor has no version and a reference exists', () => {
+  it('no-ops when the descriptor has no version and a concrete pin exists (never downgrades to "*" — #242)', () => {
     const installed = planExtensionInstall(descriptor(undefined, '1.0.0'), SampleCsproj).resultingCsproj;
     const plan = planExtensionInstall(descriptor(undefined, null), installed);
     expect(plan.action).toBe('noop');
+    // An unpinned descriptor must NEVER downgrade a concrete consumer pin to "*".
+    expect(parsePackageReferences(plan.resultingCsproj).get('com.ivanmurzak.godot.mcp.probuilder')).toBe('1.0.0');
   });
 
   it('throws CsprojParseError on an unparseable csproj', () => {

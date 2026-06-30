@@ -104,7 +104,9 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
                 ? new ExtensionInstallResult(
                     ExtensionInstallOutcome.Added,
                     $"Added {descriptor.PackageId}"
-                        + (descriptor.HasVersion ? $" {descriptor.Version}" : string.Empty)
+                        // Report the version actually written (the pin, or the "*" float marker), not the
+                        // descriptor's pin presence — an unpinned add now writes Version="*".
+                        + (string.IsNullOrEmpty(plan.ToVersion) ? string.Empty : $" {plan.ToVersion}")
                         + ". Rebuild solutions to restore and compile the extension.",
                     RebuildRequired: true)
                 : new ExtensionInstallResult(

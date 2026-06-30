@@ -6,12 +6,17 @@
 //
 // Parity contract (verified by `cli/tests/extension-install.test.ts` against the
 // SAME scenario set as `Godot-MCP.Tests/ExtensionInstallTests.cs`):
-//   - absent reference            → ADD (append; version attribute only when pinned)
-//   - present, descriptor newer   → UPDATE (bump version, honoring attr vs child form)
-//   - present, no version, pinned → UPDATE (set the descriptor's pin)
-//   - present, equal/newer        → NO-OP
-//   - descriptor unpinned, present→ NO-OP
+//   - absent reference              → ADD (append; Version="<pin>" when pinned, Version="*" when unpinned/floating)
+//   - present, descriptor newer     → UPDATE (bump version, honoring attr vs child form)
+//   - present, no version, pinned   → UPDATE (set the descriptor's pin)
+//   - present, no version, unpinned → UPDATE (SELF-HEAL the NU1015-prone versionless reference to Version="*")
+//   - present, equal/newer          → NO-OP
+//   - descriptor unpinned, present with a version → NO-OP (never downgrade a concrete pin to "*")
 //   - version compare is numeric + tolerant (1.10.0 > 1.2.0; trailing 0; suffix-tolerant)
+//
+// A versionless `<PackageReference Include="x" />` fails NuGet restore with NU1015, so an
+// unpinned (null-version) descriptor's "float to latest" intent is materialized as
+// `Version="*"` — mirroring the C# planner's `FloatVersion` constant byte-for-byte.
 //
 // The C# planner uses System.Xml.Linq; this uses scoped text edits (like the CLI's
 // existing `csproj-deps.ts`) so the consumer's formatting is preserved verbatim. The
@@ -23,6 +28,13 @@ import type { ExtensionDescriptor } from './extensions-catalog.js';
 import { hasVersion } from './extensions-catalog.js';
 
 export type ExtensionInstallAction = 'add' | 'update' | 'noop';
+
+/**
+ * The MSBuild floating-version marker written for an UNPINNED (null/empty-version) descriptor.
+ * A versionless `<PackageReference Include="x" />` fails NuGet restore with NU1015, so the
+ * "float to latest" intent is materialized as `Version="*"`. Mirrors C# `ExtensionInstallPlanner.FloatVersion`.
+ */
+export const FLOAT_VERSION = '*';
 
 export interface ExtensionInstallPlan {
   /** The add / update / no-op decision. */
@@ -133,9 +145,10 @@ function detectEol(text: string): '\n' | '\r\n' {
 }
 
 function renderRef(descriptor: ExtensionDescriptor): string {
-  return hasVersion(descriptor)
-    ? `<PackageReference Include="${descriptor.packageId}" Version="${descriptor.version}" />`
-    : `<PackageReference Include="${descriptor.packageId}" />`;
+  // Always emit a Version: the descriptor's pin when set, else the "*" float marker. A versionless
+  // reference fails NuGet restore with NU1015. Byte-equal to the C# planner's AppendPackageReference.
+  const version = hasVersion(descriptor) ? descriptor.version : FLOAT_VERSION;
+  return `<PackageReference Include="${descriptor.packageId}" Version="${version}" />`;
 }
 
 /** Index of the `</ItemGroup>` closing the FIRST `<ItemGroup>` holding a `<PackageReference>`, or -1. */
@@ -217,15 +230,30 @@ export function planExtensionInstall(
       resultingCsproj: appendReference(csprojText, descriptor),
       packageId: descriptor.packageId,
       fromVersion: null,
-      toVersion: hasVersion(descriptor) ? descriptor.version : null,
+      toVersion: hasVersion(descriptor) ? descriptor.version : FLOAT_VERSION,
     };
   }
 
   const element = match[0];
   const currentVersion = readElementVersion(element);
 
-  // Descriptor pins no version → leave the existing reference untouched.
+  // Descriptor pins no version → it wants a FLOATING reference (Version="*").
   if (!hasVersion(descriptor)) {
+    // SELF-HEAL: an existing reference with NO version is NU1015-prone — upgrade it to "*".
+    // But NEVER downgrade a concrete consumer pin (or an existing "*") to "*": leave any
+    // already-versioned reference untouched (no-op), since the consumer's pin is authoritative.
+    if (currentVersion === '') {
+      const healedElement = setElementVersion(element, FLOAT_VERSION);
+      return {
+        action: 'update',
+        // Function replacement so any `$` in the marker is never treated as a replacement pattern.
+        resultingCsproj: csprojText.replace(elementRe, () => healedElement),
+        packageId: descriptor.packageId,
+        fromVersion: currentVersion,
+        toVersion: FLOAT_VERSION,
+      };
+    }
+
     return {
       action: 'noop',
       resultingCsproj: csprojText,

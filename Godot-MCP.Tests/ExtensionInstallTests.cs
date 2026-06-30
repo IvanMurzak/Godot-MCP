@@ -112,15 +112,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Plan_Add_WithNoVersion_OmitsVersionAttribute()
+        public void Plan_Add_WithNoVersion_WritesFloatVersion()
         {
+            // Regression for #242: an unpinned (null-version) descriptor must NOT emit a versionless
+            // <PackageReference> (which fails NuGet restore with NU1015) — its "float to latest" intent
+            // is materialized as Version="*".
             var descriptor = new GodotExtensionDescriptor("X", "desc", "com.x", Version: null);
             var plan = ExtensionInstallPlanner.Plan(descriptor, SampleCsproj);
 
             Assert.Equal(ExtensionInstallAction.Add, plan.Action);
+            Assert.Equal("*", plan.ToVersion);
             var refs = InstalledStateDetector.ParsePackageReferences(plan.ResultingCsproj);
-            Assert.True(refs.ContainsKey("com.x"));
-            Assert.Equal(string.Empty, refs["com.x"]);
+            Assert.Equal("*", refs["com.x"]);
+            Assert.Contains("<PackageReference Include=\"com.x\" Version=\"*\" />", plan.ResultingCsproj);
         }
 
         [Fact]
@@ -198,6 +202,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("<Version>1.2.0</Version>", plan.ResultingCsproj);
         }
 
+        [Fact]
+        public void Plan_SelfHeals_VersionlessReference_WhenDescriptorUnpinned()
+        {
+            // #242 self-heal: an EXISTING versionless reference + an UNPINNED descriptor → UPDATE to
+            // Version="*" (a versionless reference is NU1015-prone; the unpinned descriptor wants a float).
+            const string versionless =
+@"<Project Sdk=""Godot.NET.Sdk/4.3.0"">
+  <ItemGroup>
+    <PackageReference Include=""com.IvanMurzak.Godot.MCP.ProBuilder"" />
+  </ItemGroup>
+</Project>";
+            var plan = ExtensionInstallPlanner.Plan(
+                new GodotExtensionDescriptor("X", "d", "com.IvanMurzak.Godot.MCP.ProBuilder", Version: null), versionless);
+
+            Assert.Equal(ExtensionInstallAction.Update, plan.Action);
+            Assert.Equal(string.Empty, plan.FromVersion);
+            Assert.Equal("*", plan.ToVersion);
+            var refs = InstalledStateDetector.ParsePackageReferences(plan.ResultingCsproj);
+            Assert.Equal("*", refs["com.IvanMurzak.Godot.MCP.ProBuilder"]);
+        }
+
         // --- Planner: NO-OP ------------------------------------------------------------------------------------
 
         [Fact]
@@ -233,6 +258,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var plan = ExtensionInstallPlanner.Plan(
                 new GodotExtensionDescriptor("X", "d", "com.IvanMurzak.Godot.MCP.ProBuilder", Version: null), installed);
             Assert.Equal(ExtensionInstallAction.NoOp, plan.Action);
+            // #242 invariant: an unpinned descriptor must NEVER downgrade a concrete consumer pin to "*".
+            var refs = InstalledStateDetector.ParsePackageReferences(plan.ResultingCsproj);
+            Assert.Equal("1.0.0", refs["com.IvanMurzak.Godot.MCP.ProBuilder"]);
         }
 
         [Fact]

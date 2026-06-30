@@ -69,14 +69,26 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
     public static class ExtensionInstallPlanner
     {
         /// <summary>
+        /// The MSBuild floating-version marker (<c>"*"</c>) written for an UNPINNED (null/empty-version)
+        /// descriptor. A versionless <c>&lt;PackageReference Include="x" /&gt;</c> fails NuGet restore with
+        /// <c>NU1015</c>, so an unpinned descriptor's "float to latest" intent is materialized as
+        /// <c>Version="*"</c> — a valid floating reference. Mirrored by the TS planner's <c>FLOAT_VERSION</c>.
+        /// </summary>
+        public const string FloatVersion = "*";
+
+        /// <summary>
         /// Compute the install plan for <paramref name="descriptor"/> against <paramref name="csprojText"/>.
         /// <list type="bullet">
-        ///   <item>No reference present → <see cref="ExtensionInstallAction.Add"/> (append a new one).</item>
+        ///   <item>No reference present → <see cref="ExtensionInstallAction.Add"/> (append <c>Version="&lt;pin&gt;"</c> when pinned, else <c>Version="*"</c> for an unpinned/floating descriptor).</item>
         ///   <item>
         ///     Reference present but older than the descriptor's pinned version (or present with no version while the
         ///     descriptor pins one) → <see cref="ExtensionInstallAction.Update"/> (set the <c>Version</c> attribute).
         ///   </item>
-        ///   <item>Reference present and already up to date (or descriptor has no version pin) → <see cref="ExtensionInstallAction.NoOp"/>.</item>
+        ///   <item>
+        ///     Reference present with NO version while the descriptor is unpinned → <see cref="ExtensionInstallAction.Update"/>
+        ///     (SELF-HEAL the NU1015-prone versionless reference up to <c>Version="*"</c>).
+        ///   </item>
+        ///   <item>Reference present and already up to date, or unpinned descriptor against an already-versioned reference (never downgrade a concrete pin to <c>"*"</c>) → <see cref="ExtensionInstallAction.NoOp"/>.</item>
         /// </list>
         /// Throws <see cref="ArgumentException"/> only on a genuinely unparseable <c>.csproj</c> (the editor surfaces
         /// that as an error rather than silently corrupting the project file — distinct from the DETECTOR, which
@@ -116,15 +128,29 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
                     Serialize(doc),
                     descriptor.PackageId,
                     FromVersion: null,
-                    ToVersion: descriptor.HasVersion ? descriptor.Version : null);
+                    ToVersion: descriptor.HasVersion ? descriptor.Version : FloatVersion);
             }
 
             // --- Existing reference → decide UPDATE vs NO-OP ---
             var currentVersion = ReadReferenceVersion(existing);
 
-            // Descriptor pins no version → leave the existing reference untouched (no target to compare to).
+            // Descriptor pins no version → it wants a FLOATING reference (Version="*").
             if (!descriptor.HasVersion)
             {
+                // SELF-HEAL: an existing reference with NO version is NU1015-prone — upgrade it to "*".
+                // But NEVER downgrade a concrete consumer pin (or an existing "*") to "*": leave any
+                // already-versioned reference untouched (no-op), since the consumer's pin is authoritative.
+                if (string.IsNullOrEmpty(currentVersion))
+                {
+                    SetReferenceVersion(existing, FloatVersion);
+                    return new ExtensionInstallPlan(
+                        ExtensionInstallAction.Update,
+                        Serialize(doc),
+                        descriptor.PackageId,
+                        currentVersion,
+                        FloatVersion);
+                }
+
                 return new ExtensionInstallPlan(
                     ExtensionInstallAction.NoOp, csprojText, descriptor.PackageId, currentVersion, ToVersion: null);
             }
@@ -186,8 +212,9 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
 
             var reference = new XElement(ns + "PackageReference",
                 new XAttribute("Include", descriptor.PackageId));
-            if (descriptor.HasVersion)
-                reference.SetAttributeValue("Version", descriptor.Version);
+            // Always emit a Version: the descriptor's pin when set, else the "*" float marker. A versionless
+            // reference fails NuGet restore with NU1015 (the bug this planner is hardened against).
+            reference.SetAttributeValue("Version", descriptor.HasVersion ? descriptor.Version : FloatVersion);
 
             var targetGroup = doc.Descendants()
                 .FirstOrDefault(e => e.Name.LocalName == "ItemGroup"
