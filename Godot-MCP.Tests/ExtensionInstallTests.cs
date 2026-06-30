@@ -381,6 +381,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Installer_Add_Unpinned_MessageContainsFloatMarker()
+        {
+            // #242 parity with the CLI lib test (install-extension.test.ts): an UNPINNED (null-version)
+            // descriptor's Add must surface the "*" float marker actually written to the .csproj — proving
+            // the installer's message path reports plan.ToVersion ("*"), not an empty version. Guards against
+            // a regression in the `string.IsNullOrEmpty(plan.ToVersion)` branch (ExtensionInstaller.cs)
+            // silently dropping "*" from the status line.
+            var file = new FakeProjectFile(SampleCsproj);
+            var result = ExtensionInstaller.Install(
+                new GodotExtensionDescriptor("X", "desc", "com.x", Version: null), file);
+
+            Assert.Equal(ExtensionInstallOutcome.Added, result.Outcome);
+            Assert.True(result.RebuildRequired);
+            Assert.Equal(1, file.Writes);
+            Assert.Contains("*", result.Message);
+
+            // The reference was written with the float marker.
+            Assert.Equal("*", InstalledStateDetector.ParsePackageReferences(file.Read())["com.x"]);
+        }
+
+        [Fact]
         public void Installer_NoOp_DoesNotWrite()
         {
             var installed = ExtensionInstallPlanner.Plan(Descriptor(Version: "1.2.0"), SampleCsproj).ResultingCsproj;

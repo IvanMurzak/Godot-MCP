@@ -140,7 +140,9 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
                 // SELF-HEAL: an existing reference with NO version is NU1015-prone — upgrade it to "*".
                 // But NEVER downgrade a concrete consumer pin (or an existing "*") to "*": leave any
                 // already-versioned reference untouched (no-op), since the consumer's pin is authoritative.
-                if (string.IsNullOrEmpty(currentVersion))
+                // ReadReferenceVersion never returns null (falls back to string.Empty), so an empty-string
+                // check is exact — mirrors the TS port's `currentVersion === ''`.
+                if (currentVersion.Length == 0)
                 {
                     SetReferenceVersion(existing, FloatVersion);
                     return new ExtensionInstallPlan(
@@ -156,7 +158,7 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             }
 
             var target = descriptor.Version!;
-            var needsBump = string.IsNullOrEmpty(currentVersion)
+            var needsBump = currentVersion.Length == 0
                 || InstalledStateDetector.CompareVersions(target, currentVersion) > 0;
 
             if (!needsBump)
