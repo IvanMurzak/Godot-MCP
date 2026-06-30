@@ -28,9 +28,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
     public partial class ExtensionRow : HBoxContainer
     {
         /// <summary>The extension descriptor this row represents.</summary>
-        public GodotExtensionDescriptor Descriptor { get; }
+        // = null! suppresses CS8618 for the Godot-required parameterless ctor (below): Godot's hot-reload
+        // re-instantiates [Tool] scripts via new() and cannot set this get-only property / readonly field;
+        // the parameterized ctor assigns the real values for the live-wired instance.
+        public GodotExtensionDescriptor Descriptor { get; } = null!;
 
-        readonly Action<GodotExtensionDescriptor> _onAction;
+        readonly Action<GodotExtensionDescriptor> _onAction = null!;
 
         Button _actionButton = null!;
 

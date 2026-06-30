@@ -40,7 +40,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
     [Tool]
     public partial class FeaturesPanel : VBoxContainer
     {
-        readonly GodotMcpConnection _connection;
+        // = null! suppresses CS8618 for the Godot-required parameterless ctor (below): Godot's hot-reload
+        // re-instantiates [Tool] scripts via new() and cannot set this readonly field; the parameterized
+        // ctor assigns the real value for the live-wired instance.
+        readonly GodotMcpConnection _connection = null!;
 
         FeatureRow _toolsRow = null!;
         FeatureRow _promptsRow = null!;

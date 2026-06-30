@@ -235,11 +235,17 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// </summary>
         static void RuntimeErrorCaptureInstall() => RuntimeErrorCapture.Install();
 
+        // CS0649 is suppressed for these two seams: they are assigned ONLY via reflection from
+        // Godot-MCP.Tests; in the addon/testbed build (no test assembly) they are never assigned, so the
+        // compiler otherwise warns "field is never assigned to". The seams (read via `_x ?? <real>`) are
+        // intentional, so suppress rather than remove.
+#pragma warning disable CS0649
         /// <summary>Test seam: overrides the capture installer in <see cref="InstallCaptureThenBuildHandle"/>. Null in production.</summary>
         internal static Action? _installForTests;
 
         /// <summary>Test seam: overrides the capture uninstaller in <see cref="InstallCaptureThenBuildHandle"/>'s rollback. Null in production.</summary>
         internal static Action? _uninstallForTests;
+#pragma warning restore CS0649
 
         /// <summary>
         /// Resolve the addon version reported in the MCP handshake from
