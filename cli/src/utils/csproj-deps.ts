@@ -1,4 +1,9 @@
-import { ADDON_PACKAGE_REFERENCES, type AddonPackageReference } from './addon-deps.js';
+import {
+  ADDON_PACKAGE_REFERENCES,
+  ADDON_EMBEDDED_RESOURCES,
+  type AddonPackageReference,
+  type AddonEmbeddedResource,
+} from './addon-deps.js';
 
 /**
  * Idempotently reconcile a Godot consumer `.csproj`'s `<PackageReference>`s so it
@@ -31,6 +36,20 @@ export interface CsprojPatchResult {
   changes: CsprojPatchChange[];
 }
 
+export type CsprojEmbedChange =
+  | { include: string; action: 'added'; logicalName: string }
+  | { include: string; action: 'updated'; from: string; logicalName: string }
+  | { include: string; action: 'unchanged'; logicalName: string };
+
+export interface CsprojEmbedResult {
+  /** The new csproj text (identical to input when nothing changed). */
+  text: string;
+  /** True when the text was modified. */
+  changed: boolean;
+  /** One entry per required embedded resource describing what happened to it. */
+  changes: CsprojEmbedChange[];
+}
+
 /** Escape a string for use inside a RegExp source. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -55,17 +74,38 @@ function packageRefRegex(id: string): RegExp {
   );
 }
 
+/**
+ * Match an existing `<EmbeddedResource ... Include="<include>" ... />` element for a
+ * specific file path, capturing the whole element (in either attribute order, and
+ * whether self-closed `/>` or an explicit `></EmbeddedResource>` pair). The
+ * `LogicalName` is extracted from the captured element text separately so the regex
+ * stays order-agnostic and tolerant of an absent `LogicalName`.
+ */
+function embeddedResourceRegex(include: string): RegExp {
+  const escInclude = escapeRegExp(include);
+  return new RegExp(
+    `<EmbeddedResource\\b[^>]*?\\bInclude\\s*=\\s*"${escInclude}"[^>]*?(?:/>|></EmbeddedResource>)`,
+    'i',
+  );
+}
+
 /** Render the canonical self-closing element for a required reference. */
 function renderRef(ref: AddonPackageReference): string {
   return `<PackageReference Include="${ref.id}" Version="${ref.version}" />`;
 }
 
+/** Render the canonical self-closing element for a required embedded resource. */
+function renderEmbed(res: AddonEmbeddedResource): string {
+  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" />`;
+}
+
 /**
- * Detect the indentation used by the FIRST existing `<PackageReference>` (or fall
- * back to 4 spaces) so appended/inserted elements match the consumer's style.
+ * Detect the indentation used by the FIRST existing `<PackageReference>` /
+ * `<EmbeddedResource>` (or fall back to 4 spaces) so appended/inserted elements
+ * match the consumer's style.
  */
 function detectIndent(text: string): string {
-  const m = text.match(/\n([ \t]*)<PackageReference\b/);
+  const m = text.match(/\n([ \t]*)<(?:PackageReference|EmbeddedResource)\b/);
   return m ? m[1] : '    ';
 }
 
@@ -151,15 +191,108 @@ export function addAddonPackageReferences(
 }
 
 /**
+ * Idempotently reconcile a Godot consumer `.csproj`'s `<EmbeddedResource>`s so it
+ * declares exactly the addon's required embeds (see `addon-deps.ts`
+ * `ADDON_EMBEDDED_RESOURCES`). Pure (operates on csproj TEXT, never touches the
+ * filesystem) and exported for unit tests. Sibling of `addAddonPackageReferences`.
+ * Handles, idempotently:
+ *  - a project with NO `<EmbeddedResource>` ItemGroup (groups into one, else appends
+ *    a fresh `<ItemGroup>` before `</Project>`);
+ *  - a project that already embeds the resource with the right LogicalName (no change);
+ *  - a project that embeds the same Include with a DIFFERENT LogicalName (reconciles
+ *    in place);
+ * Re-running `install-plugin` therefore never duplicates the `<EmbeddedResource>`.
+ */
+export function addAddonEmbeddedResources(
+  csprojText: string,
+  requiredResources: readonly AddonEmbeddedResource[] = ADDON_EMBEDDED_RESOURCES,
+): CsprojEmbedResult {
+  const changes: CsprojEmbedChange[] = [];
+  let text = csprojText;
+  const indent = detectIndent(text);
+  const eol = detectEol(text);
+
+  // First pass: reconcile any embeds that already exist (possibly with a different
+  // LogicalName). Collect the ones still missing for the append pass.
+  const missing: AddonEmbeddedResource[] = [];
+
+  for (const res of requiredResources) {
+    const re = embeddedResourceRegex(res.include);
+    const match = text.match(re);
+    if (!match) {
+      missing.push(res);
+      continue;
+    }
+    const logicalMatch = match[0].match(/\bLogicalName\s*=\s*"([^"]*)"/i);
+    const existingLogical = logicalMatch ? logicalMatch[1] : '';
+    if (existingLogical === res.logicalName) {
+      changes.push({ include: res.include, action: 'unchanged', logicalName: res.logicalName });
+      continue;
+    }
+    // Reconcile in place: replace the whole element with the canonical embed.
+    text = text.replace(re, renderEmbed(res));
+    changes.push({ include: res.include, action: 'updated', from: existingLogical, logicalName: res.logicalName });
+  }
+
+  // Second pass: add the missing embeds. Prefer an existing <ItemGroup> that already
+  // holds an <EmbeddedResource> (group them together); else append a fresh
+  // <ItemGroup> just before </Project>. Deliberately NOT grouped with the
+  // PackageReference ItemGroup — the addon's own csproj keeps the two in separate
+  // groups, and this keeps the scaffold's layout identical.
+  if (missing.length > 0) {
+    const block = missing.map((res) => `${indent}${renderEmbed(res)}`).join(eol);
+
+    const embedItemGroupClose = findItemGroupCloseContaining(text, /<EmbeddedResource\b/i);
+    if (embedItemGroupClose !== -1) {
+      text = `${text.slice(0, embedItemGroupClose)}${block}${eol}${text.slice(embedItemGroupClose)}`;
+    } else {
+      const groupIndent = indent.length >= 2 ? indent.slice(0, Math.floor(indent.length / 2)) : '  ';
+      const newGroup = `${groupIndent}<ItemGroup>${eol}${block}${eol}${groupIndent}</ItemGroup>${eol}`;
+      const closeIdx = text.lastIndexOf('</Project>');
+      if (closeIdx === -1) {
+        text = `${text}${eol}${newGroup}`;
+      } else {
+        text = `${text.slice(0, closeIdx)}${newGroup}${text.slice(closeIdx)}`;
+      }
+    }
+
+    for (const res of missing) {
+      changes.push({ include: res.include, action: 'added', logicalName: res.logicalName });
+    }
+  }
+
+  // Restore required-order in `changes` to match `requiredResources` for stable output.
+  const orderedChanges = requiredResources
+    .map((res) => changes.find((c) => c.include === res.include))
+    .filter((c): c is CsprojEmbedChange => c !== undefined);
+
+  return {
+    text,
+    changed: orderedChanges.some((c) => c.action !== 'unchanged'),
+    changes: orderedChanges,
+  };
+}
+
+/**
  * Return the index of the `</ItemGroup>` that closes the FIRST `<ItemGroup>`
  * containing a `<PackageReference>`, or -1 when none exists. Used to group the
  * added pins with the consumer's existing package references.
  */
 function findPackageReferenceItemGroupClose(text: string): number {
+  return findItemGroupCloseContaining(text, /<PackageReference\b/i);
+}
+
+/**
+ * Return the index of the `</ItemGroup>` that closes the FIRST `<ItemGroup>` whose
+ * body matches `childTagRe`, or -1 when none exists. Used to group an added element
+ * with the consumer's existing items of the same kind. `childTagRe` MUST NOT be a
+ * global regex (a stateful `lastIndex` would corrupt the `.test` below).
+ */
+function findItemGroupCloseContaining(text: string, childTagRe: RegExp): number {
   const itemGroupRe = /<ItemGroup\b[^>]*>([\s\S]*?)<\/ItemGroup>/gi;
   let m: RegExpExecArray | null;
   while ((m = itemGroupRe.exec(text)) !== null) {
-    if (/<PackageReference\b/i.test(m[1])) {
+    if (childTagRe.test(m[1])) {
       // The close tag starts at the end of the match minus its length.
       const closeTag = '</ItemGroup>';
       return m.index + m[0].length - closeTag.length;

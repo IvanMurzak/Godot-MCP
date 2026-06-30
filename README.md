@@ -65,8 +65,9 @@ npm install -g godot-cli
 godot-cli create-project --dotnet ./MyGodotProject
 
 # 3. Install the godot_mcp addon: downloads addons/godot_mcp/ from the matching
-#    GitHub release, adds the required NuGet packages to your .csproj, and enables
-#    the plugin in project.godot — all idempotently
+#    GitHub release, adds the required NuGet packages + the extension-catalog
+#    EmbeddedResource to your .csproj, and enables the plugin in project.godot —
+#    all idempotently
 godot-cli install-plugin ./MyGodotProject
 
 # 4. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
@@ -246,7 +247,8 @@ Pick **one** of the following ways to get the `addons/godot_mcp/` folder into yo
 > **Fully automated (recommended for terminal workflows):**
 > [`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin ./MyGodotProject` does **all of
 > Step 1 and Step 2 in one command** — it downloads `addons/godot_mcp/` from the matching GitHub release,
-> adds the two NuGet packages to your `.csproj`, and enables the plugin in `project.godot`, idempotently.
+> adds the two NuGet packages **and the extension-catalog `<EmbeddedResource>`** to your `.csproj`, and
+> enables the plugin in `project.godot`, idempotently.
 > Use `--source <path>/addons/godot_mcp` to install from a local copy offline. The manual Options A–C
 > below remain for in-editor (Asset Library) and hand-managed installs.
 
@@ -280,7 +282,8 @@ directory by hand.
 After the files are in place (Options A–C), **enable** the plugin:
 **Project → Project Settings → Plugins → Godot-MCP → Enable**. (If you used the fully-automated
 [`godot-cli`](https://www.npmjs.com/package/godot-cli) `install-plugin` above, the plugin is already
-enabled and the NuGet packages are already added — skip straight to [Step 3](#step-3-install-an-ai-agent).)
+enabled and the NuGet packages + extension-catalog embed are already added — skip straight to
+[Step 3](#step-3-install-an-ai-agent).)
 On a successful load the editor Output panel prints:
 
 ```
@@ -291,15 +294,20 @@ On a successful load the editor Output panel prints:
 > first submission is approved by the Godot Asset Library moderators. Until then, use Option B (GitHub
 > Release zip) or Option C.
 
-## Step 2: Add the NuGet packages
+## Step 2: Add the NuGet packages + the extension catalog embed
 
-Add both `PackageReference`s to your project's `.csproj` (use these exact pinned versions — they must
-match the addon's `Godot-MCP.csproj`):
+Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
+`.csproj` (use these exact pinned versions — they must match the addon's `Godot-MCP.csproj`):
 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.10.0" />
+</ItemGroup>
+
+<!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
+<ItemGroup>
+  <EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
 </ItemGroup>
 ```
 
@@ -307,6 +315,12 @@ match the addon's `Godot-MCP.csproj`):
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.3.1` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `6.10.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+
+The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
+registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem
+fallback), and because the addon ships as *source* its own `<EmbeddedResource>` does not carry into your
+project — so without this line your **Extensions panel is empty**. The `LogicalName` must be exactly
+`Godot-MCP.extensions.catalog.json` so the resource resolves identically to the addon's own assembly.
 
 Run `dotnet restore` so the packages land in your NuGet cache, then build. **No manual DLL copying is
 required** — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet

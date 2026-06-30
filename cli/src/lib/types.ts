@@ -409,14 +409,16 @@ export interface AddonMaterializeOutcome {
   sourceDir?: string;
 }
 
-/** What `install-plugin` did to the consumer `.csproj`'s PackageReferences. */
+/** What `install-plugin` did to the consumer `.csproj`'s PackageReferences + EmbeddedResources. */
 export interface CsprojPatchOutcome {
   /** Absolute path to the consumer `.csproj` that was patched, if one was found. */
   csprojPath?: string;
-  /** True when the csproj text was modified. */
+  /** True when the csproj text was modified (pins and/or embeds). */
   changed: boolean;
   /** Per-package summary: each addon pin's add / update / unchanged outcome. */
   packages: { id: string; action: 'added' | 'updated' | 'unchanged'; version: string }[];
+  /** Per-resource summary: each addon `<EmbeddedResource>`'s add / update / unchanged outcome. */
+  embeds: { include: string; action: 'added' | 'updated' | 'unchanged'; logicalName: string }[];
 }
 
 export interface InstallPluginSuccess {
