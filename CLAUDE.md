@@ -159,12 +159,17 @@ no Godot binary.
 A consumer installs the addon by placing `addons/godot_mcp/` in their Godot C# project and enabling it in
 *Project → Project Settings → Plugins*. Because Godot compiles **every** `.cs` under the project into one
 assembly, the addon's C# only compiles if the **consumer's `.csproj` declares the same NuGet
-`PackageReference`s** the addon depends on:
+`PackageReference`s** the addon depends on — and it must **also embed the extension catalog** the addon
+reads at editor runtime:
 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.10.0" />
+</ItemGroup>
+
+<ItemGroup>
+  <EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
 </ItemGroup>
 ```
 
@@ -173,8 +178,18 @@ With those references present, `dotnet restore` populates the consumer's NuGet c
 runtime to locate the DLLs. **No manual DLL copying is required**; the resolver finds them in the NuGet
 global packages folder. (A consumer who prefers self-contained output can instead set
 `<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>` so the DLLs land beside the project
-assembly — strategy 1 above then covers them.) These reference instructions should be surfaced in the
-addon's user-facing README / install docs as the family grows.
+assembly — strategy 1 above then covers them.)
+
+The `<EmbeddedResource>` is as load-bearing as the pins: `GodotExtensionRegistry` loads the catalog via
+`GodotExtensionCatalog.LoadEmbedded()` → `GetManifestResourceStream("Godot-MCP.extensions.catalog.json")`
+with **no `res://` / disk / cloud fallback** (an absent resource yields an EMPTY extension list). The
+addon's own `Godot-MCP.csproj` `<EmbeddedResource>` does NOT carry into a consumer (the addon ships as
+*source*, not a NuGet package), so the consumer `.csproj` must embed it just as it must declare the pins —
+the fixed `LogicalName` makes the resource resolve identically in the addon and `Godot-MCP.Tests`
+assemblies. These reference instructions are surfaced in the addon's user-facing README install docs, and
+`godot-cli install-plugin` writes both the pins (`addAddonPackageReferences`) and the embed
+(`addAddonEmbeddedResources`) into the consumer `.csproj`, single-sourced + parity-tested against this
+csproj (`cli/src/utils/addon-deps.ts` ↔ `Godot-MCP.csproj`, `cli/tests/addon-deps-parity.test.ts`).
 
 ## Testbed runbook (headless live-verification)
 

@@ -5,7 +5,7 @@ import {
   projectGodotPath as resolveProjectGodotPath,
   togglePluginInText,
 } from '../utils/project-godot.js';
-import { addAddonPackageReferences } from '../utils/csproj-deps.js';
+import { addAddonPackageReferences, addAddonEmbeddedResources } from '../utils/csproj-deps.js';
 import { ADDON_PACKAGE_REFERENCES } from '../utils/addon-deps.js';
 import {
   addonDownloadUrl,
@@ -287,11 +287,16 @@ function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir:
 
 /**
  * Find the consumer's `.csproj` (the one Godot compiles the addon into) and add
- * the two addon NuGet PackageReferences idempotently. The csproj is the single
- * `*.csproj` at the project root (the `--dotnet` scaffold writes
+ * the addon's NuGet PackageReferences AND the EmbeddedResource(s) it needs,
+ * idempotently and single-sourced from the addon's own pins/embeds. The csproj is
+ * the single `*.csproj` at the project root (the `--dotnet` scaffold writes
  * `<AssemblyName>.csproj` there). When there is no csproj (a GDScript-only
  * project), the patch is skipped with a warning — the addon's C# cannot compile
  * without one, but that is the consumer's project shape to fix.
+ *
+ * The EmbeddedResource is as load-bearing as the NuGet pins: without it the
+ * pure-managed `GodotExtensionRegistry` reads no embedded catalog and the consumer
+ * gets an EMPTY Extensions panel (issue #246). Both edits are applied in one write.
  */
 function patchConsumerCsproj(
   projectPath: string,
@@ -304,27 +309,34 @@ function patchConsumerCsproj(
       'No .csproj found at the project root — the godot_mcp addon is C# and needs a Godot.NET.Sdk project. ' +
         `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${ADDON_PACKAGE_REFERENCES.map((r) => r.id).join(' + ')} PackageReferences.`,
     );
-    return { changed: false, packages: [] };
+    return { changed: false, packages: [], embeds: [] };
   }
 
   const before = fs.readFileSync(csprojPath, 'utf-8');
-  const patched = addAddonPackageReferences(before);
-  if (patched.changed) {
-    fs.writeFileSync(csprojPath, patched.text);
+  const pkgPatched = addAddonPackageReferences(before);
+  const embedPatched = addAddonEmbeddedResources(pkgPatched.text);
+  const changed = pkgPatched.changed || embedPatched.changed;
+  if (changed) {
+    fs.writeFileSync(csprojPath, embedPatched.text);
     emitProgress(onProgress, {
       phase: 'csproj-patched',
-      message: `Added addon PackageReferences to ${csprojPath}`,
+      message: `Added addon PackageReferences + EmbeddedResource to ${csprojPath}`,
       csprojPath,
     });
   }
 
   return {
     csprojPath,
-    changed: patched.changed,
-    packages: patched.changes.map((c) => ({
+    changed,
+    packages: pkgPatched.changes.map((c) => ({
       id: c.id,
       action: c.action,
       version: c.version,
+    })),
+    embeds: embedPatched.changes.map((c) => ({
+      include: c.include,
+      action: c.action,
+      logicalName: c.logicalName,
     })),
   };
 }

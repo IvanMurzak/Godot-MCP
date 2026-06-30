@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ADDON_PACKAGE_REFERENCES } from '../src/utils/addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES } from '../src/utils/addon-deps.js';
 
 // The CLI's ADDON_PACKAGE_REFERENCES must single-source the addon's own reused
 // NuGet pins (Godot-MCP.csproj). If the addon bumps a pin, this test fails until
@@ -21,6 +21,17 @@ function parsePins(text: string): Map<string, string> {
     pins.set(m[1], m[2]);
   }
   return pins;
+}
+
+/** Parse `<EmbeddedResource Include="path" LogicalName="name" />` pairs from csproj text. */
+function parseEmbeds(text: string): Map<string, string> {
+  const embeds = new Map<string, string>();
+  const re = /<EmbeddedResource\b[^>]*?\bInclude\s*=\s*"([^"]+)"[^>]*?\bLogicalName\s*=\s*"([^"]+)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    embeds.set(m[1], m[2]);
+  }
+  return embeds;
 }
 
 describe('addon-deps parity with Godot-MCP.csproj', () => {
@@ -43,6 +54,25 @@ describe('addon-deps parity with Godot-MCP.csproj', () => {
         `CLI addon pin ${ref.id}@${ref.version} drifted from Godot-MCP.csproj ${ref.id}@${csprojVersion}. ` +
           'Update ADDON_PACKAGE_REFERENCES in cli/src/utils/addon-deps.ts to match the addon pin.',
       ).toBe(csprojVersion);
+    }
+  });
+
+  it('every CLI-written EmbeddedResource matches the addon csproj Include + LogicalName exactly', () => {
+    const text = fs.readFileSync(ADDON_CSPROJ, 'utf-8');
+    const csprojEmbeds = parseEmbeds(text);
+
+    for (const res of ADDON_EMBEDDED_RESOURCES) {
+      const csprojLogical = csprojEmbeds.get(res.include);
+      expect(
+        csprojLogical,
+        `Godot-MCP.csproj is missing an <EmbeddedResource> with Include="${res.include}"`,
+      ).toBeDefined();
+      expect(
+        res.logicalName,
+        `CLI addon embed ${res.include} (LogicalName="${res.logicalName}") drifted from ` +
+          `Godot-MCP.csproj LogicalName="${csprojLogical}". ` +
+          'Update ADDON_EMBEDDED_RESOURCES in cli/src/utils/addon-deps.ts to match the addon csproj.',
+      ).toBe(csprojLogical);
     }
   });
 });

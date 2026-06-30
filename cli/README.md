@@ -35,7 +35,7 @@ Requires Node `^20.19.0 || >=22.12.0`.
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
-| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s to the project `.csproj`, and enable the plugin. Idempotent. |
+| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
 | `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional AI-tool-family package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
@@ -137,7 +137,11 @@ It performs three steps:
    to the project's `.csproj`, idempotently — adding when missing, reconciling a stale version, and
    leaving a correct pin untouched. The versions are single-sourced from the addon's own
    `Godot-MCP.csproj` pins, so the scaffold can never drift.
-3. **Enable the plugin** in `project.godot` `[editor_plugins]`.
+3. **Embed the extension catalog** (`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json"
+   LogicalName="Godot-MCP.extensions.catalog.json" />`) into the project's `.csproj`, idempotently. Without
+   it the addon's extension registry reads no catalog at editor runtime and the **Extensions panel is
+   empty**. Single-sourced + parity-tested against the addon csproj alongside the pins.
+4. **Enable the plugin** in `project.godot` `[editor_plugins]`.
 
 It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public
 boundary) and idempotent — re-running on an already-installed project reports no change.

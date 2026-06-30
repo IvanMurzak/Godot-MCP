@@ -5,7 +5,7 @@ import * as os from 'os';
 import * as zlib from 'zlib';
 import { installPlugin } from '../src/lib/install-plugin.js';
 import { GODOT_MCP_PLUGIN_PATH, parseEnabledPlugins } from '../src/utils/project-godot.js';
-import { ADDON_PACKAGE_REFERENCES } from '../src/utils/addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES } from '../src/utils/addon-deps.js';
 
 const MINIMAL_PROJECT = '; Engine configuration file.\nconfig_version=5\n\n[application]\n\nconfig/name="Test"\n';
 const CSPROJ = `<Project Sdk="Godot.NET.Sdk/4.3.0">
@@ -118,6 +118,12 @@ describe('installPlugin — download path (mocked fetch)', () => {
       expect(csprojText).toContain(`Include="${ref.id}" Version="${ref.version}"`);
     }
 
+    // csproj also embeds the extension catalog (else the Extensions panel is empty — issue #246)
+    for (const res of ADDON_EMBEDDED_RESOURCES) {
+      expect(csprojText).toContain(`Include="${res.include}" LogicalName="${res.logicalName}"`);
+      expect(result.csproj.embeds.find((e) => e.include === res.include)?.action).toBe('added');
+    }
+
     // plugin enabled
     expect(result.enabledPlugins).toContain(GODOT_MCP_PLUGIN_PATH);
     expect(parseEnabledPlugins(fs.readFileSync(path.join(tmp, 'project.godot'), 'utf-8'))).toContain(
@@ -185,8 +191,15 @@ describe('installPlugin — download path (mocked fetch)', () => {
     expect(second.kind).toBe('success');
     if (second.kind === 'success') {
       expect(second.changed).toBe(false); // plugin already enabled
-      expect(second.csproj.changed).toBe(false); // pins already present
+      expect(second.csproj.changed).toBe(false); // pins + embed already present
       expect(second.csproj.packages.every((p) => p.action === 'unchanged')).toBe(true);
+      expect(second.csproj.embeds.every((e) => e.action === 'unchanged')).toBe(true);
+      // The embed appears exactly once — idempotent re-install never duplicates it.
+      const csprojText = fs.readFileSync(path.join(tmp, 'MyGame.csproj'), 'utf-8');
+      for (const res of ADDON_EMBEDDED_RESOURCES) {
+        const occurrences = csprojText.split(`Include="${res.include}"`).length - 1;
+        expect(occurrences).toBe(1);
+      }
     }
   });
 });
