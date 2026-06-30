@@ -45,7 +45,7 @@ export interface ExtensionInstallPlan {
   packageId: string;
   /** Version currently referenced: `null` when not installed; `''` when referenced without a version. */
   fromVersion: string | null;
-  /** The descriptor's target version, or `null` when the descriptor has no pin. */
+  /** The version the plan writes: the descriptor's pin when set, `"*"` (the float marker) when unpinned and a reference is added or self-healed, `null` only on a no-op. */
   toVersion: string | null;
 }
 

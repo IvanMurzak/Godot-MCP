@@ -37,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
     /// <param name="ResultingCsproj">The full <c>.csproj</c> text after applying the action (== original for no-op).</param>
     /// <param name="PackageId">The package id the plan targets (echoed for the UI / status line).</param>
     /// <param name="FromVersion">The version currently referenced (null when not installed; empty string when referenced without a version).</param>
-    /// <param name="ToVersion">The descriptor's target version (null when the descriptor has no version pin).</param>
+    /// <param name="ToVersion">The version the plan writes: the descriptor's pin when set, <c>"*"</c> (the float marker) when unpinned and a reference is added or self-healed, null only on a no-op.</param>
     public sealed record ExtensionInstallPlan(
         ExtensionInstallAction Action,
         string ResultingCsproj,
