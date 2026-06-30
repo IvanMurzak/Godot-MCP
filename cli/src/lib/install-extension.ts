@@ -138,7 +138,9 @@ export async function installExtension(
 
     const message =
       plan.action === 'add'
-        ? `Added ${descriptor.packageId}${hasVersion(descriptor) ? ` ${descriptor.version}` : ''}. Rebuild solutions to restore and compile the extension.`
+        ? // Report the version actually written (the pin, or the "*" float marker), not the descriptor's
+          // pin presence — an unpinned add now writes Version="*".
+          `Added ${descriptor.packageId}${plan.toVersion ? ` ${plan.toVersion}` : ''}. Rebuild solutions to restore and compile the extension.`
         : `Updated ${descriptor.packageId} to ${plan.toVersion}. Rebuild solutions to restore the new version.`;
 
     return {
