@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { verbose } from './ui.js';
 import * as ui from './ui.js';
+import { readCloudToken } from './credentials.js';
 
 // --- Godot MCP connection constants (mirror addons/godot_mcp GodotMcpConfig). ---
 
@@ -104,15 +105,16 @@ function isCloudMode(): boolean {
  * Token priority:
  *   1. --token flag (explicit override)
  *   2. GODOT_MCP_TOKEN env
+ *   3. persisted cloud token from `.godot-mcp/credentials.json` (Cloud mode only,
+ *      written by `godot-cli login`)
  *
  * Unlike the Unity CLI, there is NO deterministic project-path→port hash:
- * the Godot plugin is a server-less client whose persisted config lives in
- * `user://` (outside the project tree), so the CLI cannot read a project-local
- * config file. Resolution is therefore env-var + cloud-default based, and
- * `--url` is the authoritative override for a local/self-hosted server.
+ * the Godot plugin is a server-less client whose live config lives in `user://`
+ * (outside the project tree). The one project-local surface the CLI DOES own is
+ * the `login`-written credentials file, consulted last so `--token`/env still win.
  */
 export function resolveConnection(
-  _projectPath: string,
+  projectPath: string,
   options: ConnectionOptions,
 ): { url: string; token: string | undefined } {
   let url: string;
@@ -137,12 +139,46 @@ export function resolveConnection(
     }
   }
 
-  const token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
+  let token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
   if (options.token) {
     verbose('Using explicit --token');
   } else if (token) {
     verbose(`Using ${ENV_TOKEN}`);
+  } else if (isCloudMode()) {
+    const persisted = readCloudToken(projectPath);
+    if (persisted) {
+      token = persisted;
+      verbose('Using persisted cloud token from .godot-mcp/credentials.json');
+    }
   }
 
   return { url, token };
+}
+
+/**
+ * Resolve the auth token to inject into the launched editor's environment for
+ * the `open` command. The editor inherits the CLI's environment, so a set
+ * `GODOT_MCP_TOKEN` already propagates untouched — this only needs to surface
+ * the persisted cloud token (which is NOT in the environment) when Cloud mode is
+ * selected and neither `--token` nor `GODOT_MCP_TOKEN` is present.
+ *
+ * Returns the token to pass as `openProject({ token })`, or undefined to leave
+ * `open`'s env exactly as before (explicit env var / no token).
+ */
+export function resolveOpenAuthToken(
+  projectPath: string,
+  options: { token?: string; mode?: string },
+): string | undefined {
+  if (options.token !== undefined) {
+    return options.token;
+  }
+  // An env token already reaches the editor via inheritance — don't double-inject.
+  if (normalizeEnv(process.env[ENV_TOKEN]) !== undefined) {
+    return undefined;
+  }
+  const selectedMode = options.mode ?? normalizeEnv(process.env[ENV_CONNECTION_MODE]);
+  if (selectedMode !== undefined && selectedMode.toLowerCase() === 'cloud') {
+    return readCloudToken(projectPath);
+  }
+  return undefined;
 }

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
 import { buildCommand } from './commands/build.js';
+import { loginCommand } from './commands/login.js';
 import { openCommand } from './commands/open.js';
 import { runToolCommand } from './commands/run-tool.js';
 import { runSystemToolCommand } from './commands/run-system-tool.js';
@@ -37,6 +38,7 @@ const subcommands = [
   createProjectCommand,
   installPluginCommand,
   installExtensionCommand,
+  loginCommand,
   openCommand,
   removePluginCommand,
   runToolCommand,
