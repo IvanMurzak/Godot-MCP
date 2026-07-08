@@ -1,0 +1,19 @@
+Godot-MCP.Tests/GodotLogCollectorTests.cs
+  s_6b1966c8bf07cd::t_2cd9e096562a48 185,194,211-215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9825dda04912b09ef5a4a40186f0c9fe9232eb00",
+  "prompts": {},
+  "sessions": {
+    "s_6b1966c8bf07cd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4304-1089-7123-a007-10140663ad38",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
