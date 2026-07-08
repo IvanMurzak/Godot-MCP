@@ -4,6 +4,7 @@
 // their own program. The runnable program lives in `index.ts` (imported by
 // `bin/godot-cli.js`).
 
+export { loginCommand } from './commands/login.js';
 export { openCommand } from './commands/open.js';
 export { runToolCommand } from './commands/run-tool.js';
 export { runSystemToolCommand } from './commands/run-system-tool.js';

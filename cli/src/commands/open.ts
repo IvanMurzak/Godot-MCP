@@ -7,6 +7,7 @@ import {
   resolveProjectPath as libResolveProjectPath,
   isGodotProjectDir as libIsGodotProjectDir,
 } from '../lib/open.js';
+import { resolveOpenAuthToken } from '../utils/connection.js';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
 
 export interface ResolveProjectPathResult {
@@ -103,6 +104,13 @@ export const openCommand = new Command('open')
         process.exit(1);
       }
 
+      // In Cloud mode with no explicit --token / GODOT_MCP_TOKEN, inject the
+      // token persisted by `godot-cli login` so `open --mode Cloud` auto-connects.
+      const authToken = resolveOpenAuthToken(projectPath, { token: options.token, mode: options.mode });
+      if (authToken !== undefined && options.token === undefined) {
+        verbose('Using persisted cloud token from .godot-mcp/credentials.json');
+      }
+
       const spinner = ui.startSpinner(
         options.build === false ? 'Locating Godot editor...' : 'Building C# assembly...',
       );
@@ -115,7 +123,7 @@ export const openCommand = new Command('open')
         noConnect: options.connect === false,
         url: options.url,
         cloudUrl: options.cloudUrl,
-        token: options.token,
+        token: authToken,
         auth: options.auth as OpenProjectAuthOption | undefined,
         mode: options.mode as OpenProjectConnectionMode | undefined,
         logLevel: options.logLevel,
