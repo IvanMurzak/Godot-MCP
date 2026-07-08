@@ -1,0 +1,21 @@
+cli/src/utils/browser.ts
+  s_3cfe9b1980b685::t_312c525bcc73e5 9-24
+cli/src/utils/credentials.ts
+  s_3cfe9b1980b685::t_6c4609e88c4eef 59-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ce24127c36a26d59cd2ee4cc74ad93061e2faf2f",
+  "prompts": {},
+  "sessions": {
+    "s_3cfe9b1980b685": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "158480fe-c820-4ee5-a364-8ac3be6fb0f2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
