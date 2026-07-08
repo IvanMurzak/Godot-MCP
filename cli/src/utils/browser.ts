@@ -26,15 +26,19 @@ export function openBrowser(url: string): void {
   let cmd: string;
   let args: string[];
 
+  // Hand the platform opener the NORMALIZED serialization (`parsed.href`), not the
+  // raw input string: WHATWG parsing percent-encodes shell-hostile characters (e.g. a
+  // literal `"`), so a crafted `verification_uri` cannot inject them into `cmd /c start`.
+  const safeUrl = parsed.href;
   if (platform === 'darwin') {
     cmd = 'open';
-    args = [url];
+    args = [safeUrl];
   } else if (platform === 'win32') {
     cmd = 'cmd';
-    args = ['/c', 'start', '', url];
+    args = ['/c', 'start', '', safeUrl];
   } else {
     cmd = 'xdg-open';
-    args = [url];
+    args = [safeUrl];
   }
 
   verbose(`Opening browser: ${cmd} ${args.join(' ')}`);

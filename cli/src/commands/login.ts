@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { resolveProjectPath, DEFAULT_CLOUD_BASE_URL } from '../utils/connection.js';
-import { readCloudToken } from '../utils/credentials.js';
+import { readCloudToken, readCredentials } from '../utils/credentials.js';
 import { runCloudLogin } from '../utils/cloud-login.js';
 
 interface LoginOptions {
@@ -25,7 +25,11 @@ export const loginCommand = new Command('login')
 
     const baseUrl = (options.baseUrl ?? DEFAULT_CLOUD_BASE_URL).replace(/\/$/, '');
 
-    if (!options.force && readCloudToken(projectPath)) {
+    // Only short-circuit when a token is saved AND it was issued against the SAME
+    // base URL. Otherwise `login --base-url <other>` (without --force) would silently
+    // reuse a token minted for a different server. readCloudToken() truthy implies the
+    // credentials file parsed, so the follow-up readCredentials() cannot throw here.
+    if (!options.force && readCloudToken(projectPath) && readCredentials(projectPath)?.cloudBaseUrl === baseUrl) {
       ui.success('Already authenticated with the cloud server.');
       ui.info('Use --force to re-authenticate.');
       return;
