@@ -56,7 +56,15 @@ export function writeCredentials(projectPath: string, credentials: GodotMcpCrede
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2) + '\n');
+  // Owner-only perms: the file holds a raw cloud bearer token, so it must not be
+  // group/world-readable on a shared machine. `mode` only applies when the file is
+  // CREATED, so also chmod on overwrite (best-effort — no-op/again-fine on Windows).
+  fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2) + '\n', { mode: 0o600 });
+  try {
+    fs.chmodSync(credentialsPath, 0o600);
+  } catch {
+    // Best-effort only — never fail the login over a chmod (e.g. Windows ACLs).
+  }
   ensureGitignored(dir, 'credentials.json');
 }
 
