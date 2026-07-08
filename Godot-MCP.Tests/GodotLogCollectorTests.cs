@@ -182,6 +182,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotLogCollector.Current = new GodotLogCollector();
 
             using var cts = new CancellationTokenSource();
+            using var readersStarted = new CountdownEvent(appendThreads);
             Exception? readerFault = null;
             long appendsObserved = 0;
 
@@ -190,6 +191,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 try
                 {
                     var token = cts.Token;
+                    readersStarted.Signal();
                     while (!token.IsCancellationRequested)
                     {
                         // The exact off-thread shape from RouteFrameworkLog: null-conditional Append on the
@@ -205,6 +207,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     Volatile.Write(ref readerFault, ex);
                 }
             })).ToArray();
+
+            Assert.True(readersStarted.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(
+                SpinWait.SpinUntil(() => Volatile.Read(ref appendsObserved) > 0, TimeSpan.FromSeconds(5)),
+                "The readers should exercise the append path before the swap storm starts.");
 
             // Main thread: install a fresh collector repeatedly (the _EnterTree swap), interleaved with the
             // background Append storm.
