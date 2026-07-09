@@ -148,7 +148,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
 
   // ── VS Code (Copilot) ────────────────────────────────────────
   {
-    id: 'vscode',
+    id: 'vscode-copilot',
     name: 'Visual Studio Code (Copilot)',
     skillsPath: '.github/skills',
     configPathDisplay: '.vscode/mcp.json',

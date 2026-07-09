@@ -61,7 +61,7 @@ describe('setupMcp', () => {
     expect(ids).toContain('claude-code');
     expect(ids).toContain('claude-desktop');
     expect(ids).toContain('cursor');
-    expect(ids).toContain('vscode');
+    expect(ids).toContain('vscode-copilot');
     expect(ids).toContain('custom');
     // Ported from Unity for parity
     expect(ids).toContain('vs-copilot');
@@ -115,7 +115,7 @@ describe('setupMcp', () => {
   });
 
   it('writes a VS Code config under the "servers" body path', async () => {
-    const result = await setupMcp({ agentId: 'vscode', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
+    const result = await setupMcp({ agentId: 'vscode-copilot', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.vscode', 'mcp.json'), 'utf-8'));
     expect(json.servers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
@@ -275,7 +275,7 @@ describe('agent config-path resolution', () => {
     const cases: Array<[string, string[]]> = [
       ['claude-code', ['.mcp.json']],
       ['cursor', ['.cursor', 'mcp.json']],
-      ['vscode', ['.vscode', 'mcp.json']],
+      ['vscode-copilot', ['.vscode', 'mcp.json']],
       ['vs-copilot', ['.vs', 'mcp.json']],
       ['rider-junie', ['.junie', 'mcp', 'mcp.json']],
       ['gemini', ['.gemini', 'settings.json']],
