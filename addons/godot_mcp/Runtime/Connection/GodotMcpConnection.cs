@@ -65,7 +65,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// drift if you forget). The live, parsed value in <see cref="PluginVersion"/> is the source of
         /// truth; <see cref="ResolvePluginVersion"/> emits a warning whenever it has to fall back here.
         /// </summary>
-        const string FallbackPluginVersion = "0.16.0";
+        const string FallbackPluginVersion = "0.16.1";
 
         /// <summary>
         /// Plugin version reported to the server in the MCP handshake. Resolved ONCE from
