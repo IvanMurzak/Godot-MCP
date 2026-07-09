@@ -1,27 +1,82 @@
-# godot-cli
+<div align="center" width="100%">
+  <h1>Godot MCP — <i>CLI</i></h1>
 
-Cross-platform CLI for **Godot-MCP** — the [Godot](https://godotengine.org/) editor addon that bridges
-LLMs (Claude, Cursor, Copilot, …) with the Godot editor via the
-[Model Context Protocol](https://modelcontextprotocol.io/).
+[![npm](https://img.shields.io/npm/v/godot-cli?label=npm&labelColor=333A41 'npm package')](https://www.npmjs.com/package/godot-cli)
+[![Node.js](https://img.shields.io/badge/Node.js-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-5FA04E?logo=nodedotjs&labelColor=333A41 'Node.js')](https://nodejs.org/)
+[![License](https://img.shields.io/github/license/IvanMurzak/Godot-MCP?label=License&labelColor=333A41)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE)
+[![Website](https://img.shields.io/badge/website-ai--game.dev-bc6c25?labelColor=333A41)](https://ai-game.dev)
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
-The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli): it resolves
-and launches the Godot editor with the right `GODOT_MCP_*` connection environment variables, runs MCP and
-system tools over the server's HTTP API, probes server health, writes AI-agent MCP-client config, and
-enables/disables the `godot_mcp` addon in a project.
+  <img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/promo/ai-developer-banner-glitch.gif" alt="AI Game Developer" title="Godot MCP CLI" width="100%">
+
+  <p>
+    <a href="https://claude.ai/download"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/claude-64.png" alt="Claude" title="Claude" height="36"></a>&nbsp;&nbsp;
+    <a href="https://openai.com/index/introducing-codex/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/codex-64.png" alt="Codex" title="Codex" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.cursor.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cursor-64.png" alt="Cursor" title="Cursor" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/docs/copilot/overview"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/github-copilot-64.png" alt="GitHub Copilot" title="GitHub Copilot" height="36"></a>&nbsp;&nbsp;
+    <a href="https://gemini.google.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/gemini-64.png" alt="Gemini" title="Gemini" height="36"></a>&nbsp;&nbsp;
+    <a href="https://antigravity.google/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/antigravity-64.png" alt="Antigravity" title="Antigravity" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/vs-code-64.png" alt="VS Code" title="VS Code" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.jetbrains.com/rider/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/rider-64.png" alt="Rider" title="Rider" height="36"></a>
+  </p>
+
+</div>
+
+Cross-platform CLI for **[Godot-MCP](https://github.com/IvanMurzak/Godot-MCP)** — the
+[Godot](https://godotengine.org/) editor addon that bridges LLMs (Claude, Cursor, Copilot, …) with the
+Godot editor via the [Model Context Protocol](https://modelcontextprotocol.io/). Resolve and launch the
+Godot editor with active MCP connections, run tools, configure AI agents, and manage the `godot_mcp`
+addon — all from a single command line.
+
+The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) and
+[`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli). Backed by **[ai-game.dev](https://ai-game.dev)**.
 
 > **Licensed under Apache-2.0.**
 
-## Install
+## ![AI Game Developer — Godot SKILLS and MCP](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
+
+- :white_check_mark: **Open & Connect** — build the project's C# assembly and launch the Godot editor with `GODOT_MCP_*` connection env vars
+- :white_check_mark: **Install plugin** — install the `godot_mcp` addon end-to-end (download release, add NuGet pins + catalog, enable)
+- :white_check_mark: **Install extensions** — add optional Godot-MCP AI tool-family packages to a project
+- :white_check_mark: **Remove plugin** — disable the `godot_mcp` addon in `project.godot`
+- :white_check_mark: **Configure** — enable/disable MCP tools, prompts, and resources
+- :white_check_mark: **Status check** — detect a running Godot editor and probe MCP-server health
+- :white_check_mark: **Run tools** — execute MCP and system tools directly over the server's HTTP API
+- :white_check_mark: **Setup MCP** — write AI-agent MCP-client config for any supported agent
+- :white_check_mark: **Setup skills** — generate Godot-MCP skill files locally (no live editor required)
+- :white_check_mark: **Wait for ready** — poll until the Godot MCP server answers `ping`
+- :white_check_mark: **Cross-platform** — Windows, macOS, and Linux
+- :white_check_mark: **Library API** — a side-effect-free, typed library surface for embedding
+
+![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Quick Start
 
 ```bash
+# Install globally
 npm install -g godot-cli
-# or run ad-hoc:
-npx godot-cli <command>
+
+# Install the godot_mcp addon into a project
+godot-cli install-plugin ./MyGodotProject
+
+# Open the project (builds C# first, then launches the editor with MCP connection)
+godot-cli open ./MyGodotProject
+
+# Wait until the MCP server is ready to accept tool calls
+godot-cli wait-for-ready ./MyGodotProject
 ```
 
-Requires Node `^20.19.0 || >=22.12.0`.
+Or run any command ad-hoc with `npx` — no global install required:
 
-## Commands
+```bash
+npx godot-cli install-plugin /path/to/godot/project
+```
+
+> **Requirements:** [Node.js](https://nodejs.org/) `^20.19.0 || >=22.12.0`.
+
+![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Commands
 
 | Command | What it does |
 | --- | --- |
@@ -91,6 +146,8 @@ resolved as:
 4. Default custom host (`http://localhost:8080`).
 
 Pass `--url http://localhost:<port>` to target a local/self-hosted server.
+
+![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 ## `setup-skills`
 
@@ -193,3 +250,41 @@ npm install
 npm run build   # tsc → dist/ (ESM)
 npm test        # vitest
 ```
+
+![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+# Supported AI Agents
+
+`godot-cli` writes ready-to-use MCP client configs for every major AI coding agent — run
+`godot-cli setup-mcp <agent> [path]` to wire one up (and `godot-cli setup-skills <agent> [path]` to
+generate its skill files). Use `--list` on either command to see every supported agent.
+
+<div align="center">
+  <p>
+    <a href="https://claude.ai/download"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/claude-64.png" alt="Claude" title="Claude" height="36"></a>&nbsp;&nbsp;
+    <a href="https://openai.com/index/introducing-codex/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/codex-64.png" alt="Codex" title="Codex" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.cursor.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cursor-64.png" alt="Cursor" title="Cursor" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/docs/copilot/overview"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/github-copilot-64.png" alt="GitHub Copilot" title="GitHub Copilot" height="36"></a>&nbsp;&nbsp;
+    <a href="https://gemini.google.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/gemini-64.png" alt="Gemini" title="Gemini" height="36"></a>&nbsp;&nbsp;
+    <a href="https://antigravity.google/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/antigravity-64.png" alt="Antigravity" title="Antigravity" height="36"></a>&nbsp;&nbsp;
+    <a href="https://code.visualstudio.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/vs-code-64.png" alt="VS Code" title="VS Code" height="36"></a>&nbsp;&nbsp;
+    <a href="https://www.jetbrains.com/rider/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/rider-64.png" alt="Rider" title="Rider" height="36"></a>&nbsp;&nbsp;
+    <a href="https://visualstudio.microsoft.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/visual-studio-64.png" alt="Visual Studio" title="Visual Studio" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/anthropics/claude-code"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/open-code-64.png" alt="Open Code" title="Open Code" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/cline/cline"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cline-64.png" alt="Cline" title="Cline" height="36"></a>&nbsp;&nbsp;
+    <a href="https://github.com/Kilo-Org/kilocode"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/kilo-code-64.png" alt="Kilo Code" title="Kilo Code" height="36"></a>
+  </p>
+</div>
+
+```bash
+godot-cli setup-mcp --list                    # list every supported agent id
+godot-cli setup-mcp claude-code ./MyGame      # write the agent's MCP client config
+```
+
+> For the full Godot-MCP project documentation, see the
+> [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by
+> **[ai-game.dev](https://ai-game.dev)**.
+
+<div align="center">
+  <sub>Made with :orange_heart: for game developers — <a href="https://ai-game.dev">ai-game.dev</a></sub>
+</div>
