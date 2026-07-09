@@ -64,7 +64,10 @@ jobs:
       # OIDC token exchange, so the publish PUT fails auth with a masked E404).
       # Upgrade npm before any publish step. See: https://docs.npmjs.com/trusted-publishers
       - name: Upgrade npm (OIDC Trusted Publishing requires npm >= 11.5.1)
-        run: npm install -g npm@latest
+        # Pin to the 11.x major: npm 12.0.0 (2026-07-09) regressed
+        # `npm publish --provenance` (fails "Cannot find module 'sigstore'").
+        # 11.x satisfies the >= 11.5.1 OIDC floor and has working provenance.
+        run: npm install -g npm@11
 
       - name: Resolve version
         id: version
