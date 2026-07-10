@@ -66,7 +66,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <c>v&lt;ServerVersion&gt;</c> release with all 7 RID zips exists on GameDev-MCP-Server BEFORE
         /// cutting an addon release that pins it — otherwise the download 404s, the issue-#94 class of bug).
         /// </summary>
-        public const string ServerVersion = "8.0.1";
+        public const string ServerVersion = "8.0.3";
 
         /// <summary>
         /// The server executable base name (the shared <c>GameDev-MCP-Server</c> binary). On Windows the

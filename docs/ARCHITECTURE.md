@@ -213,7 +213,7 @@ same way:
 ```xml
 <ItemGroup Condition="'$(Configuration)' != 'ExportRelease'">
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.10.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.11.0" />
 </ItemGroup>
 ```
 
