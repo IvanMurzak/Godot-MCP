@@ -14,7 +14,7 @@ MCP server (cloud `ai-game.dev` by default, or a custom local server) over the r
 `com.IvanMurzak.McpPlugin` SignalR client. The MCP/reflection stack is **not forked** — it is consumed
 from nuget.org as `PackageReference`s and the pins are owned by the upstream release pipelines (never bump
 them here). The reused pins are frozen at `com.IvanMurzak.ReflectorNet` **5.3.1** and
-`com.IvanMurzak.McpPlugin` **6.10.0** (in `Godot-MCP.csproj`, mirrored by `Godot-MCP.Tests/` and the infra
+`com.IvanMurzak.McpPlugin` **6.11.0** (in `Godot-MCP.csproj`, mirrored by `Godot-MCP.Tests/` and the infra
 testbed) — keep all three in lockstep; never bump here. (6.10.0 carries the shared engine-agnostic
 `com.IvanMurzak.McpPlugin.AgentConfig` module the addon consumes for AI-agent configurators — registry +
 `AiAgentConfig` + `AgentConfiguratorDescription` — replacing the addon's retired local copy; it also carries
@@ -165,7 +165,7 @@ reads at editor runtime:
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.10.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="6.11.0" />
 </ItemGroup>
 
 <ItemGroup>
