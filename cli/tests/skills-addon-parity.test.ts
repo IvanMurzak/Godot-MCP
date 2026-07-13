@@ -238,12 +238,14 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   it('the Asset Library template + mirror state the csproj-derived McpPlugin version', () => {
     // Single source of truth for the pin = Godot-MCP.csproj.
     const csproj = readRepoFile('Godot-MCP.csproj');
-    const pinMatch = csproj.match(/McpPlugin"\s+Version="([0-9.]+)"/);
+    // Capture the FULL version, including any pre-release suffix (e.g. `7.0.0-preview.1`) — the
+    // pin is not restricted to numeric-and-dot, so match anything up to the closing quote.
+    const pinMatch = csproj.match(/McpPlugin"\s+Version="([^"]+)"/);
     expect(pinMatch, 'Godot-MCP.csproj must declare a com.IvanMurzak.McpPlugin PackageReference').not.toBeNull();
     const expectedMcpPlugin = pinMatch![1];
-    expect(expectedMcpPlugin).toBe('6.11.0');
+    expect(expectedMcpPlugin).toBe('7.0.0-preview.1');
 
-    // edit.hbs renders `com.IvanMurzak.McpPlugin     version 6.11.0` — tolerate the
+    // edit.hbs renders `com.IvanMurzak.McpPlugin     version 7.0.0-preview.1` — tolerate the
     // literal lowercase word `version` and runs of spaces between name and version.
     const versionAdjacencyRe = new RegExp(
       `com\\.IvanMurzak\\.McpPlugin\\s+(?:version\\s+)?${expectedMcpPlugin.replace(/\./g, '\\.')}`,

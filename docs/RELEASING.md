@@ -244,8 +244,8 @@ in this repo):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.3.1` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `6.11.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.ReflectorNet` | `5.3.2` | reflection / serialization core |
+| `com.IvanMurzak.McpPlugin` | `7.0.0-preview.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
 entry — plus the **`godot-cli` npm package** are the distribution channels for Godot-MCP. There
