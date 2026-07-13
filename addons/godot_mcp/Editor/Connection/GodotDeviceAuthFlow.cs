@@ -59,6 +59,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </summary>
     public sealed class GodotDeviceAuthFlow
     {
+        /// <summary>
+        /// The public <c>client_id</c> the Godot editor plugin presents on the RFC 8628 device flow. The AS
+        /// (<c>/oauth/device_authorization</c>) requires a non-empty <c>client_id</c> but does not bind it to a
+        /// registered client; the SAME value MUST be replayed at the device-code token exchange and every
+        /// refresh (the AS rejects a mismatch with <c>invalid_grant</c>). Kept as a stable well-known
+        /// identifier so refresh continues to work across editor sessions.
+        /// </summary>
+        public const string DefaultClientId = "godot-mcp-plugin";
+
+        /// <summary>The scope the plugin requests — selects the ES256 hub JWT (<c>aud=urn:agd:hub</c>) + refresh token.</summary>
+        public const string PluginScope = "mcp:plugin";
+
         /// <summary>Minimum poll interval (seconds) the server's <c>interval</c> is clamped up to — the device-flow floor.</summary>
         public const int MinIntervalSeconds = 5;
 
@@ -107,11 +119,24 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Run the device flow against <paramref name="cloudBaseUrl"/>. Returns the issued access token on
-        /// success, or <c>null</c> on any non-Authorized terminal state. The token is the ONLY channel the
-        /// secret leaves through — it is never logged or placed in <see cref="ErrorMessage"/>. A second
-        /// call cancels any in-flight run first.
+        /// success, or <c>null</c> on any non-Authorized terminal state. This is the backward-compatible,
+        /// access-token-only projection of <see cref="AuthorizeAsync"/> (the refresh token + expiry are
+        /// dropped); the machine-store sign-in path uses <see cref="AuthorizeAsync"/> to capture them.
+        /// A second call cancels any in-flight run first. <paramref name="clientLabel"/> is retained for
+        /// call-site compatibility but is not part of the RFC 8628 request (which carries <c>client_id</c> +
+        /// <c>scope</c>, not a human label).
         /// </summary>
         public async Task<string?> StartAsync(string cloudBaseUrl, string? clientLabel = null)
+            => (await AuthorizeAsync(cloudBaseUrl).ConfigureAwait(false))?.AccessToken;
+
+        /// <summary>
+        /// Run the RFC 8628 device flow against <paramref name="asBaseUrl"/> end-to-end. Returns the full
+        /// <see cref="GodotDeviceAuthResult"/> (access token + rotating refresh token + expiry) on success, or
+        /// <c>null</c> on any non-Authorized terminal state. The secrets are the ONLY channel they leave
+        /// through — none is stored on this instance nor placed in <see cref="ErrorMessage"/>. A second call
+        /// cancels any in-flight run first.
+        /// </summary>
+        public async Task<GodotDeviceAuthResult?> AuthorizeAsync(string asBaseUrl)
         {
             Cancel();
             _cts = new CancellationTokenSource();
@@ -122,7 +147,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 SetState(GodotDeviceAuthFlowState.Initiating);
 
                 var authResponse = await _service
-                    .InitiateDeviceAuthAsync(cloudBaseUrl, clientLabel, ct)
+                    .RequestDeviceAuthorizationAsync(asBaseUrl, DefaultClientId, PluginScope, ct)
                     .ConfigureAwait(false);
 
                 UserCode = authResponse.UserCode;
@@ -140,15 +165,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     await _delay(TimeSpan.FromSeconds(intervalSeconds), ct).ConfigureAwait(false);
 
                     var tokenResponse = await _service
-                        .PollDeviceTokenAsync(cloudBaseUrl, authResponse.DeviceCode, ct)
+                        .PollTokenAsync(asBaseUrl, authResponse.DeviceCode, DefaultClientId, ct)
                         .ConfigureAwait(false);
 
                     if (!string.IsNullOrEmpty(tokenResponse.AccessToken))
                     {
-                        // Reach the terminal state BEFORE returning the token, but never store the token
-                        // on this instance — it flows out only as the return value.
+                        // Reach the terminal state BEFORE returning the credential, but never store any
+                        // secret on this instance — it flows out only as the return value.
+                        var expiresAt = tokenResponse.ExpiresIn > 0
+                            ? new DateTimeOffset(_utcNow(), TimeSpan.Zero).AddSeconds(tokenResponse.ExpiresIn)
+                            : (DateTimeOffset?)null;
                         SetState(GodotDeviceAuthFlowState.Authorized);
-                        return tokenResponse.AccessToken;
+                        return new GodotDeviceAuthResult(tokenResponse.AccessToken!, tokenResponse.RefreshToken, expiresAt);
                     }
 
                     switch (tokenResponse.Error)
