@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
@@ -196,9 +197,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Active bearer token based on <see cref="ActiveMode"/>. In Cloud mode the cloud token (env-overridable);
         /// in Custom mode the custom token (env-overridable). The setter mirrors the getter so a generic
         /// <c>Token = ...</c> assignment lands on the field that matches the active mode.
+        ///
+        /// <para>
+        /// McpPlugin 7.0 dropped the base <see cref="ConnectionConfig"/>'s <c>Token</c> property in favor of an
+        /// async <see cref="ConnectionConfig.CredentialProvider"/> (a <c>Func&lt;Task&lt;string?&gt;&gt;</c> the
+        /// SignalR client invokes per connect). This property is therefore no longer an <c>override</c> — it stays
+        /// as the addon's single active-token accessor (read by the AI-agent configurators and the config store),
+        /// and the constructor wires <see cref="ConnectionConfig.CredentialProvider"/> to read it live so the
+        /// client sends the identical bearer it did under 6.x. Behavior is unchanged.
+        /// </para>
         /// </summary>
         [JsonIgnore]
-        public override string? Token
+        public string? Token
         {
             get => ActiveMode == GodotMcpConnectionMode.Cloud ? ResolveCloudToken() : ResolveCustomToken();
             set
@@ -210,12 +220,32 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
         }
 
+        /// <summary>
+        /// Never serialized. McpPlugin 7.0's base <see cref="ConnectionConfig.CredentialProvider"/> is a
+        /// non-serializable delegate (<c>Func&lt;Task&lt;string?&gt;&gt;</c>) with no <c>[JsonIgnore]</c> of its
+        /// own, so a straight serialization of this persisted config throws <c>NotSupportedException</c>. This
+        /// override adds nothing but the <see cref="JsonIgnoreAttribute"/> — it forwards get/set to the base so
+        /// the constructor's wiring and the SignalR client's per-connect read are unchanged, while the config
+        /// store (<see cref="GodotMcpConfigStore"/>) round-trips only the serializable state as before.
+        /// </summary>
+        [JsonIgnore]
+        public override Func<Task<string?>>? CredentialProvider
+        {
+            get => base.CredentialProvider;
+            set => base.CredentialProvider = value;
+        }
+
         public GodotMcpConfig()
         {
             // Auto-reconnect / backoff are handled by the reused McpPlugin SignalR client when
             // KeepConnected is true (it drives a FixedRetryPolicy on the underlying HubConnection).
             // We do not reimplement transport — we just opt into staying connected.
             KeepConnected = true;
+
+            // McpPlugin 7.0 reads the bearer from CredentialProvider (an async Func<Task<string?>>) rather than a
+            // Token property. Resolve it LIVE off Token on each connect so the active-mode + env overrides still
+            // apply — behavior-preserving vs the 6.x virtual Token the client used to read.
+            CredentialProvider = () => Task.FromResult(Token);
 
             // Auto-generate skills is ON by default (owner-approved v1 default): on a fresh install the addon
             // regenerates the skills-capable agent's SKILL.md files on boot via GenerateSkillFilesIfNeeded(), so the
