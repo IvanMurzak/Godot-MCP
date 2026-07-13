@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
@@ -197,6 +198,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         readonly ConnectionStatusTracker _statusTracker = new();
 
+        /// <summary>
+        /// The ai-game.dev account-credential coordinator (mcp-authorize D12 — the zero-button rule). Owns the
+        /// shared machine credential store + proactive/reactive refresh; constructed once per connection so the
+        /// store auto-adopt runs at boot. Its access-token provider is composed into the Cloud-mode credential
+        /// provider by <see cref="Start"/>, and its reactive refresh is driven by the authorization-rejected
+        /// signal (<see cref="TryAccountRefreshAndReconnect"/>). Pure-managed; the store/refresh lifecycle is
+        /// unit-tested via <c>GodotAccountAuthTests</c>.
+        /// </summary>
+        readonly GodotAccountAuth _account;
+
+        /// <summary>
+        /// Re-entrancy guard for <see cref="TryAccountRefreshAndReconnect"/> (0 = idle, 1 = a refresh is in
+        /// flight) so a burst of authorization-rejected signals cannot fan out concurrent refreshes. Toggled
+        /// with <see cref="Interlocked"/> because rejections arrive off the SignalR thread.
+        /// </summary>
+        int _accountRefreshInFlight;
+
         /// <summary>The active config (resolved Host/Token/mode are read live off this).</summary>
         public GodotMcpConfig Config => _config;
 
@@ -212,11 +230,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public IMcpManager? McpManager => _plugin?.McpManager;
 
         /// <summary>
-        /// The resolved cloud BASE url (no <c>/mcp</c> hub suffix) — the host the device-auth endpoints
-        /// (<c>/api/auth/device/*</c>) live on. The dock's Cloud-auth section passes this to
-        /// <see cref="GodotDeviceAuthFlow.StartAsync"/>. Read live off the config so an env override applies.
+        /// The resolved cloud BASE url (no <c>/mcp</c> hub suffix) — the ai-game.dev authorization-server host
+        /// the RFC 8628 device-flow endpoints (<c>/oauth/device_authorization</c> + <c>/oauth/token</c>) live
+        /// on. The dock's Cloud-auth section passes this to <see cref="GodotDeviceAuthFlow.StartAsync"/> and it
+        /// backs the account coordinator's refresh target. Read live off the config so an env override applies.
         /// </summary>
         public string CloudBaseUrl => GodotMcpConfig.ResolveCloudBaseUrl();
+
+        /// <summary>
+        /// The ai-game.dev account-credential coordinator (machine store + proactive/reactive refresh). Exposed
+        /// so the editor UI can drive an in-editor "Sign in" (device flow → machine store) and reflect the
+        /// signed-in state; the connection itself composes <see cref="GodotAccountAuth.AccessTokenProvider"/>
+        /// into the Cloud-mode bearer and refreshes it on the authorization-rejected signal.
+        /// </summary>
+        public GodotAccountAuth Account => _account;
 
         /// <summary>
         /// Raised when the server rejects the connection's authorization token (the reused client's
@@ -284,9 +311,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             GodotMcpDrainDiagnostics.Warn = GodotMcpLog.Warning;
         }
 
-        public GodotMcpConnection(GodotMcpConfig? config = null)
+        public GodotMcpConnection(GodotMcpConfig? config = null, GodotAccountAuth? account = null)
         {
             _config = config ?? new GodotMcpConfig();
+
+            // Construct the account coordinator once (auto-adopts from the machine store at boot — the
+            // zero-button rule). The AS base URL is read LIVE off the config so a `.env`/env cloud-URL override
+            // reaches refreshes. The store read is safe when absent (returns null → signed out).
+            _account = account ?? new GodotAccountAuth(asBaseUrlProvider: () => CloudBaseUrl);
         }
 
         /// <summary>
@@ -307,6 +339,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // built-in defaults (the first-load "Cloud token empty / Authorize prompted / wrong agent restored"
             // bug); this lazy call covers a Start() reached without that pre-step. A no-op once already resolved.
             ResolveConfig();
+
+            // Compose the machine-store account credential into the connection's bearer resolution (D12 — the
+            // zero-button rule). In Cloud mode, when the machine store holds a credential, present its
+            // (proactively-refreshed) JWT; otherwise fall back to the config's own token resolution
+            // (CloudToken in Cloud mode / CustomToken in Custom mode, env-overridable) so a signed-out machine
+            // and every Custom-mode connection behave exactly as before. Set here (not wrapped) so a Reconnect's
+            // repeat Start() re-assigns the SAME composite rather than nesting delegates.
+            _config.CredentialProvider = async () =>
+            {
+                if (_config.ActiveMode == GodotMcpConnectionMode.Cloud && _account.IsSignedIn)
+                {
+                    var accountToken = await _account.AccessTokenProvider().ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(accountToken))
+                        return accountToken;
+                }
+                return _config.Token;
+            };
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
@@ -507,11 +556,65 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         MainThreadDispatcher.Enqueue(() =>
                         {
                             if (ReferenceEquals(_plugin, plugin))
-                                AuthorizationRejected?.Invoke();
+                                RaiseAuthorizationRejected();
                         });
                     else if (ReferenceEquals(_plugin, plugin))
-                        AuthorizationRejected?.Invoke();
+                        RaiseAuthorizationRejected();
                 });
+        }
+
+        /// <summary>
+        /// Handle a confirmed-live authorization rejection: notify the dock (which may revert the Cloud-token
+        /// UI to "Authorize") AND — when signed in via the machine-store account in Cloud mode — reactively
+        /// refresh the account JWT and reconnect (design 06: refresh on the <c>_authorizationRejected</c>
+        /// signal). The account refresh is a no-op fall-through for a Custom-mode / token-field connection, so
+        /// the historical dock behavior is unchanged there.
+        /// </summary>
+        void RaiseAuthorizationRejected()
+        {
+            AuthorizationRejected?.Invoke();
+            TryAccountRefreshAndReconnect();
+        }
+
+        /// <summary>
+        /// Reactively refresh the machine-store account credential and reconnect with the fresh JWT, guarded so
+        /// a burst of rejections cannot fan out concurrent refreshes. No-op unless the account is signed in and
+        /// the live mode is Cloud. A refresh FAILURE returns false (the provider has surfaced sign-in-required)
+        /// and we do NOT reconnect — that stops a reject→refresh→reject loop; recovery is then an explicit
+        /// re-sign-in.
+        /// </summary>
+        void TryAccountRefreshAndReconnect()
+        {
+            if (!_account.IsSignedIn || _config.ActiveMode != GodotMcpConnectionMode.Cloud)
+                return;
+            if (Interlocked.CompareExchange(ref _accountRefreshInFlight, 1, 0) != 0)
+                return; // a refresh is already in flight
+
+            _ = RefreshThenReconnectAsync();
+        }
+
+        async Task RefreshThenReconnectAsync()
+        {
+            try
+            {
+                var refreshed = await _account.RefreshAsync().ConfigureAwait(false);
+                if (!refreshed)
+                    return; // sign-in-required surfaced by the provider; do not loop
+
+                // Reconnect on the editor main thread (it touches _statusTracker + raises events).
+                if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                    MainThreadDispatcher.Enqueue(Reconnect);
+                else
+                    Reconnect();
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] account token refresh-on-reject failed: {ex.Message}");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _accountRefreshInFlight, 0);
+            }
         }
 
         /// <summary>
@@ -1207,6 +1310,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _authRejectedSubscription.Dispose();
             _featuresSubscription.Dispose();
             _agentsSubscription.Dispose();
+            _account.Dispose();
             DisposePlugin();
         }
 

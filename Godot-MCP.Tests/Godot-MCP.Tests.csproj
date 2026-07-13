@@ -104,6 +104,17 @@
          ConnectionPanel (browser-open + token persistence), verified via the headless smoke (test.md Suite 3). -->
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthService.cs" Link="Source\GodotDeviceAuthService.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthFlow.cs" Link="Source\GodotDeviceAuthFlow.cs" />
+    <!-- mcp-authorize PR 2 (RFC 8628 device flow + machine credential store + zero-button boot): the
+         device-flow result carrier, the ITokenRefresher impl (proactive/reactive refresh against
+         /oauth/token), and the account coordinator that owns McpPlugin 7.0's MachineCredentialStore +
+         PluginCredentialProvider (store auto-adopt, sign-in persist, refresh). All pure-managed (no Godot
+         native types, no #if TOOLS), so the store/adopt/refresh lifecycle is unit-tested here with a
+         temp-directory store + a fake HttpMessageHandler; the connection wiring (composed credential
+         provider + refresh-on-reject) lives in GodotMcpConnection.cs (#if-free but SignalR-coupled) and is
+         verified via the headless Godot smoke (test.md Suite 3). -->
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthResult.cs" Link="Source\GodotDeviceAuthResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotTokenRefresher.cs" Link="Source\GodotTokenRefresher.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotAccountAuth.cs" Link="Source\GodotAccountAuth.cs" />
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />
