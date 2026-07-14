@@ -62,6 +62,13 @@
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
+    <!-- Project-identity wiring (mcp-authorize e1, PR 3): the instance-metadata handshake builder,
+         ProjectIdentity (pin + derived port) resolution, and the marker serverTarget → connection-mode
+         mapping. Pure-managed adapter over McpPlugin 7.0's ConnectionInstanceMetadata / ProjectIdentity /
+         ProjectMarker (no Godot native types, no #if TOOLS); the Godot project-root/name resolution lives
+         in GodotMcpConnection.cs (verified via the headless smoke). Unit-tested in GodotProjectIdentityTests
+         (golden-vector parity, handshake payload, marker read/write). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotProjectIdentity.cs" Link="Source\GodotProjectIdentity.cs" />
     <!-- Project-root `.env` loader: pure-managed parser + precedence applier (no Godot native types,
          no #if TOOLS). The editor wiring (ProjectSettings.GlobalizePath) lives in GodotMcpConnection.cs
          (#if TOOLS), verified via the headless smoke; the parse/apply core is unit-tested here. -->

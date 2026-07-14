@@ -21,6 +21,7 @@ using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.Godot.MCP.UI.Agents;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.AgentConfig;
 using com.IvanMurzak.ReflectorNet;
 using Godot;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -356,6 +357,27 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 }
                 return _config.Token;
             };
+
+            // Instance-metadata handshake (design 04 — mcp-authorize e1, PR 3). Identify THIS editor
+            // session to the server so it can route/dedup by account + project + instance instead of by
+            // token-string equality. Set on the config the SignalR client reads at connect — the client
+            // appends {instance_id, engine, project_name, project_path_hash, machine_name} to the hub URL
+            // via ConnectionInstanceMetadata. The InstanceId is minted once per editor session
+            // (GodotProjectIdentity.SessionInstanceId); the project-path-hash (and its first-8 routing
+            // pin) is derived from the SAME normalized project root a configurator hashes, so an agent
+            // session launched in this project folder routes strictly to this instance.
+            var projectRootPath = ResolveProjectRootPath();
+            _config.InstanceMetadata = GodotProjectIdentity.BuildInstanceMetadata(
+                projectRootPath,
+                ResolveProjectName(),
+                GodotProjectIdentity.SessionInstanceId,
+                System.Environment.MachineName);
+
+            // Surface the resolved project identity (routing pin + derived local port) and the enrolled
+            // server target for the operator smoke. The pin is what agent sessions route on; the derived
+            // port is wired here for PR 4's 8080 → derived-port migration but does NOT change the runtime
+            // default in this PR (the connection still uses the configured Host / 8080 default).
+            LogProjectIdentity(projectRootPath);
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
@@ -1067,9 +1089,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             _configResolved = true;
 
-            // PRECEDENCE: process env > .env file > persisted config > built-in default.
-            // 1) Seed the SERIALIZED-config layer first (lowest layer above the built-in defaults), so the
-            //    .env and live process-env layers below override it — never the other way around.
+            // PRECEDENCE: process env > .env file > persisted config > project marker > built-in default.
+            // 0) Seed the ENROLLED server target from the project marker FIRST (the lowest layer above the
+            //    built-in defaults). A CLI `install-plugin --enroll` (or a hand-written marker) records the
+            //    hosted-vs-local target in `<project>/.ai-game-dev/project.json`; applying it before the
+            //    persisted / .env / process-env layers means every explicit user choice below still wins,
+            //    while a fresh enrolled project with no other config boots pointed at the right hub. A
+            //    missing marker (the common case) is a no-op, so existing behavior is unchanged.
+            ApplyProjectMarker();
+
+            // 1) Seed the SERIALIZED-config layer next (above the marker), so the .env and live process-env
+            //    layers below override it — never the other way around.
             ApplyPersistedConfig();
 
             // 2) Layer the project-root `.env` BENEATH the live process-env overrides the config already
@@ -1106,6 +1136,124 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             GodotMcpEnvFile.Apply(_config, values);
             GodotMcpLog.Info($"[Godot-MCP] applied {values.Count} setting(s) from project .env ({envPath}).");
+        }
+
+        /// <summary>
+        /// Apply the project marker's enrolled server target (<c>&lt;project&gt;/.ai-game-dev/project.json</c>
+        /// → <see cref="ProjectMarker.ServerTarget"/>) as the lowest config layer (mcp-authorize e1, PR 3 —
+        /// design 06 / 09 · 1A). When the marker names a valid target, a loopback URL selects
+        /// <see cref="GodotMcpConnectionMode.Custom"/> pointed at that host and any other http(s) URL selects
+        /// <see cref="GodotMcpConnectionMode.Cloud"/> (hosted), so an enrolled project "boots pointed at the
+        /// right hub" without any editor interaction. Applied BEFORE the persisted / .env / process-env
+        /// layers, so every explicit user choice still overrides it. The Godot dependency is only the
+        /// <c>res://</c> path resolution; the marker read + the target→mode mapping are the pure-managed,
+        /// unit-tested <see cref="GodotProjectIdentity.ResolveServerTarget"/>. A missing/empty marker (the
+        /// common case) is a silent no-op, so existing connection behavior is unchanged. This wires the
+        /// server-target resolution only — it does NOT change the local default port (PR 4).
+        /// </summary>
+        void ApplyProjectMarker()
+        {
+            var projectRoot = ResolveProjectRootPath();
+            if (string.IsNullOrEmpty(projectRoot))
+                return;
+
+            ProjectMarker? marker;
+            try
+            {
+                marker = ProjectMarker.Read(projectRoot);
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] could not read project marker: {ex.Message}");
+                return;
+            }
+
+            var resolution = GodotProjectIdentity.ResolveServerTarget(marker);
+            if (resolution == null)
+                return;
+
+            _config.ConnectionMode = resolution.Value.Mode;
+            if (resolution.Value.Mode == GodotMcpConnectionMode.Custom && !string.IsNullOrEmpty(resolution.Value.CustomHost))
+                _config.CustomHost = resolution.Value.CustomHost!;
+
+            GodotMcpLog.Info(
+                $"[Godot-MCP] project marker enrolled server target '{resolution.Value.ServerTarget}' -> mode={resolution.Value.Mode}.");
+        }
+
+        /// <summary>
+        /// The absolute, native project-root path (<c>res://</c> globalized, trailing separator trimmed) —
+        /// the string hashed into the instance metadata's <c>ProjectPathHash</c> and the routing pin, and
+        /// the project marker's directory. The only Godot dependency of the identity path; returns empty on
+        /// a resolution failure so a boot never throws here (callers treat empty as "no identity available").
+        /// </summary>
+        static string ResolveProjectRootPath()
+        {
+            try
+            {
+                return ProjectSettings.GlobalizePath("res://").TrimEnd('/');
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// The human-facing project name reported in the instance metadata — Godot's
+        /// <c>application/config/name</c> setting, falling back to the project directory name and finally a
+        /// fixed literal. Never throws (a name lookup must not break the boot path).
+        /// </summary>
+        static string ResolveProjectName()
+        {
+            try
+            {
+                var name = ProjectSettings.GetSetting("application/config/name").AsString();
+                if (!string.IsNullOrWhiteSpace(name))
+                    return name.Trim();
+            }
+            catch
+            {
+                // Fall through to the directory-name fallback.
+            }
+
+            try
+            {
+                var dir = System.IO.Path.GetFileName(ResolveProjectRootPath());
+                if (!string.IsNullOrWhiteSpace(dir))
+                    return dir;
+            }
+            catch
+            {
+                // Fall through to the literal fallback.
+            }
+
+            return "godot-project";
+        }
+
+        /// <summary>
+        /// Log the resolved <see cref="ProjectIdentity"/> (routing pin + derived local port, honoring a
+        /// marker <c>portOverride</c>) and the enrolled server target for the operator smoke — a build-green
+        /// boot line proving the identity wiring resolves. Diagnostics only: the derived port is surfaced
+        /// for PR 4's local-port migration but is NOT applied to the runtime connection here. Never throws.
+        /// </summary>
+        void LogProjectIdentity(string projectRoot)
+        {
+            if (string.IsNullOrEmpty(projectRoot))
+                return;
+
+            try
+            {
+                var marker = ProjectMarker.Read(projectRoot);
+                var identity = GodotProjectIdentity.Derive(projectRoot, marker);
+                var target = GodotProjectIdentity.ResolveServerTarget(marker);
+                GodotMcpLog.Info(
+                    $"[Godot-MCP] project identity: pin={identity.Pin} derivedPort={identity.Port} " +
+                    $"(portOverridden={identity.PortIsOverridden}); enrolled serverTarget={target?.ServerTarget ?? "<none>"}.");
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] could not resolve project identity: {ex.Message}");
+            }
         }
 
         /// <summary>
