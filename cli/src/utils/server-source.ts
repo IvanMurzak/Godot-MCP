@@ -87,12 +87,6 @@ export function serverAssetName(rid: string): string {
   return `${SERVER_ASSET_PREFIX}-${rid}.zip`;
 }
 
-/** Drop a single leading `v`/`V` from a version string. Pure. */
-export function stripLeadingV(version: string): string {
-  const v = (version ?? '').trim();
-  return /^v/i.test(v) ? v.slice(1) : v;
-}
-
 /** The git release TAG for a server version: the version with a leading `v` (`9.0.0` → `v9.0.0`). Pure. */
 export function serverReleaseTag(version: string): string {
   const v = (version ?? '').trim();

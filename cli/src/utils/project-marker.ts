@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { derivePin, PIN_LENGTH } from './project-identity.js';
+import { PIN_LENGTH } from './project-identity.js';
 import { agentRegistry, MCP_SERVER_NAME } from './agents.js';
 
 /**
@@ -194,9 +194,4 @@ function upsertPinInTomlConfig(configPath: string, pin: string): boolean {
     }
   }
   return false;
-}
-
-/** Convenience: derive the pin for a project root (re-exported for callers that only need the pin). */
-export function projectPin(projectPath: string): string {
-  return derivePin(projectPath);
 }
