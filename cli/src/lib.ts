@@ -21,6 +21,9 @@ export { setupMcp, listAgentIds } from './lib/setup-mcp.js';
 export { setupSkills } from './lib/setup-skills.js';
 export { installPlugin, removePlugin } from './lib/install-plugin.js';
 export { installExtension } from './lib/install-extension.js';
+export { installServer } from './lib/install-server.js';
+export { enrollPlugin } from './lib/enroll.js';
+export { configureAgentViaServer } from './lib/configure-agent.js';
 
 // Shared extension catalog (single-sourced from addons/godot_mcp/extensions.catalog.json)
 // + its lookup helpers, so the app can render the same list the dock + CLI install from.
@@ -87,4 +90,19 @@ export type {
   InstallExtensionSuccess,
   InstallExtensionFailure,
   ExtensionInstallOutcome,
+  // install-server (install-plugin --with-server)
+  InstallServerOptions,
+  InstallServerResult,
+  InstallServerSuccess,
+  InstallServerFailure,
+  // enroll-plugin (install-plugin --enroll / --enroll-stdin)
+  EnrollPluginOptions,
+  EnrollPluginResult,
+  EnrollPluginSuccess,
+  EnrollPluginFailure,
+  // configure-agent (configure --agent)
+  ConfigureAgentOptions,
+  ConfigureAgentResult,
+  ConfigureAgentSuccess,
+  ConfigureAgentFailure,
 } from './lib/types.js';
