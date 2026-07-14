@@ -272,6 +272,13 @@
          unit-tested upstream in MCP-Plugin-dotnet. The dock UI (AgentConfiguratorsPanel.cs) is #if TOOLS and verified
          via the headless Godot smoke (test.md Suite 3). -->
     <Compile Include="..\addons\godot_mcp\Editor\UI\Agents\GodotAgentConfigurators.cs" Link="Source\GodotAgentConfigurators.cs" />
+    <!-- Credential-surfacing policy (mcp-authorize e1 · PR 5) — pure-managed (no Godot native types, no #if TOOLS):
+         decides the HttpCredentialMode + token/authOption the shared configurator settings carry so the DEFAULT
+         configure/connection view is URL-only (native OAuth) and the "Advanced: use access token" escape hatch
+         writes the legacy Bearer shape. The #if TOOLS AgentConfiguratorSettingsFactory / AgentConfiguratorsPanel /
+         ConnectionPanel are thin adapters over it (verified via the headless Godot smoke, test.md Suite 3); the
+         decisions are unit-tested here (AgentConfiguratorCredentialPolicyTests). -->
+    <Compile Include="..\addons\godot_mcp\Editor\UI\Agents\AgentConfiguratorCredentialPolicy.cs" Link="Source\AgentConfiguratorCredentialPolicy.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\UI\SkillsPathUtils.cs" Link="Source\SkillsPathUtils.cs" />
     <!-- Skills card presentation model — pure-managed (no Godot native types, no #if TOOLS): the supported/path
          resolution (SkillsPlan) the dock's Skills card renders, now sourced from the shared configurator's

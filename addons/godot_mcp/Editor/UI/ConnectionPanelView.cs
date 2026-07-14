@@ -161,6 +161,43 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static string CloudAuthButtonText(GodotDeviceAuthFlowState state) =>
             GodotDeviceAuthFlow.IsRunning(state) ? AuthorizeButtonCancelText : AuthorizeButtonText;
 
+        // --- Cloud sign-in / account state (mcp-authorize e1 · PR 5, design 06/09). Pure-managed, unit-tested. ---
+
+        /// <summary>Account-state chip text shown when a cloud credential is stored (signed in via the device flow / machine store).</summary>
+        public const string SignedInLabel = "Signed in to ai-game.dev";
+
+        /// <summary>Account-state chip text shown when no cloud credential is stored (the default path prompts sign-in, not a raw token).</summary>
+        public const string SignedOutLabel = "Not signed in — sign in to ai-game.dev";
+
+        /// <summary>
+        /// The Cloud account-state chip text, driven by whether a cloud credential is stored (the device-flow /
+        /// machine-store sign-in state from PR 2). With the machine credential store the token is no longer a
+        /// user-entered field on the golden path — the plugin surfaces this signed-in / signed-out state instead.
+        /// </summary>
+        public static string CloudSignInStatusLabel(bool signedIn) => signedIn ? SignedInLabel : SignedOutLabel;
+
+        /// <summary>The Cloud account-state chip colour: green when signed in, gray when not (reuses the status-dot palette).</summary>
+        public static (float R, float G, float B) CloudSignInStatusColor(bool signedIn) =>
+            signedIn ? ColorConnected : ColorDisconnected;
+
+        /// <summary>The "Advanced: use access token" opt-in label — reveals the legacy masked token field on the Cloud path.</summary>
+        public const string AdvancedUseAccessTokenLabel = "Advanced: use access token";
+
+        /// <summary>
+        /// Whether the raw (masked) cloud access-token field is shown in the connection view. The default
+        /// (device-flow / OAuth) path HIDES it — the sign-in chip conveys the state instead — and it is revealed
+        /// only when the user opts into the legacy access-token affordance (<paramref name="useAccessToken"/>).
+        /// </summary>
+        public static bool ShowCloudTokenField(bool useAccessToken) => useAccessToken;
+
+        /// <summary>
+        /// The derived per-project connection-URL line ("Connection URL: &lt;url&gt;") for the pinned project URL
+        /// the shared configurator writes (the <c>/p/&lt;pin&gt;</c> path segment + derived port from PRs 3–4). A
+        /// null / whitespace <paramref name="pinnedUrl"/> yields the empty string so the editor collapses the row.
+        /// </summary>
+        public static string ConnectionUrlLabel(string? pinnedUrl) =>
+            string.IsNullOrWhiteSpace(pinnedUrl) ? string.Empty : $"Connection URL: {pinnedUrl!.Trim()}";
+
         // --- Vertical timeline (Godot -> MCP server -> AI agent) presentation (pure-managed, unit-tested). ---
 
         /// <summary>
