@@ -265,6 +265,59 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(ConnectionPanelView.ShowConnectionRequired(true, false, ConnectionStatus.Disconnected));
         }
 
+        // --- Cloud sign-in / account state (mcp-authorize e1 · PR 5) ---
+
+        [Fact]
+        public void CloudSignInStatusLabel_ReflectsCredentialPresence()
+        {
+            Assert.Equal(ConnectionPanelView.SignedInLabel, ConnectionPanelView.CloudSignInStatusLabel(true));
+            Assert.Equal(ConnectionPanelView.SignedOutLabel, ConnectionPanelView.CloudSignInStatusLabel(false));
+        }
+
+        [Fact]
+        public void CloudSignInStatus_TracksStoredCredential_OnTheConfig()
+        {
+            // The panel derives its signed-in state from whether a cloud credential is stored — proven here on
+            // the real GodotMcpConfig: no credential -> signed out; a stored credential -> signed in.
+            var config = new GodotMcpConfig();
+            Assert.Equal(ConnectionPanelView.SignedOutLabel,
+                ConnectionPanelView.CloudSignInStatusLabel(!string.IsNullOrEmpty(config.CloudToken)));
+
+            config.CloudToken = "cloud-jwt-abc123";
+            Assert.Equal(ConnectionPanelView.SignedInLabel,
+                ConnectionPanelView.CloudSignInStatusLabel(!string.IsNullOrEmpty(config.CloudToken)));
+        }
+
+        [Fact]
+        public void CloudSignInStatusColor_IsGreenWhenSignedIn_GrayWhenNot()
+        {
+            Assert.Equal(ConnectionPanelView.ColorConnected, ConnectionPanelView.CloudSignInStatusColor(true));
+            Assert.Equal(ConnectionPanelView.ColorDisconnected, ConnectionPanelView.CloudSignInStatusColor(false));
+            Assert.NotEqual(
+                ConnectionPanelView.CloudSignInStatusColor(true),
+                ConnectionPanelView.CloudSignInStatusColor(false));
+        }
+
+        [Theory]
+        [InlineData(true, true)]    // "Advanced: use access token" on -> the raw token field is revealed
+        [InlineData(false, false)]  // default path -> hidden
+        public void ShowCloudTokenField_OnlyUnderAdvancedOptIn(bool useAccessToken, bool expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.ShowCloudTokenField(useAccessToken));
+        }
+
+        [Fact]
+        public void ConnectionUrlLabel_FormatsPinnedUrl_EmptyWhenAbsent()
+        {
+            Assert.Equal("Connection URL: https://ai-game.dev/mcp/p/228b7b4f",
+                ConnectionPanelView.ConnectionUrlLabel("https://ai-game.dev/mcp/p/228b7b4f"));
+            Assert.Equal("Connection URL: http://localhost:26610/p/228b7b4f",
+                ConnectionPanelView.ConnectionUrlLabel("  http://localhost:26610/p/228b7b4f  "));
+            Assert.Equal(string.Empty, ConnectionPanelView.ConnectionUrlLabel(null));
+            Assert.Equal(string.Empty, ConnectionPanelView.ConnectionUrlLabel(""));
+            Assert.Equal(string.Empty, ConnectionPanelView.ConnectionUrlLabel("   "));
+        }
+
         [Fact]
         public void CustomHost_PersistsAndReloads()
         {

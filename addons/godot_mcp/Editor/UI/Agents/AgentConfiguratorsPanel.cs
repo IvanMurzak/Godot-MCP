@@ -74,6 +74,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // Live state for the currently-shown configurator.
         AgentConfig.AiAgentConfigurator? _current;
 
+        // "Advanced: use access token" opt-in (mcp-authorize e1 · PR 5). Default OFF → the DEFAULT configure view
+        // is URL-only (native OAuth: no token in the written config OR the rendered manual-config command). ON →
+        // the escape-hatch path writes the legacy Bearer-header shape (design "Flow C"). Panel-wide (persists
+        // across agent switches within a session); rebuilt into each agent view via BuildAdvancedTokenToggle.
+        bool _useAccessToken;
+        DockCheckBox? _advancedTokenToggle;
+
         // Configure/Remove status-row controls + the reconfigure alert host, rebuilt per agent switch.
         Label? _statusLabel;
         Button? _configureButton;
@@ -188,6 +195,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _alertHost = null;
             _agentBody = null;
             _skillsSection = null;
+            _advancedTokenToggle = null;
 
             BuildAgentView(_current);
         }
@@ -248,6 +256,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();
+
+            // "Advanced: use access token" opt-in (mcp-authorize e1 · PR 5): with the default OFF the DTO sections
+            // below (built from `settings`, which carries no token on the OAuth path) render URL-only; toggling ON
+            // re-renders + writes the legacy Bearer shape. Sits above the config sections it governs.
+            BuildAdvancedTokenToggle(agent);
 
             // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets.
             foreach (var section in description.Sections)
@@ -400,7 +413,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
 
             var settings = CurrentSettings();
-            var config = agent.GetHttpConfig(settings, Logger);
+            var config = agent.GetHttpConfig(settings, Logger, CurrentCredentialMode());
 
             // --- Row 1: "Model Context Protocol (MCP)" header + right-aligned ellipsis config path. ---
             var headerRow = new HBoxContainer { Name = "McpHeaderRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -457,6 +470,65 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// Build the "Advanced: use access token" opt-in row (mcp-authorize e1 · PR 5) — a right-aligned checkbox
+        /// that flips the written config + the DTO's manual-config command between the DEFAULT URL-only OAuth shape
+        /// and the legacy Bearer-header shape (design "Flow C"). Offered ONLY for OAuth-capable configurators
+        /// (<see cref="AgentConfiguratorCredentialPolicy.ShowAdvancedToggle"/>): a non-OAuth configurator has no
+        /// default path — its token is mandatory — so no toggle is shown and it always renders the token shape.
+        /// </summary>
+        void BuildAdvancedTokenToggle(AgentConfig.AiAgentConfigurator agent)
+        {
+            if (_agentBody == null || !AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(agent.SupportsOAuth))
+                return;
+
+            var row = new HBoxContainer { Name = "AdvancedTokenRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.Alignment = BoxContainer.AlignmentMode.Center;
+            _agentBody.AddChild(row);
+
+            var label = new Label { Name = "AdvancedTokenLabel", Text = AgentConfiguratorCredentialPolicy.AdvancedUseAccessTokenLabel };
+            DockStyle.ApplyDescription(label);
+            label.AutowrapMode = TextServer.AutowrapMode.Off;
+            row.AddChild(label);
+
+            row.AddChild(new Control { Name = "AdvancedTokenSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+
+            // Object+method Callable on the checkbox instance (no delegate += into the ManagedCallable hot-reload
+            // registry) — mirrors SkillsPanel's auto-generate toggle.
+            _advancedTokenToggle = new DockCheckBox { Name = "AdvancedTokenToggle", ButtonPressed = _useAccessToken };
+            _advancedTokenToggle.BindToggled(OnAdvancedTokenToggled);
+            _advancedTokenToggle.Connect(BaseButton.SignalName.Toggled, new Callable(_advancedTokenToggle, DockCheckBox.MethodName.OnToggled));
+            row.AddChild(_advancedTokenToggle);
+        }
+
+        /// <summary>
+        /// Persist the "Advanced: use access token" opt-in in panel state and rebuild the current agent view so the
+        /// DTO's config sections (built from a fresh <see cref="CurrentSettings"/> snapshot) + the Configure write
+        /// reflect the new <see cref="AgentConfig.HttpCredentialMode"/>. No connection/config mutation — the toggle
+        /// only governs how this session's configurator UI surfaces credentials.
+        /// </summary>
+        void OnAdvancedTokenToggled(bool pressed)
+        {
+            if (_useAccessToken == pressed)
+                return;
+
+            _useAccessToken = pressed;
+
+            // Rebuild the current agent view (ShowAgent reads _useAccessToken via CurrentSettings/CurrentCredentialMode).
+            var index = _agentSelector?.GetSelectedId() ?? -1;
+            if (index >= 0)
+                ShowAgent(index);
+        }
+
+        /// <summary>
+        /// The effective <see cref="AgentConfig.HttpCredentialMode"/> for the current agent + the "Advanced: use
+        /// access token" opt-in, per the pure-managed <see cref="AgentConfiguratorCredentialPolicy"/>. Drives both
+        /// the settings snapshot (<see cref="CurrentSettings"/>) and the explicit mode passed to
+        /// <c>GetHttpConfig</c> on Configure / Remove.
+        /// </summary>
+        AgentConfig.HttpCredentialMode CurrentCredentialMode() =>
+            AgentConfiguratorCredentialPolicy.ResolveCredentialMode(_current?.SupportsOAuth ?? true, _useAccessToken);
+
+        /// <summary>
         /// Configure-button <c>pressed</c> handler (object+method Callable). Writes the addon's HTTP entry into the
         /// current agent's config file via the shared config's <c>Configure()</c> (REAL token; never logged), then
         /// re-evaluates the status + alert.
@@ -465,7 +537,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             if (_current == null)
                 return;
-            var config = _current.GetHttpConfig(CurrentSettings(), Logger);
+            var config = _current.GetHttpConfig(CurrentSettings(), Logger, CurrentCredentialMode());
             config.Configure();
             RefreshStatus();
         }
@@ -475,7 +547,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             if (_current == null)
                 return;
-            var config = _current.GetHttpConfig(CurrentSettings(), Logger);
+            var config = _current.GetHttpConfig(CurrentSettings(), Logger, CurrentCredentialMode());
             config.Unconfigure();
             RefreshStatus();
         }
@@ -567,8 +639,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         // --- live resolution off the connection config -------------------------------------------------------
 
-        /// <summary>A fresh shared-settings snapshot bridging the live Godot connection state (URL/token/mode/auth).</summary>
-        AgentConfig.AgentConfiguratorSettings CurrentSettings() => AgentConfiguratorSettingsFactory.Create(_connection.Config);
+        /// <summary>
+        /// A fresh shared-settings snapshot bridging the live Godot connection state (URL/token/mode/auth) for the
+        /// effective <see cref="CurrentCredentialMode"/> — URL-only on the default OAuth path, token-bearing when
+        /// the "Advanced: use access token" opt-in (or a non-OAuth configurator) is in force.
+        /// </summary>
+        AgentConfig.AgentConfiguratorSettings CurrentSettings() =>
+            AgentConfiguratorSettingsFactory.Create(_connection.Config, CurrentCredentialMode());
 
         /// <summary>The absolute project root (globalized <c>res://</c>, no trailing slash) — used to render config paths project-relative.</summary>
         string ProjectRoot => ProjectSettings.GlobalizePath("res://").TrimEnd('/');

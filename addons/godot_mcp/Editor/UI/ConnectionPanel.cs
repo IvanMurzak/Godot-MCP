@@ -108,12 +108,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
         const string AuthLabelNone = "none";
         const string AuthLabelRequired = "required";
 
-        // Cloud-mode auth section (device-code flow): masked token + Authorize/Revoke + status.
+        // Cloud-mode auth section (device-code flow). The DEFAULT view (mcp-authorize e1 · PR 5) shows a sign-in /
+        // account-state chip + the derived per-project connection URL + Authorize/Revoke — NOT a raw token field.
+        // The masked token field is hidden behind the "Advanced: use access token" opt-in (device flow / machine
+        // store from PR 2 mean the token is no longer user-entered on the golden path).
         VBoxContainer _cloudAuthRow = null!;
+        Label _cloudSignInStatus = null!;
+        Label _cloudConnectionUrl = null!;
+        DockCheckBox _cloudAdvancedToggle = null!;
+        VBoxContainer _cloudTokenLine = null!;
         LineEdit _cloudTokenField = null!;
         Button _authorizeButton = null!;
         Button _revokeButton = null!;
         Label _cloudAuthStatus = null!;
+
+        // "Advanced: use access token" opt-in for the Cloud path (default OFF → the raw masked token field is
+        // hidden; the sign-in chip conveys the account state instead).
+        bool _useCloudAccessToken;
 
         // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
         GodotDeviceAuthFlow? _deviceAuthFlow;
@@ -491,8 +502,61 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _cloudAuthRow.AddThemeConstantOverride("separation", 4);
             AddChild(_cloudAuthRow);
 
-            var cloudTokenLine = new HBoxContainer { Name = "CloudTokenLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            _cloudAuthRow.AddChild(cloudTokenLine);
+            // --- Row 1: sign-in / account-state chip (left) + Revoke / Authorize (right). The chip REPLACES the
+            //     raw token field on the default path (mcp-authorize e1 · PR 5): the device flow / machine store
+            //     own the credential, so the user sees signed-in / signed-out state, not a token to copy. ---
+            var accountLine = new HBoxContainer { Name = "CloudAccountLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            accountLine.Alignment = BoxContainer.AlignmentMode.Center;
+            _cloudAuthRow.AddChild(accountLine);
+
+            _cloudSignInStatus = new Label { Name = "CloudSignInStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            DockStyle.ApplyDescription(_cloudSignInStatus);
+            _cloudSignInStatus.AutowrapMode = TextServer.AutowrapMode.Off;
+            accountLine.AddChild(_cloudSignInStatus);
+
+            _revokeButton = new Button { Name = "RevokeButton", Text = "Sign out" };
+            DockStyle.ConnectPressed(_revokeButton, this, MethodName.OnRevokeButtonPressed);
+            accountLine.AddChild(_revokeButton);
+
+            _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
+            DockStyle.ConnectPressed(_authorizeButton, this, MethodName.OnAuthorizeButtonPressed);
+            accountLine.AddChild(_authorizeButton);
+
+            // --- Row 2: the derived per-project connection URL (the /p/<pin> + derived port the configurators
+            //     write — PRs 3–4). Muted; hidden when the pinned URL cannot be resolved. ---
+            _cloudConnectionUrl = new Label
+            {
+                Name = "CloudConnectionUrl",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                Visible = false
+            };
+            DockStyle.ApplyDescription(_cloudConnectionUrl);
+            _cloudAuthRow.AddChild(_cloudConnectionUrl);
+
+            // --- Row 3: "Advanced: use access token" opt-in (right-aligned) — reveals the legacy masked token
+            //     field below (Row 4). Default OFF: the golden path never surfaces the raw token. ---
+            var advancedLine = new HBoxContainer { Name = "CloudAdvancedLine", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            advancedLine.Alignment = BoxContainer.AlignmentMode.Center;
+            _cloudAuthRow.AddChild(advancedLine);
+
+            var advancedLabel = new Label { Name = "CloudAdvancedLabel", Text = ConnectionPanelView.AdvancedUseAccessTokenLabel };
+            DockStyle.ApplyDescription(advancedLabel);
+            advancedLabel.AutowrapMode = TextServer.AutowrapMode.Off;
+            advancedLine.AddChild(advancedLabel);
+
+            advancedLine.AddChild(new Control { Name = "CloudAdvancedSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+
+            // Object+method Callable on the checkbox instance (no delegate += into the ManagedCallable hot-reload
+            // registry) — mirrors SkillsPanel's auto-generate toggle.
+            _cloudAdvancedToggle = new DockCheckBox { Name = "CloudAdvancedToggle", ButtonPressed = _useCloudAccessToken };
+            _cloudAdvancedToggle.BindToggled(OnCloudAdvancedToggled);
+            _cloudAdvancedToggle.Connect(BaseButton.SignalName.Toggled, new Callable(_cloudAdvancedToggle, DockCheckBox.MethodName.OnToggled));
+            advancedLine.AddChild(_cloudAdvancedToggle);
+
+            // --- Row 4 (hidden by default): the masked, read-only cloud token field. Revealed only by the
+            //     "Advanced: use access token" opt-in. Never editable — set only by the device-auth flow. ---
+            _cloudTokenLine = new VBoxContainer { Name = "CloudTokenLine", SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false };
+            _cloudAuthRow.AddChild(_cloudTokenLine);
 
             _cloudTokenField = new LineEdit
             {
@@ -504,15 +568,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 PlaceholderText = ConnectionPanelView.CloudTokenPlaceholder,
                 SizeFlagsHorizontal = SizeFlags.ExpandFill
             };
-            cloudTokenLine.AddChild(_cloudTokenField);
-
-            _revokeButton = new Button { Name = "RevokeButton", Text = "Revoke" };
-            DockStyle.ConnectPressed(_revokeButton, this, MethodName.OnRevokeButtonPressed);
-            cloudTokenLine.AddChild(_revokeButton);
-
-            _authorizeButton = new Button { Name = "AuthorizeButton", Text = ConnectionPanelView.AuthorizeButtonText };
-            DockStyle.ConnectPressed(_authorizeButton, this, MethodName.OnAuthorizeButtonPressed);
-            cloudTokenLine.AddChild(_authorizeButton);
+            _cloudTokenLine.AddChild(_cloudTokenField);
 
             _cloudAuthStatus = new Label
             {
@@ -522,6 +578,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
                                 // open a large gap between the token row and the timeline in Cloud mode.
             };
             _cloudAuthRow.AddChild(_cloudAuthStatus);
+        }
+
+        /// <summary>
+        /// Toggle the "Advanced: use access token" opt-in for the Cloud path — reveal / hide the raw masked token
+        /// field (Row 4 of the cloud auth row). Panel-local UI state only; no connection/config mutation.
+        /// </summary>
+        void OnCloudAdvancedToggled(bool pressed)
+        {
+            if (_useCloudAccessToken == pressed)
+                return;
+
+            _useCloudAccessToken = pressed;
+            _cloudTokenLine.Visible = ConnectionPanelView.ShowCloudTokenField(_useCloudAccessToken);
         }
 
         /// <summary>
@@ -927,8 +996,24 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var token = _connection.Config.CloudToken;
             var hasToken = !string.IsNullOrEmpty(token);
 
-            // Empty text → the masked LineEdit shows its PlaceholderText ("Token — press Authorize").
+            // Sign-in / account-state chip (the default-path replacement for the raw token field): signed-in when a
+            // cloud credential is stored (from the device flow / machine store), signed-out otherwise.
+            _cloudSignInStatus.Text = ConnectionPanelView.CloudSignInStatusLabel(hasToken);
+            _cloudSignInStatus.AddThemeColorOverride("font_color", DockStyle.Rgb(ConnectionPanelView.CloudSignInStatusColor(hasToken)));
+
+            // Derived per-project connection URL (the /p/<pin> + derived port a configurator writes — PRs 3–4).
+            // Built from the shared settings' pinned URL; hidden when it can't be resolved.
+            var pinnedUrl = Agents.AgentConfiguratorSettingsFactory.Create(_connection.Config).PinnedHttpUrl;
+            var urlText = ConnectionPanelView.ConnectionUrlLabel(pinnedUrl);
+            _cloudConnectionUrl.Text = urlText;
+            _cloudConnectionUrl.Visible = !string.IsNullOrEmpty(urlText);
+
+            // Advanced (masked) token field — carries the stored token, shown only under the "Advanced: use access
+            // token" opt-in. Empty text → the masked LineEdit shows its PlaceholderText ("Token — press Authorize").
             _cloudTokenField.Text = hasToken ? token! : string.Empty;
+            _cloudTokenLine.Visible = ConnectionPanelView.ShowCloudTokenField(_useCloudAccessToken);
+
+            // "Sign out" (Revoke) only when a credential is stored.
             _revokeButton.Visible = hasToken;
         }
 

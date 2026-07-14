@@ -12,7 +12,6 @@
 using com.IvanMurzak.Godot.MCP.Connection;
 using Godot;
 using AgentConfig = com.IvanMurzak.McpPlugin.AgentConfig;
-using static com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents
 {
@@ -42,10 +41,23 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// configurators emitted. Godot is a pure HTTP client (no local-server lifecycle), so the port /
         /// executable / Docker fields are populated from the addon's authoritative server identity for the
         /// shared Custom configurator's Docker hints; the HTTP-config write path never reads them.
+        ///
+        /// <para>
+        /// The <paramref name="credentialMode"/> (mcp-authorize e1 · PR 5) governs how the token surfaces:
+        /// <see cref="AgentConfig.HttpCredentialMode.Oauth"/> (the DEFAULT) yields URL-only settings — empty
+        /// token + <c>authOption=none</c> — so the written config AND the shared <c>Describe()</c>
+        /// "Manual Configuration Steps" command are URL-only; <see cref="AgentConfig.HttpCredentialMode.AccessToken"/>
+        /// carries the live token + <c>required</c> so the escape-hatch path writes the legacy Bearer-header shape.
+        /// The mapping is centralized in the pure-managed, unit-tested
+        /// <see cref="AgentConfiguratorCredentialPolicy"/>.
+        /// </para>
         /// </summary>
-        public static AgentConfig.AgentConfiguratorSettings Create(GodotMcpConfig config)
+        public static AgentConfig.AgentConfiguratorSettings Create(
+            GodotMcpConfig config,
+            AgentConfig.HttpCredentialMode credentialMode = AgentConfig.HttpCredentialMode.Oauth)
         {
-            var token = config.Token;
+            var token = AgentConfiguratorCredentialPolicy.ResolveSettingsToken(credentialMode, config.Token);
+            var authOption = AgentConfiguratorCredentialPolicy.ResolveSettingsAuthOption(credentialMode);
 
             return AgentConfig.AgentConfiguratorSettings.CreateForHost(
                 projectRootPath: ProjectRootPath,
@@ -55,7 +67,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
                 host: GodotMcpConfig.ResolveMcpClientUrl(config),
                 token: token,
                 connectionMode: MapConnectionMode(config.ActiveMode),
-                authOption: MapAuthOption(config),
+                authOption: authOption,
                 serverExecutableName: GodotMcpServerView.ExecutableName,
                 serverVersion: GodotMcpServerView.ServerVersion,
                 dockerImage: DockerImage);
@@ -85,21 +97,6 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             => mode == GodotMcpConnectionMode.Cloud
                 ? AgentConfig.ConnectionMode.Cloud
                 : AgentConfig.ConnectionMode.Local;
-
-        /// <summary>
-        /// Map Godot's effective authorization onto the shared <see cref="AuthOption"/>. Cloud mode always
-        /// authorizes (a bearer token is sent); Custom mode follows the live
-        /// <see cref="GodotMcpConfig.ActiveAuthOption"/>.
-        /// </summary>
-        public static AuthOption MapAuthOption(GodotMcpConfig config)
-        {
-            if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
-                return AuthOption.required;
-
-            return config.ActiveAuthOption == GodotMcpAuthOption.Required
-                ? AuthOption.required
-                : AuthOption.none;
-        }
     }
 }
 #endif
