@@ -177,6 +177,64 @@ jobs:
 
           echo "Godot ${{ inputs.godotVersion }}: from-scratch terminal install loaded cleanly."
 
+      # Agent-first onboarding surface (design 06 / 09 workflows 1A + 1B):
+      # install-plugin --with-server, install-plugin --enroll, and configure --agent.
+      # The network legs are STUBBED (the real gamedev-mcp-server download + SHA256
+      # verify and the real cloud AS redeem are unit-tested in cli/tests with mocked
+      # fetch); here we drive the actual terminal commands end-to-end so a regression
+      # in the managed-server-dir path, the redeem → machine-store + marker + pin
+      # flow, or the configure proxy BREAKS this gate on the real Godot matrix.
+      - name: Exercise agent-first flows (--with-server / --enroll / configure --agent, stubbed network)
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLI="${GITHUB_WORKSPACE}/cli/bin/godot-cli.js"
+
+          # A stub managed server binary. The real gamedev-mcp-server download +
+          # SHA256SUMS verify is unit-tested with a mocked fetch; --server-source
+          # exercises the managed-dir extraction + the configure proxy offline. The
+          # stub echoes its argv so the proxy call is observable.
+          STUB_SERVER_DIR="${WORK}/stub-server"
+          mkdir -p "${STUB_SERVER_DIR}"
+          printf '#!/usr/bin/env bash\necho "STUB-SERVER invoked: $*"\n' > "${STUB_SERVER_DIR}/gamedev-mcp-server"
+          chmod +x "${STUB_SERVER_DIR}/gamedev-mcp-server"
+
+          # A stub AS enrollment-redeem endpoint (the real redeem needs a live agent
+          # JWT); this stubs the HTTP contract so the CLI's redeem → machine-store +
+          # marker + pin flow runs end-to-end. Credentials are redirected to a temp
+          # dir via AI_GAME_DEV_CREDENTIALS_DIR so we never touch the runner home.
+          export AI_GAME_DEV_CREDENTIALS_DIR="${WORK}/store"
+          node -e 'const http=require("http");const s=http.createServer((req,res)=>{if(req.method==="POST"&&req.url==="/api/auth/enroll/redeem"){res.setHeader("content-type","application/json");res.end(JSON.stringify({access_token:"stub.jwt",token_type:"Bearer",expires_in:3600,refresh_token:"stub.refresh",scope:"mcp:plugin",server_url:"https://ai-game.dev"}));}else{res.statusCode=404;res.end("{}");}});s.listen(8791,"127.0.0.1",()=>console.log("stub AS on 8791"));' &
+          STUB_AS_PID=$!
+          trap 'kill "${STUB_AS_PID}" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            curl -s -o /dev/null "http://127.0.0.1:8791/" && break || sleep 0.25
+          done
+
+          # install-plugin combining the addon (--source), the managed server
+          # (--server-source, offline) AND enrollment (--enroll against the stub AS).
+          node "${CLI}" install-plugin \
+            --source "${GITHUB_WORKSPACE}/addons/godot_mcp" \
+            --with-server --server-source "${STUB_SERVER_DIR}" \
+            --enroll "STUB-ENROLL-CODE" --base-url "http://127.0.0.1:8791" \
+            "${WORK}/project"
+
+          # --with-server: the managed server binary landed in the CLI-managed dir.
+          test -x "${WORK}/project/.ai-game-dev/server/gamedev-mcp-server"
+          # --enroll: the plugin credential was planted in the (redirected) machine store.
+          test -f "${WORK}/store/credentials.json"
+          # --enroll: the project marker records the server target + the D14 pin.
+          test -f "${WORK}/project/.ai-game-dev/project.json"
+          grep -q '"serverTarget"' "${WORK}/project/.ai-game-dev/project.json"
+          grep -q '"pin"' "${WORK}/project/.ai-game-dev/project.json"
+
+          # configure --agent proxies to the managed server binary (the stub echoes its argv).
+          CFG_OUT="$(node "${CLI}" configure --agent claude-code "${WORK}/project" 2>&1)"
+          echo "${CFG_OUT}"
+          echo "${CFG_OUT}" | grep -q "STUB-SERVER invoked: configure --agent claude-code"
+
+          echo "Godot ${{ inputs.godotVersion }}: agent-first flows (--with-server / --enroll / configure --agent) verified."
+
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4

@@ -10,6 +10,7 @@ import {
   type McpFeature,
   type GodotMcpFeaturesConfig,
 } from '../utils/config.js';
+import { configureAgentViaServer } from '../lib/configure-agent.js';
 
 function parseCommaSeparated(value: string): string[] {
   return value.split(',').map((s) => s.trim()).filter(Boolean);
@@ -44,9 +45,13 @@ function snapshotFeatures(config: GodotMcpFeaturesConfig, key: 'tools' | 'prompt
 }
 
 export const configureCommand = new Command('configure')
-  .description('List / enable / disable MCP tools, prompts, and resources in the project-local .godot-mcp/features.json')
+  .description(
+    'Configure an AI agent for the project (--agent <id> proxies to the managed gamedev-mcp-server binary, writing that client\'s MCP config with the derived pin + port), OR list / enable / disable MCP tools, prompts, and resources in the project-local .godot-mcp/features.json',
+  )
   .argument('[path]', 'Path to the Godot project')
   .option('--path <path>', 'Path to the Godot project')
+  .option('--agent <id>', 'Configure an AI agent by proxying to the managed gamedev-mcp-server binary (requires install-plugin --with-server)')
+  .option('--url <url>', 'Explicit MCP server URL override forwarded to the server binary (--agent only)')
   .option('--enable-tools <names>', 'Enable specific tools (comma-separated)', parseCommaSeparated)
   .option('--disable-tools <names>', 'Disable specific tools (comma-separated)', parseCommaSeparated)
   .option('--enable-all-tools', 'Enable all tools')
@@ -65,6 +70,8 @@ export const configureCommand = new Command('configure')
       positionalPath: string | undefined,
       options: {
         path?: string;
+        agent?: string;
+        url?: string;
         enableTools?: string[];
         disableTools?: string[];
         enableAllTools?: boolean;
@@ -90,6 +97,27 @@ export const configureCommand = new Command('configure')
       if (!fs.existsSync(projectPath)) {
         ui.error(`Project path does not exist: ${projectPath}`);
         process.exit(1);
+      }
+
+      // --agent: proxy to the managed gamedev-mcp-server binary's configurator surface.
+      if (options.agent !== undefined) {
+        ui.heading(`Configuring agent "${options.agent}"`);
+        const spinner = ui.startSpinner('Proxying to the managed server binary...');
+        const result = await configureAgentViaServer({
+          godotProjectPath: projectPath,
+          agentId: options.agent,
+          url: options.url,
+        });
+        if (result.kind === 'failure') {
+          spinner.error('Failed to configure agent');
+          ui.error(result.error.message);
+          process.exit(1);
+        }
+        spinner.success(`Configured "${result.agentId}" via ${result.serverBinaryPath}`);
+        if (result.output.trim().length > 0) {
+          console.log(result.output.trimEnd());
+        }
+        return;
       }
 
       verbose(`Loading config for project: ${projectPath}`);

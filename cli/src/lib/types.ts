@@ -23,6 +23,14 @@ export type ProgressEvent =
   | { phase: 'addon-extracting'; message: string }
   | { phase: 'addon-materialized'; message: string; addonDir: string; source: 'download' | 'local' }
   | { phase: 'csproj-patched'; message: string; csprojPath: string }
+  // installServer (--with-server) phases
+  | { phase: 'server-downloading'; message: string; url: string }
+  | { phase: 'server-verifying'; message: string }
+  | { phase: 'server-extracting'; message: string }
+  | { phase: 'server-materialized'; message: string; serverDir: string; source: 'download' | 'local' }
+  // enrollPlugin (--enroll) phases
+  | { phase: 'enroll-redeeming'; message: string }
+  | { phase: 'enroll-redeemed'; message: string; serverTarget: string }
   // createProject phases
   | { phase: 'project-scaffolded'; message: string; projectPath: string }
   // buildProject phases (also emitted by openProject when it builds first)
@@ -532,3 +540,143 @@ export interface InstallExtensionFailure {
 }
 
 export type InstallExtensionResult = InstallExtensionSuccess | InstallExtensionFailure;
+
+// ---------------------------------------------------------------------------
+// install-server (install-plugin --with-server)
+// ---------------------------------------------------------------------------
+
+export interface InstallServerOptions {
+  /** Absolute or relative path to the Godot project root (holds the managed server dir). */
+  godotProjectPath: string;
+  /**
+   * Local path to install the server from instead of downloading it (offline /
+   * dev / CI — the `--server-source` flag). May be a directory containing the
+   * server binary, or a `.zip` archive of one. When set, no network call is made
+   * and no checksum is verified (the local artifact is trusted).
+   */
+  source?: string;
+  /**
+   * Shared-server version to download (`v<version>` release on GameDev-MCP-Server).
+   * Defaults to the addon's pinned `ServerVersion`. Ignored when `source` is set.
+   */
+  version?: string;
+  /** Host RID override (`<os>-<arch>`). Defaults to the detected host RID. */
+  rid?: string;
+  /** Injectable fetch for tests (mock the GitHub download). Used only on the download path. */
+  fetchImpl?: typeof fetch;
+  onProgress?: ProgressCallback;
+}
+
+export interface InstallServerSuccess {
+  kind: 'success';
+  success: true;
+  /** Where the server binary came from. */
+  source: 'download' | 'local';
+  /** The host RID the binary was resolved for. */
+  rid: string;
+  /** The downloaded server version (empty on the local path). */
+  version: string;
+  /** Absolute path to the CLI-managed server directory the binary was extracted into. */
+  serverDir: string;
+  /** Absolute path to the resolved server executable. */
+  executablePath: string;
+  /** The download URL used (download path only). */
+  downloadUrl?: string;
+  warnings: string[];
+}
+
+export interface InstallServerFailure {
+  kind: 'failure';
+  success: false;
+  warnings: string[];
+  error: Error;
+}
+
+export type InstallServerResult = InstallServerSuccess | InstallServerFailure;
+
+// ---------------------------------------------------------------------------
+// enroll-plugin (install-plugin --enroll / --enroll-stdin)
+// ---------------------------------------------------------------------------
+
+export interface EnrollPluginOptions {
+  /** Absolute or relative path to the Godot project root (holds the project marker). */
+  godotProjectPath: string;
+  /** The D13 enrollment code to redeem. */
+  code: string;
+  /** Cloud AS base URL to redeem against (default https://ai-game.dev). */
+  baseUrl?: string;
+  /** Override the machine credential store directory (tests only). */
+  storeBaseDir?: string;
+  /** Injectable fetch for the redeem round-trip (tests). */
+  fetchImpl?: typeof fetch;
+  onProgress?: ProgressCallback;
+}
+
+export interface EnrollPluginSuccess {
+  kind: 'success';
+  success: true;
+  /** The server target the enrollment code was minted for (recorded in the marker). */
+  serverTarget: string;
+  /** The D14 routing pin recorded in the marker. */
+  pin: string;
+  /** The deterministic local port recorded for a localhost target (undefined for a hosted target). */
+  port?: number;
+  /** Absolute path to the machine credential store the plugin credential was written to. */
+  credentialsPath: string;
+  /** Absolute path to the project marker written. */
+  markerPath: string;
+  /** Absolute paths of any existing project-local agent configs whose URL was pin-upserted. */
+  pinnedConfigs: string[];
+  warnings: string[];
+}
+
+export interface EnrollPluginFailure {
+  kind: 'failure';
+  success: false;
+  warnings: string[];
+  error: Error;
+}
+
+export type EnrollPluginResult = EnrollPluginSuccess | EnrollPluginFailure;
+
+// ---------------------------------------------------------------------------
+// configure-agent (configure --agent — proxies to the managed server binary)
+// ---------------------------------------------------------------------------
+
+export interface ConfigureAgentOptions {
+  /** Absolute or relative path to the Godot project root (locates the managed server binary + is the config target). */
+  godotProjectPath: string;
+  /** The agent id to configure (forwarded verbatim to the server binary's `configure --agent`). */
+  agentId: string;
+  /** Explicit MCP server URL override (forwarded as `--url`). */
+  url?: string;
+  /** Injectable `child_process.spawn` for tests (mock the server binary). */
+  spawnImpl?: typeof import('child_process').spawn;
+  onProgress?: ProgressCallback;
+}
+
+export interface ConfigureAgentSuccess {
+  kind: 'success';
+  success: true;
+  agentId: string;
+  /** Absolute path to the managed server binary that was proxied to. */
+  serverBinaryPath: string;
+  /** The argv passed to the server binary (after the executable), for diagnostics. */
+  args: string[];
+  /** The server binary's exit code (0 on success). */
+  exitCode: number;
+  /** The server binary's captured stdout+stderr (surfaced to the user by the command). */
+  output: string;
+  warnings: string[];
+}
+
+export interface ConfigureAgentFailure {
+  kind: 'failure';
+  success: false;
+  /** The server binary's exit code when it ran and failed; undefined when it could not be launched. */
+  exitCode?: number;
+  warnings: string[];
+  error: Error;
+}
+
+export type ConfigureAgentResult = ConfigureAgentSuccess | ConfigureAgentFailure;
