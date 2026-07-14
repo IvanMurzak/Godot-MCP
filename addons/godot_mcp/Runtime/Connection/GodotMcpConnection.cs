@@ -375,8 +375,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             // Surface the resolved project identity (routing pin + derived local port) and the enrolled
             // server target for the operator smoke. The pin is what agent sessions route on; the derived
-            // port is wired here for PR 4's 8080 → derived-port migration but does NOT change the runtime
-            // default in this PR (the connection still uses the configured Host / 8080 default).
+            // port is now the connection's local Custom-mode default (seeded into the config by
+            // ResolveConfig → SeedDefaultLocalServerHost — mcp-authorize e1, PR 4).
             LogProjectIdentity(projectRootPath);
 
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
@@ -1089,7 +1089,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
             _configResolved = true;
 
-            // PRECEDENCE: process env > .env file > persisted config > project marker > built-in default.
+            // PRECEDENCE: process env > .env file > persisted config > project marker > derived-port default.
             // 0) Seed the ENROLLED server target from the project marker FIRST (the lowest layer above the
             //    built-in defaults). A CLI `install-plugin --enroll` (or a hand-written marker) records the
             //    hosted-vs-local target in `<project>/.ai-game-dev/project.json`; applying it before the
@@ -1108,6 +1108,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             //    still wins because GodotMcpConfig reads it live on every Host/Token/ActiveMode access —
             //    see GodotMcpEnvFile's precedence note.
             ApplyProjectEnvFile();
+
+            // 3) DERIVED-PORT DEFAULT (lowest precedence): when NO layer above chose an explicit local
+            //    Custom host — the host is still the fixed `GodotMcpConfig.DefaultCustomHost` baseline —
+            //    replace it with the project's ProjectIdentity-derived local server URL (mcp-authorize e1,
+            //    PR 4 — the 8080 → derived-port migration, design 06 · D15). Gated on "still the baseline",
+            //    so an enrolled serverTarget / persisted host / `.env` host / live process-env host all win
+            //    untouched; a marker `portOverride` is honored inside the derivation. This is what flips the
+            //    local default from the fixed 8080 to the deterministic per-project port on the golden boot
+            //    path (both the plugin's own connect and the local-server start read this host).
+            SeedDefaultLocalServerHost();
         }
 
         /// <summary>
@@ -1149,7 +1159,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <c>res://</c> path resolution; the marker read + the target→mode mapping are the pure-managed,
         /// unit-tested <see cref="GodotProjectIdentity.ResolveServerTarget"/>. A missing/empty marker (the
         /// common case) is a silent no-op, so existing connection behavior is unchanged. This wires the
-        /// server-target resolution only — it does NOT change the local default port (PR 4).
+        /// server-target resolution only; the local default port is seeded separately by
+        /// <see cref="SeedDefaultLocalServerHost"/> (mcp-authorize e1, PR 4).
         /// </summary>
         void ApplyProjectMarker()
         {
@@ -1178,6 +1189,47 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             GodotMcpLog.Info(
                 $"[Godot-MCP] project marker enrolled server target '{resolution.Value.ServerTarget}' -> mode={resolution.Value.Mode}.");
+        }
+
+        /// <summary>
+        /// Seed <see cref="_config"/>'s Custom-mode host with the project's ProjectIdentity-derived local
+        /// server URL (mcp-authorize e1, PR 4 — the 8080 → derived-port migration, design 06 · D15) — but
+        /// ONLY when no config layer above chose an explicit local host, i.e. the host is still the fixed
+        /// <see cref="GodotMcpConfig.DefaultCustomHost"/> baseline. This is the lowest-precedence "fill in
+        /// the default" step, called LAST in <see cref="ResolveConfig"/>: an enrolled marker serverTarget, a
+        /// persisted host, a <c>.env</c> host, or a live process-env host all leave a non-baseline value
+        /// here and so win untouched. The port precedence inside the derivation is marker <c>portOverride</c>
+        /// → the deterministic hash-derived port; there is no 8080 fallback on this golden path. Both the
+        /// plugin's own connect (the <c>Host</c> getter) and the local-server START (the connection panel's
+        /// <c>ResolveCustomHost()</c> read) consume this host, so both use the derived port. The only Godot
+        /// dependency is the res:// project-root resolution; the URL derivation is the pure-managed,
+        /// unit-tested <see cref="GodotProjectIdentity.ResolveDefaultLocalServerHost"/>. A project root that
+        /// fails to resolve leaves the baseline in place (a degenerate non-editor path). Never throws.
+        /// </summary>
+        void SeedDefaultLocalServerHost()
+        {
+            // Respect any explicit local host chosen by a higher-precedence layer (enrolled serverTarget,
+            // persisted config, or .env). Only the untouched built-in baseline is replaced; a live
+            // process-env GODOT_MCP_HOST still wins regardless (the getter applies it over this field).
+            var current = GodotMcpConfig.NormalizeUrl(_config.CustomHost);
+            if (!string.IsNullOrEmpty(current) && current != GodotMcpConfig.DefaultCustomHost)
+                return;
+
+            var projectRoot = ResolveProjectRootPath();
+            if (string.IsNullOrEmpty(projectRoot))
+                return;
+
+            try
+            {
+                var marker = ProjectMarker.Read(projectRoot);
+                _config.CustomHost = GodotProjectIdentity.ResolveDefaultLocalServerHost(projectRoot, marker);
+                GodotMcpLog.Info(
+                    $"[Godot-MCP] local server default port -> ProjectIdentity-derived host {_config.CustomHost}.");
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] could not seed derived local server host: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -1233,8 +1285,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Log the resolved <see cref="ProjectIdentity"/> (routing pin + derived local port, honoring a
         /// marker <c>portOverride</c>) and the enrolled server target for the operator smoke — a build-green
-        /// boot line proving the identity wiring resolves. Diagnostics only: the derived port is surfaced
-        /// for PR 4's local-port migration but is NOT applied to the runtime connection here. Never throws.
+        /// boot line proving the identity wiring resolves. Diagnostics only; the derived port is applied to
+        /// the connection separately by <see cref="SeedDefaultLocalServerHost"/> (mcp-authorize e1, PR 4).
+        /// Never throws.
         /// </summary>
         void LogProjectIdentity(string projectRoot)
         {
