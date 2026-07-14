@@ -32,8 +32,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     ///   <see cref="ConnectionInstanceMetadata"/> the SignalR client sends on connect so the server can
     ///   route/dedup by account + project + instance (design 04).</item>
     ///   <item><b>ProjectIdentity</b> — <see cref="Derive"/> resolves the project's <c>{pin, port}</c>
-    ///   (honoring a marker <c>portOverride</c>). This PR wires the derived-port <em>value</em>; it does
-    ///   NOT change the local default port (still <c>8080</c> — that migration is PR 4).</item>
+    ///   (honoring a marker <c>portOverride</c>), and <see cref="ResolveDefaultLocalServerHost"/> turns
+    ///   that into the default local Custom-mode server URL (<c>http://localhost:&lt;port&gt;</c>) — the
+    ///   mcp-authorize e1 · PR 4 replacement for the fixed <c>8080</c> local default (design 06 · D15).</item>
     ///   <item><b>Server-target resolution</b> — <see cref="ResolveServerTarget"/> maps the project
     ///   marker's enrolled <c>serverTarget</c> to a connection decision so the plugin boots pointed at
     ///   the right hub (hosted vs local; design 06 / 09 · 1A).</item>
@@ -88,13 +89,32 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// consulting the marker's <c>portOverride</c> when a marker is present (the
         /// <see cref="ProjectMarker"/> overload) and otherwise deriving the default port. The derivation
         /// itself is the library's golden-vector-pinned canonical math — this only picks the right
-        /// overload. The returned port is NOT applied to the live connection in this PR (the 8080 →
-        /// derived-port migration is PR 4); it is surfaced for diagnostics + PR-4 consumption.
+        /// overload. The resolved port is the local Custom-mode server default (see
+        /// <see cref="ResolveDefaultLocalServerHost"/>): a marker <c>portOverride</c> wins, else the
+        /// deterministic hash-derived port (mcp-authorize e1 · PR 4 — the 8080 → derived-port migration).
         /// </summary>
         public static ProjectIdentity Derive(string projectRoot, ProjectMarker? marker)
             => marker != null
                 ? ProjectIdentity.Derive(projectRoot, marker)
                 : ProjectIdentity.Derive(projectRoot, (int?)null);
+
+        /// <summary>
+        /// The loopback scheme+host every local Custom-mode server URL is built on. The port is appended
+        /// by <see cref="ResolveDefaultLocalServerHost"/>; there is no fixed default port baked in here
+        /// (mcp-authorize e1 · PR 4 retired the <c>8080</c> literal on the connect path).
+        /// </summary>
+        public const string LocalLoopbackHost = "http://localhost";
+
+        /// <summary>
+        /// Resolve the DEFAULT local Custom-mode server URL for <paramref name="projectRoot"/> — the
+        /// mcp-authorize e1 · PR 4 replacement for the fixed <c>http://localhost:8080</c> default (design
+        /// 06 · D15). The port precedence is: the project marker's explicit user <c>portOverride</c> (when
+        /// present it always wins) → the deterministic <see cref="ProjectIdentity"/> hash-derived port.
+        /// There is NO hardcoded 8080 fallback. Deterministic and probe-free — the same project path always
+        /// yields the same URL, so it matches the pin/port a configurator writes for the same root.
+        /// </summary>
+        public static string ResolveDefaultLocalServerHost(string projectRoot, ProjectMarker? marker)
+            => $"{LocalLoopbackHost}:{Derive(projectRoot, marker).Port}";
 
         /// <summary>
         /// Resolve the enrolled server target from the project marker into a connection decision, or

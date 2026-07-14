@@ -154,6 +154,56 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(identity.PortIsOverridden);
         }
 
+        // === Default local server host — mcp-authorize e1, PR 4 (8080 → derived-port migration) ========
+        //
+        // The plugin's connect/start default host is now http://localhost:<derived-port> — the fixed 8080
+        // literal is gone from the golden path. These pin: (1) the derived port is used when there is no
+        // override; (2) it is NOT the fixed 8080; (3) a marker portOverride wins; (4) the URL's port tracks
+        // the same golden-vector port as Derive (one derivation, no second copy of the port math).
+
+        [Theory]
+        [InlineData("C:/Games/MyGame", "http://localhost:29062")]
+        [InlineData("/home/user/MyGame", "http://localhost:24998")]
+        [InlineData("/home/user/Demo Project", "http://localhost:20832")]
+        public void ResolveDefaultLocalServerHost_UsesDerivedPort_WhenNoOverride(string projectRoot, string expectedUrl)
+        {
+            Assert.Equal(expectedUrl, GodotProjectIdentity.ResolveDefaultLocalServerHost(projectRoot, marker: null));
+        }
+
+        [Fact]
+        public void ResolveDefaultLocalServerHost_IsNotTheFixed8080_OnTheGoldenPath()
+        {
+            // The whole point of PR 4: the local default is no longer the fixed 8080 literal.
+            var url = GodotProjectIdentity.ResolveDefaultLocalServerHost("C:/Games/MyGame", marker: null);
+            Assert.Equal("http://localhost:29062", url);
+            Assert.DoesNotContain(":8080", url);
+        }
+
+        [Fact]
+        public void ResolveDefaultLocalServerHost_MarkerPortOverride_Wins()
+        {
+            var marker = new ProjectMarker { PortOverride = 25000 };
+
+            // The user's explicit portOverride always wins over the derived default (D15 precedence).
+            Assert.Equal(
+                "http://localhost:25000",
+                GodotProjectIdentity.ResolveDefaultLocalServerHost("C:/Games/MyGame", marker));
+        }
+
+        [Fact]
+        public void ResolveDefaultLocalServerHost_TracksTheDeriveGoldenVectorPort()
+        {
+            // The URL's port is exactly ProjectIdentity's derived port for the same root — golden-vector
+            // parity is inherited from Derive, and the port stays inside the shared 20000–29999 band.
+            const string root = "/home/user/MyGame";
+            var identity = GodotProjectIdentity.Derive(root, marker: null);
+
+            Assert.Equal(
+                $"http://localhost:{identity.Port}",
+                GodotProjectIdentity.ResolveDefaultLocalServerHost(root, marker: null));
+            Assert.InRange(identity.Port, ProjectIdentity.MinPort, ProjectIdentity.MaxPort);
+        }
+
         // === Project marker read/write + server-target resolution =====================================
 
         [Fact]
