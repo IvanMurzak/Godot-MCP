@@ -14,6 +14,7 @@ import {
   ENV_CONNECTION_MODE,
 } from '../src/utils/connection.js';
 import { writeCredentials } from '../src/utils/credentials.js';
+import { writeMachineCredentials, MACHINE_STORE_DIR_ENV } from '../src/utils/machine-credentials.js';
 
 describe('resolveConnection', () => {
   const saved: Record<string, string | undefined> = {};
@@ -155,5 +156,56 @@ describe('resolveOpenAuthToken', () => {
 
   it('returns undefined in Custom mode', () => {
     expect(resolveOpenAuthToken(tmpDir, { mode: 'Custom' })).toBeUndefined();
+  });
+});
+
+describe('token readers — shared machine-store fallback', () => {
+  const saved: Record<string, string | undefined> = {};
+  const ENV_KEYS = [ENV_HOST, ENV_CLOUD_URL, ENV_TOKEN, ENV_CONNECTION_MODE, MACHINE_STORE_DIR_ENV];
+  let projectDir: string;
+  let storeDir: string;
+
+  beforeEach(() => {
+    for (const k of ENV_KEYS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-conn-proj-'));
+    storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-conn-store-'));
+    // Redirect the machine store to a temp dir so the real ~/.ai-game-dev is never read.
+    process.env[MACHINE_STORE_DIR_ENV] = storeDir;
+  });
+
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+    fs.rmSync(projectDir, { recursive: true, force: true });
+    fs.rmSync(storeDir, { recursive: true, force: true });
+  });
+
+  it('resolveConnection falls back to the machine store when there is no project token (Cloud mode)', () => {
+    writeMachineCredentials({ accessToken: 'machine-tok', serverTarget: DEFAULT_CLOUD_BASE_URL }, storeDir);
+    process.env[ENV_CONNECTION_MODE] = 'Cloud';
+    expect(resolveConnection(projectDir, {}).token).toBe('machine-tok');
+  });
+
+  it('resolveConnection prefers the project-local token over the machine store', () => {
+    writeCredentials(projectDir, { cloudToken: 'project-tok', cloudBaseUrl: DEFAULT_CLOUD_BASE_URL });
+    writeMachineCredentials({ accessToken: 'machine-tok', serverTarget: DEFAULT_CLOUD_BASE_URL }, storeDir);
+    process.env[ENV_CONNECTION_MODE] = 'Cloud';
+    expect(resolveConnection(projectDir, {}).token).toBe('project-tok');
+  });
+
+  it('resolveOpenAuthToken falls back to the machine store in Cloud mode', () => {
+    writeMachineCredentials({ accessToken: 'machine-tok' }, storeDir);
+    expect(resolveOpenAuthToken(projectDir, { mode: 'Cloud' })).toBe('machine-tok');
+  });
+
+  it('does not use the machine store outside Cloud mode', () => {
+    writeMachineCredentials({ accessToken: 'machine-tok' }, storeDir);
+    expect(resolveConnection(projectDir, {}).token).toBeUndefined();
+    expect(resolveOpenAuthToken(projectDir, { mode: 'Custom' })).toBeUndefined();
   });
 });
