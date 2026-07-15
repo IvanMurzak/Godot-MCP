@@ -721,12 +721,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Handle a click on the local-server Start/Stop button. When stopped, downloads the version-matched
-        /// binary if needed then launches it with <c>client-transport=streamableHttp</c> on the port parsed
-        /// from the configured Custom host URL, passing the bearer token only when auth is required (the
-        /// token is never logged). When running, terminates it. The download/launch is fire-and-forget; the
-        /// status circle + button converge via the manager's <see cref="GodotMcpServerManager.StatusChanged"/>
-        /// stream. The button is disabled by <see cref="ApplyServerStatus"/> during transient states, so a
-        /// double-click cannot race a start/stop.
+        /// binary if needed then launches it with <c>client-transport=streamableHttp</c> on the
+        /// ProjectIdentity-derived local port (mcp-authorize g3 — <see cref="GodotMcpConnection.ResolveLocalServerPort"/>,
+        /// which MATCHES the port the shared config writer writes into the AI-client config, so the server
+        /// bind port == the written config port; no fixed 8080 on the default path), passing the bearer token
+        /// only when auth is required (the token is never logged). When running, terminates it. The
+        /// download/launch is fire-and-forget; the status circle + button converge via the manager's
+        /// <see cref="GodotMcpServerManager.StatusChanged"/> stream. The button is disabled by
+        /// <see cref="ApplyServerStatus"/> during transient states, so a double-click cannot race a start/stop.
         /// </summary>
         public void OnServerStartStopPressed()
         {
@@ -736,9 +738,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            var port = GodotMcpServerView.ResolveServerPort(
-                _connection.Config.ResolveCustomHost(),
-                com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultPort);
+            var port = _connection.ResolveLocalServerPort();
             var timeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultTimeoutMs;
             var authRequired = _connection.Config.ActiveAuthOption == GodotMcpAuthOption.Required;
             var token = _connection.Config.ResolveCustomToken();

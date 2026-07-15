@@ -38,9 +38,11 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// connection state, auto-detecting the host OS. The <c>host</c> is the resolved MCP-client URL
         /// (Cloud <c>/mcp</c> or Custom <c>&lt;host&gt;/mcp</c>) so every shared configurator points the AI
         /// client at the SAME endpoint the plugin connects to — exactly what the retired Godot-local
-        /// configurators emitted. Godot is a pure HTTP client (no local-server lifecycle), so the port /
-        /// executable / Docker fields are populated from the addon's authoritative server identity for the
-        /// shared Custom configurator's Docker hints; the HTTP-config write path never reads them.
+        /// configurators emitted. The <c>port</c> is the ProjectIdentity-derived local-server port
+        /// (<see cref="ResolveLocalServerPort"/> — the same one the local server binds and the loopback
+        /// config URL carries, mcp-authorize g3), so the shared Custom configurator's Docker hints agree
+        /// with the written URL and the running server instead of showing the stale fixed 8080; the
+        /// executable field is unused (the HTTP-config write path reads neither).
         ///
         /// <para>
         /// The <paramref name="credentialMode"/> (mcp-authorize e1 · PR 5) governs how the token surfaces:
@@ -62,7 +64,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             return AgentConfig.AgentConfiguratorSettings.CreateForHost(
                 projectRootPath: ProjectRootPath,
                 executableFullPath: string.Empty,
-                port: DefaultPort,
+                port: ResolveLocalServerPort(config),
                 timeoutMs: DefaultTimeoutMs,
                 host: GodotMcpConfig.ResolveMcpClientUrl(config),
                 token: token,
@@ -80,11 +82,30 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         const int DefaultTimeoutMs = 10000;
 
         /// <summary>
-        /// The port for the shared Custom configurator's Docker hints. Godot connects over HTTP to a host
-        /// URL and has no editor-facing port field, so a single sensible default is used (the shared
-        /// server's default port). The HTTP-config write path the dock actually uses is port-agnostic.
+        /// The local server port for the shared Custom configurator's Docker hints
+        /// (<c>-p &lt;port&gt;:&lt;port&gt;</c>, <c>-e PORT=&lt;port&gt;</c>, container name) — the SAME
+        /// ProjectIdentity-derived port the local server binds (<see cref="GodotMcpConnection.ResolveLocalServerPort"/>)
+        /// and the written config URL carries (<see cref="AgentConfig.AgentConfiguratorSettings.PinnedHttpUrl"/>),
+        /// so the "Manual Configuration Steps" Docker command can never show the stale fixed 8080 while the
+        /// server binds a different port (mcp-authorize g3 — completing the Phase-4 8080 → derived-port
+        /// migration, design 06 · D15). Resolved from the live custom host + project marker via the pure,
+        /// unit-tested <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>; a malformed marker
+        /// degrades to "no override" so config rendering never faults.
         /// </summary>
-        const int DefaultPort = 8080;
+        static int ResolveLocalServerPort(GodotMcpConfig config)
+        {
+            AgentConfig.ProjectMarker? marker = null;
+            try
+            {
+                marker = AgentConfig.ProjectMarker.Read(ProjectRootPath);
+            }
+            catch
+            {
+                // A malformed marker degrades to no override — never break config rendering.
+            }
+
+            return GodotProjectIdentity.ResolveLocalServerBindPort(config.ResolveCustomHost(), ProjectRootPath, marker);
+        }
 
         /// <summary>The absolute Godot project root (<c>res://</c> globalized, trailing slash stripped).</summary>
         static string ProjectRootPath => ProjectSettings.GlobalizePath("res://").TrimEnd('/');

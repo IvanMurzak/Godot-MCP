@@ -96,7 +96,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>The MCP hub path appended to the cloud base URL.</summary>
         public const string CloudHubPath = "/mcp";
 
-        /// <summary>Default custom-mode host when nothing is configured (local dev server convention).</summary>
+        /// <summary>
+        /// The connect-side "nothing configured yet" BASELINE SENTINEL for the Custom-mode host. It is NOT
+        /// the port anything actually binds or writes on the golden path: at connect time
+        /// <c>GodotMcpConnection.ResolveConfig → SeedDefaultLocalServerHost</c> replaces this baseline with
+        /// the project's ProjectIdentity-derived local host (<c>http://localhost:&lt;derived-port&gt;</c>),
+        /// and the local self-hosted server binds the derived port directly via
+        /// <c>GodotMcpConnection.ResolveLocalServerPort</c> (mcp-authorize e1 · PR 4 + g3 — the Phase-4
+        /// 8080 → derived-port migration, design 06 · D15). The literal 8080 survives only as the sentinel
+        /// the seed detects (so a pre-migration persisted <c>http://localhost:8080</c> is re-derived) and as
+        /// the Server-URL field's placeholder format hint.
+        /// </summary>
         public const string DefaultCustomHost = "http://localhost:8080";
 
         // --- Serialized backing fields. ---
