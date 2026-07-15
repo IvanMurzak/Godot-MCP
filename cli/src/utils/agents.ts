@@ -39,6 +39,18 @@ export interface AgentDefinition {
   /** Config-file serialization format. `toml` is the Codex branch. */
   configFormat: 'json' | 'toml';
   bodyPath: string;
+  /**
+   * Whether this MCP client performs native RFC 9728 OAuth against the hosted
+   * endpoint (auth Flow A). Default policy is `true`, mirroring the shared b6
+   * configurators / decision D11: OAuth-capable clients get a credential-free,
+   * URL-only `{type,url}` config so their own OAuth handshake runs, and
+   * `setup-mcp` OMITS the static `Authorization` header for them — a static
+   * header both fails against the hosted AS (401) and suppresses the client's
+   * OAuth fallback ("OAuth fallback is disabled when headers.Authorization is
+   * set"). Set `false` only for a client that cannot OAuth and needs a static
+   * token against a required-auth (typically self-hosted) endpoint (Flow C).
+   */
+  supportsOAuth: boolean;
   /** Resolve the absolute config-file path for a given project root. */
   getConfigPath(projectPath: string): string;
   /** Build the HTTP server entry written under `bodyPath[MCP_SERVER_NAME]`. */
@@ -67,6 +79,16 @@ function isMac(): boolean {
   return process.platform === 'darwin';
 }
 
+/**
+ * Build the optional `headers` object for an HTTP server entry. Emits a Bearer
+ * `Authorization` header ONLY when `authRequired` is set AND a non-empty token is
+ * present. `authRequired` is the OAuth-aware decision made per agent in
+ * `lib/setup-mcp.ts` (see `shouldWriteAuthHeader`): OAuth-capable clients
+ * (`supportsOAuth: true`, the default) are handed `authRequired = false`, so this
+ * stays `undefined` and the client runs its own RFC 9728 OAuth (Flow A). A header
+ * is produced only for the Flow C fallback (a non-OAuth client, or an explicit
+ * PAT opt-in). Returns `undefined` otherwise.
+ */
 function authHeaders(token: string, authRequired: boolean): Record<string, string> | undefined {
   if (authRequired && token) {
     return { Authorization: `Bearer ${token}` };
@@ -91,6 +113,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'claude-code',
     name: 'Claude Code',
+    supportsOAuth: true,
     skillsPath: '.claude/skills',
     configPathDisplay: '.mcp.json',
     configFormat: 'json',
@@ -108,6 +131,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'claude-desktop',
     name: 'Claude Desktop',
+    supportsOAuth: true,
     skillsPath: null,
     configPathDisplay: '~/Claude/claude_desktop_config.json',
     configFormat: 'json',
@@ -133,6 +157,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'cursor',
     name: 'Cursor',
+    supportsOAuth: true,
     skillsPath: '.cursor/skills',
     configPathDisplay: '.cursor/mcp.json',
     configFormat: 'json',
@@ -150,6 +175,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'vscode-copilot',
     name: 'Visual Studio Code (Copilot)',
+    supportsOAuth: true,
     skillsPath: '.github/skills',
     configPathDisplay: '.vscode/mcp.json',
     configFormat: 'json',
@@ -167,6 +193,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'vs-copilot',
     name: 'Visual Studio (Copilot)',
+    supportsOAuth: true,
     skillsPath: '.github/skills',
     configPathDisplay: '.vs/mcp.json',
     configFormat: 'json',
@@ -184,6 +211,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'rider-junie',
     name: 'Rider (Junie)',
+    supportsOAuth: true,
     skillsPath: '.junie/skills',
     configPathDisplay: '.junie/mcp/mcp.json',
     configFormat: 'json',
@@ -202,6 +230,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'github-copilot-cli',
     name: 'GitHub Copilot CLI',
+    supportsOAuth: true,
     skillsPath: '.github/skills',
     configPathDisplay: '~/.copilot/mcp-config.json',
     configFormat: 'json',
@@ -220,6 +249,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'gemini',
     name: 'Gemini',
+    supportsOAuth: true,
     skillsPath: '.gemini/skills',
     configPathDisplay: '.gemini/settings.json',
     configFormat: 'json',
@@ -237,6 +267,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'antigravity',
     name: 'Antigravity',
+    supportsOAuth: true,
     skillsPath: '.agent/skills',
     configPathDisplay: '~/.gemini/config/mcp_config.json',
     configFormat: 'json',
@@ -254,6 +285,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'cline',
     name: 'Cline',
+    supportsOAuth: true,
     skillsPath: '.cline/skills',
     configPathDisplay: '~/Code/globalStorage/.../cline_mcp_settings.json',
     configFormat: 'json',
@@ -287,6 +319,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'open-code',
     name: 'Open Code',
+    supportsOAuth: true,
     skillsPath: '.opencode/skills',
     configPathDisplay: 'opencode.json',
     configFormat: 'json',
@@ -305,6 +338,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'codex',
     name: 'Codex',
+    supportsOAuth: true,
     skillsPath: '.agents/skills',
     configPathDisplay: '.codex/config.toml',
     configFormat: 'toml',
@@ -323,6 +357,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'kilo-code',
     name: 'Kilo Code',
+    supportsOAuth: true,
     skillsPath: '.kilocode/skills',
     configPathDisplay: '.kilocode/mcp.json',
     configFormat: 'json',
@@ -341,6 +376,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
   {
     id: 'custom',
     name: 'Custom (generic MCP client)',
+    supportsOAuth: true,
     skillsPath: null,
     configPathDisplay: 'mcp.json',
     configFormat: 'json',

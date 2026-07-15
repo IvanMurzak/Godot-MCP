@@ -47,6 +47,45 @@ function resolveMcpClientUrl(optUrl: string | undefined): string {
 }
 
 /**
+ * Decide whether `setup-mcp` writes a static `Authorization: Bearer` header for a
+ * given agent + credential (design decision D11 / auth Flow A & C, mirroring the
+ * shared b6 configurators' `SupportsOAuth` policy).
+ *
+ * OAuth-capable interactive clients (Claude Code, Cursor, Codex, Copilot, …)
+ * perform native RFC 9728 discovery + OAuth against the hosted endpoint (Flow A).
+ * A static Bearer header BOTH fails there (the hosted AS rejects the token with
+ * 401) AND suppresses the client's own OAuth handshake ("OAuth fallback is
+ * disabled when headers.Authorization is set"), so it must be omitted — the
+ * config stays URL-only `{type,url}`.
+ *
+ * A header is written ONLY for the Flow C fallback:
+ *   - `supportsOAuth === false` — a client that cannot OAuth and needs a static
+ *     token against a required-auth (typically self-hosted) endpoint; OR
+ *   - an EXPLICIT PAT opt-in — the caller passed the token explicitly (`--token`
+ *     / the library `token` arg), a deliberate Flow C request.
+ *
+ * A token that is only present ambiently (the `GODOT_MCP_TOKEN` env a prior
+ * `login` set) is NOT an opt-in: for an OAuth-capable client it is ignored so the
+ * native handshake runs. This is the flagship g1 fix — `login` + `setup-mcp
+ * claude-code .` must no longer emit a header.
+ */
+export function shouldWriteAuthHeader(input: {
+  hasToken: boolean;
+  explicitToken: boolean;
+  supportsOAuth: boolean;
+}): boolean {
+  if (!input.hasToken) return false;
+  if (input.supportsOAuth === false) return true;
+  return input.explicitToken;
+}
+
+/** True when `configPath` resolves inside `projectPath` (a project-scoped, likely VCS-tracked file). */
+function isInsideProject(projectPath: string, configPath: string): boolean {
+  const rel = path.relative(projectPath, configPath);
+  return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+/**
  * Write MCP configuration for the given AI agent so it can talk to a Godot-MCP
  * server. Library-safe: no stdout noise, no process.exit, no throws past the
  * public boundary.
@@ -99,11 +138,39 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
     });
 
     const serverUrl = resolveMcpClientUrl(opts.url);
+    // A token supplied EXPLICITLY by the caller (`--token` / the library `token`
+    // arg) is a deliberate Flow C PAT opt-in; a token that is only present in the
+    // ambient `GODOT_MCP_TOKEN` env (e.g. one a prior `login` set) is NOT.
+    const explicitToken = typeof opts.token === 'string' && opts.token.length > 0;
     const token = opts.token ?? normalizeEnv(process.env[ENV_TOKEN]) ?? '';
-    const authRequired = token.length > 0;
+    // OAuth-aware header gate (design D11 / auth Flow A & C): OAuth-capable clients
+    // get a credential-free, URL-only config so their native RFC 9728 OAuth runs;
+    // a static Authorization header is written only for a non-OAuth client or an
+    // explicit PAT opt-in. See `shouldWriteAuthHeader`.
+    const authRequired = shouldWriteAuthHeader({
+      hasToken: token.length > 0,
+      explicitToken,
+      supportsOAuth: agent.supportsOAuth,
+    });
 
     const configPath = agent.getConfigPath(projectPath);
     const props = agent.getHttpProps(serverUrl, token, authRequired);
+
+    // Flow C safety: a static PAT written into a project-scoped config file is a
+    // VCS leak risk — warn so the user prefers an env var / user-scoped config (or
+    // relies on native OAuth by omitting the token). Gate on whether a static
+    // header was ACTUALLY emitted into `props`, not merely on `authRequired`:
+    // agents whose `getHttpProps` ignore the token (e.g. Codex / Antigravity)
+    // write no `headers`, so an explicit `--token` there must NOT raise a "leaked
+    // credential" warning about a header that was never written to the file.
+    const wroteAuthHeader = Boolean((props as { headers?: unknown }).headers);
+    if (wroteAuthHeader && isInsideProject(projectPath, configPath)) {
+      warnings.push(
+        `Wrote a static Authorization (PAT) header into the project-scoped config ${configPath}. ` +
+          `Committing this file would leak the credential — prefer setting ${ENV_TOKEN} in your ` +
+          `environment or a user-scoped config, or omit the token to use the client's native OAuth.`,
+      );
+    }
 
     if (agent.configFormat === 'toml') {
       writeTomlAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);

@@ -11,7 +11,7 @@ vi.mock('os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('os')>();
   return { ...actual, homedir: () => homeHolder.dir || actual.homedir() };
 });
-import { setupMcp, listAgentIds } from '../src/lib/setup-mcp.js';
+import { setupMcp, listAgentIds, shouldWriteAuthHeader } from '../src/lib/setup-mcp.js';
 import {
   agentRegistry,
   getAgentById,
@@ -228,7 +228,46 @@ describe('setupMcp', () => {
     expect(toml).toContain('startup_timeout_sec = 30');
   });
 
-  it('adds an Authorization header when a token is provided (claude-code)', async () => {
+  // --- D11 / Flow A: OAuth-capable clients get a credential-free, URL-only config ---
+
+  it('omits the Authorization header for OAuth-capable clients even when GODOT_MCP_TOKEN is set (flagship g1 fix)', async () => {
+    // A prior `login` leaves GODOT_MCP_TOKEN in the environment. setup-mcp must NOT
+    // inject it as a static header for OAuth-capable clients (claude-code, cursor,
+    // copilot, …): the hosted AS rejects the token (401) AND the client then skips
+    // its own OAuth handshake ("OAuth fallback is disabled when headers.Authorization
+    // is set"). The config must stay URL-only so native RFC 9728 OAuth runs (Flow A).
+    process.env[ENV_TOKEN] = 'agd_pat_ambient';
+    const cases: Array<[string, string[], string]> = [
+      ['claude-code', ['.mcp.json'], 'mcpServers'],
+      ['cursor', ['.cursor', 'mcp.json'], 'mcpServers'],
+      ['vscode-copilot', ['.vscode', 'mcp.json'], 'servers'],
+    ];
+    for (const [id, rel, body] of cases) {
+      const result = await setupMcp({ agentId: id, godotProjectPath: tmpDir });
+      expect(result.kind).toBe('success');
+      if (result.kind !== 'success') continue;
+      const json = JSON.parse(fs.readFileSync(path.join(tmpDir, ...rel), 'utf-8'));
+      const entry = json[body][SERVER_NAME];
+      expect(entry).toMatchObject({ type: 'http', url: 'https://ai-game.dev/mcp' });
+      expect(entry.headers).toBeUndefined();
+      // No credential landed in the file → no VCS-leak warning.
+      expect(result.warnings).toEqual([]);
+    }
+  });
+
+  it('codex writes URL-only TOML (no Authorization) even with an ambient GODOT_MCP_TOKEN', async () => {
+    process.env[ENV_TOKEN] = 'agd_pat_ambient';
+    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    const toml = fs.readFileSync(result.configPath, 'utf-8');
+    expect(toml).not.toContain('Authorization');
+    expect(toml).not.toContain('headers');
+  });
+
+  it('adds an Authorization header on an explicit --token opt-in (Flow C) and warns about the project-file PAT (claude-code)', async () => {
+    // Passing --token / the library `token` arg is a deliberate PAT opt-in, unlike
+    // the ambient env token above — the legacy header shape is still written.
     const result = await setupMcp({
       agentId: 'claude-code',
       godotProjectPath: tmpDir,
@@ -236,8 +275,11 @@ describe('setupMcp', () => {
       token: 'secret',
     });
     expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf-8'));
     expect(json.mcpServers[SERVER_NAME].headers).toEqual({ Authorization: 'Bearer secret' });
+    // Flow C: writing a PAT into a project-scoped config warns about the VCS-leak risk.
+    expect(result.warnings.some((w) => /PAT/i.test(w) && /leak/i.test(w))).toBe(true);
   });
 
   it('does NOT add Authorization headers to codex (token-less TOML)', async () => {
@@ -252,6 +294,11 @@ describe('setupMcp', () => {
     const toml = fs.readFileSync(result.configPath, 'utf-8');
     expect(toml).not.toContain('Authorization');
     expect(toml).not.toContain('headers');
+    // Codex's getHttpProps ignores the token (URL-only TOML), so no static header
+    // lands in the file — and therefore NO VCS-leak warning must be raised. The
+    // warning is gated on the header actually written to the config, not on the
+    // presence of an (explicit) token.
+    expect(result.warnings.some((w) => /PAT/i.test(w) && /leak/i.test(w))).toBe(false);
   });
 });
 
@@ -318,6 +365,38 @@ describe('agent config-path resolution', () => {
     expect(getAgentById('codex')!.configFormat).toBe('toml');
     const tomlAgents = agentRegistry.filter((a) => a.configFormat === 'toml').map((a) => a.id);
     expect(tomlAgents).toEqual(['codex']);
+  });
+
+  it('every agent declares supportsOAuth (boolean); all shipped clients are OAuth-capable (D11/b6 default true)', () => {
+    for (const agent of agentRegistry) {
+      expect(typeof agent.supportsOAuth).toBe('boolean');
+      // Every client shipped today performs native RFC 9728 OAuth; a future
+      // non-OAuth client would set this false to opt back into a static header.
+      expect(agent.supportsOAuth).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth-aware header gate (design D11 / auth Flow A & C)
+// ---------------------------------------------------------------------------
+
+describe('shouldWriteAuthHeader', () => {
+  it('never writes a header without a token', () => {
+    expect(shouldWriteAuthHeader({ hasToken: false, explicitToken: false, supportsOAuth: true })).toBe(false);
+    expect(shouldWriteAuthHeader({ hasToken: false, explicitToken: true, supportsOAuth: false })).toBe(false);
+  });
+
+  it('OAuth-capable client: omits the header for an ambient token, writes it only on explicit opt-in', () => {
+    // ambient token (env), not explicit → URL-only (Flow A, the flagship fix)
+    expect(shouldWriteAuthHeader({ hasToken: true, explicitToken: false, supportsOAuth: true })).toBe(false);
+    // explicit --token opt-in → header (Flow C)
+    expect(shouldWriteAuthHeader({ hasToken: true, explicitToken: true, supportsOAuth: true })).toBe(true);
+  });
+
+  it('non-OAuth client (supportsOAuth:false): writes the header whenever a token is present', () => {
+    expect(shouldWriteAuthHeader({ hasToken: true, explicitToken: false, supportsOAuth: false })).toBe(true);
+    expect(shouldWriteAuthHeader({ hasToken: true, explicitToken: true, supportsOAuth: false })).toBe(true);
   });
 });
 
