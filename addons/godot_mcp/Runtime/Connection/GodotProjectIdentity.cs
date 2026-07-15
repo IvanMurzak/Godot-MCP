@@ -150,8 +150,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 !GodotMcpConfig.IsLoopbackUrl(host))
             {
                 // Non-loopback target: the b6 writer keeps its authority verbatim, so bind that host's
-                // own explicit port. A non-loopback host without an explicit port is degenerate for a
-                // locally-hosted server, so fall back to the derived port — both sides still agree.
+                // own explicit port. A portless non-loopback host resolves to the URI scheme's default
+                // port (e.g. 80 for http) — the same value the writer's ResolvedPort reports for it, so
+                // both sides still agree; the derivedPort fallback applies only to an unparseable authority.
                 return GodotMcpServerView.ResolveServerPort(host!, derivedPort);
             }
 
