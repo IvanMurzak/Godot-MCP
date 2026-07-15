@@ -294,6 +294,11 @@ describe('setupMcp', () => {
     const toml = fs.readFileSync(result.configPath, 'utf-8');
     expect(toml).not.toContain('Authorization');
     expect(toml).not.toContain('headers');
+    // Codex's getHttpProps ignores the token (URL-only TOML), so no static header
+    // lands in the file — and therefore NO VCS-leak warning must be raised. The
+    // warning is gated on the header actually written to the config, not on the
+    // presence of an (explicit) token.
+    expect(result.warnings.some((w) => /PAT/i.test(w) && /leak/i.test(w))).toBe(false);
   });
 });
 

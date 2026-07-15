@@ -158,8 +158,13 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
 
     // Flow C safety: a static PAT written into a project-scoped config file is a
     // VCS leak risk — warn so the user prefers an env var / user-scoped config (or
-    // relies on native OAuth by omitting the token).
-    if (authRequired && isInsideProject(projectPath, configPath)) {
+    // relies on native OAuth by omitting the token). Gate on whether a static
+    // header was ACTUALLY emitted into `props`, not merely on `authRequired`:
+    // agents whose `getHttpProps` ignore the token (e.g. Codex / Antigravity)
+    // write no `headers`, so an explicit `--token` there must NOT raise a "leaked
+    // credential" warning about a header that was never written to the file.
+    const wroteAuthHeader = Boolean((props as { headers?: unknown }).headers);
+    if (wroteAuthHeader && isInsideProject(projectPath, configPath)) {
       warnings.push(
         `Wrote a static Authorization (PAT) header into the project-scoped config ${configPath}. ` +
           `Committing this file would leak the credential — prefer setting ${ENV_TOKEN} in your ` +
