@@ -1233,6 +1233,36 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
+        /// Resolve the port the local self-hosted server must BIND — the mcp-authorize g3 single source
+        /// of truth the connection panel's Start Server action (see
+        /// <see cref="UI.ConnectionPanel.OnServerStartStopPressed"/>) uses so the bind port ALWAYS matches
+        /// the port the shared b6 config writer writes into the AI-client config (server bind == written
+        /// config == the ProjectIdentity-derived port; design 06 · D15). Wires this connection's project
+        /// root + marker + the active Custom host into the pure, unit-tested
+        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>. There is no fixed 8080 fallback:
+        /// a loopback/default host resolves to the derived port; a non-loopback host to its own explicit
+        /// port. A marker read failure degrades to "no override" (never throws — starting the server must
+        /// not fault on a malformed marker), the same defensive discipline as
+        /// <see cref="SeedDefaultLocalServerHost"/>.
+        /// </summary>
+        public int ResolveLocalServerPort()
+        {
+            var projectRoot = ResolveProjectRootPath();
+
+            ProjectMarker? marker = null;
+            try
+            {
+                marker = ProjectMarker.Read(projectRoot);
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] could not read project marker for local server port: {ex.Message}");
+            }
+
+            return GodotProjectIdentity.ResolveLocalServerBindPort(_config.ResolveCustomHost(), projectRoot, marker);
+        }
+
+        /// <summary>
         /// The absolute, native project-root path (<c>res://</c> globalized, trailing separator trimmed) —
         /// the string hashed into the instance metadata's <c>ProjectPathHash</c> and the routing pin, and
         /// the project marker's directory. The only Godot dependency of the identity path; returns empty on
