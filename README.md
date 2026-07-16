@@ -302,7 +302,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.3.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="7.0.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="7.1.0" />
 </ItemGroup>
 
 <!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
@@ -314,7 +314,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.3.2` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `7.0.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `7.1.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
 registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem
@@ -524,8 +524,9 @@ Write it once — e.g. from a Godot **autoload**'s `_Ready()` so a `SceneTree` e
 
 ```csharp
 using System.Reflection;
-using com.IvanMurzak.Godot.MCP.Connection;   // GodotMcpConnectionMode, GodotMcpAuthOption
+using com.IvanMurzak.Godot.MCP.Connection;   // GodotMcpConnectionMode
 using com.IvanMurzak.Godot.MCP.Runtime;      // GodotMcpRuntime
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;   // AuthOption (none/oauth/token)
 using Godot;
 
 public partial class GameMcp : Node
@@ -539,9 +540,9 @@ public partial class GameMcp : Node
         {
             builder.WithConfig(config =>
             {
-                config.ConnectionMode = GodotMcpConnectionMode.Custom;   // your own server
-                config.Host           = "http://localhost:8080";         // prefer loopback
-                config.AuthOption     = GodotMcpAuthOption.Required;      // require a bearer token
+                config.ConnectionMode = GodotMcpConnectionMode.Custom;         // your own server
+                config.Host           = "http://localhost:8080";               // prefer loopback
+                config.AuthOption     = McpServerConsts.AuthOption.token;      // offline bearer-token auth
                 config.Token          = "your-secret-token";
             });
 
@@ -656,7 +657,7 @@ An MCP client polls the captured errors with the `runtime-errors-get` tool (and 
 > strings, or a secret/token that happened to appear in an exception message or argument. That is the
 > intended diagnostic value, but it widens what is exposed over the connection. Enable
 > `WithRuntimeErrorCapture()` **only on a trusted connection**: a loopback host (`http://localhost:…` /
-> `127.0.0.1`) with `AuthOption = GodotMcpAuthOption.Required` and a real token — never an
+> `127.0.0.1`) with `AuthOption = Consts.MCP.Server.AuthOption.token` and a real token — never an
 > unauthenticated public interface in a release build. See [Security](#security-opt-in-only-default-off)
 > and [`docs/runtime-security.md`](docs/runtime-security.md).
 
@@ -808,14 +809,14 @@ host/token one of two ways — and they **compose**, with env winning over code 
    | `GODOT_MCP_CONNECTION_MODE` | `Cloud` / `Custom` | Connection mode (a loopback host implies `Custom`). |
    | `GODOT_MCP_CLOUD_URL` | URL | Override the Cloud base URL (default `https://ai-game.dev`). |
    | `GODOT_MCP_HOST` | URL | Custom-mode server host (default `http://localhost:8080`). |
-   | `GODOT_MCP_AUTH_OPTION` | `None` / `Required` | Whether Custom mode sends a bearer token. |
+   | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
    | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
    | `GODOT_MCP_LOG_LEVEL` | `Trace`…`None` | Log-verbosity threshold. |
 
    ```bash
    export GODOT_MCP_CONNECTION_MODE=Custom
    export GODOT_MCP_HOST=http://localhost:8080
-   export GODOT_MCP_AUTH_OPTION=Required
+   export GODOT_MCP_AUTH_OPTION=token
    export GODOT_MCP_TOKEN=your-secret-token
    ```
 
@@ -837,7 +838,7 @@ tools can do, a connected MCP client can drive. Godot-MCP's runtime is built so 
 - **No persisted-config auto-load.** A game build never silently reads a saved config file; host/token
   come only from your code or `GODOT_MCP_*` env / `.env`.
 - **Prefer loopback + a required token.** For local tooling, bind to a loopback host
-  (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = GodotMcpAuthOption.Required` with a real
+  (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = Consts.MCP.Server.AuthOption.token` with a real
   `Token`. Avoid exposing the connection on a public interface in a release build unless you have
   explicitly designed and secured that surface.
 - **Runtime-error capture forwards sensitive data.** `WithRuntimeErrorCapture()` is **OFF by default**.

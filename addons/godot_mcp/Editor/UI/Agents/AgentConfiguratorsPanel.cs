@@ -524,9 +524,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// access token" opt-in, per the pure-managed <see cref="AgentConfiguratorCredentialPolicy"/>. Drives both
         /// the settings snapshot (<see cref="CurrentSettings"/>) and the explicit mode passed to
         /// <c>GetHttpConfig</c> on Configure / Remove.
+        ///
+        /// <para>
+        /// mcp-authorize g5: when the LOCAL server is running Custom-mode <c>token</c> auth it is Bearer-gated,
+        /// so the written AI-client config MUST carry <c>Authorization: Bearer &lt;local-secret&gt;</c> to reach
+        /// it — force <see cref="AgentConfig.HttpCredentialMode.AccessToken"/> regardless of the (Cloud-oriented)
+        /// OAuth advanced toggle, keeping the config-writer credential mode in agreement with the launch-side
+        /// auth mode. The <c>none</c> (anonymous) and <c>oauth</c> (native MCP OAuth) modes stay URL-only via the
+        /// default policy.
+        /// </para>
         /// </summary>
         AgentConfig.HttpCredentialMode CurrentCredentialMode() =>
-            AgentConfiguratorCredentialPolicy.ResolveCredentialMode(_current?.SupportsOAuth ?? true, _useAccessToken);
+            AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                _connection.Config.ActiveMode,
+                _connection.Config.ActiveAuthOption,
+                _current?.SupportsOAuth ?? true,
+                _useAccessToken);
 
         /// <summary>
         /// Configure-button <c>pressed</c> handler (object+method Callable). Writes the addon's HTTP entry into the

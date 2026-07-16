@@ -19,6 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 // Alias the BCL types that collide with same-named Godot types (Godot.Environment / Godot.HttpClient).
 using SystemEnvironment = System.Environment;
 using HttpClient = System.Net.Http.HttpClient;
@@ -404,10 +405,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Download-if-needed then launch the local server. Returns false when the binary is unavailable
         /// (e.g. in CI, or no release published yet) or the server is already running/transitioning. The
-        /// server is launched with <c>client-transport=streamableHttp</c> and the bearer token (when auth is
-        /// required) — the token is passed ONLY in the process arguments and is NEVER logged.
+        /// server is launched with <c>client-transport=streamableHttp</c> in the requested
+        /// <paramref name="authOption"/> mode (<c>none</c> anonymous / <c>token</c> shared-secret /
+        /// <c>oauth</c> account) via the SHARED launch-arg builder — the secret <paramref name="token"/> is
+        /// passed ONLY in the process arguments (token mode) and is NEVER logged.
         /// </summary>
-        public async Task<bool> StartServerAsync(int port, int pluginTimeoutMs, bool authRequired, string? token)
+        public async Task<bool> StartServerAsync(
+            int port,
+            int pluginTimeoutMs,
+            McpServerConsts.AuthOption authOption,
+            string? token,
+            string? authIssuer = null,
+            string? publicUrl = null)
         {
             if (!await DownloadServerBinaryIfNeeded())
             {
@@ -415,14 +424,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return false;
             }
 
-            return StartServer(port, pluginTimeoutMs, authRequired, token);
+            return StartServer(port, pluginTimeoutMs, authOption, token, authIssuer, publicUrl);
         }
 
         /// <summary>
         /// Launch the already-cached server binary as a child process and begin startup verification.
         /// Synchronous; assumes the binary exists (call <see cref="StartServerAsync"/> to download first).
         /// </summary>
-        public bool StartServer(int port, int pluginTimeoutMs, bool authRequired, string? token)
+        public bool StartServer(
+            int port,
+            int pluginTimeoutMs,
+            McpServerConsts.AuthOption authOption,
+            string? token,
+            string? authIssuer = null,
+            string? publicUrl = null)
         {
             lock (_processMutex)
             {
@@ -447,9 +462,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
                 try
                 {
-                    // The args carry the secret token (when required) — build them via the pure-managed
+                    // The args carry the secret token (in token mode) — build them via the SHARED launch-arg
                     // builder and NEVER log the resulting string.
-                    var arguments = GodotMcpServerView.BuildLaunchArguments(port, pluginTimeoutMs, authRequired, token);
+                    var arguments = GodotMcpServerView.BuildLaunchArguments(port, pluginTimeoutMs, authOption, token, authIssuer, publicUrl);
 
                     var startInfo = new ProcessStartInfo
                     {

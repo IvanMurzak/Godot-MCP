@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using com.IvanMurzak.Godot.MCP.Connection;
 using Xunit;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
@@ -223,8 +224,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var config = new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
-                // Custom-mode token only flows to the bearer when auth is Required (the auth-option gate).
-                AuthOption = GodotMcpAuthOption.Required,
+                // Custom-mode token only flows to the bearer when auth is token (the auth-option gate).
+                AuthOption = McpServerConsts.AuthOption.token,
                 CloudToken = "cloud-tok",
                 CustomToken = "custom-tok"
             };
@@ -250,8 +251,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var config = new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
-                // Token routing in Custom mode is gated on auth being Required (see AuthOption tests).
-                AuthOption = GodotMcpAuthOption.Required,
+                // Token routing in Custom mode is gated on auth being token (see AuthOption tests).
+                AuthOption = McpServerConsts.AuthOption.token,
                 CustomToken = "custom-tok"
             };
             Assert.Equal("env-tok", config.Token);

@@ -20,7 +20,7 @@ import { createHash } from 'crypto';
  * download entirely (offline / CI). Bumping the addon's server pin requires
  * bumping this in the same PR or the parity test goes red.
  */
-export const DEFAULT_SERVER_VERSION = '9.0.0';
+export const DEFAULT_SERVER_VERSION = '9.1.0';
 
 /** GitHub-release host the server zip + manifest are downloaded from. NOTHING else is trusted. */
 export const TRUSTED_DOWNLOAD_HOST = 'github.com';

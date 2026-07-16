@@ -67,7 +67,7 @@ Requirements:
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the two NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet  version 5.3.2
-  com.IvanMurzak.McpPlugin     version 7.0.0
+  com.IvanMurzak.McpPlugin     version 7.1.0
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
 global-packages folder.

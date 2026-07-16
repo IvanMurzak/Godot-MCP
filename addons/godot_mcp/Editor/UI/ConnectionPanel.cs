@@ -15,6 +15,7 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using Godot;
 using McpClientData = com.IvanMurzak.McpPlugin.Common.Model.McpClientData;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.UI
 {
@@ -99,14 +100,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
         LineEdit _hostField = null!;
         Label _overrideNote = null!;
 
-        // Custom-mode authorization segmented (none|required) + masked token + Generate.
+        // Custom-mode authorization segmented (none|oauth|token) + masked token + Generate.
         Control _authSegmented = null!;
         VBoxContainer _tokenRow = null!;
         LineEdit _tokenField = null!;
         Button _generateTokenButton = null!;
-        static readonly IReadOnlyList<string> AuthOptions = new[] { AuthLabelNone, AuthLabelRequired };
+        static readonly IReadOnlyList<string> AuthOptions = new[] { AuthLabelNone, AuthLabelOauth, AuthLabelToken };
         const string AuthLabelNone = "none";
-        const string AuthLabelRequired = "required";
+        const string AuthLabelOauth = "oauth";
+        const string AuthLabelToken = "token";
 
         // Cloud-mode auth section (device-code flow). The DEFAULT view (mcp-authorize e1 · PR 5) shows a sign-in /
         // account-state chip + the derived per-project connection URL + Authorize/Revoke — NOT a raw token field.
@@ -418,7 +420,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _hostField.Connect(Control.SignalName.FocusExited, new Callable(this, MethodName.OnHostFocusExited));
             hostLine.AddChild(_hostField);
 
-            // --- Authorization (Custom mode only): none | required (segmented) ---
+            // --- Authorization (Custom mode only): none | oauth | token (segmented) ---
             var authLine = new HBoxContainer { Name = "AuthLine" };
             _customHostRow.AddChild(authLine);
 
@@ -432,7 +434,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 OnAuthSegmentSelected);
             authLine.AddChild(_authSegmented);
 
-            // --- Token row (shown only when Authorization == required): masked field + Generate ---
+            // --- Token row (shown only when Authorization == token): masked field + Generate ---
             _tokenRow = new VBoxContainer { Name = "TokenRow" };
             _customHostRow.AddChild(_tokenRow);
 
@@ -641,8 +643,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
         static string ModeLabelForMode(GodotMcpConnectionMode mode) =>
             mode == GodotMcpConnectionMode.Cloud ? ModeLabelCloud : ModeLabelCustom;
 
-        static string AuthLabelForOption(GodotMcpAuthOption option) =>
-            option == GodotMcpAuthOption.Required ? AuthLabelRequired : AuthLabelNone;
+        static string AuthLabelForOption(McpServerConsts.AuthOption option) =>
+            GodotMcpConfig.NormalizeAuthOption(option) switch
+            {
+                McpServerConsts.AuthOption.oauth => AuthLabelOauth,
+                McpServerConsts.AuthOption.token => AuthLabelToken,
+                _ => AuthLabelNone
+            };
+
+        static McpServerConsts.AuthOption AuthOptionForLabel(string label) =>
+            label == AuthLabelOauth ? McpServerConsts.AuthOption.oauth :
+            label == AuthLabelToken ? McpServerConsts.AuthOption.token :
+            McpServerConsts.AuthOption.none;
 
         void OnConnectionStatusChanged(ConnectionStatus status) => ApplyStatus(status);
 
@@ -724,10 +736,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// binary if needed then launches it with <c>client-transport=streamableHttp</c> on the
         /// ProjectIdentity-derived local port (mcp-authorize g3 — <see cref="GodotMcpConnection.ResolveLocalServerPort"/>,
         /// which MATCHES the port the shared config writer writes into the AI-client config, so the server
-        /// bind port == the written config port; no fixed 8080 on the default path), passing the bearer token
-        /// only when auth is required (the token is never logged). When running, terminates it. The
-        /// download/launch is fire-and-forget; the status circle + button converge via the manager's
-        /// <see cref="GodotMcpServerManager.StatusChanged"/> stream. The button is disabled by
+        /// bind port == the written config port; no fixed 8080 on the default path). The launch args are built
+        /// per the active auth mode (mcp-authorize g5): <c>none</c> = anonymous loopback; <c>token</c> = the
+        /// offline shared secret (never logged); <c>oauth</c> = the ai-game.dev issuer + this project's pinned
+        /// loopback public URL so the account-gated server can validate the plugin's account JWT. When running,
+        /// terminates it. The download/launch is fire-and-forget; the status circle + button converge via the
+        /// manager's <see cref="GodotMcpServerManager.StatusChanged"/> stream. The button is disabled by
         /// <see cref="ApplyServerStatus"/> during transient states, so a double-click cannot race a start/stop.
         /// </summary>
         public void OnServerStartStopPressed()
@@ -740,11 +754,29 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             var port = _connection.ResolveLocalServerPort();
             var timeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultTimeoutMs;
-            var authRequired = _connection.Config.ActiveAuthOption == GodotMcpAuthOption.Required;
-            var token = _connection.Config.ResolveCustomToken();
+            var authOption = _connection.Config.ActiveAuthOption; // normalized none/oauth/token (env-aware)
+
+            string? token = null;
+            string? authIssuer = null;
+            string? publicUrl = null;
+            switch (authOption)
+            {
+                case McpServerConsts.AuthOption.token:
+                    // Offline shared secret — passed only in the launch args, never logged.
+                    token = _connection.Config.ResolveCustomToken();
+                    break;
+
+                case McpServerConsts.AuthOption.oauth:
+                    // Account-gated loopback server: hand it the ai-game.dev issuer + this project's pinned
+                    // loopback public URL (http://localhost:<derived>/mcp/p/<pin>) so its resource-server
+                    // validates the account JWT the plugin presents on the hub (design Part A).
+                    authIssuer = GodotMcpConfig.DefaultCloudBaseUrl;
+                    publicUrl = Agents.AgentConfiguratorSettingsFactory.Create(_connection.Config).PinnedHttpUrl;
+                    break;
+            }
 
             // Fire-and-forget: StartServerAsync downloads-if-needed then launches; status changes drive the UI.
-            _ = _serverManager.StartServerAsync(port, timeoutMs, authRequired, token);
+            _ = _serverManager.StartServerAsync(port, timeoutMs, authOption, token, authIssuer, publicUrl);
         }
 
         /// <summary>
@@ -830,16 +862,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Persist the chosen Custom-mode authorization option (none/required) and reconnect so the
-        /// bearer-token routing takes effect. When set to <c>required</c> with no token yet, generate one
-        /// so the connection has a credential to send. Persists even under an env override (the override
-        /// note explains the env value wins live); only reconnects when the live mode is Custom.
+        /// Persist the chosen Custom-mode authorization option (none/oauth/token) and reconnect so the
+        /// credential routing takes effect. When set to <c>token</c> with no secret yet, generate one so the
+        /// connection has a bearer to send. Persists even under an env override (the override note explains
+        /// the env value wins live); only reconnects when the live mode is Custom.
         /// </summary>
         void OnAuthSegmentSelected(int index)
         {
-            var authOption = index == SegmentedControlModel.IndexOf(AuthOptions, AuthLabelRequired)
-                ? GodotMcpAuthOption.Required
-                : GodotMcpAuthOption.None;
+            var label = index >= 0 && index < AuthOptions.Count ? AuthOptions[index] : AuthLabelNone;
+            var authOption = AuthOptionForLabel(label);
 
             if (_connection.Config.AuthOption == authOption)
             {
@@ -849,8 +880,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _connection.Config.AuthOption = authOption;
 
-            // When switching to required without a stored token, mint one so the connection is usable.
-            if (authOption == GodotMcpAuthOption.Required &&
+            // token mode needs a static secret to send; mint one if none is stored yet.
+            if (authOption == McpServerConsts.AuthOption.token &&
                 string.IsNullOrEmpty(_connection.Config.CustomToken))
             {
                 _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
@@ -868,14 +899,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Generate a fresh Custom-mode token, persist it, and reconnect so the new bearer is used. The
-        /// token is never logged and is shown only as a masked field. Generating implies the user wants
-        /// auth, so this also flips <see cref="GodotMcpAuthOption"/> to <c>Required</c> if it was off.
+        /// token is never logged and is shown only as a masked field. Generating a secret implies the user
+        /// wants the offline token-gated mode, so this also sets <see cref="GodotMcpConfig.AuthOption"/> to
+        /// <c>token</c>.
         /// </summary>
         public void OnGenerateTokenPressed()
         {
             _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
-            if (_connection.Config.AuthOption == GodotMcpAuthOption.None)
-                _connection.Config.AuthOption = GodotMcpAuthOption.Required;
+            _connection.Config.AuthOption = McpServerConsts.AuthOption.token;
 
             _connection.Save();
             ApplyAuthVisibility();
@@ -969,20 +1000,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Render the Custom-mode authorization controls from the persisted config: the auth segmented
-        /// reflects <see cref="GodotMcpConfig.AuthOption"/>, the masked token row is shown only when
-        /// <c>Required</c>, and the field carries the stored Custom token (masked). The token is never
+        /// reflects <see cref="GodotMcpConfig.AuthOption"/> (normalized), the masked token row is shown only
+        /// in <c>token</c> mode, and the field carries the stored Custom token (masked). The token is never
         /// shown in clear text or logged. Always reads/writes the PERSISTED layer (env auth override is
         /// surfaced by the override note, not by disabling these controls).
         /// </summary>
         void ApplyAuthVisibility()
         {
-            var required = _connection.Config.AuthOption == GodotMcpAuthOption.Required;
+            var authOption = GodotMcpConfig.NormalizeAuthOption(_connection.Config.AuthOption);
             DockStyle.SetSegmentedSelection(
                 _authSegmented,
-                SegmentedControlModel.IndexOf(AuthOptions, required ? AuthLabelRequired : AuthLabelNone));
-            _tokenRow.Visible = required;
-            // Masked field carries the stored token; only meaningful when required.
-            _tokenField.Text = required ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
+                SegmentedControlModel.IndexOf(AuthOptions, AuthLabelForOption(authOption)));
+
+            // The masked token field + Generate button are meaningful ONLY in token mode (the offline
+            // shared-secret path). none = anonymous loopback; oauth = the account JWT (no static token here).
+            var isToken = authOption == McpServerConsts.AuthOption.token;
+            _tokenRow.Visible = isToken;
+            _tokenField.Text = isToken ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
         }
 
         /// <summary>

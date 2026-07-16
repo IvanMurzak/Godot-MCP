@@ -32,16 +32,17 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
 - **Register the minimum tool set.** Prefer `WithTools(typeof(MyToolFamily))` over a broad
   `WithToolsFromAssembly(...)` when you only need a few tools. Every registered tool is reachable by a
   connected client.
-- **Prefer loopback + a required token.** For local tooling, bind Custom mode to a loopback host
-  (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = GodotMcpAuthOption.Required` with a real
+- **Prefer loopback + a token.** For local tooling, bind Custom mode to a loopback host
+  (`http://localhost:…` / `127.0.0.1`) and set `AuthOption = Consts.MCP.Server.AuthOption.token` with a real
   `Token`:
 
   ```csharp
+  // using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
   builder.WithConfig(config =>
   {
       config.ConnectionMode = GodotMcpConnectionMode.Custom;
       config.Host           = "http://localhost:8080";   // loopback
-      config.AuthOption     = GodotMcpAuthOption.Required;
+      config.AuthOption     = McpServerConsts.AuthOption.token;
       config.Token          = "your-secret-token";  // discouraged: see the env-var form below — don't ship a hard-coded secret
   });
   ```
@@ -51,7 +52,7 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   ```bash
   export GODOT_MCP_CONNECTION_MODE=Custom
   export GODOT_MCP_HOST=http://localhost:8080
-  export GODOT_MCP_AUTH_OPTION=Required
+  export GODOT_MCP_AUTH_OPTION=token
   export GODOT_MCP_TOKEN=your-secret-token
   ```
 
@@ -66,7 +67,7 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   embed sensitive runtime data — absolute filesystem paths, machine/user names, query strings, or a
   secret/token that surfaced in an exception message or argument. That is the intended diagnostic value,
   but it widens the data exposed over the connection. Enable it only on a loopback host with
-  `AuthOption = GodotMcpAuthOption.Required` and a real token — never on an unauthenticated public
+  `AuthOption = Consts.MCP.Server.AuthOption.token` and a real token — never on an unauthenticated public
   interface in a release build.
 
 ## Environment variables
@@ -79,7 +80,7 @@ The runtime config (`GodotMcpConfig`) reads these `GODOT_MCP_*` variables live (
 | `GODOT_MCP_CONNECTION_MODE` | `Cloud` / `Custom` | Connection mode (a loopback host implies `Custom`). |
 | `GODOT_MCP_CLOUD_URL` | URL | Override the Cloud base URL (default `https://ai-game.dev`). |
 | `GODOT_MCP_HOST` | URL | Custom-mode server host (default `http://localhost:8080`). |
-| `GODOT_MCP_AUTH_OPTION` | `None` / `Required` | Whether Custom mode sends a bearer token. |
+| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
 | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
 | `GODOT_MCP_LOG_LEVEL` | `Trace` / `Debug` / `Info` / `Warning` / `Error` / `None` | Log-verbosity threshold. |
 

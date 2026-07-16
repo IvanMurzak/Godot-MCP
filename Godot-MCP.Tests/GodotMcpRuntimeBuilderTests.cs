@@ -15,6 +15,7 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Runtime;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Xunit;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
@@ -268,7 +269,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 b.WithConfig(c => c.CustomHost = "http://localhost:8080");
                 b.WithConfig(c =>
                 {
-                    c.AuthOption = GodotMcpAuthOption.Required;
+                    c.AuthOption = McpServerConsts.AuthOption.token;
                     c.CustomToken = "secret-token";
                 });
             });
@@ -279,7 +280,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Equal(GodotMcpConnectionMode.Custom, config.ConnectionMode);
             Assert.Equal("http://localhost:8080", config.CustomHost);
-            Assert.Equal(GodotMcpAuthOption.Required, config.AuthOption);
+            Assert.Equal(McpServerConsts.AuthOption.token, config.AuthOption);
             Assert.Equal("secret-token", config.CustomToken);
         }
 

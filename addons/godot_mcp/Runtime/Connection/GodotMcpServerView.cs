@@ -10,8 +10,8 @@
 #nullable enable
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
 using com.IvanMurzak.Godot.MCP.UI;
+using com.IvanMurzak.McpPlugin.ServerLaunch;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
@@ -66,7 +66,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <c>v&lt;ServerVersion&gt;</c> release with all 7 RID zips exists on GameDev-MCP-Server BEFORE
         /// cutting an addon release that pins it — otherwise the download 404s, the issue-#94 class of bug).
         /// </summary>
-        public const string ServerVersion = "9.0.0";
+        public const string ServerVersion = "9.1.0";
 
         /// <summary>
         /// The server executable base name (the shared <c>GameDev-MCP-Server</c> binary). On Windows the
@@ -429,36 +429,47 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             return string.Equals(cachedVersion!.Trim(), (expectedVersion ?? string.Empty).Trim(), StringComparison.Ordinal);
         }
 
-        // --- Launch argument builder (matches Unity's BuildArguments shape) ---
+        // --- Launch argument builder (delegates to the SHARED McpPlugin builder — no per-engine duplication) ---
 
         /// <summary>
-        /// Build the server process argument string:
-        /// <c>port=&lt;p&gt; plugin-timeout=&lt;t&gt; client-transport=streamableHttp authorization=&lt;a&gt; [token=&lt;tok&gt;]</c>.
-        /// The transport is ALWAYS <c>streamableHttp</c> — the only transport the plugin's own SignalR
-        /// client can connect to (we deliberately do NOT build a <c>stdio</c> launch path the plugin cannot
-        /// consume). The <paramref name="token"/> is appended ONLY when <paramref name="authRequired"/> is
-        /// true AND the token is non-empty; it is the secret and is NEVER otherwise emitted. Mirrors Unity's
-        /// <c>McpServerManager.BuildArguments</c>.
+        /// Build the server process argument string by delegating to the SHARED
+        /// <see cref="ServerLaunchArguments.BuildCommandLine"/> builder (mcp-authorize g6 consolidation): one
+        /// canonical builder in McpPlugin emits the launch shape for every engine (Unity + Godot call it
+        /// directly), so the per-engine arg-assembly logic is gone and every engine wires <c>auth</c>,
+        /// <c>token</c>, and the OAuth resource-server args identically. The transport is ALWAYS
+        /// <c>streamableHttp</c> — the only transport the plugin's own SignalR client can connect to (we
+        /// deliberately do NOT build a <c>stdio</c> launch path the plugin cannot consume). Per
+        /// <paramref name="authOption"/> (the shared builder appends, in order):
+        /// <list type="bullet">
+        ///   <item><see cref="McpServerConsts.AuthOption.none"/> — no credential args (anonymous loopback).</item>
+        ///   <item><see cref="McpServerConsts.AuthOption.token"/> — <c>token=&lt;secret&gt;</c>; the shared
+        ///   builder throws when <paramref name="token"/> is empty.</item>
+        ///   <item><see cref="McpServerConsts.AuthOption.oauth"/> — <c>auth-issuer</c> + <c>public-url</c>;
+        ///   the shared builder throws when either is empty.</item>
+        /// </list>
+        /// The secret <paramref name="token"/> is emitted only in <c>token</c> mode and is NEVER logged.
         /// </summary>
         /// <param name="port">The TCP port the server should listen on (the plugin connects to this port).</param>
         /// <param name="pluginTimeoutMs">The plugin-timeout argument in milliseconds.</param>
-        /// <param name="authRequired">Whether the connection requires a bearer token.</param>
-        /// <param name="token">The bearer token (secret); appended only when <paramref name="authRequired"/> and non-empty.</param>
-        public static string BuildLaunchArguments(int port, int pluginTimeoutMs, bool authRequired, string? token)
-        {
-            var authValue = authRequired ? McpServerConsts.AuthOption.required : McpServerConsts.AuthOption.none;
-
-            var sb = new StringBuilder();
-            sb.Append(McpServerConsts.Args.Port).Append('=').Append(port).Append(' ');
-            sb.Append(McpServerConsts.Args.PluginTimeout).Append('=').Append(pluginTimeoutMs).Append(' ');
-            sb.Append(McpServerConsts.Args.ClientTransportMethod).Append('=').Append(McpServerConsts.TransportMethod.streamableHttp).Append(' ');
-            sb.Append(McpServerConsts.Args.Authorization).Append('=').Append(authValue);
-
-            if (authRequired && !string.IsNullOrEmpty(token))
-                sb.Append(' ').Append(McpServerConsts.Args.Token).Append('=').Append(token);
-
-            return sb.ToString();
-        }
+        /// <param name="authOption">The auth mode (target state: <c>none</c> / <c>oauth</c> / <c>token</c>).</param>
+        /// <param name="token">The offline shared secret; required (and emitted) only in <c>token</c> mode.</param>
+        /// <param name="authIssuer">The authorization-server URL; required only in <c>oauth</c> mode.</param>
+        /// <param name="publicUrl">This server's canonical public URL; required only in <c>oauth</c> mode.</param>
+        public static string BuildLaunchArguments(
+            int port,
+            int pluginTimeoutMs,
+            McpServerConsts.AuthOption authOption,
+            string? token = null,
+            string? authIssuer = null,
+            string? publicUrl = null)
+            => ServerLaunchArguments.BuildCommandLine(
+                port,
+                pluginTimeoutMs,
+                McpServerConsts.TransportMethod.streamableHttp,
+                authOption,
+                token,
+                authIssuer,
+                publicUrl);
 
         // --- Status presentation (status -> button text / label / circle state), pure + unit-tested ---
 

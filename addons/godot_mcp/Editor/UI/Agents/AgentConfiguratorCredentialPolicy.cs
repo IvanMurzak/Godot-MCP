@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using com.IvanMurzak.Godot.MCP.Connection;
 using AgentConfig = com.IvanMurzak.McpPlugin.AgentConfig;
 using static com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
@@ -52,6 +53,26 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             => (!supportsOAuth || useAccessToken)
                 ? AgentConfig.HttpCredentialMode.AccessToken
                 : AgentConfig.HttpCredentialMode.Oauth;
+
+        /// <summary>
+        /// The effective credential mode when the launch-side auth mode also constrains it (mcp-authorize g5):
+        /// a Custom-mode server running <see cref="AuthOption.token"/> auth is Bearer-gated, so the written
+        /// AI-client config MUST carry <c>Authorization: Bearer &lt;local-secret&gt;</c> to reach it — this FORCES
+        /// <see cref="AgentConfig.HttpCredentialMode.AccessToken"/> regardless of the (Cloud-oriented) OAuth
+        /// <paramref name="useAccessToken"/> toggle, keeping the config-writer credential mode in agreement with
+        /// the launch-side auth mode. Every other case (<c>none</c> anonymous, <c>oauth</c> native MCP OAuth, or
+        /// any non-Custom mode) falls through to the base <see cref="ResolveCredentialMode(bool, bool)"/> policy.
+        /// Pure over its enum/bool inputs (no Godot native types, no <c>#if TOOLS</c>) so the whole decision is
+        /// unit-testable outside the panel — the <c>#if TOOLS</c> <c>AgentConfiguratorsPanel</c> is a thin adapter.
+        /// </summary>
+        public static AgentConfig.HttpCredentialMode ResolveCredentialMode(
+            GodotMcpConnectionMode activeMode,
+            AuthOption activeAuthOption,
+            bool supportsOAuth,
+            bool useAccessToken)
+            => (activeMode == GodotMcpConnectionMode.Custom && activeAuthOption == AuthOption.token)
+                ? AgentConfig.HttpCredentialMode.AccessToken
+                : ResolveCredentialMode(supportsOAuth, useAccessToken);
 
         /// <summary>
         /// Whether the "Advanced: use access token" TOGGLE is offered for a configurator. Only OAuth-capable
