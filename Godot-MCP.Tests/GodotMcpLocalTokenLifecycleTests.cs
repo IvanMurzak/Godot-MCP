@@ -89,9 +89,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             CustomToken = Secret
         };
 
-        /// <summary>The exact token bytes the AI-client config write path embeds (mode = AccessToken escape hatch).</summary>
+        /// <summary>
+        /// The exact token bytes the AI-client config write path embeds. Models the REAL Configure path
+        /// (<c>AgentConfiguratorsPanel.CurrentCredentialMode</c> → <see cref="AgentConfiguratorSettingsFactory.Create"/>):
+        /// the credential mode is RESOLVED by the same pure-managed policy the panel uses — a Custom+<c>token</c>
+        /// config FORCES <see cref="AgentConfig.HttpCredentialMode.AccessToken"/> (mcp-authorize g5). Deriving it
+        /// (rather than hardcoding AccessToken) also pins that forcing, so a regression of it — which would write a
+        /// tokenless URL-only client config against the Bearer-gated local server, a BUG-B-class mismatch — is
+        /// caught here too. The default-configurator golden-path inputs (<c>supportsOAuth: true</c>,
+        /// <c>useAccessToken: false</c>) are the case where a lost forcing would silently drop the token.
+        /// </summary>
         static string ConfigWriteToken(GodotMcpConfig c)
-            => AgentConfiguratorCredentialPolicy.ResolveSettingsToken(AgentConfig.HttpCredentialMode.AccessToken, c.Token);
+        {
+            AgentConfig.HttpCredentialMode credentialMode = AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                c.ActiveMode, c.ActiveAuthOption, supportsOAuth: true, useAccessToken: false);
+            return AgentConfiguratorCredentialPolicy.ResolveSettingsToken(credentialMode, c.Token);
+        }
 
         /// <summary>The exact token bytes the local server is launched with (token mode).</summary>
         static string? ServerLaunchToken(GodotMcpConfig c) => c.ResolveCustomToken();
