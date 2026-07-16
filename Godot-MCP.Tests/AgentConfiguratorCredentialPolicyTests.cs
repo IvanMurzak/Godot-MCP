@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.UI.Agents;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -71,6 +72,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             bool supportsOAuth, bool useAccessToken, HttpCredentialMode expected)
         {
             Assert.Equal(expected, AgentConfiguratorCredentialPolicy.ResolveCredentialMode(supportsOAuth, useAccessToken));
+        }
+
+        // --- ResolveCredentialMode (launch-aware overload): a Custom+token local server forces AccessToken ---
+
+        [Theory]
+        // Custom + token (Bearer-gated local server) FORCES AccessToken regardless of the OAuth toggle.
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.token, true, false, HttpCredentialMode.AccessToken)]
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.token, true, true, HttpCredentialMode.AccessToken)]
+        // Custom + none / oauth fall through to the base policy (URL-only OAuth unless the toggle/non-OAuth forces it).
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.none, true, false, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.oauth, true, false, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.oauth, true, true, HttpCredentialMode.AccessToken)]
+        // Cloud mode is never forced by the local auth option — the base policy governs.
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.token, true, false, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.token, false, false, HttpCredentialMode.AccessToken)]
+        public void ResolveCredentialMode_LaunchAware_ForcesAccessTokenOnlyForCustomToken(
+            GodotMcpConnectionMode activeMode, AuthOption activeAuthOption, bool supportsOAuth, bool useAccessToken,
+            HttpCredentialMode expected)
+        {
+            Assert.Equal(expected, AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                activeMode, activeAuthOption, supportsOAuth, useAccessToken));
         }
 
         [Theory]

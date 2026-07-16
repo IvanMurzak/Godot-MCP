@@ -534,14 +534,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// default policy.
         /// </para>
         /// </summary>
-        AgentConfig.HttpCredentialMode CurrentCredentialMode()
-        {
-            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom &&
-                _connection.Config.ActiveAuthOption == AuthOption.token)
-                return AgentConfig.HttpCredentialMode.AccessToken;
-
-            return AgentConfiguratorCredentialPolicy.ResolveCredentialMode(_current?.SupportsOAuth ?? true, _useAccessToken);
-        }
+        AgentConfig.HttpCredentialMode CurrentCredentialMode() =>
+            AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                _connection.Config.ActiveMode,
+                _connection.Config.ActiveAuthOption,
+                _current?.SupportsOAuth ?? true,
+                _useAccessToken);
 
         /// <summary>
         /// Configure-button <c>pressed</c> handler (object+method Callable). Writes the addon's HTTP entry into the
