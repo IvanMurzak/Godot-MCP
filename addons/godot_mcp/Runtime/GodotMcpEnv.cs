@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Forces the connection mode (<c>Cloud</c> / <c>Custom</c>, case-insensitive).</summary>
         public const string ConnectionMode = "GODOT_MCP_CONNECTION_MODE";
 
-        /// <summary>Forces the Custom-mode authorization option (<c>None</c> / <c>Required</c>).</summary>
+        /// <summary>Forces the Custom-mode authorization option (<c>none</c> / <c>oauth</c> / <c>token</c>).</summary>
         public const string AuthOption = "GODOT_MCP_AUTH_OPTION";
 
         /// <summary>Forces the plugin's log-verbosity threshold.</summary>

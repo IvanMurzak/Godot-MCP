@@ -83,7 +83,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// {
         ///     c.ConnectionMode = GodotMcpConnectionMode.Custom;
         ///     c.Host = "http://localhost:8080";
-        ///     c.AuthOption = GodotMcpAuthOption.Required;
+        ///     c.AuthOption = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server.AuthOption.token;
         ///     c.Token = "...";
         /// });
         /// </code>
@@ -239,8 +239,8 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// message or argument. That is the intended diagnostic value, but it means enabling capture widens
         /// the data exposed over the connection. Enable it <b>only on a trusted connection</b>: prefer a
         /// loopback host (<c>http://localhost:…</c> / <c>127.0.0.1</c>) with <c>AuthOption =
-        /// GodotMcpAuthOption.Required</c> and a real token — never an unauthenticated public interface in a
-        /// release build. See <c>docs/runtime-security.md</c> and the README "Security: opt-in only" section.
+        /// Consts.MCP.Server.AuthOption.token</c> and a real token — never an unauthenticated public interface
+        /// in a release build. See <c>docs/runtime-security.md</c> and the README "Security: opt-in only" section.
         /// </para>
         ///
         /// Returns <c>this</c> for chaining.

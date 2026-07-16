@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using com.IvanMurzak.Godot.MCP.Connection;
 using Xunit;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
@@ -289,18 +290,28 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             using var _ = EnvFileScope.ClearAll();
             var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
+            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "token"));
+            Assert.Equal(McpServerConsts.AuthOption.token, config.ActiveAuthOption);
+        }
+
+        [Fact]
+        public void Apply_FileAuthOption_LegacyRequired_NormalizesToToken()
+        {
+            // A file value of the retired `required` writes the field verbatim; ActiveAuthOption normalizes → token.
+            using var _ = EnvFileScope.ClearAll();
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
             GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "Required"));
-            Assert.Equal(GodotMcpAuthOption.Required, config.ActiveAuthOption);
+            Assert.Equal(McpServerConsts.AuthOption.token, config.ActiveAuthOption);
         }
 
         [Fact]
         public void EnvAuthOption_Beats_FileAuthOption()
         {
-            // File says None, env says Required → env wins (ActiveAuthOption reads env live).
-            using var _ = EnvFileScope.Set(GodotMcpConfig.EnvAuthOption, "Required");
+            // File says none, env says token → env wins (ActiveAuthOption reads env live).
+            using var _ = EnvFileScope.Set(GodotMcpConfig.EnvAuthOption, "token");
             var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
-            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "None"));
-            Assert.Equal(GodotMcpAuthOption.Required, config.ActiveAuthOption);
+            GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "none"));
+            Assert.Equal(McpServerConsts.AuthOption.token, config.ActiveAuthOption);
         }
 
         [Fact]
@@ -309,8 +320,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             using var _ = EnvFileScope.ClearAll();
             var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
             GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvAuthOption, "1"));
-            // Numeric rejected → configured default (None) stands.
-            Assert.Equal(GodotMcpAuthOption.None, config.ActiveAuthOption);
+            // Numeric rejected → configured default (none) stands.
+            Assert.Equal(McpServerConsts.AuthOption.none, config.ActiveAuthOption);
         }
 
         // --- Default wins when neither env nor file present ---

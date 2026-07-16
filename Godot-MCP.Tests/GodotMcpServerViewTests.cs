@@ -257,30 +257,54 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(GodotMcpServerView.VersionMatches(cached, addon));
         }
 
-        // --- Launch argument builder ---
+        // --- Launch argument builder (delegates to the SHARED McpPlugin ServerLaunchArguments; the arg
+        //     assembly is unit-tested upstream in McpPlugin.Tests — these pin the per-mode delegation shape) ---
 
         [Fact]
-        public void BuildLaunchArguments_NoAuth_OmitsToken()
+        public void BuildLaunchArguments_None_IsAnonymousWithNoCredentialArgs()
         {
-            var args = GodotMcpServerView.BuildLaunchArguments(port: 8080, pluginTimeoutMs: 10000, authRequired: false, token: "secret");
-            Assert.Equal("port=8080 plugin-timeout=10000 client-transport=streamableHttp authorization=none", args);
+            var args = GodotMcpServerView.BuildLaunchArguments(port: 8080, pluginTimeoutMs: 10000, authOption: McpServerConsts.AuthOption.none);
+            Assert.Equal("port=8080 plugin-timeout=10000 client-transport=streamableHttp auth=none", args);
             Assert.DoesNotContain("token=", args);
-            Assert.DoesNotContain("secret", args);
+            Assert.DoesNotContain("auth-issuer=", args);
         }
 
         [Fact]
-        public void BuildLaunchArguments_AuthRequiredWithToken_AppendsToken()
+        public void BuildLaunchArguments_Token_AppendsTokenSecret()
         {
-            var args = GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 12000, authRequired: true, token: "abc123");
-            Assert.Equal("port=5300 plugin-timeout=12000 client-transport=streamableHttp authorization=required token=abc123", args);
+            var args = GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 12000, authOption: McpServerConsts.AuthOption.token, token: "abc123");
+            Assert.Equal("port=5300 plugin-timeout=12000 client-transport=streamableHttp auth=token token=abc123", args);
         }
 
         [Fact]
-        public void BuildLaunchArguments_AuthRequiredButNoToken_OmitsTokenArg()
+        public void BuildLaunchArguments_Token_WithoutSecret_Throws()
         {
-            var args = GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 10000, authRequired: true, token: null);
-            Assert.Equal("port=5300 plugin-timeout=10000 client-transport=streamableHttp authorization=required", args);
+            // The shared builder is fail-closed: token mode requires a non-empty secret.
+            Assert.Throws<System.ArgumentException>(() =>
+                GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 10000, authOption: McpServerConsts.AuthOption.token, token: null));
+        }
+
+        [Fact]
+        public void BuildLaunchArguments_Oauth_AppendsIssuerAndPublicUrl()
+        {
+            var args = GodotMcpServerView.BuildLaunchArguments(
+                port: 5300,
+                pluginTimeoutMs: 10000,
+                authOption: McpServerConsts.AuthOption.oauth,
+                token: null,
+                authIssuer: "https://ai-game.dev",
+                publicUrl: "http://localhost:5300/mcp/p/abcd1234");
+            Assert.Equal(
+                "port=5300 plugin-timeout=10000 client-transport=streamableHttp auth=oauth auth-issuer=https://ai-game.dev public-url=http://localhost:5300/mcp/p/abcd1234",
+                args);
             Assert.DoesNotContain("token=", args);
+        }
+
+        [Fact]
+        public void BuildLaunchArguments_Oauth_WithoutIssuerOrPublicUrl_Throws()
+        {
+            Assert.Throws<System.ArgumentException>(() =>
+                GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 10000, authOption: McpServerConsts.AuthOption.oauth));
         }
 
         [Fact]
@@ -288,7 +312,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             // The transport is always streamableHttp — we deliberately do NOT build a stdio launch path
             // the plugin's SignalR client cannot consume.
-            var args = GodotMcpServerView.BuildLaunchArguments(port: 8080, pluginTimeoutMs: 10000, authRequired: false, token: null);
+            var args = GodotMcpServerView.BuildLaunchArguments(port: 8080, pluginTimeoutMs: 10000, authOption: McpServerConsts.AuthOption.none);
             Assert.Contains($"client-transport={McpServerConsts.TransportMethod.streamableHttp}", args);
             Assert.DoesNotContain(McpServerConsts.TransportMethod.stdio.ToString(), args);
         }
@@ -296,12 +320,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void BuildLaunchArguments_UsesCanonicalArgKeys()
         {
-            // The keys must be the McpPlugin canonical arg names the server parses.
-            var args = GodotMcpServerView.BuildLaunchArguments(port: 9, pluginTimeoutMs: 1, authRequired: true, token: "t");
+            // The keys must be the McpPlugin canonical arg names the server parses (the target-state `auth`
+            // key, not the legacy `authorization`).
+            var args = GodotMcpServerView.BuildLaunchArguments(port: 9, pluginTimeoutMs: 1, authOption: McpServerConsts.AuthOption.token, token: "t");
             Assert.StartsWith($"{McpServerConsts.Args.Port}=9 ", args);
             Assert.Contains($" {McpServerConsts.Args.PluginTimeout}=1 ", args);
             Assert.Contains($" {McpServerConsts.Args.ClientTransportMethod}=", args);
-            Assert.Contains($" {McpServerConsts.Args.Authorization}={McpServerConsts.AuthOption.required}", args);
+            Assert.Contains($" {McpServerConsts.Args.Auth}={McpServerConsts.AuthOption.token}", args);
             Assert.EndsWith($" {McpServerConsts.Args.Token}=t", args);
         }
 

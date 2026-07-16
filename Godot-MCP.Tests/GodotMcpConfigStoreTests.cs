@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using com.IvanMurzak.Godot.MCP.Connection;
 using Xunit;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
@@ -187,8 +188,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpConfigStore.Save(path, new GodotMcpConfig
             {
                 ConnectionMode = GodotMcpConnectionMode.Custom,
-                // Persisting Required so the Custom-mode bearer flows (auth-option gate); it round-trips too.
-                AuthOption = GodotMcpAuthOption.Required,
+                // Persisting token so the Custom-mode bearer flows (auth-option gate); it round-trips too.
+                AuthOption = McpServerConsts.AuthOption.token,
                 CustomHost = "http://persisted-host:1234",
                 CustomToken = "persisted-tok"
             });
@@ -199,7 +200,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpEnvFile.Apply(target, new Dictionary<string, string>());
 
             Assert.Equal(GodotMcpConnectionMode.Custom, target.ActiveMode);
-            Assert.Equal(GodotMcpAuthOption.Required, target.ActiveAuthOption);
+            Assert.Equal(McpServerConsts.AuthOption.token, target.ActiveAuthOption);
             Assert.Equal("http://persisted-host:1234", target.Host);
             Assert.Equal("persisted-tok", target.Token);
         }

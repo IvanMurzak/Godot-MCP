@@ -12,6 +12,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using com.IvanMurzak.Godot.MCP.Connection;
 using Xunit;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
@@ -47,7 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 CustomToken = "tok",
                 CloudToken = "cloud",
                 ConnectionMode = GodotMcpConnectionMode.Custom,   // enum-as-string
-                AuthOption = GodotMcpAuthOption.Required,
+                AuthOption = McpServerConsts.AuthOption.token,
                 LogLevel = GodotMcpLogLevel.Trace,
                 SelectedAgentId = "cursor",
             };
@@ -57,12 +58,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             // Enums serialize by NAME (UseStringEnumConverter), matching the .env/process-env parse layers.
             Assert.Contains("\"Custom\"", json);
-            Assert.Contains("\"Required\"", json);
+            Assert.Contains("\"token\"", json);
 
             var back = JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
             Assert.NotNull(back);
             Assert.Equal(GodotMcpConnectionMode.Custom, back!.ConnectionMode);
-            Assert.Equal(GodotMcpAuthOption.Required, back.AuthOption);
+            Assert.Equal(McpServerConsts.AuthOption.token, back.AuthOption);
             Assert.Equal(GodotMcpLogLevel.Trace, back.LogLevel);
             Assert.Equal("http://localhost:9999", back.CustomHost);
             Assert.Equal("cursor", back.SelectedAgentId);

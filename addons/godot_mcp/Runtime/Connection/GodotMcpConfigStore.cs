@@ -69,7 +69,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             try
             {
-                return JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+                var config = JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+                if (config != null)
+                {
+                    // Migrate a legacy persisted auth option to a target-state mode (mcp-authorize g6): an old
+                    // config written with the retired `authorization=required` (now `AuthOption.required`, whose
+                    // dedicated server strategy was deleted in b5) self-heals to the offline `token` mode, and a
+                    // stray `unknown` becomes `none`. Without this the addon would keep launching the local
+                    // server with `required`, which the shared launch-arg builder fail-closed rejects.
+                    config.AuthOption = GodotMcpConfig.NormalizeAuthOption(config.AuthOption);
+                }
+                return config;
             }
             catch (JsonException)
             {

@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
@@ -249,11 +250,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Parse a Custom-mode auth-option string to <see cref="GodotMcpAuthOption"/>, accepting only the
-        /// named values (<c>None</c>/<c>Required</c>, case-insensitive) and rejecting numeric strings —
-        /// identical discipline to <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ResolveActiveAuthOption"/>.
+        /// Parse a Custom-mode auth-option string to the shared <see cref="McpServerConsts.AuthOption"/>,
+        /// accepting only the named values (<c>none</c>/<c>oauth</c>/<c>token</c>, plus the retired
+        /// <c>required</c>, case-insensitive) and rejecting numeric strings — identical discipline to
+        /// <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ResolveActiveAuthOption"/>. The value is
+        /// written to the serialized field verbatim; <see cref="GodotMcpConfig.ActiveAuthOption"/> normalizes
+        /// a legacy <c>required</c> to <c>token</c> on read.
         /// </summary>
-        static bool TryParseAuthOption(string? raw, out GodotMcpAuthOption authOption)
+        static bool TryParseAuthOption(string? raw, out McpServerConsts.AuthOption authOption)
         {
             authOption = default;
             var normalized = Sanitize(raw);
