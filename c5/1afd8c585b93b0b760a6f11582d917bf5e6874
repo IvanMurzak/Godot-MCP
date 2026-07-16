@@ -1,0 +1,33 @@
+Godot-MCP.Tests/AgentConfiguratorCredentialPolicyTests.cs
+  s_b899ca3d0e837d::t_3f359c51f8b489 12
+  s_8465cab7df724e::t_c70085055a75ec 77-97
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorCredentialPolicy.cs
+  s_b899ca3d0e837d::t_1995f872248431 11
+  s_8465cab7df724e::t_cbe397af30ec3b 57-76
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorsPanel.cs
+  s_8465cab7df724e::t_7d23e8ec741070 537-542
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c51afd8c585b93b0b760a6f11582d917bf5e6874",
+  "prompts": {},
+  "sessions": {
+    "s_8465cab7df724e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8f23f15-2ff5-42a9-98c6-407f54660a93",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_b899ca3d0e837d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf4cf357-6db5-4b31-aed0-27730e6286c4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
