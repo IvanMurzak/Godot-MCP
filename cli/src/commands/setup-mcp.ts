@@ -7,6 +7,8 @@ import { setupMcp } from '../lib/setup-mcp.js';
 interface SetupMcpCliOptions {
   url?: string;
   token?: string;
+  /** Commander maps `--no-pin` to `pin` (default true; false when the flag is passed). */
+  pin?: boolean;
   list?: boolean;
 }
 
@@ -20,6 +22,7 @@ export const setupMcpCommand = new Command('setup-mcp')
   .argument('[path]', 'Godot project path (defaults to cwd)')
   .option('--url <url>', 'MCP server host override (the <host>/mcp client URL is derived from it)')
   .option('--token <token>', 'Auth token override (defaults to GODOT_MCP_TOKEN)')
+  .option('--no-pin', 'Write an unpinned <host>/mcp URL (default pins /p/<pin> to route to this project)')
   .option('--list', 'List all available agent IDs')
   .action(
     async (
@@ -52,6 +55,7 @@ export const setupMcpCommand = new Command('setup-mcp')
         godotProjectPath: positionalPath,
         url: options.url,
         token: options.token,
+        noPin: options.pin === false,
       });
 
       if (result.kind === 'failure') {
@@ -71,6 +75,7 @@ export const setupMcpCommand = new Command('setup-mcp')
       ui.label('Config file', result.configPath);
       ui.label('Server URL', result.serverUrl);
       ui.label('Server name', MCP_SERVER_NAME);
+      ui.label('Routing', result.pinned ? 'pinned to this project (/p/<pin>)' : 'unpinned (--no-pin)');
 
       for (const warning of result.warnings) {
         console.log('');

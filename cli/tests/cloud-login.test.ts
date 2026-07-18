@@ -5,16 +5,13 @@ import * as os from 'os';
 import { runCloudLogin } from '../src/utils/cloud-login.js';
 import { readCredentials, getCredentialsPath } from '../src/utils/credentials.js';
 import { readMachineCredentials, getMachineCredentialsPath } from '../src/utils/machine-credentials.js';
-import type { DeviceAuthDeps } from '../src/utils/auth.js';
+import type {
+  DeviceAuthTransport,
+  DeviceAuthorizeResponse,
+  DeviceTokenResponse,
+} from '@baizor/gamedev-cli-core';
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-const AUTHORIZE_OK = {
+const AUTHORIZE_OK: DeviceAuthorizeResponse = {
   device_code: 'dev-code',
   user_code: 'CODE-1234',
   verification_uri: 'https://example.test/device',
@@ -23,17 +20,26 @@ const AUTHORIZE_OK = {
   interval: 5,
 };
 
-function authDeps(polls: Response[]): DeviceAuthDeps {
+/**
+ * Build a mock core {@link DeviceAuthTransport}: the device-authorization request always yields
+ * AUTHORIZE_OK; each poll returns the next queued token response (a success body, or an RFC 6749
+ * §5.2 soft error like `access_denied`). Once the queue drains it reports `authorization_pending`.
+ */
+function transport(polls: DeviceTokenResponse[]): DeviceAuthTransport {
   const queue = [...polls];
   return {
-    fetchImpl: vi.fn(async (url: string | URL | Request) => {
-      if (String(url).endsWith('/authorize')) return jsonResponse(200, AUTHORIZE_OK);
-      return queue.shift() ?? jsonResponse(400, { error: 'authorization_pending' });
-    }) as unknown as typeof fetch,
-    sleepImpl: async () => {},
-    minIntervalMs: 1,
+    requestDeviceCode: async () => AUTHORIZE_OK,
+    pollToken: async () => queue.shift() ?? { error: 'authorization_pending' },
   };
 }
+
+const SUCCESS_TOKEN = (accessToken: string): DeviceTokenResponse => ({
+  access_token: accessToken,
+  refresh_token: 'refresh-tok',
+  token_type: 'Bearer',
+  expires_in: 3600,
+  scope: 'mcp:plugin',
+});
 
 describe('runCloudLogin — project sink (--project override)', () => {
   let tmpDir: string;
@@ -51,7 +57,8 @@ describe('runCloudLogin — project sink (--project override)', () => {
     const token = await runCloudLogin({
       baseUrl: 'https://example.test',
       openBrowserImpl,
-      authDeps: authDeps([jsonResponse(200, { access_token: 'cloud-tok', token_type: 'Bearer' })]),
+      transport: transport([SUCCESS_TOKEN('cloud-tok')]),
+      delay: async () => {},
       sink: { kind: 'project', projectPath: tmpDir },
     });
 
@@ -64,7 +71,8 @@ describe('runCloudLogin — project sink (--project override)', () => {
     const token = await runCloudLogin({
       baseUrl: 'https://example.test',
       openBrowserImpl: vi.fn(),
-      authDeps: authDeps([jsonResponse(400, { error: 'access_denied' })]),
+      transport: transport([{ error: 'access_denied' }]),
+      delay: async () => {},
       sink: { kind: 'project', projectPath: tmpDir },
     });
 
@@ -84,17 +92,21 @@ describe('runCloudLogin — machine sink (default)', () => {
     vi.restoreAllMocks();
   });
 
-  it('persists the token to the shared machine store (not a project file) and returns it', async () => {
+  it('persists the FULL credential set (access + refresh + expiry) to the shared machine store', async () => {
     const token = await runCloudLogin({
       baseUrl: 'https://example.test',
       openBrowserImpl: vi.fn(),
-      authDeps: authDeps([jsonResponse(200, { access_token: 'machine-tok', token_type: 'Bearer' })]),
+      transport: transport([SUCCESS_TOKEN('machine-tok')]),
+      delay: async () => {},
       sink: { kind: 'machine', storeBaseDir: storeDir },
     });
 
     expect(token).toBe('machine-tok');
     const creds = readMachineCredentials(storeDir);
     expect(creds?.accessToken).toBe('machine-tok');
+    // B3 fix: the refresh token + expiry are now persisted (legacy PAT flow dropped them).
+    expect(creds?.refreshToken).toBe('refresh-tok');
+    expect(creds?.expiresAt).toBeTruthy();
     expect(creds?.serverTarget).toBe('https://example.test');
     expect(creds?.version).toBe(1);
     // No project-local credentials file is created anywhere near the store dir.
@@ -110,7 +122,8 @@ describe('runCloudLogin — machine sink (default)', () => {
       const token = await runCloudLogin({
         baseUrl: 'https://example.test',
         openBrowserImpl: vi.fn(),
-        authDeps: authDeps([jsonResponse(200, { access_token: 'default-tok', token_type: 'Bearer' })]),
+        transport: transport([SUCCESS_TOKEN('default-tok')]),
+        delay: async () => {},
       });
       expect(token).toBe('default-tok');
       expect(fs.existsSync(getMachineCredentialsPath(storeDir))).toBe(true);
@@ -125,7 +138,8 @@ describe('runCloudLogin — machine sink (default)', () => {
     const token = await runCloudLogin({
       baseUrl: 'https://example.test',
       openBrowserImpl: vi.fn(),
-      authDeps: authDeps([jsonResponse(400, { error: 'access_denied' })]),
+      transport: transport([{ error: 'access_denied' }]),
+      delay: async () => {},
       sink: { kind: 'machine', storeBaseDir: storeDir },
     });
 

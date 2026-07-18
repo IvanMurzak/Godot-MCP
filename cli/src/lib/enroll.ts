@@ -7,7 +7,7 @@ import {
   readMachineCredentials,
   getMachineCredentialsPath,
 } from '../utils/machine-credentials.js';
-import { derivePin, derivePort } from '../utils/project-identity.js';
+import { deriveProjectIdentityV2 } from '../utils/project-identity.js';
 import {
   writeProjectMarker,
   getProjectMarkerPath,
@@ -84,10 +84,14 @@ export async function enrollPlugin(opts: EnrollPluginOptions): Promise<EnrollPlu
 
     emitProgress(opts.onProgress, { phase: 'enroll-redeemed', message: 'Credential planted', serverTarget });
 
-    // 3. Project marker: server target + pin (+ derived port for a localhost target).
-    const pin = derivePin(projectPath);
+    // 3. Project marker: server target + pin (+ derived port for a localhost target). The pin/port
+    // are derived with the cli-core **v2** algorithm (`\`→`/` normalization — defect B5): on a
+    // Windows `path.resolve` backslash root the pin now matches the forward-slash hash the plugin
+    // sends, so routing works. v1 hashed the backslash form to a DIFFERENT pin (the B5 break).
+    // Derive pin + port from ONE v2 hash of the project root (deriveProjectIdentityV2 hashes once).
+    const { pin, port: derivedPort } = deriveProjectIdentityV2(projectPath);
     const localhost = isLocalhostUrl(serverTarget);
-    const port = localhost ? derivePort(projectPath) : undefined;
+    const port = localhost ? derivedPort : undefined;
     writeProjectMarker(projectPath, {
       serverTarget,
       pin,

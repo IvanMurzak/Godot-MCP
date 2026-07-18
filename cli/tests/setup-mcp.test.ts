@@ -20,9 +20,19 @@ import {
   writeTomlAgentConfig,
   MCP_SERVER_NAME,
 } from '../src/utils/agents.js';
+import { derivePinV2 } from '../src/utils/project-identity.js';
 import { ENV_HOST, ENV_TOKEN } from '../src/utils/connection.js';
 
 const SERVER_NAME = 'ai-game-developer';
+
+/**
+ * The pinned MCP-client URL setup-mcp writes by DEFAULT (design 02 §T4 / B4): `<base>/mcp/p/<pin-v2>`
+ * where the pin is the shared cli-core v2 pin of the RESOLVED project root (matching what the editor
+ * Configure writes). setup-mcp resolves the project path with `path.resolve`, so tests derive the
+ * same pin from `path.resolve(projectPath)`.
+ */
+const pinnedFor = (projectPath: string, base = 'https://ai-game.dev'): string =>
+  `${base}/mcp/p/${derivePinV2(path.resolve(projectPath))}`;
 
 describe('setupMcp', () => {
   let tmpDir: string;
@@ -88,20 +98,21 @@ describe('setupMcp', () => {
     }
   });
 
-  it('writes a claude-code .mcp.json under mcpServers with the cloud /mcp URL by default', async () => {
+  it('writes a claude-code .mcp.json under mcpServers with the PINNED cloud URL by default', async () => {
     const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
 
-    expect(result.serverUrl).toBe('https://ai-game.dev/mcp');
+    expect(result.serverUrl).toBe(pinnedFor(tmpDir));
+    expect(result.pinned).toBe(true);
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf-8'));
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       type: 'http',
-      url: 'https://ai-game.dev/mcp',
+      url: pinnedFor(tmpDir),
     });
   });
 
-  it('derives the <host>/mcp client URL from --url', async () => {
+  it('derives the PINNED <host>/mcp/p/<pin> client URL from --url', async () => {
     const result = await setupMcp({
       agentId: 'cursor',
       godotProjectPath: tmpDir,
@@ -109,28 +120,53 @@ describe('setupMcp', () => {
     });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
-    expect(result.serverUrl).toBe('http://localhost:8080/mcp');
+    expect(result.serverUrl).toBe(pinnedFor(tmpDir, 'http://localhost:8080'));
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.cursor', 'mcp.json'), 'utf-8'));
-    expect(json.mcpServers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
+    expect(json.mcpServers[SERVER_NAME].url).toBe(pinnedFor(tmpDir, 'http://localhost:8080'));
   });
 
-  it('writes a VS Code config under the "servers" body path', async () => {
+  it('--no-pin writes the bare unpinned <host>/mcp URL (escape hatch)', async () => {
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      url: 'http://localhost:8080',
+      noPin: true,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.serverUrl).toBe('http://localhost:8080/mcp');
+    expect(result.pinned).toBe(false);
+    const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf-8'));
+    expect(json.mcpServers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
+    // No `/p/<pin>` routing segment on the unpinned URL.
+    expect(json.mcpServers[SERVER_NAME].url).not.toMatch(/\/p\/[0-9a-f]{8}$/);
+  });
+
+  it('--no-pin (default cloud) writes the bare https://ai-game.dev/mcp URL', async () => {
+    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, noPin: true });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.serverUrl).toBe('https://ai-game.dev/mcp');
+    expect(result.pinned).toBe(false);
+  });
+
+  it('writes a VS Code config under the "servers" body path (pinned)', async () => {
     const result = await setupMcp({ agentId: 'vscode-copilot', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.vscode', 'mcp.json'), 'utf-8'));
-    expect(json.servers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
+    expect(json.servers[SERVER_NAME].url).toBe(pinnedFor(tmpDir, 'http://localhost:8080'));
   });
 
-  it('writes a Visual Studio (vs-copilot) config under .vs/mcp.json / servers', async () => {
+  it('writes a Visual Studio (vs-copilot) config under .vs/mcp.json / servers (pinned)', async () => {
     const result = await setupMcp({ agentId: 'vs-copilot', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     expect(result.configPath).toBe(path.join(tmpDir, '.vs', 'mcp.json'));
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.vs', 'mcp.json'), 'utf-8'));
-    expect(json.servers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
+    expect(json.servers[SERVER_NAME].url).toBe(pinnedFor(tmpDir, 'http://localhost:8080'));
   });
 
-  it('writes rider-junie with enabled:true under .junie/mcp/mcp.json', async () => {
+  it('writes rider-junie with enabled:true under .junie/mcp/mcp.json (pinned)', async () => {
     const result = await setupMcp({ agentId: 'rider-junie', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
@@ -139,20 +175,20 @@ describe('setupMcp', () => {
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       enabled: true,
       type: 'http',
-      url: 'http://localhost:8080/mcp',
+      url: pinnedFor(tmpDir, 'http://localhost:8080'),
     });
   });
 
-  it('writes gemini under .gemini/settings.json / mcpServers', async () => {
+  it('writes gemini under .gemini/settings.json / mcpServers (pinned)', async () => {
     const result = await setupMcp({ agentId: 'gemini', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     expect(result.configPath).toBe(path.join(tmpDir, '.gemini', 'settings.json'));
     const json = JSON.parse(fs.readFileSync(result.configPath, 'utf-8'));
-    expect(json.mcpServers[SERVER_NAME].url).toBe('http://localhost:8080/mcp');
+    expect(json.mcpServers[SERVER_NAME].url).toBe(pinnedFor(tmpDir, 'http://localhost:8080'));
   });
 
-  it('writes open-code with type:remote + enabled:true under opencode.json / mcp', async () => {
+  it('writes open-code with type:remote + enabled:true under opencode.json / mcp (pinned)', async () => {
     const result = await setupMcp({ agentId: 'open-code', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
@@ -161,11 +197,11 @@ describe('setupMcp', () => {
     expect(json.mcp[SERVER_NAME]).toMatchObject({
       type: 'remote',
       enabled: true,
-      url: 'http://localhost:8080/mcp',
+      url: pinnedFor(tmpDir, 'http://localhost:8080'),
     });
   });
 
-  it('writes kilo-code with type:streamable-http + disabled:false', async () => {
+  it('writes kilo-code with type:streamable-http + disabled:false (pinned)', async () => {
     const result = await setupMcp({ agentId: 'kilo-code', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
@@ -174,11 +210,11 @@ describe('setupMcp', () => {
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       type: 'streamable-http',
       disabled: false,
-      url: 'http://localhost:8080/mcp',
+      url: pinnedFor(tmpDir, 'http://localhost:8080'),
     });
   });
 
-  it('writes cline with type:streamableHttp', async () => {
+  it('writes cline with type:streamableHttp (pinned)', async () => {
     const result = await setupMcp({ agentId: 'cline', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
@@ -186,36 +222,36 @@ describe('setupMcp', () => {
     const json = JSON.parse(fs.readFileSync(result.configPath, 'utf-8'));
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       type: 'streamableHttp',
-      url: 'http://localhost:8080/mcp',
+      url: pinnedFor(tmpDir, 'http://localhost:8080'),
     });
   });
 
-  it('writes github-copilot-cli with the tools:["*"] passthrough', async () => {
+  it('writes github-copilot-cli with the tools:["*"] passthrough (pinned)', async () => {
     const result = await setupMcp({ agentId: 'github-copilot-cli', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     const json = JSON.parse(fs.readFileSync(result.configPath, 'utf-8'));
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       type: 'http',
-      url: 'http://localhost:8080/mcp',
+      url: pinnedFor(tmpDir, 'http://localhost:8080'),
       tools: ['*'],
     });
   });
 
-  it('writes antigravity with the serverUrl key (not url) and disabled:false', async () => {
+  it('writes antigravity with the serverUrl key (not url) and disabled:false (pinned)', async () => {
     const result = await setupMcp({ agentId: 'antigravity', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     const json = JSON.parse(fs.readFileSync(result.configPath, 'utf-8'));
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       disabled: false,
-      serverUrl: 'http://localhost:8080/mcp',
+      serverUrl: pinnedFor(tmpDir, 'http://localhost:8080'),
     });
     // antigravity never carries a `url` key.
     expect(json.mcpServers[SERVER_NAME].url).toBeUndefined();
   });
 
-  it('writes codex as TOML under .codex/config.toml / mcp_servers', async () => {
+  it('writes codex as TOML under .codex/config.toml / mcp_servers (pinned)', async () => {
     const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, url: 'http://localhost:8080' });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
@@ -223,7 +259,7 @@ describe('setupMcp', () => {
     const toml = fs.readFileSync(result.configPath, 'utf-8');
     expect(toml).toContain(`[mcp_servers.${SERVER_NAME}]`);
     expect(toml).toContain('enabled = true');
-    expect(toml).toContain('url = "http://localhost:8080/mcp"');
+    expect(toml).toContain(`url = "${pinnedFor(tmpDir, 'http://localhost:8080')}"`);
     expect(toml).toContain('tool_timeout_sec = 300');
     expect(toml).toContain('startup_timeout_sec = 30');
   });
@@ -248,7 +284,8 @@ describe('setupMcp', () => {
       if (result.kind !== 'success') continue;
       const json = JSON.parse(fs.readFileSync(path.join(tmpDir, ...rel), 'utf-8'));
       const entry = json[body][SERVER_NAME];
-      expect(entry).toMatchObject({ type: 'http', url: 'https://ai-game.dev/mcp' });
+      // Default is pinned; the credential-free (no static header) policy is orthogonal to pinning.
+      expect(entry).toMatchObject({ type: 'http', url: pinnedFor(tmpDir) });
       expect(entry.headers).toBeUndefined();
       // No credential landed in the file → no VCS-leak warning.
       expect(result.warnings).toEqual([]);
