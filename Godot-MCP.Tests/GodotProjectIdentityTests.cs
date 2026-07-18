@@ -95,6 +95,58 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(GodotProjectIdentity.SessionInstanceId, GodotProjectIdentity.SessionInstanceId);
         }
 
+        // === Hash-input diagnostic (auth-fixes h1 — OQ1 · k2) =========================================
+        //
+        // The connection logs the EXACT project-root string it hashes so the k2 matrix can CONFIRM the
+        // path form each engine feeds into ProjectIdentity (open question OQ1) rather than assume it. On
+        // Godot the source is GlobalizePath("res://") which already yields forward slashes, so pin v2 is a
+        // no-op and the dual-hash is transition insurance — the line proves that empirically.
+
+        [Fact]
+        public void DescribeHashInput_SurfacesTheExactHashInputPathString_AndTheDerivedPinAndHash()
+        {
+            const string root = "/home/user/MyGame";
+            var meta = GodotProjectIdentity.BuildInstanceMetadata(root, "MyGame", "id", "host");
+
+            var line = GodotProjectIdentity.DescribeHashInput(root, meta);
+
+            // The exact hash-input string is logged verbatim + quoted (OQ1: confirm the path form per engine).
+            Assert.Contains($"projectRoot='{root}'", line);
+            // The stable hash the routing pin is drawn from, and the 8-hex pin itself.
+            Assert.Contains(meta.ProjectPathHash, line);
+            Assert.Contains($"pin={meta.ProjectPathHash.Substring(0, 8)}", line);
+            Assert.Contains("engine=godot", line);
+        }
+
+        [Fact]
+        public void DescribeHashInput_EnumeratesEveryHandshakeHash_SoDualHashSurfacesWhenThePinCarriesIt()
+        {
+            const string root = "/home/user/MyGame";
+            var meta = GodotProjectIdentity.BuildInstanceMetadata(root, "MyGame", "id", "host");
+
+            var line = GodotProjectIdentity.DescribeHashInput(root, meta);
+
+            // Every hash the handshake actually sends is surfaced: the released pin sends only
+            // project_path_hash; once the dual-hash LIB lands, project_path_hash_legacy appears too — with
+            // NO code change, because the line reads the query dict, not a named property.
+            var hashKeys = meta.ToQuery()
+                .Where(kvp => kvp.Key.IndexOf("hash", StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            Assert.NotEmpty(hashKeys);
+            foreach (var kvp in hashKeys)
+                Assert.Contains($"{kvp.Key}={kvp.Value}", line);
+        }
+
+        [Fact]
+        public void DescribeHashInput_NeverThrows_OnNullInputs()
+        {
+            // A diagnostic must never break the connection boot — a null metadata / root degrades to a
+            // still-informative line rather than throwing on the connect path.
+            var line = GodotProjectIdentity.DescribeHashInput(null, null);
+
+            Assert.Contains("engine=godot", line);
+            Assert.Contains("metadata unavailable", line);
+        }
+
         // === ProjectIdentity derivation — golden-vector parity =======================================
         //
         // These pin the committed cross-language vectors. The derivation is McpPlugin 7.0's canonical
