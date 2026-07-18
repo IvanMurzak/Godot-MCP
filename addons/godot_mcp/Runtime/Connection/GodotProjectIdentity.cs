@@ -114,7 +114,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return $"[Godot-MCP] instance-metadata hash input: engine={Engine} projectRoot='{root}' (metadata unavailable).";
 
             var hash = metadata.ProjectPathHash ?? string.Empty;
-            var pin = hash.Length >= 8 ? hash.Substring(0, 8) : hash;
+            // The pin is the first ProjectIdentity.PinLength hex of the path hash — reuse the library's
+            // canonical constant so this diagnostic can never drift from the real routing-pin width.
+            var pin = hash.Length >= ProjectIdentity.PinLength ? hash.Substring(0, ProjectIdentity.PinLength) : hash;
 
             // Enumerate EVERY handshake hash key so the line stays correct across the dual-hash transition:
             // the released pin sends only `project_path_hash`; a dual-hash LIB additionally sends

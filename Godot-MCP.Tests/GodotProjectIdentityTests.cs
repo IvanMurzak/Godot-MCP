@@ -129,7 +129,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Every hash the handshake actually sends is surfaced: the released pin sends only
             // project_path_hash; once the dual-hash LIB lands, project_path_hash_legacy appears too — with
             // NO code change, because the line reads the query dict, not a named property.
-            var hashKeys = meta.ToQuery().Where(kvp => kvp.Key.Contains("hash")).ToList();
+            var hashKeys = meta.ToQuery()
+                .Where(kvp => kvp.Key.IndexOf("hash", StringComparison.OrdinalIgnoreCase) >= 0).ToList();
             Assert.NotEmpty(hashKeys);
             foreach (var kvp in hashKeys)
                 Assert.Contains($"{kvp.Key}={kvp.Value}", line);
