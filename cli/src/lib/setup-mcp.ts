@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { pinUrl } from '@baizor/gamedev-cli-core';
 import {
   CLOUD_MCP_URL,
   DEFAULT_CUSTOM_HOST,
@@ -13,6 +14,7 @@ import {
   writeTomlAgentConfig,
   MCP_SERVER_NAME,
 } from '../utils/agents.js';
+import { derivePinV2 } from '../utils/project-identity.js';
 import { emitProgress } from './progress.js';
 import { requireExistingPath } from './validation.js';
 import type { SetupMcpOptions, SetupMcpResult } from './types.js';
@@ -137,7 +139,17 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
       message: `Configuring ${agent.name} for ${projectPath}`,
     });
 
-    const serverUrl = resolveMcpClientUrl(opts.url);
+    // Pin the URL to THIS project's routing segment by DEFAULT (design 02 §T4 / defect B4): the
+    // written config points at `<base>/mcp/p/<pin-v2>`, so an agent session launched in this project
+    // folder routes strictly to this project's engine instance even when the account has several
+    // editors connected. `--no-pin` (opts.noPin) is the escape hatch → the bare `<base>/mcp` URL.
+    // The pin is the shared cli-core **v2** pin (`\`→`/` normalization), byte-identical to what the
+    // Godot editor's Configure writes — so a CLI-written and an editor-written config route the same
+    // (parity with the C# AgentConfigurator; the pin is a ROUTING segment, never the OAuth resource
+    // — decision M8).
+    const baseClientUrl = resolveMcpClientUrl(opts.url);
+    const pinned = opts.noPin !== true;
+    const serverUrl = pinned ? pinUrl(baseClientUrl, derivePinV2(projectPath)) : baseClientUrl;
     // A token supplied EXPLICITLY by the caller (`--token` / the library `token`
     // arg) is a deliberate Flow C PAT opt-in; a token that is only present in the
     // ambient `GODOT_MCP_TOKEN` env (e.g. one a prior `login` set) is NOT.
@@ -192,6 +204,7 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
       agentId: agent.id,
       configPath,
       serverUrl,
+      pinned,
       warnings,
     };
   } catch (err: unknown) {

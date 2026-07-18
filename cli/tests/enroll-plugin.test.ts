@@ -5,7 +5,7 @@ import * as path from 'path';
 import { enrollPlugin } from '../src/lib/enroll.js';
 import { readMachineCredentials } from '../src/utils/machine-credentials.js';
 import { readProjectMarker } from '../src/utils/project-marker.js';
-import { derivePin, derivePort } from '../src/utils/project-identity.js';
+import { derivePinV2, derivePortV2 } from '../src/utils/project-identity.js';
 
 function mockRedeem(serverUrl: string): typeof fetch {
   return (async () =>
@@ -57,7 +57,7 @@ describe('enrollPlugin', () => {
     if (result.kind !== 'success') return;
 
     expect(result.serverTarget).toBe('https://ai-game.dev');
-    expect(result.pin).toBe(derivePin(project));
+    expect(result.pin).toBe(derivePinV2(project));
     expect(result.port).toBeUndefined(); // hosted → no derived local port
 
     const creds = readMachineCredentials(store);
@@ -68,7 +68,7 @@ describe('enrollPlugin', () => {
 
     const marker = readProjectMarker(project);
     expect(marker?.serverTarget).toBe('https://ai-game.dev');
-    expect(marker?.pin).toBe(derivePin(project));
+    expect(marker?.pin).toBe(derivePinV2(project));
     expect(marker?.port).toBeUndefined();
   });
 
@@ -81,9 +81,9 @@ describe('enrollPlugin', () => {
     });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
-    expect(result.port).toBe(derivePort(project));
+    expect(result.port).toBe(derivePortV2(project));
     const marker = readProjectMarker(project);
-    expect(marker?.port).toBe(derivePort(project));
+    expect(marker?.port).toBe(derivePortV2(project));
   });
 
   it('upserts the D14 pin into an existing project-local .mcp.json', async () => {
@@ -102,7 +102,7 @@ describe('enrollPlugin', () => {
     if (result.kind !== 'success') return;
     expect(result.pinnedConfigs).toContain(mcpJson);
     const root = JSON.parse(fs.readFileSync(mcpJson, 'utf-8'));
-    expect(root.mcpServers['ai-game-developer'].url).toBe(`https://ai-game.dev/mcp/p/${derivePin(project)}`);
+    expect(root.mcpServers['ai-game-developer'].url).toBe(`https://ai-game.dev/mcp/p/${derivePinV2(project)}`);
   });
 
   it('writes NOTHING on a redeem failure (no marker, no credential)', async () => {

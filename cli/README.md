@@ -86,7 +86,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
-| `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the Godot server's `<host>/mcp` URL. |
+| `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). Add `--no-pin` for the bare `<host>/mcp` URL. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
@@ -278,7 +278,8 @@ generate its skill files). Use `--list` on either command to see every supported
 
 ```bash
 godot-cli setup-mcp --list                    # list every supported agent id
-godot-cli setup-mcp claude-code ./MyGame      # write the agent's MCP client config
+godot-cli setup-mcp claude-code ./MyGame      # write the agent's MCP client config (pinned to this project)
+godot-cli setup-mcp claude-code ./MyGame --no-pin   # write the bare, unpinned <host>/mcp URL instead
 ```
 
 > For the full Godot-MCP project documentation, see the

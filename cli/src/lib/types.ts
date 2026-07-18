@@ -71,6 +71,12 @@ export interface SetupMcpOptions {
   url?: string;
   /** Auth token override. */
   token?: string;
+  /**
+   * The `--no-pin` escape hatch (design 02 §T4 / defect B4). By default the written URL is PINNED to
+   * this project's routing segment (`<base>/mcp/p/<pin-v2>`) so an agent session routes strictly to
+   * this project's engine instance. Set `true` to write the unpinned `<base>/mcp` URL instead.
+   */
+  noPin?: boolean;
   onProgress?: ProgressCallback;
 }
 
@@ -79,7 +85,10 @@ export interface SetupMcpSuccess {
   success: true;
   agentId: string;
   configPath: string;
+  /** The MCP-client URL written to the config — pinned (`…/mcp/p/<pin-v2>`) unless `noPin`. */
   serverUrl: string;
+  /** True when the URL carries the `/p/<pin-v2>` routing segment (the default; false with `--no-pin`). */
+  pinned: boolean;
   warnings: string[];
 }
 

@@ -2,8 +2,15 @@ import * as ui from './ui.js';
 import { DEFAULT_CLOUD_BASE_URL } from './connection.js';
 import { readCredentials, writeCredentials } from './credentials.js';
 import { readMachineCredentials, writeMachineCredentials } from './machine-credentials.js';
-import { deviceAuthFlow, type DeviceAuthDeps } from './auth.js';
 import { openBrowser } from './browser.js';
+import {
+  deviceLogin,
+  HttpDeviceAuthTransport,
+  godotAdapter,
+  DEFAULT_PLUGIN_SCOPE,
+  type DeviceAuthTransport,
+  type MachineCredentials,
+} from '@baizor/gamedev-cli-core';
 
 /**
  * Where a successful `login` persists the credential.
@@ -21,55 +28,80 @@ export type CredentialSink =
 export interface CloudLoginOptions {
   /** Cloud base URL to authenticate against (default https://ai-game.dev). */
   baseUrl?: string;
-  /** Client label sent to the authorize endpoint. */
-  clientLabel?: string;
   /** Browser opener (injectable for tests; defaults to the real opener). */
   openBrowserImpl?: (url: string) => void;
-  /** Device-flow dependency injection (fetch/sleep/clock) for tests. */
-  authDeps?: DeviceAuthDeps;
   /** Where to persist the credential. Defaults to the shared machine store. */
   sink?: CredentialSink;
+  /**
+   * Injectable device-authorization transport (tests). Defaults to the real fetch-backed
+   * {@link HttpDeviceAuthTransport} which POSTs to `{base}/oauth/device_authorization` +
+   * `{base}/oauth/token` (the OAuth 2.1 device grant — NOT the retired legacy JSON device flow).
+   */
+  transport?: DeviceAuthTransport;
+  /** Injectable fetch for the default transport (tests). */
+  fetchImpl?: typeof fetch;
+  /** Injectable poll delay (tests) — bypass the real RFC 8628 polling wait. */
+  delay?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /** Injectable clock in ms (tests) — for deadline control. */
+  now?: () => number;
 }
 
 /**
- * Run the cloud device-auth flow: initiate, display the user code, open the browser, poll to
- * completion, and persist the token to the resolved {@link CredentialSink} (the shared machine store
- * by default; the project-local override when `--project` is used).
+ * Run the OAuth 2.1 device-authorization login (RFC 8628) via `@baizor/gamedev-cli-core`
+ * {@link deviceLogin}: request a device+user code, display the user code + verification URL, open the
+ * browser, poll `/oauth/token` to completion, and persist the **full** {@link MachineCredentials}
+ * (access + rotating refresh + expiry + subject) to the resolved {@link CredentialSink}.
+ *
+ * This REPLACES the retired legacy JSON device flow (which minted a non-expiring PAT and
+ * dropped the refresh/expiry — defects B2/B3). The client id is the product id `godot-cli`
+ * ({@link godotAdapter.clientId}) with scope `mcp:plugin`, and **no PAT is ever minted**. On any
+ * failure NOTHING is written (design 03 F4) — the store survives a denied/expired/network error
+ * intact.
  *
  * Returns the access token on success, or null on failure (errors are printed).
  */
 export async function runCloudLogin(options: CloudLoginOptions = {}): Promise<string | null> {
   const baseUrl = (options.baseUrl ?? DEFAULT_CLOUD_BASE_URL).replace(/\/$/, '');
-  const clientLabel = options.clientLabel ?? 'Godot-MCP CLI';
   const openBrowserImpl = options.openBrowserImpl ?? openBrowser;
   const sink: CredentialSink = options.sink ?? { kind: 'machine' };
 
   let spinner: ReturnType<typeof ui.startSpinner> | undefined;
 
-  try {
-    const result = await deviceAuthFlow(
-      baseUrl,
-      clientLabel,
-      {
-        onUserCode: (userCode, verificationUrl) => {
-          ui.info('Open this URL to authorize:');
-          console.log();
-          console.log(`  ${verificationUrl}`);
-          console.log();
-          ui.label('Code', userCode);
-          openBrowserImpl(verificationUrl);
-        },
-        onPolling: () => {
-          spinner = ui.startSpinner('Waiting for authorization...');
-        },
-      },
-      options.authDeps,
-    );
+  const transport =
+    options.transport ??
+    new HttpDeviceAuthTransport({
+      serverBaseUrl: baseUrl,
+      clientId: godotAdapter.clientId, // 'godot-cli'
+      scope: DEFAULT_PLUGIN_SCOPE, // 'mcp:plugin'
+      fetchImpl: options.fetchImpl,
+    });
 
-    if (result.success) {
+  try {
+    const result = await deviceLogin({
+      serverBaseUrl: baseUrl,
+      clientId: godotAdapter.clientId,
+      scope: DEFAULT_PLUGIN_SCOPE,
+      serverTarget: baseUrl,
+      transport,
+      delay: options.delay,
+      now: options.now,
+      onUserCode: (userCode, verificationUri) => {
+        ui.info('Open this URL to authorize:');
+        console.log();
+        console.log(`  ${verificationUri}`);
+        console.log();
+        ui.label('Code', userCode);
+      },
+      onPolling: () => {
+        spinner = ui.startSpinner('Waiting for authorization...');
+      },
+      openBrowser: openBrowserImpl,
+    });
+
+    if (result.ok) {
       spinner?.success('Authorized');
-      persistCredential(sink, result.accessToken, baseUrl);
-      return result.accessToken;
+      persistCredential(sink, result.credentials, baseUrl);
+      return result.credentials.accessToken ?? null;
     }
 
     spinner?.stop();
@@ -87,9 +119,11 @@ export async function runCloudLogin(options: CloudLoginOptions = {}): Promise<st
   }
 }
 
-function persistCredential(sink: CredentialSink, accessToken: string, baseUrl: string): void {
+function persistCredential(sink: CredentialSink, credentials: MachineCredentials, baseUrl: string): void {
   if (sink.kind === 'project') {
-    // A corrupt existing credentials file must not block a fresh login.
+    // Legacy per-project override: keep the project store's `cloudToken`/`cloudBaseUrl` shape a
+    // `--project` login and `open --mode Cloud` read back (credentials.ts). A corrupt existing
+    // credentials file must not block a fresh login.
     let existing = {};
     try {
       existing = readCredentials(sink.projectPath) ?? {};
@@ -98,14 +132,15 @@ function persistCredential(sink: CredentialSink, accessToken: string, baseUrl: s
     }
     writeCredentials(sink.projectPath, {
       ...existing,
-      cloudToken: accessToken,
+      cloudToken: credentials.accessToken,
       cloudBaseUrl: baseUrl,
     });
     return;
   }
 
-  // Machine store: preserve any stored identity/refresh fields, replacing the token material and
-  // recording the server target the credential was issued for.
+  // Machine store: persist the FULL credential set (access + refresh + expiry + subject — the B3
+  // fix), preserving any prior identity / forward-compat fields, and recording the server target
+  // the credential was issued for.
   let existing = {};
   try {
     existing = readMachineCredentials(sink.storeBaseDir) ?? {};
@@ -115,8 +150,8 @@ function persistCredential(sink: CredentialSink, accessToken: string, baseUrl: s
   writeMachineCredentials(
     {
       ...existing,
+      ...credentials,
       version: 1,
-      accessToken,
       serverTarget: baseUrl,
     },
     sink.storeBaseDir,
