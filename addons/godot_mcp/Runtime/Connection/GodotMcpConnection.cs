@@ -367,11 +367,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // pin) is derived from the SAME normalized project root a configurator hashes, so an agent
             // session launched in this project folder routes strictly to this instance.
             var projectRootPath = ResolveProjectRootPath();
-            _config.InstanceMetadata = GodotProjectIdentity.BuildInstanceMetadata(
+            var instanceMetadata = GodotProjectIdentity.BuildInstanceMetadata(
                 projectRootPath,
                 ResolveProjectName(),
                 GodotProjectIdentity.SessionInstanceId,
                 System.Environment.MachineName);
+            _config.InstanceMetadata = instanceMetadata;
+
+            // Log the EXACT hash-input string the metadata was built from (auth-fixes h1, design 01 §7 /
+            // OQ1 · k2). Godot globalizes res:// to forward slashes, so the pin v2 separator-normalization is
+            // a no-op and the dual-hash (v2 + legacy v1 carried by c1's ConnectionInstanceMetadata) is pure
+            // transition insurance — this line is what lets the k2 matrix CONFIRM that path form per engine
+            // rather than assume it, and surfaces every hash the handshake actually sends.
+            GodotMcpLog.Info(GodotProjectIdentity.DescribeHashInput(projectRootPath, instanceMetadata));
 
             // Surface the resolved project identity (routing pin + derived local port) and the enrolled
             // server target for the operator smoke. The pin is what agent sessions route on; the derived

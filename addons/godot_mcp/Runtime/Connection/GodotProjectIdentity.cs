@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Linq;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 
@@ -83,6 +84,50 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 projectRootPath: projectRoot ?? string.Empty,
                 instanceId: string.IsNullOrEmpty(instanceId) ? SessionInstanceId : instanceId,
                 machineName: machineName ?? string.Empty);
+
+        /// <summary>
+        /// Build the diagnostic line for the instance-metadata hash input (auth-fixes h1, design 01 §7 /
+        /// OQ1 · k2). It surfaces the <b>exact project-root string</b> fed into the hash derivation — the
+        /// empirical answer to "what path form does each engine actually hash?" (open question OQ1, verified
+        /// in the k2 matrix) — plus every hash the handshake carries. On Godot the path source is
+        /// <c>GlobalizePath("res://")</c>, which already yields forward slashes (01 §7), so the pin v2
+        /// separator-normalization is a no-op here and the dual-hash (v2 + legacy v1) is carried purely as
+        /// transition insurance — this line is how a smoke/CI run PROVES that form rather than assuming it.
+        ///
+        /// <para>
+        /// The hashes are read from <see cref="ConnectionInstanceMetadata.ToQuery"/> rather than named
+        /// properties, so the SINGLE hash of the currently-pinned package AND the additional
+        /// <c>project_path_hash_legacy</c> that a dual-hash LIB adds both surface with no compile-time
+        /// dependency on a field the pinned package may not yet expose (the pin bump lands at release · k3).
+        /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>) and never throws — a null/partial input
+        /// degrades to a still-informative line so a diagnostic can never break the connection boot.
+        /// </para>
+        /// </summary>
+        /// <param name="projectRoot">The exact hash-input string (the globalized, trailing-sep-trimmed
+        /// <c>res://</c> root) the metadata was built from — logged verbatim, quoted so trailing/again-case
+        /// differences are visible.</param>
+        /// <param name="metadata">The metadata built for this connection (via <see cref="BuildInstanceMetadata"/>).</param>
+        public static string DescribeHashInput(string? projectRoot, ConnectionInstanceMetadata? metadata)
+        {
+            var root = projectRoot ?? string.Empty;
+            if (metadata == null)
+                return $"[Godot-MCP] instance-metadata hash input: engine={Engine} projectRoot='{root}' (metadata unavailable).";
+
+            var hash = metadata.ProjectPathHash ?? string.Empty;
+            var pin = hash.Length >= 8 ? hash.Substring(0, 8) : hash;
+
+            // Enumerate EVERY handshake hash key so the line stays correct across the dual-hash transition:
+            // the released pin sends only `project_path_hash`; a dual-hash LIB additionally sends
+            // `project_path_hash_legacy`. Both surface here without naming a property the pin may lack.
+            var hashes = string.Join(", ", metadata.ToQuery()
+                .Where(kvp => kvp.Key.IndexOf("hash", StringComparison.OrdinalIgnoreCase) >= 0)
+                .Select(kvp => $"{kvp.Key}={kvp.Value}"));
+            if (string.IsNullOrEmpty(hashes))
+                hashes = "<none>";
+
+            return $"[Godot-MCP] instance-metadata hash input: engine={metadata.Engine} " +
+                   $"projectRoot='{root}' pin={pin}; handshake hashes: {hashes}.";
+        }
 
         /// <summary>
         /// Resolve the project's <see cref="ProjectIdentity"/> (<c>{pin, port}</c>) from its root,
