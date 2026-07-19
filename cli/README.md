@@ -59,6 +59,9 @@ npm install -g godot-cli
 # Install the godot_mcp addon into a project
 godot-cli install-plugin ./MyGodotProject
 
+# Sign in to the ai-game.dev cloud (OAuth 2.1 device login — once per machine)
+godot-cli login
+
 # Open the project (builds C# first, then launches the editor with MCP connection)
 godot-cli open ./MyGodotProject
 
@@ -86,6 +89,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
+| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. `--project <path>` (or the positional `[path]`) keeps a per-project credential instead; `--base-url <url>` targets a non-default server; `--force` re-authenticates. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). Add `--no-pin` for the bare `<host>/mcp` URL. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
@@ -148,6 +152,28 @@ resolved as:
 Pass `--url http://localhost:<port>` to target a local/self-hosted server.
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+## `login`
+
+`godot-cli login` authenticates the editor plugin's **cloud** connection to
+[ai-game.dev](https://ai-game.dev) using the **OAuth 2.1 device-authorization flow** (RFC 8628) — it prints
+a short user code + verification URL, opens your browser, and polls until you approve:
+
+```bash
+godot-cli login                       # sign in once per machine (default)
+godot-cli login --project ./MyGame    # keep a per-project credential instead
+godot-cli login --base-url <url>      # authenticate against a non-default server
+godot-cli login --force               # re-authenticate over an existing credential
+```
+
+- By default the credential is saved to the shared **machine store** `~/.ai-game-dev/credentials.json`
+  (`0600` on POSIX / DPAPI on Windows) — sign in **once per machine** and the Godot editor plugin
+  auto-adopts it, so `godot-cli open --mode Cloud` connects with **no `--token`**.
+- `--project <path>` (or the positional `[path]`) keeps a per-project credential
+  (`<path>/.godot-mcp/credentials.json`, gitignored) for per-project accounts.
+- The flow persists the **full** credential set (access token + rotating refresh token + expiry) — **no
+  personal access token (PAT) is ever minted**. On any failure nothing is written, so an existing
+  credential survives a denied / expired / network error intact.
 
 ## `setup-skills`
 
@@ -281,6 +307,11 @@ godot-cli setup-mcp --list                    # list every supported agent id
 godot-cli setup-mcp claude-code ./MyGame      # write the agent's MCP client config (pinned to this project)
 godot-cli setup-mcp claude-code ./MyGame --no-pin   # write the bare, unpinned <host>/mcp URL instead
 ```
+
+OAuth-capable agents (Claude Code, Cursor, Codex, Copilot, …) authenticate to the cloud with their **own**
+OAuth handshake, so `setup-mcp` writes them a credential-free, URL-only config — no bearer token is stored
+in the agent file. A static `Authorization` header is written only for a client that cannot OAuth, or when
+you pass an explicit `--token` (a deliberate personal-token opt-in for a self-hosted, required-auth server).
 
 > For the full Godot-MCP project documentation, see the
 > [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by
