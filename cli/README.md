@@ -89,7 +89,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
-| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. `--project <path>` (or the positional `[path]`) keeps a per-project credential instead; `--base-url <url>` targets a non-default server; `--force` re-authenticates. |
+| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` flags. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). Add `--no-pin` for the bare `<host>/mcp` URL. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
