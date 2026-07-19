@@ -70,14 +70,19 @@ godot-cli create-project --dotnet ./MyGodotProject
 #    all idempotently
 godot-cli install-plugin ./MyGodotProject
 
-# 4. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config
+# 4. Sign in to the ai-game.dev cloud — OAuth 2.1 device login (opens a browser,
+#    saves a machine-wide credential the editor plugin auto-adopts; no token to copy)
+godot-cli login
+
+# 5. Pick an AI agent (Claude Code, Cursor, Copilot, …) and write its MCP config —
+#    pinned to THIS project's cloud route by default (pass --no-pin for the bare URL)
 godot-cli setup-mcp claude-code ./MyGodotProject
 
-# 5. Open the Godot editor — builds the C# assembly first (so the addon loads on
+# 6. Open the Godot editor — builds the C# assembly first (so the addon loads on
 #    the very first open) then auto-connects with the right GODOT_MCP_* env vars
 godot-cli open ./MyGodotProject
 
-# 6. Wait until the plugin answers the readiness probe
+# 7. Wait until the plugin answers the readiness probe
 godot-cli wait-for-ready ./MyGodotProject
 ```
 
@@ -340,8 +345,11 @@ window to communicate with the LLM.
 - [Cursor](https://www.cursor.com/)
 - Any other MCP-aware agent
 
-Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject` — it points the
-client at the Godot server's `<host>/mcp` URL. See the
+Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject`. By default it
+points the client at the **project-pinned** cloud URL `<host>/mcp/p/<pin>`, so an agent session launched in
+this project folder routes to *this* project's editor even when your account has several editors connected;
+pass `--no-pin` for the bare `<host>/mcp` URL. OAuth-capable agents (Claude Code, Cursor, Copilot, …)
+authenticate to the cloud through their own OAuth handshake — no token is written into the config. See the
 [CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for the full list of
 supported agents.
 
@@ -359,6 +367,13 @@ without editing any file.
 
 In **Cloud** mode the plugin connects to the hosted backend at `https://ai-game.dev` (the `/mcp` hub path
 is appended automatically). This is the default `connectionMode`.
+
+> **Sign in once with `godot-cli login`.** Cloud authentication uses the **OAuth 2.1 device-authorization
+> flow** (RFC 8628): `godot-cli login` prints a short user code, opens your browser, and — on approval —
+> saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) that the editor
+> plugin **auto-adopts**, so `godot-cli open` connects with no token to copy or paste. No personal access
+> token (PAT) is minted. `GODOT_MCP_TOKEN` (below) remains available as a manual override for CI / headless
+> runs.
 
 | Environment variable | Purpose | Default |
 | --- | --- | --- |
