@@ -243,7 +243,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
     const pinMatch = csproj.match(/McpPlugin"\s+Version="([^"]+)"/);
     expect(pinMatch, 'Godot-MCP.csproj must declare a com.IvanMurzak.McpPlugin PackageReference').not.toBeNull();
     const expectedMcpPlugin = pinMatch![1];
-    expect(expectedMcpPlugin).toBe('7.2.0');
+    expect(expectedMcpPlugin).toBe('7.3.0');
 
     // edit.hbs renders `com.IvanMurzak.McpPlugin     version 7.1.1` — tolerate the
     // literal lowercase word `version` and runs of spaces between name and version.

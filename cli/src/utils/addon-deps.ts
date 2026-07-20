@@ -43,7 +43,7 @@ export interface AddonEmbeddedResource {
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.3.2' },
-  { id: 'com.IvanMurzak.McpPlugin', version: '7.2.0' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '7.3.0' },
 ] as const;
 
 /**
