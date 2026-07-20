@@ -78,7 +78,7 @@ jobs:
       server_version: ${{ steps.server_version.outputs.server_version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -183,10 +183,10 @@ jobs:
     if: needs.check-version-tag.outputs.should_release == 'true'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
@@ -422,10 +422,10 @@ jobs:
       published: ${{ steps.mark.outputs.published }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
@@ -465,7 +465,7 @@ jobs:
       # plugin.cfg. The server binaries are NOT attached — the addon downloads
       # the shared GameDev-MCP-Server release pinned by ServerVersion.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.check-version-tag.outputs.tag }}
           tag_name: ${{ needs.check-version-tag.outputs.tag }}
@@ -500,7 +500,7 @@ jobs:
       - name: Checkout repository
         # The action reads the handlebars template (.github/assetlib/edit.hbs)
         # from the workspace, so the repo must be checked out.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Submit Asset Library version edit
         # deep-entertainment/godot-asset-lib-action @ v0.6.0
