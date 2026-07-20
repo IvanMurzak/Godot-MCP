@@ -12,6 +12,7 @@ using System;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
+using HubConsts = com.IvanMurzak.McpPlugin.Common.Consts.Hub;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
@@ -513,5 +514,67 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             return false;
         }
+
+        /// <summary>
+        /// The port the user EXPLICITLY typed into <paramref name="url"/>, or <c>null</c> when the URL
+        /// carries no explicit port. This is the Godot mirror of the shared writer's
+        /// <c>AgentConfiguratorSettings.TryGetExplicitPort</c> — the level-2 input of the writer's
+        /// marker → typed → derived port precedence. The library's copy is <c>internal</c>, so it cannot
+        /// be consumed here; this reimplements the same documented rule (URL parsing, not the hashing /
+        /// port math, which stays inherited from <see cref="GodotProjectIdentity.Derive"/>).
+        ///
+        /// <para><b>Why the raw string and not <c>Uri.Port</c>:</b> <see cref="Uri"/> synthesises the
+        /// scheme's default port, so <c>http://localhost/mcp</c> and <c>http://localhost:80/mcp</c> both
+        /// report <c>80</c> and become indistinguishable. Only the first has no user intent behind it and
+        /// must fall through to the derived port; the second is a port the user deliberately typed. Reading
+        /// the raw authority is what preserves that distinction — using <c>Uri.Port</c> here would make the
+        /// binder bind <c>80</c> for a portless loopback host while the writer wrote the derived port.</para>
+        ///
+        /// <para>An out-of-range port yields <c>null</c> too, mirroring the writer, so an unusable value
+        /// falls back to the derived port on BOTH sides rather than diverging.</para>
+        ///
+        /// <para><b>Keep this a line-for-line mirror of the library's copy.</b> There is no compiler-
+        /// enforced link between the two, so structural fidelity is the only thing that makes drift
+        /// visible on inspection. Do not "tidy" a step away — including the empty-port guard that the
+        /// <c>NumberStyles.None</c> parse would also reject — without making the same change upstream.</para>
+        /// </summary>
+        internal static int? TryGetExplicitPort(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return null;
+
+            // Isolate the authority: after "scheme://" (if present), up to the first '/', '?' or '#'.
+            var schemeEnd = url!.IndexOf("://", StringComparison.Ordinal);
+            var start = schemeEnd >= 0 ? schemeEnd + 3 : 0;
+            var end = url.IndexOfAny(AuthorityTerminators, start);
+            var authority = end >= 0 ? url.Substring(start, end - start) : url.Substring(start);
+
+            // Drop any userinfo ("user:pass@host:port") — its colon is not a port separator.
+            var at = authority.LastIndexOf('@');
+            if (at >= 0)
+                authority = authority.Substring(at + 1);
+
+            // For an IPv6 literal the port follows the closing bracket ("[::1]:8080"); the colons inside
+            // the brackets are part of the address. LastIndexOf returns -1 for a normal host, so the
+            // search then starts at 0 and finds a plain "host:port" colon.
+            var colon = authority.IndexOf(':', authority.LastIndexOf(']') + 1);
+            if (colon < 0 || colon == authority.Length - 1)
+                return null;
+
+            // NumberStyles.None is the whole validator: it rejects sign, whitespace, separators and any
+            // non-ASCII-digit character, so a hand-rolled digit scan on top would be redundant.
+            if (!int.TryParse(
+                    authority.Substring(colon + 1),
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var port))
+                return null;
+
+            return port > 0 && port <= HubConsts.MaxPort ? port : (int?)null;
+        }
+
+        /// <summary>Characters that terminate a URL authority. Static so the parse does not allocate a
+        /// fresh separator array on every call.</summary>
+        static readonly char[] AuthorityTerminators = { '/', '?', '#' };
     }
 }

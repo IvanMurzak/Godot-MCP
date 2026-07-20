@@ -1244,12 +1244,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Resolve the port the local self-hosted server must BIND — the mcp-authorize g3 single source
         /// of truth the connection panel's Start Server action (see
         /// <see cref="UI.ConnectionPanel.OnServerStartStopPressed"/>) uses so the bind port ALWAYS matches
-        /// the port the shared b6 config writer writes into the AI-client config (server bind == written
-        /// config == the ProjectIdentity-derived port; design 06 · D15). Wires this connection's project
+        /// the port the shared config writer writes into the AI-client config (server bind == written
+        /// config; design 06 · D15). Wires this connection's project
         /// root + marker + the active Custom host into the pure, unit-tested
-        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>. There is no fixed 8080 fallback:
-        /// a loopback/default host resolves to the derived port; a non-loopback host to its own explicit
-        /// port. A marker read failure degrades to "no override" (never throws — starting the server must
+        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>, which owns the port precedence —
+        /// see that method for the canonical ladder rather than a copy of it here. There is no fixed 8080
+        /// fallback. This method's own job is only the WIRING: project root + marker + active Custom host.
+        /// A marker read failure degrades to "no override" (never throws — starting the server must
         /// not fault on a malformed marker), the same defensive discipline as
         /// <see cref="SeedDefaultLocalServerHost"/>.
         /// </summary>

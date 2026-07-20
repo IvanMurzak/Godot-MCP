@@ -165,49 +165,98 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Resolve the port the LOCAL self-hosted server must BIND so it MATCHES the port the shared
-        /// b6 config writer (<see cref="AgentConfiguratorSettings.PinnedHttpUrl"/> /
+        /// config writer (<see cref="AgentConfiguratorSettings.PinnedHttpUrl"/> /
         /// <see cref="AgentConfiguratorSettings.ResolvedPort"/>) writes into the AI-client config — the
-        /// mcp-authorize g3 guarantee that <b>server bind port == written config port == the
-        /// ProjectIdentity-derived port</b> on the default local path (completing the Phase-4 8080 →
-        /// derived-port migration, design 06 · D15). Mirrors the b6 loopback rule byte-for-byte:
-        /// <list type="bullet">
-        ///   <item>a LOOPBACK local host (the default / self-hosted case) binds the
-        ///   <see cref="ProjectIdentity"/>-derived port — a marker <c>portOverride</c> wins, else the
-        ///   deterministic hash-derived port; there is NO fixed 8080 on this path.</item>
-        ///   <item>a NON-loopback host (a real remote / self-hosted target the writer keeps verbatim)
-        ///   binds that host's own explicit port — the same authority the written config carries.</item>
+        /// mcp-authorize g3 guarantee that <b>server bind port == written config port</b>, so an agent
+        /// always dials the port the server is actually listening on.
+        ///
+        /// <para>
+        /// Host CLASS is decided first, then the port. A <b>NON-loopback</b> host is a remote target the
+        /// writer keeps verbatim, so it binds that host's own port unconditionally — a marker
+        /// <c>portOverride</c> does NOT override a remote authority, on either side.
+        /// </para>
+        ///
+        /// <para>
+        /// For a <b>loopback / unset</b> host the port follows the shared writer's THREE-LEVEL precedence
+        /// (MCP-Plugin-dotnet #174 / #176), applied identically here:
+        /// <list type="number">
+        ///   <item>the project marker's <c>portOverride</c> — a deliberate per-project pin, and it
+        ///   SUPPRESSES level 2 entirely;</item>
+        ///   <item>an explicit port the user typed into the Custom host — read off the RAW authority via
+        ///   <see cref="GodotMcpConfig.TryGetExplicitPort"/>, so a portless host is NOT mistaken for the
+        ///   scheme default (80/443);</item>
+        ///   <item>the deterministic hash-derived <see cref="ProjectIdentity"/> port — the fallback when
+        ///   the host carries no explicit port.</item>
         /// </list>
-        /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>): the port math is inherited from
-        /// the golden-vector-pinned <see cref="Derive"/>, so the bind port can never drift from the
-        /// written config's port. The loopback / URL-validity predicates are the same ones
-        /// <see cref="GodotMcpConfig"/> and the b6 writer use, so a marker, an env/UI custom host, and a
-        /// terminal-written config all classify identically.
+        /// Levels 1 and 3 are inherited from <see cref="Derive"/> (the golden-vector-pinned math), which
+        /// folds an override into <see cref="ProjectIdentity.Port"/>; only level 2 is resolved here, and
+        /// only from the host string.
+        /// </para>
+        ///
+        /// <para><b>Why a loopback host's own port is honoured.</b> A port the user typed is user intent:
+        /// "the Configure button must use exactly that port". The shared writer resolves it the same way,
+        /// so both sides land on the same number. This method previously ignored it and always bound the
+        /// derived port, mirroring an older writer that rewrote a loopback URL's port — mirroring that
+        /// retired rule is what would make the two sides disagree. Unity's binder
+        /// (<c>UnityMcpPluginEditor.Port</c>) already resolves a typed port this way.</para>
+        ///
+        /// <para><b>⚠ Transitional window — read before debugging a port mismatch.</b> The precedence
+        /// above is the writer's behaviour from McpPlugin <b>7.3.0</b> onward. While this addon is pinned
+        /// BELOW that (see <c>Godot-MCP.csproj</c>), the pinned writer still rewrites a loopback URL's
+        /// port to the derived one, so a user-typed loopback port makes the binder and the written config
+        /// disagree until the pin lands. The golden boot path is unaffected —
+        /// <c>GodotMcpConnection.SeedDefaultLocalServerHost</c> seeds the Custom host as
+        /// <c>http://localhost:{derived}</c>, so levels 2 and 3 agree there and no fixed 8080 reaches
+        /// either side. The parked cross-check
+        /// <c>ResolveLocalServerBindPort_LoopbackExplicitPort_MatchesTheWrittenConfigPort</c> re-arms the
+        /// two-sided guarantee at the pin bump.</para>
+        ///
+        /// <para>A NON-loopback host (a real remote / self-hosted target the writer keeps verbatim) still
+        /// binds that host's own port — that branch was already correct and is untouched.</para>
+        ///
+        /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>). The loopback / URL-validity
+        /// predicates are the same ones <see cref="GodotMcpConfig"/> and the writer use, so a marker, an
+        /// env/UI custom host, and a terminal-written config all classify identically.
         /// </summary>
         /// <param name="resolvedCustomHost">The active Custom-mode host (already env/persist-resolved via
         /// <see cref="GodotMcpConfig.ResolveCustomHost"/>).</param>
         /// <param name="projectRoot">The normalized project root — the same string the config writer hashes.</param>
-        /// <param name="marker">The project marker (its <c>portOverride</c> wins for the derived port), or null.</param>
+        /// <param name="marker">The project marker (its <c>portOverride</c> wins outright), or null.</param>
         public static int ResolveLocalServerBindPort(string? resolvedCustomHost, string projectRoot, ProjectMarker? marker)
         {
-            var derivedPort = Derive(projectRoot, marker).Port;
+            var identity = Derive(projectRoot, marker);
+
+            // NOT necessarily the hash-derived port: Derive folds a marker portOverride into Port, so this
+            // is the override when one is set. That is exactly what makes it the right level-3 fallback AND
+            // the right level-1 answer — hence the deliberately neutral name.
+            var identityPort = identity.Port;
 
             var host = GodotMcpConfig.NormalizeUrl(resolvedCustomHost);
-            if (!string.IsNullOrEmpty(host) &&
-                GodotMcpConfig.IsValidHttpUrl(host!) &&
-                !GodotMcpConfig.IsLoopbackUrl(host))
+
+            // An unset / unparseable host carries no intent at all: level 3. This guard is load-bearing
+            // for level 2 below — TryGetExplicitPort parses a bare authority ("localhost:9000") that
+            // IsValidHttpUrl rejects, so without it a non-URL string could still yield a port.
+            if (string.IsNullOrEmpty(host) || !GodotMcpConfig.IsValidHttpUrl(host!))
+                return identityPort;
+
+            if (!GodotMcpConfig.IsLoopbackUrl(host))
             {
-                // Non-loopback target: the b6 writer keeps its authority verbatim, so bind that host's
-                // own explicit port. A portless non-loopback host resolves to the URI scheme's default
-                // port (e.g. 80 for http) — the same value the writer's ResolvedPort reports for it, so
-                // both sides still agree; the derivedPort fallback applies only to an unparseable authority.
-                return GodotMcpServerView.ResolveServerPort(host!, derivedPort);
+                // Non-loopback target: the writer keeps its authority verbatim — regardless of the marker,
+                // which is why this branch precedes the level-1 check below. Bind that host's own port. A
+                // portless non-loopback host resolves to the URI scheme's default (e.g. 80 for http), the
+                // same value the written authority reports, so both sides still agree. The identityPort
+                // fallback is reached only by an authority whose port is explicitly 0.
+                return GodotMcpServerView.ResolveServerPort(host!, identityPort);
             }
 
-            // Loopback / default / unset / unparseable: the ProjectIdentity-derived port — exactly what
-            // the b6 writer rewrites the loopback URL's port to. A loopback host's OWN explicit port is
-            // intentionally NOT honored here, mirroring the writer (a loopback port override goes through
-            // the marker portOverride, which flows into the derivation above).
-            return derivedPort;
+            // Loopback. Level 1 — a marker portOverride is a deliberate per-project pin, so it SUPPRESSES
+            // the level-2 lookup rather than merely outranking its result (identical ordering to the
+            // writer's own port resolution). Level 2 — the port the user typed, read from the RAW
+            // authority (not Uri.Port) so a portless host is not mistaken for the synthesized scheme
+            // default. Level 3 — neither applies: identityPort, which here IS the derived port.
+            var typedPort = identity.PortIsOverridden ? null : GodotMcpConfig.TryGetExplicitPort(host);
+
+            return typedPort ?? identityPort;
         }
 
         /// <summary>
