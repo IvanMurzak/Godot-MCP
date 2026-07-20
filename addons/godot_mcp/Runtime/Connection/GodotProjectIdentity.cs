@@ -165,49 +165,77 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Resolve the port the LOCAL self-hosted server must BIND so it MATCHES the port the shared
-        /// b6 config writer (<see cref="AgentConfiguratorSettings.PinnedHttpUrl"/> /
-        /// <see cref="AgentConfiguratorSettings.ResolvedPort"/>) writes into the AI-client config — the
-        /// mcp-authorize g3 guarantee that <b>server bind port == written config port == the
-        /// ProjectIdentity-derived port</b> on the default local path (completing the Phase-4 8080 →
-        /// derived-port migration, design 06 · D15). Mirrors the b6 loopback rule byte-for-byte:
-        /// <list type="bullet">
-        ///   <item>a LOOPBACK local host (the default / self-hosted case) binds the
-        ///   <see cref="ProjectIdentity"/>-derived port — a marker <c>portOverride</c> wins, else the
-        ///   deterministic hash-derived port; there is NO fixed 8080 on this path.</item>
-        ///   <item>a NON-loopback host (a real remote / self-hosted target the writer keeps verbatim)
-        ///   binds that host's own explicit port — the same authority the written config carries.</item>
+        /// config writer (<see cref="AgentConfiguratorSettings.PinnedHttpUrl"/> /
+        /// <see cref="AgentConfiguratorSettings.PinnedPort"/>) writes into the AI-client config — the
+        /// mcp-authorize g3 guarantee that <b>server bind port == written config port</b>, so an agent
+        /// always dials the port the server is actually listening on.
+        ///
+        /// <para>
+        /// The port follows the shared writer's THREE-LEVEL precedence (owner ruling 2026-07-19,
+        /// auth-fixes T1 · defect A — MCP-Plugin-dotnet PRs #174 / #176), applied identically here:
+        /// <list type="number">
+        ///   <item>the project marker's <c>portOverride</c> — a deliberate per-project pin, wins outright;</item>
+        ///   <item>an explicit port the user typed into the Custom host — read off the RAW authority via
+        ///   <see cref="GodotMcpConfig.TryGetExplicitPort"/>, so a portless host is NOT mistaken for the
+        ///   scheme default (80/443);</item>
+        ///   <item>the deterministic hash-derived <see cref="ProjectIdentity"/> port — the fallback when
+        ///   the host carries no explicit port. There is NO fixed 8080 on this path.</item>
         /// </list>
-        /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>): the port math is inherited from
-        /// the golden-vector-pinned <see cref="Derive"/>, so the bind port can never drift from the
-        /// written config's port. The loopback / URL-validity predicates are the same ones
-        /// <see cref="GodotMcpConfig"/> and the b6 writer use, so a marker, an env/UI custom host, and a
-        /// terminal-written config all classify identically.
+        /// Levels 1 and 3 are inherited from <see cref="Derive"/> (the golden-vector-pinned math); only
+        /// level 2 is resolved here, and only from the host string.
+        /// </para>
+        ///
+        /// <para><b>Why the loopback rule changed.</b> This method used to ignore a loopback host's own
+        /// explicit port and always bind the derived one, deliberately mirroring the OLD writer, which
+        /// rewrote a loopback URL's port to the derived port. That writer has since changed: it now
+        /// honours the typed port (level 2 above) because the user "can enter any port, and the Configure
+        /// button must use exactly that port". Keeping the old mirroring would therefore make the binder
+        /// and the writer DISAGREE the moment this addon picks up McpPlugin ≥ 7.3.0 — the server would
+        /// listen on the derived port while the written config pointed at the typed one, which is the
+        /// exact defect this precedence exists to kill. Unity's binder (<c>UnityMcpPluginEditor.Port</c>)
+        /// already resolves a typed port this way; Godot was the outlier. Note the resulting shape is
+        /// UNCHANGED on the golden boot path: <see cref="GodotMcpConnection.SeedDefaultLocalServerHost"/>
+        /// seeds the Custom host as <c>http://localhost:{derived}</c>, so level 2 and level 3 agree and no
+        /// fixed 8080 can reach either side.</para>
+        ///
+        /// <para>A NON-loopback host (a real remote / self-hosted target the writer keeps verbatim) still
+        /// binds that host's own port — that branch was already correct and is untouched.</para>
+        ///
+        /// Pure-managed (no Godot native types, no <c>#if TOOLS</c>). The loopback / URL-validity
+        /// predicates are the same ones <see cref="GodotMcpConfig"/> and the writer use, so a marker, an
+        /// env/UI custom host, and a terminal-written config all classify identically.
         /// </summary>
         /// <param name="resolvedCustomHost">The active Custom-mode host (already env/persist-resolved via
         /// <see cref="GodotMcpConfig.ResolveCustomHost"/>).</param>
         /// <param name="projectRoot">The normalized project root — the same string the config writer hashes.</param>
-        /// <param name="marker">The project marker (its <c>portOverride</c> wins for the derived port), or null.</param>
+        /// <param name="marker">The project marker (its <c>portOverride</c> wins outright), or null.</param>
         public static int ResolveLocalServerBindPort(string? resolvedCustomHost, string projectRoot, ProjectMarker? marker)
         {
-            var derivedPort = Derive(projectRoot, marker).Port;
+            var identity = Derive(projectRoot, marker);
+            var derivedPort = identity.Port;
 
             var host = GodotMcpConfig.NormalizeUrl(resolvedCustomHost);
-            if (!string.IsNullOrEmpty(host) &&
-                GodotMcpConfig.IsValidHttpUrl(host!) &&
-                !GodotMcpConfig.IsLoopbackUrl(host))
+            var hostIsUsable = !string.IsNullOrEmpty(host) && GodotMcpConfig.IsValidHttpUrl(host!);
+
+            if (hostIsUsable && !GodotMcpConfig.IsLoopbackUrl(host))
             {
-                // Non-loopback target: the b6 writer keeps its authority verbatim, so bind that host's
-                // own explicit port. A portless non-loopback host resolves to the URI scheme's default
-                // port (e.g. 80 for http) — the same value the writer's ResolvedPort reports for it, so
-                // both sides still agree; the derivedPort fallback applies only to an unparseable authority.
+                // Non-loopback target: the writer keeps its authority verbatim, so bind that host's own
+                // explicit port. A portless non-loopback host resolves to the URI scheme's default port
+                // (e.g. 80 for http) — the same value the written authority reports for it, so both sides
+                // still agree; the derivedPort fallback applies only to an unparseable authority.
                 return GodotMcpServerView.ResolveServerPort(host!, derivedPort);
             }
 
-            // Loopback / default / unset / unparseable: the ProjectIdentity-derived port — exactly what
-            // the b6 writer rewrites the loopback URL's port to. A loopback host's OWN explicit port is
-            // intentionally NOT honored here, mirroring the writer (a loopback port override goes through
-            // the marker portOverride, which flows into the derivation above).
-            return derivedPort;
+            // Level 1 — a marker portOverride is a deliberate per-project pin and beats an incidental
+            // port in the host string (identical ordering to the writer's PinnedPort).
+            if (identity.PortIsOverridden)
+                return derivedPort;
+
+            // Level 2 — the port the user typed into the loopback host, when there is one. Read from the
+            // RAW authority (not Uri.Port) so a portless host falls through to level 3 instead of binding
+            // the synthesized scheme default.
+            // Level 3 — loopback with no typed port / unset / unparseable: the derived port.
+            return hostIsUsable ? GodotMcpConfig.TryGetExplicitPort(host) ?? derivedPort : derivedPort;
         }
 
         /// <summary>

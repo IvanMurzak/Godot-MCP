@@ -1247,9 +1247,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// the port the shared b6 config writer writes into the AI-client config (server bind == written
         /// config == the ProjectIdentity-derived port; design 06 · D15). Wires this connection's project
         /// root + marker + the active Custom host into the pure, unit-tested
-        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>. There is no fixed 8080 fallback:
-        /// a loopback/default host resolves to the derived port; a non-loopback host to its own explicit
-        /// port. A marker read failure degrades to "no override" (never throws — starting the server must
+        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>, which applies the writer's
+        /// three-level precedence (marker <c>portOverride</c> → a port the user typed into the host →
+        /// the deterministic derived port). There is no fixed 8080 fallback: a portless / unset host
+        /// resolves to the derived port, and any host carrying an explicit port binds exactly that port —
+        /// loopback included, so a user-typed local port is honoured rather than silently overwritten.
+        /// A marker read failure degrades to "no override" (never throws — starting the server must
         /// not fault on a malformed marker), the same defensive discipline as
         /// <see cref="SeedDefaultLocalServerHost"/>.
         /// </summary>
