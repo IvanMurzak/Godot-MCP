@@ -552,9 +552,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Resolve the port the locally-hosted server should listen on, parsed from the configured Custom
-        /// host URL (e.g. <c>http://localhost:5300</c> → <c>5300</c>). When the URL has no explicit port,
-        /// or is not parseable, falls back to <paramref name="defaultPort"/> (pass
-        /// <c>Consts.Hub.DefaultPort</c>). Deterministic string/URI parse — no platform divergence.
+        /// host URL (e.g. <c>http://localhost:5300</c> → <c>5300</c>). When the URL is absent or not
+        /// parseable, falls back to <paramref name="defaultPort"/> (pass <c>Consts.Hub.DefaultPort</c>).
+        /// Deterministic string/URI parse — no platform divergence.
+        ///
+        /// <para>This uses <c>Uri.Port</c> DELIBERATELY, so a portless URL yields the scheme's default
+        /// (80/443) rather than the fallback — the right answer for a remote authority the config writer
+        /// keeps verbatim, since the written URL resolves to that same default. To ask the different
+        /// question "did the user actually TYPE a port?", use <see cref="GodotMcpConfig.TryGetExplicitPort"/>,
+        /// which reads the raw authority and never synthesises a default. The two are not duplicates; see
+        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>, which calls both.</para>
         /// </summary>
         public static int ResolveServerPort(string? customHostUrl, int defaultPort)
         {

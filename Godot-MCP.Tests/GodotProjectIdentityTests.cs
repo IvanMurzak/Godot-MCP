@@ -260,11 +260,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         //
         // The port the server BINDS (GodotProjectIdentity.ResolveLocalServerBindPort, called by the
         // connection panel's Start Server action) must equal the port the shared config writer writes into
-        // the AI-client config (AgentConfiguratorSettings.PinnedHttpUrl / PinnedPort), so an agent always
+        // the AI-client config (AgentConfiguratorSettings.PinnedHttpUrl / ResolvedPort), so an agent always
         // dials the port the server is actually listening on.
         //
         // These assert the BINDER'S OWN CONTRACT — given a host + marker + project root, which port comes
-        // out — under the three-level precedence the 2026-07-19 owner ruling fixed on BOTH sides:
+        // out — under the three-level precedence both sides now share:
         //   1. marker portOverride  →  2. an explicit port typed into the host  →  3. deterministic derived.
         // Asserting the contract rather than diffing against whatever the currently-pinned McpPlugin build
         // writes is deliberate: coupling these to the writer's build is what let the binder and the writer
@@ -277,7 +277,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("C:/Games/MyGame", 29062)]
         [InlineData("/home/user/MyGame", 24998)]
         [InlineData("/home/user/Demo Project", 20832)]
-        public void ResolveLocalServerBindPort_DefaultLoopbackHost_IsTheDerivedPort_NotFixed8080(string projectRoot, int expectedPort)
+        public void ResolveLocalServerBindPort_SeededLocalHost_IsTheDerivedPort_NotFixed8080(string projectRoot, int expectedPort)
         {
             // The GOLDEN BOOT PATH: GodotMcpConnection.SeedDefaultLocalServerHost replaces the fixed
             // DefaultCustomHost baseline with the project's derived local URL before anything binds, so the
@@ -290,6 +290,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(expectedPort, port);
             Assert.NotEqual(8080, port);
             Assert.InRange(port, ProjectIdentity.MinPort, ProjectIdentity.MaxPort);
+        }
+
+        [Fact]
+        public void ResolveLocalServerBindPort_UnSeededDefaultCustomHost_BindsItsLiteralPort()
+        {
+            const string root = "C:/Games/MyGame";
+
+            // The un-seeded DefaultCustomHost baseline ("http://localhost:8080") reaches the binder only on
+            // degraded paths — an unresolvable project root, a marker that fails to parse, or an explicit
+            // GODOT_MCP_HOST pointing there — because SeedDefaultLocalServerHost normally replaces it
+            // before anything binds (see the golden-path test above).
+            //
+            // Pinning the outcome deliberately: 8080 is a port present in the host string, so level 2
+            // binds it. That is NOT a regression to the retired fixed-8080 rule — the writer reads the same
+            // host and resolves the same 8080, which is the property that matters (bind == written). The
+            // binder must NOT special-case this string: a user who genuinely types :8080 gets it honoured
+            // by the writer, so a special case here would reintroduce the very divergence the three-level
+            // precedence removes.
+            Assert.Equal(
+                8080,
+                GodotProjectIdentity.ResolveLocalServerBindPort(GodotMcpConfig.DefaultCustomHost, root, marker: null));
         }
 
         [Theory]
@@ -316,6 +337,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // The seeded host carries the derived port explicitly, so this holds under BOTH the old writer
             // (which rewrote a loopback port to ResolvedPort) and the new one (which honours the typed port
             // — here the same number). That is why this cross-check stays live across the pin bump.
+            //
+            // It also survives the writer's v1 → v2 root-normalization change, but only because Godot roots
+            // come from GlobalizePath("res://") and are already forward-slashed, so v2's '\' → '/' step is a
+            // no-op and both derivations yield the same port. A backslashed root would NOT be equivalent.
             const string root = "C:/Games/MyGame";
             var seededHost = GodotProjectIdentity.ResolveDefaultLocalServerHost(root, marker: null);
             var settings = LocalSettings(root, seededHost + "/mcp");
@@ -355,7 +380,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var marker = ProjectMarker.Read(dir.Path);
 
             // Level 1 BEATS level 2: portOverride is a deliberate per-project pin, so it outranks an
-            // incidental port in the host string. Same ordering as the writer's PinnedPort.
+            // incidental port in the host string. Same ordering as the writer's own port resolution.
             var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort("http://localhost:9000", dir.Path, marker);
 
             Assert.Equal(24242, bindPort);
@@ -370,22 +395,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             const string root = "C:/Games/MyGame";
 
-            // Level 2 — THE BEHAVIOUR CHANGE (owner ruling 2026-07-19). A port the user typed into a
-            // loopback host is now BOUND, not overwritten with the derived port.
-            //
-            // This method used to assert the opposite (ResolveLocalServerBindPort_LoopbackExplicitPort_
-            // StillDerives_MatchingTheWriter), deliberately mirroring the OLD writer, which rewrote a
-            // loopback URL's port to the derived one. The writer now honours the typed port
-            // (MCP-Plugin-dotnet #174 / #176), so mirroring the old rule would make the server listen on
-            // the derived port while the written config pointed at the typed one — the exact defect this
-            // precedence exists to kill. Unity's binder already resolved a typed port this way.
+            // Level 2 — a port the user typed into a loopback host is BOUND, not overwritten with the
+            // derived port. This assertion is the inverse of the rule that stood here before: mirroring
+            // the retired writer (which rewrote a loopback URL's port) would make the server listen on the
+            // derived port while the written config pointed at the typed one. Unity's binder already
+            // resolves a typed port this way.
             var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(host, root, marker: null);
 
             Assert.Equal(expectedPort, bindPort);
             Assert.NotEqual(ProjectIdentity.DerivePort(root), bindPort);
         }
 
-        [Fact(Skip = "Un-skip when Godot-MCP.csproj pins com.IvanMurzak.McpPlugin >= 7.3.0 — see body.")]
+        [Fact(Skip = "Un-skip when Godot-MCP.csproj pins com.IvanMurzak.McpPlugin >= 7.3.0 (issue #304) — see body.")]
         public void ResolveLocalServerBindPort_LoopbackExplicitPort_MatchesTheWrittenConfigPort()
         {
             const string root = "C:/Games/MyGame";
@@ -394,7 +415,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // The live cross-check for level 2: the binder's typed-port result must equal the port the
             // shared writer emits for the same host. It CANNOT pass on the currently-pinned McpPlugin
             // 7.2.0, whose PinnedHttpUrl still rewrites a loopback port to the derived one — that old
-            // writer is precisely what this task stopped mirroring. The binder-contract assertions above
+            // writer is precisely what this change stopped mirroring. The binder-contract assertions above
             // (ResolveLocalServerBindPort_LoopbackExplicitPort_HonorsTheTypedPort) carry the behaviour in
             // the meantime; this one re-arms the two-sided guarantee once the pin lands in the release
             // cascade. Do not delete it and do not weaken it — un-skip it with the pin bump.
@@ -411,13 +432,34 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             const string root = "C:/Games/MyGame";
             const string host = "http://192.168.1.50:9000";
 
-            // A non-loopback target: the b6 writer keeps its authority verbatim (:9000), so the server binds
+            // A non-loopback target: the writer keeps its authority verbatim (:9000), so the server binds
             // that explicit port — an explicitly-set non-default custom host still wins, on both sides.
             var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(host, root, marker: null);
             var settings = LocalSettings(root, host + "/mcp");
 
             Assert.Equal(9000, bindPort);
             Assert.Equal(new Uri(settings.PinnedHttpUrl).Port, bindPort);
+        }
+
+        [Fact]
+        public void ResolveLocalServerBindPort_NonLoopbackHost_BeatsMarkerPortOverride()
+        {
+            using var dir = new TempDir();
+            new ProjectMarker { PortOverride = 24242 }.Write(dir.Path);
+            var marker = ProjectMarker.Read(dir.Path);
+
+            // Host CLASS is decided before the port ladder: a marker portOverride is a LOCAL pin and does
+            // NOT override a remote authority, which the writer keeps verbatim. This is the one cell where
+            // the flat "portOverride wins outright" reading would give the wrong answer, so it is pinned
+            // here — do not "restore" level-1 primacy by hoisting the override check above the loopback
+            // branch in ResolveLocalServerBindPort.
+            const string host = "http://192.168.1.50:9000";
+            var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(host, dir.Path, marker);
+            var settings = LocalSettings(dir.Path, host + "/mcp");
+
+            Assert.Equal(9000, bindPort);
+            Assert.NotEqual(24242, bindPort);
+            Assert.Equal(new Uri(settings.PinnedHttpUrl).Port, bindPort); // the writer agrees
         }
 
         [Theory]
@@ -470,7 +512,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// A shared local-mode <see cref="AgentConfiguratorSettings"/> for the three-way equality assertions:
         /// its <c>ResolvedPort</c> / <c>PinnedHttpUrl</c> derive the local port from <paramref name="projectRoot"/>
         /// (+ that root's marker) exactly as production does. The raw engine <c>port: 8080</c> is deliberately the
-        /// stale value — b6 ignores it for the loopback rewrite — so a passing test proves the derivation, not the input.
+        /// stale value — the writer resolves the port from the root/marker and the host, never from this field — so a
+        /// passing test proves the derivation, not the input.
         /// </summary>
         static AgentConfiguratorSettings LocalSettings(string projectRoot, string host) =>
             AgentConfiguratorSettings.CreateForHost(

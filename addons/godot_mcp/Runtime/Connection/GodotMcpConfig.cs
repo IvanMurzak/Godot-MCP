@@ -532,6 +532,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///
         /// <para>An out-of-range port yields <c>null</c> too, mirroring the writer, so an unusable value
         /// falls back to the derived port on BOTH sides rather than diverging.</para>
+        ///
+        /// <para><b>Keep this a line-for-line mirror of the library's copy.</b> There is no compiler-
+        /// enforced link between the two, so structural fidelity is the only thing that makes drift
+        /// visible on inspection. Do not "tidy" a step away — including the empty-port guard that the
+        /// <c>NumberStyles.None</c> parse would also reject — without making the same change upstream.</para>
         /// </summary>
         internal static int? TryGetExplicitPort(string? url)
         {
@@ -568,7 +573,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             return port > 0 && port <= HubConsts.MaxPort ? port : (int?)null;
         }
 
-        /// <summary>Characters that terminate a URL authority. Static so the parse allocates nothing.</summary>
+        /// <summary>Characters that terminate a URL authority. Static so the parse does not allocate a
+        /// fresh separator array on every call.</summary>
         static readonly char[] AuthorityTerminators = { '/', '?', '#' };
     }
 }

@@ -86,11 +86,13 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// (<c>-p &lt;port&gt;:&lt;port&gt;</c>, <c>-e PORT=&lt;port&gt;</c>, container name) — the SAME
         /// port the local server binds (<see cref="GodotMcpConnection.ResolveLocalServerPort"/>) and the
         /// written config URL carries (<see cref="AgentConfig.AgentConfiguratorSettings.PinnedHttpUrl"/>),
-        /// under the shared three-level precedence (marker <c>portOverride</c> → a port the user typed
-        /// into the host → the deterministic derived port), so the "Manual Configuration Steps" Docker
+        /// under the port precedence owned by <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>
+        /// (see that method for the canonical ladder), so the "Manual Configuration Steps" Docker
         /// command can never show the stale fixed 8080 — nor a derived port while the server binds the
-        /// port the user typed (mcp-authorize g3, extended by the 2026-07-19 owner ruling; design 06 ·
-        /// D15). Resolved from the live custom host + project marker via the pure,
+        /// port the user typed (mcp-authorize g3; design 06 · D15). See
+        /// <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/> for the transitional window in
+        /// which a user-typed loopback port is honoured here before the pinned writer honours it.
+        /// Resolved from the live custom host + project marker via the pure,
         /// unit-tested <see cref="GodotProjectIdentity.ResolveLocalServerBindPort"/>; a malformed marker
         /// degrades to "no override" so config rendering never faults.
         /// </summary>
