@@ -140,16 +140,22 @@ Building first guarantees the assembly is present when the addon is instantiated
 
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
-Unlike Unity, the Godot plugin is a **server-less client** whose persisted config lives in `user://`
-(outside the project tree), so there is no deterministic project-path → port hash. The server base URL is
-resolved as:
+The server base URL a tool call POSTs to (`<base>/api/tools/<name>`) is resolved as:
 
 1. `--url <url>` (explicit override).
 2. `GODOT_MCP_HOST` env (Custom-mode host).
-3. `GODOT_MCP_CLOUD_URL` env / Cloud mode → cloud base (`https://ai-game.dev`).
-4. Default custom host (`http://localhost:8080`).
+3. `GODOT_MCP_CLOUD_URL` env → the cloud **`/mcp` hub** URL (`/mcp` is appended if absent).
+4. `GODOT_MCP_CONNECTION_MODE=Cloud` → the default cloud hub `https://ai-game.dev/mcp`.
+5. The **enrolled project marker** (`.ai-game-dev/project.json` `serverTarget`, written by
+   `install-plugin --enroll`): a hosted target routes to its `/mcp` hub, a `localhost` target is used
+   verbatim. This makes an **enrolled cloud project reachable with zero env config** — the persisted
+   cloud credential (project store, then `~/.ai-game-dev/credentials.json`) is used automatically.
+6. Local fallback: `http://localhost:<derived-port>`, the deterministic v2 project-path port the
+   editor addon binds locally (a marker `portOverride` wins over the hash-derived port).
 
-Pass `--url http://localhost:<port>` to target a local/self-hosted server.
+The cloud paths carry the `/mcp` hub segment so the request reaches the hub rather than the cloud
+backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` to target a
+local/self-hosted server explicitly.
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 

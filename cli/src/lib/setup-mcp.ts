@@ -2,7 +2,6 @@ import * as path from 'path';
 import { pinUrl } from '@baizor/gamedev-cli-core';
 import {
   CLOUD_MCP_URL,
-  DEFAULT_CUSTOM_HOST,
   ENV_HOST,
   ENV_TOKEN,
   MCP_HUB_PATH,
@@ -222,5 +221,5 @@ export function listAgentIds(): string[] {
   return getAgentIds();
 }
 
-// Re-export the constants so the CLI command can surface the default URL in help.
-export { CLOUD_MCP_URL, DEFAULT_CUSTOM_HOST };
+// Re-export the constant so the CLI command can surface the default URL in help.
+export { CLOUD_MCP_URL };

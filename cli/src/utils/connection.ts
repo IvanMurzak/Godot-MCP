@@ -4,6 +4,8 @@ import { verbose } from './ui.js';
 import * as ui from './ui.js';
 import { readCloudToken } from './credentials.js';
 import { readMachineAccessToken } from './machine-credentials.js';
+import { deriveProjectIdentityV2 } from './project-identity.js';
+import { readProjectMarker, isLocalhostUrl } from './project-marker.js';
 
 // --- Godot MCP connection constants (mirror addons/godot_mcp GodotMcpConfig). ---
 
@@ -15,9 +17,6 @@ export const MCP_HUB_PATH = '/mcp';
 
 /** Resolved cloud MCP-client URL (base + /mcp). */
 export const CLOUD_MCP_URL = `${DEFAULT_CLOUD_BASE_URL}${MCP_HUB_PATH}`;
-
-/** Default custom-mode host (GodotMcpConfig.DefaultCustomHost). */
-export const DEFAULT_CUSTOM_HOST = 'http://localhost:8080';
 
 // --- Environment-variable names the addon reads (GodotMcpConfig EnvX consts). ---
 
@@ -94,55 +93,123 @@ function isCloudMode(): boolean {
 }
 
 /**
+ * Normalize a cloud/hub base URL so it ends in exactly one `/mcp` hub segment
+ * (mirrors `setup-mcp`'s `resolveMcpClientUrl`). The mcp-server's REST
+ * direct-tool API is reachable ONLY under the `/mcp`-prefixed route — nginx maps
+ * `^/mcp(/|$)` to the mcp-server (stripping `/mcp`) while `/api` alone goes to the
+ * cloud backend — so a cloud base that LOSES `/mcp` sends `<base>/api/tools/<name>`
+ * to the backend, which 404s (defect A). Trailing slash trimmed; an already-`/mcp`
+ * base is left as-is (case-insensitive, idempotent).
+ */
+function ensureMcpHubPath(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/$/, '');
+  if (trimmed.toLowerCase().endsWith(MCP_HUB_PATH)) return trimmed;
+  return trimmed + MCP_HUB_PATH;
+}
+
+/** A resolved connection target: the base URL + whether it is the cloud hub. */
+interface ResolvedTarget {
+  /** The base URL to which `<base>/api/tools/<name>` is appended. */
+  url: string;
+  /** True when the target is the cloud hub — a persisted cloud token then applies. */
+  isCloud: boolean;
+}
+
+/**
+ * Resolve the base URL a direct-tool-call POSTs to, plus whether that target is
+ * the cloud hub. Priority (first match wins):
+ *   1. `--url` flag — explicit override, verbatim (trailing slash trimmed).
+ *   2. `GODOT_MCP_HOST` env — an explicit Custom-mode host, verbatim.
+ *   3. `GODOT_MCP_CLOUD_URL` env — a cloud base, normalized to its `/mcp` hub URL (fix A).
+ *   4. `GODOT_MCP_CONNECTION_MODE=Cloud` — the default hosted `/mcp` hub (fix A).
+ *   5. Enrolled project marker (`.ai-game-dev/project.json` `serverTarget`) — the
+ *      ZERO-env-config path (fix B): a hosted target routes to its `/mcp` hub (cloud,
+ *      so an enrolled project reaches the cloud with no env var set); a localhost
+ *      target is used verbatim (the derived port enrollment recorded).
+ *   6. Local fallback — `http://localhost:<v2-derived-port>`, the deterministic port
+ *      the addon binds locally (fix B; replaces the dead `http://localhost:8080`). An
+ *      explicit marker `portOverride` still wins over the hash-derived port.
+ */
+function resolveTargetUrl(projectPath: string, options: ConnectionOptions): ResolvedTarget {
+  if (options.url) {
+    const url = options.url.replace(/\/$/, '');
+    verbose(`Using explicit --url: ${url}`);
+    return { url, isCloud: false };
+  }
+
+  const envHost = normalizeEnv(process.env[ENV_HOST]);
+  if (envHost) {
+    const url = envHost.replace(/\/$/, '');
+    verbose(`Using ${ENV_HOST}: ${url}`);
+    return { url, isCloud: false };
+  }
+
+  const envCloud = normalizeEnv(process.env[ENV_CLOUD_URL]);
+  if (envCloud) {
+    const url = ensureMcpHubPath(envCloud);
+    verbose(`Using ${ENV_CLOUD_URL} hub URL: ${url}`);
+    return { url, isCloud: true };
+  }
+
+  if (isCloudMode()) {
+    verbose(`Using default cloud hub URL: ${CLOUD_MCP_URL}`);
+    return { url: CLOUD_MCP_URL, isCloud: true };
+  }
+
+  // The enrolled marker (and any port override) is read once here — it backs both
+  // the zero-config marker target (5) and the derived-port fallback (6).
+  const marker = readProjectMarker(projectPath);
+  const rawTarget = marker?.serverTarget;
+  const serverTarget =
+    typeof rawTarget === 'string' && rawTarget.trim().length > 0 ? rawTarget.trim() : undefined;
+  if (serverTarget) {
+    if (isLocalhostUrl(serverTarget)) {
+      const url = serverTarget.replace(/\/$/, '');
+      verbose(`Using enrolled marker localhost target: ${url}`);
+      return { url, isCloud: false };
+    }
+    const url = ensureMcpHubPath(serverTarget);
+    verbose(`Using enrolled marker cloud hub URL: ${url}`);
+    return { url, isCloud: true };
+  }
+
+  const portOverride = typeof marker?.portOverride === 'number' ? marker.portOverride : null;
+  const { port } = deriveProjectIdentityV2(projectPath, portOverride);
+  const url = `http://localhost:${port}`;
+  verbose(`Using derived local port fallback: ${url}`);
+  return { url, isCloud: false };
+}
+
+/**
  * Resolve the MCP server base URL + auth token for direct-tool-call requests
  * (the `<base>/api/tools/<name>` HTTP API exposed by a Godot-MCP server).
  *
- * URL priority:
- *   1. --url flag (explicit override)
- *   2. GODOT_MCP_HOST env (Custom-mode host)
- *   3. GODOT_MCP_CLOUD_URL env / Cloud mode → cloud base (https://ai-game.dev)
- *   4. default custom host (http://localhost:8080)
+ * URL priority — see {@link resolveTargetUrl}. A cloud target carries the `/mcp`
+ * hub segment so `<base>/api/tools/<name>` reaches the hub (not the 404'ing
+ * backend); a local target is the addon's v2 derived port (or the enrolled
+ * marker's recorded localhost target).
  *
  * Token priority:
  *   1. --token flag (explicit override)
  *   2. GODOT_MCP_TOKEN env
- *   3. persisted cloud token (Cloud mode only) — the project-local
- *      `.godot-mcp/credentials.json` (a `--project` login) first, then the shared machine
- *      store `~/.ai-game-dev/credentials.json` (a default `godot-cli login`), so a
- *      sign-once-per-machine credential is picked up here too.
+ *   3. persisted cloud token (cloud targets only — env Cloud mode OR an enrolled
+ *      hosted marker) — the project-local `.godot-mcp/credentials.json` (a `--project`
+ *      login) first, then the shared machine store `~/.ai-game-dev/credentials.json`
+ *      (a default `godot-cli login`), so a sign-once-per-machine credential is picked
+ *      up here too. An enrolled cloud project therefore authenticates with zero env config.
  */
 export function resolveConnection(
   projectPath: string,
   options: ConnectionOptions,
 ): { url: string; token: string | undefined } {
-  let url: string;
-  if (options.url) {
-    url = options.url.replace(/\/$/, '');
-    verbose(`Using explicit --url: ${url}`);
-  } else {
-    const envHost = normalizeEnv(process.env[ENV_HOST]);
-    const envCloud = normalizeEnv(process.env[ENV_CLOUD_URL]);
-    if (envHost) {
-      url = envHost.replace(/\/$/, '');
-      verbose(`Using ${ENV_HOST}: ${url}`);
-    } else if (envCloud) {
-      url = envCloud.replace(new RegExp(`${MCP_HUB_PATH}$`), '').replace(/\/$/, '');
-      verbose(`Using ${ENV_CLOUD_URL} base: ${url}`);
-    } else if (isCloudMode()) {
-      url = DEFAULT_CLOUD_BASE_URL;
-      verbose(`Using default cloud base URL: ${url}`);
-    } else {
-      url = DEFAULT_CUSTOM_HOST;
-      verbose(`Using default custom host: ${url}`);
-    }
-  }
+  const { url, isCloud } = resolveTargetUrl(projectPath, options);
 
   let token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
   if (options.token) {
     verbose('Using explicit --token');
   } else if (token) {
     verbose(`Using ${ENV_TOKEN}`);
-  } else if (isCloudMode()) {
+  } else if (isCloud) {
     const persisted = readCloudToken(projectPath) ?? readMachineAccessToken();
     if (persisted) {
       token = persisted;
