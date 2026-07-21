@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -7,7 +7,6 @@ import {
   resolveOpenAuthToken,
   CLOUD_MCP_URL,
   DEFAULT_CLOUD_BASE_URL,
-  DEFAULT_CUSTOM_HOST,
   ENV_HOST,
   ENV_CLOUD_URL,
   ENV_TOKEN,
@@ -15,6 +14,9 @@ import {
 } from '../src/utils/connection.js';
 import { writeCredentials } from '../src/utils/credentials.js';
 import { writeMachineCredentials, MACHINE_STORE_DIR_ENV } from '../src/utils/machine-credentials.js';
+import { derivePortV2 } from '../src/utils/project-identity.js';
+import { writeProjectMarker } from '../src/utils/project-marker.js';
+import { runTool } from '../src/lib/run-tool.js';
 
 describe('resolveConnection', () => {
   const saved: Record<string, string | undefined> = {};
@@ -46,21 +48,26 @@ describe('resolveConnection', () => {
     expect(url).toBe('http://localhost:5544');
   });
 
-  it('strips a trailing /mcp from GODOT_MCP_CLOUD_URL to get the base', () => {
+  it('normalizes GODOT_MCP_CLOUD_URL to its /mcp hub URL (keeps an existing /mcp, appends when absent)', () => {
+    // Fix A: the cloud target MUST retain /mcp so <base>/api/tools/<name> reaches
+    // the hub, not the 404'ing backend. (Old behavior stripped /mcp — the defect.)
     process.env[ENV_CLOUD_URL] = 'https://example.test/mcp';
-    const { url } = resolveConnection('/proj', {});
-    expect(url).toBe('https://example.test');
+    expect(resolveConnection('/proj', {}).url).toBe('https://example.test/mcp');
+    process.env[ENV_CLOUD_URL] = 'https://example.test';
+    expect(resolveConnection('/proj', {}).url).toBe('https://example.test/mcp');
   });
 
-  it('falls back to the cloud base when mode is Cloud', () => {
+  it('falls back to the cloud /mcp hub URL when mode is Cloud (fix A)', () => {
     process.env[ENV_CONNECTION_MODE] = 'Cloud';
     const { url } = resolveConnection('/proj', {});
-    expect(url).toBe(DEFAULT_CLOUD_BASE_URL);
+    expect(url).toBe(CLOUD_MCP_URL);
+    expect(url).toBe(`${DEFAULT_CLOUD_BASE_URL}/mcp`);
   });
 
-  it('falls back to the default custom host otherwise', () => {
+  it('falls back to the v2 derived local port otherwise — no :8080 (fix B)', () => {
     const { url } = resolveConnection('/proj', {});
-    expect(url).toBe(DEFAULT_CUSTOM_HOST);
+    expect(url).toBe(`http://localhost:${derivePortV2('/proj')}`);
+    expect(url).not.toContain('8080');
   });
 
   it('resolves the token from --token, then GODOT_MCP_TOKEN', () => {
@@ -72,6 +79,110 @@ describe('resolveConnection', () => {
 
   it('exposes the cloud MCP-client URL constant as <base>/mcp', () => {
     expect(CLOUD_MCP_URL).toBe(`${DEFAULT_CLOUD_BASE_URL}/mcp`);
+  });
+});
+
+describe('resolveConnection — fix A: cloud run-tool targets the /mcp hub', () => {
+  const saved: Record<string, string | undefined> = {};
+  const ENV_KEYS = [ENV_HOST, ENV_CLOUD_URL, ENV_TOKEN, ENV_CONNECTION_MODE];
+
+  beforeEach(() => {
+    for (const k of ENV_KEYS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  it('composes https://ai-game.dev/mcp/api/tools/<name> in Cloud mode', () => {
+    process.env[ENV_CONNECTION_MODE] = 'Cloud';
+    const { url } = resolveConnection('/proj', {});
+    expect(`${url}/api/tools/ping`).toBe('https://ai-game.dev/mcp/api/tools/ping');
+  });
+
+  it('runTool actually POSTs to https://ai-game.dev/mcp/api/tools/<name> (end-to-end)', async () => {
+    process.env[ENV_CONNECTION_MODE] = 'Cloud';
+    const { url, token } = resolveConnection('/proj', {});
+    const fetchImpl = vi.fn(
+      async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    await runTool({
+      toolName: 'ping',
+      url,
+      ...(token ? { token } : {}),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const [endpoint] = fetchImpl.mock.calls[0] as [string];
+    expect(endpoint).toBe('https://ai-game.dev/mcp/api/tools/ping');
+  });
+});
+
+describe('resolveConnection — fix B: enrolled marker + v2 derived-port fallback', () => {
+  const saved: Record<string, string | undefined> = {};
+  const ENV_KEYS = [ENV_HOST, ENV_CLOUD_URL, ENV_TOKEN, ENV_CONNECTION_MODE, MACHINE_STORE_DIR_ENV];
+  let projectDir: string;
+  let storeDir: string;
+
+  beforeEach(() => {
+    for (const k of ENV_KEYS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-marker-proj-'));
+    storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-marker-store-'));
+    process.env[MACHINE_STORE_DIR_ENV] = storeDir;
+  });
+
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+    fs.rmSync(projectDir, { recursive: true, force: true });
+    fs.rmSync(storeDir, { recursive: true, force: true });
+  });
+
+  it('uses the v2 derived local port when there is no marker and no env (no :8080)', () => {
+    const { url } = resolveConnection(projectDir, {});
+    expect(url).toBe(`http://localhost:${derivePortV2(projectDir)}`);
+    expect(url).not.toContain('8080');
+  });
+
+  it('respects an enrolled localhost marker target verbatim', () => {
+    writeProjectMarker(projectDir, { serverTarget: 'http://localhost:23456', pin: 'abcdef01', port: 23456 });
+    const { url, token } = resolveConnection(projectDir, {});
+    expect(url).toBe('http://localhost:23456');
+    // A localhost target is not the cloud hub → no persisted-token injection.
+    expect(token).toBeUndefined();
+  });
+
+  it('honors an explicit marker portOverride in the derived-port fallback', () => {
+    writeProjectMarker(projectDir, { portOverride: 25555 });
+    const { url } = resolveConnection(projectDir, {});
+    expect(url).toBe('http://localhost:25555');
+  });
+
+  it('reaches the cloud /mcp hub with a persisted token and ZERO env in an enrolled cloud project (DoD)', () => {
+    // Enrolled hosted project: the marker records the hosted serverTarget and the
+    // credential lives in the shared machine store — no env var is set anywhere.
+    writeProjectMarker(projectDir, { serverTarget: DEFAULT_CLOUD_BASE_URL, pin: 'abcdef01' });
+    writeMachineCredentials({ accessToken: 'enrolled-tok', serverTarget: DEFAULT_CLOUD_BASE_URL }, storeDir);
+    const { url, token } = resolveConnection(projectDir, {});
+    expect(url).toBe(CLOUD_MCP_URL); // https://ai-game.dev/mcp
+    expect(token).toBe('enrolled-tok'); // zero-env cloud auth via the enrolled credential
+    expect(`${url}/api/tools/ping`).toBe('https://ai-game.dev/mcp/api/tools/ping');
+  });
+
+  it('lets explicit env (GODOT_MCP_HOST) override the enrolled marker', () => {
+    writeProjectMarker(projectDir, { serverTarget: DEFAULT_CLOUD_BASE_URL, pin: 'abcdef01' });
+    process.env[ENV_HOST] = 'http://localhost:9999';
+    expect(resolveConnection(projectDir, {}).url).toBe('http://localhost:9999');
   });
 });
 
