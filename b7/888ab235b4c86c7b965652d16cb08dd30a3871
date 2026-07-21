@@ -1,0 +1,29 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_87b4efbdec330a::t_dcf3445e289487 70
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_87b4efbdec330a::t_d9ac2bd067a49d 283
+addons/godot_mcp/plugin.cfg
+  s_87b4efbdec330a::t_e4fbeb0b70bf85 6
+cli/package-lock.json
+  s_87b4efbdec330a::t_097924c7541d1c 3,9
+cli/package.json
+  s_87b4efbdec330a::t_0e87b3962a4c92 3
+docs/assetlib/SUBMISSION.md
+  s_87b4efbdec330a::t_5f0fea7d922f50 28,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b7888ab235b4c86c7b965652d16cb08dd30a3871",
+  "prompts": {},
+  "sessions": {
+    "s_87b4efbdec330a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eeed8793-c14c-418d-a192-95b7d2e16ed7",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
