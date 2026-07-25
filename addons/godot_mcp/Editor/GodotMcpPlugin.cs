@@ -263,6 +263,12 @@ namespace com.IvanMurzak.Godot.MCP
                 // GodotMcpConnection.ResolveConfig. Start() re-calls it idempotently (guarded), so this is the
                 // single source of the first-load config; a resolve failure must not block dock/boot.
                 _connection.ResolveConfig();
+
+                // Publish the editor-side host the `godot-skill-*` SYSTEM tools delegate to. Set BEFORE the
+                // dock is registered (the Skills card's Generate button routes through the same host) and
+                // cleared in Teardown, so a stale host can never pin the collectible ALC across a C#
+                // hot-reload — the same discipline GodotLogCollector.Current follows.
+                SkillsToolHost.Current = new GodotSkillsToolHost(_connection);
             }
             catch (System.Exception ex)
             {
@@ -418,6 +424,14 @@ namespace com.IvanMurzak.Godot.MCP
                 }
             }
             catch (System.Exception ex) { TryLogTeardownError("dev-control dispose", ex); }
+
+            // 1b) Drop the ambient skills host. It holds a reference to the connection AND is a type defined
+            //     in the COLLECTIBLE addon assembly, so leaving it in a static would root the ALC exactly the
+            //     way the engine-logger handle does (godotengine/godot#78513). Cleared BEFORE the connection
+            //     is disposed so a late tool call sees the actionable "not booted" error rather than a
+            //     half-disposed connection. Pure-managed, so it runs on every teardown path.
+            try { SkillsToolHost.Current = null; }
+            catch (System.Exception ex) { TryLogTeardownError("skills-host clear", ex); }
 
             // 2) Reload-safe disconnect that DRAINS (joins) the connection's background threads — THE key fix.
             //    A bare DisconnectImmediate() only cancels + fire-and-forgets HubConnection.DisposeAsync(), so

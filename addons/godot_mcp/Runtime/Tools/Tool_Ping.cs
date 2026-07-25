@@ -23,6 +23,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// OUTSIDE <c>#if TOOLS</c> — it is discovered by the McpPlugin assembly scanner and returns a
     /// pure-managed value, needing no main-thread marshalling.
     /// </para>
+    ///
+    /// <para>
+    /// SYSTEM tool (<see cref="McpToolType.System"/>), matching the Unity-MCP reference. The owner ruling
+    /// of 2026-07-25 is that liveness/skill tooling must be reachable on the SAME surface across all three
+    /// engines: <c>McpPluginBuilder</c> partitions tools by <c>ToolType</c> into two DISJOINT registries —
+    /// Standard tools go to the MCP tool manager (and are advertised to AI agents), System tools go to the
+    /// system-tool manager and are reachable only over the HTTP <c>/api/system-tools/</c> surface. Leaving
+    /// <c>ToolType</c> unset here defaulted <c>ping</c> to Standard, so a client probing the system surface
+    /// got "tool not found" while the engine happily listed it on the other one.
+    /// </para>
     /// </summary>
     [AiToolType]
     public partial class Tool_Ping
@@ -35,7 +45,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             Title = "Ping",
             ReadOnlyHint = true,
             IdempotentHint = true,
-            OpenWorldHint = false
+            OpenWorldHint = false,
+            ToolType = McpToolType.System
         )]
         [Description("Lightweight readiness probe for the Godot-MCP connection. Returns the input " +
             "'message' echoed back, or 'pong' when omitted. Useful for verifying SignalR connectivity " +

@@ -32,7 +32,7 @@ export interface SkillFamily {
 }
 
 /**
- * The Godot-MCP tool-family catalog. Mirrors the 11 families documented in
+ * The Godot-MCP tool-family catalog. Mirrors the 12 families documented in
  * `Godot-MCP/CLAUDE.md` § Tool families and the `[AiToolType]` classes under
  * `addons/godot_mcp/Runtime/Tools/` and `addons/godot_mcp/Editor/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
  * an MCP client invokes.
@@ -170,6 +170,24 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
       { name: 'ping', description: 'Return `pong` (or the echoed message) to confirm connectivity.' },
     ],
   },
+  {
+    id: 'skills',
+    title: 'Skills',
+    summary:
+      'Author new MCP tools for the project and regenerate the SKILL.md files from the tools the editor currently has registered.',
+    tools: [
+      {
+        name: 'godot-skill-create',
+        description:
+          'Write a new C# (`.cs`) MCP tool file into the project under `res://`. The tool becomes callable after the project is rebuilt (Godot builds C# out-of-band). The file must declare an `[AiToolType]` partial class whose methods carry `[AiTool]`, and every Godot API call must be marshalled onto the editor main thread.',
+      },
+      {
+        name: 'godot-skill-generate',
+        description:
+          'Regenerate every `SKILL.md` from the tools currently registered in the editor, into the selected AI agent\'s skills folder (or a project-relative `path` override).',
+      },
+    ],
+  },
 ] as const;
 
 /** A single skill file the generator will write (path is relative to the skills dir). */
@@ -301,6 +319,127 @@ export function catalogToolFamilyClassSuffixes(): string[] {
 }
 
 /**
+ * Blank out the non-code spans of a C# source — always `//` line comments and `/* *\/` block comments,
+ * and (when `blankStrings`) char + string literals too (regular `"…"` with `\` escapes, verbatim `@"…"`
+ * with doubled `""`) — replacing each with a space while preserving newlines so nothing shifts lines.
+ *
+ * WHY THIS EXISTS: the discovery scans below are TEXT scans over the addon sources, and the addon
+ * legitimately embeds C# SAMPLES inside comments and string literals — `Tool_Skills.Create.SkillBody.cs`
+ * carries a full `[AiToolType] partial class Tool_Sample { … }` example in its `[AiSkillBody]` markdown so
+ * the `godot-skill-create` skill can teach an agent the shape. Scanning the raw text discovers
+ * `Tool_Sample` as a real addon family and fails parity against a phantom. Blanking non-code first leaves
+ * exactly the real declarations — the same technique (and the same rationale) as the addon's
+ * `scripts/check-runtime-boundary.py`, which blanks comments + strings before hunting editor-API tokens.
+ *
+ * The two scans need DIFFERENT strengths, hence the flag: the family scan matches a declaration
+ * (`partial class Tool_X`) so it blanks strings too, while the tool-ID scan matches the QUOTED id in
+ * `public const string XToolId = "x"` and would find nothing if strings were blanked. Keeping strings for
+ * the id scan is safe: inside an embedded sample the quotes are necessarily escaped (`\"`) or doubled
+ * (`""`), neither of which satisfies the `= "<id>"` shape.
+ *
+ * Deliberately a small single-purpose scanner, not a C# lexer: it covers the constructs this addon uses
+ * (line/block comments, regular/verbatim/interpolated strings, escaped quotes, doubled `""`, char
+ * literals). Raw string literals (`"""…"""`, C# 11) are not used in this addon and are not handled.
+ */
+export function stripNonCode(source: string, blankStrings: boolean): string {
+  const out: string[] = [];
+  let inLine = false;
+  let inBlock = false;
+  let inString = false; // regular "..."
+  let inVerbatim = false; // @"..." (doubled "" is an escaped quote)
+  let inChar = false; // '...'
+
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    const next = i + 1 < source.length ? source[i + 1] : '';
+
+    if (inLine) {
+      out.push(c === '\n' ? '\n' : ' ');
+      if (c === '\n') inLine = false;
+      continue;
+    }
+    if (inBlock) {
+      if (c === '*' && next === '/') {
+        out.push('  ');
+        i++;
+        inBlock = false;
+        continue;
+      }
+      out.push(c === '\n' ? '\n' : ' ');
+      continue;
+    }
+    if (inVerbatim) {
+      if (c === '"' && next === '"') {
+        out.push('  ');
+        i++;
+        continue;
+      }
+      out.push(c === '\n' ? '\n' : ' ');
+      if (c === '"') inVerbatim = false;
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') {
+        out.push('  ');
+        i++; // consume the escaped char (covers \" and \\)
+        continue;
+      }
+      out.push(c === '\n' ? '\n' : ' ');
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (inChar) {
+      if (c === '\\') {
+        out.push('  ');
+        i++;
+        continue;
+      }
+      out.push(' ');
+      if (c === "'") inChar = false;
+      continue;
+    }
+
+    // --- real code ---
+    if (c === '/' && next === '/') {
+      out.push('  ');
+      i++;
+      inLine = true;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      out.push('  ');
+      i++;
+      inBlock = true;
+      continue;
+    }
+    if (blankStrings && c === '@' && next === '"') {
+      out.push('  ');
+      i++;
+      inVerbatim = true;
+      continue;
+    }
+    if (blankStrings && c === '"') {
+      out.push(' ');
+      inString = true;
+      continue;
+    }
+    if (blankStrings && c === "'") {
+      out.push(' ');
+      inChar = true;
+      continue;
+    }
+    out.push(c);
+  }
+
+  return out.join('');
+}
+
+/** Read an addon `.cs` file with its non-code spans blanked (see {@link stripNonCode}). */
+function readAddonCode(file: string, blankStrings: boolean): string {
+  return stripNonCode(fs.readFileSync(file, 'utf-8'), blankStrings);
+}
+
+/**
  * Resolve the addon's `Tools/` source directories relative to a repo root. The
  * cross-check passes the Godot-MCP repo root (the directory that contains both
  * `cli/` and `addons/`); each tool-family base file lives under one of these two
@@ -353,7 +492,7 @@ export function discoverAddonToolFamilies(repoRoot: string): string[] {
     if (!fs.existsSync(dir)) continue;
     for (const entry of fs.readdirSync(dir)) {
       if (!entry.endsWith('.cs')) continue;
-      const src = fs.readFileSync(path.join(dir, entry), 'utf-8');
+      const src = readAddonCode(path.join(dir, entry), /* blankStrings */ true);
       let m: RegExpExecArray | null;
       familyRe.lastIndex = 0;
       while ((m = familyRe.exec(src)) !== null) {
@@ -402,7 +541,7 @@ export function discoverAddonToolIds(repoRoot: string): string[] {
     if (!fs.existsSync(dir)) continue;
     for (const entry of fs.readdirSync(dir)) {
       if (!entry.endsWith('.cs')) continue;
-      const src = fs.readFileSync(path.join(dir, entry), 'utf-8');
+      const src = readAddonCode(path.join(dir, entry), /* blankStrings */ false);
       let m: RegExpExecArray | null;
       toolIdRe.lastIndex = 0;
       while ((m = toolIdRe.exec(src)) !== null) {

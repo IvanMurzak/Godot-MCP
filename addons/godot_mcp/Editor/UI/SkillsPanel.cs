@@ -235,8 +235,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            var plugin = _connection.Plugin;
-            if (plugin == null)
+            if (_connection.Plugin == null)
             {
                 SetStatus("Cannot generate: the MCP plugin is not initialized yet.", error: true);
                 return;
@@ -254,21 +253,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     }
                 }
 
-                var config = _connection.Config;
-                var originalSkillsPath = config.SkillsPath;
-                var originalProjectRoot = config.ProjectRootPath;
-                bool ok;
-                try
-                {
-                    config.SkillsPath = skillsDir;
-                    config.ProjectRootPath = projectRoot;
-                    ok = plugin.GenerateSkillFiles(skillsDir);
-                }
-                finally
-                {
-                    config.SkillsPath = originalSkillsPath;
-                    config.ProjectRootPath = originalProjectRoot;
-                }
+                // The swap-and-restore itself lives in ONE place — GodotSkillsToolHost — shared with the
+                // `godot-skill-generate` system tool, so the dock button and the tool can never drift.
+                var ok = Tools.GodotSkillsToolHost.GenerateWithSwapRestore(_connection, skillsDir, projectRoot);
 
                 if (ok)
                     SetStatus($"Generated skills in {skillsDir}.", error: false);

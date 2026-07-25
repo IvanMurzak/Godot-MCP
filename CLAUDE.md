@@ -24,7 +24,7 @@ the `WaitForImmediateTeardown` API + opt-in bounded-reconnect this addon uses fo
 
 Tools live in `addons/godot_mcp/Runtime/Tools/` (pure-managed families) and `addons/godot_mcp/Editor/Tools/` (editor-only families) — one `[AiToolType]` `partial class Tool_<Family>` per family,
 with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
-names mirror Unity-MCP where sensible. 39 built-in tools across 11 families — the 11 families:
+names mirror Unity-MCP where sensible. 41 built-in tools across 12 families — the 12 families:
 
 | Family (class) | Tools | `#if TOOLS`? |
 | --- | --- | --- |
@@ -39,6 +39,7 @@ names mirror Unity-MCP where sensible. 39 built-in tools across 11 families — 
 | `Tool_Console` | `console-get-logs`/`-clear-logs` | no (pure-managed collector) |
 | `Tool_Reflection` | `reflection-method-find`/`-call` | no (engine-agnostic ReflectorNet) |
 | `Tool_RuntimeErrors` | `runtime-errors-get`/`-clear` | no (pure-managed; in-game, OFF by default — see `WithRuntimeErrorCapture()`) |
+| `Tool_Skills` | `godot-skill-create`/`godot-skill-generate` | no (declarations); execution behind `ISkillsToolHost` (`#if TOOLS`) |
 
 Editor-driving families live behind `#if TOOLS` (they touch `EditorInterface`/live `Node`/`Resource`);
 their pure-managed result models + helpers live OUTSIDE the guard so they are CI-unit-testable. The
