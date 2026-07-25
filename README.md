@@ -43,7 +43,7 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **41 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 12 families for operating the Godot Editor
+- ✔️ **42 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 12 families for operating the Godot Editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
 - ✔️ **Scene & Node control** — Build and edit the scene tree, open/save `.tscn` scenes, mutate `.tres`/`.res` resources
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
@@ -128,7 +128,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **41 built-in tools** grouped into **12 families**. Tool names mirror Unity-MCP where
+Godot-MCP ships **42 built-in tools** grouped into **12 families**. Tool names mirror Unity-MCP where
 sensible (`scene-*`, `node-*`, …). Every tool returns a structured, [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)-serialized
 result (or a PNG image for screenshots). All editor tools are available immediately after the addon is
 enabled — no extra configuration required. The **runtime-errors** family is the exception: it surfaces
@@ -138,7 +138,7 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 | Family | Tools | What it does |
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
-| **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. |
+| **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-reorder`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. Child order — which is layout order in a `VBoxContainer`/`HBoxContainer` — is settable both on creation (`node-create`'s `index`) and afterwards (`node-reorder`). |
 | **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
 | **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
 | **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
@@ -158,9 +158,12 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 **node**
 
 - `node-find` — Find nodes in the active scene tree by path, type, or name.
-- `node-create` — Create a new node under a parent (optionally instancing a `.tscn` sub-scene).
+- `node-create` — Create a new node under a parent (optionally instancing a `.tscn` sub-scene), optionally
+  at a specific sibling `index` (negative counts from the end).
 - `node-modify` — Set fields/properties on one or more nodes.
 - `node-set-parent` — Reparent nodes within the scene tree.
+- `node-reorder` — Move an existing node to a different position among its siblings (`Node.MoveChild`) —
+  the only way to rearrange an existing scene short of delete-and-recreate.
 - `node-duplicate` — Duplicate nodes together with their subtrees.
 - `node-delete` — Delete nodes from the active scene.
 

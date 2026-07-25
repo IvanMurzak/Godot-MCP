@@ -219,14 +219,14 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
     expect(addonIds).toContain('script-validate');
   });
 
-  it('discovers exactly 41 addon tool ids', () => {
+  it('discovers exactly 42 addon tool ids', () => {
     // Anchors the ground-truth count so an addon tool added/removed without a
     // catalog update is caught here too (not only by the set-equality assert).
-    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(41);
+    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(42);
   });
 
-  it('the CLI catalog advertises exactly 41 tools', () => {
-    expect(catalogToolIds()).toHaveLength(41);
+  it('the CLI catalog advertises exactly 42 tools', () => {
+    expect(catalogToolIds()).toHaveLength(42);
   });
 
   it('catalog tool ids exactly match the addon `*ToolId` constants (no per-tool drift)', () => {
@@ -281,7 +281,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   }
 
   it('expected counts derive non-vacuously from the addon source', () => {
-    expect(expectedToolCount).toBe(41);
+    expect(expectedToolCount).toBe(42);
     expect(expectedFamilyCount).toBe(12);
   });
 

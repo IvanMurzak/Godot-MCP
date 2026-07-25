@@ -57,7 +57,7 @@ Tools and connects them to an MCP server through the hosted cloud backend at ai-
 self-hosted server. The MCP / reflection stack is shared with Unity-MCP and consumed from nuget.org as
 NuGet package references (not forked).
 
-41 built-in tools across 12 families: ping, node, scene, resource, filesystem, script, screenshot,
+42 built-in tools across 12 families: ping, node, scene, resource, filesystem, script, screenshot,
 editor, console, reflection, runtime-errors, and skills. Tool names mirror Unity-MCP where sensible (scene-*, node-*, ...).
 
 Requirements:

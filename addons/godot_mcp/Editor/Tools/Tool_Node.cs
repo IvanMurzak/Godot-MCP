@@ -121,6 +121,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 Path = node.GetPath().ToString(),
                 Type = node.GetClass(),
                 ScriptResourcePath = GetAttachedScriptPath(node),
+                // GetIndex() throws for a parentless node, so a root reports 0 — it has no siblings to
+                // order it against. Exposing the index makes node-create's 'index' and node-reorder
+                // self-verifying: the caller sees where the node actually landed (issue #294).
+                Index = node.GetParent() == null ? 0 : node.GetIndex(includeInternal: false),
                 ChildCount = node.GetChildCount(includeInternal: false),
             };
 

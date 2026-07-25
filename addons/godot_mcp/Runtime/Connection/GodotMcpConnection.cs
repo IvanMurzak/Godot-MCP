@@ -400,6 +400,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // native resolver installed here (a runtime entry point can inject its own resolver later — T2).
 #if TOOLS
             Tools.Tool_Resource.InstallReflectionResolver();
+            // Same deal for the scene-tree resolution behind the Node reflection converter, which is what
+            // lets an instance-method reflection call name its target as {"instanceId": N} (issue #292).
+            Tools.Tool_Node.InstallReflectionResolver();
 #endif
 
             // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)

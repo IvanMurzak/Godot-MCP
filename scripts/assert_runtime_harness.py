@@ -20,7 +20,10 @@ Usage:
 
 Per-version contract (the issue's acceptance criteria):
   * ALWAYS: capture installed + available; the C# unobserved-Task exception captured WITH a
-    stack trace; (when --require-connect=1) the live SignalR transport connected.
+    stack trace; (when --require-connect=1) the live SignalR transport connected; and the
+    Godot.Variant / Node-ref converter round-trip (issue #292) — every documented wire shape
+    materializes, an unreadable payload raises instead of degrading to a silent Nil, and the
+    issue's own ProjectSettings.SetSetting repro reads its value back.
   * --engine-logger-expected 1 (Godot 4.5+): the engine GDScript runtime error captured WITH
     a multi-frame backtrace (>= 2 frames, issue #163) + push_error + push_warning.
   * --engine-logger-expected 0 (Godot 4.3 / 4.4): the engine channel is ABSENT (graceful stub
@@ -35,6 +38,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+
+#: Minimum number of Godot.Variant wire shapes the harness must exercise (issue #292). Keep in
+#: lockstep with RuntimeHarness.VariantRoundTripMinimumChecks.
+VARIANT_MIN_CHECKS = 11
 
 
 def _b(value) -> bool:
@@ -79,6 +87,23 @@ def main() -> int:
     check(_b(data.get("captureAvailable")), "RuntimeErrorCollector.Current was not available")
     check(_b(data.get("hasCSharpException")), "the C# (unobserved-Task) exception was not captured")
     check(_b(data.get("cSharpExceptionHasStackTrace")), "the captured C# exception had no stack trace")
+
+    # --- Godot.Variant / Node-ref converters (issue #292) ------------------------------------
+    # These run against a REAL Godot, which is the only place they CAN run: materializing a non-Nil
+    # Variant calls godotsharp_* P/Invoke and faults the plain xUnit host, so the unit suite covers
+    # only the pure parser and the failure paths.
+    variant_failures = data.get("variantRoundTripFailures") or []
+    check(not variant_failures,
+          f"Godot.Variant round-trip failures: {variant_failures}")
+    checked = data.get("variantRoundTripChecked", 0)
+    check(isinstance(checked, int) and checked >= VARIANT_MIN_CHECKS,
+          f"Godot.Variant round-trip exercised only {checked} shape(s), expected >= {VARIANT_MIN_CHECKS} "
+          "— the assertion must not go vacuous")
+    check(_b(data.get("variantRoundTripRejectsGarbage")),
+          "an unreadable Godot.Variant payload did NOT raise — that is the issue-#292 silent-Nil regression")
+    check(_b(data.get("variantProjectSettingRoundTrip")),
+          "ProjectSettings.SetSetting through a wire Godot.Variant did not read back the value "
+          "(the verbatim issue-#292 repro)")
 
     if require_connect:
         check(_b(data.get("connected")), "the live SignalR transport did not reach Connected")

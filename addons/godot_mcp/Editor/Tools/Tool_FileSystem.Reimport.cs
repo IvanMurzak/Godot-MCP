@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -29,13 +30,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             Title = "FileSystem / Reimport",
             IdempotentHint = true
         )]
-        [Description("Re-scan the Godot project's res:// filesystem and/or reimport specific files, then " +
+        [Description("Re-scan the Godot project's res:// filesystem and/or refresh specific files, then " +
             "wait for the import to settle before returning. The Godot analog of Unity's AssetDatabase.Refresh. " +
             "Two modes:\n" +
-            "  - Pass 'files' (a list of res:// paths) to reimport exactly those files via " +
-            "EditorFileSystem.ReimportFiles — use this after editing a source asset's bytes outside the editor.\n" +
+            "  - Pass 'files' (a list of res:// paths) to refresh exactly those files — use this after editing " +
+            "a file's bytes outside the editor.\n" +
             "  - Omit 'files' (or pass an empty list) to trigger a full EditorFileSystem.Scan — use this after " +
             "adding/removing files on disk so Godot picks up the change.\n" +
+            "Imported assets (textures, meshes, audio, fonts — anything with a '.import' sidecar) go through " +
+            "EditorFileSystem.ReimportFiles. Godot's NATIVE formats (.tscn/.tres/.gd/.cs/.gdshader) have no " +
+            "importer and are refreshed with EditorFileSystem.UpdateFile instead — queueing them for import " +
+            "would make the editor log \"importer for type '' not found\" while this tool reported success. " +
+            "The returned status names both groups.\n" +
             "The call blocks until scanning completes (bounded), so a subsequent resource-find/get-data sees " +
             "the settled state. Returns a short status string.")]
         public string Reimport
@@ -72,12 +78,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         normalized.Add(p);
                     }
 
-                    efs.ReimportFiles(normalized.ToArray());
-                    action = $"Reimported {normalized.Count} file(s)";
+                    // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import: it has no importer, so the
+                    // editor logs "importer for type '' not found" while ReimportFiles reports nothing and
+                    // this tool used to answer "success" (issue #310). Split on the '.import' sidecar and
+                    // refresh the native ones through UpdateFile instead, which is the operation the caller
+                    // actually wants for a file whose bytes changed on disk.
+                    var plan = ReimportClassifier.Plan(normalized, FileAccess.FileExists);
 
-                    // ReimportFiles is synchronous; only a tail scan (if any) may still be in flight. Do NOT
-                    // prime here — a prime that never observes a scan would falsely report "never started".
-                    // Just drain whatever scan is currently running (bounded).
+                    if (plan.Importable.Count > 0)
+                        efs.ReimportFiles(plan.Importable.ToArray());
+
+                    foreach (var nativePath in plan.Native)
+                        efs.UpdateFile(nativePath);
+
+                    action = plan.Describe();
+
+                    // ReimportFiles/UpdateFile are synchronous; only a tail scan (if any) may still be in
+                    // flight. Do NOT prime here — a prime that never observes a scan would falsely report
+                    // "never started". Just drain whatever scan is currently running (bounded).
                     var tailWaits = 0;
                     while (efs.IsScanning() && tailWaits < maxWaits)
                     {

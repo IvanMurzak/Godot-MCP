@@ -18,6 +18,7 @@ using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -36,12 +37,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'reflection-method-find'. Supports static methods, instance methods (with optional target " +
             "deserialization), and main-thread / off-thread execution.\n" +
             "Inputs:\n" +
-            "  - 'targetObject' (optional) — for instance methods; { type, value } where value is " +
-            "deserialized to type. Null for static methods (or to construct a fresh instance).\n" +
-            "  - 'inputParameters' (optional) — list of { type, name, value }; names/types are enhanced " +
+            "  - 'targetObject' (optional) — for instance methods; { typeName, value } where value is " +
+            "deserialized to typeName. Null for static methods (or to construct a fresh instance). A Node " +
+            "target is written as { \"typeName\": \"Godot.Control\", \"value\": { \"instanceId\": 123 } } " +
+            "(or { \"path\": \"/root/Main/Player\" }); a Resource target as { \"resourcePath\": \"res://x.tres\" }.\n" +
+            "  - 'inputParameters' (optional) — list of { typeName, name, value }; names/types are enhanced " +
             "against the resolved signature when omitted.\n" +
             "  - 'executeInMainThread' (default true) — keep true for Godot-API-touching methods; set false " +
-            "only for thread-safe pure logic.")]
+            "only for thread-safe pure logic.\n" +
+            "Godot.Variant parameters: " + GodotVariantPayload.WireFormatHelp + "\n" +
+            "An argument whose value cannot be read is an ERROR — the method is never invoked with a " +
+            "silently defaulted argument.")]
         public SerializedMember MethodCall
         (
             [Description("Method filter: Namespace / TypeName / MethodName / InputParameters identifying the method.")]
@@ -111,10 +117,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var reflector = GodotMcpReflector.GetOrCreate();
                 var logger = NullLogger.Instance;
 
+                // Each argument gets its own diagnostics sink: ReflectorNet reports an unreadable payload
+                // ONLY through these logs (it still returns the type's default), so without this the call
+                // would proceed with a bogus argument and report success — issue #292.
                 var dictInputParameters = inputParameters?.ToDictionary(
                     keySelector: p => p.name ?? throw new InvalidOperationException(
                         "Input parameter name is null. Please specify 'name' for each input parameter."),
-                    elementSelector: p => reflector.Deserialize(p, logger: logger));
+                    elementSelector: p => DeserializeArgument(reflector, p, p.name!, logger));
 
                 MethodWrapper methodWrapper;
 
@@ -125,7 +134,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
                 else
                 {
-                    var obj = reflector.Deserialize(targetObject!, logger: logger);
+                    var obj = DeserializeArgument(reflector, targetObject!, nameof(targetObject), logger);
                     if (obj == null)
                         throw new Exception($"'{nameof(targetObject)}' deserialized instance is null. " +
                             $"Please specify '{nameof(targetObject)}' properly.");
@@ -154,6 +163,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return MainThread.Instance.Run(action);
 
             return action();
+        }
+
+        /// <summary>
+        /// Deserialize one reflection argument and REFUSE the call when ReflectorNet reported that it could
+        /// not read the payload. See <see cref="ReflectionArgumentGuard"/> for why the diagnostics sink is
+        /// the only available failure signal.
+        /// </summary>
+        static object? DeserializeArgument(Reflector reflector, SerializedMember member, string argumentName, ILogger logger)
+        {
+            var logs = new Logs();
+            var value = reflector.Deserialize(member, logs: logs, logger: logger);
+            ReflectionArgumentGuard.RequireNoErrors(logs, argumentName, member.typeName);
+            return value;
         }
     }
 }
