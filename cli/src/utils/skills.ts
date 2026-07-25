@@ -455,12 +455,50 @@ export function addonToolDirs(repoRoot: string): string[] {
 }
 
 /**
+ * Every addon `.cs` file under {@link addonToolDirs}, **recursively**.
+ *
+ * The scan used to be a flat `readdirSync` over the two `Tools/` folders, which made
+ * any tool family placed in a SUBFOLDER (the Unity-MCP `API/SystemTool/` layout, and
+ * the natural thing to reach for as the family list grows) invisible to both parity
+ * checks below. That did not fail the gate — it made it pass VACUOUSLY at the stale
+ * counts, which is strictly worse than no gate at all. Discovery is therefore
+ * recursive, and nesting is a free organisational choice again.
+ *
+ * Implemented as an explicit walk rather than `readdirSync(dir, { recursive: true })`
+ * so the behaviour is identical on every Node version this package supports
+ * (`^20.19.0 || >=22.12.0`) — the `withFileTypes` + `recursive` combination reports
+ * the parent directory through differently-named properties across those releases.
+ * Returns absolute paths sorted for deterministic ordering.
+ */
+export function addonToolFiles(repoRoot: string): string[] {
+  const files: string[] = [];
+
+  const walk = (dir: string): void => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('.cs')) files.push(full);
+    }
+  };
+
+  for (const dir of addonToolDirs(repoRoot)) {
+    if (!fs.existsSync(dir)) continue;
+    walk(dir);
+  }
+
+  return files.sort();
+}
+
+/**
  * Addon side of the parity check: discover every tool family declared in the addon
  * by scanning for `[AiToolType] ... partial class Tool_<Family>` in the `.cs` sources
  * under the addon `Tools/` directories. Returns the sorted set of `<Family>` suffixes
  * (e.g. `Node`, `FileSystem`, `RuntimeErrors`).
  *
  * Robustness notes:
+ * - The source scan is RECURSIVE (see {@link addonToolFiles}), so a family in a
+ *   subfolder of `{Runtime,Editor}/Tools/` is discovered rather than silently
+ *   skipped — a skipped family made the parity assertions pass vacuously.
  * - Tool families are partial classes split across files (`Tool_RuntimeErrors.cs`,
  *   `Tool_RuntimeErrors.Get.cs`, `Tool_RuntimeErrors.Clear.cs`). Only the base file
  *   carries the `[AiToolType]` attribute, so keying on `[AiToolType]` (not on file
@@ -490,18 +528,14 @@ export function discoverAddonToolFamilies(repoRoot: string): string[] {
     /\[AiToolType[^\]]*\](?:(?!\b(?:class|struct|interface|enum|record)\b)[\s\S])*?\bpartial\s+class\s+Tool_([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z][A-Za-z0-9]*)*)\b/g;
   const found = new Set<string>();
 
-  for (const dir of addonToolDirs(repoRoot)) {
-    if (!fs.existsSync(dir)) continue;
-    for (const entry of fs.readdirSync(dir)) {
-      if (!entry.endsWith('.cs')) continue;
-      const src = readAddonCode(path.join(dir, entry), /* blankStrings */ true);
-      let m: RegExpExecArray | null;
-      familyRe.lastIndex = 0;
-      while ((m = familyRe.exec(src)) !== null) {
-        // Attribute a compound sub-tool class (`Tool_Editor_Selection`) to its
-        // parent family by taking the FIRST `_`-delimited segment (`Editor`).
-        found.add(m[1].split('_')[0]);
-      }
+  for (const file of addonToolFiles(repoRoot)) {
+    const src = readAddonCode(file, /* blankStrings */ true);
+    let m: RegExpExecArray | null;
+    familyRe.lastIndex = 0;
+    while ((m = familyRe.exec(src)) !== null) {
+      // Attribute a compound sub-tool class (`Tool_Editor_Selection`) to its
+      // parent family by taking the FIRST `_`-delimited segment (`Editor`).
+      found.add(m[1].split('_')[0]);
     }
   }
 
@@ -539,16 +573,12 @@ export function discoverAddonToolIds(repoRoot: string): string[] {
   const toolIdRe = /public\s+const\s+string\s+\w+ToolId\s*=\s*"([a-z][a-z0-9-]*)"/g;
   const found = new Set<string>();
 
-  for (const dir of addonToolDirs(repoRoot)) {
-    if (!fs.existsSync(dir)) continue;
-    for (const entry of fs.readdirSync(dir)) {
-      if (!entry.endsWith('.cs')) continue;
-      const src = readAddonCode(path.join(dir, entry), /* blankStrings */ false);
-      let m: RegExpExecArray | null;
-      toolIdRe.lastIndex = 0;
-      while ((m = toolIdRe.exec(src)) !== null) {
-        found.add(m[1]);
-      }
+  for (const file of addonToolFiles(repoRoot)) {
+    const src = readAddonCode(file, /* blankStrings */ false);
+    let m: RegExpExecArray | null;
+    toolIdRe.lastIndex = 0;
+    while ((m = toolIdRe.exec(src)) !== null) {
+      found.add(m[1]);
     }
   }
 

@@ -75,12 +75,14 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
     });
 
     // Write a synthetic addon tree under a temp repo root so we can probe discovery on
-    // hand-crafted edge cases without depending on the real addon source.
-    function writeSyntheticAddon(fileName: string, contents: string): string {
+    // hand-crafted edge cases without depending on the real addon source. `relPath` is
+    // resolved UNDER `Runtime/Tools/` and may contain sub-directories.
+    function writeSyntheticAddon(relPath: string, contents: string): string {
       tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-mcp-parity-'));
       const runtimeDir = addonToolDirs(tmpRoot)[0]; // .../Runtime/Tools
-      fs.mkdirSync(runtimeDir, { recursive: true });
-      fs.writeFileSync(path.join(runtimeDir, fileName), contents, 'utf-8');
+      const target = path.join(runtimeDir, relPath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, contents, 'utf-8');
       return tmpRoot;
     }
 
@@ -127,6 +129,44 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
       // The id scan KEEPS string literals (it matches the quoted id), so it relies on comment
       // stripping alone — the commented-out id must not be discovered, the real one must.
       expect(discoverAddonToolIds(root)).toEqual(['real-tool']);
+    });
+
+    it('discovers a tool family nested in a SUBFOLDER of Tools/ (the vacuous-parity trap)', () => {
+      // Discovery used to be a NON-recursive `readdirSync`, so a family placed in a
+      // subfolder of `{Runtime,Editor}/Tools/` — the layout Unity-MCP uses
+      // (`API/SystemTool/`) and the obvious thing to reach for as the addon grows —
+      // was INVISIBLE. The parity assertions then passed at STALE counts instead of
+      // failing: the gate silently stopped protecting the catalog the moment anyone
+      // nested a file. This fixture fails against the non-recursive scan.
+      const root = writeSyntheticAddon(
+        path.join('SystemTool', 'Nested', 'Tool_Nested.cs'),
+        '[AiToolType]\n    public partial class Tool_Nested\n    {\n' +
+          '        public const string NestedRunToolId = "nested-run";\n' +
+          '    }\n',
+      );
+      expect(discoverAddonToolFamilies(root)).toEqual(['Nested']);
+      expect(discoverAddonToolIds(root)).toEqual(['nested-run']);
+    });
+
+    it('discovers families/ids from BOTH a top-level file and a nested one (no shadowing)', () => {
+      // Recursion must ADD the nested family, not replace the flat scan.
+      const root = writeSyntheticAddon(
+        'Tool_Flat.cs',
+        '[AiToolType]\n    public partial class Tool_Flat\n    {\n' +
+          '        public const string FlatGoToolId = "flat-go";\n' +
+          '    }\n',
+      );
+      const nestedDir = path.join(addonToolDirs(root)[0], 'Sub', 'Deeper');
+      fs.mkdirSync(nestedDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(nestedDir, 'Tool_Deep.Run.cs'),
+        '[AiToolType]\n    public partial class Tool_Deep\n    {\n' +
+          '        public const string DeepRunToolId = "deep-run";\n' +
+          '    }\n',
+        'utf-8',
+      );
+      expect(discoverAddonToolFamilies(root)).toEqual(['Deep', 'Flat']);
+      expect(discoverAddonToolIds(root)).toEqual(['deep-run', 'flat-go']);
     });
 
     it('does not misattribute a stray [AiToolType] on a non-Tool_ type to a later Tool_ class', () => {
@@ -299,4 +339,71 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
       ).toBe(true);
     }
   });
+
+  // The adjacency assert above covers ONLY the two Asset Library surfaces. The pin is
+  // restated in four more consumer-facing docs, and none of them was gated — which is
+  // exactly how `README.md` and `CLAUDE.md` shipped a stale `7.1.1` while the csproj
+  // had moved to `7.3.0`. This block closes that hole for BOTH reused packages.
+  //
+  // Rule: on any LINE that names a reused package by its FULL id, every semantic
+  // version on that line must equal the csproj pin. Line-scoping is what makes the
+  // check precise — it never reaches across to an unrelated number, and it ignores
+  // the many prose/`using`/URL mentions that carry no version at all. The full-id
+  // requirement (plus a `(?!\.)` guard) skips sub-packages (`McpPlugin.Common`,
+  // `ReflectorNet.Utils`) and bare-name prose such as the historical
+  // `'ReflectorNet, Version=5.3.1.0'` exception text in CLAUDE.md.
+  const PIN_DOCS = ['README.md', 'CLAUDE.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
+  const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin'];
+
+  /** Escape a literal package id so it cannot act as a regex pattern (`.` above all). */
+  function reEscape(literal: string): string {
+    return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /** The version `Godot-MCP.csproj` pins for `packageId` — the single source of truth. */
+  function csprojPin(packageId: string): string {
+    const csproj = readRepoFile('Godot-MCP.csproj');
+    const m = csproj.match(new RegExp(`${reEscape(packageId)}"\\s+Version="([^"]+)"`));
+    expect(m, `Godot-MCP.csproj must declare a ${packageId} PackageReference`).not.toBeNull();
+    return m![1];
+  }
+
+  /** Every version literal stated on a line that names `packageId`, with line numbers. */
+  function statedVersions(text: string, packageId: string): { line: number; version: string }[] {
+    const idRe = new RegExp(`${reEscape(packageId)}(?!\\.)`);
+    const semverRe = /\b\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.]+)?\b/g;
+    const hits: { line: number; version: string }[] = [];
+
+    text.split(/\r?\n/).forEach((line, i) => {
+      if (!idRe.test(line)) return;
+      for (const m of line.matchAll(semverRe)) hits.push({ line: i + 1, version: m[0] });
+    });
+    return hits;
+  }
+
+  it('the pin-parity scan is non-vacuous (it finds a stated version in every gated doc)', () => {
+    // Without this, a doc that stops mentioning the packages — or a regex that stops
+    // matching — would make every assertion below pass by finding nothing.
+    for (const rel of PIN_DOCS) {
+      const text = readRepoFile(rel);
+      const all = PINNED_PACKAGES.flatMap((pkg) => statedVersions(text, pkg));
+      expect(all.length, `${rel} should state at least one reused-package version`).toBeGreaterThan(0);
+    }
+  });
+
+  for (const packageId of PINNED_PACKAGES) {
+    for (const rel of PIN_DOCS) {
+      it(`${rel} states the csproj-pinned ${packageId} version`, () => {
+        const expected = csprojPin(packageId);
+        const stated = statedVersions(readRepoFile(rel), packageId);
+        const stale = stated.filter((s) => s.version !== expected);
+        expect(
+          stale,
+          `${rel} states ${packageId} version(s) that disagree with Godot-MCP.csproj's pin ` +
+            `(${expected}): ${stale.map((s) => `line ${s.line}: ${s.version}`).join(', ')}. ` +
+            `The csproj is the single source of truth — update the doc, never the pin.`,
+        ).toEqual([]);
+      });
+    }
+  }
 });

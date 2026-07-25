@@ -406,19 +406,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.NotEqual(ProjectIdentity.DerivePort(root), bindPort);
         }
 
-        [Fact(Skip = "Un-skip when Godot-MCP.csproj pins com.IvanMurzak.McpPlugin >= 7.3.0 (issue #304) — see body.")]
+        [Fact]
         public void ResolveLocalServerBindPort_LoopbackExplicitPort_MatchesTheWrittenConfigPort()
         {
             const string root = "C:/Games/MyGame";
             const string host = "http://localhost:9000";
 
             // The live cross-check for level 2: the binder's typed-port result must equal the port the
-            // shared writer emits for the same host. It CANNOT pass on the currently-pinned McpPlugin
-            // 7.2.0, whose PinnedHttpUrl still rewrites a loopback port to the derived one — that old
-            // writer is precisely what this change stopped mirroring. The binder-contract assertions above
-            // (ResolveLocalServerBindPort_LoopbackExplicitPort_HonorsTheTypedPort) carry the behaviour in
-            // the meantime; this one re-arms the two-sided guarantee once the pin lands in the release
-            // cascade. Do not delete it and do not weaken it — un-skip it with the pin bump.
+            // shared writer emits for the same host. It could NOT pass on the then-pinned McpPlugin
+            // 7.2.0, whose PinnedHttpUrl still rewrote a loopback port to the derived one — that old
+            // writer is precisely what this change stopped mirroring — so it shipped `[Fact(Skip = ...)]`
+            // with the instruction "un-skip it with the pin bump" (issue #304). `Godot-MCP.csproj` now
+            // pins 7.3.0, so the two-sided guarantee is re-armed here. Do not weaken it.
             var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(host, root, marker: null);
             var settings = LocalSettings(root, host + "/mcp");
 
