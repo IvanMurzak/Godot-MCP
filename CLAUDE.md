@@ -233,10 +233,11 @@ export GODOT_MCP_HOST=http://localhost:5300
 # Expect: "[Godot-MCP] connecting (mode=Custom, host=http://localhost:5300) ..." then
 #         "[Godot-MCP] connected.". Server log shows "Version handshake successful. Plugin: 0.1.0".
 
-# 3) While connected, invoke the ping tool via the server's direct-tool-call API:
-curl -s -X POST http://localhost:5300/api/tools/ping -H "Content-Type: application/json" -d '{}'
+# 3) While connected, invoke the ping tool via the server's direct SYSTEM-tool-call API.
+#    `ping` is a System tool, so it lives under /api/system-tools/ — NOT /api/tools/.
+curl -s -X POST http://localhost:5300/api/system-tools/ping -H "Content-Type: application/json" -d '{}'
 #   -> {"status":"success","structured":{"result":"pong"}}
-curl -s -X POST http://localhost:5300/api/tools/ping -H "Content-Type: application/json" \
+curl -s -X POST http://localhost:5300/api/system-tools/ping -H "Content-Type: application/json" \
      -d '{"message":"hello-godot"}'
 #   -> {"status":"success","structured":{"result":"hello-godot"}}
 ```

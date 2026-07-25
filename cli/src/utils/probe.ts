@@ -1,6 +1,6 @@
 import { verbose } from './ui.js';
 
-export const PING_ENDPOINT = '/api/tools/ping';
+export const PING_ENDPOINT = '/api/system-tools/ping';
 
 export interface ProbeSuccess {
   ok: true;
@@ -16,10 +16,16 @@ export interface ProbeFailure {
 export type ProbeResult = ProbeSuccess | ProbeFailure;
 
 /**
- * Probe a Godot-MCP server's ping endpoint (`<base>/api/tools/ping`).
+ * Probe a Godot-MCP server's ping endpoint (`<base>/api/system-tools/ping`).
  * Returns a structured result. The `ping` tool is registered by the
  * `Tool_Ping` family (pure-managed, no editor required), so a connected
  * plugin responds `{ "structured": { "result": "pong" } }`.
+ *
+ * `ping` is a SYSTEM tool (`ToolType = McpToolType.System`, matching Unity-MCP
+ * per the owner ruling of 2026-07-25), and `McpPluginBuilder` partitions tools
+ * by `ToolType` into two DISJOINT registries — so it is reachable ONLY on the
+ * `/api/system-tools/` surface, never on `/api/tools/`. Both surfaces return the
+ * same `{ status, structured }` envelope, so only the route differs.
  */
 export async function probe(
   baseUrl: string,

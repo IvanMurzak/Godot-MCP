@@ -140,7 +140,9 @@ Building first guarantees the assembly is present when the addon is instantiated
 
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
-The server base URL a tool call POSTs to (`<base>/api/tools/<name>`) is resolved as:
+The server base URL a tool call POSTs to (`<base>/api/tools/<name>`, or
+`<base>/api/system-tools/<name>` for system tools — `status` / `wait-for-ready` probe the system
+tool `ping`) is resolved as:
 
 1. `--url <url>` (explicit override).
 2. `GODOT_MCP_HOST` env (Custom-mode host).

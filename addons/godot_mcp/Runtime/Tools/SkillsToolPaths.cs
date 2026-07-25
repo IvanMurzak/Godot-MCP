@@ -76,12 +76,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// </summary>
         public static string? RequireRelativeSkillsFolder(string? path, string paramName)
         {
-            if (string.IsNullOrEmpty(path))
+            // Null, empty, and whitespace-only all mean "use the selected agent's configured folder".
+            if (string.IsNullOrWhiteSpace(path))
                 return null;
 
             var trimmed = path!.Trim();
-            if (trimmed.Length == 0)
-                return null;
 
             if (ResPathNormalizer.IsResPath(trimmed))
                 throw new ArgumentException(
