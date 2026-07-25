@@ -355,18 +355,22 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   const PIN_DOCS = ['README.md', 'CLAUDE.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
   const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin'];
 
+  /** Escape a literal package id so it cannot act as a regex pattern (`.` above all). */
+  function reEscape(literal: string): string {
+    return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   /** The version `Godot-MCP.csproj` pins for `packageId` — the single source of truth. */
   function csprojPin(packageId: string): string {
     const csproj = readRepoFile('Godot-MCP.csproj');
-    const shortName = packageId.replace('com.IvanMurzak.', '');
-    const m = csproj.match(new RegExp(`${shortName}"\\s+Version="([^"]+)"`));
+    const m = csproj.match(new RegExp(`${reEscape(packageId)}"\\s+Version="([^"]+)"`));
     expect(m, `Godot-MCP.csproj must declare a ${packageId} PackageReference`).not.toBeNull();
     return m![1];
   }
 
   /** Every version literal stated on a line that names `packageId`, with line numbers. */
   function statedVersions(text: string, packageId: string): { line: number; version: string }[] {
-    const idRe = new RegExp(`${packageId.replace(/\./g, '\\.')}(?!\\.)`);
+    const idRe = new RegExp(`${reEscape(packageId)}(?!\\.)`);
     const semverRe = /\b\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.]+)?\b/g;
     const hits: { line: number; version: string }[] = [];
 

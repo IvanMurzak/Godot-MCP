@@ -120,18 +120,25 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var addonRoot = FindRepoDir("addons/godot_mcp");
             Assert.True(addonRoot != null, "Could not locate addons/godot_mcp from the test assembly.");
 
-            var declaringFiles = Directory
+            // Count DECLARATION SITES, not the files holding them: a single file may legitimately carry
+            // two `[AiSkillBody]` methods, and comparing a file count against a method count would then
+            // fail on a perfectly correct addition while still not proving reachability.
+            var declarationSites = Directory
                 .EnumerateFiles(addonRoot!, "*.cs", SearchOption.AllDirectories)
-                .Where(f => File.ReadAllText(f).Contains("[AiSkillBody("))
-                .OrderBy(f => f, StringComparer.Ordinal)
+                .Select(f => (File: f, Count: CountOccurrences(File.ReadAllText(f), "[AiSkillBody(")))
+                .Where(x => x.Count > 0)
+                .OrderBy(x => x.File, StringComparer.Ordinal)
                 .ToList();
 
-            Assert.True(declaringFiles.Count > 0, "No [AiSkillBody(...)] declaration found in the addon sources.");
-            Assert.True(declaringFiles.Count == SkillBodies().Count,
-                $"The addon declares [AiSkillBody] in {declaringFiles.Count} file(s) but reflection found " +
-                $"{SkillBodies().Count} — some skill body is not compiled into Godot-MCP.Tests, so its sample " +
+            var declaredCount = declarationSites.Sum(x => x.Count);
+            var reflectedCount = SkillBodies().Count;
+
+            Assert.True(declaredCount > 0, "No [AiSkillBody(...)] declaration found in the addon sources.");
+            Assert.True(declaredCount == reflectedCount,
+                $"The addon declares [AiSkillBody] {declaredCount} time(s) but reflection found " +
+                $"{reflectedCount} — some skill body is not compiled into Godot-MCP.Tests, so its sample " +
                 "is UNCHECKED. Add the file to Godot-MCP.Tests.csproj's <Compile Include> list:\n  " +
-                string.Join("\n  ", declaringFiles.Select(Path.GetFileName)));
+                string.Join("\n  ", declarationSites.Select(x => $"{Path.GetFileName(x.File)} (x{x.Count})")));
         }
 
         [Fact]
@@ -174,6 +181,57 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 "// This sample drives EditorInterface, so the whole file is guarded.\n" +
                 "const string Hint = \"call EditorInterface.Singleton on the main thread\";\n";
             Assert.Empty(FindUnguardedEditorApiUsages(proseOnly));
+        }
+
+        [Fact]
+        public void BlankingLiterals_HandlesEscapesWithoutLosingCodeOrLines()
+        {
+            // The blanking pass is the analyzer's foundation: get a literal's EXTENT wrong and every
+            // verdict after it is arbitrary. Two escape forms are the sharp edges.
+
+            // A verbatim string closes on a `"` that is NOT doubled; `""` is an escaped quote. Reading the
+            // second quote of a pair as the terminator spills the rest of the literal back into the scan as
+            // code (a spurious hit here) and then re-opens a string span that swallows whatever followed
+            // (a MISSED hit after it) — both directions of wrong, from one off-by-one.
+            const string verbatimWithEscapedQuotes =
+                "const string Doc = @\"say \"\"EditorInterface\"\" out loud\";\n" +
+                "public void Run() { }\n";
+            Assert.Empty(FindUnguardedEditorApiUsages(verbatimWithEscapedQuotes));
+
+            // Blanking must never destroy a newline, or the directive tracker reads the following line as
+            // part of this one and loses the `#if TOOLS` that guards it.
+            const string escapeAtLineEnd =
+                "const string S = \"trailing backslash \\\n" +
+                "#if TOOLS\n" +
+                "public void Run() => EditorInterface.Singleton.GetEditedSceneRoot();\n" +
+                "#endif\n";
+            Assert.Equal(
+                escapeAtLineEnd.Count(ch => ch == '\n'),
+                BlankNonCode(escapeAtLineEnd).Count(ch => ch == '\n'));
+        }
+
+        [Fact]
+        public void TheEditorApiTokenList_StaysInLockstepWithTheRuntimeBoundaryGuard()
+        {
+            // ONE rule, two enforcement points: `scripts/check-runtime-boundary.py` covers the addon's
+            // shipping sources, this suite covers the teaching samples living inside string literals (which
+            // that guard blanks by construction). Nothing but a comment links the two token lists, so a
+            // token added on one side would silently stop being enforced on the other — exactly the
+            // quietly-decaying gate this PR exists to eliminate. Make the drift a red test instead.
+            var guardPath = FindRepoFile("scripts/check-runtime-boundary.py");
+            Assert.True(guardPath != null, "Could not locate scripts/check-runtime-boundary.py from the test assembly.");
+
+            var declaration = Regex.Match(File.ReadAllText(guardPath!), @"EDITOR_TOKENS\s*=\s*\(([^)]*)\)");
+            Assert.True(declaration.Success, "Could not parse EDITOR_TOKENS from scripts/check-runtime-boundary.py.");
+
+            var pythonTokens = Regex.Matches(declaration.Groups[1].Value, "\"([^\"]+)\"")
+                .Cast<Match>()
+                .Select(m => m.Groups[1].Value)
+                .OrderBy(t => t, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.NotEmpty(pythonTokens);
+            Assert.Equal(EditorOnlyApis.OrderBy(t => t, StringComparer.Ordinal).ToArray(), pythonTokens);
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -295,8 +353,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 {
                     sb.Append("  ");
                     i += 2;
-                    // A verbatim string ends at a `"` that is not doubled.
-                    Skip(k => source[k] == '"' && (k + 1 >= source.Length || source[k + 1] != '"'), 1);
+                    // A verbatim string ends at a `"` that is not doubled. `""` is an ESCAPED quote and
+                    // must be consumed as a PAIR — testing "is this quote followed by another?" alone
+                    // mis-reads the SECOND quote of a pair as the terminator, which leaks the rest of the
+                    // literal back into the scan as if it were code.
+                    while (i < source.Length)
+                    {
+                        if (source[i] == '"')
+                        {
+                            if (i + 1 < source.Length && source[i + 1] == '"')
+                            {
+                                sb.Append("  ");
+                                i += 2;
+                                continue;
+                            }
+                            sb.Append(' ');
+                            i++;
+                            break;
+                        }
+                        sb.Append(source[i] == '\n' ? '\n' : ' ');
+                        i++;
+                    }
                     continue;
                 }
                 if (c == '"' || c == '\'')
@@ -308,7 +385,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     {
                         if (source[i] == '\\' && i + 1 < source.Length)
                         {
-                            sb.Append("  ");
+                            // Blank the escape PAIR, but never a newline: this method's whole contract is
+                            // that line numbers and directive positions survive blanking, and swallowing a
+                            // `\` + newline would merge the next line into this one — hiding an `#if TOOLS`
+                            // or `#endif` from the region tracker.
+                            sb.Append(' ');
+                            sb.Append(source[i + 1] == '\n' ? '\n' : ' ');
                             i += 2;
                             continue;
                         }
@@ -326,21 +408,39 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             return sb.ToString();
         }
 
+        /// <summary>Number of non-overlapping occurrences of <paramref name="needle"/> in <paramref name="haystack"/>.</summary>
+        static int CountOccurrences(string haystack, string needle)
+        {
+            var count = 0;
+            for (var at = haystack.IndexOf(needle, StringComparison.Ordinal); at >= 0;
+                 at = haystack.IndexOf(needle, at + needle.Length, StringComparison.Ordinal))
+            {
+                count++;
+            }
+            return count;
+        }
+
         /// <summary>
-        /// Walk up from the test assembly location to find a repo-relative directory, so the on-disk scan
-        /// does not depend on the runner's working directory. (Same walk as
+        /// Walk up from the test assembly location to find a repo-relative path, so the on-disk scans do
+        /// not depend on the runner's working directory. (Same walk as
         /// <c>SystemToolsTests.FindRepoFile</c>.) Returns null when not found.
         /// </summary>
-        static string? FindRepoDir(string relativePath)
+        static string? FindRepoEntry(string relativePath, Func<string, bool> exists)
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             for (var i = 0; i < 12 && dir != null; i++, dir = dir.Parent)
             {
                 var candidate = Path.Combine(dir.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-                if (Directory.Exists(candidate))
+                if (exists(candidate))
                     return candidate;
             }
             return null;
         }
+
+        /// <summary>Repo-relative directory lookup. Returns null when not found.</summary>
+        static string? FindRepoDir(string relativePath) => FindRepoEntry(relativePath, Directory.Exists);
+
+        /// <summary>Repo-relative file lookup. Returns null when not found.</summary>
+        static string? FindRepoFile(string relativePath) => FindRepoEntry(relativePath, File.Exists);
     }
 }
