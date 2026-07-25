@@ -140,7 +140,9 @@ Building first guarantees the assembly is present when the addon is instantiated
 
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
-The server base URL a tool call POSTs to (`<base>/api/tools/<name>`) is resolved as:
+The server base URL a tool call POSTs to (`<base>/api/tools/<name>`, or
+`<base>/api/system-tools/<name>` for system tools — `status` / `wait-for-ready` probe the system
+tool `ping`) is resolved as:
 
 1. `--url <url>` (explicit override).
 2. `GODOT_MCP_HOST` env (Custom-mode host).
@@ -198,8 +200,9 @@ The command writes a `SKILL.md`-per-tool-family directory (a `godot-mcp/` overvi
 families. It is **idempotent** — re-running rewrites the same bytes.
 
 Unlike the Unity CLI — which POSTs to a running editor's `/api/system-tools/unity-skill-generate`
-endpoint — the Godot CLI generates the files **locally** from a built-in catalog: the Godot MCP server
-exposes no skill-generate HTTP endpoint, so no server or running editor is required. (The addon
+endpoint — the Godot CLI generates the files **locally** from a built-in catalog, so no server and no
+running editor are required. (The addon now *also* exposes `godot-skill-generate` on
+`/api/system-tools/`, but that path needs a booted editor; local generation is the server-less one.) (The addon
 *additionally* auto-generates skills in-process on plugin boot via
 `GodotMcpConnection.Start` → `GenerateSkillFilesIfNeeded`; the CLI command is the
 server-less, scriptable path that does not need a live editor.)

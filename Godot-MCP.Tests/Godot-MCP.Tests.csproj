@@ -132,6 +132,21 @@
          drained->no-warning / timeout->warning decision + message shape are unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpDrainDiagnostics.cs" Link="Source\GodotMcpDrainDiagnostics.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Ping.cs" Link="Source\Tool_Ping.cs" />
+    <!-- SYSTEM tools (owner ruling 2026-07-25): `ping` + the `godot-skill-*` pair must all register as
+         McpToolType.System, because McpPluginBuilder partitions tools by ToolType into two DISJOINT REST
+         surfaces (/api/tools vs /api/system-tools). The Tool_Skills DECLARATIONS live outside #if TOOLS
+         precisely so their attributes are assertable here (SystemToolsTests); their argument guards
+         (SkillsToolPaths) and guard-then-delegate dispatch are unit-tested against a fake ISkillsToolHost.
+         The editor-only execution half (Editor/Tools/GodotSkillsToolHost.cs, #if TOOLS — it writes into
+         res:// and drives the built IMcpPlugin's generator) is verified via the headless Godot smoke
+         (test.md Suite 3), not here. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\SkillsGenerateInfo.cs" Link="Source\SkillsGenerateInfo.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ISkillsToolHost.cs" Link="Source\ISkillsToolHost.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\SkillsToolPaths.cs" Link="Source\SkillsToolPaths.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.cs" Link="Source\Tool_Skills.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.cs" Link="Source\Tool_Skills.Create.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.SkillBody.cs" Link="Source\Tool_Skills.Create.SkillBody.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Generate.cs" Link="Source\Tool_Skills.Generate.cs" />
     <!-- Scene/Node tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
          structured result models, the property-patch model, the path normalizer, and the ambient
          reflector accessor. The editor-driving tool methods (Tool_Node.*.cs / Tool_Scene.*.cs) are

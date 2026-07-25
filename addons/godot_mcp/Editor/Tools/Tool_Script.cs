@@ -160,8 +160,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Write <paramref name="content"/> to <paramref name="resPath"/> (creating parent directories as
         /// needed — Godot's FileAccess does NOT auto-create them), then refresh + bounded-settle. Main-thread
         /// only. Caller is responsible for the create-vs-update existence precondition.
+        ///
+        /// <para>
+        /// <c>internal</c> rather than private so the <c>godot-skill-create</c> system tool's editor host
+        /// (<see cref="GodotSkillsToolHost"/>) writes a skill file through this EXACT path — a skill IS a C#
+        /// script, and a second copy of the write + reimport + settle loop is how the two would silently
+        /// diverge.
+        /// </para>
         /// </summary>
-        static ScriptInfo WriteScript(string resPath, ScriptLang lang, string content, string verb)
+        internal static ScriptInfo WriteScript(string resPath, ScriptLang lang, string content, string verb)
         {
             // FileAccess.Open(...Write) does not create missing parent directories — make them first so a
             // nested target (e.g. 'res://scripts/ai/Brain.cs') works, mirroring Tool_Resource.Create.

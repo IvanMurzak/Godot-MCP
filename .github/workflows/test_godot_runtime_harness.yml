@@ -225,17 +225,21 @@ jobs:
             godot --headless --path "${TEST_PROJECT}" > game.log 2>&1 &
           GAME_PID=$!
 
-          # While the game holds the connection, poll the server's direct tool-call API for a
-          # `ping` roundtrip. It returns the echoed value ONLY once the game's plugin is
+          # While the game holds the connection, poll the server's direct SYSTEM-tool-call API for
+          # a `ping` roundtrip. It returns the echoed value ONLY once the game's plugin is
           # connected + handshaken (an unconnected server returns a 500 "Response data is null"),
           # so a success here proves connect + handshake + live tool dispatch in one call.
+          # `ping` is a SYSTEM tool (owner ruling 2026-07-25, matching Unity-MCP), and
+          # McpPluginBuilder partitions tools by ToolType into two DISJOINT registries, so it is
+          # reachable ONLY under /api/system-tools/ — never /api/tools/. Both surfaces return the
+          # same {status, structured} envelope, so only the route differs.
           ROUNDTRIP_OK=0
           for i in $(seq 1 90); do
             if ! kill -0 "$GAME_PID" 2>/dev/null; then
               echo "game exited before the ping roundtrip landed (i=${i})."
               break
             fi
-            resp="$(curl -s -X POST "http://localhost:${SERVER_PORT}/api/tools/ping" \
+            resp="$(curl -s -X POST "http://localhost:${SERVER_PORT}/api/system-tools/ping" \
               -H 'Content-Type: application/json' -d '{"message":"harness-186"}' || true)"
             if echo "$resp" | grep -q 'harness-186'; then
               echo "tool roundtrip OK: ping -> ${resp}"
@@ -262,7 +266,7 @@ jobs:
             --require-connect 1 || ASSERT_RC=$?
 
           if [ "$ROUNDTRIP_OK" != "1" ]; then
-            echo "::error::the live tool roundtrip (POST /api/tools/ping) never succeeded — the game's plugin did not connect+dispatch."
+            echo "::error::the live tool roundtrip (POST /api/system-tools/ping) never succeeded — the game's plugin did not connect+dispatch."
             exit 1
           fi
 

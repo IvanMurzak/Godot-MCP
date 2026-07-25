@@ -60,10 +60,10 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
     // first-segment family `Editor`, where it dedups against the base `Tool_Editor`.
     const addonFamilies = discoverAddonToolFamilies(REPO_ROOT);
     expect(addonFamilies).toContain('Editor');
-    // Discovery still equals the catalog at exactly 11 families — the compound class
-    // collapses INTO `Editor` rather than adding a phantom 12th family.
+    // Discovery still equals the catalog at exactly 12 families — the compound class
+    // collapses INTO `Editor` rather than adding a phantom 13th family.
     expect(addonFamilies).toEqual(catalogToolFamilyClassSuffixes());
-    expect(addonFamilies).toHaveLength(11);
+    expect(addonFamilies).toHaveLength(12);
   });
 
   describe('discovery robustness against compound + misattributed [AiToolType] classes', () => {
@@ -90,6 +90,43 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
         '[AiToolType]\n    public partial class Tool_Foo_Bar\n    {\n    }\n',
       );
       expect(discoverAddonToolFamilies(root)).toEqual(['Foo']);
+    });
+
+    it('ignores a C# sample embedded in a STRING literal (the [AiSkillBody] teaching sample)', () => {
+      // `Tool_Skills.Create.SkillBody.cs` embeds a full `[AiToolType] partial class Tool_Sample`
+      // example inside its [AiSkillBody] markdown so `godot-skill-create` can teach an agent the
+      // shape. A raw-text scan would discover `Tool_Sample` as a real family and fail parity against
+      // a phantom — discovery therefore blanks comments + string literals first.
+      const root = writeSyntheticAddon(
+        'Tool_Real.cs',
+        '[AiToolType]\n    public partial class Tool_Real\n    {\n' +
+          '        internal const string Body =\n' +
+          '            "[AiToolType]\\n" +\n' +
+          '            "public partial class Tool_Fake\\n" +\n' +
+          '            "{\\n" +\n' +
+          '            "    public const string FakeToolId = \\"fake-tool\\";\\n" +\n' +
+          '            "}\\n";\n' +
+          '    }\n',
+      );
+      expect(discoverAddonToolFamilies(root)).toEqual(['Real']);
+      expect(discoverAddonToolIds(root)).toEqual([]);
+    });
+
+    it('ignores a C# sample embedded in a COMMENT or a verbatim string', () => {
+      const root = writeSyntheticAddon(
+        'Tool_Real.cs',
+        '// [AiToolType] public partial class Tool_Commented { }\n' +
+          '// public const string CommentedToolId = "commented-tool";\n' +
+          '/* [AiToolType]\n   public partial class Tool_Blocked { } */\n' +
+          '[AiToolType]\n    public partial class Tool_Real\n    {\n' +
+          '        const string Verbatim = @"[AiToolType] public partial class Tool_Verbatim { }";\n' +
+          '        public const string RealToolId = "real-tool";\n' +
+          '    }\n',
+      );
+      expect(discoverAddonToolFamilies(root)).toEqual(['Real']);
+      // The id scan KEEPS string literals (it matches the quoted id), so it relies on comment
+      // stripping alone — the commented-out id must not be discovered, the real one must.
+      expect(discoverAddonToolIds(root)).toEqual(['real-tool']);
     });
 
     it('does not misattribute a stray [AiToolType] on a non-Tool_ type to a later Tool_ class', () => {
@@ -142,14 +179,14 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
     expect(addonIds).toContain('script-validate');
   });
 
-  it('discovers exactly 39 addon tool ids', () => {
+  it('discovers exactly 41 addon tool ids', () => {
     // Anchors the ground-truth count so an addon tool added/removed without a
     // catalog update is caught here too (not only by the set-equality assert).
-    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(39);
+    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(41);
   });
 
-  it('the CLI catalog advertises exactly 39 tools', () => {
-    expect(catalogToolIds()).toHaveLength(39);
+  it('the CLI catalog advertises exactly 41 tools', () => {
+    expect(catalogToolIds()).toHaveLength(41);
   });
 
   it('catalog tool ids exactly match the addon `*ToolId` constants (no per-tool drift)', () => {
@@ -195,7 +232,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
 
   // Tolerances baked into the regexes (verified against the real files):
   // - `N built-in Tools` is CASE-INSENSITIVE — README:46 capitalizes "Tools".
-  // - `N families` is bold/word-boundary tolerant — README:118 wraps "**11 families**".
+  // - `N families` is bold/word-boundary tolerant — README:118 wraps "**12 families**".
   function toolCountRe(): RegExp {
     return new RegExp(`${expectedToolCount} built-in tools`, 'i');
   }
@@ -204,8 +241,8 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   }
 
   it('expected counts derive non-vacuously from the addon source', () => {
-    expect(expectedToolCount).toBe(39);
-    expect(expectedFamilyCount).toBe(11);
+    expect(expectedToolCount).toBe(41);
+    expect(expectedFamilyCount).toBe(12);
   });
 
   const countDocs = [

@@ -128,7 +128,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             // 4) Register ONLY the developer's opted-in tools. ZERO tools by default: with nothing opted in,
             //    no WithTools* call is made and the plugin builds with an empty tool set (exactly Unity's
             //    model). Editor tool families are #if TOOLS and don't compile into a game build, so even a
-            //    WithToolsFromAssembly over the addon assembly can't pull them in.
+            //    WithToolsFromAssembly over the addon assembly can't pull them in. ONE deliberate exception:
+            //    the godot-skill-* family declares OUTSIDE #if TOOLS (its [AiTool] attributes must stay
+            //    visible to the CI test host), so it DOES compile in — but its execution is delegated to an
+            //    editor-only host that is null in a game, so each call refuses with an actionable error.
             if (builder.ToolAssemblies.Count > 0)
                 mcpBuilder.WithToolsFromAssembly(builder.ToolAssemblies);
 

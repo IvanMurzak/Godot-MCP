@@ -4,6 +4,13 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **BREAKING (requires a matching addon).** `status` and `wait-for-ready` now probe
+  `/api/system-tools/ping` instead of `/api/tools/ping`. The addon's `ping` became a **System** tool
+  (owner ruling 2026-07-25, for parity with Unity-MCP), and `McpPluginBuilder` partitions tools by
+  `ToolType` into two disjoint registries — so `ping` no longer answers on the standard tool route at
+  all. Pair this CLI with an addon of the same release; against an OLDER addon (where `ping` is still
+  Standard) both commands report a healthy editor as unreachable. There is deliberately no fallback
+  probe, matching the Unity CLI, which has always probed the system route.
 - `install-extension <id> [path]` — install a Godot-MCP **extension** (an optional AI-tool-family package)
   into a Godot C# project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in
   the project `.csproj` (added when absent, version-bumped only when newer, no-op when up to date), then

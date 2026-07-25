@@ -54,7 +54,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// counts as a mutation even without an <c>=</c>.
         /// </summary>
         static readonly Regex GuardedWritePattern = new(
-            @"\b(?:GodotLogCollector|RuntimeErrorCollector|ScriptErrorCapture|GodotMcpReflector)\.Current\s*=(?!=)"
+            @"\b(?:GodotLogCollector|RuntimeErrorCollector|ScriptErrorCapture|GodotMcpReflector|SkillsToolHost)\.Current\s*=(?!=)"
             + @"|\bRuntimeErrorCapture\.(?:Install|Uninstall)\s*\(",
             RegexOptions.Compiled);
 
@@ -115,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 "Drift-guard found ZERO process-wide-static writes across the test sources — the scanner is "
                 + "likely broken (regex or source layout changed). Expected to see writes to "
                 + "GodotLogCollector.Current / RuntimeErrorCollector.Current / ScriptErrorCapture.Current / "
-                + "GodotMcpReflector.Current / RuntimeErrorCapture.Install|Uninstall.");
+                + "GodotMcpReflector.Current / SkillsToolHost.Current / RuntimeErrorCapture.Install|Uninstall.");
 
             Assert.True(violations.Count == 0,
                 "Process-wide-static mutator(s) found WITHOUT a [Collection(...)] serial collection — these "

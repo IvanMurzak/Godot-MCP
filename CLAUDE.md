@@ -24,11 +24,11 @@ the `WaitForImmediateTeardown` API + opt-in bounded-reconnect this addon uses fo
 
 Tools live in `addons/godot_mcp/Runtime/Tools/` (pure-managed families) and `addons/godot_mcp/Editor/Tools/` (editor-only families) — one `[AiToolType]` `partial class Tool_<Family>` per family,
 with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
-names mirror Unity-MCP where sensible. 39 built-in tools across 11 families — the 11 families:
+names mirror Unity-MCP where sensible. 41 built-in tools across 12 families — the 12 families:
 
 | Family (class) | Tools | `#if TOOLS`? |
 | --- | --- | --- |
-| `Tool_Ping` | `ping` | no (pure-managed) |
+| `Tool_Ping` | `ping` (**System** — `/api/system-tools/`, not in `tools/list`) | no (pure-managed) |
 | `Tool_Node` | `node-find`/`-create`/`-modify`/`-set-parent`/`-duplicate`/`-delete` | yes (editor) |
 | `Tool_Scene` | `scene-open`/`-save`/`-create`/`-list-opened`/`-get-data` | yes (editor) |
 | `Tool_Resource` | `resource-find`/`-get-data`/`-modify`/`-create`/`-move`/`-delete` | yes (editor) |
@@ -39,6 +39,7 @@ names mirror Unity-MCP where sensible. 39 built-in tools across 11 families — 
 | `Tool_Console` | `console-get-logs`/`-clear-logs` | no (pure-managed collector) |
 | `Tool_Reflection` | `reflection-method-find`/`-call` | no (engine-agnostic ReflectorNet) |
 | `Tool_RuntimeErrors` | `runtime-errors-get`/`-clear` | no (pure-managed; in-game, OFF by default — see `WithRuntimeErrorCapture()`) |
+| `Tool_Skills` | `godot-skill-create`/`godot-skill-generate` | no (declarations); execution behind `ISkillsToolHost` (`#if TOOLS`) |
 
 Editor-driving families live behind `#if TOOLS` (they touch `EditorInterface`/live `Node`/`Resource`);
 their pure-managed result models + helpers live OUTSIDE the guard so they are CI-unit-testable. The
@@ -78,8 +79,9 @@ the headless Godot smoke (Suite 3) instead.
 never throw past the public boundary. It also ships a `setup-skills <agent> [path]` command that generates
 AI-agent skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. Unlike the Unity CLI
 (which POSTs to a running editor's `/api/system-tools/unity-skill-generate` endpoint), the Godot CLI
-generates the files **locally** from a built-in catalog of the addon's tool families — the Godot server
-exposes no skill-generate HTTP endpoint, so no server or live editor is required. (The addon *additionally*
+generates the files **locally** from a built-in catalog of the addon's tool families, so no server and no
+live editor are required. (The addon now *also* exposes `godot-skill-generate` on `/api/system-tools/`,
+but that path needs a booted editor — the CLI's local generation is the server-less one.) (The addon *additionally*
 auto-generates skills addon-side on plugin boot via `GenerateSkillFilesIfNeeded`; the CLI command is the
 server-less, scriptable path.) That catalog (`cli/src/utils/skills.ts` § `SKILL_FAMILIES`) is
 hand-maintained, so a CI cross-check (`cli/tests/skills-addon-parity.test.ts`) diffs its family set against
@@ -232,10 +234,11 @@ export GODOT_MCP_HOST=http://localhost:5300
 # Expect: "[Godot-MCP] connecting (mode=Custom, host=http://localhost:5300) ..." then
 #         "[Godot-MCP] connected.". Server log shows "Version handshake successful. Plugin: 0.1.0".
 
-# 3) While connected, invoke the ping tool via the server's direct-tool-call API:
-curl -s -X POST http://localhost:5300/api/tools/ping -H "Content-Type: application/json" -d '{}'
+# 3) While connected, invoke the ping tool via the server's direct SYSTEM-tool-call API.
+#    `ping` is a System tool, so it lives under /api/system-tools/ — NOT /api/tools/.
+curl -s -X POST http://localhost:5300/api/system-tools/ping -H "Content-Type: application/json" -d '{}'
 #   -> {"status":"success","structured":{"result":"pong"}}
-curl -s -X POST http://localhost:5300/api/tools/ping -H "Content-Type: application/json" \
+curl -s -X POST http://localhost:5300/api/system-tools/ping -H "Content-Type: application/json" \
      -d '{"message":"hello-godot"}'
 #   -> {"status":"success","structured":{"result":"hello-godot"}}
 ```
