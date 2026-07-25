@@ -264,10 +264,10 @@ namespace com.IvanMurzak.Godot.MCP
                 // single source of the first-load config; a resolve failure must not block dock/boot.
                 _connection.ResolveConfig();
 
-                // Publish the editor-side host the `godot-skill-*` SYSTEM tools delegate to. Set BEFORE the
-                // dock is registered (the Skills card's Generate button routes through the same host) and
-                // cleared in Teardown, so a stale host can never pin the collectible ALC across a C#
-                // hot-reload — the same discipline GodotLogCollector.Current follows.
+                // Publish the editor-side host the `godot-skill-*` SYSTEM tools delegate to, and clear it in
+                // Teardown, so a stale host can never pin the collectible ALC across a C# hot-reload — the
+                // same discipline GodotLogCollector.Current follows. (The dock's Skills card does NOT read
+                // this static: it calls GodotSkillsToolHost.GenerateWithSwapRestore directly.)
                 SkillsToolHost.Current = new GodotSkillsToolHost(_connection);
             }
             catch (System.Exception ex)

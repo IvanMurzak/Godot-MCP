@@ -27,7 +27,11 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
     /// registered the connection still builds and connects with an empty tool set (exactly Unity's model).
     /// The addon's own editor tool families are gated by <c>#if TOOLS</c> and do not compile into an
     /// exported game build, so they can never leak into a runtime registration even via an
-    /// <see cref="WithToolsFromAssembly(Assembly)"/> over the addon assembly.
+    /// <see cref="WithToolsFromAssembly(Assembly)"/> over the addon assembly. The ONE exception is the
+    /// <c>godot-skill-*</c> family, which declares outside <c>#if TOOLS</c> so its <c>[AiTool]</c>
+    /// attributes stay visible to the CI test host: it DOES compile into a game build and such a
+    /// registration would list it, but its editor-only host is null there, so every call refuses with an
+    /// actionable "requires a running Godot editor" error rather than doing anything.
     /// </para>
     ///
     /// <para>

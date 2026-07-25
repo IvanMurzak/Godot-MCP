@@ -28,7 +28,7 @@ names mirror Unity-MCP where sensible. 41 built-in tools across 12 families — 
 
 | Family (class) | Tools | `#if TOOLS`? |
 | --- | --- | --- |
-| `Tool_Ping` | `ping` | no (pure-managed) |
+| `Tool_Ping` | `ping` (**System** — `/api/system-tools/`, not in `tools/list`) | no (pure-managed) |
 | `Tool_Node` | `node-find`/`-create`/`-modify`/`-set-parent`/`-duplicate`/`-delete` | yes (editor) |
 | `Tool_Scene` | `scene-open`/`-save`/`-create`/`-list-opened`/`-get-data` | yes (editor) |
 | `Tool_Resource` | `resource-find`/`-get-data`/`-modify`/`-create`/`-move`/`-delete` | yes (editor) |
@@ -79,8 +79,9 @@ the headless Godot smoke (Suite 3) instead.
 never throw past the public boundary. It also ships a `setup-skills <agent> [path]` command that generates
 AI-agent skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. Unlike the Unity CLI
 (which POSTs to a running editor's `/api/system-tools/unity-skill-generate` endpoint), the Godot CLI
-generates the files **locally** from a built-in catalog of the addon's tool families — the Godot server
-exposes no skill-generate HTTP endpoint, so no server or live editor is required. (The addon *additionally*
+generates the files **locally** from a built-in catalog of the addon's tool families, so no server and no
+live editor are required. (The addon now *also* exposes `godot-skill-generate` on `/api/system-tools/`,
+but that path needs a booted editor — the CLI's local generation is the server-less one.) (The addon *additionally*
 auto-generates skills addon-side on plugin boot via `GenerateSkillFilesIfNeeded`; the CLI command is the
 server-less, scriptable path.) That catalog (`cli/src/utils/skills.ts` § `SKILL_FAMILIES`) is
 hand-maintained, so a CI cross-check (`cli/tests/skills-addon-parity.test.ts`) diffs its family set against

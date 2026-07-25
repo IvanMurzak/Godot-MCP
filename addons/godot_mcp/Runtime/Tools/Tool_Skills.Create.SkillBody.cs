@@ -51,6 +51,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "project assembly fails to compile, not just the new file.\n\n" +
             "## Full sample\n\n" +
             "```csharp\n" +
+            "// This sample drives EditorInterface, so the WHOLE file is guarded: `TOOLS` is defined only\n" +
+            "// in the editor build, and Godot compiles every .cs in the project into ONE assembly — so\n" +
+            "// without this guard an exported game build fails to compile (see 'Guard editor-only code'\n" +
+            "// below). A tool that touches no editor API needs no guard.\n" +
+            "#if TOOLS\n" +
             "#nullable enable\n" +
             "using System;\n" +
             "using System.ComponentModel;\n" +
@@ -92,6 +97,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "        }\n" +
             "    }\n" +
             "}\n" +
+            "#endif\n" +
             "```\n\n" +
             "## Suggestions\n\n" +
             "### Always marshal Godot API calls onto the main thread\n" +

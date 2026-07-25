@@ -123,7 +123,10 @@ var handle = GodotMcpRuntime
 Everything this path needs lives under `Runtime/` and compiles into the game build: the
 entry point + builder + handle, the connection core, the main-thread dispatcher, the
 reflector, the assembly resolver, and the runtime-safe tools (`ping`, `console-*`,
-`reflection-*`, and the opt-in `runtime-errors-*`). The editor tool families are **not**
+`reflection-*`, and the opt-in `runtime-errors-*`). The `godot-skill-*` family also compiles
+in — it declares outside `#if TOOLS` so its `[AiTool]` attributes stay visible to the CI test
+host — but it is **not** runtime-safe: its editor-only host is null in a game build, so every
+call refuses with an actionable error. The editor tool families are **not**
 available here — they are `#if TOOLS` and don't exist in the game build by design (they
 require `EditorInterface` and a live editor).
 

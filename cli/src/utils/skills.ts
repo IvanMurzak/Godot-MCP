@@ -394,7 +394,9 @@ export function stripNonCode(source: string, blankStrings: boolean): string {
         i++;
         continue;
       }
-      out.push(' ');
+      // Preserve newlines like every sibling state does — the documented invariant is that blanking
+      // never shifts line numbers, and an unterminated char literal would otherwise swallow one.
+      out.push(c === '\n' ? '\n' : ' ');
       if (c === "'") inChar = false;
       continue;
     }

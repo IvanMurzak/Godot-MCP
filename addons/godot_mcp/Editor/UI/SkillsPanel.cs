@@ -307,21 +307,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>
         /// True when <paramref name="skillsDir"/> resolves to a location INSIDE <paramref name="projectRoot"/>. A
         /// last-line guard against an absolute-escape / <c>..</c> traversal before writing (the resolved dir is the
-        /// fixed `.claude/skills` today, so this is belt-and-suspenders). Compares normalized full paths.
+        /// fixed `.claude/skills` today, so this is belt-and-suspenders).
+        ///
+        /// <para>
+        /// Delegates to <see cref="Tools.GodotSkillsToolHost.IsInsideProject"/> — the SAME single home the
+        /// swap-and-restore uses, so the dock button and the <c>godot-skill-generate</c> tool can never drift
+        /// apart on what "inside the project" means.
+        /// </para>
         /// </summary>
         static bool IsSkillsDirInsideProject(string skillsDir, string projectRoot)
-        {
-            try
-            {
-                var rootFull = System.IO.Path.GetFullPath(projectRoot).Replace('\\', '/').TrimEnd('/');
-                var dirFull = System.IO.Path.GetFullPath(skillsDir).Replace('\\', '/').TrimEnd('/');
-                return dirFull == rootFull || dirFull.StartsWith(rootFull + "/", StringComparison.Ordinal);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+            => Tools.GodotSkillsToolHost.IsInsideProject(skillsDir, projectRoot);
 
         // No KeepAlive teardown is needed: every signal here is an OBJECT+METHOD Callable (the auto-generate
         // checkbox connects to its own instance method; the Generate button connects to this panel's instance

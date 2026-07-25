@@ -10,8 +10,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.McpPlugin;
@@ -128,9 +130,42 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ScriptCreateToolIdRef_MatchesTheScriptFamilysToolId()
         {
             // SkillsToolPaths quotes `script-create` in its ".gd is not a skill" rejection message, but the
-            // Tool_Script family is editor-only (#if TOOLS) so it cannot reference the real constant. Pin the
-            // literal so a rename of `script-create` fails here instead of shipping a dead pointer.
-            Assert.Equal("script-create", SkillsToolPaths.ScriptCreateToolIdRef);
+            // Tool_Script family is editor-only (#if TOOLS) so it cannot reference the real constant.
+            //
+            // Read the REAL constant out of the addon source rather than comparing our shim against another
+            // hard-coded literal: a literal-vs-literal assert stays green through exactly the rename it claims
+            // to catch, shipping the dead pointer anyway. (Same source-text technique the CLI's
+            // skills-addon-parity scan uses, and the same FindRepoFile walk as GodotMcpServerViewTests.)
+            var srcPath = FindRepoFile("addons/godot_mcp/Editor/Tools/Tool_Script.Create.cs");
+            Assert.True(srcPath != null,
+                "Could not locate addons/godot_mcp/Editor/Tools/Tool_Script.Create.cs from the test assembly.");
+
+            var match = Regex.Match(
+                File.ReadAllText(srcPath!),
+                @"public\s+const\s+string\s+ScriptCreateToolId\s*=\s*""([^""]+)""");
+            Assert.True(match.Success,
+                "Tool_Script.ScriptCreateToolId not found — did the constant move or change shape? " +
+                "SkillsToolPaths.ScriptCreateToolIdRef points at it by value and must be re-pinned.");
+
+            // Shim first to satisfy xUnit2000 (it is the `const`); the comparison is symmetric, and a
+            // failure reads "expected <our pinned ref>, actual <what the addon source now declares>".
+            Assert.Equal(SkillsToolPaths.ScriptCreateToolIdRef, match.Groups[1].Value);
+        }
+
+        /// <summary>
+        /// Walk up from the test assembly location to find a repo-relative file, so the source-text pin above
+        /// does not depend on the test runner's working directory. Returns null when not found.
+        /// </summary>
+        static string? FindRepoFile(string relativePath)
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            for (var i = 0; i < 12 && dir != null; i++, dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+            return null;
         }
     }
 

@@ -137,7 +137,7 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 
 | Family | Tools | What it does |
 | --- | --- | --- |
-| **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). |
+| **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
 | **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. |
 | **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
 | **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
@@ -152,7 +152,8 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 
 **ping**
 
-- `ping` — Lightweight readiness probe; echoes a message back, or returns `pong`.
+- `ping` — Lightweight readiness probe; echoes a message back, or returns `pong`. A **System tool**: call it
+  over `/api/system-tools/ping` (or `godot-cli run-system-tool ping`); it is not listed in `tools/list`.
 
 **node**
 

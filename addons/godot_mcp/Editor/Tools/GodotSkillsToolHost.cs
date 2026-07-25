@@ -4,6 +4,7 @@
 │  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
 │  Copyright (c) 2026 Ivan Murzak                                  │
 │  Licensed under the Apache License, Version 2.0.                 │
+│  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
 #if TOOLS
@@ -72,7 +73,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (relativeFolder != null)
                 {
                     // Explicit override (already validated relative + traversal-free by SkillsToolPaths).
-                    skillsDir = Path.Combine(projectRoot, relativeFolder);
+                    // Normalize separators: projectRoot is forward-slashed (GlobalizePath) and relativeFolder
+                    // is too, so a raw Path.Combine yields "C:/proj\.claude/skills" on Windows — which then
+                    // lands in the live config AND is echoed back to the client as SkillsFolder, comparing
+                    // unequal to the dock's own resolution of the same directory.
+                    skillsDir = Path.Combine(projectRoot, relativeFolder).Replace('\\', '/');
                     agentId = null;
                 }
                 else
