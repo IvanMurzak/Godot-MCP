@@ -122,12 +122,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 Path = node.GetPath().ToString(),
                 Type = node.GetClass(),
                 ScriptResourcePath = GetAttachedScriptPath(node),
-                // GetIndex() reports -1 for a node with no parent, and also for an INTERNAL child when
-                // internal children are excluded (which is this family's convention everywhere). Neither
-                // has a meaningful sibling position, so both floor to 0 and the documented
-                // "0-based position, 0 when there is no parent" contract on NodeData.Index holds. Exposing
-                // the index makes node-create's 'index' and node-reorder self-verifying: the caller sees
-                // where the node actually landed (issue #294).
+                // GetIndex() reports -1 for a node with no parent, and can also go negative for an INTERNAL
+                // child when internal children are excluded (this family's convention everywhere). Neither
+                // has a meaningful sibling position, so both floor to 0 and NodeData.Index's "never
+                // negative" contract holds. Exposing the index makes node-create's 'index' and node-reorder
+                // self-verifying: the caller sees where the node actually landed (issue #294).
                 Index = Math.Max(0, node.GetIndex(includeInternal: false)),
                 ChildCount = node.GetChildCount(includeInternal: false),
             };

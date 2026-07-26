@@ -57,8 +57,11 @@ namespace com.IvanMurzak.Godot.MCP.Data
         public string? ScriptResourcePath { get; set; } = null;
 
         [JsonInclude, JsonPropertyName("index")]
-        [Description("0-based position of the Node among its parent's children (excluding internal children). " +
-            "0 for a Node with no parent (e.g. the scene root). Use 'node-reorder' to change it.")]
+        [Description("0-based position of the Node among its parent's children, excluding internal children; " +
+            "this is the order a container (VBoxContainer/HBoxContainer/GridContainer) lays out and the order " +
+            "CanvasItems draw in. Never negative. Meaningless for the edited scene root, which the editor " +
+            "parents under its own tree — 'node-reorder' refuses it for that reason. Use 'node-reorder' (or " +
+            "'node-create' with 'index') to change it.")]
         public int Index { get; set; } = 0;
 
         [JsonInclude, JsonPropertyName("childCount")]

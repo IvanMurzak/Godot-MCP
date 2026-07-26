@@ -35,9 +35,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </para>
     ///
     /// <para>
-    /// The guarded statics are the four <c>*.Current</c> setters plus the <c>RuntimeErrorCapture</c>
-    /// install/uninstall state mutators (see <see cref="GuardedWritePattern"/>). A future contributor who adds
-    /// a 5th unguarded mutator gets a failing test whose message names the offending class + static and the
+    /// The guarded statics are the <c>*.Current</c> setters, the <c>RuntimeErrorCapture</c>
+    /// install/uninstall state mutators, and the injected native resolvers behind the Resource/Node
+    /// reflection converters (see <see cref="GuardedWritePattern"/>). A future contributor who adds another
+    /// unguarded mutator gets a failing test whose message names the offending class + static and the
     /// fix (join a <c>DisableParallelization = true</c> collection).
     /// </para>
     /// </summary>
@@ -55,7 +56,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// </summary>
         static readonly Regex GuardedWritePattern = new(
             @"\b(?:GodotLogCollector|RuntimeErrorCollector|ScriptErrorCapture|GodotMcpReflector|SkillsToolHost)\.Current\s*=(?!=)"
-            + @"|\bRuntimeErrorCapture\.(?:Install|Uninstall)\s*\(",
+            + @"|\bRuntimeErrorCapture\.(?:Install|Uninstall)\s*\("
+            // The injected native resolvers behind the Resource/Node reflection converters are the same
+            // kind of process-wide static, just not named '.Current' (issue #292 added the Node one).
+            + @"|\bGodot_Resource_ReflectionConverter(?:<[^>]*>)?\.ResourceResolver\s*=(?!=)"
+            + @"|\bGodot_Node_ReflectionConverter(?:<[^>]*>)?\.NodeResolver\s*=(?!=)",
             RegexOptions.Compiled);
 
         /// <summary>Matches a top-level <c>... class Name ...</c> declaration, capturing the class name.</summary>
@@ -115,7 +120,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 "Drift-guard found ZERO process-wide-static writes across the test sources — the scanner is "
                 + "likely broken (regex or source layout changed). Expected to see writes to "
                 + "GodotLogCollector.Current / RuntimeErrorCollector.Current / ScriptErrorCapture.Current / "
-                + "GodotMcpReflector.Current / SkillsToolHost.Current / RuntimeErrorCapture.Install|Uninstall.");
+                + "GodotMcpReflector.Current / SkillsToolHost.Current / RuntimeErrorCapture.Install|Uninstall / "
+                + "Godot_Resource_ReflectionConverter.ResourceResolver / Godot_Node_ReflectionConverter.NodeResolver.");
 
             Assert.True(violations.Count == 0,
                 "Process-wide-static mutator(s) found WITHOUT a [Collection(...)] serial collection — these "

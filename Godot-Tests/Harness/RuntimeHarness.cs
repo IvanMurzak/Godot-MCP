@@ -123,7 +123,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             GD.Print($"[harness] starting (godot={report.GodotVersion}, engineLoggerExpected={report.EngineLoggerExpected}, requireConnect={requireConnect}, timeout={timeoutSeconds}s).");
 
-            // Godot.Variant / Node-ref converter round-trip (issue #292). This is the ONLY place the project
+            // Godot.Variant converter round-trip (issue #292). This is the ONLY place the project
             // can assert it: materializing a non-Nil Variant calls godotsharp_* P/Invoke, which faults the
             // plain xUnit host with AccessViolationException, so the CI unit suite can only cover the pure
             // parser and the failure paths. Here we have a REAL Godot, so the actual round-trip (and the
@@ -223,10 +223,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         // --- Godot.Variant round-trip (issue #292) ----------------------------------------------------
 
         /// <summary>
-        /// Drive the real <see cref="Godot_Variant_ReflectionConverter"/> / <see cref="Godot_Node_ReflectionConverter"/>
-        /// through <c>Reflector.Deserialize</c> against a LIVE Godot, then re-run the issue's own
+        /// Drive the real <see cref="Godot_Variant_ReflectionConverter"/> through
+        /// <c>Reflector.Deserialize</c> against a LIVE Godot, then re-run the issue's own
         /// <c>ProjectSettings.SetSetting</c> repro. Every failure is recorded as a string so the CI log names
         /// exactly which shape broke rather than just "false".
+        ///
+        /// <para>
+        /// Scope: <b>Variant only</b>. The sibling <c>Godot_Node_ReflectionConverter</c>'s resolve path
+        /// cannot be exercised here — its resolver is installed by <c>Tool_Node.InstallReflectionResolver</c>
+        /// under <c>#if TOOLS</c> and this harness is a GAME process, so <c>NodeResolver</c> is always null.
+        /// Its pure-managed half (selection, ref parsing, the throw-instead-of-null policy, an injected
+        /// resolver) is unit-tested; the live scene-tree lookup is covered by the editor smoke.
+        /// </para>
         /// </summary>
         void CheckVariantRoundTrip(HarnessReport report)
         {
@@ -302,7 +310,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         }
 
         static SerializedMember Member(string valueJson)
-            => SerializedMember.FromJson(typeof(Variant), JsonDocument.Parse(valueJson).RootElement.Clone(), "value");
+            => SerializedMember.FromJson(typeof(Variant), valueJson, "value");
 
         static void Check(HarnessReport report, string label, string valueJson, Func<Variant, bool> verify, com.IvanMurzak.ReflectorNet.Reflector reflector)
         {

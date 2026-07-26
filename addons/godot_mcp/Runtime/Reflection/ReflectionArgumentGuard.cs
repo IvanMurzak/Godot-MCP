@@ -50,7 +50,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     public static class ReflectionArgumentGuard
     {
         /// <summary>Diagnostic severities that mean "the value was NOT produced as requested".</summary>
-        public static bool IsFailure(LogType type) => type == LogType.Error || type == LogType.Critical;
+        static bool IsFailure(LogType type) => type == LogType.Error || type == LogType.Critical;
 
         /// <summary>
         /// Throw when <paramref name="logs"/> records that deserializing <paramref name="argumentName"/>
@@ -61,9 +61,23 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <param name="declaredTypeName">The argument's declared type name, for the error message.</param>
         public static void RequireNoErrors(Logs? logs, string argumentName, string? declaredTypeName)
         {
-            var failures = Failures(logs);
-            if (failures.Count == 0)
+            // Scan first: "no failures" is the overwhelmingly common outcome, and it should not pay for a
+            // LINQ pipeline + array on every argument of every call.
+            if (logs == null)
                 return;
+
+            var clean = true;
+            foreach (var entry in logs)
+            {
+                if (!IsFailure(entry.Type))
+                    continue;
+                clean = false;
+                break;
+            }
+            if (clean)
+                return;
+
+            var failures = Failures(logs);
 
             var declared = string.IsNullOrEmpty(declaredTypeName) ? "the declared type" : $"'{declaredTypeName}'";
             throw new ArgumentException(

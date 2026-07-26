@@ -33,8 +33,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "(VBoxContainer/HBoxContainer/GridContainer) and draw order for CanvasItems, and until now it " +
             "could only be set by creating nodes in the right sequence — rearranging an existing scene had " +
             "no path short of delete-and-recreate.\n" +
-            "'index' is the 0-based destination among the parent's children; negative counts from the end " +
-            "(-1 = last). Out-of-range values clamp into range. Returns the moved Node's updated structured " +
+            "'index' is the 0-based destination among the parent's children, excluding internal children; " +
+            "negative counts from the end (-1 = last). Out-of-range values clamp into range. The scene root " +
+            "is refused (it has no siblings inside the scene). Returns the moved Node's updated structured " +
             "data, whose 'index' is the position it actually ended up at — check it rather than assuming.")]
         public NodeData Reorder
         (
@@ -47,15 +48,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             return MainThread.Instance.Run(() =>
             {
-                EditorToolGuards.GetEditedSceneRootOrThrow();
+                var root = EditorToolGuards.GetEditedSceneRootOrThrow();
 
                 var node = ResolveNode(nodeRef, out var error)
                     ?? throw new ArgumentException(error ?? "Node not found.", nameof(nodeRef));
 
+                // Reject the scene root by IDENTITY, exactly as node-delete/-duplicate/-set-parent do. A
+                // GetParent() null-check would NOT work here: Godot's editor parents the edited scene root
+                // under its own SceneTree window (see NodePathNormalizer's notes), so the root has a parent
+                // and reordering it would shuffle it among the EDITOR's children.
+                if (node == root)
+                    throw new ArgumentException(
+                        "Cannot reorder the scene root Node — it has no siblings inside the scene.", nameof(nodeRef));
+
                 var parent = node.GetParent()
                     ?? throw new ArgumentException(
-                        "Cannot reorder a Node with no parent (the scene root has no siblings). Use " +
-                        $"'{NodeSetParentToolId}' to give it a parent first.", nameof(nodeRef));
+                        $"Node '{node.Name}' has no parent to reorder it within.", nameof(nodeRef));
 
                 // Clamp against the parent's NON-internal child count: internal children are excluded from
                 // everything else in this family, and clamping to the smaller count can never hand MoveChild

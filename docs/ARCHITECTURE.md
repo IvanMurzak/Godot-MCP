@@ -49,7 +49,8 @@ addons/godot_mcp/
 │   ├── Connection/                   # connection core, config, env/store, logger, resolver,
 │   │                                 #   token gen, server-view (version parse), STJ cache
 │   ├── MainThread/                   # MainThreadDispatcher + GodotMainThread
-│   ├── Reflection/                   # reflector factory + Godot value-type converters + GodotAssemblyUtils
+│   ├── Reflection/                   # reflector factory + Godot value-type / Variant / Resource-ref /
+│   │                                 #   Node-ref converters + GodotAssemblyUtils
 │   ├── Data/                         # pure-managed result/ref models (NodeRef, ResourceRef, …)
 │   ├── Extensions/                   # extension registry/installer planning logic (pure-managed)
 │   └── Tools/                        # RUNTIME-SAFE tools: Tool_Ping, Tool_Console*, Tool_Reflection*,

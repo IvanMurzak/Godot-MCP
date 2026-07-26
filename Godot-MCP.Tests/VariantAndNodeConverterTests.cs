@@ -251,8 +251,66 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Parse_FloatVectorAcceptsLargeComponents()
         {
-            // Only the *I types are range-checked; Vector3 is float-valued and must not be.
+            // 1e20 fits a 32-bit float, so it must be accepted — the finiteness check below must not be
+            // over-eager and start rejecting ordinary large values.
             Assert.Equal(VariantType.Vector3, Parse("{\"variantType\":\"Vector3\",\"value\":[1,2,1e20]}").Kind);
+        }
+
+        [Fact]
+        public void Parse_FloatVectorComponentBeyondSingleRange_IsRejected()
+        {
+            // 1e300 is a fine double but saturates to +Infinity as a 32-bit float — Godot's component type.
+            // Silently storing Infinity is precisely the degradation this change removes.
+            var ex = Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Vector3\",\"value\":[1,2,1e300]}"));
+            Assert.Contains("must be a finite 32-bit float", ex.Message);
+        }
+
+        [Theory]
+        // JsonElement.GetDouble() SATURATES an out-of-range literal to +/-Infinity rather than throwing, and
+        // a non-finite Float variant has no JSON representation to be written back out.
+        [InlineData("1e999")]
+        [InlineData("-1e999")]
+        [InlineData("{\"variantType\":\"Float\",\"value\":1e999}")]
+        [InlineData("{\"variantType\":\"Float\",\"value\":\"NaN\"}")]
+        [InlineData("{\"variantType\":\"Float\",\"value\":\"Infinity\"}")]
+        public void Parse_NonFiniteFloat_IsRejected(string json)
+        {
+            var ex = Assert.Throws<ArgumentException>(() => Parse(json));
+            Assert.Contains("expects a finite number", ex.Message);
+        }
+
+        [Fact]
+        public void Parse_ObjectFormMissingAComponent_NamesTheMissingOne()
+        {
+            // Reporting "expects 3 components; got 1" here would both under-count what the caller sent and
+            // fail to say WHICH component is absent.
+            var ex = Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Vector3\",\"value\":{\"x\":1,\"z\":3}}"));
+
+            Assert.Contains("missing component 'y'", ex.Message);
+            Assert.Contains("x, y, z", ex.Message);
+        }
+
+        [Fact]
+        public void Parse_PlaneObjectForm_UsesGodotsOwnMemberNames()
+        {
+            // Godot.Plane exposes Normal.X/Y/Z + D — not the a/b/c/d of its constructor — so those are the
+            // keys an agent reading the C# surface will send.
+            var payload = Parse("{\"variantType\":\"Plane\",\"value\":{\"x\":0,\"y\":1,\"z\":0,\"d\":5}}");
+
+            Assert.Equal(VariantType.Plane, payload.Kind);
+            Assert.Equal(new double[] { 0, 1, 0, 5 }, payload.Components);
+        }
+
+        [Theory]
+        // Enum.TryParse also accepts a flag LIST ("Bool,Int" == 3 == Float) and a bare ordinal, either of
+        // which would silently build a DIFFERENT valid variant type.
+        [InlineData("Bool,Int")]
+        [InlineData("3")]
+        [InlineData("0")]
+        public void Parse_TypeNameThatIsNotASingleSymbolicName_IsRejected(string typeName)
+        {
+            var ex = Assert.Throws<ArgumentException>(() => Parse($"{{\"variantType\":\"{typeName}\",\"value\":1}}"));
+            Assert.Contains("is not a Godot Variant.Type name", ex.Message);
         }
 
         // ---- Rejections that used to be silent Nil ------------------------------------------------
@@ -304,14 +362,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </para>
     /// </summary>
     [Collection(GodotConverterRegistrationTests.CollectionName)]
-    public class GodotConverterRegistrationTests
+    public class GodotConverterRegistrationTests : IDisposable
     {
         public const string CollectionName = "godot-converter-statics";
+
+        // Snapshot/restore the process-wide resolver once for the class instead of a try/finally per test
+        // (xUnit builds a fresh instance per test). Enforced by TestIsolationGuardTests.
+        readonly Godot_Node_ReflectionConverter.NodeResolverDelegate? _previousNodeResolver
+            = Godot_Node_ReflectionConverter.NodeResolver;
+
+        public void Dispose() => Godot_Node_ReflectionConverter.NodeResolver = _previousNodeResolver;
 
         static Reflector NewReflector() => GodotReflectorFactory.CreateDefaultReflector();
 
         static SerializedMember Member(Type type, string json, string name)
-            => SerializedMember.FromJson(type, JsonDocument.Parse(json).RootElement.Clone(), name);
+            => SerializedMember.FromJson(type, json, name);
 
         [Fact]
         public void VariantConverter_WinsSelectionFor_GodotVariant()
@@ -365,91 +430,79 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Deserialize_NodeRef_WithNoResolverInstalled_Throws_InsteadOfNull()
+        public void Deserialize_NodeRef_WithNoResolverInstalled_WarnsWithoutFailingTheCall()
         {
-            var previous = Godot_Node_ReflectionConverter.NodeResolver;
+            // No resolver is an ENVIRONMENT fact (no running editor), not a bad request — it must not be
+            // promoted to a call failure by ReflectionArgumentGuard.
             Godot_Node_ReflectionConverter.NodeResolver = null;
-            try
-            {
-                var reflector = NewReflector();
-                var member = Member(typeof(Node), "{\"instanceId\":123}", "targetObject");
 
-                var ex = Assert.Throws<InvalidOperationException>(
-                    () => reflector.Deserialize(member, fallbackType: typeof(Node)));
-                Assert.Contains("no Node resolver is installed", ex.Message);
-            }
-            finally
-            {
-                Godot_Node_ReflectionConverter.NodeResolver = previous;
-            }
+            var logs = new Logs();
+            var result = NewReflector().Deserialize(
+                Member(typeof(Node), "{\"instanceId\":123}", "targetObject"), fallbackType: typeof(Node), logs: logs);
+
+            Assert.Null(result);
+            Assert.Empty(ReflectionArgumentGuard.Failures(logs));
+            Assert.Contains(logs, entry => entry.Type == LogType.Warning && entry.Message.Contains("No Node resolver is installed"));
         }
 
-        [Fact]
-        public void Deserialize_NodeRef_ReachesTheInstalledResolver_AndSurfacesItsError()
+        [Theory]
+        // REGRESSION (#292): the ref never reached ANY resolver — ReflectorNet's generic converter swallowed
+        // it and produced null with NO diagnostic, so every instance method was unreachable behind the
+        // generic "'targetObject' deserialized instance is null". Now the ref arrives intact and the
+        // resolver's own reason is recorded, which ReflectionArgumentGuard turns into a refused call.
+        [InlineData("{\"instanceId\":123}", 123ul, null)]
+        [InlineData("{\"path\":\"/root/Main/Player\"}", 0ul, "/root/Main/Player")]
+        public void Deserialize_NodeRef_ReachesTheInstalledResolver_AndRecordsItsError(
+            string json, ulong expectedInstanceId, string? expectedPath)
         {
-            // REGRESSION (#292): the {"instanceId": N} target never reached ANY resolver — ReflectorNet's
-            // generic converter swallowed it and produced null, so every instance method was unreachable
-            // behind the generic "'targetObject' deserialized instance is null".
-            var previous = Godot_Node_ReflectionConverter.NodeResolver;
             NodeRef? seen = null;
             Godot_Node_ReflectionConverter.NodeResolver = (NodeRef nodeRef, out object? node, out string? error) =>
             {
                 seen = nodeRef;
+                node = null;
+                error = "No live object with that reference";
+                return false;
+            };
+
+            var logs = new Logs();
+            var result = NewReflector().Deserialize(Member(typeof(Node), json, "targetObject"), fallbackType: typeof(Node), logs: logs);
+
+            Assert.Null(result);
+            Assert.NotNull(seen);
+            Assert.Equal(expectedInstanceId, seen!.InstanceId);
+            Assert.Equal(expectedPath, seen.Path);
+            Assert.Contains(ReflectionArgumentGuard.Failures(logs), m => m.Contains("No live object with that reference"));
+        }
+
+        [Fact]
+        public void Deserialize_NodeRef_ResolverFailure_IsARefusedCall()
+        {
+            // The end-to-end contract: converter reports, ReflectionArgumentGuard (the call site) refuses.
+            Godot_Node_ReflectionConverter.NodeResolver = (NodeRef nodeRef, out object? node, out string? error) =>
+            {
                 node = null;
                 error = "No live object with instanceId '123'";
                 return false;
             };
-            try
-            {
-                var reflector = NewReflector();
-                var member = Member(typeof(Node), "{\"instanceId\":123}", "targetObject");
 
-                var ex = Assert.Throws<ArgumentException>(() => reflector.Deserialize(member, fallbackType: typeof(Node)));
+            var logs = new Logs();
+            NewReflector().Deserialize(Member(typeof(Node), "{\"instanceId\":123}", "targetObject"), fallbackType: typeof(Node), logs: logs);
 
-                Assert.NotNull(seen);
-                Assert.Equal(123ul, seen!.InstanceId);
-                Assert.Contains("No live object with instanceId '123'", ex.Message);
-            }
-            finally
-            {
-                Godot_Node_ReflectionConverter.NodeResolver = previous;
-            }
+            var ex = Assert.Throws<ArgumentException>(
+                () => ReflectionArgumentGuard.RequireNoErrors(logs, "targetObject", "Godot.Node"));
+            Assert.Contains("the call was NOT made", ex.Message);
+            Assert.Contains("No live object with instanceId '123'", ex.Message);
         }
 
         [Fact]
-        public void Deserialize_NodeRef_AcceptsAScenePath()
+        public void Deserialize_EmptyNodeRef_IsAFailure()
         {
-            var previous = Godot_Node_ReflectionConverter.NodeResolver;
-            NodeRef? seen = null;
-            Godot_Node_ReflectionConverter.NodeResolver = (NodeRef nodeRef, out object? node, out string? error) =>
-            {
-                seen = nodeRef;
-                node = null;
-                error = "not found";
-                return false;
-            };
-            try
-            {
-                var reflector = NewReflector();
-                var member = Member(typeof(Node), "{\"path\":\"/root/Main/Player\"}", "targetObject");
+            var logs = new Logs();
+            var result = NewReflector().Deserialize(
+                Member(typeof(Node), "{\"instanceId\":0}", "targetObject"), fallbackType: typeof(Node), logs: logs);
 
-                Assert.Throws<ArgumentException>(() => reflector.Deserialize(member, fallbackType: typeof(Node)));
-                Assert.Equal("/root/Main/Player", seen?.Path);
-            }
-            finally
-            {
-                Godot_Node_ReflectionConverter.NodeResolver = previous;
-            }
-        }
-
-        [Fact]
-        public void Deserialize_EmptyNodeRef_Throws()
-        {
-            var reflector = NewReflector();
-            var member = Member(typeof(Node), "{\"instanceId\":0}", "targetObject");
-
-            var ex = Assert.Throws<ArgumentException>(() => reflector.Deserialize(member, fallbackType: typeof(Node)));
-            Assert.Contains("Could not read a Node reference", ex.Message);
+            Assert.Null(result);
+            Assert.Contains(ReflectionArgumentGuard.Failures(logs), m => m.Contains("Could not read a Node reference"));
         }
 
         // ToNodeRef on a null node yields an empty (invalid) ref — the pure-managed slice of the serialize

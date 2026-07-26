@@ -50,11 +50,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 ? childCount + requestedIndex
                 : requestedIndex;
 
-            if (resolved < 0)
-                return 0;
-            if (resolved > childCount - 1)
-                return childCount - 1;
-            return resolved;
+            return System.Math.Clamp(resolved, 0, childCount - 1);
         }
     }
 }

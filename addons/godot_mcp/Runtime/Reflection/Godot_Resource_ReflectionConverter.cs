@@ -193,18 +193,28 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <summary>
         /// Build the wire <see cref="ResourceRef"/> for a live resource: its <c>res://</c> path when it has
         /// one (the stable identity of an on-disk asset), else its loaded instance id. A <c>null</c> resource
-        /// maps to an empty ref. Reads native Godot members, so it runs only at editor runtime.
+        /// maps to an empty ref (the only branch a plain unit-test host reaches).
+        ///
+        /// <para>
+        /// <c>ResourcePath</c> / <c>GetInstanceId</c> are native reads, so the non-null branch marshals onto
+        /// the editor main thread: <c>reflection-method-call</c> serializes a method's RESULT inside the
+        /// action it may run off the main thread (<c>executeInMainThread: false</c>), so a method returning a
+        /// <c>Resource</c> reaches here from a worker. The marshal is free when already on the main thread.
+        /// Mirrors <c>Godot_Node_ReflectionConverter.ToNodeRef</c>.
+        /// </para>
         /// </summary>
         public static ResourceRef ToResourceRef(global::Godot.Resource? resource)
         {
             if (resource == null)
                 return new ResourceRef();
 
-            var path = resource.ResourcePath;
-            if (!string.IsNullOrEmpty(path))
-                return new ResourceRef(path);
-
-            return new ResourceRef(resource.GetInstanceId());
+            return MainThread.Instance.Run(() =>
+            {
+                var path = resource.ResourcePath;
+                return string.IsNullOrEmpty(path)
+                    ? new ResourceRef(resource.GetInstanceId())
+                    : new ResourceRef(path);
+            });
         }
     }
 }

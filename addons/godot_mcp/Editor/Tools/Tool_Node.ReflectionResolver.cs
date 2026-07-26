@@ -12,7 +12,6 @@
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.ReflectorNet.Utils;
-using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -44,14 +43,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             Godot_Node_ReflectionConverter.NodeResolver = static (NodeRef nodeRef, out object? node, out string? error) =>
             {
-                var (resolved, resolveError) = MainThread.Instance.Run(() =>
+                (node, error) = MainThread.Instance.Run(() =>
                 {
                     var found = ResolveNode(nodeRef, out var inner);
-                    return (Node: (object?)found, Error: inner);
+                    return ((object?)found, inner);
                 });
-
-                node = resolved;
-                error = resolveError;
                 return node != null;
             };
         }

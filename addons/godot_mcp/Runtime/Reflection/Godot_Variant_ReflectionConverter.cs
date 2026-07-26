@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -56,11 +57,14 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// </summary>
     public class Godot_Variant_ReflectionConverter : GenericReflectionConverter<global::Godot.Variant>
     {
+        // Taken from the PARSER's accepted-alias lists rather than restated, so the shape this writes can
+        // never drift from the shape GodotVariantPayload.Parse reads (a one-way wire break).
+
         /// <summary>JSON key naming the Godot variant type on the wire.</summary>
-        public const string VariantTypeKey = "variantType";
+        public static readonly string VariantTypeKey = GodotVariantPayload.TypeKeys[0];
 
         /// <summary>JSON key carrying the value on the wire.</summary>
-        public const string ValueKey = "value";
+        public static readonly string ValueKey = GodotVariantPayload.ValueKeys[0];
 
         /// <summary>JSON key carrying an explanatory note for a variant that cannot be written back.</summary>
         public const string NoteKey = "note";
@@ -113,8 +117,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             SerializationContext? context = null)
         {
             var variant = obj is global::Godot.Variant v ? v : default;
-            using var document = JsonDocument.Parse(ToWireNode(variant).ToJsonString());
-            return SerializedMember.FromJson(type, document.RootElement.Clone(), name);
+            // FromJson(Type, string, string) parses + clones internally (SerializedMember.SetJsonValue).
+            return SerializedMember.FromJson(type, ToWireNode(variant).ToJsonString(), name);
         }
 
         /// <summary>
@@ -284,11 +288,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return Components(variant.VariantType, FlattenBasis(variant.AsBasis()));
                 case VariantType.Transform3D:
                     var t3 = variant.AsTransform3D();
-                    return Components(variant.VariantType, Concat(FlattenBasis(t3.Basis), Flatten(t3.Origin)));
+                    return Components(variant.VariantType, FlattenBasis(t3.Basis).Concat(Flatten(t3.Origin)).ToArray());
                 case VariantType.Projection:
                     var proj = variant.AsProjection();
-                    return Components(variant.VariantType,
-                        Concat(Concat(Flatten(proj.X), Flatten(proj.Y)), Concat(Flatten(proj.Z), Flatten(proj.W))));
+                    return Components(variant.VariantType, Flatten(proj.X)
+                        .Concat(Flatten(proj.Y)).Concat(Flatten(proj.Z)).Concat(Flatten(proj.W)).ToArray());
 
                 default:
                     throw new NotSupportedException($"Godot Variant.Type '{variant.VariantType}' has no JSON payload form.");
@@ -309,40 +313,57 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             b.Row2.X, b.Row2.Y, b.Row2.Z,
         };
 
-        static double[] Concat(double[] a, double[] b)
-        {
-            var result = new double[a.Length + b.Length];
-            Array.Copy(a, result, a.Length);
-            Array.Copy(b, 0, result, a.Length, b.Length);
-            return result;
-        }
-
         /// <summary>
-        /// Build the wire JSON for a live variant. Types that have no JSON form (Object / Array / Dictionary
-        /// / Packed*Array / Rid / Callable / Signal) are still reported honestly — the declared
-        /// <c>variantType</c>, Godot's own string rendering, and a note that they cannot be written back —
-        /// rather than being silently emitted as a value that would not round-trip.
+        /// Build the wire JSON for a live variant. Two kinds of variant cannot be written back as an
+        /// argument — types with no JSON form (Object / Array / Dictionary / Packed*Array / Rid / Callable /
+        /// Signal), and any variant holding a non-finite float (JSON has no literal for NaN/±Infinity, and
+        /// <c>JsonValue.Create(double.NaN).ToJsonString()</c> throws). Both are reported honestly, as the
+        /// declared <c>variantType</c> plus Godot's own string rendering and a note, rather than being
+        /// silently emitted as something that would not round-trip — and, critically, rather than turning a
+        /// SUCCESSFUL call into an opaque serialization failure.
         /// </summary>
         internal static JsonObject ToWireNode(global::Godot.Variant variant)
         {
             var node = new JsonObject { [VariantTypeKey] = variant.VariantType.ToString() };
 
-            GodotVariantPayload payload;
+            GodotVariantPayload? payload = null;
+            string? reason = null;
             try
             {
                 payload = ToPayload(variant);
+                if (!IsJsonWritable(payload))
+                    reason = "it holds a non-finite float (NaN or +/-Infinity), which JSON cannot represent";
             }
             catch (NotSupportedException)
             {
+                reason = $"Godot Variant.Type '{variant.VariantType}' has no JSON form";
+            }
+
+            if (reason != null)
+            {
                 node[ValueKey] = variant.ToString();
                 node[NoteKey] =
-                    $"Godot Variant.Type '{variant.VariantType}' is rendered as Godot's own string form and " +
-                    "cannot be sent back as a Godot.Variant argument. " + GodotVariantPayload.WireFormatHelp;
+                    $"Rendered as Godot's own string form because {reason}; it cannot be sent back as a " +
+                    "Godot.Variant argument. " + GodotVariantPayload.WireFormatHelp;
                 return node;
             }
 
-            node[ValueKey] = ToWireValue(payload);
+            node[ValueKey] = ToWireValue(payload!);
             return node;
+        }
+
+        /// <summary>True when every number in <paramref name="payload"/> can be written as a JSON literal.</summary>
+        static bool IsJsonWritable(GodotVariantPayload payload)
+        {
+            if (payload.Kind == VariantType.Float)
+                return !double.IsNaN(payload.FloatValue) && !double.IsInfinity(payload.FloatValue);
+
+            foreach (var component in payload.Components)
+            {
+                if (double.IsNaN(component) || double.IsInfinity(component))
+                    return false;
+            }
+            return true;
         }
 
         static JsonNode? ToWireValue(GodotVariantPayload payload)

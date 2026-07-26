@@ -21,9 +21,10 @@ Usage:
 Per-version contract (the issue's acceptance criteria):
   * ALWAYS: capture installed + available; the C# unobserved-Task exception captured WITH a
     stack trace; (when --require-connect=1) the live SignalR transport connected; and the
-    Godot.Variant / Node-ref converter round-trip (issue #292) — every documented wire shape
-    materializes, an unreadable payload raises instead of degrading to a silent Nil, and the
-    issue's own ProjectSettings.SetSetting repro reads its value back.
+    Godot.Variant converter round-trip (issue #292) — every documented wire shape materializes,
+    an unreadable payload raises instead of degrading to a silent Nil, and the issue's own
+    ProjectSettings.SetSetting repro reads its value back. (The Node-ref converter's resolve path
+    is NOT covered here: its resolver is installed under #if TOOLS and this is a game process.)
   * --engine-logger-expected 1 (Godot 4.5+): the engine GDScript runtime error captured WITH
     a multi-frame backtrace (>= 2 frames, issue #163) + push_error + push_warning.
   * --engine-logger-expected 0 (Godot 4.3 / 4.4): the engine channel is ABSENT (graceful stub
@@ -40,8 +41,14 @@ import sys
 from pathlib import Path
 
 
-#: Minimum number of Godot.Variant wire shapes the harness must exercise (issue #292). Keep in
-#: lockstep with RuntimeHarness.VariantRoundTripMinimumChecks.
+#: Minimum number of Godot.Variant wire shapes the harness must exercise (issue #292).
+#:
+#: DELIBERATELY an independent literal, not read from RuntimeHarness.VariantRoundTripMinimumChecks.
+#: This asserter's whole charter (see the module docstring) is to re-check the harness's claims
+#: INDEPENDENTLY, so that a harness edit which flips `ok` true without actually doing the work is
+#: still caught. Deriving this number from the harness source would make one edit defeat both
+#: gates — the opposite of defence in depth. It is a FLOOR, so it does not need to track the C#
+#: constant upward; it only needs to stop the assertion going vacuous.
 VARIANT_MIN_CHECKS = 11
 
 
@@ -88,8 +95,8 @@ def main() -> int:
     check(_b(data.get("hasCSharpException")), "the C# (unobserved-Task) exception was not captured")
     check(_b(data.get("cSharpExceptionHasStackTrace")), "the captured C# exception had no stack trace")
 
-    # --- Godot.Variant / Node-ref converters (issue #292) ------------------------------------
-    # These run against a REAL Godot, which is the only place they CAN run: materializing a non-Nil
+    # --- Godot.Variant converter (issue #292) ------------------------------------------------
+    # This runs against a REAL Godot, which is the only place it CAN run: materializing a non-Nil
     # Variant calls godotsharp_* P/Invoke and faults the plain xUnit host, so the unit suite covers
     # only the pure parser and the failure paths.
     variant_failures = data.get("variantRoundTripFailures") or []

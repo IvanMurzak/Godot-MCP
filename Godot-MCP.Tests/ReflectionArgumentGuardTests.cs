@@ -85,6 +85,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("the declared type", ex.Message);
         }
 
+        // The guard must not turn a WORKING reflection-method-call into a failure. Drive a real reflector
+        // over a real argument payload and assert the sink it fills carries nothing the guard rejects.
+        [Fact]
+        public void RequireNoErrors_AfterASuccessfulRealDeserialization_DoesNotThrow()
+        {
+            var reflector = GodotReflectorFactory.CreateDefaultReflector();
+            var logs = new Logs();
+
+            var member = reflector.Serialize(new global::Godot.Vector3(1f, 2f, 3f), typeof(global::Godot.Vector3), name: "value");
+            var value = reflector.Deserialize(member, fallbackType: typeof(global::Godot.Vector3), logs: logs);
+
+            Assert.Equal(new global::Godot.Vector3(1f, 2f, 3f), Assert.IsType<global::Godot.Vector3>(value));
+            Assert.Empty(ReflectionArgumentGuard.Failures(logs));
+            ReflectionArgumentGuard.RequireNoErrors(logs, "value", "Godot.Vector3");
+        }
+
         [Fact]
         public void Failures_ReturnsOnlyFailureMessages_InOrder()
         {

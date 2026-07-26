@@ -25,7 +25,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// fault the test host (P/Invoke with no Godot runtime), so the live <c>ResourceLoader.Load</c> path and
     /// the serialize-from-live-resource path are verified by the headless Godot smoke (test.md Suite 3), not
     /// here. <c>typeof(BoxMesh)</c> etc. are safe — a Type token triggers no native call.
+    ///
+    /// <para>
+    /// Serial (issue #195): these facts mutate the process-wide
+    /// <see cref="Godot_Resource_ReflectionConverter{T}.ResourceResolver"/>, so they must not run in
+    /// xUnit's parallel pool alongside another class that snapshots the same static. Enforced by
+    /// <see cref="TestIsolationGuardTests"/>.
+    /// </para>
     /// </summary>
+    [Collection(GodotConverterRegistrationTests.CollectionName)]
     public class ResourceConverterTests
     {
         static Reflector NewReflector() => GodotReflectorFactory.CreateDefaultReflector();

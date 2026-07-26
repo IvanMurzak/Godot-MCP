@@ -40,13 +40,16 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// </para>
     ///
     /// <para>
-    /// <b>Failure policy — deliberately louder than the Resource sibling.</b> An explicit JSON <c>null</c>
-    /// (or an absent value) still deserializes to <c>null</c>, because assigning null is a legitimate way to
-    /// clear a <c>Node</c>-typed member. But a NON-EMPTY ref that cannot be resolved <b>throws</b> rather
-    /// than degrading to <c>null</c> — there is no reading of "here is instanceId 123" under which silently
-    /// substituting null is what the caller meant, and a silent substitution is exactly the failure mode
-    /// issue #292 is about. (<see cref="Godot_Resource_ReflectionConverter{T}"/> predates that decision and
-    /// keeps its log-and-null behaviour; changing it is out of scope here.)
+    /// <b>Failure policy — report, do not decide.</b> An unresolvable ref records a
+    /// <see cref="LogType.Error"/> into the caller's <see cref="Logs"/> and yields <c>null</c>, exactly as
+    /// <see cref="Godot_Resource_ReflectionConverter{T}"/> does. A converter cannot know what its caller
+    /// wants done about a failure, so the CALL SITE sets policy:
+    /// <c>reflection-method-call</c> refuses the invocation via <see cref="ReflectionArgumentGuard"/>
+    /// (which is what makes issue #292's silent success loud), while <c>node-modify</c>'s merge patch
+    /// reports the member and still applies the rest. An earlier revision threw from here instead; that made
+    /// ONE bad member abort an entire <c>node-modify</c> patch, which is a worse answer than the one the
+    /// caller asked for. An explicit JSON <c>null</c> is untouched — clearing a <c>Node</c>-typed member
+    /// stays legitimate.
     /// </para>
     ///
     /// <para>
@@ -54,14 +57,14 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <see cref="NodeRef"/> data model). The live <c>InstanceFromId</c> / <c>GetNodeOrNull</c> resolution —
     /// a native Godot call that must run on the editor main thread — is injected via
     /// <see cref="NodeResolver"/> by the editor boot (see <c>Tool_Node.InstallReflectionResolver</c>). With
-    /// no resolver installed (a plain unit-test host) a non-empty ref throws a clear
-    /// "no resolver installed" error instead of pretending to succeed.
+    /// no resolver installed (a plain unit-test host) a non-empty ref logs a WARNING and yields <c>null</c>
+    /// — that is an environment fact, not a bad request, so it must not fail a call on its own.
     /// </para>
     /// </summary>
     public class Godot_Node_ReflectionConverter : Godot_Node_ReflectionConverter<global::Godot.Node> { }
 
     public class Godot_Node_ReflectionConverter<T> : GenericReflectionConverter<T>
-        where T : global::Godot.GodotObject
+        where T : global::Godot.Node
     {
         /// <summary>
         /// Resolves a <see cref="NodeRef"/> to a live <see cref="global::Godot.Node"/> on the editor main
@@ -90,7 +93,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             ILogger? logger = null,
             DeserializationContext? context = null)
         {
-            return ResolveFromJson(reflector, data.valueJsonElement, fallbackType ?? typeof(T));
+            return ResolveFromJson(reflector, data.valueJsonElement, fallbackType ?? typeof(T), depth, logs);
         }
 
         protected override object? DeserializeValueAsJsonElement(
@@ -101,17 +104,21 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             Logs? logs = null,
             ILogger? logger = null)
         {
-            return ResolveFromJson(reflector, data.valueJsonElement, type);
+            return ResolveFromJson(reflector, data.valueJsonElement, type, depth, logs);
         }
 
         /// <summary>
         /// Map a <see cref="NodeRef"/>-shaped JSON value to a live node. A <c>null</c>/absent value resolves
-        /// to <c>null</c> (clearing the member). Anything else must resolve, or this throws.
+        /// to <c>null</c> (clearing the member). Every other failure records an <see cref="LogType.Error"/>
+        /// into <paramref name="logs"/> and yields <c>null</c>, leaving the call site to decide whether that
+        /// is fatal — see the class doc.
         /// </summary>
-        object? ResolveFromJson(Reflector reflector, JsonElement? valueJsonElement, Type targetType)
+        object? ResolveFromJson(Reflector reflector, JsonElement? valueJsonElement, Type targetType, int depth, Logs? logs)
         {
             if (valueJsonElement == null || valueJsonElement.Value.ValueKind == JsonValueKind.Null)
                 return null;
+
+            var raw = valueJsonElement.Value.GetRawText();
 
             NodeRef? nodeRef;
             try
@@ -120,32 +127,48 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
             catch (Exception ex)
             {
-                throw new ArgumentException(
-                    $"Could not read a Node reference for '{targetType.GetTypeShortName()}' from " +
-                    $"{valueJsonElement.Value.GetRawText()}: {ex.Message}. {RefShapeHelp}");
+                logs?.Error(
+                    $"Could not read a Node reference for '{targetType.GetTypeShortName()}' from {raw}: " +
+                    $"{ex.Message}. {RefShapeHelp}", depth);
+                return null;
             }
 
             string? refError = null;
             if (nodeRef == null || !nodeRef.IsValid(out refError))
-                throw new ArgumentException(
-                    $"Could not read a Node reference for '{targetType.GetTypeShortName()}' from " +
-                    $"{valueJsonElement.Value.GetRawText()}: {refError ?? "the reference is empty"}. {RefShapeHelp}");
+            {
+                logs?.Error(
+                    $"Could not read a Node reference for '{targetType.GetTypeShortName()}' from {raw}: " +
+                    $"{refError ?? "the reference is empty"}. {RefShapeHelp}", depth);
+                return null;
+            }
 
             var resolver = NodeResolver;
             if (resolver == null)
-                throw new InvalidOperationException(
-                    $"Cannot resolve {nodeRef} to a live '{targetType.GetTypeShortName()}': no Node resolver is " +
-                    "installed (this happens outside a running Godot editor).");
+            {
+                // No resolver installed is an ENVIRONMENT fact, not a bad request — outside a running Godot
+                // editor there is no scene tree to look in. Warning, so it never fails a call on its own.
+                logs?.Warning(
+                    $"No Node resolver is installed; cannot resolve {nodeRef} to a live " +
+                    $"'{targetType.GetTypeShortName()}' (this is expected outside the editor).", depth);
+                return null;
+            }
 
             if (!resolver(nodeRef, out var resolved, out var error) || resolved == null)
-                throw new ArgumentException($"Could not resolve {nodeRef}: {error ?? "unknown error"}.");
+            {
+                logs?.Error($"Could not resolve {nodeRef}: {error ?? "unknown error"}.", depth);
+                return null;
+            }
 
             // Guard the inheritance: an instance id / path can name a node of an unrelated type.
             if (!targetType.IsInstanceOfType(resolved))
-                throw new ArgumentException(
+            {
+                logs?.Error(
                     $"Resolved {nodeRef} to a '{resolved.GetType().GetTypeShortName()}', which is not " +
-                    $"assignable to '{targetType.GetTypeShortName()}'.");
+                    $"assignable to '{targetType.GetTypeShortName()}'.", depth);
+                return null;
+            }
 
+            logs?.Success($"Resolved {nodeRef} to a live '{targetType.GetTypeShortName()}'.", depth);
             return resolved;
         }
 
@@ -177,18 +200,26 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <summary>
         /// Build the wire <see cref="NodeRef"/> for a live node: its instance id (the stable identity of a
         /// live node — see <see cref="NodeRef"/>'s priority note) plus its scene-tree path for readability.
-        /// A <c>null</c> node maps to an empty ref. Reads native Godot members, so it runs only at editor
-        /// runtime.
+        /// A <c>null</c> node maps to an empty ref (the only branch a plain unit-test host reaches).
+        ///
+        /// <para>
+        /// <c>IsInsideTree</c> / <c>GetPath</c> / <c>GetInstanceId</c> are native scene-tree reads, so the
+        /// non-null branch marshals onto the editor main thread for the same reason
+        /// <c>Tool_Node.InstallReflectionResolver</c> does: <c>reflection-method-call</c> serializes a
+        /// method's RESULT inside the action it may run off the main thread
+        /// (<c>executeInMainThread: false</c>), so a method returning a <c>Node</c> reaches here from a
+        /// worker. The marshal is free when already on the main thread.
+        /// </para>
         /// </summary>
         public static NodeRef ToNodeRef(global::Godot.Node? node)
         {
             if (node == null)
                 return new NodeRef();
 
-            return new NodeRef(node.GetInstanceId())
+            return MainThread.Instance.Run(() => new NodeRef(node.GetInstanceId())
             {
                 Path = node.IsInsideTree() ? node.GetPath().ToString() : null,
-            };
+            });
         }
     }
 }

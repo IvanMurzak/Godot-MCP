@@ -104,6 +104,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>Human-readable summary of what was done, for the tool's result string.</summary>
         public string Describe()
         {
+            if (Importable.Count == 0 && Native.Count == 0)
+                return "No files to refresh";
+
             if (Importable.Count > 0 && Native.Count > 0)
                 return $"Reimported {Importable.Count} file(s); refreshed {Native.Count} native file(s) " +
                        "(.tscn/.tres/.gd and friends have no importer, so they were refreshed via " +
