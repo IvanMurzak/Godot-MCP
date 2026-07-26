@@ -9,7 +9,12 @@
     <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
          exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
          none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live
-         Godot main loop and is verified via a headless Godot smoke, not here (see test.md Suite 3). -->
+         Godot main loop and is verified via a headless Godot smoke, not here (see test.md Suite 3).
+         Some sources are compiled in only so their REFERENCES resolve, with their native paths never
+         called from a test (GodotMcpLog, RuntimeErrorCapture, GodotMcpRuntime, and — added for issue
+         #292 — Godot_Variant_ReflectionConverter, whose SUCCESS path materializes a real Variant and
+         would fault this host). Each such entry says so at its own <Compile> line; read it before
+         writing a test that touches one. -->
   </PropertyGroup>
 
   <ItemGroup>

@@ -46,7 +46,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "the settled state. Returns a short status string.")]
         public string Reimport
         (
-            [Description("Optional list of res:// file paths to reimport. When omitted/empty, a full filesystem scan is run instead.")]
+            [Description("Optional list of res:// file paths to refresh. Each is reimported when it is an " +
+                "imported asset (it has a '.import' sidecar) and refreshed via EditorFileSystem.UpdateFile " +
+                "when it is one of Godot's native formats (.tscn/.tres/.gd/.cs/...), which have no importer. " +
+                "When omitted/empty, a full filesystem scan is run instead.")]
             List<string>? files = null
         )
         {
@@ -66,9 +69,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (hasFiles)
                 {
                     // Validate every path up front so a single bad entry is a clean error, not a partial
-                    // import. Collect the normalized/trimmed paths and reimport THOSE — passing the raw
+                    // refresh. Collect the normalized/trimmed paths and act on THOSE — passing the raw
                     // 'files' (which may carry surrounding whitespace) would not match a known res:// file
-                    // and ReimportFiles would silently no-op.
+                    // and both ReimportFiles and UpdateFile would silently no-op.
                     var normalized = new List<string>(files!.Count);
                     foreach (var f in files!)
                     {

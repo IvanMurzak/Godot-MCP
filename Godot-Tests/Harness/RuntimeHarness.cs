@@ -123,6 +123,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             GD.Print($"[harness] starting (godot={report.GodotVersion}, engineLoggerExpected={report.EngineLoggerExpected}, requireConnect={requireConnect}, timeout={timeoutSeconds}s).");
 
+            // Godot.Variant / Node-ref converter round-trip (issue #292). This is the ONLY place the project
+            // can assert it: materializing a non-Nil Variant calls godotsharp_* P/Invoke, which faults the
+            // plain xUnit host with AccessViolationException, so the CI unit suite can only cover the pure
+            // parser and the failure paths. Here we have a REAL Godot, so the actual round-trip (and the
+            // issue's own ProjectSettings.SetSetting repro) is exercised for real.
+            //
+            // Deliberately BEFORE the shared deadline below: it needs neither the connection nor the
+            // capture, is synchronous, and fully try/caught — running it inside the connect+capture window
+            // would silently deduct from that budget, which is exactly the drift issue #196 guards against.
+            CheckVariantRoundTrip(report);
+
             // ONE shared wall-clock deadline for the WHOLE connect+capture phase. Both PollConnectedAsync
             // and PollCapturedAsync poll against this same instant — the capture phase inherits whatever is
             // LEFT after connect, it does NOT get a fresh full budget. (If each got its own
@@ -132,14 +143,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             try
             {
-                // 0) Godot.Variant / Node-ref converter round-trip (issue #292). This is the ONLY place the
-                //    project can assert it: materializing a non-Nil Variant calls godotsharp_* P/Invoke, which
-                //    faults the plain xUnit host with AccessViolationException, so the CI unit suite can only
-                //    cover the pure parser and the failure paths. Here we have a REAL Godot, so the actual
-                //    round-trip (and the issue's own ProjectSettings.SetSetting repro) is exercised for real.
-                //    Self-contained: no server, no connection, no interaction with the capture phases below.
-                CheckVariantRoundTrip(report);
-
                 // 1) Build the in-game runtime: opt the addon's tools in (so the server's tool list — incl.
                 //    ping + runtime-errors-get — is non-empty after connect) and enable runtime error capture
                 //    (installs the engine 4.5+ logger + the C# AppDomain/TaskScheduler hooks). Host/mode/auth

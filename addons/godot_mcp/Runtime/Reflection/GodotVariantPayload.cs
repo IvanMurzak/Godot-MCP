@@ -97,8 +97,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <summary>Convenience accessor for a component as <see cref="float"/>.</summary>
         public float Component(int index) => (float)Components[index];
 
-        /// <summary>Convenience accessor for a component as <see cref="int"/> (the integer vector/rect types).</summary>
-        public int ComponentInt(int index) => checked((int)Math.Round(Components[index], MidpointRounding.AwayFromZero));
+        /// <summary>
+        /// Convenience accessor for a component as <see cref="int"/> (the integer vector/rect types). The
+        /// range is validated at parse time (see <see cref="ComponentLayout.Integral"/>), so this cannot
+        /// overflow on a parsed payload.
+        /// </summary>
+        public int ComponentInt(int index) => (int)Math.Round(Components[index], MidpointRounding.AwayFromZero);
 
         public static GodotVariantPayload Nil() => new GodotVariantPayload(VariantType.Nil);
 
@@ -134,17 +138,17 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         static readonly IReadOnlyDictionary<VariantType, ComponentLayout> Layouts = new Dictionary<VariantType, ComponentLayout>
         {
             [VariantType.Vector2] = new ComponentLayout(2, "x", "y"),
-            [VariantType.Vector2I] = new ComponentLayout(2, "x", "y"),
+            [VariantType.Vector2I] = new ComponentLayout(2, "x", "y") { Integral = true },
             [VariantType.Vector3] = new ComponentLayout(3, "x", "y", "z"),
-            [VariantType.Vector3I] = new ComponentLayout(3, "x", "y", "z"),
+            [VariantType.Vector3I] = new ComponentLayout(3, "x", "y", "z") { Integral = true },
             [VariantType.Vector4] = new ComponentLayout(4, "x", "y", "z", "w"),
-            [VariantType.Vector4I] = new ComponentLayout(4, "x", "y", "z", "w"),
+            [VariantType.Vector4I] = new ComponentLayout(4, "x", "y", "z", "w") { Integral = true },
             [VariantType.Quaternion] = new ComponentLayout(4, "x", "y", "z", "w"),
             [VariantType.Plane] = new ComponentLayout(4, "a", "b", "c", "d"),
             // Color accepts 3 (opaque) or 4 components; the optional alpha defaults to 1 in Fill below.
             [VariantType.Color] = new ComponentLayout(4, "r", "g", "b", "a") { MinCount = 3, DefaultTail = 1.0 },
             [VariantType.Rect2] = new ComponentLayout(4),
-            [VariantType.Rect2I] = new ComponentLayout(4),
+            [VariantType.Rect2I] = new ComponentLayout(4) { Integral = true },
             [VariantType.Aabb] = new ComponentLayout(6),
             [VariantType.Transform2D] = new ComponentLayout(6),
             [VariantType.Basis] = new ComponentLayout(9),
@@ -165,6 +169,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             public string[] Names { get; }
             public int MinCount { get; set; }
             public double DefaultTail { get; set; }
+
+            /// <summary>The <c>*I</c> types, whose components must fit in an <see cref="int"/>.</summary>
+            public bool Integral { get; set; }
+
             public bool HasNames => Names.Length == Count;
         }
 
@@ -363,6 +371,18 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             while (numbers.Count < layout.Count)
                 numbers.Add(layout.DefaultTail);
+
+            if (layout.Integral)
+            {
+                // Validate here rather than at materialization time so an out-of-range component is an
+                // ArgumentException carrying the wire-format help, not an OverflowException from the cast.
+                for (var i = 0; i < numbers.Count; i++)
+                {
+                    var rounded = Math.Round(numbers[i], MidpointRounding.AwayFromZero);
+                    if (rounded < int.MinValue || rounded > int.MaxValue)
+                        throw Bad($"'{kind}' component [{i}] must fit in a 32-bit integer; got {numbers[i].ToString(CultureInfo.InvariantCulture)}");
+                }
+            }
 
             return numbers.ToArray();
         }

@@ -239,6 +239,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(-4, payload.ComponentInt(1));
         }
 
+        [Fact]
+        public void Parse_IntegerVectorComponentOutOfRange_IsRejectedAtParseTime()
+        {
+            // Caught here rather than as an OverflowException from the cast during materialization, so the
+            // caller gets the same actionable ArgumentException as every other bad payload.
+            var ex = Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Vector3I\",\"value\":[1,2,1e20]}"));
+            Assert.Contains("must fit in a 32-bit integer", ex.Message);
+        }
+
+        [Fact]
+        public void Parse_FloatVectorAcceptsLargeComponents()
+        {
+            // Only the *I types are range-checked; Vector3 is float-valued and must not be.
+            Assert.Equal(VariantType.Vector3, Parse("{\"variantType\":\"Vector3\",\"value\":[1,2,1e20]}").Kind);
+        }
+
         // ---- Rejections that used to be silent Nil ------------------------------------------------
 
         [Fact]
@@ -434,6 +450,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             var ex = Assert.Throws<ArgumentException>(() => reflector.Deserialize(member, fallbackType: typeof(Node)));
             Assert.Contains("Could not read a Node reference", ex.Message);
+        }
+
+        // ToNodeRef on a null node yields an empty (invalid) ref — the pure-managed slice of the serialize
+        // side (the live-node branch reads GetInstanceId/GetPath and needs a real Godot → Suite 3). Mirrors
+        // ResourceConverterTests.ToResourceRef_Null_YieldsEmptyRef.
+        [Fact]
+        public void ToNodeRef_Null_YieldsEmptyRef()
+        {
+            var nodeRef = Godot_Node_ReflectionConverter<Node>.ToNodeRef(null);
+
+            Assert.False(nodeRef.IsValid());
+            Assert.Equal(0ul, nodeRef.InstanceId);
+            Assert.Null(nodeRef.Path);
         }
 
         [Fact]

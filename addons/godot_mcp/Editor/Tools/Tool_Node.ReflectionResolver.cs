@@ -11,6 +11,8 @@
 #nullable enable
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
+using com.IvanMurzak.ReflectorNet.Utils;
+using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -25,9 +27,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         ///
         /// <para>
         /// The lookup itself (<see cref="ResolveNode"/> → <c>InstanceFromId</c> / <c>GetNodeOrNull</c>) is a
-        /// native Godot call; the converter is only ever invoked from inside a tool's
-        /// <c>MainThread.Instance.Run</c>, so the delegate runs on the editor main thread without an extra
-        /// marshal. Called once from <c>GodotMcpConnection.Start</c> after the reflector is built; idempotent
+        /// native Godot scene-tree call and <see cref="ResolveNode"/> is documented main-thread-only, so the
+        /// delegate marshals explicitly. That is NOT redundant: <c>reflection-method-call</c> deserializes its
+        /// arguments inside the action it may run OFF the main thread (<c>executeInMainThread: false</c>), so
+        /// the converter is reachable from a worker thread. <c>MainThread.Instance.Run</c> executes inline
+        /// when already on the main thread (<c>GodotMainThread.RunAsync</c> short-circuits on
+        /// <c>IsMainThread</c>), so the common path pays nothing.
+        /// </para>
+        ///
+        /// <para>
+        /// Called once from <c>GodotMcpConnection.Start</c> after the reflector is built; idempotent
         /// (re-assigns the same delegate). Mirrors <c>Tool_Resource.InstallReflectionResolver</c>.
         /// </para>
         /// </summary>
@@ -35,7 +44,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             Godot_Node_ReflectionConverter.NodeResolver = static (NodeRef nodeRef, out object? node, out string? error) =>
             {
-                node = ResolveNode(nodeRef, out error);
+                var (resolved, resolveError) = MainThread.Instance.Run(() =>
+                {
+                    var found = ResolveNode(nodeRef, out var inner);
+                    return (Node: (object?)found, Error: inner);
+                });
+
+                node = resolved;
+                error = resolveError;
                 return node != null;
             };
         }
