@@ -9,7 +9,12 @@
     <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
          exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
          none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live
-         Godot main loop and is verified via a headless Godot smoke, not here (see test.md Suite 3). -->
+         Godot main loop and is verified via a headless Godot smoke, not here (see test.md Suite 3).
+         Some sources are compiled in only so their REFERENCES resolve, with their native paths never
+         called from a test (GodotMcpLog, RuntimeErrorCapture, GodotMcpRuntime, and — added for issue
+         #292 — Godot_Variant_ReflectionConverter, whose SUCCESS path materializes a real Variant and
+         would fault this host). Each such entry says so at its own <Compile> line; read it before
+         writing a test that touches one. -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -57,6 +62,23 @@
          injected under #if TOOLS (Tool_Resource.ReflectionResolver.cs, verified via the Suite-3 smoke); the
          type-matching + ref shaping are unit-tested here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\Godot_Resource_ReflectionConverter.cs" Link="Source\Godot_Resource_ReflectionConverter.cs" />
+    <!-- Node reference converter (issue #292) — same shape as the Resource one above: pure-managed
+         type-matching + NodeRef shaping here, native InstanceFromId/GetNodeOrNull resolution injected under
+         #if TOOLS (Tool_Node.ReflectionResolver.cs). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\Godot_Node_ReflectionConverter.cs" Link="Source\Godot_Node_ReflectionConverter.cs" />
+    <!-- Godot.Variant converter (issue #292). The PARSER (GodotVariantPayload) is pure-managed and fully
+         unit-tested here. The converter itself is compiled in because GodotReflectorFactory registers it,
+         and its FAILURE paths are asserted here — but its SUCCESS path is NOT callable in this host:
+         materializing a non-Nil Variant calls godotsharp_* P/Invoke, which faults the test process with
+         AccessViolationException when no Godot native library is loaded. The live round-trip is asserted by
+         the runtime harness (Godot-Tests/Harness/RuntimeHarness.cs) against a real Godot across the
+         4.3/4.4/4.5 matrix. Never construct a non-Nil Variant in this project. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotVariantPayload.cs" Link="Source\GodotVariantPayload.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\Godot_Variant_ReflectionConverter.cs" Link="Source\Godot_Variant_ReflectionConverter.cs" />
+    <!-- Reflection-argument guard (issue #292) — turns ReflectorNet's advisory deserialization diagnostics
+         into a hard failure so a method is never invoked with a silently defaulted argument. Pure list
+         inspection, no Godot API. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ReflectionArgumentGuard.cs" Link="Source\ReflectionArgumentGuard.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
@@ -155,6 +177,9 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Data\SceneData.cs" Link="Source\SceneData.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
+    <!-- Sibling-index arithmetic behind node-create's 'index' and node-reorder (issue #294). Pure int
+         math extracted from the #if TOOLS handlers so the negative-from-end / clamping rules are gated. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\NodeIndexResolver.cs" Link="Source\NodeIndexResolver.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
     <!-- Resource/FileSystem tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
          the structured result models and the res:// path normalizer. The editor-driving handlers
@@ -165,6 +190,9 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceInfo.cs" Link="Source\ResourceInfo.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceFindResult.cs" Link="Source\ResourceFindResult.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ResPathNormalizer.cs" Link="Source\ResPathNormalizer.cs" />
+    <!-- filesystem-reimport importable/native partition (issue #310). The '.import' sidecar probe is
+         injected as a delegate so the split is testable with no Godot filesystem. -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ReimportClassifier.cs" Link="Source\ReimportClassifier.cs" />
     <!-- Script tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
          structured result model and the language/path helper. The editor-driving handlers
          (Tool_Script.*.cs) are #if TOOLS and verified via the headless Godot smoke (test.md Suite 3),

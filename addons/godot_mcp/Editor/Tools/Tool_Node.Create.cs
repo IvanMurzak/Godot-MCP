@@ -34,8 +34,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  2. Instanced scene — pass 'instanceScenePath' (a res:// path to a .tscn/.scn PackedScene); " +
             "the scene is instanced and added as a child.\n" +
             "When both are supplied, 'instanceScenePath' wins. " +
-            "Optionally pass 'parentNodeRef' to parent the new Node (defaults to the edited scene root) and " +
-            "'name' to rename it. The new Node's owner is set to the edited scene root so it is saved with the scene.")]
+            "Optionally pass 'parentNodeRef' to parent the new Node (defaults to the edited scene root), " +
+            "'name' to rename it, and 'index' to place it at a specific position among its siblings (child " +
+            "order is what a VBoxContainer/HBoxContainer lays out, so this removes the need to create an " +
+            "ordered UI tree strictly front-to-back). The new Node's owner is set to the edited scene root " +
+            "so it is saved with the scene. The returned data reports the resulting sibling 'index'.")]
         public NodeData Create
         (
             [Description("Name for the new Node. When omitted, Godot's default name for the type is used.")]
@@ -47,7 +50,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 "precedence over 'typeClassName' when both are supplied.")]
             string? instanceScenePath = null,
             [Description("Reference to the parent Node. When omitted, the Node is parented to the edited scene root.")]
-            NodeRef? parentNodeRef = null
+            NodeRef? parentNodeRef = null,
+            [Description("0-based position to insert the new Node at among its parent's children. Negative " +
+                "counts from the end (-1 = last). Out-of-range values clamp into range. When omitted, the " +
+                "Node is appended last (Godot's default).")]
+            int? index = null
         )
         {
             return MainThread.Instance.Run(() =>
@@ -85,6 +92,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     node.Name = name;
 
                 parent.AddChild(node);
+
+                // AddChild always appends; an explicit index then moves it into place. Resolving against the
+                // post-add child count means 'index' addresses the FINAL arrangement, so index=0 is first and
+                // index=-1 is last regardless of how many siblings existed before (issue #294).
+                if (index.HasValue)
+                    parent.MoveChild(node, NodeIndexResolver.Resolve(index.Value, parent.GetChildCount(includeInternal: false)));
 
                 // Owner must be the edited scene root for the node (and its sub-tree) to be persisted on save.
                 node.Owner = root;

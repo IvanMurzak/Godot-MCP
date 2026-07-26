@@ -18,9 +18,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
     /// Node tool family (<c>node-*</c>) — the Godot analog of Unity-MCP's <c>Tool_GameObject</c>. Each
-    /// tool method lives in its own partial-class file (Find / Create / Modify / SetParent / Duplicate /
-    /// Delete) and drives the Godot editor scene tree via <see cref="EditorInterface"/> through the
-    /// main-thread dispatcher.
+    /// tool method lives in its own partial-class file (Find / Create / Modify / SetParent / Reorder /
+    /// Duplicate / Delete) and drives the Godot editor scene tree via <see cref="EditorInterface"/> through
+    /// the main-thread dispatcher. <c>Tool_Node.ReflectionResolver.cs</c> carries no tool — it injects this
+    /// family's scene-tree lookup into the (pure-managed) Node reflection converter.
     ///
     /// <para>
     /// Godot ↔ Unity mapping: <c>Node</c> ↔ <c>GameObject</c>; a node's class name + attached script
@@ -121,6 +122,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 Path = node.GetPath().ToString(),
                 Type = node.GetClass(),
                 ScriptResourcePath = GetAttachedScriptPath(node),
+                // GetIndex() reports -1 for a node with no parent, and can also go negative for an INTERNAL
+                // child when internal children are excluded (this family's convention everywhere). Neither
+                // has a meaningful sibling position, so both floor to 0 and NodeData.Index's "never
+                // negative" contract holds. Exposing the index makes node-create's 'index' and node-reorder
+                // self-verifying: the caller sees where the node actually landed (issue #294).
+                Index = Math.Max(0, node.GetIndex(includeInternal: false)),
                 ChildCount = node.GetChildCount(includeInternal: false),
             };
 

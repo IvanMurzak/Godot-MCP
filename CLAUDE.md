@@ -24,12 +24,12 @@ the `WaitForImmediateTeardown` API + opt-in bounded-reconnect this addon uses fo
 
 Tools live in `addons/godot_mcp/Runtime/Tools/` (pure-managed families) and `addons/godot_mcp/Editor/Tools/` (editor-only families) — one `[AiToolType]` `partial class Tool_<Family>` per family,
 with each tool method (`[AiTool("<name>", ...)]` + `[Description]`) in its own partial-class file. Tool
-names mirror Unity-MCP where sensible. 41 built-in tools across 12 families — the 12 families:
+names mirror Unity-MCP where sensible. 42 built-in tools across 12 families — the 12 families:
 
 | Family (class) | Tools | `#if TOOLS`? |
 | --- | --- | --- |
 | `Tool_Ping` | `ping` (**System** — `/api/system-tools/`, not in `tools/list`) | no (pure-managed) |
-| `Tool_Node` | `node-find`/`-create`/`-modify`/`-set-parent`/`-duplicate`/`-delete` | yes (editor) |
+| `Tool_Node` | `node-find`/`-create`/`-modify`/`-set-parent`/`-reorder`/`-duplicate`/`-delete` | yes (editor) |
 | `Tool_Scene` | `scene-open`/`-save`/`-create`/`-list-opened`/`-get-data` | yes (editor) |
 | `Tool_Resource` | `resource-find`/`-get-data`/`-modify`/`-create`/`-move`/`-delete` | yes (editor) |
 | `Tool_FileSystem` | `filesystem-list`/`-reimport` | yes (editor) |

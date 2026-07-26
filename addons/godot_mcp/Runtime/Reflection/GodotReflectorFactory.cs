@@ -52,6 +52,20 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             // resolution is injected under #if TOOLS; see Godot_Resource_ReflectionConverter.ResourceResolver.
             reflector.Converters.Add(new Godot_Resource_ReflectionConverter());
 
+            // Node reference converter — the scene-tree sibling of the Resource converter above. Matches
+            // Godot.Node and EVERY Node-derived type by inheritance distance, so an instance-method target
+            // ({"instanceId": N}) or a Node-typed member is assigned by REFERENCE to the live node instead of
+            // falling back to instantiate-and-populate (which silently yielded null — issue #292). The live
+            // InstanceFromId / GetNodeOrNull resolution is injected under #if TOOLS; see
+            // Godot_Node_ReflectionConverter.NodeResolver.
+            reflector.Converters.Add(new Godot_Node_ReflectionConverter());
+
+            // Variant converter — Godot.Variant is a struct whose only two properties are get-only, so with
+            // no converter registered ReflectorNet's generic fallback swallowed the payload and produced a
+            // silent default(Variant) == Nil (issue #292). This converter either materializes a real variant
+            // from a documented wire shape or throws.
+            reflector.Converters.Add(new Godot_Variant_ReflectionConverter());
+
             // JSON converters — types best described as a single scalar (NodePath as its string form).
             reflector.JsonSerializer.AddConverter(new GodotNodePathJsonConverter());
         }

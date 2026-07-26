@@ -41,6 +41,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 Path = "/root/Main/Player",
                 Type = "CharacterBody3D",
                 ScriptResourcePath = "res://player.gd",
+                Index = 3,
                 ChildCount = 2,
             };
 
@@ -51,6 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("\"path\"", json);
             Assert.Contains("\"type\"", json);
             Assert.Contains("\"scriptResourcePath\"", json);
+            Assert.Contains("\"index\"", json);
             Assert.Contains("\"childCount\"", json);
 
             var restored = JsonSerializer.Deserialize<NodeData>(json);
@@ -59,6 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("Player", restored.Name);
             Assert.Equal("CharacterBody3D", restored.Type);
             Assert.Equal("res://player.gd", restored.ScriptResourcePath);
+            // The sibling index is what makes node-create's 'index' and node-reorder verifiable (#294).
+            Assert.Equal(3, restored.Index);
             Assert.Equal(2, restored.ChildCount);
             Assert.Null(restored.Children);
         }
@@ -212,6 +216,52 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(string.Empty, NodePathNormalizer.Normalize(null!, "Main"));
         }
 
+        // ---- NodeIndexResolver (issue #294) -------------------------------------------------------
+
+        [Theory]
+        // In-range positions pass through untouched.
+        [InlineData(0, 5, 0)]
+        [InlineData(2, 5, 2)]
+        [InlineData(4, 5, 4)]
+        // Negative counts back from the end, matching Godot's own MoveChild convention.
+        [InlineData(-1, 5, 4)]
+        [InlineData(-2, 5, 3)]
+        [InlineData(-5, 5, 0)]
+        // Out of range clamps into range rather than letting Godot log an error and silently no-op.
+        [InlineData(5, 5, 4)]
+        [InlineData(99, 5, 4)]
+        [InlineData(-6, 5, 0)]
+        [InlineData(-99, 5, 0)]
+        // A single child (the just-added node) can only be at 0, whatever was asked for.
+        [InlineData(0, 1, 0)]
+        [InlineData(7, 1, 0)]
+        [InlineData(-3, 1, 0)]
+        // A parent with no children resolves to 0 and never produces a negative index.
+        [InlineData(0, 0, 0)]
+        [InlineData(3, 0, 0)]
+        [InlineData(-1, 0, 0)]
+        [InlineData(-1, -1, 0)]
+        public void NodeIndexResolver_Resolves(int requestedIndex, int childCount, int expected)
+        {
+            Assert.Equal(expected, NodeIndexResolver.Resolve(requestedIndex, childCount));
+        }
+
+        [Fact]
+        public void NodeIndexResolver_NeverReturnsAnIndexGodotWouldReject()
+        {
+            // MoveChild answers an out-of-range index with an engine error and NO move — the silent-no-op
+            // class this whole PR is about. Sweep the plausible input space and pin the invariant.
+            for (var childCount = 0; childCount <= 8; childCount++)
+            {
+                for (var requested = -20; requested <= 20; requested++)
+                {
+                    var resolved = NodeIndexResolver.Resolve(requested, childCount);
+                    Assert.True(resolved >= 0, $"resolved {resolved} for ({requested}, {childCount}) is negative");
+                    Assert.True(resolved <= System.Math.Max(0, childCount - 1),
+                        $"resolved {resolved} for ({requested}, {childCount}) exceeds the last valid index");
+                }
+            }
+        }
     }
 
     /// <summary>

@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Data
     /// </summary>
     [System.Serializable]
     [Description("Structured snapshot of a Godot Node: identity (instanceId/name/path), type, optional " +
-        "attached-script path, child count, and optional children.")]
+        "attached-script path, sibling index, child count, and optional children.")]
     public class NodeData
     {
         [JsonInclude, JsonPropertyName("instanceId")]
@@ -55,6 +55,14 @@ namespace com.IvanMurzak.Godot.MCP.Data
         [JsonInclude, JsonPropertyName("scriptResourcePath")]
         [Description("res:// path of the script attached to the Node, or null when no script is attached.")]
         public string? ScriptResourcePath { get; set; } = null;
+
+        [JsonInclude, JsonPropertyName("index")]
+        [Description("0-based position of the Node among its parent's children, excluding internal children; " +
+            "this is the order a container (VBoxContainer/HBoxContainer/GridContainer) lays out and the order " +
+            "CanvasItems draw in. Never negative. Meaningless for the edited scene root, which the editor " +
+            "parents under its own tree — 'node-reorder' refuses it for that reason. Use 'node-reorder' (or " +
+            "'node-create' with 'index') to change it.")]
+        public int Index { get; set; } = 0;
 
         [JsonInclude, JsonPropertyName("childCount")]
         [Description("Number of direct children of the Node (excluding internal children).")]

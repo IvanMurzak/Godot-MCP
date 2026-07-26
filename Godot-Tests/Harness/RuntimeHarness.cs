@@ -16,8 +16,10 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.Godot.MCP.Runtime;
 using com.IvanMurzak.Godot.MCP.Tools;
+using com.IvanMurzak.ReflectorNet.Model;
 using Godot;
 using HubConnectionState = Microsoft.AspNetCore.SignalR.Client.HubConnectionState;
 
@@ -80,6 +82,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         /// </summary>
         const string EnvEngineLoggerExpected = "GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED";
 
+        /// <summary>
+        /// How many Godot.Variant wire shapes <see cref="CheckVariantRoundTrip"/> must have exercised for the
+        /// leg to pass. Pinned so a future edit that accidentally drops cases cannot turn the issue-#292
+        /// assertion into a vacuous "no failures recorded".
+        /// </summary>
+        const int VariantRoundTripMinimumChecks = 11;
+
         // --- State ------------------------------------------------------------------------------------
 
         GodotMcpRuntimeHandle? _handle;
@@ -113,6 +122,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             };
 
             GD.Print($"[harness] starting (godot={report.GodotVersion}, engineLoggerExpected={report.EngineLoggerExpected}, requireConnect={requireConnect}, timeout={timeoutSeconds}s).");
+
+            // Godot.Variant converter round-trip (issue #292). This is the ONLY place the project
+            // can assert it: materializing a non-Nil Variant calls godotsharp_* P/Invoke, which faults the
+            // plain xUnit host with AccessViolationException, so the CI unit suite can only cover the pure
+            // parser and the failure paths. Here we have a REAL Godot, so the actual round-trip (and the
+            // issue's own ProjectSettings.SetSetting repro) is exercised for real.
+            //
+            // Deliberately BEFORE the shared deadline below: it needs neither the connection nor the
+            // capture, is synchronous, and fully try/caught — running it inside the connect+capture window
+            // would silently deduct from that budget, which is exactly the drift issue #196 guards against.
+            CheckVariantRoundTrip(report);
 
             // ONE shared wall-clock deadline for the WHOLE connect+capture phase. Both PollConnectedAsync
             // and PollCapturedAsync poll against this same instant — the capture phase inherits whatever is
@@ -198,6 +218,118 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             try { _handle?.Dispose(); } catch { /* best-effort */ }
 
             GetTree().Quit(ok ? 0 : 1);
+        }
+
+        // --- Godot.Variant round-trip (issue #292) ----------------------------------------------------
+
+        /// <summary>
+        /// Drive the real <see cref="Godot_Variant_ReflectionConverter"/> through
+        /// <c>Reflector.Deserialize</c> against a LIVE Godot, then re-run the issue's own
+        /// <c>ProjectSettings.SetSetting</c> repro. Every failure is recorded as a string so the CI log names
+        /// exactly which shape broke rather than just "false".
+        ///
+        /// <para>
+        /// Scope: <b>Variant only</b>. The sibling <c>Godot_Node_ReflectionConverter</c>'s resolve path
+        /// cannot be exercised here — its resolver is installed by <c>Tool_Node.InstallReflectionResolver</c>
+        /// under <c>#if TOOLS</c> and this harness is a GAME process, so <c>NodeResolver</c> is always null.
+        /// Its pure-managed half (selection, ref parsing, the throw-instead-of-null policy, an injected
+        /// resolver) is unit-tested; the live scene-tree lookup is covered by the editor smoke.
+        /// </para>
+        /// </summary>
+        void CheckVariantRoundTrip(HarnessReport report)
+        {
+            try
+            {
+                var reflector = GodotReflectorFactory.CreateDefaultReflector();
+
+                // (a) Every documented wire shape must materialize the right variant. The first two are the
+                //     verbatim payloads from issue #292, both of which used to deserialize to Nil.
+                Check(report, "bare-string", "\"res://CharacterCreator.tscn\"",
+                    v => v.VariantType == Variant.Type.String && v.AsString() == "res://CharacterCreator.tscn", reflector);
+                Check(report, "legacy-VariantType-Obj", "{\"VariantType\":\"String\",\"Obj\":\"res://CharacterCreator.tscn\"}",
+                    v => v.VariantType == Variant.Type.String && v.AsString() == "res://CharacterCreator.tscn", reflector);
+                Check(report, "declared-string", "{\"variantType\":\"String\",\"value\":\"hello\"}",
+                    v => v.VariantType == Variant.Type.String && v.AsString() == "hello", reflector);
+                Check(report, "int", "{\"variantType\":\"Int\",\"value\":42}",
+                    v => v.VariantType == Variant.Type.Int && v.AsInt64() == 42, reflector);
+                Check(report, "bool", "true",
+                    v => v.VariantType == Variant.Type.Bool && v.AsBool(), reflector);
+                Check(report, "float", "1.5",
+                    v => v.VariantType == Variant.Type.Float && Math.Abs(v.AsDouble() - 1.5) < 1e-9, reflector);
+                Check(report, "vector3", "{\"variantType\":\"Vector3\",\"value\":[1,2,3]}",
+                    v => v.VariantType == Variant.Type.Vector3 && v.AsVector3() == new Vector3(1, 2, 3), reflector);
+                Check(report, "color-implicit-alpha", "{\"variantType\":\"Color\",\"value\":[0.25,0.5,0.75]}",
+                    v => v.VariantType == Variant.Type.Color && Math.Abs(v.AsColor().A - 1f) < 1e-6f, reflector);
+                Check(report, "nodepath", "{\"variantType\":\"NodePath\",\"value\":\"Main/Player\"}",
+                    v => v.VariantType == Variant.Type.NodePath && v.AsString() == "Main/Player", reflector);
+                Check(report, "explicit-nil", "{\"variantType\":\"Nil\"}",
+                    v => v.VariantType == Variant.Type.Nil, reflector);
+
+                // (b) Serialization must produce a payload that deserializes back to the same variant.
+                var original = Variant.CreateFrom(new Vector3(-1.5f, 0f, 7.25f));
+                var serialized = reflector.Serialize(original, typeof(Variant));
+                var restored = reflector.Deserialize(serialized, fallbackType: typeof(Variant));
+                if (restored is not Variant back || back.VariantType != Variant.Type.Vector3 || back.AsVector3() != new Vector3(-1.5f, 0f, 7.25f))
+                    report.VariantRoundTripFailures.Add($"serialize->deserialize did not round-trip a Vector3 variant (got {restored})");
+                report.VariantRoundTripChecked++;
+
+                // (c) An unreadable payload must THROW, never degrade to a silent Nil — the actual defect.
+                try
+                {
+                    var garbage = reflector.Deserialize(Member("{\"unexpected\":1}"), fallbackType: typeof(Variant));
+                    report.VariantRoundTripFailures.Add(
+                        $"an unreadable Variant payload did NOT throw; it produced {garbage} (the issue-#292 silent-Nil regression)");
+                }
+                catch (ArgumentException)
+                {
+                    report.VariantRoundTripRejectsGarbage = true;
+                }
+
+                // (d) The issue's own repro, end to end: set a project setting through a Variant that came
+                //     off the wire, then read it back. Before the fix this wrote Nil and reported success.
+                const string settingName = "application/config/godot_mcp_harness_probe";
+                var value = reflector.Deserialize(Member("\"res://CharacterCreator.tscn\""), fallbackType: typeof(Variant));
+                ProjectSettings.SetSetting(settingName, (Variant)value!);
+                var readBack = ProjectSettings.GetSetting(settingName);
+                report.VariantProjectSettingRoundTrip =
+                    readBack.VariantType == Variant.Type.String && readBack.AsString() == "res://CharacterCreator.tscn";
+                if (!report.VariantProjectSettingRoundTrip)
+                    report.VariantRoundTripFailures.Add(
+                        $"ProjectSettings.SetSetting via a Godot.Variant argument read back as {readBack.VariantType} '{readBack}'");
+                ProjectSettings.SetSetting(settingName, default(Variant)); // leave no residue
+            }
+            catch (Exception ex)
+            {
+                report.VariantRoundTripFailures.Add($"threw: {ex}");
+            }
+
+            GD.Print($"[harness] variant round-trip: checked={report.VariantRoundTripChecked} " +
+                     $"rejectsGarbage={report.VariantRoundTripRejectsGarbage} " +
+                     $"projectSetting={report.VariantProjectSettingRoundTrip} " +
+                     $"failures={report.VariantRoundTripFailures.Count}");
+        }
+
+        static SerializedMember Member(string valueJson)
+            => SerializedMember.FromJson(typeof(Variant), valueJson, "value");
+
+        static void Check(HarnessReport report, string label, string valueJson, Func<Variant, bool> verify, com.IvanMurzak.ReflectorNet.Reflector reflector)
+        {
+            report.VariantRoundTripChecked++;
+            try
+            {
+                var result = reflector.Deserialize(Member(valueJson), fallbackType: typeof(Variant));
+                if (result is not Variant variant)
+                {
+                    report.VariantRoundTripFailures.Add($"{label}: deserialized to {result?.GetType().FullName ?? "null"}, not a Godot.Variant");
+                    return;
+                }
+                if (!verify(variant))
+                    report.VariantRoundTripFailures.Add($"{label}: got {variant.VariantType} '{variant}' from {valueJson}");
+            }
+            catch (Exception ex)
+            {
+                report.VariantRoundTripFailures.Add($"{label}: threw {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
         // --- Error generation -------------------------------------------------------------------------
@@ -420,6 +552,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             if (!report.CaptureInstalled || !report.CaptureAvailable)
                 return false;
 
+            // Godot.Variant / Node-ref converters (issue #292) — version-independent, no server needed.
+            if (report.VariantRoundTripFailures.Count > 0)
+                return false;
+            if (report.VariantRoundTripChecked < VariantRoundTripMinimumChecks)
+                return false;
+            if (!report.VariantRoundTripRejectsGarbage || !report.VariantProjectSettingRoundTrip)
+                return false;
+
             // The C# unobserved-Task exception is the version-independent guaranteed row.
             if (!report.HasCSharpException || !report.CSharpExceptionHasStackTrace)
                 return false;
@@ -537,6 +677,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             [JsonPropertyName("cSharpExceptionHasStackTrace")] public bool CSharpExceptionHasStackTrace { get; set; }
 
             [JsonPropertyName("fatalError")] public string? FatalError { get; set; }
+
+            [JsonPropertyName("variantRoundTripChecked")] public int VariantRoundTripChecked { get; set; }
+            [JsonPropertyName("variantRoundTripRejectsGarbage")] public bool VariantRoundTripRejectsGarbage { get; set; }
+            [JsonPropertyName("variantProjectSettingRoundTrip")] public bool VariantProjectSettingRoundTrip { get; set; }
+            [JsonPropertyName("variantRoundTripFailures")] public List<string> VariantRoundTripFailures { get; set; } = new();
         }
     }
 }

@@ -48,12 +48,21 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
     id: 'node',
     title: 'Node',
-    summary: 'Find, create, modify, reparent, duplicate, and delete nodes in the open scene tree.',
+    summary: 'Find, create, modify, reparent, reorder, duplicate, and delete nodes in the open scene tree.',
     tools: [
       { name: 'node-find', description: 'Find nodes in the open scene by path, name, or type.' },
-      { name: 'node-create', description: 'Create a new node (optionally instancing a sub-scene) under a parent.' },
+      {
+        name: 'node-create',
+        description:
+          'Create a new node (optionally instancing a sub-scene) under a parent, optionally at a specific sibling index.',
+      },
       { name: 'node-modify', description: 'Set properties on an existing node.' },
       { name: 'node-set-parent', description: 'Reparent a node to a new parent in the scene tree.' },
+      {
+        name: 'node-reorder',
+        description:
+          'Move a node to a different position among its siblings (child order is layout order in a container).',
+      },
       { name: 'node-duplicate', description: 'Duplicate an existing node.' },
       { name: 'node-delete', description: 'Delete a node from the scene tree.' },
     ],
