@@ -613,6 +613,21 @@ jobs:
             exit 0
           fi
 
+          # --- Unity-MCP formatting parity: synthesize the release-notes PREAMBLE ---
+          # Unity-MCP hand-builds a `release.md` whose first lines are a
+          # project+version heading, a "**Released:** *<date>*" line and a `---`
+          # separator (see its `prepare-release-notes` job), and feeds that ONE file to
+          # both the GitHub Release body and Discord — which is why its Discord post
+          # opens with a large heading. This repo's release body is GitHub-generated
+          # (`generate_release_notes: true`), so it has no heading by construction.
+          # Prepending the same preamble here, BEFORE the shared cleanup below, makes
+          # the rendered Discord message identical in shape to Unity's.
+          # `date +'%B %e, %Y'` is copied verbatim from Unity-MCP (%e is space-padded)
+          # so the date renders character-for-character the same as Unity's.
+          today=$(date +'%B %e, %Y')
+          release_notes="$(printf '# AI Game Developer (Godot MCP) %s\n**Released:** *%s*\n\n---\n\n%s\n' \
+            "$tag" "$today" "$release_notes")"
+
           # Convert usernames to GitHub profile links
           # Convert "by @username" to "by [@username](https://github.com/username)"
           release_notes_with_links=$(echo "$release_notes" | sed -E 's/by @([A-Za-z0-9_-]+)/by [@\1](https:\/\/github.com\/\1)/g')
@@ -636,7 +651,16 @@ jobs:
           if [ ${#full_message} -gt 2000 ]; then
             # Remove lines from the end until it fits, keeping the link
             link_text=$'\n\n'"📦 **[View Full Release](${release_url})**"
-            max_length=$((2000 - ${#link_text}))
+            # The truncated message is reassembled as `<notes>` + `\n...` + `<link>`,
+            # so the ellipsis line costs 4 more characters on top of the link. Budget
+            # for BOTH so the assembled message is provably <= 2000 (Unity-MCP omits
+            # the ellipsis from its budget and can emit 2004 chars, which Discord
+            # rejects with a 400 — see the report on this change). The heading
+            # synthesized above is part of `release_notes_cleaned` and is therefore
+            # kept by the loop below (it is the first lines); it simply consumes
+            # budget that would otherwise hold more note lines.
+            ellipsis_text=$'\n'"..."
+            max_length=$((2000 - ${#link_text} - ${#ellipsis_text}))
 
             # Split into lines and rebuild until we exceed the limit
             truncated_notes=""
