@@ -42,7 +42,7 @@ export interface AddonEmbeddedResource {
  * addon csproj (ReflectorNet first, then McpPlugin).
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
-  { id: 'com.IvanMurzak.ReflectorNet', version: '5.3.3' },
+  { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.0' },
   { id: 'com.IvanMurzak.McpPlugin', version: '7.5.1' },
 ] as const;
 
