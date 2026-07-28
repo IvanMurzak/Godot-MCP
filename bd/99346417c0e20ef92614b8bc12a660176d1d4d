@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_ef2cfb8cbad648::t_b91a5cf6118a4f 686-710,712-726,728-739
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "bd99346417c0e20ef92614b8bc12a660176d1d4d",
+  "prompts": {},
+  "sessions": {
+    "s_ef2cfb8cbad648": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_ef2cfb8cbad648",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
