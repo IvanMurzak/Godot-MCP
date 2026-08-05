@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2FIvanMurzak%2FGodot-MCP.svg)](https://mcptoplist.com/server/glama%2FIvanMurzak%2FGodot-MCP)
+
 <div align="center" width="100%">
 
   <h1>✨ AI Game Developer — <i>Godot MCP</i></h1>
