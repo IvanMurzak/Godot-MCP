@@ -1,0 +1,24 @@
+addons/godot_mcp/Reflection/GodotAssemblyUtils.cs
+  s_e36a2a3c4d1c6f::t_a84a7ef8f5890e 1-61
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_a6a5036132e48d 228-259
+  s_e36a2a3c4d1c6f::t_1f19c90ed4c111 209-216
+Godot-MCP.Tests/ReflectorModuleDiscoveryTests.cs
+  s_e36a2a3c4d1c6f::t_dfa07f202f7fe2 1-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "08514d38dab2d4ea1ca950f8e3e5d5ad9bb554d3",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <ivandmurzak@gmail.com>"
+    }
+  }
+}

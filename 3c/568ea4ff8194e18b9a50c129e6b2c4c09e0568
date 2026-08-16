@@ -1,0 +1,28 @@
+Godot-MCP.Tests/ScriptDiagnosticsTests.cs
+  s_cb9891c329452d::t_f9ba08ce5f4bd8 226-239
+addons/godot_mcp/Tools/Tool_Script.Validate.cs
+  s_cb9891c329452d::t_554d0277f59c8c 69-71
+  s_cb9891c329452d::t_c25a1d89228a39 207-209
+addons/godot_mcp/Tools/ScriptErrorCapture.cs
+  s_cb9891c329452d::t_a3485c3b784dbe 70
+  s_cb9891c329452d::t_b14b9a0314bc70 171-183,186-203
+addons/godot_mcp/Tools/GodotScriptErrorLogger.Stub.cs
+  s_cb9891c329452d::t_18d647a2183469 23-25
+  s_cb9891c329452d::t_70e68312a0231c 13-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "3c568ea4ff8194e18b9a50c129e6b2c4c09e0568",
+  "prompts": {},
+  "sessions": {
+    "s_cb9891c329452d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "de59d46b-298d-4b2e-aa1e-21cf926a684c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
