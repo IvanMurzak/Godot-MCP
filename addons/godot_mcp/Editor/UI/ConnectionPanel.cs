@@ -124,6 +124,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Button _revokeButton = null!;
         Label _cloudAuthStatus = null!;
 
+        // F6 sign-out confirmation ("signs out all tools on this machine") shown before the machine-wide
+        // sign-out revokes every stored credential family and deletes the shared machine store.
+        ConfirmationDialog _signOutConfirm = null!;
+
         // "Advanced: use access token" opt-in for the Cloud path (default OFF → the raw masked token field is
         // hidden; the sign-in chip conveys the account state instead).
         bool _useCloudAccessToken;
@@ -580,6 +584,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
                                 // open a large gap between the token row and the timeline in Cloud mode.
             };
             _cloudAuthRow.AddChild(_cloudAuthStatus);
+
+            // F6.1: the machine-wide sign-out confirmation. Sign-out is no longer a local token wipe — it
+            // revokes + deletes the SHARED machine credential store, signing out every AI-Game-Dev tool on
+            // this machine, so it always confirms first. Object+method Callable (no delegate += into the
+            // ManagedCallable hot-reload registry) — same discipline as the buttons above.
+            _signOutConfirm = new ConfirmationDialog
+            {
+                Name = "SignOutConfirmDialog",
+                Title = "Sign out",
+                DialogText = ConnectionPanelView.SignOutConfirmText,
+            };
+            _signOutConfirm.Connect(AcceptDialog.SignalName.Confirmed, new Callable(this, MethodName.OnSignOutConfirmed));
+            AddChild(_signOutConfirm);
         }
 
         /// <summary>
@@ -699,7 +716,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void ApplyAlertVisibility(ConnectionStatus status)
         {
             var isCloud = _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud;
-            var hasCloudToken = !string.IsNullOrEmpty(_connection.Config.CloudToken);
+            // Signed in via the machine store (F1) OR the legacy sink (O8 read-fallback) — a
+            // machine-store sign-in must not render the "Authorization Required" alert (task f1).
+            var hasCloudToken = ConnectionPanelView.IsCloudSignedIn(
+                _connection.Account.IsSignedIn, _connection.Config.CloudToken);
 
             _authRequiredAlert.Visible = ConnectionPanelView.ShowAuthorizationRequired(isCloud, hasCloudToken);
             _connectionRequiredAlert.Visible = ConnectionPanelView.ShowConnectionRequired(isCloud, hasCloudToken, status);
@@ -1020,18 +1040,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Render the Cloud-mode auth controls from the persisted <see cref="GodotMcpConfig.CloudToken"/>:
-        /// the masked field carries the stored token (or shows the placeholder via empty text), and the
-        /// Revoke button is visible only when a token is stored. Called on Cloud-mode entry and after every
-        /// token change. The token is never shown in clear text or logged.
+        /// Render the Cloud-mode auth controls from the account sign-in state (unified-machine-auth f1):
+        /// signed in when the MACHINE STORE holds a usable credential (the F1 golden path) or — for the O8
+        /// read-fallback window — when the legacy persisted <see cref="GodotMcpConfig.CloudToken"/> still
+        /// carries one. The masked Advanced field shows only the LEGACY sink token (the machine-store
+        /// credential is never surfaced), and the Sign out button is visible whenever signed in. Called on
+        /// Cloud-mode entry and after every credential change. No token is ever shown in clear text or logged.
         /// </summary>
         void ApplyCloudAuthState()
         {
             var token = _connection.Config.CloudToken;
-            var hasToken = !string.IsNullOrEmpty(token);
+            var hasToken = ConnectionPanelView.IsCloudSignedIn(_connection.Account.IsSignedIn, token);
 
             // Sign-in / account-state chip (the default-path replacement for the raw token field): signed-in when a
-            // cloud credential is stored (from the device flow / machine store), signed-out otherwise.
+            // cloud credential is stored (machine store first, legacy sink fallback), signed-out otherwise.
             _cloudSignInStatus.Text = ConnectionPanelView.CloudSignInStatusLabel(hasToken);
             _cloudSignInStatus.AddThemeColorOverride("font_color", DockStyle.Rgb(ConnectionPanelView.CloudSignInStatusColor(hasToken)));
 
@@ -1042,12 +1064,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _cloudConnectionUrl.Text = urlText;
             _cloudConnectionUrl.Visible = !string.IsNullOrEmpty(urlText);
 
-            // Advanced (masked) token field — carries the stored token, shown only under the "Advanced: use access
-            // token" opt-in. Empty text → the masked LineEdit shows its PlaceholderText ("Token — press Authorize").
-            _cloudTokenField.Text = hasToken ? token! : string.Empty;
+            // Advanced (masked) token field — carries ONLY the legacy sink token (the machine-store
+            // credential is never surfaced here), shown only under the "Advanced: use access token" opt-in.
+            // Empty text → the masked LineEdit shows its PlaceholderText ("Token — press Authorize").
+            _cloudTokenField.Text = token ?? string.Empty;
             _cloudTokenLine.Visible = ConnectionPanelView.ShowCloudTokenField(_useCloudAccessToken);
 
-            // "Sign out" (Revoke) only when a credential is stored.
+            // "Sign out" only when signed in (machine store or legacy fallback).
             _revokeButton.Visible = hasToken;
         }
 
@@ -1090,29 +1113,57 @@ namespace com.IvanMurzak.Godot.MCP.UI
             flow.OnStateChanged += _authFlowStateChangedHandler;
 
             // Fire-and-forget; the state-change handler drives the status/button/browser UI, and the awaited
-            // result persists the token (the token NEVER lives on the flow instance — it only flows out as
-            // StartAsync's return value, so config writes stay on the main thread via the dispatcher).
+            // outcome drives the post-sign-in UI + reconnect. The credential itself never reaches this panel:
+            // the F1 flow persists it into the MACHINE STORE via the guarded two-lock-hold commit
+            // (GodotCloudAccountController → GodotAccountAuth.SignInAsync), and — unified-machine-auth O8 —
+            // Config.CloudToken (the plaintext user:// sink) is no longer written on authorize.
             _ = RunAuthFlowAsync(flow);
         }
 
         async Task RunAuthFlowAsync(GodotDeviceAuthFlow flow)
         {
-            var token = await flow.StartAsync(_connection.CloudBaseUrl, "Godot Editor");
-            if (string.IsNullOrEmpty(token))
-                return; // Non-Authorized terminal state: nothing to persist (UI already reflects it).
+            var outcome = await GodotCloudAccountController.SignInAsync(
+                _connection.Account, flow, _connection.CloudBaseUrl, _connection.Config);
 
-            // Persist + reconnect on the editor main thread (the awaited continuation may run off-thread).
+            // Render + reconnect on the editor main thread (the awaited continuation may run off-thread).
             if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(() => PersistAuthorizedToken(flow, token!));
+                MainThreadDispatcher.Enqueue(() => ApplySignInOutcome(flow, outcome));
             else
-                PersistAuthorizedToken(flow, token!);
+                ApplySignInOutcome(flow, outcome);
+        }
+
+        /// <summary>
+        /// Apply a finished F1 sign-in attempt to the UI, and — when the machine is now signed in —
+        /// reconnect so the connection presents the machine-store JWT. MUST run on the editor main thread.
+        /// Ignores a stale flow (a newer Authorize click replaced <see cref="_deviceAuthFlow"/>). No token
+        /// material flows through here — <see cref="GodotAccountSignInResult"/> is non-secret by contract.
+        /// </summary>
+        void ApplySignInOutcome(GodotDeviceAuthFlow flow, GodotAccountSignInResult outcome)
+        {
+            if (!ReferenceEquals(_deviceAuthFlow, flow))
+                return;
+
+            var message = ConnectionPanelView.SignInOutcomeMessage(outcome);
+            if (!string.IsNullOrEmpty(message))
+                SetCloudAuthStatusText(message);
+
+            ApplyCloudAuthState();
+            ApplyAlertVisibility(_connection.ConnectionStatus);
+
+            // Reconnect so the fresh machine-store bearer is used — only meaningful when the live mode is
+            // Cloud and the sign-in actually yielded a usable credential.
+            if (outcome.Succeeded && _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                _connection.Reconnect();
+
+            ConfigChanged?.Invoke(); // account state changed → agent section re-checks config
         }
 
         /// <summary>
         /// Apply one device-auth flow state transition to the UI (status line, button label, browser-open).
         /// MUST run on the editor main thread. Ignores events from a stale flow (a newer Authorize click
-        /// replaced <see cref="_deviceAuthFlow"/>). Token persistence happens in
-        /// <see cref="PersistAuthorizedToken"/> off the awaited result, not here.
+        /// replaced <see cref="_deviceAuthFlow"/>). Credential persistence happens in the machine-store
+        /// commit inside <see cref="RunAuthFlowAsync"/> (via <see cref="GodotCloudAccountController"/>),
+        /// not here.
         /// </summary>
         void OnAuthFlowStateChanged(GodotDeviceAuthFlow flow, GodotDeviceAuthFlowState state)
         {
@@ -1130,23 +1181,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Persist the cloud token produced by an Authorized flow, refresh the masked field, and reconnect.
-        /// MUST run on the editor main thread. Ignores a stale flow. The token is written straight to config
-        /// and never logged.
-        /// </summary>
-        void PersistAuthorizedToken(GodotDeviceAuthFlow flow, string token)
-        {
-            if (!ReferenceEquals(_deviceAuthFlow, flow))
-                return;
-
-            ApplyAuthorizedToken(token);
-        }
-
-        /// <summary>
-        /// Persist a freshly-obtained Cloud token, refresh the masked field + alerts, and reconnect so the new
-        /// bearer is used (Cloud mode only). Shared by the real device-auth flow
-        /// (<see cref="PersistAuthorizedToken"/>) and the DEV-ONLY <see cref="DevSimulateCloudAuthorized"/> so
-        /// both drive the identical persist → reconnect path. MUST run on the editor main thread.
+        /// DEV-ONLY (reached exclusively from <see cref="DevSimulateCloudAuthorized"/>): persist a token into
+        /// the LEGACY <see cref="GodotMcpConfig.CloudToken"/> sink, refresh the masked field + alerts, and
+        /// reconnect. The REAL authorize path no longer writes this sink (unified-machine-auth O8 — it
+        /// commits to the machine store via <see cref="GodotCloudAccountController"/>); this seam survives
+        /// one release so the dev-control bridge can exercise the O8 read-fallback + migrate-on-touch
+        /// states without a live OAuth round-trip, and is removed with the rest of the sink write path in
+        /// the f4 follow-up. MUST run on the editor main thread. Never logs the token.
         /// </summary>
         void ApplyAuthorizedToken(string token)
         {
@@ -1163,28 +1204,66 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// DEV-ONLY: simulate a successful Cloud device-authorization by persisting <paramref name="token"/>
-        /// through the EXACT same path the real flow uses (<see cref="ApplyAuthorizedToken"/>) — set + save the
-        /// token, refresh the masked field / Revoke button / alerts, and Reconnect(). Lets the dev-control
-        /// bridge exercise the "authorized → persist → reconnect" path (and the stale-rejection guard) without a
-        /// live browser OAuth round-trip. No-op behavior is identical to the real flow; never logs the token.
+        /// DEV-ONLY: simulate a LEGACY-sink Cloud authorization by persisting <paramref name="token"/> into
+        /// <see cref="GodotMcpConfig.CloudToken"/> (<see cref="ApplyAuthorizedToken"/>) — set + save the
+        /// token, refresh the masked field / Sign out button / alerts, and Reconnect(). NOTE (task f1): the
+        /// REAL authorize path no longer writes this sink — it commits to the machine store — so this hook
+        /// now specifically seeds the O8 read-fallback state (and still exercises persist → reconnect + the
+        /// stale-rejection guard) without a live browser OAuth round-trip. Never logs the token; the seam is
+        /// removed with the sink write path in f4.
         /// </summary>
         public void DevSimulateCloudAuthorized(string token) => ApplyAuthorizedToken(token);
 
         /// <summary>
-        /// Revoke the stored cloud token: clear it, persist, revert the UI to the Authorize state, and (if
-        /// the live mode is Cloud) disconnect so the now-unauthenticated session does not linger.
+        /// "Sign out" pressed: show the F6.1 confirmation ("signs out all tools on this machine") — the
+        /// actual machine-wide sign-out runs in <see cref="OnSignOutConfirmed"/> only after the user
+        /// confirms. Cancelling changes nothing.
         /// </summary>
-        public void OnRevokeButtonPressed()
-        {
-            _connection.Config.CloudToken = null;
-            _connection.Save();
-            SetCloudAuthStatusText("Token revoked.");
-            ApplyCloudAuthState();
-            ApplyAlertVisibility(_connection.ConnectionStatus);
+        public void OnRevokeButtonPressed() => _signOutConfirm.PopupCentered();
 
-            if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
-                _connection.Disconnect();
+        /// <summary>
+        /// The confirmed F6 machine-wide sign-out: best-effort RFC 7009 revocation of every stored family +
+        /// the lock-protocol machine-store delete (<see cref="GodotAccountAuth.SignOutMachineWideAsync"/>),
+        /// then — locally — drop the LEGACY <see cref="GodotMcpConfig.CloudToken"/> sink value too (the
+        /// Godot analog of the App dropping its keychain entry, F6.2; without this the O8 migrate-on-touch
+        /// would resurrect the credential from the sink on the next boot). Fire-and-forget async; the UI is
+        /// updated on the editor main thread when the sign-out settles.
+        /// </summary>
+        public void OnSignOutConfirmed() => _ = RunSignOutAsync();
+
+        async Task RunSignOutAsync()
+        {
+            var result = await _connection.Account.SignOutMachineWideAsync();
+
+            void Render()
+            {
+                if (result.StoreDeleted)
+                {
+                    // Local F6.2 cleanup: the legacy sink must not survive a machine-wide sign-out.
+                    _connection.Config.CloudToken = null;
+                    _connection.Save();
+                    SetCloudAuthStatusText(ConnectionPanelView.SignedOutStatusText);
+                }
+                else
+                {
+                    // Busy lock: the store was NOT deleted (F6 — never unlink outside the lock protocol);
+                    // keep the signed-in rendering honest and ask the user to retry.
+                    SetCloudAuthStatusText(ConnectionPanelView.SignOutBusyStatusText);
+                }
+
+                ApplyCloudAuthState();
+                ApplyAlertVisibility(_connection.ConnectionStatus);
+
+                if (result.StoreDeleted && _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                    _connection.Disconnect();
+
+                ConfigChanged?.Invoke(); // account state changed → agent section re-checks config
+            }
+
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(Render);
+            else
+                Render();
         }
 
         /// <summary>
@@ -1197,6 +1276,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         {
             // Only relevant to Cloud mode — a Custom-mode rejection is the Custom token's concern.
             if (_connection.Config.ActiveMode != GodotMcpConnectionMode.Cloud)
+                return;
+
+            // Machine-store account signed in: recovery belongs to the connection's reactive refresh
+            // (GodotMcpConnection.TryAccountRefreshAndReconnect — design 08 A1, expiry self-heals). Don't
+            // wipe the legacy sink or flip the UI to "press Authorize" for a rejection the refresh is about
+            // to heal; if the refresh fails terminally the provider surfaces sign-in-required and the next
+            // re-render shows signed-out.
+            if (_connection.Account.IsSignedIn)
                 return;
 
             _connection.Config.CloudToken = null;

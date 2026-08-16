@@ -318,6 +318,47 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(string.Empty, ConnectionPanelView.ConnectionUrlLabel("   "));
         }
 
+        // --- Cloud signed-in predicate + sign-out / sign-in-outcome copy (unified-machine-auth f1) ---
+
+        [Theory]
+        [InlineData(true, null, true)]        // machine-store account signed in (F1 golden path)
+        [InlineData(true, "legacy-tok", true)] // both
+        [InlineData(false, "legacy-tok", true)] // O8 read-fallback window: the legacy sink still counts
+        [InlineData(false, null, false)]
+        [InlineData(false, "", false)]
+        public void IsCloudSignedIn_MachineStoreOrLegacySink(bool accountSignedIn, string? legacyToken, bool expected)
+        {
+            Assert.Equal(expected, ConnectionPanelView.IsCloudSignedIn(accountSignedIn, legacyToken));
+        }
+
+        [Fact]
+        public void SignOutConfirmText_NamesTheMachineWideScope()
+        {
+            // F6.1: the confirmation must say it signs out ALL tools on this machine — a local-sounding
+            // confirm in front of a machine-wide delete would be a consent bug.
+            Assert.Contains("ALL", ConnectionPanelView.SignOutConfirmText);
+            Assert.Contains("machine", ConnectionPanelView.SignOutConfirmText);
+        }
+
+        [Fact]
+        public void SignInOutcomeMessage_CoversEveryStatus_AndNeverEchoesUnexpectedDetail()
+        {
+            static GodotAccountSignInResult Make(GodotAccountSignInStatus status, string? detail = null)
+                => (GodotAccountSignInResult)Activator.CreateInstance(
+                    typeof(GodotAccountSignInResult),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                    null, new object?[] { status, detail }, null)!;
+
+            Assert.Contains("Signed in", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.SignedIn)));
+            Assert.Contains("Partially", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.PartiallyAuthorized)));
+            // NotAuthorized: the device-flow status line already rendered the terminal state — no double message.
+            Assert.Equal(string.Empty, ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.NotAuthorized)));
+            Assert.Contains("lock", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.Busy)));
+            Assert.Contains("different account", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.SubjectConflict)));
+            Assert.Contains("failed", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.Failed)));
+            Assert.Contains("exchange refused", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.Failed, "exchange refused")));
+        }
+
         [Fact]
         public void CustomHost_PersistsAndReloads()
         {

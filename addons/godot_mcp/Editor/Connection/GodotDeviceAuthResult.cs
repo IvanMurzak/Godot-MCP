@@ -31,11 +31,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>Absolute expiry of <see cref="AccessToken"/> (from the token response's <c>expires_in</c>), or null when unknown.</summary>
         public DateTimeOffset? ExpiresAt { get; }
 
-        public GodotDeviceAuthResult(string accessToken, string? refreshToken, DateTimeOffset? expiresAt)
+        /// <summary>
+        /// The scope the token response echoed (e.g. <c>mcp:agent</c> for the unified-machine-auth F1 login),
+        /// or null when the server omitted it. NOT a secret. Stamped onto the committed credential family so
+        /// the machine store records what the grant actually carries (design 04 §1).
+        /// </summary>
+        public string? Scope { get; }
+
+        public GodotDeviceAuthResult(string accessToken, string? refreshToken, DateTimeOffset? expiresAt, string? scope = null)
         {
             AccessToken = accessToken;
             RefreshToken = refreshToken;
             ExpiresAt = expiresAt;
+            Scope = scope;
         }
     }
 }

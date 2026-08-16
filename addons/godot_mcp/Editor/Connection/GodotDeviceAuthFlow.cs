@@ -68,7 +68,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public const string DefaultClientId = "godot-mcp-plugin";
 
-        /// <summary>The scope the plugin requests — selects the ES256 hub JWT (<c>aud=urn:agd:hub</c>) + refresh token.</summary>
+        /// <summary>
+        /// The scope this flow requests on the device-authorization request (unified-machine-auth 03 F1.2):
+        /// the AGENT scope — full account access, prominently disclosed on the D11 verification page. The
+        /// agent tokens are committed to the machine store's agent family and then DERIVED down to the
+        /// <see cref="PluginScope"/> plugin family via RFC 8693 token exchange (03 F1.4), so one in-editor
+        /// Authorize signs in every AI-Game-Dev tool on the machine.
+        /// </summary>
+        public const string AgentScope = "mcp:agent";
+
+        /// <summary>The plugin (tools-only) scope — the ES256 hub JWT (<c>aud=urn:agd:hub</c>) the derived plugin family carries.</summary>
         public const string PluginScope = "mcp:plugin";
 
         /// <summary>Minimum poll interval (seconds) the server's <c>interval</c> is clamped up to — the device-flow floor.</summary>
@@ -147,7 +156,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 SetState(GodotDeviceAuthFlowState.Initiating);
 
                 var authResponse = await _service
-                    .RequestDeviceAuthorizationAsync(asBaseUrl, DefaultClientId, PluginScope, ct)
+                    .RequestDeviceAuthorizationAsync(asBaseUrl, DefaultClientId, AgentScope, ct)
                     .ConfigureAwait(false);
 
                 UserCode = authResponse.UserCode;
@@ -176,7 +185,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                             ? new DateTimeOffset(_utcNow(), TimeSpan.Zero).AddSeconds(tokenResponse.ExpiresIn)
                             : (DateTimeOffset?)null;
                         SetState(GodotDeviceAuthFlowState.Authorized);
-                        return new GodotDeviceAuthResult(tokenResponse.AccessToken!, tokenResponse.RefreshToken, expiresAt);
+                        return new GodotDeviceAuthResult(
+                            tokenResponse.AccessToken!, tokenResponse.RefreshToken, expiresAt, tokenResponse.Scope);
                     }
 
                     switch (tokenResponse.Error)

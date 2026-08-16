@@ -216,6 +216,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         int _accountRefreshInFlight;
 
+        /// <summary>
+        /// The <c>cloudToken</c> value the persisted <c>user://godot-mcp-config.json</c> SINK FILE itself
+        /// held at load time (unified-machine-auth O8/F11.2) — captured in <see cref="ApplyPersistedConfig"/>
+        /// BEFORE the <c>.env</c>/process-env layers can shadow <see cref="GodotMcpConfig.CloudToken"/>, so
+        /// the legacy migration acts on exactly what the sink persisted. Null when the sink holds none.
+        /// SECRET MATERIAL: never logged, never surfaced.
+        /// </summary>
+        string? _persistedSinkCloudToken;
+
+        /// <summary>One-shot guard so the O8 legacy migration runs at most once per editor session (0 = not yet, 1 = attempted).</summary>
+        int _legacyMigrationAttempted;
+
         /// <summary>The active config (resolved Host/Token/mode are read live off this).</summary>
         public GodotMcpConfig Config => _config;
 
@@ -340,6 +352,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // built-in defaults (the first-load "Cloud token empty / Authorize prompted / wrong agent restored"
             // bug); this lazy call covers a Start() reached without that pre-step. A no-op once already resolved.
             ResolveConfig();
+
+            // O8 / F11.2 legacy migration (migrate-on-touch), once per session, OFF the main thread: a
+            // pre-existing user:// cloudToken is copied into the machine store (under the machine lock)
+            // when the store holds no credential. Fire-and-forget is safe here: until the migration lands,
+            // the credential-provider fallback below presents the IDENTICAL sink token, so the bearer on
+            // the wire is the same either way — the migration only moves where it is durably stored. The
+            // lock acquire can block up to its 75 s budget, which must never stall the editor boot.
+            MaybeMigrateLegacyCloudToken();
 
             // Compose the machine-store account credential into the connection's bearer resolution (D12 — the
             // zero-button rule). In Cloud mode, when the machine store holds a credential, present its
@@ -616,6 +636,39 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// and we do NOT reconnect — that stops a reject→refresh→reject loop; recovery is then an explicit
         /// re-sign-in.
         /// </summary>
+        /// <summary>
+        /// Kick off the O8/F11.2 legacy-sink migration on a background task, at most once per editor
+        /// session. Delegates the whole decision (empty-store check, lock, unreadable-store refusal) to
+        /// <see cref="GodotAccountAuth.TryMigrateLegacyCloudToken"/>; only the outcome KIND is logged —
+        /// never the token.
+        /// </summary>
+        void MaybeMigrateLegacyCloudToken()
+        {
+            if (string.IsNullOrEmpty(_persistedSinkCloudToken))
+                return;
+            if (Interlocked.CompareExchange(ref _legacyMigrationAttempted, 1, 0) != 0)
+                return;
+
+            var sinkToken = _persistedSinkCloudToken;
+            var serverTarget = GodotMcpConfig.ResolveCloudBaseUrl();
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    var outcome = _account.TryMigrateLegacyCloudToken(sinkToken, serverTarget);
+                    if (outcome == GodotLegacyTokenMigrationResult.Migrated)
+                        GodotMcpLog.Info("[Godot-MCP] migrated the legacy user:// cloud credential into the machine store (O8).");
+                    else if (outcome != GodotLegacyTokenMigrationResult.NoSinkToken)
+                        LogTrace($"[Godot-MCP] legacy cloud-credential migration skipped: {outcome}.");
+                }
+                catch (Exception ex)
+                {
+                    // ex.Message comes from IO/lock plumbing, never from token material.
+                    GodotMcpLog.Warning($"[Godot-MCP] legacy cloud-credential migration failed: {ex.Message}");
+                }
+            });
+        }
+
         void TryAccountRefreshAndReconnect()
         {
             if (!_account.IsSignedIn || _config.ActiveMode != GodotMcpConnectionMode.Cloud)
@@ -1381,6 +1434,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var persisted = GodotMcpConfigStore.Load(path);
             if (persisted == null)
                 return;
+
+            // O8/F11.2: remember the cloudToken value the user:// SINK FILE itself holds — before the
+            // .env layer (which may also write _config.CloudToken) and the live env override shadow it.
+            // The legacy migration must act on exactly what the sink persisted, nothing else.
+            _persistedSinkCloudToken = persisted.CloudToken;
 
             GodotMcpConfigStore.ApplyPersisted(_config, persisted);
             GodotMcpLog.Info($"[Godot-MCP] loaded persisted config ({path}).");
