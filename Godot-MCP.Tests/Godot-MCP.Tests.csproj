@@ -144,6 +144,9 @@
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotDeviceAuthResult.cs" Link="Source\GodotDeviceAuthResult.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotTokenRefresher.cs" Link="Source\GodotTokenRefresher.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotAccountAuth.cs" Link="Source\GodotAccountAuth.cs" />
+    <!-- unified-machine-auth f1: the pure orchestration behind the dock's Authorize button — the seam
+         whose no-new-cloudToken invariant (O8) is pinned by GodotCloudAccountControllerTests. -->
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotCloudAccountController.cs" Link="Source\GodotCloudAccountController.cs" />
     <!-- Editor-runtime NuGet-dependency resolver. Pure-BCL (System.Runtime.Loader), no #if TOOLS,
          no Godot native types — so it is unit-testable in this plain-xUnit host. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpAssemblyResolver.cs" Link="Source\GodotMcpAssemblyResolver.cs" />

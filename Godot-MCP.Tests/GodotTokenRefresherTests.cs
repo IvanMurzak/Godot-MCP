@@ -14,30 +14,32 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.McpPlugin;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// Covers <see cref="GodotTokenRefresher"/> — the Godot <c>ITokenRefresher</c> that exchanges a refresh
-    /// token for a fresh access token at <c>POST /oauth/token</c> (<c>grant_type=refresh_token</c>). Verifies
-    /// the success mapping (access + rotated refresh + expiry), the fail-closed behaviour (error body / HTTP
-    /// fault → <c>Failure</c>, never a fabricated token), the RFC-6749 form shape, and the server-target →
-    /// AS-base resolution (a hub <c>/mcp</c> suffix is stripped). Never asserts a token into a log surface.
+    /// Covers <see cref="GodotTokenRefresher"/> — since unified-machine-auth f1 a THIN ADAPTER over the
+    /// shared <see cref="HttpTokenRefresher"/> (McpPlugin 8.1, task b3). Verifies the 04 §3 wire contract
+    /// the adapter must preserve end-to-end: <c>grant_type=refresh_token</c> at
+    /// <c>&lt;target&gt;/oauth/token</c>, the family's STORED <c>clientId</c> presented verbatim (component
+    /// default ONLY for the legacy no-context API), <c>scope</c>/<c>resource</c> omitted entirely, the
+    /// success mapping (access + rotated refresh + expiry), fail-closed error handling, and the adapter's
+    /// one local behavior — the LIVE default-AS-base resolution for target-less requests (with the shared
+    /// <c>/mcp</c>-suffix strip for stored hub URLs). Never asserts a token into a log surface.
     /// </summary>
     public class GodotTokenRefresherTests
     {
         const string AsBaseUrl = "https://ai-game.dev";
         const string NewAccess = "fresh-access-token";
         const string NewRefresh = "rotated-refresh-token";
-        static readonly DateTimeOffset T0 = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         static GodotTokenRefresher MakeRefresher(RecordingHandler handler, Func<string>? defaultBase = null)
             => new(
-                new GodotDeviceAuthService(new HttpClient(handler)),
                 defaultBase ?? (() => AsBaseUrl),
                 clientId: GodotDeviceAuthFlow.DefaultClientId,
-                clock: () => T0);
+                httpClient: new HttpClient(handler));
 
         [Fact]
         public async Task RefreshAsync_Success_MapsAccessRefreshAndExpiry()
@@ -45,16 +47,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh, expiresIn: 3600));
             var refresher = MakeRefresher(handler);
 
+            var before = DateTimeOffset.UtcNow;
             var result = await refresher.RefreshAsync("old-refresh", serverTarget: null);
+            var after = DateTimeOffset.UtcNow;
 
             Assert.True(result.Succeeded);
             Assert.Equal(NewAccess, result.AccessToken);
             Assert.Equal(NewRefresh, result.RefreshToken);
-            Assert.Equal(T0.AddSeconds(3600), result.ExpiresAt);
+            // The shared refresher stamps expiry off the real clock — assert the window, not an instant.
+            Assert.NotNull(result.ExpiresAt);
+            Assert.InRange(result.ExpiresAt!.Value, before.AddSeconds(3600), after.AddSeconds(3600));
         }
 
         [Fact]
-        public async Task RefreshAsync_SendsRefreshTokenGrantForm()
+        public async Task RefreshAsync_LegacyApi_SendsRefreshTokenGrantForm_WithComponentDefaultClientId()
         {
             var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
             var refresher = MakeRefresher(handler);
@@ -64,7 +70,39 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal($"{AsBaseUrl}/oauth/token", handler.LastRequestUri);
             Assert.Contains("grant_type=refresh_token", handler.LastBody);
             Assert.Contains("refresh_token=old-refresh", handler.LastBody);
+            // No family context on the legacy two-string API ⇒ the component default (04 §3.7).
             Assert.Contains($"client_id={GodotDeviceAuthFlow.DefaultClientId}", handler.LastBody);
+        }
+
+        /// <summary>
+        /// 04 §3.2 (G-SEC-1 plant-3 discriminator): a family-aware request's STORED <c>clientId</c> reaches
+        /// the wire verbatim — the adapter must never substitute the component default.
+        /// </summary>
+        [Fact]
+        public async Task RefreshAsync_FamilyAware_PresentsTheStoredClientId()
+        {
+            var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
+            var refresher = MakeRefresher(handler);
+
+            await refresher.RefreshAsync(
+                new TokenRefreshRequest("old-refresh", serverTarget: null, clientId: "stored-custom-id"));
+
+            Assert.Contains("client_id=stored-custom-id", handler.LastBody);
+            Assert.DoesNotContain(GodotDeviceAuthFlow.DefaultClientId, handler.LastBody);
+        }
+
+        /// <summary>04 §3.3 / P0-3 (G-SEC-1 plant-3 discriminator): no <c>scope</c>, no <c>resource</c> — ever.</summary>
+        [Fact]
+        public async Task RefreshAsync_OmitsScopeAndResourceEntirely()
+        {
+            var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
+            var refresher = MakeRefresher(handler);
+
+            await refresher.RefreshAsync(
+                new TokenRefreshRequest("old-refresh", serverTarget: null, clientId: "stored-custom-id"));
+
+            Assert.DoesNotContain("scope=", handler.LastBody);
+            Assert.DoesNotContain("resource=", handler.LastBody);
         }
 
         [Fact]
@@ -80,10 +118,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public async Task RefreshAsync_NullServerTarget_UsesDefaultBase()
+        public async Task RefreshAsync_NullServerTarget_UsesTheLiveDefaultBase()
         {
             var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
-            var refresher = MakeRefresher(handler, defaultBase: () => "https://local-as.example");
+            // Read LIVE per call (a .env cloud-URL override applies without a rebuild): flip the value
+            // between construction and the call to prove the resolution is not captured at construction.
+            var liveBase = "https://constructed.example";
+            var refresher = MakeRefresher(handler, defaultBase: () => liveBase);
+            liveBase = "https://local-as.example";
 
             await refresher.RefreshAsync("old-refresh", serverTarget: null);
 
@@ -91,7 +133,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public async Task RefreshAsync_ErrorBody_FailsClosedWithReason()
+        public async Task RefreshAsync_ErrorBody_FailsClosed_ClassifiedInvalidGrant()
         {
             var handler = new RecordingHandler(() => JsonResponse(HttpStatusCode.BadRequest,
                 "{ \"error\": \"invalid_grant\", \"error_description\": \"refresh token expired\" }"));
@@ -101,11 +143,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.False(result.Succeeded);
             Assert.Null(result.AccessToken);
-            Assert.Equal("invalid_grant", result.FailureReason);
+            Assert.Contains("invalid_grant", result.FailureReason);
+            Assert.Equal(TokenRefreshFailureKind.InvalidGrant, result.FailureKind);
         }
 
         [Fact]
-        public async Task RefreshAsync_HttpFault_FailsClosed()
+        public async Task RefreshAsync_HttpFault_FailsClosed_AsTransient()
         {
             var handler = new RecordingHandler(() => throw new HttpRequestException("connection refused"));
             var refresher = MakeRefresher(handler);
@@ -114,18 +157,28 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.False(result.Succeeded);
             Assert.Null(result.AccessToken);
+            Assert.Equal(TokenRefreshFailureKind.Transient, result.FailureKind);
         }
 
         [Fact]
-        public async Task RefreshAsync_Cancellation_Propagates()
+        public async Task RefreshAsync_PreCanceledToken_Propagates()
         {
-            var handler = new RecordingHandler(() => throw new OperationCanceledException());
+            var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
             var refresher = MakeRefresher(handler);
 
-            // A pre-canceled token makes HttpClient throw TaskCanceledException (a subclass); assert ANY
-            // OperationCanceledException so cancellation propagates rather than collapsing into a Failure.
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => refresher.RefreshAsync("some-refresh", serverTarget: null, new CancellationToken(canceled: true)));
+        }
+
+        [Fact]
+        public async Task RefreshAsync_EmptyRefreshToken_FailsWithoutNetworkIo()
+        {
+            var handler = new RecordingHandler(() => throw new InvalidOperationException("unexpected network call"));
+            var refresher = MakeRefresher(handler);
+
+            var result = await refresher.RefreshAsync("", serverTarget: null);
+
+            Assert.False(result.Succeeded);
         }
 
         // --- helpers ---

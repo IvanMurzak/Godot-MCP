@@ -99,11 +99,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             await flow.AuthorizeAsync(AsBaseUrl);
 
-            // Authorize request: POST /oauth/device_authorization with client_id + scope=mcp:plugin.
+            // Authorize request: POST /oauth/device_authorization with client_id + scope=mcp:agent
+            // (unified-machine-auth 03 F1.2 — the flow mints AGENT tokens; the plugin family is derived
+            // via RFC 8693 by the login commit, never requested here).
             var authorize = handler.Requests[0];
             Assert.EndsWith("/oauth/device_authorization", authorize.Path);
             Assert.Contains($"client_id={GodotDeviceAuthFlow.DefaultClientId}", authorize.Body);
-            Assert.Contains("scope=mcp%3Aplugin", authorize.Body); // "mcp:plugin" url-encoded
+            Assert.Contains("scope=mcp%3Aagent", authorize.Body); // "mcp:agent" url-encoded
+            Assert.DoesNotContain("scope=mcp%3Aplugin", authorize.Body);
 
             // Token request: POST /oauth/token with the device-code grant + same client_id + device_code.
             var token = handler.Requests[1];

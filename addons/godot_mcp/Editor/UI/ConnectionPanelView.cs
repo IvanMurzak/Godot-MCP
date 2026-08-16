@@ -180,6 +180,48 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static (float R, float G, float B) CloudSignInStatusColor(bool signedIn) =>
             signedIn ? ColorConnected : ColorDisconnected;
 
+        /// <summary>
+        /// The ONE cloud signed-in predicate the panel renders from (unified-machine-auth task f1): signed in
+        /// when the MACHINE STORE holds a usable account credential (<paramref name="accountSignedIn"/> — the
+        /// F1 golden path), OR when the legacy <c>user://</c> config still carries a
+        /// <paramref name="legacyCloudToken"/> (the O8 read-fallback window, one release). Pure-managed →
+        /// unit-tested; the panel must never re-derive this from <c>Config.CloudToken</c> alone, or a
+        /// machine-store sign-in would render as signed-out.
+        /// </summary>
+        public static bool IsCloudSignedIn(bool accountSignedIn, string? legacyCloudToken) =>
+            accountSignedIn || !string.IsNullOrEmpty(legacyCloudToken);
+
+        /// <summary>
+        /// The F6 sign-out confirmation copy ("signs out all tools on this machine" — design 03 F6.1). Shown
+        /// BEFORE the machine-wide sign-out revokes every stored credential family and deletes the shared
+        /// machine store.
+        /// </summary>
+        public const string SignOutConfirmText =
+            "Sign out of ai-game.dev on this machine?\nThis signs out ALL AI-Game-Dev tools on this machine (Unity, Godot, Unreal, CLI, desktop app).";
+
+        /// <summary>Cloud-auth status line after a completed machine-wide sign-out.</summary>
+        public const string SignedOutStatusText = "Signed out on this machine.";
+
+        /// <summary>Cloud-auth status line when the sign-out could not delete the store (credential lock busy).</summary>
+        public const string SignOutBusyStatusText = "Sign-out is busy (another tool holds the credential lock) — try again.";
+
+        /// <summary>
+        /// The Cloud-auth status line for a finished sign-in attempt (the machine-store F1 commit outcome —
+        /// distinct from <see cref="CloudAuthStatusMessage"/>, which renders the DEVICE-FLOW states). Never
+        /// carries token material; <see cref="GodotAccountSignInResult.Detail"/> is non-secret by contract.
+        /// </summary>
+        public static string SignInOutcomeMessage(GodotAccountSignInResult outcome) => outcome.Status switch
+        {
+            GodotAccountSignInStatus.SignedIn => "Signed in — all AI-Game-Dev tools on this machine are authorized.",
+            // The retry already ran (GodotAccountAuth's bounded second phase) and any abandoned mint was
+            // revoked — a fresh Authorize re-runs the whole flow, so say "retry", never promise "finish".
+            GodotAccountSignInStatus.PartiallyAuthorized => "Partially authorized — sign-in didn't complete; press Authorize to retry.",
+            GodotAccountSignInStatus.NotAuthorized => string.Empty, // the device-flow state line already rendered the terminal state
+            GodotAccountSignInStatus.Busy => "Another tool holds the credential lock — try again.",
+            GodotAccountSignInStatus.SubjectConflict => "This machine is signed in as a different account — sign out first.",
+            _ => string.IsNullOrEmpty(outcome.Detail) ? "Sign-in failed — try again." : $"Sign-in failed: {outcome.Detail}",
+        };
+
         /// <summary>The "Advanced: use access token" opt-in label — reveals the legacy masked token field on the Cloud path.</summary>
         public const string AdvancedUseAccessTokenLabel = "Advanced: use access token";
 
