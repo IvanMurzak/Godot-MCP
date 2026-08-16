@@ -4,6 +4,40 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Unified machine auth (unified-machine-auth f2).** The CLI adopts
+  `@baizor/gamedev-cli-core@0.4.0`'s shared machine-auth stack; the CLI-local machine-credential
+  store copy (`src/utils/machine-credentials.ts`) is **deleted** — cli-core is the only TS store
+  implementation (families schema v2, atomic writes, cross-process lock, unreadable-store honesty).
+  - `login` now runs the F1 agent login: an **agent-scope** (`mcp:agent`) device grant, committed
+    under a first lock hold, with the tools (`mcp:plugin`) credential **derived via RFC 8693 token
+    exchange** and committed (+ the v1 compat mirror) under a second hold. A failed exchange leaves
+    the machine "partially authorized" (agent family committed) and the derivation is retried.
+  - New **`login --tools-only`** (O10): CI/automation mode — mints and stores a plugin family
+    ONLY, so the desktop App cannot pick the sign-in up and the runner is its own revocable device.
+  - New **`login --yes`** + account-switch guard (D6/F7): signing in as a *different* account than
+    the machine store holds now requires confirmation (TTY prompt, `--yes`, or fail-closed decline
+    in non-interactive runs); declining revokes the just-minted credential and leaves the store
+    untouched.
+  - Commands that use a persisted cloud credential (`open --mode Cloud`, `run-tool`, `status`,
+    `wait-for-ready`) now resolve it through cli-core's `MachineCredentialProvider` — an expired
+    access token is **refreshed automatically** under the cross-process lock (presenting the
+    family's stored `client_id`, `scope`/`resource` omitted) instead of being handed out stale.
+  - The legacy per-project sink `<project>/.godot-mcp/credentials.json` is **no longer written
+    anywhere**. It is still read as a fallback for one release and is **migrated into the machine
+    store on first use** (as a legacy family, under the lock, only when the machine store is
+    empty); `login --project` now persists to the per-project store
+    `<project>/.ai-game-dev/credentials.json` (gitignored) instead.
+  - `install-plugin --enroll` commits its redeemed credential through the same shared machinery
+    (plugin family, own `client_id`, under the lock), with the account-switch guard failing closed.
+  - The `login` "already authenticated" gate is **plugin-plane-gated**, and a **partially
+    authorized** machine (agent family committed, plugin derivation failed) is repaired by
+    `login` in place: it re-runs ONLY the derivation leg from the committed agent family — no
+    second device flow, no browser — or fails with an actionable message naming `--force`.
+    An agent-only store never reads as "already authenticated" (review f2 B1).
+  - An **unreadable per-project credential store** now surfaces "re-authorize this project"
+    instead of silently falling back to the machine account (review f2 A1 — a command must not
+    run as a different account than the project chose).
+
 - **BREAKING (requires a matching addon).** `status` and `wait-for-ready` now probe
   `/api/system-tools/ping` instead of `/api/tools/ping`. The addon's `ping` became a **System** tool
   (owner ruling 2026-07-25, for parity with Unity-MCP), and `McpPluginBuilder` partitions tools by

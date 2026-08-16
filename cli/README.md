@@ -89,7 +89,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
-| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` flags. |
+| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). Add `--no-pin` for the bare `<host>/mcp` URL. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
@@ -151,7 +151,8 @@ tool `ping`) is resolved as:
 5. The **enrolled project marker** (`.ai-game-dev/project.json` `serverTarget`, written by
    `install-plugin --enroll`): a hosted target routes to its `/mcp` hub, a `localhost` target is used
    verbatim. This makes an **enrolled cloud project reachable with zero env config** — the persisted
-   cloud credential (project store, then `~/.ai-game-dev/credentials.json`) is used automatically.
+   cloud credential (per-project store `<project>/.ai-game-dev/`, then the legacy project sink, then
+   `~/.ai-game-dev/credentials.json`) is used automatically, refreshed through expiry.
 6. Local fallback: `http://localhost:<derived-port>`, the deterministic v2 project-path port the
    editor addon binds locally (a marker `portOverride` wins over the hash-derived port).
 
@@ -172,16 +173,31 @@ godot-cli login                       # sign in once per machine (default)
 godot-cli login --project ./MyGame    # keep a per-project credential instead
 godot-cli login --base-url <url>      # authenticate against a non-default server
 godot-cli login --force               # re-authenticate over an existing credential
+godot-cli login --tools-only         # CI/automation: tools credential only (no App pickup)
+godot-cli login --yes                # non-interactive: confirm replacing another account's credential
 ```
 
 - By default the credential is saved to the shared **machine store** `~/.ai-game-dev/credentials.json`
   (`0600` on POSIX / DPAPI on Windows) — sign in **once per machine** and the Godot editor plugin
   auto-adopts it, so `godot-cli open --mode Cloud` connects with **no `--token`**.
+- The default login signs the whole machine in: the flow requests an **agent-scope** grant and
+  derives the narrower **tools (plugin) credential** from it via RFC 8693 token exchange, so every
+  AI-Game-Dev tool on the machine (engine plugins, CLIs, the desktop App) picks the sign-in up.
+- `--tools-only` mints the tools credential **only** — nothing agent-scoped is stored, the desktop
+  App cannot adopt the sign-in, and the runner shows up as its own revocable device on
+  [ai-game.dev](https://ai-game.dev). Use it for CI and shared automation runners.
+- If the machine already holds a **different account's** credential, login asks before replacing it
+  (declining revokes the just-minted credential and leaves the store untouched). Pass `--yes` to
+  confirm non-interactively.
 - `--project <path>` (or the positional `[path]`) keeps a per-project credential
-  (`<path>/.godot-mcp/credentials.json`, gitignored) for per-project accounts.
+  (`<path>/.ai-game-dev/credentials.json`, gitignored) for per-project accounts. The old
+  per-project sink `<path>/.godot-mcp/credentials.json` is **no longer written** — it is still
+  read (and migrated into the machine store on first use) for one release.
 - The flow persists the **full** credential set (access token + rotating refresh token + expiry) — **no
   personal access token (PAT) is ever minted**. On any failure nothing is written, so an existing
-  credential survives a denied / expired / network error intact.
+  credential survives a denied / expired / network error intact. Commands refresh an expired
+  access token automatically (via `@baizor/gamedev-cli-core`), so a signed-in machine stays
+  signed in without re-running `login`.
 
 ## `setup-skills`
 

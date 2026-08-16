@@ -267,3 +267,18 @@ export function featureRow(name: string, enabled: boolean): void {
 export function divider(): void {
   console.log(chalk.dim('─'.repeat(50)));
 }
+
+/**
+ * Interactive yes/no confirmation on the terminal (default **No**). Only call on a TTY —
+ * non-interactive callers must decide via their own flag (e.g. `login --yes`) instead.
+ */
+export async function confirm(question: string): Promise<boolean> {
+  const readline = await import('node:readline/promises');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(`${question} [y/N] `)).trim().toLowerCase();
+    return answer === 'y' || answer === 'yes';
+  } finally {
+    rl.close();
+  }
+}

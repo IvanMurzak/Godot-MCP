@@ -1,12 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { commitToolsOnlyLogin, decodeJwtSubject, godotAdapter } from '@baizor/gamedev-cli-core';
 import { DEFAULT_CLOUD_BASE_URL } from '../utils/connection.js';
 import { redeemEnrollment } from '../utils/enroll.js';
-import {
-  writeMachineCredentials,
-  readMachineCredentials,
-  getMachineCredentialsPath,
-} from '../utils/machine-credentials.js';
+import { openMachineStore } from '../utils/machine-store.js';
 import { deriveProjectIdentityV2 } from '../utils/project-identity.js';
 import {
   writeProjectMarker,
@@ -57,30 +54,39 @@ export async function enrollPlugin(opts: EnrollPluginOptions): Promise<EnrollPlu
     const { access_token, refresh_token, expires_in, server_url } = redeem.credential;
     const serverTarget = server_url;
 
-    // 2. Machine store: plant the plugin credential, preserving any existing
-    // identity fields (e.g. `subject`), replacing token material + server target.
-    let existing = {};
-    try {
-      existing = readMachineCredentials(opts.storeBaseDir) ?? {};
-    } catch {
-      existing = {};
-    }
+    // 2. Machine store: commit the enroll-minted `mcp:plugin` credential as a PLUGIN family via
+    // the shared cli-core tools-only commit (unified-machine-auth F10 — enroll is the code-based
+    // plugin-only mint), under the 04 §2 cross-process lock, stamped with this CLI's own client
+    // id. The D6/F7 account-switch guard applies with NO confirmation channel here (library
+    // path), so a KNOWN-subject mismatch fails closed instead of silently replacing the account.
+    const store = openMachineStore(opts.storeBaseDir);
     const expiresAt =
       typeof expires_in === 'number' && expires_in > 0
         ? new Date(Date.now() + expires_in * 1000).toISOString()
         : undefined;
-    writeMachineCredentials(
-      {
-        ...existing,
-        version: 1,
+    const subject = decodeJwtSubject(access_token);
+    const commit = await commitToolsOnlyLogin({
+      store,
+      clientId: godotAdapter.clientId, // 'godot-cli'
+      credentials: {
         accessToken: access_token,
         refreshToken: refresh_token,
         ...(expiresAt ? { expiresAt } : {}),
         serverTarget,
+        ...(subject !== undefined ? { subject } : {}),
       },
-      opts.storeBaseDir,
-    );
-    const credentialsPath = getMachineCredentialsPath(opts.storeBaseDir);
+      onWarning: (message) => warnings.push(message),
+    });
+    if (commit.status === 'switch-declined') {
+      throw new Error(
+        `This machine is signed in as a different account (${commit.storedSubject}); the enrollment ` +
+          'credential was revoked and nothing was written. Sign out first (or enroll on a clean machine).',
+      );
+    }
+    if (commit.status === 'aborted') {
+      throw new Error('The machine credential store changed concurrently; re-run the enrollment.');
+    }
+    const credentialsPath = store.credentialsPath;
 
     emitProgress(opts.onProgress, { phase: 'enroll-redeemed', message: 'Credential planted', serverTarget });
 

@@ -106,9 +106,9 @@ export const openCommand = new Command('open')
 
       // In Cloud mode with no explicit --token / GODOT_MCP_TOKEN, inject the
       // token persisted by `godot-cli login` so `open --mode Cloud` auto-connects.
-      const authToken = resolveOpenAuthToken(projectPath, { token: options.token, mode: options.mode });
+      const authToken = await resolveOpenAuthToken(projectPath, { token: options.token, mode: options.mode });
       if (authToken !== undefined && options.token === undefined) {
-        verbose('Using persisted cloud token from .godot-mcp/credentials.json');
+        verbose('Using persisted cloud credential (per-project store, legacy fallback, or machine store)');
       }
 
       const spinner = ui.startSpinner(

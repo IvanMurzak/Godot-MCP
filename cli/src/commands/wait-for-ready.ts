@@ -24,7 +24,7 @@ export const waitForReadyCommand = new Command('wait-for-ready')
   .option('--interval <ms>', 'Polling interval in milliseconds (default: 3000)', '3000')
   .action(async (positionalPath: string | undefined, options: WaitForReadyOptions) => {
     const projectPath = resolveAndValidateProjectPath(positionalPath, options);
-    const { url: serverUrl, token } = resolveConnection(projectPath, options);
+    const { url: serverUrl, token } = await resolveConnection(projectPath, options);
 
     const timeoutMs = parseInt(options.timeout ?? '120000', 10);
     const intervalMs = parseInt(options.interval ?? '3000', 10);
