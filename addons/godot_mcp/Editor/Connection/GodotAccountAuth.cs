@@ -123,19 +123,33 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </summary>
     public sealed class GodotAccountAuth : IDisposable
     {
+        /// <summary>
+        /// Backoff before the ONE bounded second-phase retry (03 F1 failure path: "P retries with
+        /// backoff") — applied before an exchange retry (<c>AgentOnly</c>) and before a
+        /// plugin-family commit retry (<c>PluginCommitBusy</c>/<c>StoreUnreadable</c>).
+        /// </summary>
+        public static readonly TimeSpan SecondPhaseRetryBackoff = TimeSpan.FromMilliseconds(750);
+
         readonly MachineCredentialStore _store;
         readonly MachineCredentialLock _lock;
         readonly Func<string> _asBaseUrlProvider;
         readonly HttpClient? _httpClient;
         readonly ILogger? _logger;
         readonly Func<DateTimeOffset>? _clock;
+        readonly Func<TimeSpan, CancellationToken, Task> _delay;
         readonly string _clientId;
 
         // The provider is REBUILT (auto-adopting from the store) after every guarded store mutation —
         // login commit, machine-wide sign-out, legacy migration — because the guarded helpers write the
         // store directly and the provider's in-memory credential would otherwise go stale. Swapped
-        // atomically; readers go through Provider below.
+        // atomically; readers go through Provider below. Retired providers are parked (not disposed)
+        // until this coordinator is disposed: a token resolution captured just before a swap may still
+        // be executing, and disposing under it would surface a transient ObjectDisposedException into
+        // the connection's credential resolution (review A2). Swaps are rare (sign-in / sign-out /
+        // migration), so the parked list stays tiny.
         PluginCredentialProvider _provider;
+        readonly object _retiredGate = new object();
+        readonly System.Collections.Generic.List<PluginCredentialProvider> _retiredProviders = new();
 
         /// <summary>
         /// Construct the coordinator. <paramref name="asBaseUrlProvider"/> supplies the authorization-server
@@ -153,7 +167,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             ILogger? logger = null,
             string? clientId = null,
             Func<DateTimeOffset>? clock = null,
-            MachineCredentialLock? credentialLock = null)
+            MachineCredentialLock? credentialLock = null,
+            Func<TimeSpan, CancellationToken, Task>? delay = null)
         {
             _asBaseUrlProvider = asBaseUrlProvider ?? throw new ArgumentNullException(nameof(asBaseUrlProvider));
             _store = store ?? new MachineCredentialStore();
@@ -161,6 +176,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _httpClient = httpClient;
             _logger = logger;
             _clock = clock;
+            _delay = delay ?? Task.Delay;
             _clientId = string.IsNullOrEmpty(clientId) ? GodotDeviceAuthFlow.DefaultClientId : clientId!;
 
             // Auto-adopt: PluginCredentialProvider reads the store at construction. No UI, no device flow.
@@ -237,17 +253,30 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 Scope = result.Scope ?? GodotDeviceAuthFlow.AgentScope,
             };
 
+            var exchangeClient = new TokenExchangeClient(asBaseUrl, _clientId, _httpClient);
+            var revocationClient = new TokenRevocationClient(asBaseUrl, _httpClient);
+
             var commit = await MachineCredentialLoginCommit.CommitAsync(
                 _store,
                 _lock,
                 agentFamily,
                 serverTarget: asBaseUrl,
                 subject: null, // device-grant response carries no sub (O5 covers exchange/enroll only)
-                exchangeClient: new TokenExchangeClient(asBaseUrl, _clientId, _httpClient),
+                exchangeClient: exchangeClient,
                 confirmedReplaceOfSubject: null,
-                revocationClient: new TokenRevocationClient(asBaseUrl, _httpClient),
+                revocationClient: revocationClient,
                 logger: _logger,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            // Second-phase completion (03 F1 failure path / review B1): a failed exchange gets ONE
+            // bounded retry with backoff (the agent family is committed — no device flow needed), a
+            // retryable second-hold outcome gets ONE bounded CommitPluginFamilyAsync retry with the
+            // CARRIED mint (never a re-exchange), and a mint this coordinator is about to abandon is
+            // best-effort revoked (b3 twin rule 4's premise: retryable outcomes skip revocation only
+            // because the caller retries the same mint — once we stop retrying, we revoke).
+            commit = await CompleteSecondPhaseAsync(
+                commit, result.AccessToken, asBaseUrl, exchangeClient, revocationClient, cancellationToken)
+                .ConfigureAwait(false);
 
             // The guarded helper wrote the store directly — rebuild the provider so its in-memory state
             // (IsSignedIn / AccessTokenProvider) reflects what was actually committed.
@@ -266,6 +295,131 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 _ =>
                     new GodotAccountSignInResult(GodotAccountSignInStatus.Failed, commit.Detail),
             };
+        }
+
+        /// <summary>True for the second-hold outcomes the commit helper designed to be retried with the SAME mint.</summary>
+        static bool IsRetryableSecondPhase(LoginCommitStatus status)
+            => status == LoginCommitStatus.PluginCommitBusy || status == LoginCommitStatus.StoreUnreadable;
+
+        /// <summary>
+        /// The bounded second-phase completion behind <see cref="SignInAsync"/> (03 F1 failure path,
+        /// review B1). Exactly one backoff'd retry per stage, never a second device flow:
+        /// <list type="number">
+        ///   <item><b><see cref="LoginCommitStatus.AgentOnly"/>:</b> the agent family is committed, so
+        ///   retry the RFC 8693 exchange once (backoff first) and, if it succeeds, commit the plugin
+        ///   family via <see cref="MachineCredentialLoginCommit.CommitPluginFamilyAsync"/>.</item>
+        ///   <item><b><see cref="LoginCommitStatus.PluginCommitBusy"/> /
+        ///   <see cref="LoginCommitStatus.StoreUnreadable"/>:</b> retry the plugin-family commit once
+        ///   with the CARRIED <see cref="LoginCommitResult.ExchangeResult"/> — the helper returns it
+        ///   precisely so the caller retries without re-exchanging.</item>
+        ///   <item><b>Still retryable after the retry:</b> this coordinator stops retrying (the user's
+        ///   next action is a fresh device flow), so the mint is best-effort revoked before being
+        ///   discarded — otherwise it would stay live server-side for up to 30 d, invisible to every
+        ///   component (twin rule 4's exact scenario). Terminal hold-2 aborts
+        ///   (<c>SubjectMismatch</c>/<c>StoreSignedOut</c>) are already revoked inside the helper.</item>
+        /// </list>
+        /// The expected subject for a retried commit is the mint's own <c>sub</c> (O5) — the plugin
+        /// family derives from the agent token, so a store that now belongs to a DIFFERENT known
+        /// account voids the premise (F7) and the helper aborts + revokes internally.
+        /// </summary>
+        async Task<LoginCommitResult> CompleteSecondPhaseAsync(
+            LoginCommitResult commit,
+            string agentAccessToken,
+            string asBaseUrl,
+            ITokenExchangeClient exchangeClient,
+            ITokenRevocationClient revocationClient,
+            CancellationToken cancellationToken)
+        {
+            // Stage 1 — AgentOnly: one exchange retry with backoff (03 F1: "P retries with backoff").
+            if (commit.Status == LoginCommitStatus.AgentOnly)
+            {
+                await _delay(SecondPhaseRetryBackoff, cancellationToken).ConfigureAwait(false);
+
+                TokenExchangeResult retryExchange;
+                try
+                {
+                    retryExchange = await exchangeClient
+                        .ExchangeAsync(agentAccessToken, asBaseUrl, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning("Token-exchange retry threw: {message}", ex.Message); // never token material
+                    return commit; // still AgentOnly — the committed agent family stands (F1 failure path)
+                }
+
+                if (retryExchange == null || !retryExchange.Succeeded || string.IsNullOrEmpty(retryExchange.AccessToken))
+                    return commit; // still AgentOnly
+
+                commit = await MachineCredentialLoginCommit.CommitPluginFamilyAsync(
+                    _store, _lock, retryExchange, _clientId,
+                    expectedSubject: retryExchange.Subject,
+                    serverTarget: asBaseUrl,
+                    revocationClient: revocationClient,
+                    logger: _logger,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                // Fall through — this commit may itself be retryable, and gets the stage-2 retry below.
+            }
+
+            // Stage 2 — a retryable second-hold outcome with a carried mint: one in-place retry.
+            if (IsRetryableSecondPhase(commit.Status)
+                && commit.ExchangeResult is { Succeeded: true } mint
+                && !string.IsNullOrEmpty(mint.AccessToken))
+            {
+                await _delay(SecondPhaseRetryBackoff, cancellationToken).ConfigureAwait(false);
+
+                commit = await MachineCredentialLoginCommit.CommitPluginFamilyAsync(
+                    _store, _lock, mint, _clientId,
+                    expectedSubject: mint.Subject,
+                    serverTarget: asBaseUrl,
+                    revocationClient: revocationClient,
+                    logger: _logger,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                // Stage 3 — still not committed: the mint is being abandoned; revoke it (twin rule 4).
+                if (IsRetryableSecondPhase(commit.Status) && commit.ExchangeResult is { } abandoned)
+                    await RevokeAbandonedMintAsync(revocationClient, abandoned, asBaseUrl, cancellationToken).ConfigureAwait(false);
+            }
+
+            return commit;
+        }
+
+        /// <summary>
+        /// Best-effort RFC 7009 revocation of a minted-but-never-committed plugin family this
+        /// coordinator stops retrying (refresh token preferred — revoking it kills the family;
+        /// mirror of the helper's own orphan revocation). Single attempt; failures only logged —
+        /// the family also dies naturally at its own expiry.
+        /// </summary>
+        async Task RevokeAbandonedMintAsync(
+            ITokenRevocationClient revocationClient,
+            TokenExchangeResult mint,
+            string? serverTarget,
+            CancellationToken cancellationToken)
+        {
+            var token = !string.IsNullOrEmpty(mint.RefreshToken) ? mint.RefreshToken : mint.AccessToken;
+            if (string.IsNullOrEmpty(token))
+                return;
+
+            try
+            {
+                var acknowledged = await revocationClient
+                    .RevokeAsync(token!, _clientId, serverTarget, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!acknowledged)
+                    _logger?.LogWarning("Best-effort revocation of the abandoned plugin mint was not acknowledged; it expires naturally.");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning("Best-effort revocation of the abandoned plugin mint threw: {message}", ex.Message); // never token material
+            }
         }
 
         /// <summary>
@@ -373,14 +527,30 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Swap in a freshly-built provider so the in-memory state re-adopts whatever the machine store now
         /// holds (called after every guarded store mutation). The store read is cheap and lock-free (F3.1).
+        /// The retired provider is PARKED, not disposed (review A2): a token resolution captured just before
+        /// the swap may still be executing, and disposing under it would throw a transient
+        /// <see cref="ObjectDisposedException"/> into the connection's credential resolution. All parked
+        /// providers are disposed with this coordinator.
         /// </summary>
         void ReloadFromStore()
         {
             var fresh = BuildProvider();
             var old = Interlocked.Exchange(ref _provider, fresh);
-            old.Dispose();
+            lock (_retiredGate)
+                _retiredProviders.Add(old);
         }
 
-        public void Dispose() => Provider.Dispose();
+        public void Dispose()
+        {
+            Provider.Dispose();
+            lock (_retiredGate)
+            {
+                foreach (var retired in _retiredProviders)
+                {
+                    try { retired.Dispose(); } catch { /* teardown must never throw */ }
+                }
+                _retiredProviders.Clear();
+            }
+        }
     }
 }

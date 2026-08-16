@@ -213,7 +213,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static string SignInOutcomeMessage(GodotAccountSignInResult outcome) => outcome.Status switch
         {
             GodotAccountSignInStatus.SignedIn => "Signed in — all AI-Game-Dev tools on this machine are authorized.",
-            GodotAccountSignInStatus.PartiallyAuthorized => "Partially authorized — press Authorize again to finish.",
+            // The retry already ran (GodotAccountAuth's bounded second phase) and any abandoned mint was
+            // revoked — a fresh Authorize re-runs the whole flow, so say "retry", never promise "finish".
+            GodotAccountSignInStatus.PartiallyAuthorized => "Partially authorized — sign-in didn't complete; press Authorize to retry.",
             GodotAccountSignInStatus.NotAuthorized => string.Empty, // the device-flow state line already rendered the terminal state
             GodotAccountSignInStatus.Busy => "Another tool holds the credential lock — try again.",
             GodotAccountSignInStatus.SubjectConflict => "This machine is signed in as a different account — sign out first.",

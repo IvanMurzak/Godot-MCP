@@ -400,7 +400,180 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(account2.IsSignedIn);
         }
 
+        // --- Second-phase completion (03 F1 failure path — review B1) ---
+
+        /// <summary>
+        /// 03 F1: "Token exchange fails → P retries with backoff; the agent family stays committed."
+        /// A transiently failing exchange is retried ONCE (with the documented backoff) without a second
+        /// device flow, and the retry completes the plugin-family commit.
+        /// </summary>
+        [Fact]
+        public async Task SignInAsync_ExchangeFailsOnce_RetriesWithBackoff_AndFullyCommits()
+        {
+            using var tmp = new TempDir();
+            var exchangeCalls = 0;
+            var server = new FakeAuthServer
+            {
+                DeviceAuthorize = Ok(DeviceAuthorizeJson("USER-1", "dev-1")),
+                DeviceToken = Ok(TokenJson("acc-agent", "ref-agent", 3600, scope: "mcp:agent")),
+                Exchange = () => ++exchangeCalls == 1
+                    ? JsonResponse(HttpStatusCode.BadRequest, "{ \"error\": \"temporarily_unavailable\" }")
+                    : JsonResponse(HttpStatusCode.OK, ExchangeJson("acc-plugin", "ref-plugin", 3600, "mcp:plugin", "usr_1")),
+            };
+            var delays = new List<TimeSpan>();
+            using var account = MakeAccount(tmp, server, delay: (d, _) => { delays.Add(d); return Task.CompletedTask; });
+
+            var outcome = await account.SignInAsync(MakeFlow(server), AsBaseUrl);
+
+            Assert.Equal(GodotAccountSignInStatus.SignedIn, outcome.Status);
+            Assert.True(account.IsSignedIn);
+            Assert.Equal(2, exchangeCalls); // exactly one retry — bounded
+            Assert.Equal(new[] { GodotAccountAuth.SecondPhaseRetryBackoff }, delays); // with the documented backoff
+            // ONE device flow only — the retry never re-runs RFC 8628 (no second browser round).
+            Assert.Single(server.Requests, r => r.Path.EndsWith("/oauth/device_authorization", StringComparison.Ordinal));
+
+            var persisted = Store(tmp).Read();
+            Assert.Equal("acc-agent", persisted!.Families?.Agent?.AccessToken);
+            Assert.Equal("acc-plugin", persisted.Families?.Plugin?.AccessToken);
+        }
+
+        /// <summary>
+        /// Review B1: a retryable second-hold outcome (store unreadable between the holds) is retried
+        /// with the CARRIED mint — never re-exchanged — and the retry commits the plugin family.
+        /// </summary>
+        [Fact]
+        public async Task SignInAsync_StoreUnreadableAtSecondHold_RetriesTheCarriedMint_WithoutReExchanging()
+        {
+            using var tmp = new TempDir();
+            var storePath = Store(tmp).CredentialsPath;
+            byte[]? agentDocBytes = null;
+            var server = new FakeAuthServer
+            {
+                DeviceAuthorize = Ok(DeviceAuthorizeJson("USER-1", "dev-1")),
+                DeviceToken = Ok(TokenJson("acc-agent", "ref-agent", 3600, scope: "mcp:agent")),
+                Exchange = () =>
+                {
+                    // Runs BETWEEN the holds: capture the agent-family document hold 1 wrote, then turn
+                    // the store unreadable (garbage bytes: DPAPI unprotect fails on Windows, JSON parse
+                    // fails on POSIX) so hold 2 lands on StoreUnreadable with the mint carried back.
+                    agentDocBytes = File.ReadAllBytes(storePath);
+                    File.WriteAllBytes(storePath, new byte[] { 0x00, 0x01, 0xFF });
+                    return JsonResponse(HttpStatusCode.OK, ExchangeJson("acc-plugin", "ref-plugin", 3600, "mcp:plugin", "usr_1"));
+                },
+            };
+            // The injected delay is the retry backoff hook — "repair" the store there, so the ONE
+            // bounded retry finds it readable again.
+            using var account = MakeAccount(tmp, server, delay: (_, _) =>
+            {
+                File.WriteAllBytes(storePath, agentDocBytes!);
+                return Task.CompletedTask;
+            });
+
+            var outcome = await account.SignInAsync(MakeFlow(server), AsBaseUrl);
+
+            Assert.Equal(GodotAccountSignInStatus.SignedIn, outcome.Status);
+            Assert.True(account.IsSignedIn);
+            // The carried ExchangeResult was committed — exactly ONE exchange on the wire.
+            Assert.Single(server.DecodedTokenRequests, b => b.Contains("grant-type:token-exchange"));
+
+            var persisted = Store(tmp).Read();
+            Assert.Equal("acc-agent", persisted!.Families?.Agent?.AccessToken);
+            Assert.Equal("acc-plugin", persisted.Families?.Plugin?.AccessToken);
+            Assert.Equal("usr_1", persisted.Subject); // O5 sub backfilled by the retried commit
+        }
+
+        /// <summary>
+        /// Review B1 / b3 twin rule 4: when the bounded retry ALSO fails, the coordinator stops retrying
+        /// (the user's next step is a fresh device flow) — so the minted-but-never-committed plugin
+        /// family must be best-effort revoked, not silently stranded live server-side for ≤30 d. The
+        /// unreadable store is never overwritten on this path either.
+        /// </summary>
+        [Fact]
+        public async Task SignInAsync_StoreStillUnreadableAfterRetry_RevokesTheAbandonedMint()
+        {
+            using var tmp = new TempDir();
+            var storePath = Store(tmp).CredentialsPath;
+            var garbage = new byte[] { 0x00, 0x01, 0xFF };
+            var server = new FakeAuthServer
+            {
+                DeviceAuthorize = Ok(DeviceAuthorizeJson("USER-1", "dev-1")),
+                DeviceToken = Ok(TokenJson("acc-agent", "ref-agent", 3600, scope: "mcp:agent")),
+                Exchange = () =>
+                {
+                    File.WriteAllBytes(storePath, garbage); // unreadable — and never repaired
+                    return JsonResponse(HttpStatusCode.OK, ExchangeJson("acc-plugin", "ref-plugin", 3600, "mcp:plugin", "usr_1"));
+                },
+            };
+            using var account = MakeAccount(tmp, server);
+
+            var outcome = await account.SignInAsync(MakeFlow(server), AsBaseUrl);
+
+            Assert.Equal(GodotAccountSignInStatus.PartiallyAuthorized, outcome.Status);
+            Assert.False(account.IsSignedIn);
+            // No re-exchange, no second device flow — the same mint was retried, then abandoned.
+            Assert.Single(server.DecodedTokenRequests, b => b.Contains("grant-type:token-exchange"));
+            Assert.Single(server.Requests, r => r.Path.EndsWith("/oauth/device_authorization", StringComparison.Ordinal));
+            // The abandoned mint was best-effort revoked — refresh token preferred, this component's id.
+            var revokes = server.Requests.Where(r => r.Path.EndsWith("/oauth/revoke", StringComparison.Ordinal))
+                .Select(r => WebUtility.UrlDecode(r.Body)).ToList();
+            Assert.Contains(revokes, b => b.Contains("token=ref-plugin") && b.Contains("client_id=" + ComponentClientId));
+            // 04 §1: the unreadable store was never overwritten by any of it.
+            Assert.Equal(garbage, File.ReadAllBytes(storePath));
+        }
+
         // --- O8 / F11.2 legacy user:// cloudToken migration (the G-SEC-1 plant-2 target) ---
+
+        /// <summary>
+        /// Review B2(a) / 04 §1 "never overwrite": an EXISTING-but-unreadable store (DPAPI after a
+        /// password reset, corruption) may hold a real credential — migration must skip and leave the
+        /// file byte-identical. Fails when either Unreadable guard is removed (the migration would then
+        /// treat the unreadable store as empty and write over it).
+        /// </summary>
+        [Fact]
+        public void Migrate_UnreadableStore_IsNeverOverwritten()
+        {
+            using var tmp = new TempDir();
+            Directory.CreateDirectory(tmp.Path);
+            var storePath = Store(tmp).CredentialsPath;
+            var garbage = new byte[] { 0x00, 0x10, 0xFF, 0x42 };
+            File.WriteAllBytes(storePath, garbage);
+            using var account = MakeAccount(tmp, FakeAuthServer.Throwing());
+
+            var outcome = account.TryMigrateLegacyCloudToken("sink-cloud-token", AsBaseUrl);
+
+            Assert.Equal(GodotLegacyTokenMigrationResult.SkippedStoreUnreadable, outcome);
+            Assert.Equal(garbage, File.ReadAllBytes(storePath)); // byte-identical — never overwritten
+            Assert.False(account.IsSignedIn);
+        }
+
+        /// <summary>
+        /// Review B2(b) / D9: a held machine lock makes the migration fail as Busy — it never proceeds
+        /// lock-free and writes nothing; once the lock frees, the SAME call migrates (the idempotent
+        /// retry-next-boot claim, proven rather than asserted).
+        /// </summary>
+        [Fact]
+        public void Migrate_BusyLock_SkipsWithoutWriting_ThenMigratesOnceTheLockFrees()
+        {
+            using var tmp = new TempDir();
+            using var account = MakeAccount(tmp, FakeAuthServer.Throwing(),
+                credentialLock: MakeShortBudgetLock(tmp.Path));
+
+            using (var holder = new MachineCredentialLock(tmp.Path).TryAcquire())
+            {
+                Assert.NotNull(holder); // a peer holds the machine lock for the whole attempt
+
+                var outcome = account.TryMigrateLegacyCloudToken("sink-cloud-token", AsBaseUrl);
+
+                Assert.Equal(GodotLegacyTokenMigrationResult.Busy, outcome);
+                Assert.False(Store(tmp).Exists); // nothing was written without the lock (D9)
+            }
+
+            var second = account.TryMigrateLegacyCloudToken("sink-cloud-token", AsBaseUrl);
+
+            Assert.Equal(GodotLegacyTokenMigrationResult.Migrated, second);
+            Assert.Equal("sink-cloud-token", Store(tmp).Read()!.Families?.Legacy?.AccessToken);
+            Assert.True(account.IsSignedIn);
+        }
 
         [Fact]
         public async Task Migrate_SeededSink_EmptyStore_WritesLegacyFamilyUnderLock_AndSignsIn()
@@ -458,11 +631,40 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         static MachineCredentialStore Store(TempDir tmp) => new(tmp.Path);
 
-        static GodotAccountAuth MakeAccount(TempDir tmp, HttpMessageHandler handler)
+        static GodotAccountAuth MakeAccount(
+            TempDir tmp,
+            HttpMessageHandler handler,
+            Func<TimeSpan, CancellationToken, Task>? delay = null,
+            MachineCredentialLock? credentialLock = null)
             => new(
                 asBaseUrlProvider: () => AsBaseUrl,
                 store: new MachineCredentialStore(tmp.Path),
-                httpClient: new HttpClient(handler));
+                httpClient: new HttpClient(handler),
+                credentialLock: credentialLock,
+                // Instant by default so the bounded second-phase backoff costs no test wall-clock;
+                // tests that assert the backoff inject a recording delegate instead.
+                delay: delay ?? ((_, _) => Task.CompletedTask));
+
+        /// <summary>
+        /// A <see cref="MachineCredentialLock"/> with a SHORT acquire budget (400 ms instead of the 75 s
+        /// contract value), via the package's internal timing ctor
+        /// <c>(baseDirectory, hostId, acquireBudgetMs, staleMs, foreignStaleMs, diagnostics)</c> —
+        /// reflection because InternalsVisibleTo covers only McpPlugin.Tests. Staleness bars stay REAL
+        /// (60 s / 24 h) so the held peer lock is never taken over mid-test. If the ctor shape changes
+        /// in an upstream bump, this fails loudly here rather than silently testing nothing.
+        /// </summary>
+        static MachineCredentialLock MakeShortBudgetLock(string baseDirectory)
+        {
+            var ctor = typeof(MachineCredentialLock).GetConstructor(
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                new[] { typeof(string), typeof(string), typeof(int), typeof(long), typeof(long), typeof(Action<string>) },
+                modifiers: null);
+            Assert.True(ctor != null,
+                "MachineCredentialLock's internal timing ctor (baseDirectory, hostId, acquireBudgetMs, staleMs, foreignStaleMs, diagnostics) "
+                + "was not found — the McpPlugin package shape changed; update this test seam.");
+            return (MachineCredentialLock)ctor!.Invoke(new object?[] { baseDirectory, null, 400, 60_000L, 86_400_000L, null });
+        }
 
         static GodotDeviceAuthFlow MakeFlow(HttpMessageHandler handler)
             => new(
