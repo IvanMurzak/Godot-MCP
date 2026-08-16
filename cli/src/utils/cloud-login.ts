@@ -4,6 +4,8 @@ import {
   openMachineStore,
   openProjectStore,
   ensureProjectStoreGitignored,
+  createMachineCredentialProvider,
+  hasPluginPlaneCredential,
 } from './machine-store.js';
 import { openBrowser } from './browser.js';
 import {
@@ -285,4 +287,119 @@ async function commitCredential(
 function pluginAccessToken(document: MachineCredentials): string | null {
   const families = effectiveFamilies(document);
   return families.plugin?.accessToken ?? families.legacy?.accessToken ?? document.accessToken ?? null;
+}
+
+/**
+ * What a stored credential document means for a `login` against `baseUrl`:
+ *
+ *  - `signed-in` — a usable **plugin-plane** credential exists for this server; `login` without
+ *    `--force` short-circuits.
+ *  - `partial` — the F1 failure state: an agent family is committed for this server but the
+ *    plugin family was never derived (exchange failed). `login` must FINISH the derivation (no
+ *    second device flow), never report "Already authenticated" — the agent family alone serves
+ *    no command, so treating it as signed-in wedges the CLI (review f2 B1: `login` said
+ *    "already authenticated" while every command raised `login required`, with `--force` as the
+ *    only, unnamed exit).
+ *  - `signed-out` — no credential for this server (missing/empty store, or a credential issued
+ *    against a different base URL): run the full device flow.
+ */
+export type LoginState = 'signed-in' | 'partial' | 'signed-out';
+
+/** Classify a stored document for the `login` gate (see {@link LoginState}). */
+export function classifyLoginState(document: MachineCredentials | null, baseUrl: string): LoginState {
+  if (!document || document.serverTarget !== baseUrl) return 'signed-out';
+  if (hasPluginPlaneCredential(document)) return 'signed-in';
+  const agent = effectiveFamilies(document).agent;
+  if (typeof agent?.accessToken === 'string' && agent.accessToken.trim().length > 0) return 'partial';
+  return 'signed-out';
+}
+
+/** Options for {@link completePartialLogin}. */
+export interface CompletePartialLoginOptions {
+  /** Cloud base URL the credential belongs to (default https://ai-game.dev). */
+  baseUrl?: string;
+  /** The store the partial credential lives in. Defaults to the shared machine store. */
+  sink?: CredentialSink;
+  /** Injectable RFC 8693 exchange client (tests). Defaults to {@link HttpTokenExchangeClient}. */
+  exchangeClient?: TokenExchangeClient;
+  /** Injectable fetch for the default exchange client / provider refresher (tests). */
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * Finish a partially-authorized login (03 F1 failure path): the agent family is already
+ * committed, so re-run ONLY the derivation leg — obtain a fresh agent access token through the
+ * provider (refreshing under the lock if it expired) and {@link derivePluginFamily} from it.
+ * **No second device flow, no browser.** On failure nothing is written and the agent family
+ * survives for the next attempt.
+ *
+ * Returns the derived plugin-plane access token, or null (errors printed, store untouched).
+ */
+export async function completePartialLogin(
+  options: CompletePartialLoginOptions = {},
+): Promise<string | null> {
+  const baseUrl = (options.baseUrl ?? DEFAULT_CLOUD_BASE_URL).replace(/\/$/, '');
+  const sink: CredentialSink = options.sink ?? { kind: 'machine' };
+  const store = resolveSinkStore(sink);
+
+  let document: MachineCredentials | null;
+  try {
+    document = store.read();
+  } catch (err) {
+    ui.error(
+      `The credential store is unreadable (${err instanceof Error ? err.message : String(err)}). ` +
+        'Run `godot-cli login --force` to re-authorize.',
+    );
+    return null;
+  }
+  if (classifyLoginState(document, baseUrl) !== 'partial') {
+    ui.error('No partially-authorized sign-in found for this server. Run `godot-cli login`.');
+    return null;
+  }
+
+  // A FRESH agent access token: the provider serves the agent plane, refreshing under the
+  // cross-process lock when the stored one is (about to be) expired.
+  const provider = createMachineCredentialProvider({
+    storeDir: store.baseDirectory,
+    serverBaseUrl: baseUrl,
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    onWarning: ui.warn,
+  });
+  let agentAccessToken: string;
+  try {
+    agentAccessToken = await provider.getAccessToken({ family: 'agent' });
+  } catch (err) {
+    ui.error(
+      `The partially-authorized sign-in can no longer be used (${err instanceof Error ? err.message : String(err)}). ` +
+        'Run `godot-cli login --force` to start a fresh sign-in.',
+    );
+    return null;
+  }
+
+  const exchangeClient =
+    options.exchangeClient ??
+    new HttpTokenExchangeClient({
+      defaultServerBaseUrl: baseUrl,
+      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    });
+
+  const derived = await derivePluginFamily({
+    store,
+    exchangeClient,
+    clientId: godotAdapter.clientId,
+    agentAccessToken,
+    ...(document?.subject !== undefined ? { expectedSubject: document.subject } : {}),
+    serverTarget: document?.serverTarget ?? baseUrl,
+    fetchImpl: options.fetchImpl,
+    onWarning: ui.warn,
+  });
+  if (derived.status === 'derived') {
+    return pluginAccessToken(derived.document);
+  }
+  ui.error(
+    derived.status === 'exchange-failed'
+      ? `Could not derive the tools credential (${derived.reason}).`
+      : `Could not derive the tools credential — the credential store changed concurrently (${derived.reason}).`,
+  );
+  return null;
 }

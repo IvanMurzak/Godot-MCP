@@ -9,10 +9,15 @@ import {
   openProjectStore,
   getMachineCredentialsPath,
   resolveProjectStoreDir,
-  hasUsableFamily,
 } from '../utils/machine-store.js';
-import { runCloudLogin, type CredentialSink } from '../utils/cloud-login.js';
-import type { MachineCredentialStore } from '@baizor/gamedev-cli-core';
+import {
+  runCloudLogin,
+  completePartialLogin,
+  classifyLoginState,
+  type CredentialSink,
+  type LoginState,
+} from '../utils/cloud-login.js';
+import type { MachineCredentials, MachineCredentialStore } from '@baizor/gamedev-cli-core';
 
 interface LoginOptions {
   path?: string;
@@ -48,13 +53,30 @@ export const loginCommand = new Command('login')
     const { sink, savedLocationLabel } = resolveSink(positionalPath, options);
     verbose(`Credential store: ${savedLocationLabel}`);
 
-    // Only short-circuit when a usable credential is saved in the SAME store AND it was issued
-    // against the SAME base URL. Otherwise `login --base-url <other>` (without --force) would
-    // silently reuse a credential minted for a different server.
-    if (!options.force && isAlreadyAuthenticated(sink, baseUrl)) {
-      ui.success('Already authenticated with the cloud server.');
-      ui.info('Use --force to re-authenticate.');
-      return;
+    // Only short-circuit when a usable PLUGIN-PLANE credential is saved in the SAME store AND it
+    // was issued against the SAME base URL (an agent-only "partial" store must never read as
+    // signed in — review f2 B1). And `login --base-url <other>` (without --force) never silently
+    // reuses a credential minted for a different server.
+    if (!options.force) {
+      const state: LoginState = classifyLoginState(readStoreDocument(sink), baseUrl);
+      if (state === 'signed-in') {
+        ui.success('Already authenticated with the cloud server.');
+        ui.info('Use --force to re-authenticate.');
+        return;
+      }
+      if (state === 'partial' && !options.toolsOnly) {
+        // F1 failure-path repair: the agent family is committed; finish the derivation leg
+        // alone — no second device flow, no browser hop.
+        ui.info('A previous sign-in was only partially authorized — finishing it now (no browser needed)...');
+        const repaired = await completePartialLogin({ baseUrl, sink });
+        if (repaired) {
+          ui.success(`Authentication complete. Cloud credential saved to ${savedLocationLabel}.`);
+          ui.info('Run: godot-cli open --mode Cloud   (no --token needed).');
+          return;
+        }
+        ui.error('Could not finish the partially-authorized sign-in. Run `godot-cli login --force` to start a fresh one.');
+        process.exit(1);
+      }
     }
 
     ui.heading('Cloud Authentication');
@@ -103,14 +125,16 @@ function resolveSink(
   return { sink: { kind: 'machine' }, savedLocationLabel: getMachineCredentialsPath() };
 }
 
-function isAlreadyAuthenticated(sink: CredentialSink, baseUrl: string): boolean {
+/**
+ * Read the sink's stored credential document; a missing OR unreadable store reads as null, i.e.
+ * `signed-out` (04 §1: an explicit login may replace an unreadable store, so the flow proceeds).
+ */
+function readStoreDocument(sink: CredentialSink): MachineCredentials | null {
   try {
     const store: MachineCredentialStore =
       sink.kind === 'project' ? openProjectStore(sink.projectPath) : openMachineStore(sink.storeBaseDir);
-    const credentials = store.read();
-    return hasUsableFamily(credentials) && credentials?.serverTarget === baseUrl;
+    return store.read();
   } catch {
-    // Missing/unreadable store ⇒ not signed in (04 §1: unreadable degrades to "sign in required").
-    return false;
+    return null;
   }
 }

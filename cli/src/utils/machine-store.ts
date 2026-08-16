@@ -145,3 +145,18 @@ export function hasUsableFamily(document: MachineCredentials | null): boolean {
     (family) => typeof family?.accessToken === 'string' && family.accessToken.trim().length > 0,
   );
 }
+
+/**
+ * True when `document` holds a usable **plugin-plane** credential — `families.plugin`, falling
+ * back to `families.legacy` (an adopted v1 credential IS the plugin-plane credential), mirroring
+ * the provider's plane resolution. An **agent-only** store (the F1 `partial` state: exchange
+ * failed after the agent family committed) is NOT signed in for CLI purposes — every command
+ * consumes the plugin plane, so treating the agent family as "signed in" wedges `login` into
+ * "Already authenticated" while every command raises `login required` (review f2 B1).
+ */
+export function hasPluginPlaneCredential(document: MachineCredentials | null): boolean {
+  if (!document) return false;
+  const families = effectiveFamilies(document);
+  const plane = families.plugin ?? families.legacy;
+  return typeof plane?.accessToken === 'string' && plane.accessToken.trim().length > 0;
+}

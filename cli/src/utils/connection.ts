@@ -246,9 +246,20 @@ export async function resolveConnection(
  * unauthenticated exactly as before (the server answers 401 and the user is pointed at `login`).
  */
 async function resolveCloudAccessToken(projectPath: string): Promise<string | undefined> {
-  // 1. Per-project store (a `login --project` credential).
+  // 1. Per-project store (a `login --project` credential). Its unusable states are surfaced
+  // honestly (04 §1 / F11.4): an UNREADABLE store is never silently shadowed by the machine
+  // account — that would run the command as a different account than the project chose.
   const projectStore = openProjectStore(projectPath);
-  if (hasUsableFamily(safeRead(() => projectStore.read()))) {
+  const projectState = projectStore.readState();
+  if (projectState.status === 'unreadable') {
+    ui.warn(
+      `The per-project credential store (${projectStore.credentialsPath}) is unreadable ` +
+        `(${projectState.reason}). Not falling back to the machine credential — ` +
+        'run `godot-cli login --project <path>` to re-authorize this project.',
+    );
+    return undefined;
+  }
+  if (projectState.status === 'ok' && hasUsableFamily(projectState.credentials)) {
     const provider = createMachineCredentialProvider({
       storeDir: resolveProjectStoreDir(projectPath),
       onWarning: ui.warn,

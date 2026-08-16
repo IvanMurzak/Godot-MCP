@@ -64,6 +64,7 @@ export async function enrollPlugin(opts: EnrollPluginOptions): Promise<EnrollPlu
       typeof expires_in === 'number' && expires_in > 0
         ? new Date(Date.now() + expires_in * 1000).toISOString()
         : undefined;
+    const subject = decodeJwtSubject(access_token);
     const commit = await commitToolsOnlyLogin({
       store,
       clientId: godotAdapter.clientId, // 'godot-cli'
@@ -72,9 +73,7 @@ export async function enrollPlugin(opts: EnrollPluginOptions): Promise<EnrollPlu
         refreshToken: refresh_token,
         ...(expiresAt ? { expiresAt } : {}),
         serverTarget,
-        ...(decodeJwtSubject(access_token) !== undefined
-          ? { subject: decodeJwtSubject(access_token) }
-          : {}),
+        ...(subject !== undefined ? { subject } : {}),
       },
       onWarning: (message) => warnings.push(message),
     });

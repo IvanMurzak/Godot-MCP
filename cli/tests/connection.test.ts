@@ -387,6 +387,26 @@ describe('token readers — shared machine-store fallback', () => {
     expect((await resolveConnection(projectDir, {})).token).toBe('per-project-tok');
   });
 
+  it('an UNREADABLE per-project store is surfaced, never silently shadowed by the machine account (A1 / F11.4)', async () => {
+    // A per-project store file that can be neither DPAPI-decrypted (Windows) nor JSON-parsed
+    // (POSIX) — cli-core reads it as the structured "unreadable" state on both platforms.
+    const projectStoreDir = path.join(projectDir, '.ai-game-dev');
+    fs.mkdirSync(projectStoreDir, { recursive: true });
+    fs.writeFileSync(path.join(projectStoreDir, 'credentials.json'), 'garbage-not-json-not-dpapi');
+    seedStore(storeDir, { accessToken: 'machine-tok', serverTarget: DEFAULT_CLOUD_BASE_URL });
+    process.env[ENV_CONNECTION_MODE] = 'Cloud';
+
+    const { token } = await resolveConnection(projectDir, {});
+
+    // The machine credential must NOT be used — that would run the command as a different
+    // account than the project chose; the user is told to re-authorize instead.
+    expect(token).toBeUndefined();
+    // The unreadable file is left untouched (04 §1: never deleted/overwritten by a read path).
+    expect(fs.readFileSync(path.join(projectStoreDir, 'credentials.json'), 'utf-8')).toBe(
+      'garbage-not-json-not-dpapi',
+    );
+  });
+
   it('resolveOpenAuthToken falls back to the machine store in Cloud mode', async () => {
     seedStore(storeDir, { accessToken: 'machine-tok' });
     expect(await resolveOpenAuthToken(projectDir, { mode: 'Cloud' })).toBe('machine-tok');

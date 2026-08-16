@@ -29,6 +29,14 @@ All notable changes to `godot-cli` are documented in this file.
     `<project>/.ai-game-dev/credentials.json` (gitignored) instead.
   - `install-plugin --enroll` commits its redeemed credential through the same shared machinery
     (plugin family, own `client_id`, under the lock), with the account-switch guard failing closed.
+  - The `login` "already authenticated" gate is **plugin-plane-gated**, and a **partially
+    authorized** machine (agent family committed, plugin derivation failed) is repaired by
+    `login` in place: it re-runs ONLY the derivation leg from the committed agent family — no
+    second device flow, no browser — or fails with an actionable message naming `--force`.
+    An agent-only store never reads as "already authenticated" (review f2 B1).
+  - An **unreadable per-project credential store** now surfaces "re-authorize this project"
+    instead of silently falling back to the machine account (review f2 A1 — a command must not
+    run as a different account than the project chose).
 
 - **BREAKING (requires a matching addon).** `status` and `wait-for-ready` now probe
   `/api/system-tools/ping` instead of `/api/tools/ping`. The addon's `ping` became a **System** tool

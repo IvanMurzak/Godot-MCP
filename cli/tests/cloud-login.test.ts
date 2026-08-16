@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { runCloudLogin } from '../src/utils/cloud-login.js';
+import { runCloudLogin, classifyLoginState, completePartialLogin } from '../src/utils/cloud-login.js';
 import { getCredentialsPath } from '../src/utils/credentials.js';
 import { MACHINE_STORE_DIR_ENV } from '../src/utils/machine-store.js';
 import {
@@ -395,3 +395,141 @@ describe('runCloudLogin — D6/F7 account-switch guard (--yes-gated)', () => {
     expect(confirmAccountSwitch).not.toHaveBeenCalled();
   });
 });
+
+describe('classifyLoginState — the login gate is PLUGIN-plane-gated (review f2 B1)', () => {
+  const BASE = 'https://example.test';
+
+  it('a v2 document with a usable plugin family is signed-in', () => {
+    const doc = {
+      version: 2,
+      serverTarget: BASE,
+      families: { plugin: { accessToken: 'tok', clientId: 'godot-cli', scope: 'mcp:plugin' } },
+      accessToken: 'tok',
+    };
+    expect(classifyLoginState(doc, BASE)).toBe('signed-in');
+  });
+
+  it('a v1 flat document is signed-in (an adopted legacy credential IS the plugin plane)', () => {
+    expect(classifyLoginState({ version: 1, accessToken: 'v1-tok', serverTarget: BASE }, BASE)).toBe('signed-in');
+  });
+
+  it('an AGENT-ONLY document (F1 partial state) is PARTIAL — never signed-in (B1 regression)', () => {
+    const doc = {
+      version: 2,
+      serverTarget: BASE,
+      subject: 'user-a',
+      families: { agent: { accessToken: 'agent-tok', refreshToken: 'r', clientId: 'godot-cli', scope: 'mcp:agent' } },
+    };
+    expect(classifyLoginState(doc, BASE)).toBe('partial');
+    expect(classifyLoginState(doc, BASE)).not.toBe('signed-in');
+  });
+
+  it('a credential for a DIFFERENT base URL is signed-out (fresh flow), whatever its families', () => {
+    const doc = {
+      version: 2,
+      serverTarget: 'https://other.test',
+      families: {
+        agent: { accessToken: 'agent-tok' },
+        plugin: { accessToken: 'plugin-tok' },
+      },
+      accessToken: 'plugin-tok',
+    };
+    expect(classifyLoginState(doc, BASE)).toBe('signed-out');
+  });
+
+  it('a missing / empty document is signed-out', () => {
+    expect(classifyLoginState(null, BASE)).toBe('signed-out');
+    expect(classifyLoginState({ serverTarget: BASE }, BASE)).toBe('signed-out');
+  });
+});
+
+describe('completePartialLogin — finishes the F1 partial state without a second device flow', () => {
+  let storeDir: string;
+  const BASE = 'https://example.test';
+
+  function seedAgentOnly(agentJwt: string): void {
+    new MachineCredentialStore(storeDir).write({
+      version: 2,
+      serverTarget: BASE,
+      subject: 'user-a',
+      families: {
+        agent: {
+          accessToken: agentJwt,
+          refreshToken: 'agent-refresh',
+          expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+          clientId: 'godot-cli',
+          scope: 'mcp:agent',
+        },
+      },
+    });
+  }
+
+  beforeEach(() => {
+    storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-login-partial-'));
+  });
+  afterEach(() => {
+    fs.rmSync(storeDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('re-derives the plugin family from the committed agent family (no device flow, no browser)', async () => {
+    const agentJwt = makeJwt('user-a');
+    seedAgentOnly(agentJwt);
+    const exchange = fakeExchange([{ ok: true, accessToken: 'repaired-plugin-tok' }]);
+
+    const token = await completePartialLogin({
+      baseUrl: BASE,
+      sink: { kind: 'machine', storeBaseDir: storeDir },
+      exchangeClient: exchange,
+    });
+
+    expect(token).toBe('repaired-plugin-tok');
+    // The exchange consumed the EXISTING agent family's access token — no re-mint.
+    expect(exchange.calls).toHaveLength(1);
+    expect(exchange.calls[0]?.subjectToken).toBe(agentJwt);
+    expect(exchange.calls[0]?.clientId).toBe('godot-cli');
+    // The store now holds the derived plugin family + v1 mirror; the agent family survives.
+    const doc = new MachineCredentialStore(storeDir).read();
+    expect(doc?.families?.plugin?.accessToken).toBe('repaired-plugin-tok');
+    expect(doc?.families?.plugin?.clientId).toBe('godot-cli');
+    expect(doc?.families?.plugin?.scope).toBe('mcp:plugin');
+    expect(doc?.families?.agent?.accessToken).toBe(agentJwt);
+    expect(doc?.accessToken).toBe('repaired-plugin-tok');
+    // And the gate now reads signed-in — the B1 wedge is gone.
+    expect(classifyLoginState(doc, BASE)).toBe('signed-in');
+  });
+
+  it('fails honestly when the exchange keeps failing: nothing written, agent family survives', async () => {
+    seedAgentOnly(makeJwt('user-a'));
+    const token = await completePartialLogin({
+      baseUrl: BASE,
+      sink: { kind: 'machine', storeBaseDir: storeDir },
+      exchangeClient: fakeExchange([{ ok: false, reason: 'still boom' }]),
+    });
+
+    expect(token).toBeNull();
+    const doc = new MachineCredentialStore(storeDir).read();
+    expect(doc?.families?.agent?.accessToken).toBeTruthy();
+    expect(doc?.families?.plugin).toBeUndefined();
+    expect(doc?.accessToken).toBeUndefined();
+    expect(classifyLoginState(doc, BASE)).toBe('partial'); // still repairable next run
+  });
+
+  it('reports "no partially-authorized sign-in" when the store is already fully signed in', async () => {
+    new MachineCredentialStore(storeDir).write({
+      version: 2,
+      serverTarget: BASE,
+      families: { plugin: { accessToken: 'tok', clientId: 'godot-cli', scope: 'mcp:plugin' } },
+      accessToken: 'tok',
+    });
+    const exchange = fakeExchange([]);
+    const token = await completePartialLogin({
+      baseUrl: BASE,
+      sink: { kind: 'machine', storeBaseDir: storeDir },
+      exchangeClient: exchange,
+    });
+    expect(token).toBeNull();
+    expect(exchange.calls).toHaveLength(0);
+  });
+});
+
