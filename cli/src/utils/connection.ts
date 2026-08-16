@@ -2,8 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { verbose } from './ui.js';
 import * as ui from './ui.js';
-import { readCloudToken } from './credentials.js';
-import { readMachineAccessToken } from './machine-credentials.js';
+import { readCredentials, readCloudToken } from './credentials.js';
+import {
+  createMachineCredentialProvider,
+  openMachineStore,
+  openMachineStoreLock,
+  openProjectStore,
+  resolveProjectStoreDir,
+  hasUsableFamily,
+} from './machine-store.js';
 import { deriveProjectIdentityV2 } from './project-identity.js';
 import { readProjectMarker, isLocalhostUrl } from './project-marker.js';
 
@@ -192,16 +199,21 @@ function resolveTargetUrl(projectPath: string, options: ConnectionOptions): Reso
  * Token priority:
  *   1. --token flag (explicit override)
  *   2. GODOT_MCP_TOKEN env
- *   3. persisted cloud token (cloud targets only — env Cloud mode OR an enrolled
- *      hosted marker) — the project-local `.godot-mcp/credentials.json` (a `--project`
- *      login) first, then the shared machine store `~/.ai-game-dev/credentials.json`
- *      (a default `godot-cli login`), so a sign-once-per-machine credential is picked
- *      up here too. An enrolled cloud project therefore authenticates with zero env config.
+ *   3. persisted cloud credential (cloud targets only — env Cloud mode OR an enrolled
+ *      hosted marker) — see {@link resolveCloudAccessToken}: the per-project store
+ *      `<project>/.ai-game-dev/` (a `--project` login), then the legacy read-fallback
+ *      `<project>/.godot-mcp/credentials.json` (migrate-on-touch, never written — 06 D7),
+ *      then the shared machine store `~/.ai-game-dev/` (a default `godot-cli login`), so a
+ *      sign-once-per-machine credential is picked up here too. Machine/per-project stores are
+ *      served through the cli-core {@link createMachineCredentialProvider provider}, which
+ *      proactively refreshes an (about-to-)expired token under the cross-process lock — the CLI
+ *      works through expiry instead of handing out a stale bearer.
+ *      An enrolled cloud project therefore authenticates with zero env config.
  */
-export function resolveConnection(
+export async function resolveConnection(
   projectPath: string,
   options: ConnectionOptions,
-): { url: string; token: string | undefined } {
+): Promise<{ url: string; token: string | undefined }> {
   const { url, isCloud } = resolveTargetUrl(projectPath, options);
 
   let token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
@@ -210,14 +222,104 @@ export function resolveConnection(
   } else if (token) {
     verbose(`Using ${ENV_TOKEN}`);
   } else if (isCloud) {
-    const persisted = readCloudToken(projectPath) ?? readMachineAccessToken();
-    if (persisted) {
-      token = persisted;
-      verbose('Using persisted cloud token (project store, then machine store)');
-    }
+    token = await resolveCloudAccessToken(projectPath);
   }
 
   return { url, token };
+}
+
+/**
+ * Resolve the persisted cloud access token for a cloud target, working through expiry via the
+ * cli-core `MachineCredentialProvider` (unified-machine-auth 02/04 — proactive refresh under the
+ * cross-process lock, presenting each family's stored `clientId`):
+ *
+ *   1. **Per-project store** `<project>/.ai-game-dev/` (a `login --project` credential) — when it
+ *      holds a usable credential it WINS and its unusable states are surfaced, never silently
+ *      shadowed by the machine account.
+ *   2. **Legacy read-fallback** `<project>/.godot-mcp/credentials.json` (transition window, 06
+ *      D7): still honored for one release, NEVER written, and **migrated on touch** into the
+ *      machine store (under the lock) when the machine store is empty — so the credential
+ *      survives the f4 removal of this fallback.
+ *   3. **Machine store** `~/.ai-game-dev/` via the provider.
+ *
+ * Returns undefined when signed out / the store is unusable — the command then proceeds
+ * unauthenticated exactly as before (the server answers 401 and the user is pointed at `login`).
+ */
+async function resolveCloudAccessToken(projectPath: string): Promise<string | undefined> {
+  // 1. Per-project store (a `login --project` credential).
+  const projectStore = openProjectStore(projectPath);
+  if (hasUsableFamily(safeRead(() => projectStore.read()))) {
+    const provider = createMachineCredentialProvider({
+      storeDir: resolveProjectStoreDir(projectPath),
+      onWarning: ui.warn,
+    });
+    try {
+      const token = await provider.getAccessToken();
+      verbose('Using persisted cloud token (per-project store)');
+      return token;
+    } catch (err) {
+      verbose(`Per-project credential unusable: ${err instanceof Error ? err.message : String(err)}`);
+      return undefined;
+    }
+  }
+
+  // 2. Legacy project-store read-fallback (+ migrate-on-touch; never written — 06 D7, f4 removes).
+  const legacyToken = readCloudToken(projectPath);
+  if (legacyToken) {
+    await migrateLegacyProjectCredential(projectPath, legacyToken);
+    verbose('Using persisted cloud token (legacy project store read-fallback)');
+    return legacyToken;
+  }
+
+  // 3. Shared machine store via the provider (refreshes through expiry).
+  const provider = createMachineCredentialProvider({ onWarning: ui.warn });
+  try {
+    const token = await provider.getAccessToken();
+    verbose('Using persisted cloud token (machine store)');
+    return token;
+  } catch (err) {
+    verbose(`No usable machine credential: ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
+  }
+}
+
+/**
+ * F11.2 migrate-on-touch: on first use of a legacy `<project>/.godot-mcp/credentials.json`
+ * credential, adopt it into the shared machine store — as a `families.legacy` family (mint
+ * client unknown by definition), under the 04 §2 cross-process lock, and ONLY when the machine
+ * store is empty (a present credential is never overwritten by a migration). The legacy file
+ * itself is left untouched: the read-fallback stays for this release and f4 removes it.
+ * Best-effort — a busy lock or unreadable store never blocks the command.
+ */
+async function migrateLegacyProjectCredential(projectPath: string, legacyToken: string): Promise<void> {
+  try {
+    const store = openMachineStore();
+    if (store.readState().status !== 'missing') return;
+    const serverTarget = safeRead(() => readCredentials(projectPath))?.cloudBaseUrl;
+    const lock = openMachineStoreLock();
+    await lock.withLock(() => {
+      // Double-checked under the lock: a peer may have signed in while we waited.
+      if (store.readState().status !== 'missing') return;
+      store.writeFamily(
+        'legacy',
+        { accessToken: legacyToken },
+        { serverTarget: typeof serverTarget === 'string' ? serverTarget : DEFAULT_CLOUD_BASE_URL },
+      );
+      verbose('Migrated the legacy project credential into the machine store (families.legacy)');
+    });
+  } catch (err) {
+    // Never log token material; the reason is safe.
+    verbose(`Legacy credential migration skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Run a store read, mapping any throw (malformed/unreadable) to null. */
+function safeRead<T>(read: () => T | null): T | null {
+  try {
+    return read();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -230,10 +332,10 @@ export function resolveConnection(
  * Returns the token to pass as `openProject({ token })`, or undefined to leave
  * `open`'s env exactly as before (explicit env var / no token).
  */
-export function resolveOpenAuthToken(
+export async function resolveOpenAuthToken(
   projectPath: string,
   options: { token?: string; mode?: string },
-): string | undefined {
+): Promise<string | undefined> {
   if (options.token !== undefined) {
     return options.token;
   }
@@ -243,7 +345,7 @@ export function resolveOpenAuthToken(
   }
   const selectedMode = options.mode ?? normalizeEnv(process.env[ENV_CONNECTION_MODE]);
   if (selectedMode !== undefined && selectedMode.toLowerCase() === 'cloud') {
-    return readCloudToken(projectPath) ?? readMachineAccessToken();
+    return resolveCloudAccessToken(projectPath);
   }
   return undefined;
 }

@@ -2,18 +2,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Project-local cloud credentials the CLI persists after a successful `login`.
+ * READ-FALLBACK for the legacy project-local cloud credential sink — transition window only
+ * (unified-machine-auth 06 D7 / F11.2).
  *
- * Stored SEPARATELY from `.godot-mcp/features.json` (the committable feature
- * override list) because a bearer token must never be committed: `writeCredentials`
- * drops a `.gitignore` alongside so `credentials.json` is ignored while the
- * sibling `features.json` stays version-controllable.
- *
- * `godot-cli login` writes it; `godot-cli open --mode Cloud` (and the direct
- * tool-call path in `connection.ts`) read the token back so no manual `--token`
- * is needed. The addon's own live config still lives in `user://` — this file is
- * purely the CLI's in-project pickup surface, mirroring the Unity CLI's
- * `cloudToken` config field.
+ * Older CLI releases persisted the cloud bearer token to `<project>/.godot-mcp/credentials.json`.
+ * The CLI **no longer writes this file anywhere** — a default `login` commits to the shared
+ * machine store (`~/.ai-game-dev/`), and `login --project` commits to the per-project store
+ * (`<project>/.ai-game-dev/`), both via `@baizor/gamedev-cli-core`. This module only READS a
+ * pre-existing legacy file so those users keep working for one release; on first use the
+ * credential is migrated into the machine store (`connection.ts` migrate-on-touch), and the f4
+ * follow-up removes this fallback entirely. There is deliberately no write function left here —
+ * a v2-era write to this sink must never ship.
  */
 export const CREDENTIALS_RELATIVE_PATH = '.godot-mcp/credentials.json';
 
@@ -29,7 +28,7 @@ export function getCredentialsPath(projectPath: string): string {
   return path.join(projectPath, CREDENTIALS_RELATIVE_PATH);
 }
 
-/** Read the credentials file. Returns null when absent; throws on malformed JSON. */
+/** Read the legacy credentials file. Returns null when absent; throws on malformed JSON. */
 export function readCredentials(projectPath: string): GodotMcpCredentials | null {
   const credentialsPath = getCredentialsPath(projectPath);
   if (!fs.existsSync(credentialsPath)) {
@@ -47,31 +46,9 @@ export function readCredentials(projectPath: string): GodotMcpCredentials | null
 }
 
 /**
- * Write the credentials file, creating the `.godot-mcp/` directory if needed and
- * ensuring `credentials.json` is git-ignored so the token is never committed.
- */
-export function writeCredentials(projectPath: string, credentials: GodotMcpCredentials): void {
-  const credentialsPath = getCredentialsPath(projectPath);
-  const dir = path.dirname(credentialsPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  // Owner-only perms: the file holds a raw cloud bearer token, so it must not be
-  // group/world-readable on a shared machine. `mode` only applies when the file is
-  // CREATED, so also chmod on overwrite (best-effort — no-op/again-fine on Windows).
-  fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2) + '\n', { mode: 0o600 });
-  try {
-    fs.chmodSync(credentialsPath, 0o600);
-  } catch {
-    // Best-effort only — never fail the login over a chmod (e.g. Windows ACLs).
-  }
-  ensureGitignored(dir, 'credentials.json');
-}
-
-/**
- * Convenience reader for the persisted cloud token. Swallows a missing or
+ * Convenience reader for the persisted legacy cloud token. Swallows a missing or
  * malformed file (returns undefined) so a broken credentials file can never
- * crash `open` / `run-tool`; `login` re-authenticates and overwrites it.
+ * crash `open` / `run-tool`; `login` writes the cli-core stores instead.
  */
 export function readCloudToken(projectPath: string): string | undefined {
   let credentials: GodotMcpCredentials | null;
@@ -82,27 +59,4 @@ export function readCloudToken(projectPath: string): string | undefined {
   }
   const token = credentials?.cloudToken;
   return typeof token === 'string' && token.trim().length > 0 ? token : undefined;
-}
-
-/**
- * Ensure `<dir>/.gitignore` ignores `entry`, so the secret is not committed.
- * Idempotent: creates the file when absent, appends the line only when missing.
- * Best-effort — a failure here never blocks persisting the token.
- */
-function ensureGitignored(dir: string, entry: string): void {
-  try {
-    const gitignorePath = path.join(dir, '.gitignore');
-    if (!fs.existsSync(gitignorePath)) {
-      fs.writeFileSync(gitignorePath, `${entry}\n`);
-      return;
-    }
-    const existing = fs.readFileSync(gitignorePath, 'utf-8');
-    const lines = existing.split(/\r?\n/).map((l) => l.trim());
-    if (!lines.includes(entry)) {
-      const prefix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
-      fs.appendFileSync(gitignorePath, `${prefix}${entry}\n`);
-    }
-  } catch {
-    // Best-effort only — never fail the login over a .gitignore write.
-  }
 }

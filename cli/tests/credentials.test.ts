@@ -2,14 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import {
-  getCredentialsPath,
-  readCredentials,
-  writeCredentials,
-  readCloudToken,
-} from '../src/utils/credentials.js';
+import { getCredentialsPath, readCredentials, readCloudToken } from '../src/utils/credentials.js';
 
-describe('credentials', () => {
+/**
+ * The legacy `<project>/.godot-mcp/credentials.json` sink is READ-FALLBACK ONLY now
+ * (unified-machine-auth 06 D7): the CLI never writes it — `login` commits to the cli-core
+ * machine / per-project stores instead — so these tests seed the file with raw `fs` writes,
+ * exactly the way a pre-existing legacy install left it on disk.
+ */
+function seedLegacyCredentials(projectPath: string, credentials: Record<string, unknown>): void {
+  const credentialsPath = getCredentialsPath(projectPath);
+  fs.mkdirSync(path.dirname(credentialsPath), { recursive: true });
+  fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2) + '\n');
+}
+
+describe('credentials (legacy read-fallback)', () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -27,20 +34,20 @@ describe('credentials', () => {
     expect(readCredentials(tmpDir)).toBeNull();
   });
 
-  it('round-trips written credentials', () => {
-    writeCredentials(tmpDir, { cloudToken: 'tok-1', cloudBaseUrl: 'https://ai-game.dev' });
+  it('reads a pre-existing legacy credentials file', () => {
+    seedLegacyCredentials(tmpDir, { cloudToken: 'tok-1', cloudBaseUrl: 'https://ai-game.dev' });
     expect(readCredentials(tmpDir)).toEqual({ cloudToken: 'tok-1', cloudBaseUrl: 'https://ai-game.dev' });
   });
 
   it('readCloudToken returns the persisted token', () => {
-    writeCredentials(tmpDir, { cloudToken: 'tok-2' });
+    seedLegacyCredentials(tmpDir, { cloudToken: 'tok-2' });
     expect(readCloudToken(tmpDir)).toBe('tok-2');
   });
 
   it('readCloudToken returns undefined when absent, empty, or malformed', () => {
     expect(readCloudToken(tmpDir)).toBeUndefined();
 
-    writeCredentials(tmpDir, { cloudToken: '   ' });
+    seedLegacyCredentials(tmpDir, { cloudToken: '   ' });
     expect(readCloudToken(tmpDir)).toBeUndefined();
 
     fs.writeFileSync(getCredentialsPath(tmpDir), '{ not json');
@@ -53,28 +60,8 @@ describe('credentials', () => {
     expect(() => readCredentials(tmpDir)).toThrow(/Malformed JSON/);
   });
 
-  it('writeCredentials git-ignores credentials.json (idempotently, without clobbering)', () => {
-    writeCredentials(tmpDir, { cloudToken: 'tok' });
-    const gitignorePath = path.join(tmpDir, '.godot-mcp', '.gitignore');
-    expect(fs.existsSync(gitignorePath)).toBe(true);
-    expect(fs.readFileSync(gitignorePath, 'utf-8')).toContain('credentials.json');
-
-    // A second write must not duplicate the entry.
-    writeCredentials(tmpDir, { cloudToken: 'tok2' });
-    const occurrences = fs
-      .readFileSync(gitignorePath, 'utf-8')
-      .split(/\r?\n/)
-      .filter((l) => l.trim() === 'credentials.json').length;
-    expect(occurrences).toBe(1);
-  });
-
-  it('writeCredentials preserves pre-existing .gitignore entries', () => {
-    const dir = path.join(tmpDir, '.godot-mcp');
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, '.gitignore'), 'features-local.json\n');
-    writeCredentials(tmpDir, { cloudToken: 'tok' });
-    const content = fs.readFileSync(path.join(dir, '.gitignore'), 'utf-8');
-    expect(content).toContain('features-local.json');
-    expect(content).toContain('credentials.json');
+  it('exposes NO write surface any more (a v2-era legacy-sink write must never ship — 06 D7)', async () => {
+    const credentialsModule = await import('../src/utils/credentials.js');
+    expect('writeCredentials' in credentialsModule).toBe(false);
   });
 });

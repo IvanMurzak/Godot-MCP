@@ -21,7 +21,7 @@ export const statusCommand = new Command('status')
   .option('--timeout <ms>', 'Probe timeout in milliseconds (default: 5000)', '5000')
   .action(async (positionalPath: string | undefined, options: StatusOptions) => {
     const projectPath = resolveAndValidateProjectPath(positionalPath, options);
-    const { url: serverUrl, token } = resolveConnection(projectPath, options);
+    const { url: serverUrl, token } = await resolveConnection(projectPath, options);
 
     const timeoutMs = parseInt(options.timeout ?? '5000', 10);
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { enrollPlugin } from '../src/lib/enroll.js';
-import { readMachineCredentials } from '../src/utils/machine-credentials.js';
+import { MachineCredentialStore } from '@baizor/gamedev-cli-core';
 import { readProjectMarker } from '../src/utils/project-marker.js';
 import { derivePinV2, derivePortV2 } from '../src/utils/project-identity.js';
 
@@ -60,8 +60,16 @@ describe('enrollPlugin', () => {
     expect(result.pin).toBe(derivePinV2(project));
     expect(result.port).toBeUndefined(); // hosted → no derived local port
 
-    const creds = readMachineCredentials(store);
-    expect(creds?.accessToken).toBe('plugin.jwt');
+    // The credential is committed as a v2 PLUGIN family (F10 — enroll is a plugin-only mint)
+    // via cli-core, stamped with this CLI's own client id, with the v1 compat mirror applied.
+    const creds = new MachineCredentialStore(store).read();
+    expect(creds?.version).toBe(2);
+    expect(creds?.families?.plugin?.accessToken).toBe('plugin.jwt');
+    expect(creds?.families?.plugin?.refreshToken).toBe('refresh.jwt');
+    expect(creds?.families?.plugin?.clientId).toBe('godot-cli');
+    expect(creds?.families?.plugin?.scope).toBe('mcp:plugin');
+    expect(creds?.families?.agent).toBeUndefined(); // no agent family from an enroll code
+    expect(creds?.accessToken).toBe('plugin.jwt'); // v1 mirror for shipped readers
     expect(creds?.refreshToken).toBe('refresh.jwt');
     expect(creds?.serverTarget).toBe('https://ai-game.dev');
     expect(creds?.expiresAt).toBeTruthy();
@@ -114,7 +122,7 @@ describe('enrollPlugin', () => {
     });
     expect(result.kind).toBe('failure');
     if (result.kind === 'failure') expect(result.error.message).toMatch(/Invalid or expired/);
-    expect(readMachineCredentials(store)).toBeNull();
+    expect(new MachineCredentialStore(store).read()).toBeNull();
     expect(readProjectMarker(project)).toBeNull();
   });
 });
