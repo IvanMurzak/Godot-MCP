@@ -17,6 +17,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Xunit;
 
@@ -331,6 +332,113 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var refreshed = await account.RefreshAsync();
 
             Assert.False(refreshed);
+        }
+
+        // --- Provider-state forwarding (oauth-client-error-hygiene e2): the panel's stable
+        // SignInRequired / AuthStateChanged / AuthState seam over the swapped-out provider ---
+
+        /// <summary>
+        /// A terminal <c>invalid_grant</c> refresh rejection surfaces through the coordinator's STABLE
+        /// events — the provider's own <c>OnSignInRequired</c>/<c>State</c> (02 §C3: the panel must not
+        /// rely solely on the connection's authorization-rejected signal) forwarded by
+        /// <see cref="GodotAccountAuth"/>.
+        /// </summary>
+        [Fact]
+        public async Task RefreshAsync_InvalidGrant_FiresSignInRequired_AndAuthStateReadsSignInRequired()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, accessToken: "acc-old", refreshToken: "ref-old",
+                expiresAt: AlreadyExpired, clientId: ComponentClientId);
+
+            var server = new FakeAuthServer
+            {
+                Refresh = () => JsonResponse(HttpStatusCode.BadRequest, "{ \"error\": \"invalid_grant\" }"),
+            };
+            using var account = MakeAccount(tmp, server);
+            Assert.Equal(AuthState.SignedIn, account.AuthState);
+
+            var signInRequiredCount = 0;
+            var states = new List<AuthState>();
+            account.SignInRequired += () => Interlocked.Increment(ref signInRequiredCount);
+            account.AuthStateChanged += state => { lock (states) states.Add(state); };
+
+            var refreshed = await account.RefreshAsync();
+
+            Assert.False(refreshed);
+            Assert.Equal(1, signInRequiredCount);
+            Assert.Equal(AuthState.SignInRequired, account.AuthState);
+            lock (states)
+                Assert.Contains(AuthState.SignInRequired, states);
+        }
+
+        /// <summary>
+        /// Same-fixture negative control: a SUCCESSFUL refresh fires no sign-in-required — the forwarder
+        /// must not be an always-firing wrapper (and the state stays SignedIn).
+        /// </summary>
+        [Fact]
+        public async Task RefreshAsync_Success_DoesNotFireSignInRequired()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, accessToken: "acc-old", refreshToken: "ref-old",
+                expiresAt: AlreadyExpired, clientId: ComponentClientId);
+
+            var server = new FakeAuthServer { Refresh = Ok(TokenJson("acc-new", "ref-new", 3600)) };
+            using var account = MakeAccount(tmp, server);
+
+            var signInRequiredCount = 0;
+            account.SignInRequired += () => Interlocked.Increment(ref signInRequiredCount);
+
+            var refreshed = await account.RefreshAsync();
+
+            Assert.True(refreshed);
+            Assert.Equal(0, signInRequiredCount);
+            Assert.Equal(AuthState.SignedIn, account.AuthState);
+        }
+
+        /// <summary>
+        /// THE load-bearing re-hook: the coordinator REBUILDS its provider after every guarded store
+        /// mutation (sign-in commit, sign-out, migration), so a subscription left on the old provider goes
+        /// silently dead. A panel subscription taken BEFORE a full F1 sign-in must still receive the
+        /// SignedIn edge from the swap and a later terminal verdict from the FRESH provider. Removing the
+        /// <c>HookProviderEvents</c> call from <c>ReloadFromStore</c> reddens this test.
+        /// </summary>
+        [Fact]
+        public async Task ProviderSwap_OnSignIn_KeepsForwardingStateAndSignInRequired()
+        {
+            using var tmp = new TempDir();
+            var server = new FakeAuthServer
+            {
+                DeviceAuthorize = Ok(DeviceAuthorizeJson("USER-1", "dev-1")),
+                DeviceToken = Ok(TokenJson("acc-agent", "ref-agent", 3600, scope: "mcp:agent")),
+                Exchange = Ok(ExchangeJson("acc-plugin", "ref-plugin", 3600, scope: "mcp:plugin", sub: "usr_1")),
+            };
+            using var account = MakeAccount(tmp, server);
+
+            var signInRequiredCount = 0;
+            var states = new List<AuthState>();
+            account.SignInRequired += () => Interlocked.Increment(ref signInRequiredCount);
+            account.AuthStateChanged += state => { lock (states) states.Add(state); };
+
+            // The F1 sign-in commits the store and SWAPS the provider (ReloadFromStore).
+            var outcome = await account.SignInAsync(MakeFlow(server), AsBaseUrl);
+            Assert.True(outcome.Succeeded);
+
+            // The swap forwarded the SignedIn edge (de-duplicated: exactly one, not one per re-subscribe)
+            // and no spurious sign-in-required fired during a successful sign-in.
+            lock (states)
+                Assert.Equal(new[] { AuthState.SignedIn }, states);
+            Assert.Equal(0, signInRequiredCount);
+
+            // A later terminal verdict must reach the SAME long-lived subscription through the FRESH
+            // provider — this is what dies silently without the ReloadFromStore re-hook.
+            server.Refresh = () => JsonResponse(HttpStatusCode.BadRequest, "{ \"error\": \"invalid_grant\" }");
+            var refreshed = await account.RefreshAsync();
+
+            Assert.False(refreshed);
+            Assert.Equal(1, signInRequiredCount);
+            Assert.Equal(AuthState.SignInRequired, account.AuthState);
+            lock (states)
+                Assert.Equal(new[] { AuthState.SignedIn, AuthState.SignInRequired }, states);
         }
 
         // --- Sign-out ---
