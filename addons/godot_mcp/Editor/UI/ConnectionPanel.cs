@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using Godot;
+using AuthState = com.IvanMurzak.McpPlugin.AuthState;
 using McpClientData = com.IvanMurzak.McpPlugin.Common.Model.McpClientData;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
@@ -135,6 +136,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // The in-flight device-auth flow (null when none has run). Recreated per Authorize click.
         GodotDeviceAuthFlow? _deviceAuthFlow;
 
+        // The D4 assisted-sign-in ladder (oauth-client-error-hygiene e2, 02 §C5): both the automatic
+        // sign-in-required verdict and the manual Authorize click funnel into StartAuthorizeFlow through
+        // it. The auto entry is once-per-editor-session + carousel-guarded (its default session store is a
+        // process env var, so the gate survives the collectible-ALC hot-reload); the manual entry is never
+        // gated. = null! for the Godot-required parameterless ctor (see _connection above).
+        readonly GodotAssistedSignIn _assistedSignIn = null!;
+
         // The handler subscribed to _deviceAuthFlow.OnStateChanged, stored in a field (not an inline lambda)
         // so it can be deterministically removed before the flow is replaced or the panel is freed. An inline
         // `+= state => ...` was a genuine per-Authorize-click leak: every click built a NEW flow whose
@@ -219,6 +227,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 GD.PushWarning,
                 GD.PushError);
 
+            _assistedSignIn = new GodotAssistedSignIn(StartAuthorizeFlow);
+
             Name = "ConnectionPanel";
             BuildUi();
 
@@ -248,6 +258,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
             _connection.AuthorizationRejected += OnAuthorizationRejected;
 
+            // The account provider's OWN credential state (oauth-client-error-hygiene e2, 02 §C3): the
+            // panel no longer relies solely on the connection's authorization-rejected signal (whose
+            // semantics stay "try to recover") — a terminal sign-in-required verdict and the SignedIn
+            // recovery edge both reach the panel from here. These fire on arbitrary threads; the handlers
+            // marshal onto the editor main thread themselves.
+            _connection.Account.SignInRequired -= OnAccountSignInRequired;
+            _connection.Account.SignInRequired += OnAccountSignInRequired;
+            _connection.Account.AuthStateChanged -= OnAccountAuthStateChanged;
+            _connection.Account.AuthStateChanged += OnAccountAuthStateChanged;
+
             // Same remove-then-add discipline for the local-server manager's status stream (#42/#56): the
             // manager outlives the panel's tree membership, so a status reached while the panel was detached
             // (e.g. the ~5s startup verification completing during a dock reparent) is pulled in by the
@@ -270,6 +290,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
             ApplyServerStatus(_serverManager.Status);
             ApplyModeVisibility(_connection.Config.ActiveMode);
             RefreshAgents();
+
+            // Re-seed the sign-in-required state too: a terminal verdict that fired while the panel was
+            // detached (dock reparent) was missed by the event, so pull it from the provider's live State —
+            // the same #42 convergence discipline as the status re-seed above. Goes through the once-gated
+            // ladder, so a reparent never re-opens the browser once the session's auto-open is spent.
+            if (_connection.Account.AuthState == AuthState.SignInRequired)
+                ApplySignInRequired();
 
             // Belt-and-suspenders convergence: register a per-frame re-sync into the main-thread dispatcher's
             // tick hook. Every ResyncIntervalSeconds it re-reads the LIVE connection status off the connection
@@ -702,6 +729,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _renderedStatus = status;
             ApplyAlertVisibility(status);
 
+            // A live hub connection disproves "sign in required" (e.g. the reactive refresh healed the
+            // credential without a state edge) — clear that status line so it cannot linger stale. Only the
+            // sign-in-required text is cleared; unrelated status messages are left alone.
+            if (status == ConnectionStatus.Connected && ConnectionPanelView.IsSignInRequiredStatus(_cloudAuthStatus?.Text))
+                SetCloudAuthStatusText(string.Empty);
+
             // Trace the actual render so a Trace smoke run shows the terminal Connected reaching the label
             // (pairs with the connection's "status: X -> Y" push trace — see GodotMcpConnection.PublishStatus).
             _connection.LogStatusTrace($"[Godot-MCP] ApplyStatus rendered status: {status}");
@@ -1091,6 +1124,21 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
+            // The manual ladder entry — never gated: the user's own Authorize must keep working after the
+            // session's D4 auto-open budget is spent (the carousel guard applies to the AUTO entry only).
+            _assistedSignIn.OnManualAuthorize();
+        }
+
+        /// <summary>
+        /// Start a fresh device-authorization flow — the ONE flow entry both ladder paths invoke (the
+        /// manual Authorize click via <see cref="GodotAssistedSignIn.OnManualAuthorize"/>, and the D4
+        /// once-gated auto-open via <see cref="GodotAssistedSignIn.OnSignInRequiredVerdict"/>). The flow's
+        /// WaitingForUser transition opens the default browser at the verification URL
+        /// (<see cref="OnAuthFlowStateChanged"/>), and the run polls until approval / device-code expiry /
+        /// cancellation — never re-initiating unattended.
+        /// </summary>
+        void StartAuthorizeFlow()
+        {
             // Release the previous flow's state-change subscription before replacing it, so the old flow
             // instance + its closure are not leaked on every Authorize click (each click builds a new flow).
             if (_deviceAuthFlow != null && _authFlowStateChangedHandler != null)
@@ -1268,31 +1316,115 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Handle a server-side authorization rejection (the connection's
-        /// <see cref="GodotMcpConnection.AuthorizationRejected"/> fired, already on the main thread): drop
-        /// the rejected cloud token, persist, revert the UI to Authorize, and warn the user WITHOUT logging
-        /// the token (it carries no payload through this event anyway).
+        /// <see cref="GodotMcpConnection.AuthorizationRejected"/> fired, already on the main thread). The
+        /// what-to-render decision is the pure-managed
+        /// <see cref="ConnectionPanelView.AuthorizationRejectedPresentation"/> (unit-tested — the e2
+        /// silent-red fix is pinned there):
+        /// <list type="bullet">
+        ///   <item><b>Signed in (machine store):</b> render the sign-in-required state. Recovery still
+        ///   belongs to the connection's reactive refresh (<c>TryAccountRefreshAndReconnect</c> — design
+        ///   08 A1; the rejection's semantics stay "try to recover"), and neither the machine store nor the
+        ///   legacy sink is wiped — but the user now SEES the state instead of the pre-e2 silent early
+        ///   return. A refresh that heals clears this status on the next Connected render; a terminal
+        ///   verdict escalates via the provider's <c>OnSignInRequired</c> (the D4 ladder).</item>
+        ///   <item><b>Signed out (legacy-sink token only):</b> drop the rejected cloud token, persist,
+        ///   revert the UI to Authorize, and warn WITHOUT logging the token (unchanged pre-e2 behavior).</item>
+        /// </list>
         /// </summary>
         void OnAuthorizationRejected()
         {
-            // Only relevant to Cloud mode — a Custom-mode rejection is the Custom token's concern.
+            var presentation = ConnectionPanelView.AuthorizationRejectedPresentation(
+                isCloudMode: _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud,
+                accountSignedIn: _connection.Account.IsSignedIn);
+
+            switch (presentation)
+            {
+                case ConnectionPanelView.AuthRejectedPresentation.SignInRequired:
+                    SetCloudAuthStatusText(ConnectionPanelView.SignInRequiredStatusText);
+                    ApplyCloudAuthState();
+                    ApplyAlertVisibility(_connection.ConnectionStatus);
+                    return;
+
+                case ConnectionPanelView.AuthRejectedPresentation.ClearLegacyTokenAndPrompt:
+                    _connection.Config.CloudToken = null;
+                    _connection.Save();
+                    SetCloudAuthStatusText(ConnectionPanelView.AuthorizationRejectedPromptText);
+                    ApplyCloudAuthState();
+                    ApplyAlertVisibility(_connection.ConnectionStatus);
+
+                    GodotMcpLog.Warning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
+                    return;
+
+                default:
+                    // None — a Custom-mode rejection is the Custom token's concern.
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// The provider's terminal sign-in-required verdict (e.g. an <c>invalid_grant</c> refresh
+        /// rejection — <see cref="GodotAccountAuth.SignInRequired"/>, any thread): marshal onto the editor
+        /// main thread and render + run the D4 ladder.
+        /// </summary>
+        void OnAccountSignInRequired()
+        {
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(ApplySignInRequired);
+            else
+                ApplySignInRequired();
+        }
+
+        /// <summary>
+        /// Render the sign-in-required state and run the D4 assisted ladder: the FIRST verdict of the
+        /// editor session auto-starts the authorize flow (which opens the default browser at the
+        /// device-flow verification URL and polls until the user approves); every recurrence — the carousel
+        /// guard — renders the persistent status only, manual Authorize still working. MUST run on the
+        /// editor main thread. No-op outside Cloud mode (the account credential is not in play there, and
+        /// the cloud auth row is hidden).
+        /// </summary>
+        void ApplySignInRequired()
+        {
             if (_connection.Config.ActiveMode != GodotMcpConnectionMode.Cloud)
                 return;
 
-            // Machine-store account signed in: recovery belongs to the connection's reactive refresh
-            // (GodotMcpConnection.TryAccountRefreshAndReconnect — design 08 A1, expiry self-heals). Don't
-            // wipe the legacy sink or flip the UI to "press Authorize" for a rejection the refresh is about
-            // to heal; if the refresh fails terminally the provider surfaces sign-in-required and the next
-            // re-render shows signed-out.
-            if (_connection.Account.IsSignedIn)
-                return;
-
-            _connection.Config.CloudToken = null;
-            _connection.Save();
-            SetCloudAuthStatusText("Authorization rejected by server — press Authorize.");
+            SetCloudAuthStatusText(ConnectionPanelView.SignInRequiredStatusText);
             ApplyCloudAuthState();
             ApplyAlertVisibility(_connection.ConnectionStatus);
 
-            GodotMcpLog.Warning("[Godot-MCP] server rejected the authorization token; cleared — press Authorize.");
+            // D4 auto-open — never stomp a flow that is already running (a click mid-flow means Cancel;
+            // an unattended verdict must not). Skipping BEFORE the gate keeps the session's auto-open
+            // budget unspent for a verdict that arrives after the running flow settles.
+            if (_deviceAuthFlow != null && GodotDeviceAuthFlow.IsRunning(_deviceAuthFlow.State))
+                return;
+
+            _assistedSignIn.OnSignInRequiredVerdict();
+        }
+
+        /// <summary>
+        /// The provider's credential-state edge (<see cref="GodotAccountAuth.AuthStateChanged"/>, any
+        /// thread): marshal onto the editor main thread, clear a now-disproved sign-in-required status on
+        /// the SignedIn edge (the C3 resume — e.g. a peer surface re-authorized the machine), render the
+        /// sign-in-required status on the SignInRequired edge (belt-and-braces with
+        /// <see cref="OnAccountSignInRequired"/> — status only, the ladder rides the verdict event), and
+        /// re-render the account chip/alerts on every edge.
+        /// </summary>
+        void OnAccountAuthStateChanged(AuthState state)
+        {
+            void Render()
+            {
+                if (state == AuthState.SignedIn && ConnectionPanelView.IsSignInRequiredStatus(_cloudAuthStatus.Text))
+                    SetCloudAuthStatusText(string.Empty);
+                else if (state == AuthState.SignInRequired && _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                    SetCloudAuthStatusText(ConnectionPanelView.SignInRequiredStatusText);
+
+                ApplyCloudAuthState();
+                ApplyAlertVisibility(_connection.ConnectionStatus);
+            }
+
+            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
+                MainThreadDispatcher.Enqueue(Render);
+            else
+                Render();
         }
 
         /// <summary>
@@ -1408,6 +1540,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
             _serverManager.StatusChanged -= OnServerStatusChanged;
             _connection.AgentsUpdated -= OnAgentsUpdated;
+            _connection.Account.SignInRequired -= OnAccountSignInRequired;
+            _connection.Account.AuthStateChanged -= OnAccountAuthStateChanged;
 
             // Unregister the periodic re-sync so the dispatcher no longer ticks into a freed panel.
             _resyncRegistration?.Dispose();

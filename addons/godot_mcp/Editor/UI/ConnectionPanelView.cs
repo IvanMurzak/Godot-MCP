@@ -222,6 +222,69 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _ => string.IsNullOrEmpty(outcome.Detail) ? "Sign-in failed — try again." : $"Sign-in failed: {outcome.Detail}",
         };
 
+        // --- Authorization-rejected / sign-in-required presentation (oauth-client-error-hygiene e2). ---
+
+        /// <summary>
+        /// What the panel's authorization-rejected handler renders. Pure decision (unit-tested) so the
+        /// <c>#if TOOLS</c> panel handler is a thin switch — and so the e2 silent-red fix (signed-in +
+        /// auth-rejected must RENDER, never early-return to silence) is pinned by a plain-xUnit test.
+        /// </summary>
+        public enum AuthRejectedPresentation
+        {
+            /// <summary>Not a Cloud-credential concern (Custom mode) — render nothing.</summary>
+            None,
+
+            /// <summary>
+            /// Signed in via the machine store: render the sign-in-required state. The store/sink are NOT
+            /// wiped (recovery belongs to the connection's reactive refresh; the store is never written on
+            /// a rejection) — but the user must SEE the state instead of a silent red (the e2 fix).
+            /// </summary>
+            SignInRequired,
+
+            /// <summary>
+            /// Signed out of the machine store (legacy-sink token only): drop the rejected legacy token,
+            /// persist, and prompt for a fresh Authorize (the pre-e2 behavior, unchanged).
+            /// </summary>
+            ClearLegacyTokenAndPrompt,
+        }
+
+        /// <summary>
+        /// Decide the authorization-rejected presentation. The signed-in case MUST NOT be silent: before e2
+        /// the panel early-returned for signed-in users, so a dead machine-store credential showed nothing
+        /// (the silent-red bug found in review — same as Unity's). Signed-in + rejected now renders
+        /// <see cref="AuthRejectedPresentation.SignInRequired"/>.
+        /// </summary>
+        public static AuthRejectedPresentation AuthorizationRejectedPresentation(bool isCloudMode, bool accountSignedIn)
+        {
+            if (!isCloudMode)
+                return AuthRejectedPresentation.None;
+
+            return accountSignedIn
+                ? AuthRejectedPresentation.SignInRequired
+                : AuthRejectedPresentation.ClearLegacyTokenAndPrompt;
+        }
+
+        /// <summary>
+        /// The generic sign-in-required status line (D4). Rendered for every terminal credential verdict —
+        /// the pinned McpPlugin 8.1.0 surfaces no per-verdict reason.
+        /// </summary>
+        // r4: when the McpPlugin pin bump brings SignInRequiredReason, render reason-class-specific status
+        // here (e.g. a "server configuration error" line for invalid_target) instead of this generic text.
+        public const string SignInRequiredStatusText =
+            "Sign in required — your session expired. Press Authorize.";
+
+        /// <summary>The status line for a legacy-sink token the server rejected (signed-out path).</summary>
+        public const string AuthorizationRejectedPromptText =
+            "Authorization rejected by server — press Authorize.";
+
+        /// <summary>
+        /// True when <paramref name="statusText"/> is the sign-in-required line — used by the panel to clear
+        /// a now-disproved "sign in required" (the hub reconnected, or the account state reached SignedIn)
+        /// without clobbering an unrelated status message.
+        /// </summary>
+        public static bool IsSignInRequiredStatus(string? statusText) =>
+            statusText == SignInRequiredStatusText;
+
         /// <summary>The "Advanced: use access token" opt-in label — reveals the legacy masked token field on the Cloud path.</summary>
         public const string AdvancedUseAccessTokenLabel = "Advanced: use access token";
 

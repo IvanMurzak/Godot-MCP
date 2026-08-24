@@ -359,6 +359,65 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("exchange refused", ConnectionPanelView.SignInOutcomeMessage(Make(GodotAccountSignInStatus.Failed, "exchange refused")));
         }
 
+        // --- Authorization-rejected presentation (oauth-client-error-hygiene e2 — the silent-red fix) ---
+
+        /// <summary>
+        /// THE e2 pin: signed-in + auth-rejected must RENDER the sign-in-required state. Before e2 the
+        /// panel handler early-returned for signed-in users (`if (_connection.Account.IsSignedIn) return;`),
+        /// so a dead machine-store credential showed NOTHING — the silent-red bug found in review (same as
+        /// Unity's). Restoring that early return (deciding <see cref="ConnectionPanelView.AuthRejectedPresentation.None"/>
+        /// for the signed-in case) reddens this test.
+        /// </summary>
+        [Fact]
+        public void AuthorizationRejected_CloudSignedIn_RendersSignInRequired()
+        {
+            Assert.Equal(
+                ConnectionPanelView.AuthRejectedPresentation.SignInRequired,
+                ConnectionPanelView.AuthorizationRejectedPresentation(isCloudMode: true, accountSignedIn: true));
+        }
+
+        /// <summary>Positive control on the same axis: the signed-out (legacy-sink) rejection keeps its
+        /// pre-e2 clear-and-prompt behavior — the fix must not have collapsed the two cases.</summary>
+        [Fact]
+        public void AuthorizationRejected_CloudSignedOut_ClearsLegacyTokenAndPrompts()
+        {
+            Assert.Equal(
+                ConnectionPanelView.AuthRejectedPresentation.ClearLegacyTokenAndPrompt,
+                ConnectionPanelView.AuthorizationRejectedPresentation(isCloudMode: true, accountSignedIn: false));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void AuthorizationRejected_CustomMode_RendersNothing(bool accountSignedIn)
+        {
+            // A Custom-mode rejection is the Custom token's concern — never the cloud auth row's.
+            Assert.Equal(
+                ConnectionPanelView.AuthRejectedPresentation.None,
+                ConnectionPanelView.AuthorizationRejectedPresentation(isCloudMode: false, accountSignedIn));
+        }
+
+        [Fact]
+        public void SignInRequiredStatus_IsRecognizedExactly_SoOnlyItIsCleared()
+        {
+            // The panel clears a now-disproved "sign in required" line (hub Connected / SignedIn edge)
+            // ONLY when the status line is exactly that text — unrelated messages must survive.
+            Assert.True(ConnectionPanelView.IsSignInRequiredStatus(ConnectionPanelView.SignInRequiredStatusText));
+            Assert.False(ConnectionPanelView.IsSignInRequiredStatus(ConnectionPanelView.AuthorizationRejectedPromptText));
+            Assert.False(ConnectionPanelView.IsSignInRequiredStatus(ConnectionPanelView.SignedOutStatusText));
+            Assert.False(ConnectionPanelView.IsSignInRequiredStatus(string.Empty));
+            Assert.False(ConnectionPanelView.IsSignInRequiredStatus(null));
+        }
+
+        [Fact]
+        public void SignInRequiredStatusText_TellsTheUserWhatToDo()
+        {
+            // The generic D4 line (the pinned McpPlugin 8.1.0 has no per-verdict reason — r4 adds
+            // reason-class rendering): it must name the state AND the action.
+            Assert.Contains("Sign in required", ConnectionPanelView.SignInRequiredStatusText);
+            Assert.Contains("Authorize", ConnectionPanelView.SignInRequiredStatusText);
+        }
+
         [Fact]
         public void CustomHost_PersistsAndReloads()
         {

@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Microsoft.Extensions.Logging;
+using R3;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
@@ -151,6 +152,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         readonly object _retiredGate = new object();
         readonly System.Collections.Generic.List<PluginCredentialProvider> _retiredProviders = new();
 
+        // The forwarding subscription onto the CURRENT provider's R3 surfaces (State +
+        // OnSignInRequired), rebuilt on every provider swap so the stable events below keep firing
+        // across ReloadFromStore. _lastForwardedAuthState de-dups the replay a fresh
+        // ReadOnlyReactiveProperty subscription emits (the current value fires immediately on
+        // subscribe), so AuthStateChanged stays edge-like across swaps. Guarded by _eventGate.
+        readonly object _eventGate = new object();
+        IDisposable? _providerEventsSubscription;
+        AuthState? _lastForwardedAuthState;
+
         /// <summary>
         /// Construct the coordinator. <paramref name="asBaseUrlProvider"/> supplies the authorization-server
         /// base URL (read live so a <c>.env</c> cloud-URL override applies) used for refreshes of
@@ -181,6 +191,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             // Auto-adopt: PluginCredentialProvider reads the store at construction. No UI, no device flow.
             _provider = BuildProvider();
+            HookProviderEvents(_provider);
         }
 
         PluginCredentialProvider BuildProvider()
@@ -198,6 +209,60 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>The account id (<c>sub</c>) the current credential resolves to, if known (diagnostic only).</summary>
         public string? Subject => Provider.Subject;
+
+        /// <summary>
+        /// The CURRENT provider's credential state (oauth-client-error-hygiene e2, 02 §C3: engine UIs read
+        /// the provider's own <c>State</c>, not just the connection's rejection signal). Stable across the
+        /// internal provider swaps.
+        /// </summary>
+        public AuthState AuthState => Provider.State.CurrentValue;
+
+        /// <summary>
+        /// Raised when the CURRENT provider surfaces a terminal sign-in-required verdict (its
+        /// <c>OnSignInRequired</c> — e.g. an <c>invalid_grant</c> refresh rejection). Survives the internal
+        /// provider swaps (<see cref="ReloadFromStore"/> re-hooks the fresh provider). May fire on ANY
+        /// thread — UI subscribers must marshal to the editor main thread themselves. Never carries token
+        /// material.
+        /// </summary>
+        public event Action? SignInRequired;
+
+        /// <summary>
+        /// Raised when the credential state changes (SignedOut / SignedIn / SignInRequired), de-duplicated
+        /// across the internal provider swaps (a swap re-subscribes and would otherwise replay the current
+        /// value). May fire on ANY thread — UI subscribers must marshal themselves.
+        /// </summary>
+        public event Action<AuthState>? AuthStateChanged;
+
+        /// <summary>
+        /// (Re)hook the stable <see cref="SignInRequired"/> / <see cref="AuthStateChanged"/> events onto
+        /// <paramref name="provider"/>'s R3 surfaces, replacing the previous provider's subscription. Called
+        /// at construction and after every swap (<see cref="ReloadFromStore"/>) — without the re-hook, the
+        /// panel's subscriptions would silently go dead on the first sign-in/sign-out/migration. The State
+        /// replay a fresh subscription emits is de-duplicated against the last forwarded value so
+        /// <see cref="AuthStateChanged"/> stays edge-like.
+        /// </summary>
+        void HookProviderEvents(PluginCredentialProvider provider)
+        {
+            var signInRequired = provider.OnSignInRequired.Subscribe(_ => SignInRequired?.Invoke());
+            var stateChanged = provider.State.Subscribe(state =>
+            {
+                lock (_eventGate)
+                {
+                    if (_lastForwardedAuthState == state)
+                        return;
+                    _lastForwardedAuthState = state;
+                }
+                AuthStateChanged?.Invoke(state);
+            });
+
+            IDisposable? previous;
+            lock (_eventGate)
+            {
+                previous = _providerEventsSubscription;
+                _providerEventsSubscription = Disposable.Combine(signInRequired, stateChanged);
+            }
+            previous?.Dispose();
+        }
 
         /// <summary>
         /// The <c>Func&lt;Task&lt;string?&gt;&gt;</c> to compose into the connection's credential provider. It
@@ -538,10 +603,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var old = Interlocked.Exchange(ref _provider, fresh);
             lock (_retiredGate)
                 _retiredProviders.Add(old);
+
+            // Re-hook the stable events onto the fresh provider (the old provider keeps its R3 surfaces,
+            // but it no longer sees refreshes — a subscription left on it would go silently dead).
+            HookProviderEvents(fresh);
         }
 
         public void Dispose()
         {
+            IDisposable? events;
+            lock (_eventGate)
+            {
+                events = _providerEventsSubscription;
+                _providerEventsSubscription = null;
+            }
+            events?.Dispose();
+
             Provider.Dispose();
             lock (_retiredGate)
             {
