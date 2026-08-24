@@ -1,0 +1,19 @@
+addons/godot_mcp/UI/SerializationCheckWindow.cs
+  s_ead1ecca7180ec::t_153227dca8e5ac 292-302
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6108767d7b5e6d47ab582365a4be94e09528bc4b",
+  "prompts": {},
+  "sessions": {
+    "s_ead1ecca7180ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15b53224-c7bf-4a0c-a438-a39890763358",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+docs/RELEASING.md
+  s_69d07b717b917a::t_ef31ff229bb728 248
+cli/src/utils/addon-deps.ts
+  s_69d07b717b917a::t_ef31ff229bb728 46
+CLAUDE.md
+  s_69d07b717b917a::t_ef31ff229bb728 17,170
+docs/ARCHITECTURE.md
+  s_69d07b717b917a::t_ef31ff229bb728 220
+docs/assetlib/SUBMISSION.md
+  s_69d07b717b917a::t_ef31ff229bb728 70
+.github/assetlib/edit.hbs
+  s_69d07b717b917a::t_ef31ff229bb728 3
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_69d07b717b917a::t_ef31ff229bb728 46
+Godot-Tests/Godot-Tests.csproj
+  s_69d07b717b917a::t_ef31ff229bb728 15,37
+Godot-MCP.csproj
+  s_69d07b717b917a::t_ef31ff229bb728 20
+README.md
+  s_69d07b717b917a::t_ef31ff229bb728 320,332
+cli/tests/skills-addon-parity.test.ts
+  s_69d07b717b917a::t_ef31ff229bb728 323
+Godot-Tests/README.md
+  s_69d07b717b917a::t_ef31ff229bb728 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "06e3721e597f36477d64a42921a814d34bd79f63",
+  "prompts": {},
+  "sessions": {
+    "s_69d07b717b917a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63ee0879-983b-4e2a-8fa0-05b3719c8394",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

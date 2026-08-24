@@ -1,0 +1,21 @@
+.gitattributes
+  s_9e1686e62c1946::t_7d4fcc401d5ce9 17-24,26-29
+docs/assetlib/SUBMISSION.md
+  s_9e1686e62c1946::t_00478822e9f492 83-85,87-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "fd92d94aa04ad5344402cef9d8861165cddee96d",
+  "prompts": {},
+  "sessions": {
+    "s_9e1686e62c1946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4945dacf-1249-4028-8a7f-8121d8c118b7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

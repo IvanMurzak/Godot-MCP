@@ -1,0 +1,70 @@
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_cf7ef7d7435eeb::t_4b26489672d61c 256
+  s_cf7ef7d7435eeb::t_4a73aa16f7aa59 427-430,444-477
+  s_cf7ef7d7435eeb::t_3d673a1421ea7f 478-480
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_cf7ef7d7435eeb::t_de1854357c6b69 328
+  s_cf7ef7d7435eeb::t_a8a8d67e9c410f 333
+  s_cf7ef7d7435eeb::t_bb344a0ff4d365 394
+  s_cf7ef7d7435eeb::t_3432791f95f848 108
+  s_cf7ef7d7435eeb::t_513a7411d23244 398
+addons/godot_mcp/Connection/DevControl/DevControlRouter.cs
+  s_cf7ef7d7435eeb::t_674cb8353fbd8c 171-211
+  s_cf7ef7d7435eeb::t_55fac7f3da15af 148-150
+  s_cf7ef7d7435eeb::t_9d6e708fa7468e 62
+  s_cf7ef7d7435eeb::t_e41c4feac0a6c4 45
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_cf7ef7d7435eeb::t_4c6b1f2c49cb7e 371
+  s_cf7ef7d7435eeb::t_57723ba3ce96c8 263
+  s_cf7ef7d7435eeb::t_fd2a48f829e454 334
+  s_cf7ef7d7435eeb::t_c916d91f704f72 390
+  s_cf7ef7d7435eeb::t_bc7d416440c13f 418
+  s_cf7ef7d7435eeb::t_5a2a4ed3c48194 422
+  s_cf7ef7d7435eeb::t_ffae22aff12ab7 335
+addons/godot_mcp/UI/DockStyle.cs
+  s_cf7ef7d7435eeb::t_23ce63ffaef502 1002
+  s_cf7ef7d7435eeb::t_9f14f257300616 1006
+  s_cf7ef7d7435eeb::t_40d80f0dda3a76 475
+  s_cf7ef7d7435eeb::t_15963713075529 418,450,582
+  s_cf7ef7d7435eeb::t_edafbde41bcc73 778
+  s_cf7ef7d7435eeb::t_8a2f8d281bfcd5 37-71
+  s_cf7ef7d7435eeb::t_1ea7892a9bbd36 759
+addons/godot_mcp/UI/SkillsPanel.cs
+  s_cf7ef7d7435eeb::t_d7977db0e573e4 170
+  s_cf7ef7d7435eeb::t_581a33d3e49857 163
+addons/godot_mcp/UI/FeatureRow.cs
+  s_cf7ef7d7435eeb::t_8935944b2a5e8c 93
+addons/godot_mcp/Connection/DevControl/DevControlServer.cs
+  s_cf7ef7d7435eeb::t_99f22cee021de1 209-217,226-231
+  s_cf7ef7d7435eeb::t_db434d0058f494 222-225,232-235
+  s_cf7ef7d7435eeb::t_0943d7675cdf59 169-174,181-186
+addons/godot_mcp/UI/ExtensionRow.cs
+  s_cf7ef7d7435eeb::t_5615677c4784ab 81
+Godot-MCP.Tests/DevControlRouterTests.cs
+  s_cf7ef7d7435eeb::t_d84b34c6f2a76b 143-171
+  s_cf7ef7d7435eeb::t_5e0a68f1fca827 36
+  s_cf7ef7d7435eeb::t_1d995ee37e0ee6 123-126
+scripts/dev_control_smoke.py
+  s_cf7ef7d7435eeb::t_a74f82a699047a 1-212
+addons/godot_mcp/UI/FeatureListWindow.cs
+  s_cf7ef7d7435eeb::t_74b4e06a2104c7 134
+  s_cf7ef7d7435eeb::t_eedab43db43253 116
+  s_cf7ef7d7435eeb::t_27a821dd7f1026 216
+  s_cf7ef7d7435eeb::t_1ead42251bb6b9 144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "efa2094098ce21d5d177c9c2f1fb4edb8ea99b6a",
+  "prompts": {},
+  "sessions": {
+    "s_cf7ef7d7435eeb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43e0612a-829b-4e33-b2f7-3d1fbe030ca4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

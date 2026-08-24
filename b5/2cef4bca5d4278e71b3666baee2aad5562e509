@@ -1,0 +1,26 @@
+cli/src/utils/agents.ts
+  s_fd7546e55bcb75::t_1bade593c76af7 535-542,546-549
+  s_fd7546e55bcb75::t_cb7eab94b72139 513-515
+cli/tests/setup-mcp.test.ts
+  s_fd7546e55bcb75::t_089e645be37d08 5-13
+  s_fd7546e55bcb75::t_76918d3f6d6100 30-32,40-46,51
+  s_fd7546e55bcb75::t_34cbea94916d3a 1
+  s_fd7546e55bcb75::t_566510d51e544d 47,50
+  s_fd7546e55bcb75::t_3da76f6221af22 452-458
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b52cef4bca5d4278e71b3666baee2aad5562e509",
+  "prompts": {},
+  "sessions": {
+    "s_fd7546e55bcb75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ada76b30-8908-4a75-ac19-6c216305f5bb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

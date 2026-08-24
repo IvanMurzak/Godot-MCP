@@ -1,0 +1,90 @@
+cli/tests/install-server.test.ts
+  s_3423e3c45b2b63::t_c98f82592bf967 158-166
+  s_a2906e6a9ceeb4::t_862c3b2b015c93 1-157,167-219
+cli/tests/install-plugin-server-cli.test.ts
+  s_3423e3c45b2b63::t_8d7029117c25a5 1-64
+cli/tests/server-source-parity.test.ts
+  s_3423e3c45b2b63::t_1dc24c2b62e4c0 1-46
+cli/src/lib/types.ts
+  s_3423e3c45b2b63::t_c3be41b89c0816 26-33
+  s_11aa3fabde92a6::t_b9695873de5dff 543-682
+cli/src/lib/enroll.ts
+  s_3423e3c45b2b63::t_22b1b576fcac95 1-122
+cli/src/utils/enroll.ts
+  s_3423e3c45b2b63::t_1681aa4a85a9ce 1-108
+cli/src/utils/server-source.ts
+  s_3423e3c45b2b63::t_4b33301dca4b91 1-251
+cli/tests/enroll-plugin.test.ts
+  s_3423e3c45b2b63::t_0a60bce3ac33e7 1-120
+cli/src/commands/install-plugin.ts
+  s_3423e3c45b2b63::t_e4501a67660210 3,7,9-10,16-21,35-51,54,66-80,85-95,132,134,145-205
+cli/tests/enroll.test.ts
+  s_3423e3c45b2b63::t_b91d23cda005ca 1-77
+cli/src/lib/configure-agent.ts
+  s_3423e3c45b2b63::t_60156088a8bd4d 1-138
+cli/src/utils/project-marker.ts
+  s_3423e3c45b2b63::t_a6f577623ea8b8 1-202
+cli/src/commands/configure.ts
+  s_3423e3c45b2b63::t_d74d8929123b70 13
+  s_0287aab5e483c5::t_6ade92669d9db1 48-50,53-54,73-74,102-122
+cli/tests/project-marker.test.ts
+  s_3423e3c45b2b63::t_08635f05bc8427 1-130
+cli/src/lib/install-server.ts
+  s_3423e3c45b2b63::t_85db2bd2206ee9 1-289
+cli/tests/server-source.test.ts
+  s_3423e3c45b2b63::t_5e1af340cb5496 1-150
+.github/workflows/test_cli_e2e_install.yml
+  s_59a7b968dac78a::t_b3a0ad6729544d 180-237
+cli/src/lib.ts
+  s_a2906e6a9ceeb4::t_29d4d64af30aa0 24-26,93-107
+cli/tests/configure-agent.test.ts
+  s_0287aab5e483c5::t_d7f83828450e9c 1-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5e9472a333bb9fa39a505b9dfbe90f4666006ecb",
+  "prompts": {},
+  "sessions": {
+    "s_0287aab5e483c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ae92e1d317187b653",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_11aa3fabde92a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d806f4f2-89c5-4d4b-85c5-acf7e4e37035",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_3423e3c45b2b63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0d28a734-5945-4d1d-b433-39c5021d5ff9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_59a7b968dac78a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d0b6813-6c00-40af-a9ec-b1812e6464d4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_a2906e6a9ceeb4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5c8df1aa-679b-407a-9c28-132785dc0056",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+cli/tests/configure.test.ts
+  s_fd7546e55bcb75::t_9be7a619ce77c5 1-104
+cli/tests/update.test.ts
+  s_fd7546e55bcb75::t_556266274379cb 5,10-17,19,21-27,29,31,46-69
+  s_fd7546e55bcb75::t_8676c4fe249f64 1-4,6-9,18,20,28,30,32-45
+cli/tests/semver.test.ts
+  s_fd7546e55bcb75::t_86fe3c336020b2 1-47
+cli/tests/update-check.test.ts
+  s_fd7546e55bcb75::t_726c09f3dc605c 1-82
+cli/tests/install-remove-plugin.test.ts
+  s_fd7546e55bcb75::t_be872a96a644e6 1-131
+cli/tests/status.test.ts
+  s_fd7546e55bcb75::t_71e545013f3e56 1-91
+cli/tests/wait-for-ready.test.ts
+  s_fd7546e55bcb75::t_1968aa84569ad0 1-111
+cli/tests/create-project-cli.test.ts
+  s_fd7546e55bcb75::t_f59a9f35fb8d7c 1-39,41-45
+  s_fd7546e55bcb75::t_5d54794686b2c9 40
+cli/tests/run-tool-builder.test.ts
+  s_fd7546e55bcb75::t_5b52e7802a54f2 1-167
+cli/tests/close.test.ts
+  s_fd7546e55bcb75::t_cd4595fc5c92ba 1-143
+cli/tests/godot-shutdown.test.ts
+  s_fd7546e55bcb75::t_18e8759f6b7624 1-53,55-58,71-114
+  s_fd7546e55bcb75::t_81afbd5a0e9aab 54,59-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a550b363ed67f7506a894a3e1160cc7018c9527b",
+  "prompts": {},
+  "sessions": {
+    "s_fd7546e55bcb75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ada76b30-8908-4a75-ac19-6c216305f5bb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

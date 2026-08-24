@@ -1,0 +1,22 @@
+addons/godot_mcp/UI/FeaturesPanelView.cs
+  s_e36a2a3c4d1c6f::t_bf2e8e13b52fc5 11
+  s_e36a2a3c4d1c6f::t_91be79d89be980 52-54,56-70
+Godot-MCP.Tests/FeaturesPanelViewTests.cs
+  s_e36a2a3c4d1c6f::t_d6348594bc64ad 52,54-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f3197787073560250d3d8c3a15fa61925eeba5de",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

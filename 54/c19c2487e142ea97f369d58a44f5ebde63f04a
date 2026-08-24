@@ -1,0 +1,57 @@
+addons/godot_mcp/Editor/Connection/GodotTokenRefresher.cs
+  s_6c132cd9d802cc::t_6c8b0876f5741f 1-107
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthService.cs
+  s_6c132cd9d802cc::t_584e11e3a8ccd4 12,23-24,30-44,52-57,79-81,83-84,86-90,92,99,103-107,109-110,112,114-119,121-141,143,148,151-154,176-179,185-187,191-195
+  s_d5a74bb4a012bb::t_3c157fd26e5163 196
+Godot-MCP.Tests/GodotAccountAuthTests.cs
+  s_6c132cd9d802cc::t_c13d8dda0d5207 1-299
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthResult.cs
+  s_6c132cd9d802cc::t_789d84b3454726 1-41
+addons/godot_mcp/Editor/Connection/GodotAccountAuth.cs
+  s_6c132cd9d802cc::t_b2e80f340749c9 1-132
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_6c132cd9d802cc::t_b59e5d603455ec 15
+  s_3f2374a2025d6e::t_8c6ea9e3841a64 201-217,233-236,240-247,314,317-321,343-359,559,562,566-619,1313
+Godot-MCP.Tests/GodotDeviceAuthFlowTests.cs
+  s_6c132cd9d802cc::t_33f9205bf80875 23,26-28,31,33-34,39,41,43,46,50,54-60,64,75-87,90-91,93-117,121,124-125,131,137,143,147,149,153,159,166,173,175,184,191,198,207,212,214,217,223,228,230,237,253,255,278,280,282,288,296,298,300,303,306,308,311-312,314,316,321,346,348-353,369,371-377,389-392,405-407,411,416-420,427
+Godot-MCP.Tests/GodotTokenRefresherTests.cs
+  s_6c132cd9d802cc::t_6bd25964068006 4
+  s_6c132cd9d802cc::t_c55577fd586640 1-3,5-124,128-166
+  s_6c132cd9d802cc::t_3befc74a59b78a 125-127
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthFlow.cs
+  s_d5a74bb4a012bb::t_67e0987e0fd924 62-73,122-127,130-139,150,168,173-177,179
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_3f2374a2025d6e::t_980634696be4ef 107-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "54c19c2487e142ea97f369d58a44f5ebde63f04a",
+  "prompts": {},
+  "sessions": {
+    "s_3f2374a2025d6e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aac0fe66387c8062f",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_6c132cd9d802cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be85a41f-a3b3-4f0f-a69a-0d2c34b5ade5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_d5a74bb4a012bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7aad1b26-fa79-458c-ac67-9ae4ec44d05a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
