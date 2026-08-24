@@ -1,0 +1,23 @@
+docs/RELEASING.md
+  s_9e1686e62c1946::t_9582961b3599d8 82,87-92,96-98,100-117,121-134,153
+README.md
+  s_9e1686e62c1946::t_fa97e1b82d2f8a 217,219-224,237-239,257-258
+docs/assetlib/SUBMISSION.md
+  s_9e1686e62c1946::t_14351cf75f8103 1-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b16fc868d2f1424a0a21e389f0ee3ea3c5f37faa",
+  "prompts": {},
+  "sessions": {
+    "s_9e1686e62c1946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4945dacf-1249-4028-8a7f-8121d8c118b7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

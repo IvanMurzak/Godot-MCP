@@ -1,0 +1,33 @@
+addons/godot_mcp/Editor/UI/ExtensionRow.cs
+  s_e3cea916442b5e::t_88b937373072e0 21-22
+  s_125d6f5d0738d0::t_91cbdf60ded97f 83-107
+Godot-MCP.Tests/ExtensionsPanelTextTests.cs
+  s_e3cea916442b5e::t_9d79dcfaaf9643 1-91
+addons/godot_mcp/Runtime/Extensions/ExtensionsPanelText.cs
+  s_e3cea916442b5e::t_0d5a9353b2dc09 10,17-21
+  s_125d6f5d0738d0::t_084d8fd38ae41d 51-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "a053cefffbe965acc40ebb553771e41d0992d283",
+  "prompts": {},
+  "sessions": {
+    "s_125d6f5d0738d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-afe50f58bbb571e3c",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e3cea916442b5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c575ab56-73e6-4952-bb8b-fef415924e27",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

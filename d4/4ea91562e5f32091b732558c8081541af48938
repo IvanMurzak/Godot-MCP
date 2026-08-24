@@ -1,0 +1,62 @@
+cli/tests/connection.test.ts
+  s_3cfe9b1980b685::t_fe693705be368f 2-4
+  s_3cfe9b1980b685::t_b4f7fe4139d8cd 7,16,76-89,92,95,97,102,106,113,117,119,121-125,128,131,134,136,140,145,149,154,158
+  s_d5f619ffecbba9::t_f314c5de31539c 90-91,93-94,96,98-101,103-105,107-112,114-116,118,120,126-127,129-130,132-133,135,137-139,141-144,146-148,150-153,155-157,159
+cli/tests/auth.test.ts
+  s_3cfe9b1980b685::t_d0cec7d0ce0ebd 1-126
+cli/src/utils/browser.ts
+  s_3cfe9b1980b685::t_59ad271a913e40 1-30
+cli/src/utils/auth.ts
+  s_3cfe9b1980b685::t_2b922801d6c4a9 1-202
+cli/src/commands/login.ts
+  s_3cfe9b1980b685::t_6999ae8f118c40 1-45
+cli/src/utils/connection.ts
+  s_3cfe9b1980b685::t_fea1b4bd1685cb 5
+  s_3cfe9b1980b685::t_1ff884d647aac5 108-109,112-114,117,142,147-152,157-184
+cli/tests/cloud-login.test.ts
+  s_3cfe9b1980b685::t_812b635ae63f7e 1-71
+cli/src/utils/credentials.ts
+  s_3cfe9b1980b685::t_376afd51febcea 1-100
+cli/tests/credentials.test.ts
+  s_3cfe9b1980b685::t_99b7b17a98ba0d 1-80
+cli/src/commands/open.ts
+  s_3cfe9b1980b685::t_bafcde5177c8fc 10,107-113,126
+cli/src/index.ts
+  s_3cfe9b1980b685::t_d75d54c69cf9df 4,41
+cli/src/utils/cloud-login.ts
+  s_3cfe9b1980b685::t_de3f30422f5788 1-87
+cli/src/cli.ts
+  s_ae256ea5e05f9b::t_038d7b1ba4c4f2 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d44ea91562e5f32091b732558c8081541af48938",
+  "prompts": {},
+  "sessions": {
+    "s_3cfe9b1980b685": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "158480fe-c820-4ee5-a364-8ac3be6fb0f2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_ae256ea5e05f9b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a44743ec5984d4a36",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_d5f619ffecbba9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3e5d-2986-76a2-a12f-29eb073ed677",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

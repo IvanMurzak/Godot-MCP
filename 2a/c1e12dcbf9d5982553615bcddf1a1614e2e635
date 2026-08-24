@@ -1,0 +1,19 @@
+addons/godot_mcp/Runtime/Connection/GodotProjectIdentity.cs
+  s_11d43baeba0604::t_492b8d8b61f104 153-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "2ac1e12dcbf9d5982553615bcddf1a1614e2e635",
+  "prompts": {},
+  "sessions": {
+    "s_11d43baeba0604": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ab45d02fd92d29a39",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+addons/godot_mcp/Runtime/Extensions/ExtensionInstallPlanner.cs
+  s_92f338a2e55bd5::t_a160a8376872bf 40
+cli/src/utils/extension-install.ts
+  s_92f338a2e55bd5::t_ff5af2a4b4c8cf 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "85703c907b030e671fc41a18eda00c235387a4f9",
+  "prompts": {},
+  "sessions": {
+    "s_92f338a2e55bd5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4fe54df4f6369fee",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,58 @@
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_e36a2a3c4d1c6f::t_214693180f8c41 71-73,189,283,292,301
+  s_e36a2a3c4d1c6f::t_2700be0a562b58 144-145,155-157,159-175,177-178,180-188,190-203,207-209,225,230,233,235-250,252-257,259-260,262-265,267-271,273-279,281-282,284-288,291,293-300
+  s_e36a2a3c4d1c6f::t_f2afbbb92a81d8 51-52
+  s_e36a2a3c4d1c6f::t_3e87a63974b1f0 344-349,361-368
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_e36a2a3c4d1c6f::t_e56cedebe76d52 329-331
+  s_e36a2a3c4d1c6f::t_da0c3d953729da 164
+  s_e36a2a3c4d1c6f::t_723ff721cd45a8 196
+  s_e36a2a3c4d1c6f::t_3fafd0784173f9 306,308
+addons/godot_mcp/UI/Agents/Impl/CustomConfigurator.cs
+  s_e36a2a3c4d1c6f::t_e65d10ba3e45e5 11,26-41
+addons/godot_mcp/UI/Agents/Impl/ClaudeCodeConfigurator.cs
+  s_e36a2a3c4d1c6f::t_e971b268c6130a 11,24-42
+addons/godot_mcp/UI/DockStyle.cs
+  s_e36a2a3c4d1c6f::t_a5f5ab84f04dad 1-306
+addons/godot_mcp/UI/Agents/GodotAgentConfigurator.cs
+  s_e36a2a3c4d1c6f::t_2f0d405a77fbfb 11,111
+  s_e36a2a3c4d1c6f::t_5e917b43e34ad2 52-85
+  s_e36a2a3c4d1c6f::t_8915acaddb867e 112-120
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_3e9ac3810b37a7 85,87,94,102,111,115-116,128,135,137-141,143,149
+addons/godot_mcp/UI/FeaturesPanel.cs
+  s_e36a2a3c4d1c6f::t_a73a38b19ed49f 69-71
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_5b082c714cc494 130-134
+Godot-MCP.Tests/AgentConfiguratorTests.cs
+  s_e36a2a3c4d1c6f::t_746082f7756c64 266-353
+addons/godot_mcp/UI/Agents/Impl/ClaudeDesktopConfigurator.cs
+  s_e36a2a3c4d1c6f::t_f81b5fc7df8b13 11,26-44
+Godot-MCP.Tests/DockThemeTests.cs
+  s_e36a2a3c4d1c6f::t_2e5ee82b08abbd 1-81
+addons/godot_mcp/UI/SupportFooter.cs
+  s_e36a2a3c4d1c6f::t_e3449a27a74ab6 49,53-55,57-63
+addons/godot_mcp/UI/Agents/Impl/CursorConfigurator.cs
+  s_e36a2a3c4d1c6f::t_8908cf92911071 11,25-39
+addons/godot_mcp/UI/Agents/Impl/VisualStudioCodeConfigurator.cs
+  s_e36a2a3c4d1c6f::t_18fdb6581fd881 11,29-49
+addons/godot_mcp/UI/DockTheme.cs
+  s_e36a2a3c4d1c6f::t_3bd480f5712285 69-83
+  s_e36a2a3c4d1c6f::t_3341ccad9fabca 1-68,84-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "17bb9885850a8c71d8108630f953225d52aa792b",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

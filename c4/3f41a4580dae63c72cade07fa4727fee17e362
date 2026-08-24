@@ -1,0 +1,23 @@
+cli/README.md
+  s_a1dc15653d7df5::t_6ae2d8dc364f81 129
+cli/src/commands/install-plugin.ts
+  s_a1dc15653d7df5::t_463e6caa0ddccc 27
+cli/tests/addon-deps-parity.test.ts
+  s_a1dc15653d7df5::t_f1ceac198ab839 29-33,36-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "c43f41a4580dae63c72cade07fa4727fee17e362",
+  "prompts": {},
+  "sessions": {
+    "s_a1dc15653d7df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a37a36cd71d389751",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
