@@ -266,10 +266,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// The generic sign-in-required status line (D4). Rendered for every terminal credential verdict —
-        /// the pinned McpPlugin 8.1.0 surfaces no per-verdict reason.
+        /// reason-class-specific rendering is not wired yet.
         /// </summary>
-        // r4: when the McpPlugin pin bump brings SignInRequiredReason, render reason-class-specific status
-        // here (e.g. a "server configuration error" line for invalid_target) instead of this generic text.
+        // reason-class slot: the pinned McpPlugin (8.3.0+) exposes SignInRequiredReason — render
+        // reason-class-specific status here (e.g. a "server configuration error" line for
+        // invalid_target) instead of this generic text when the reason-class UX lands.
         public const string SignInRequiredStatusText =
             "Sign in required — your session expired. Press Authorize.";
 

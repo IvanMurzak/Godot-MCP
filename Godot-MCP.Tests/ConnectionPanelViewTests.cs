@@ -412,8 +412,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void SignInRequiredStatusText_TellsTheUserWhatToDo()
         {
-            // The generic D4 line (the pinned McpPlugin 8.1.0 has no per-verdict reason — r4 adds
-            // reason-class rendering): it must name the state AND the action.
+            // The generic D4 line (reason-class rendering from the pin's SignInRequiredReason is
+            // not wired yet): it must name the state AND the action.
             Assert.Contains("Sign in required", ConnectionPanelView.SignInRequiredStatusText);
             Assert.Contains("Authorize", ConnectionPanelView.SignInRequiredStatusText);
         }
