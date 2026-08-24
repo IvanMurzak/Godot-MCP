@@ -25,11 +25,11 @@ this file is just the field values. Keep it in sync whenever any field changes.
 | **Asset name** | `Godot-MCP` |
 | **Category** | `Tools` (an Addon-side category — categories are split into Addons / Projects, and picking an Addon category is what makes this entry an Addon and surfaces it in the in-editor *AssetLib* tab; there is no separate "Type" field) |
 | **Godot version** | `4.3` (lowest supported; the addon also runs on 4.4 / 4.5 — a single entry cannot carry multiple engine versions, so each version it should advertise needs its own resubmission) |
-| **Version** | `0.21.0` (must match `addons/godot_mcp/plugin.cfg` `version=` and the `v0.21.0` tag) |
+| **Version** | `0.22.0` (must match `addons/godot_mcp/plugin.cfg` `version=` and the `v0.22.0` tag) |
 | **Repository host** | `GitHub` |
 | **Repository URL** | `https://github.com/IvanMurzak/Godot-MCP` |
 | **Issues URL** | `https://github.com/IvanMurzak/Godot-MCP/issues` |
-| **Download Commit** | the commit hash the `v0.21.0` tag points at — get it with `git rev-list -n1 v0.21.0` (a hash, not the tag name) |
+| **Download Commit** | the commit hash the `v0.22.0` tag points at — get it with `git rev-list -n1 v0.22.0` (a hash, not the tag name) |
 | **License** | `Apache-2.0` |
 | **Icon URL** | `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png` (square 512×512 PNG; AssetLib requires square PNG/JPG ≥ 128×128 — SVG is not accepted) |
 
@@ -67,7 +67,7 @@ Requirements:
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the two NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet  version 5.4.0
-  com.IvanMurzak.McpPlugin     version 8.1.0
+  com.IvanMurzak.McpPlugin     version 8.3.0
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
 global-packages folder.

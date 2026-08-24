@@ -22,8 +22,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     ///   <item><see cref="OnSignInRequiredVerdict"/> — the automatic entry. Gated: the FIRST verdict of the
     ///   editor session starts the flow; every recurrence (the carousel guard — a freshly-authorized family
     ///   dying again, or the device code expiring unattended) renders status only, never a second unattended
-    ///   browser-open. The pinned McpPlugin 8.1.0 exposes no <c>SignInRequiredReason</c>, so the guard keys
-    ///   on verdict RECURRENCE, not reason class.</item>
+    ///   browser-open. The guard keys on verdict RECURRENCE, not reason class — the pinned McpPlugin
+    ///   now exposes <c>SignInRequiredReason</c>, but reason-class keying/rendering is not wired yet
+    ///   (see the reason-class slot in <c>ConnectionPanelView.SignInRequiredStatusText</c>).</item>
     ///   <item><see cref="OnManualAuthorize"/> — the user's own Authorize click. NEVER gated: manual
     ///   re-auth must keep working after the auto-open budget is spent.</item>
     /// </list>

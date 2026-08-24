@@ -395,6 +395,88 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(AuthState.SignedIn, account.AuthState);
         }
 
+        // --- Dead-family memo interplay (oauth-client-error-hygiene r4 — deferred from e2) ---
+
+        /// <summary>
+        /// The a2 dead-family-memo interplay explicitly deferred from e2 to the McpPlugin 8.3.0 pin bump:
+        /// after a terminal <c>invalid_grant</c> verdict, the reactive rejection path — the connection's
+        /// <c>TryAccountRefreshAndReconnect</c> drives exactly this
+        /// <see cref="GodotAccountAuth.RefreshAsync"/> — settles: no further token-endpoint calls for the
+        /// same dead family, from either the reactive retry or the connection loop's per-attempt
+        /// credential resolution (and <c>RefreshThenReconnectAsync</c> never reconnects on a <c>false</c>
+        /// return). Same-fixture positive control: a peer surface's fresh login (the store's plugin family
+        /// rewritten with a NEW refresh token) re-arms the family — the adopted-then-expired peer
+        /// credential refreshes on the NETWORK with the peer's token and succeeds.
+        /// <para>
+        /// Measured plant note (r4): this fixture is GREEN against the 8.1.0 pin too — within one
+        /// provider instance 8.1.0 already fails closed after a terminal verdict, so the settling itself
+        /// is not the 8.3.0 discriminator at this seam. What the 8.3.0 memo adds (re-arm keyed on the
+        /// in-lock store re-read, the SignInRequired peer wake-up re-check, coordinator stop/resume) is
+        /// proven by the upstream MCP-Plugin-dotnet suites (a1–a3, PRs #211–#213). This test pins the
+        /// addon-consumed contract — settling, peer re-arm, and network resumption — so a regression in
+        /// EITHER layer that resurrects the dead-credential loop or breaks peer recovery reddens here.
+        /// </para>
+        /// </summary>
+        [Fact]
+        public async Task RefreshAsync_DeadFamilyVerdict_MemoBlocksRepeatNetworkCalls_UntilPeerLoginReArms()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, accessToken: "acc-old", refreshToken: "ref-dead",
+                expiresAt: AlreadyExpired, clientId: ComponentClientId);
+
+            var server = new FakeAuthServer
+            {
+                Refresh = () => JsonResponse(HttpStatusCode.BadRequest, "{ \"error\": \"invalid_grant\" }"),
+            };
+            using var account = MakeAccount(tmp, server);
+
+            // Terminal verdict: ONE network attempt, fails closed, surfaces sign-in-required.
+            Assert.False(await account.RefreshAsync());
+            Assert.Equal(1, RefreshRequestCount(server));
+            Assert.Equal(AuthState.SignInRequired, account.AuthState);
+
+            // The reactive rejection path retrying (TryAccountRefreshAndReconnect → RefreshAsync) is
+            // memo-blocked: it settles WITHOUT a second network call for the same dead family.
+            Assert.False(await account.RefreshAsync());
+            Assert.Equal(1, RefreshRequestCount(server));
+            Assert.Equal(AuthState.SignInRequired, account.AuthState);
+
+            // The credential-resolution path the connection's reconnect loop drives on EVERY attempt
+            // (AccessTokenProvider → proactive refresh of an expired token, 08 A1) is ALSO settled:
+            // repeated resolutions produce no further token-endpoint calls for the same dead family.
+            await account.AccessTokenProvider();
+            await account.AccessTokenProvider();
+            Assert.Equal(1, RefreshRequestCount(server));
+            Assert.Equal(AuthState.SignInRequired, account.AuthState);
+
+            // Same-fixture positive control (proves the block above is the MEMO, not a dead path): a
+            // peer surface's fresh login rewrites the store family. The next RefreshAsync's in-lock
+            // re-read finds the rotated credential and ADOPTS it — 03 §F3.5 "peer-rotation re-read
+            // stays first" — succeeding WITHOUT a network call (the peer already did the work).
+            server.Refresh = Ok(TokenJson("acc-fresh", "ref-fresh-rotated", 3600));
+            WritePluginFamily(tmp, accessToken: "acc-peer", refreshToken: "ref-peer",
+                expiresAt: AlreadyExpired, clientId: ComponentClientId);
+
+            Assert.True(await account.RefreshAsync());
+            Assert.Equal(1, RefreshRequestCount(server));
+            Assert.Equal(AuthState.SignedIn, account.AuthState);
+
+            // And the memo is genuinely RE-ARMED for the peer family: the adopted peer access token is
+            // expired, so the provider's proactive refresh (08 A1) goes back to the NETWORK with the
+            // PEER's refresh token — never the memoized dead one — and succeeds. Network resumed.
+            var token = await account.AccessTokenProvider();
+
+            Assert.Equal("acc-fresh", token);
+            Assert.Equal(2, RefreshRequestCount(server));
+            var reArmedBody = server.DecodedTokenRequests.Last(b => b.Contains("grant_type=refresh_token"));
+            Assert.Contains("refresh_token=ref-peer", reArmedBody);
+            Assert.DoesNotContain("refresh_token=ref-dead", reArmedBody);
+            Assert.Equal(AuthState.SignedIn, account.AuthState);
+        }
+
+        static int RefreshRequestCount(FakeAuthServer server)
+            => server.DecodedTokenRequests.Count(b => b.Contains("grant_type=refresh_token"));
+
         /// <summary>
         /// THE load-bearing re-hook: the coordinator REBUILDS its provider after every guarded store
         /// mutation (sign-in commit, sign-out, migration), so a subscription left on the old provider goes
