@@ -39,6 +39,17 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Forces the plugin's log-verbosity threshold.</summary>
         public const string LogLevel = "GODOT_MCP_LOG_LEVEL";
 
+        // --- Local server binary (resolved in GodotMcpServerManager; editor-only). ---
+
+        /// <summary>
+        /// Absolute path to a <c>gamedev-mcp-server(.exe)</c> the editor should launch INSTEAD of the release
+        /// pinned by <c>GodotMcpServerView.ServerVersion</c>. When it names an existing file the download and
+        /// the cached-version match are skipped, and orphaned-server cleanup is disabled while it is active.
+        /// A value naming no existing file is ignored (normal download path). Dev / CI use; the Godot analog
+        /// of <c>UNREAL_MCP_SERVER_PATH</c> / <c>UNITY_MCP_SERVER_PATH</c>.
+        /// </summary>
+        public const string ServerPath = "GODOT_MCP_SERVER_PATH";
+
         // --- Dev-only inject/control bridge (off unless set to "1"). ---
 
         /// <summary>Enables the 127.0.0.1 dev-control HTTP bridge when exactly <c>"1"</c>.</summary>

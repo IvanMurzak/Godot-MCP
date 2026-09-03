@@ -104,13 +104,73 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public static string CachePlatformPath()
             => Path.Combine(CacheRootPath(), GodotMcpServerView.CurrentPlatformName());
 
-        /// <summary>Full path to the executable inside the per-platform cache folder.</summary>
-        public static string ExecutableFullPath()
+        /// <summary>
+        /// Full path to the executable inside the per-platform cache folder — the DOWNLOAD target, never
+        /// affected by the <c>GODOT_MCP_SERVER_PATH</c> override. Use this wherever the cache itself is the
+        /// subject (unpacking, the version marker); use <see cref="ExecutableFullPath"/> for "what do we launch".
+        /// </summary>
+        public static string CachedExecutableFullPath()
             => Path.Combine(CachePlatformPath(), GodotMcpServerView.CurrentExecutableFileName());
+
+        /// <summary>
+        /// Full path to the executable the manager LAUNCHES: the <c>GODOT_MCP_SERVER_PATH</c> override when one
+        /// is active (see <see cref="ServerPathOverride"/>), otherwise the per-platform cached binary.
+        /// </summary>
+        public static string ExecutableFullPath()
+            => GodotMcpServerPathOverride.ExecutablePath(ServerPathOverride(), CachedExecutableFullPath());
 
         /// <summary>Full path to the <c>version</c> marker file inside the per-platform cache folder.</summary>
         public static string VersionFilePath()
             => Path.Combine(CachePlatformPath(), "version");
+
+        // --- GODOT_MCP_SERVER_PATH override -------------------------------------------------------------
+
+        static readonly object _overrideMutex = new();
+        static bool _overrideResolved;
+        static string? _overridePath;
+
+        /// <summary>
+        /// The resolved <c>GODOT_MCP_SERVER_PATH</c> override — an EXISTING file to launch instead of the
+        /// pinned release — or <c>null</c> when unset, blank, or naming no existing file (Unreal's
+        /// <c>ResolveBinaryPath</c> rule: a bad override falls THROUGH to the normal download path).
+        ///
+        /// <para>
+        /// Resolved ONCE per boot (per assembly load — a C# hot-reload re-resolves) and cached, so the launch
+        /// path, the version-match bypass and the orphan-cleanup skip can never disagree with each other
+        /// mid-session. Precedence is the addon's standard env layer: process environment &gt; project
+        /// <c>res://.env</c> (<see cref="GodotMcpEnvFile.LookupRaw"/>) &gt; none — the same order
+        /// <c>GODOT_MCP_DEV_CONTROL</c> uses in <c>GodotMcpPlugin.StartDevControlIfEnabled</c>. Every decision
+        /// derived from the raw values lives in the pure, unit-pinned
+        /// <see cref="GodotMcpServerPathOverride"/>; this method only performs the two reads.
+        /// </para>
+        /// </summary>
+        public static string? ServerPathOverride()
+        {
+            lock (_overrideMutex)
+            {
+                if (!_overrideResolved)
+                {
+                    _overridePath = ResolveServerPathOverride();
+                    _overrideResolved = true;
+                }
+
+                return _overridePath;
+            }
+        }
+
+        static string? ResolveServerPathOverride()
+        {
+            string? fromProcess = null;
+            string? fromEnvFile = null;
+
+            try { fromProcess = OS.GetEnvironment(GodotMcpEnv.ServerPath); }
+            catch { /* no Godot OS singleton (non-editor host) — fall back to the .env layer */ }
+
+            try { fromEnvFile = GodotMcpEnvFile.LookupRaw(ProjectSettings.GlobalizePath("res://.env"), GodotMcpEnv.ServerPath); }
+            catch { /* no ProjectSettings — treat as "no .env value" */ }
+
+            return GodotMcpServerPathOverride.Resolve(fromProcess, fromEnvFile, File.Exists);
+        }
 
         // --- CI detection --------------------------------------------------------------------------------
 
@@ -142,18 +202,31 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// True when the cached binary exists AND its recorded version EXACTLY matches the pinned
-        /// <see cref="GodotMcpServerView.ServerVersion"/>.
+        /// <see cref="GodotMcpServerView.ServerVersion"/> — or unconditionally true while the
+        /// <c>GODOT_MCP_SERVER_PATH</c> override is active, since an arbitrary caller-supplied build carries no
+        /// <c>version</c> marker and is not expected to match the pin (Unreal's rule).
         /// </summary>
         public bool IsVersionMatches()
-            => GodotMcpServerView.VersionMatches(GetCachedVersion(), GodotMcpServerView.ServerVersion);
+            => GodotMcpServerPathOverride.IsActive(ServerPathOverride())
+            || GodotMcpServerView.VersionMatches(GetCachedVersion(), GodotMcpServerView.ServerVersion);
 
         /// <summary>
         /// Download + unpack the version-matched server binary when it is missing or stale. No-op (returns
-        /// true) when the cached binary already matches. SKIPPED in CI (returns false). Mirrors Unity's
-        /// <c>DownloadServerBinaryIfNeeded</c>.
+        /// true) when the <c>GODOT_MCP_SERVER_PATH</c> override is active or the cached binary already
+        /// matches. SKIPPED in CI (returns false). Mirrors Unity's <c>DownloadServerBinaryIfNeeded</c>.
         /// </summary>
         public async Task<bool> DownloadServerBinaryIfNeeded()
         {
+            // BEFORE the CI check on purpose: a chain/CI run that supplies its own freshly-built server must
+            // get that binary launched, not the "skipped in CI" refusal.
+            var overridePath = ServerPathOverride();
+            if (GodotMcpServerPathOverride.IsActive(overridePath))
+            {
+                _log($"[Godot-MCP] using {GodotMcpEnv.ServerPath} override: {overridePath} " +
+                     "(release download and version match skipped).");
+                return true;
+            }
+
             if (IsCi())
             {
                 _log("[Godot-MCP] skipping MCP server download in CI environment.");
@@ -179,7 +252,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var serverVersion = GodotMcpServerView.ServerVersion;
             var url = GodotMcpServerView.DownloadUrl(os, arch);
             var platformFolder = CachePlatformPath();
-            var executablePath = ExecutableFullPath();
+            // The CACHE target explicitly: unpacking must never be redirected at the override's path.
+            var executablePath = CachedExecutableFullPath();
 
             _log($"[Godot-MCP] downloading GameDev-MCP-Server binary from: {url}");
 
@@ -474,7 +548,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         CreateNoWindow = true,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        WorkingDirectory = CachePlatformPath()
+                        // The directory of the executable we are ACTUALLY launching: the cache platform folder
+                        // normally, the override binary's own folder under GODOT_MCP_SERVER_PATH.
+                        WorkingDirectory = GodotMcpServerPathOverride.WorkingDirectory(executablePath, CachePlatformPath())
                     };
 
                     var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
@@ -646,6 +722,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         void KillOrphanedServerProcesses()
         {
+            // SKIPPED while GODOT_MCP_SERVER_PATH is active. GodotMcpServerOwnership.IsOwnedByThisProject
+            // matches on the SAME CONTAINING DIRECTORY, and an override binary is shared by design (a chain
+            // run points several projects — and its own harness processes — at one built exe), so "ours"
+            // would wrongly cover a sibling's live server and this cleanup would kill it.
+            var overridePath = ServerPathOverride();
+            if (GodotMcpServerPathOverride.IsActive(overridePath))
+            {
+                _log($"[Godot-MCP] orphaned-server cleanup skipped: {GodotMcpEnv.ServerPath} override is active " +
+                     $"({overridePath}); the binary may be shared with other projects or processes.");
+                return;
+            }
+
             var ownPath = ExecutableFullPath();
 
             try

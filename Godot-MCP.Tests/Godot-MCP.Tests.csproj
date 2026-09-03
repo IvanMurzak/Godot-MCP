@@ -285,6 +285,13 @@
          unit-tested here (cross-platform: every method is a string/enum transform, so the same assertions
          hold on the Linux CI runner). -->
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpServerView.cs" Link="Source\GodotMcpServerView.cs" />
+    <!-- GODOT_MCP_SERVER_PATH override RESOLVER — pure-managed (no Godot native types, no #if TOOLS, no I/O of
+         its own: the caller passes raw env/.env strings plus a fileExists delegate). It carries every decision
+         the override drives — precedence, quote/whitespace normalization, the existing-file gate, the launch
+         path and the child process's working directory — because the manager statics that would otherwise hold
+         them (ExecutableFullPath / IsVersionMatches / KillOrphanedServerProcesses, GodotMcpServerManager.cs,
+         #if TOOLS) all reach ProjectSettings.GlobalizePath and cannot run in this binary-less host. -->
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotMcpServerPathOverride.cs" Link="Source\GodotMcpServerPathOverride.cs" />
     <!-- Segmented-control state model — pure-managed (no Godot native types, no #if TOOLS): the
          value→index / selected-predicate / clamp rules for the reusable segmented control (Custom|Cloud,
          none|required). The editor builder (DockStyle.SegmentedControl, #if TOOLS) consumes these and is
