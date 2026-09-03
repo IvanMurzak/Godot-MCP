@@ -65,7 +65,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             return Path.Combine(parts.ToArray());
         }
 
-        // --- (a) an existing file resolves to exactly that path ------------------------------------------
+        // --- an existing file resolves to exactly that path ------------------------------------------
 
         [Fact]
         public void Resolve_ExistingFile_ReturnsThatPath()
@@ -77,7 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(new[] { exe }, files.Probes);
         }
 
-        // --- (b) set, but naming no existing file, falls THROUGH (Unreal's ResolveBinaryPath rule) --------
+        // --- set, but naming no existing file, falls THROUGH (Unreal's ResolveBinaryPath rule) --------
 
         [Fact]
         public void Resolve_SetButMissingFile_ReturnsNull()
@@ -85,14 +85,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var missing = ExePath("chain", "not-published-yet", "gamedev-mcp-server.exe");
             var files = new RecordingFileExists(/* nothing exists */);
 
-            Assert.Null(GodotMcpServerPathOverride.Resolve(missing, files.Delegate));
+            var resolved = GodotMcpServerPathOverride.Resolve(missing, files.Delegate);
 
-            // Positive artifact: the value DID reach the existence gate with its full path, so the null above
-            // is the gate refusing a missing file — not the value being dropped before the gate.
+            // The probe assertion comes FIRST deliberately. Positive artifact: the value DID reach the
+            // existence gate with its full path, so the null below is the gate refusing a missing file — not
+            // the value being dropped before the gate. Ordering it first also keeps the two gate mutations
+            // tellable apart: REMOVING the gate fails here (no probe was ever made), whereas INVERTING it
+            // probes normally and fails on the null instead.
             Assert.Equal(new[] { missing }, files.Probes);
+            Assert.Null(resolved);
         }
 
-        // --- (c) unset / blank values resolve to null and never touch the filesystem ----------------------
+        // --- unset / blank values resolve to null and never touch the filesystem ----------------------
 
         [Theory]
         [InlineData(null)]
@@ -115,7 +119,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Null(GodotMcpServerPathOverride.Normalize("   "));
         }
 
-        // --- (d) surrounding quotes + whitespace are trimmed, the .env layer's convention -----------------
+        // --- surrounding quotes + whitespace are trimmed, the .env layer's convention -----------------
 
         [Fact]
         public void Resolve_DoubleQuotedValue_TrimsQuotesBeforeTheExistenceGate()
@@ -146,6 +150,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var exe = ExePath("chain", "gamedev-mcp-server");
             var files = new RecordingFileExists(exe);
 
+            // Documents the contract, but do NOT read it as coverage of Normalize's own leading Trim():
+            // GodotMcpConfig.NormalizeEnv trims too, so this case stays green with the local trim removed.
+            // The whitespace case that is actually load-bearing is the QUOTED-and-spaced one in
+            // Normalize_TrimsWhitespaceThenOnePairOfQuotes — without the local trim the leading space means
+            // the value no longer starts with a quote and the single-quote branch is skipped entirely.
             Assert.Equal(exe, GodotMcpServerPathOverride.Resolve("  " + exe + "\t", files.Delegate));
             Assert.Equal(new[] { exe }, files.Probes);
         }
@@ -158,7 +167,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("/srv/gamedev-mcp-server", GodotMcpServerPathOverride.Normalize("/srv/gamedev-mcp-server"));
         }
 
-        // --- (e) precedence: the PROCESS value beats the project .env value -------------------------------
+        [Fact]
+        public void Normalize_StripsSingleQuotesBEFORETheSharedDoubleQuoteNormalizer()
+        {
+            // The ONLY inputs that can tell the two orders apart are NESTED pairs — every single-convention
+            // value normalizes identically either way, which is why the ordering claim in Normalize's
+            // docstring needs a case of its own rather than riding on the cases above.
+            //
+            // Current order (single strip, THEN GodotMcpConfig.NormalizeEnv's Trim('"')): the outer double
+            // quotes come off and the inner single quotes survive. The swapped order would strip both and
+            // return "/srv/x". This matches GodotMcpEnvFile.Sanitize, which is the compatibility contract:
+            // a value must normalize the same whether it arrived from the process env or from res://.env.
+            Assert.Equal("'/srv/x'", GodotMcpServerPathOverride.Normalize("\"'/srv/x'\""));
+        }
+
+        // --- precedence: the PROCESS value beats the project .env value -------------------------------
 
         [Fact]
         public void Resolve_BothLayersSet_ProcessValueWins()
@@ -209,6 +232,62 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(GodotMcpServerPathOverride.IsActive(""));
         }
 
+        // --- the two under-override decisions the manager itself cannot pin --------------------------------
+        //
+        // GodotMcpServerManager is #if TOOLS and reaches ProjectSettings.GlobalizePath, so it does not compile
+        // into this host and its call sites can never be asserted here. These are the decisions themselves,
+        // factored out so the POLARITY of each is pinned rather than only the predicate they read.
+
+        [Fact]
+        public void VersionMatchesOrOverridden_TrueUnderOverrideWithoutConsultingTheCachedVersion()
+        {
+            var consulted = false;
+            Func<bool> cached = () => { consulted = true; return false; };
+
+            Assert.True(GodotMcpServerPathOverride.VersionMatchesOrOverridden("/srv/gamedev-mcp-server", cached));
+
+            // Positive artifact for the short-circuit: reading the cache's `version` marker is file I/O and
+            // that folder routinely does not exist under an override, so it must not be reached at all.
+            Assert.False(consulted);
+        }
+
+        [Fact]
+        public void VersionMatchesOrOverridden_NoOverride_DefersToTheCachedVersionVerdict()
+        {
+            Assert.True(GodotMcpServerPathOverride.VersionMatchesOrOverridden(null, () => true));
+            Assert.False(GodotMcpServerPathOverride.VersionMatchesOrOverridden(null, () => false));
+            Assert.False(GodotMcpServerPathOverride.VersionMatchesOrOverridden("", () => false));
+        }
+
+        [Fact]
+        public void ShouldKillOrphans_OnlyWithoutAnOverride()
+        {
+            Assert.True(GodotMcpServerPathOverride.ShouldKillOrphans(null));
+            Assert.True(GodotMcpServerPathOverride.ShouldKillOrphans(""));
+
+            // The skip is a correctness requirement, not a convenience: ownership matches on the containing
+            // directory, and an override binary is shared by design.
+            Assert.False(GodotMcpServerPathOverride.ShouldKillOrphans("/srv/gamedev-mcp-server"));
+        }
+
+        // --- "supplied, but ignored" — the state that is otherwise invisible -------------------------------
+
+        [Fact]
+        public void IsIgnoredValue_TrueOnlyWhenAValueWasSuppliedAndDidNotResolve()
+        {
+            // Supplied, but the existence gate refused it: the addon silently downloads the pinned release,
+            // so this is the state the boot site must warn about.
+            Assert.True(GodotMcpServerPathOverride.IsIgnoredValue("/srv/not-built-yet", null));
+
+            // Nothing supplied — indistinguishable in the RESOLVED value, which is exactly why the raw value
+            // is carried separately; it must NOT produce a warning.
+            Assert.False(GodotMcpServerPathOverride.IsIgnoredValue(null, null));
+            Assert.False(GodotMcpServerPathOverride.IsIgnoredValue("", null));
+
+            // Supplied and resolved: the override is in force, nothing to warn about.
+            Assert.False(GodotMcpServerPathOverride.IsIgnoredValue("/srv/built", "/srv/built"));
+        }
+
         // --- what the manager LAUNCHES (GodotMcpServerManager.ExecutableFullPath) --------------------------
 
         [Fact]
@@ -224,6 +303,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ExecutablePath_NoOverride_LaunchesTheCachedBinary()
         {
             var cached = ExePath("cache", "win-x64", "gamedev-mcp-server.exe");
+
+            // Asserted first so that "the predicate is stuck on" and "the launch path ignores the predicate"
+            // fail on DIFFERENT lines with different text, rather than both landing on the Equal below.
+            Assert.False(GodotMcpServerPathOverride.IsActive(null));
 
             Assert.Equal(cached, GodotMcpServerPathOverride.ExecutablePath(null, cached));
             Assert.Equal(cached, GodotMcpServerPathOverride.ExecutablePath("", cached));
@@ -248,8 +331,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var cacheDir = ExePath("cache", "win-x64");
             var cachedExe = Path.Combine(cacheDir, "gamedev-mcp-server.exe");
 
-            // The historical value is preserved because the cache folder IS the cached executable's directory.
-            Assert.Equal(cacheDir, GodotMcpServerPathOverride.WorkingDirectory(cachedExe, cacheDir));
+            // In PRODUCTION the manager passes CachePlatformPath() as the fallback, so with no override both
+            // arms of this method return the same string and the assertion could not fail. Passing a fallback
+            // the answer must NOT be is what gives the test discriminating power: the returned cacheDir can
+            // then only have come from the executable path, so a mutation that always returns the fallback
+            // reddens here. The claim is unchanged — with no override the answer is the cache platform folder.
+            var fallbackThatMustNotBeUsed = ExePath("fallback-never-used");
+
+            Assert.Equal(cacheDir, GodotMcpServerPathOverride.WorkingDirectory(cachedExe, fallbackThatMustNotBeUsed));
         }
 
         [Theory]
