@@ -837,6 +837,17 @@ host/token one of two ways — and they **compose**, with env winning over code 
    | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
    | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
    | `GODOT_MCP_LOG_LEVEL` | `Trace`…`None` | Log-verbosity threshold. |
+   | `GODOT_MCP_SERVER_PATH` | absolute path | **Editor-only** (dev / CI). Launch this existing `gamedev-mcp-server(.exe)` instead of the pinned release: skips the download **and** the version match, and disables orphaned-server cleanup while active. A value naming no existing file is ignored. |
+
+   > `GODOT_MCP_SERVER_PATH` is resolved by the **editor** plugin's server manager, not by
+   > `GodotMcpConfig`, so it affects only which locally-hosted server binary the editor starts, and it has
+   > no effect in a game build. It is read once per plugin assembly load and cached — a C# hot-reload
+   > re-reads it, but toggling the plugin off and on does not. It uses the same
+   > process-env → project `.env` precedence as the rows above. Orphan cleanup is disabled while it is set
+   > because that cleanup claims every server process running from the same directory, which an override
+   > binary is expected to share with other projects and tools. A value that names no existing file is
+   > ignored with a warning in the editor log. On Linux/macOS the file must already be executable — the
+   > `chmod` applied to a downloaded release is not applied to an override binary.
 
    ```bash
    export GODOT_MCP_CONNECTION_MODE=Custom
