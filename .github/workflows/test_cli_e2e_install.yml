@@ -43,11 +43,30 @@ on:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
         type: string
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+# Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# WORK is INSIDE the checkout, so the generated root nuget.config + Directory.Build.targets
+# walk-up reaches the scaffolded <PROJECT_NAME>.csproj and the pins install-plugin adds are
+# `Update`d to the ws versions. The CLI builds against the ws cli-core (apply-npm after npm ci).
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   e2e-install:
     name: e2e install ${{ inputs.godotVersion }} (mono)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       # The scaffolded project lives OUTSIDE the repo checkout so the install is a
       # genuine from-scratch consumer (not the in-repo addon source dir).
@@ -67,6 +86,19 @@ jobs:
         with:
           node-version: "22"
 
+      # Chain runs only: the feed builds net9.0 lower layers.
+      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: chain feed
+        id: chain
+        run: python .github/scripts/chain_feed.py apply --node godot-mcp --job e2e-install
+
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
         with:
@@ -78,12 +110,24 @@ jobs:
         shell: bash
         run: godot --version --headless
 
-      - name: Build the CLI from source
+      - name: Install the CLI dependencies
         shell: bash
         working-directory: ./cli
         run: |
           set -euo pipefail
           npm ci
+
+      # AFTER `npm ci`, which would undo a --no-save install; BEFORE the build.
+      - name: chain feed (npm)
+        if: env.CHAIN_ACTIVE == '1'
+        shell: bash
+        run: python .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
+
+      - name: Build the CLI from source
+        shell: bash
+        working-directory: ./cli
+        run: |
+          set -euo pipefail
           npm run build
           test -f bin/godot-cli.js
 
@@ -246,3 +290,58 @@ jobs:
             ${{ env.WORK }}/editor-boot.log
           if-no-files-found: ignore
           retention-days: 7
+
+      # The scaffolded consumer is not a manifest pin, so `record` cannot read it. Its identity is
+      # read HERE from the Godot.NET.Sdk assets file (A7) and written into the leg record — as a
+      # warning when it resolved the ws versions, as a skip `override: not-reached` otherwise.
+      # Never silent.
+      - name: chain leg notes (e2e consumer identity)
+        if: always() && env.CHAIN_ACTIVE == '1'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          temp = pathlib.Path(os.environ["RUNNER_TEMP"]) / "chain"
+          state_path = temp / "leg-state.json"
+          lock = json.loads((temp / "lock.json").read_text(encoding="utf-8"))
+          nodes = lock.get("nodes") or {}
+          expected = {
+              "com.IvanMurzak.ReflectorNet": (nodes.get("reflectornet") or {}).get("ws_version"),
+              "com.IvanMurzak.McpPlugin": (nodes.get("mcp-plugin-dotnet") or {}).get("ws_version"),
+          }
+          project = pathlib.Path(os.environ["WORK"]) / "project"
+          candidates = sorted((project / ".godot" / "mono" / "temp" / "obj").rglob("project.assets.json")) if (project / ".godot").is_dir() else []
+          candidates += [p for p in [project / "obj" / "project.assets.json"] if p.is_file()]
+          state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
+          state.setdefault("warnings", [])
+          state.setdefault("skipped", [])
+          if not candidates:
+              state["skipped"].append({"step": "e2e consumer identity", "reason": "override: not-reached - no project.assets.json under %s" % project})
+          else:
+              libraries = json.loads(candidates[0].read_text(encoding="utf-8-sig")).get("libraries") or {}
+              resolved = {}
+              for key in libraries:
+                  name, _, version = key.partition("/")
+                  resolved[name] = version
+              rows = ["%s resolved %s expected %s" % (pkg, resolved.get(pkg), want) for pkg, want in sorted(expected.items())]
+              if all(want and resolved.get(pkg) == want for pkg, want in expected.items()):
+                  state["warnings"].append("e2e consumer identity ok (%s): %s" % (candidates[0].relative_to(project), "; ".join(rows)))
+              else:
+                  state["skipped"].append({"step": "e2e consumer identity", "reason": "override: not-reached (%s): %s" % (candidates[0].relative_to(project), "; ".join(rows))})
+          state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print("chain: e2e consumer identity -> warnings=%s skipped=%s" % (state["warnings"][-1:], state["skipped"][-1:]))
+          PY
+
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        shell: bash
+        run: python .github/scripts/chain_feed.py record --node godot-mcp --job e2e-install --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && env.CHAIN_ACTIVE == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
