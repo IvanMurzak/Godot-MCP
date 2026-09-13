@@ -80,7 +80,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      # Chain runs only: the feed builds net9.0 lower layers and packs cli-core (engines >=22.14).
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
       - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
         if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/setup-dotnet@v5
@@ -89,24 +89,21 @@ jobs:
             8.0.x
             9.0.x
 
-      - name: Setup Node 22 for the chain feed (chain runs only)
-        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-
-      - name: chain feed
-        id: chain
-        run: python .github/scripts/chain_feed.py apply --node godot-mcp --job dotnet-build-test
-
-      # The leg's cli-core identity row reads cli/node_modules, so a chain run installs it here too.
-      - name: chain feed (npm)
-        if: env.CHAIN_ACTIVE == '1'
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
         shell: bash
         run: |
-          set -euo pipefail
-          (cd cli && npm ci)
-          python .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
+          for c in python3 python; do
+            if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
+              echo "CHAIN_PY=$c" >> "$GITHUB_ENV"; exit 0
+            fi
+          done
+          echo 'chain: no Python 3.9+ on PATH (tried python3, python)' >&2; exit 2
+
+      # Scope: the two csproj consumers this job restores (Godot-Tests.csproj is not in the sln).
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job dotnet-build-test --edges Godot-MCP.csproj --edges Godot-MCP.Tests/Godot-MCP.Tests.csproj
 
       - name: Restore
         run: dotnet restore Godot-MCP.sln
@@ -131,10 +128,10 @@ jobs:
       - name: chain leg record
         id: chain_record
         if: always()
-        run: python .github/scripts/chain_feed.py record --node godot-mcp --job dotnet-build-test --tier T0 --job-status "${{ job.status }}" --out chain-leg.json
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job dotnet-build-test --edges Godot-MCP.csproj --edges Godot-MCP.Tests/Godot-MCP.Tests.csproj --tier T0 --job-status "${{ job.status }}" --out chain-leg.json
 
       - name: chain leg artifact
-        if: always() && env.CHAIN_ACTIVE == '1'
+        if: always() && steps.chain_record.outputs.artifact_name != ''
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.chain_record.outputs.artifact_name }}

@@ -43,6 +43,8 @@ on:
         type: string
 
 # Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# This job restores ONLY Godot-Tests/Godot-Tests.csproj, so `apply` and `record` are scoped to
+# that consumer with the SAME --edges (the other csproj pins are named skipped[] rows).
 # The per-run NUGET_PACKAGES `apply` exports lands in $GITHUB_ENV, so the held-open
 # `godot --headless` editor inherits it (A9: the runtime assembly resolver reads it).
 env:
@@ -75,7 +77,7 @@ jobs:
         with:
           python-version: "3.x"
 
-      # Chain runs only: the feed builds net9.0 lower layers and packs cli-core (engines >=22.14).
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
       - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
         if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/setup-dotnet@v5
@@ -84,24 +86,20 @@ jobs:
             8.0.x
             9.0.x
 
-      - name: Setup Node 22 for the chain feed (chain runs only)
-        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
+              echo "CHAIN_PY=$c" >> "$GITHUB_ENV"; exit 0
+            fi
+          done
+          echo 'chain: no Python 3.9+ on PATH (tried python3, python)' >&2; exit 2
 
       - name: chain feed
         id: chain
-        run: python .github/scripts/chain_feed.py apply --node godot-mcp --job dock-reload
-
-      # The leg's cli-core identity row reads cli/node_modules, so a chain run installs it here too.
-      - name: chain feed (npm)
-        if: env.CHAIN_ACTIVE == '1'
-        shell: bash
-        run: |
-          set -euo pipefail
-          (cd cli && npm ci)
-          python .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job dock-reload --edges Godot-Tests/Godot-Tests.csproj
 
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
@@ -194,10 +192,10 @@ jobs:
         id: chain_record
         if: always()
         shell: bash
-        run: python .github/scripts/chain_feed.py record --node godot-mcp --job dock-reload --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job dock-reload --edges Godot-Tests/Godot-Tests.csproj --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
 
       - name: chain leg artifact
-        if: always() && env.CHAIN_ACTIVE == '1'
+        if: always() && steps.chain_record.outputs.artifact_name != ''
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.chain_record.outputs.artifact_name }}
