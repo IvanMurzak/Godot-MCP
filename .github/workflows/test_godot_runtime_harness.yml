@@ -41,11 +41,30 @@ on:
         required: false
         default: "8.0.0"
         type: string
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+# Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# Under a lock the harness runs the SELF-BUILT linux-x64 gamedev-mcp-server that
+# `chain_feed.py apply` published at the lock sha (GODOT_MCP_SERVER_PATH) instead of
+# `gh release download`; serverVersion is then ignored and the pin drift is recorded.
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   runtime-harness:
     name: runtime harness ${{ inputs.godotVersion }} (mono)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       TEST_PROJECT: Godot-Tests
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
@@ -67,6 +86,32 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
+
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin) and
+      # publishes the linux-x64 gamedev-mcp-server.
+      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
+              echo "CHAIN_PY=$c" >> "$GITHUB_ENV"; exit 0
+            fi
+          done
+          echo 'chain: no Python 3.9+ on PATH (tried python3, python)' >&2; exit 2
+
+      # Scope: the Godot-Tests consumer this job restores + the self-built server it launches.
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job runtime-harness --edges Godot-Tests/Godot-Tests.csproj --edges server-binary
 
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
@@ -114,13 +159,27 @@ jobs:
           cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
 
-      - name: Download the released gamedev-mcp-server
+      # ONE step resolves the binary the start step launches. When the chain lock carries a ws
+      # gamedev-mcp-server, `chain_feed.py apply` published it at the lock sha and exported
+      # GODOT_MCP_SERVER_PATH (its chain-identity.json marker sits beside it and `record` proves
+      # it), so the release download is skipped. Branch on that exported path, NOT on CHAIN_ACTIVE:
+      # apply sets CHAIN_ACTIVE for ANY overridden edge, so a lock whose lower layers are ws while
+      # the server stays at its release takes the normal download below. A job must never hold two
+      # steps with the same id.
+      - name: Resolve the gamedev-mcp-server (released download, or the chain self-built server)
         id: server
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
+            chmod +x "${GODOT_MCP_SERVER_PATH}"
+            test -x "${GODOT_MCP_SERVER_PATH}"
+            echo "chain: skipped gh release download; self-built server binary: ${GODOT_MCP_SERVER_PATH}"
+            echo "bin=${GODOT_MCP_SERVER_PATH}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           mkdir -p server
           # Pull the EXACT release asset the addon's GodotMcpServerView.DownloadUrl would fetch
           # (https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v<ver>/<asset>).
@@ -148,8 +207,8 @@ jobs:
       - name: Start the server (Authorization=none, streamableHttp, fixed port)
         shell: bash
         env:
-          # The path the download step resolved via `find` (nested <rid>/ layout), so this
-          # launches the SAME binary that was chmod'd — never a hardcoded server/bin/<name>.
+          # The path the resolve step exported (the `find`-resolved release binary, or the chain
+          # self-built one), so this launches the SAME binary that was chmod'd.
           SERVER_BIN: ${{ steps.server.outputs.bin }}
         run: |
           set -euo pipefail
@@ -303,3 +362,38 @@ jobs:
             harness-result.json
           if-no-files-found: ignore
           retention-days: 7
+
+      # The addon still pins its release ServerVersion; when the resolve step launched the self-built
+      # server (GODOT_MCP_SERVER_PATH exported — the same condition that step branches on),
+      # `record --warn` names any version drift in warnings[] (never turns the leg RED) and `--skip`
+      # names the release download the run did not perform.
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        shell: bash
+        env:
+          PINNED_SERVER_VERSION: ${{ inputs.serverVersion }}
+        run: |
+          set -uo pipefail
+          extra=()
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
+            ws="$(${{ env.CHAIN_PY }} -c 'import json, os; lock = json.load(open(os.environ["CHAIN_LOCK_PATH"], encoding="utf-8")); print(((lock.get("nodes") or {}).get("gamedev-mcp-server") or {}).get("ws_version") or "(not in lock)")' 2>/dev/null || echo "(lock unreadable)")"
+            if [ "${ws}" != "${PINNED_SERVER_VERSION:-}" ]; then
+              extra+=(--warn "server pin drift: addon ServerVersion ${PINNED_SERVER_VERSION:-?} -> lock gamedev-mcp-server ${ws} (resolve-server-version output ignored under chain)")
+            fi
+            extra+=(--skip "gh release download=chain: launched the self-built linux-x64 server from GODOT_MCP_SERVER_PATH")
+          fi
+          ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job runtime-harness \
+            --edges Godot-Tests/Godot-Tests.csproj --edges server-binary \
+            --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" \
+            --tier T3 --job-status "${{ job.status }}" \
+            "${extra[@]}" \
+            --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
