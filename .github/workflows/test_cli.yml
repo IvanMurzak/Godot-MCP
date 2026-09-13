@@ -1,8 +1,7 @@
 name: Test CLI
 
 # Reusable workflow that builds and tests the godot-mcp-cli npm package under
-# cli/ on a Node 20 & 22 matrix. Wiring it into the PR CI pipeline is a
-# follow-up task; this file only defines the reusable job.
+# cli/ on a Node 20 & 22 matrix. test_pull_request.yml calls it as the `test-cli` job.
 #
 # Chain leg (p2-chain-feed-script §C1-C5): when test_pull_request.yml is dispatched
 # with a lock, `chain_feed.py apply` self-builds the lower layers at the lock SHAs and

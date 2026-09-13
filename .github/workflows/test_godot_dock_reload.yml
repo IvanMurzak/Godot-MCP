@@ -46,7 +46,7 @@ on:
 # This job restores ONLY Godot-Tests/Godot-Tests.csproj, so `apply` and `record` are scoped to
 # that consumer with the SAME --edges (the other csproj pins are named skipped[] rows).
 # The per-run NUGET_PACKAGES `apply` exports lands in $GITHUB_ENV, so the held-open
-# `godot --headless` editor inherits it (A9: the runtime assembly resolver reads it).
+# `godot --headless` editor inherits it (the runtime assembly resolver reads it).
 env:
   CHAIN_LOCK: ${{ inputs.lock }}
   CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}

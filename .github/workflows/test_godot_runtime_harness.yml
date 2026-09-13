@@ -159,10 +159,13 @@ jobs:
           cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
 
-      # ONE step resolves the binary the start step launches. Under a chain lock it is the
-      # gamedev-mcp-server `chain_feed.py apply` published at the lock sha (GODOT_MCP_SERVER_PATH;
-      # its chain-identity.json marker sits beside it and `record` proves it) and the release
-      # download is skipped. A job must never hold two steps with the same id.
+      # ONE step resolves the binary the start step launches. When the chain lock carries a ws
+      # gamedev-mcp-server, `chain_feed.py apply` published it at the lock sha and exported
+      # GODOT_MCP_SERVER_PATH (its chain-identity.json marker sits beside it and `record` proves
+      # it), so the release download is skipped. Branch on that exported path, NOT on CHAIN_ACTIVE:
+      # apply sets CHAIN_ACTIVE for ANY overridden edge, so a lock whose lower layers are ws while
+      # the server stays at its release takes the normal download below. A job must never hold two
+      # steps with the same id.
       - name: Resolve the gamedev-mcp-server (released download, or the chain self-built server)
         id: server
         shell: bash
@@ -170,11 +173,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "${CHAIN_ACTIVE:-}" = "1" ]; then
-            if [ -z "${GODOT_MCP_SERVER_PATH:-}" ]; then
-              echo "::error::CHAIN_ACTIVE=1 but GODOT_MCP_SERVER_PATH is unset — chain_feed.py apply did not export the self-built server."
-              exit 1
-            fi
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
             chmod +x "${GODOT_MCP_SERVER_PATH}"
             test -x "${GODOT_MCP_SERVER_PATH}"
             echo "chain: skipped gh release download; self-built server binary: ${GODOT_MCP_SERVER_PATH}"
@@ -364,9 +363,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # The addon still pins its release ServerVersion; under a lock the harness ran the self-built
-      # server instead. `record --warn` names that drift in warnings[] (never turns the leg RED) and
-      # `--skip` names the release download the chain run did not perform.
+      # The addon still pins its release ServerVersion; when the resolve step launched the self-built
+      # server (GODOT_MCP_SERVER_PATH exported — the same condition that step branches on),
+      # `record --warn` names any version drift in warnings[] (never turns the leg RED) and `--skip`
+      # names the release download the run did not perform.
       - name: chain leg record
         id: chain_record
         if: always()
@@ -376,9 +376,11 @@ jobs:
         run: |
           set -uo pipefail
           extra=()
-          if [ "${CHAIN_ACTIVE:-}" = "1" ]; then
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
             ws="$(${{ env.CHAIN_PY }} -c 'import json, os; lock = json.load(open(os.environ["CHAIN_LOCK_PATH"], encoding="utf-8")); print(((lock.get("nodes") or {}).get("gamedev-mcp-server") or {}).get("ws_version") or "(not in lock)")' 2>/dev/null || echo "(lock unreadable)")"
-            extra+=(--warn "server pin drift: addon ServerVersion ${PINNED_SERVER_VERSION:-?} -> lock gamedev-mcp-server ${ws} (resolve-server-version output ignored under chain)")
+            if [ "${ws}" != "${PINNED_SERVER_VERSION:-}" ]; then
+              extra+=(--warn "server pin drift: addon ServerVersion ${PINNED_SERVER_VERSION:-?} -> lock gamedev-mcp-server ${ws} (resolve-server-version output ignored under chain)")
+            fi
             extra+=(--skip "gh release download=chain: launched the self-built linux-x64 server from GODOT_MCP_SERVER_PATH")
           fi
           ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job runtime-harness \

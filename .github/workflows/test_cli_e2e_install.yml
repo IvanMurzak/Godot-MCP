@@ -70,8 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # The scaffolded project lives OUTSIDE the repo checkout so the install is a
-      # genuine from-scratch consumer (not the in-repo addon source dir).
+      # The scaffolded project lives in a scratch subdirectory of the checkout (NOT the
+      # in-repo addon source dir) so the install is a genuine from-scratch consumer.
       WORK: ${{ github.workspace }}/.e2e-consumer
       PROJECT_NAME: E2EConsumer
     steps:
@@ -297,7 +297,7 @@ jobs:
           retention-days: 7
 
       # The scaffolded consumer is not a manifest pin, so `record` cannot prove it. Its identity is
-      # read from the Godot.NET.Sdk assets file (A7) and handed to `record` — `--warn` when it
+      # read from the Godot.NET.Sdk assets file (under .godot/mono/temp/obj/) and handed to `record` — `--warn` when it
       # resolved the lock's ws versions, `--skip ...=override: not-reached` otherwise (the expected
       # case under this job's npm-only scope). Never silent.
       - name: chain leg record

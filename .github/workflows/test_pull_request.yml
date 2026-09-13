@@ -27,8 +27,9 @@
 # The `dotnet-build-test` job below is an additional aggregate signal, NOT a
 # rename of that check.
 #
-# CHAIN LEG (node `godot-mcp`, taskflow chain-testing, contract p2-chain-feed-script
-# §C1-C5): dispatched with `lock` + `lock_hash8`, every job runs the vendored
+# CHAIN LEG (node `godot-mcp`, contract p2-chain-feed-script §C1-C5 as documented in
+# .github/scripts/chain_feed.py): dispatched with `lock` + `lock_hash8` (or a pull_request
+# carrying a `train/` label, whose lock comes from the PR body), every test job runs the vendored
 # .github/scripts/chain_feed.py — it self-builds ReflectorNet / McpPlugin /
 # gamedev-mcp-server / cli-core at the lock SHAs into a local feed, overrides the NuGet
 # pins via a generated root nuget.config + Directory.Build.targets, and uploads one
@@ -62,7 +63,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && format('chain {0} godo
 # Auto-cancel superseded runs when a new commit is pushed to the same PR, so
 # intermediate pushes don't pile up runner time. A DISPATCHED chain leg is keyed on its
 # lock and never cancelled: two different locks run independently, and a second dispatch
-# of the same lock cannot cancel the first (review C02/B3).
+# of the same lock cannot cancel the first.
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && format('chain-{0}-{1}', inputs.lock_hash8, github.workflow) || format('test-pr-{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && true }}
