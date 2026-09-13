@@ -34,6 +34,12 @@
 # pins via a generated root nuget.config + Directory.Build.targets, and uploads one
 # `chain-leg-godot-mcp-linux-<job>[-<matrix>]` identity record per job. On an ordinary
 # pull_request run `lock` is empty and every chain step is a no-op.
+# Each job passes the SAME `--edges` scope to `apply` and `record`, naming only the edges it
+# actually consumes (confirm with `chain_feed.py print-fragment --node godot-mcp`):
+#   dotnet-build-test            Godot-MCP.csproj + Godot-MCP.Tests/Godot-MCP.Tests.csproj
+#   test-godot-* / dock-reload-* Godot-Tests/Godot-Tests.csproj
+#   runtime-harness-*            Godot-Tests/Godot-Tests.csproj + server-binary
+#   test-cli / e2e-install-*     npm (e2e's scaffolded consumer: `override: not-reached`)
 name: Test Pull Request
 
 on:
