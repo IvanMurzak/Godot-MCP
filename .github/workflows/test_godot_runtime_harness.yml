@@ -41,11 +41,30 @@ on:
         required: false
         default: "8.0.0"
         type: string
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+# Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# Under a lock the harness runs the SELF-BUILT linux-x64 gamedev-mcp-server that
+# `chain_feed.py apply` published at the lock sha (GODOT_MCP_SERVER_PATH) instead of
+# `gh release download`; serverVersion is then ignored and the pin drift is recorded.
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   runtime-harness:
     name: runtime harness ${{ inputs.godotVersion }} (mono)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       TEST_PROJECT: Godot-Tests
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
@@ -67,6 +86,49 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
+
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin) and
+      # publishes the linux-x64 gamedev-mcp-server.
+      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            exe="$("$c" -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>/dev/null)" || continue
+            case "$exe" in /*) ;; *) continue ;; esac
+            case "$exe" in *[[:space:]]*) continue ;; esac
+            [ -f "$exe" ] && [ -x "$exe" ] || continue
+            echo "CHAIN_PY=$exe" >> "$GITHUB_ENV"; exit 0
+          done
+          echo 'chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python3, python)' >&2; exit 2
+      - name: chain python (windows)
+        if: runner.os == 'Windows' && env.CHAIN_PY == ''
+        shell: pwsh
+        run: |
+          foreach ($c in 'python', 'python3') {
+            $cmd = Get-Command $c -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $cmd) { continue }
+            $global:LASTEXITCODE = $null
+            try { $out = & $cmd.Source -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>$null } catch { continue }
+            if ($LASTEXITCODE -ne 0) { continue }
+            $exe = (@($out) -join ' ').Trim()
+            if ($exe -notmatch '^[A-Za-z]:/\S+\z' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+            "CHAIN_PY=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0
+          }
+          [Console]::Error.WriteLine('chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python, python3; never py)'); exit 2
+
+      # Scope: the Godot-Tests consumer this job restores + the self-built server it launches.
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job runtime-harness --edges Godot-Tests/Godot-Tests.csproj --edges server-binary
 
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
@@ -114,13 +176,27 @@ jobs:
           cp -r addons/godot_mcp "${TEST_PROJECT}/addons/godot_mcp"
           test -f "${TEST_PROJECT}/addons/godot_mcp/plugin.cfg"
 
-      - name: Download the released gamedev-mcp-server
+      # ONE step resolves the binary the start step launches. When the chain lock carries a ws
+      # gamedev-mcp-server, `chain_feed.py apply` published it at the lock sha and exported
+      # GODOT_MCP_SERVER_PATH (its chain-identity.json marker sits beside it and `record` proves
+      # it), so the release download is skipped. Branch on that exported path, NOT on CHAIN_ACTIVE:
+      # apply sets CHAIN_ACTIVE for ANY overridden edge, so a lock whose lower layers are ws while
+      # the server stays at its release takes the normal download below. A job must never hold two
+      # steps with the same id.
+      - name: Resolve the gamedev-mcp-server (released download, or the chain self-built server)
         id: server
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
+            chmod +x "${GODOT_MCP_SERVER_PATH}"
+            test -x "${GODOT_MCP_SERVER_PATH}"
+            echo "chain: skipped gh release download; self-built server binary: ${GODOT_MCP_SERVER_PATH}"
+            echo "bin=${GODOT_MCP_SERVER_PATH}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           mkdir -p server
           # Pull the EXACT release asset the addon's GodotMcpServerView.DownloadUrl would fetch
           # (https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v<ver>/<asset>).
@@ -148,8 +224,8 @@ jobs:
       - name: Start the server (Authorization=none, streamableHttp, fixed port)
         shell: bash
         env:
-          # The path the download step resolved via `find` (nested <rid>/ layout), so this
-          # launches the SAME binary that was chmod'd — never a hardcoded server/bin/<name>.
+          # The path the resolve step exported (the `find`-resolved release binary, or the chain
+          # self-built one), so this launches the SAME binary that was chmod'd.
           SERVER_BIN: ${{ steps.server.outputs.bin }}
         run: |
           set -euo pipefail
@@ -201,13 +277,21 @@ jobs:
           fi
 
       - name: Run the headless game harness + assert a live tool roundtrip
+        id: harness
         shell: bash
         env:
           ENGINE_LOGGER_EXPECTED: ${{ steps.leg.outputs.engine_logger_expected }}
+          # T2 chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md). The recorder writes
+          # RUNNER_TEMP/chain-recorded.jsonl (never the checkout). After its own checks the game creates
+          # HOLD_READY_FILE and holds its connection open for at most HOLD_SECONDS (longer than the
+          # recorder's 60 s cap), released early by HOLD_RELEASE_FILE.
+          HOLD_SECONDS: "90"
+          HOLD_READY_FILE: ${{ runner.temp }}/chain-fixture-hold-ready
+          HOLD_RELEASE_FILE: ${{ runner.temp }}/chain-fixture-hold-release
         run: |
           set -uo pipefail
           RESULT="$(pwd)/harness-result.json"
-          rm -f "$RESULT"
+          rm -f "$RESULT" "$HOLD_READY_FILE" "$HOLD_RELEASE_FILE"
 
           # Boot the headless GAME (NOT --editor): project.godot's run/main_scene is
           # Harness/Main.tscn, whose RuntimeHarness.cs (gated by GODOT_MCP_HARNESS=1) builds the
@@ -219,6 +303,9 @@ jobs:
           GODOT_MCP_HARNESS_REQUIRE_CONNECT=1 \
           GODOT_MCP_HARNESS_TIMEOUT_SECONDS=90 \
           GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED="${ENGINE_LOGGER_EXPECTED}" \
+          GODOT_MCP_HARNESS_HOLD_SECONDS="${HOLD_SECONDS}" \
+          GODOT_MCP_HARNESS_HOLD_READY_FILE="${HOLD_READY_FILE}" \
+          GODOT_MCP_HARNESS_HOLD_RELEASE_FILE="${HOLD_RELEASE_FILE}" \
           GODOT_MCP_CONNECTION_MODE=Custom \
           GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
           GODOT_MCP_AUTH_OPTION=None \
@@ -248,6 +335,55 @@ jobs:
             fi
             sleep 1
           done
+
+          # T2 chain record leg: record the RUNTIME tool contract over the server's Streamable-HTTP /mcp
+          # with the MCP-client recorder, capped at 60 s. The ping roundtrip lands as soon as the game is
+          # connected, while the harness is still raising and capturing its errors, so do NOT record yet:
+          # wait for HOLD_READY_FILE, which the harness creates only after its snapshot. That keeps the
+          # recorder's calls out of the capture window the harness asserts on. The verdict
+          # (record-missing / fixture-missing / contract-change) is the NEXT step's job; this step only
+          # records, then releases the hold on success AND on failure, so a broken recorder never costs
+          # the hold budget.
+          RECORD_LOG="${RUNNER_TEMP}/chain-record.log"
+          HOLD_READY=0
+          if [ "$ROUNDTRIP_OK" = "1" ]; then
+            # Bounded by the harness's own 90 s connect+capture budget plus margin, and by the game staying alive.
+            WAIT_START="$(date +%s)"
+            while [ $(( $(date +%s) - WAIT_START )) -lt 120 ]; do
+              if [ -f "$HOLD_READY_FILE" ]; then HOLD_READY=1; break; fi
+              kill -0 "$GAME_PID" 2>/dev/null || break
+              sleep 1
+            done
+            echo "chain-record: harness entered the hold=${HOLD_READY} after $(( $(date +%s) - WAIT_START ))s of waiting."
+          fi
+          if [ "$HOLD_READY" != "1" ]; then
+            if [ "$ROUNDTRIP_OK" = "1" ]; then
+              echo "recorder not run: the harness never entered the hold (the game exited or its checks overran)" > "$RECORD_LOG"
+            else
+              echo "recorder not run: the ping roundtrip never landed" > "$RECORD_LOG"
+            fi
+          else
+            PLUGIN_VERSION="$(sed -n 's/^version="\(.*\)"$/\1/p' addons/godot_mcp/plugin.cfg | head -n1)"
+            # The McpPlugin version the testbed ACTUALLY resolved (the ws version under a chain lock).
+            ASSETS="$(find "${TEST_PROJECT}" -name project.assets.json 2>/dev/null | sort | head -n1)"
+            MCP_PLUGIN_VERSION="$(${{ env.CHAIN_PY }} -c 'import json, sys; libs = json.load(open(sys.argv[1], encoding="utf-8")).get("libraries", {}); print(next((k.split("/", 1)[1] for k in libs if k.lower().startswith("com.ivanmurzak.mcpplugin/")), "unknown"))' "$ASSETS" 2>/dev/null || echo unknown)"
+            # meta.mcp_plugin_version is masked out of the diff, so an unresolved version would never turn a leg red.
+            if [ "${MCP_PLUGIN_VERSION:-unknown}" = "unknown" ]; then
+              echo "::warning title=chain fixture::could not resolve the McpPlugin version from project.assets.json (${ASSETS:-not found}); meta.mcp_plugin_version will read 'unknown'."
+            fi
+            REC_START="$(date +%s)"
+            timeout 60 ${{ env.CHAIN_PY }} .github/scripts/chain_fixture.py record \
+              --server-url "http://localhost:${SERVER_PORT}" \
+              --battery tests/chain-fixtures/battery.json \
+              --engine godot --engine-version "${{ inputs.godotVersion }}" --surface runtime \
+              --plugin-version "${PLUGIN_VERSION:-unknown}" --mcp-plugin-version "${MCP_PLUGIN_VERSION:-unknown}" \
+              --timeout 30 \
+              --out "${RUNNER_TEMP}/chain-recorded.jsonl" > "$RECORD_LOG" 2>&1
+            RECORD_RC=$?
+            echo "chain-record: recorder exit ${RECORD_RC} after $(( $(date +%s) - REC_START ))s (plugin ${PLUGIN_VERSION:-unknown}, McpPlugin ${MCP_PLUGIN_VERSION:-unknown})"
+            cat "$RECORD_LOG" || true
+          fi
+          touch "$HOLD_RELEASE_FILE"
 
           # Wait for the harness game to finish and capture its exit code.
           GAME_RC=0
@@ -282,6 +418,75 @@ jobs:
             exit 1
           fi
 
+      # T2 chain fixture verdict (MCP-Plugin-dotnet docs/chain-fixtures.md F5). Stamps the documented
+      # editor-surface gap into the recorded meta (`surfaces_missing: ["editor"]` — the editor surface is
+      # a follow-up, never silently absent), canonicalises, and diffs against the committed
+      # tests/chain-fixtures/<godotVersion>/tools.jsonl. Never green without a committed fixture.
+      - name: chain fixture diff
+        id: chain_fixture
+        # Only when the harness step actually ran: a failure BEFORE it (Godot setup, build) is not a recorder
+        # failure and must not be reported as record-missing.
+        if: ${{ !cancelled() && steps.harness.outcome != 'skipped' }}
+        shell: bash
+        env:
+          GODOT_VERSION: ${{ inputs.godotVersion }}
+          CHAIN_FIXTURE_DIR: ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}
+        run: |
+          set +e
+          PY=${{ env.CHAIN_PY }}
+          RAW="${RUNNER_TEMP}/chain-recorded.jsonl"
+          STAMPED="${RUNNER_TEMP}/chain-stamped.jsonl"
+          FRESH="${CHAIN_FIXTURE_DIR}/fresh.jsonl"
+          COMMITTED="tests/chain-fixtures/${GODOT_VERSION}/tools.jsonl"
+          mkdir -p "$CHAIN_FIXTURE_DIR"
+          verdict() { echo "verdict=$1" >> "$GITHUB_OUTPUT"; }
+
+          if [ ! -s "$RAW" ]; then
+            verdict record-missing
+            echo "----- chain-record.log -----"; cat "${RUNNER_TEMP}/chain-record.log" 2>/dev/null || true
+            echo "::error title=chain fixture::record-missing: the MCP-client recorder produced no fixture (see the harness step and the log above)"
+            exit 1
+          fi
+
+          "$PY" -c 'import json, sys; lines = open(sys.argv[1], encoding="utf-8").read().split("\n"); meta = json.loads(lines[0]); meta["surfaces_missing"] = ["editor"]; lines[0] = json.dumps(meta, ensure_ascii=False, separators=(",", ":")); open(sys.argv[2], "w", encoding="utf-8", newline="").write("\n".join(lines))' "$RAW" "$STAMPED" \
+            && "$PY" .github/scripts/chain_fixture.py canonicalize "$STAMPED" --out "$FRESH"
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            verdict error
+            echo "::error title=chain fixture::canonicalize exited $rc"
+            exit "$rc"
+          fi
+          "$PY" -c 'import json, sys; lines = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]; kinds = [l.get("kind") for l in lines]; print("chain-record: %d tools, %d calls" % (kinds.count("tool"), kinds.count("call"))); print("chain-record meta: " + json.dumps(lines[0], sort_keys=True))' "$FRESH"
+
+          if [ ! -f "$COMMITTED" ]; then
+            verdict fixture-missing
+            echo "::error title=chain fixture::fixture-missing: $COMMITTED is not committed. Review fresh.jsonl in the chain-fixture-godot-${GODOT_VERSION} artifact and commit it."
+            exit 1
+          fi
+
+          "$PY" .github/scripts/chain_fixture.py diff "$COMMITTED" "$FRESH" > "${CHAIN_FIXTURE_DIR}/diff.txt"
+          rc=$?
+          cat "${CHAIN_FIXTURE_DIR}/diff.txt"
+          case "$rc" in
+            0) verdict identical; echo "chain fixture: identical to $COMMITTED (diff exit 0)" ;;
+            3) verdict contract-change; echo "::error title=chain fixture::contract-change: the runtime tool contract differs from $COMMITTED (unified diff above and in diff.txt)"; exit 3 ;;
+            *) verdict error; echo "::error title=chain fixture::diff exited $rc"; exit "$rc" ;;
+          esac
+
+      # Review aid ONLY, and only when there is something to review (fixture-missing / contract-change):
+      # fresh.jsonl to commit + diff.txt. A green leg uploads nothing, and a chain run uploads only its
+      # JSON leg record (owner artifact rule) — its verdict and meta line are in the job log.
+      - name: chain fixture artifact
+        if: ${{ always() && (steps.chain_fixture.outputs.verdict == 'fixture-missing' || steps.chain_fixture.outputs.verdict == 'contract-change' || steps.chain_fixture.outputs.verdict == 'error') && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: chain-fixture-godot-${{ inputs.godotVersion }}
+          path: |
+            ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/fresh.jsonl
+            ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/diff.txt
+          if-no-files-found: warn
+          retention-days: 1
+
       - name: Stop the server
         if: always()
         shell: bash
@@ -290,8 +495,9 @@ jobs:
             kill "$(cat server.pid)" 2>/dev/null || true
           fi
 
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload logs on failure
-        if: failure()
+        if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: runtime-harness-${{ inputs.godotVersion }}-logs
@@ -303,3 +509,39 @@ jobs:
             harness-result.json
           if-no-files-found: ignore
           retention-days: 7
+
+      # The addon still pins its release ServerVersion; when the resolve step launched the self-built
+      # server (GODOT_MCP_SERVER_PATH exported — the same condition that step branches on),
+      # `record --warn` names any version drift in warnings[] (never turns the leg RED) and `--skip`
+      # names the release download the run did not perform.
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        shell: bash
+        env:
+          PINNED_SERVER_VERSION: ${{ inputs.serverVersion }}
+        run: |
+          set -uo pipefail
+          extra=()
+          if [ -n "${GODOT_MCP_SERVER_PATH:-}" ]; then
+            ws="$(${{ env.CHAIN_PY }} -c 'import json, os; lock = json.load(open(os.environ["CHAIN_LOCK_PATH"], encoding="utf-8")); print(((lock.get("nodes") or {}).get("gamedev-mcp-server") or {}).get("ws_version") or "(not in lock)")' 2>/dev/null || echo "(lock unreadable)")"
+            if [ "${ws}" != "${PINNED_SERVER_VERSION:-}" ]; then
+              extra+=(--warn "server pin drift: addon ServerVersion ${PINNED_SERVER_VERSION:-?} -> lock gamedev-mcp-server ${ws} (resolve-server-version output ignored under chain)")
+            fi
+            extra+=(--skip "gh release download=chain: launched the self-built linux-x64 server from GODOT_MCP_SERVER_PATH")
+          fi
+          ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job runtime-harness \
+            --edges Godot-Tests/Godot-Tests.csproj --edges server-binary \
+            --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" \
+            --tier T3 --job-status "${{ job.status }}" \
+            "${extra[@]}" \
+            --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1

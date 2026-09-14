@@ -26,24 +26,63 @@
 # job display name `dotnet build (.NET 8)` remains the canonical required check.
 # The `dotnet-build-test` job below is an additional aggregate signal, NOT a
 # rename of that check.
+#
+# CHAIN LEG (node `godot-mcp`, contract p2-chain-feed-script §C1-C5 as documented in
+# .github/scripts/chain_feed.py): dispatched with `lock` + `lock_hash8` (or a pull_request
+# carrying a `train/` label, whose lock comes from the PR body), every test job runs the vendored
+# .github/scripts/chain_feed.py — it self-builds ReflectorNet / McpPlugin /
+# gamedev-mcp-server / cli-core at the lock SHAs into a local feed, overrides the NuGet
+# pins via a generated root nuget.config + Directory.Build.targets, and uploads one
+# `chain-leg-godot-mcp-linux-<job>[-<matrix>]` identity record per job. On an ordinary
+# pull_request run `lock` is empty and every chain step is a no-op.
+# Each job passes the SAME `--edges` scope to `apply` and `record`, naming only the edges it
+# actually consumes (confirm with `chain_feed.py print-fragment --node godot-mcp`):
+#   dotnet-build-test            Godot-MCP.csproj + Godot-MCP.Tests/Godot-MCP.Tests.csproj
+#   test-godot-* / dock-reload-* Godot-Tests/Godot-Tests.csproj
+#   runtime-harness-*            Godot-Tests/Godot-Tests.csproj + server-binary
+#   test-cli / e2e-install-*     npm (e2e's scaffolded consumer: `override: not-reached`)
+# ARTIFACTS on a chain run of THIS workflow: ONLY the small per-job `chain-leg-*` JSON record
+# (`retention-days: 1`). Coverage reports and failure-log bundles are skipped under a lock or a
+# `train/` label (owner artifact rule); ordinary pull_request runs keep them. `ci.yml` is a
+# separate, ungated workflow: it still uploads its tiny `dotnet-coverage` on every push/PR,
+# including a `train/`-labelled one.
 name: Test Pull Request
 
 on:
   workflow_dispatch:
+    inputs:
+      lock:
+        description: the chain lock JSON (<= 60000 characters)
+        required: true
+        type: string
+      lock_hash8:
+        description: first 8 hex characters of the lock hash
+        required: true
+        type: string
   pull_request:
     types: [opened, synchronize, reopened]
 
+# Unique per lock on dispatch (verdict lookup by lock hash); GitHub's default title otherwise.
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('chain {0} godot-mcp', inputs.lock_hash8) || '' }}
+
 # Auto-cancel superseded runs when a new commit is pushed to the same PR, so
-# intermediate pushes don't pile up runner time.
+# intermediate pushes don't pile up runner time. A DISPATCHED chain leg is keyed on its
+# lock and never cancelled: two different locks run independently, and a second dispatch
+# of the same lock cannot cancel the first.
 concurrency:
-  group: test-pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'workflow_dispatch' && format('chain-{0}-{1}', inputs.lock_hash8, github.workflow) || format('test-pr-{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && true }}
+
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   # (a) .NET build + xUnit (mirrors ci.yml; aggregate signal for this PR run).
   dotnet-build-test:
     name: dotnet build + test (.NET 8)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,6 +91,48 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
+
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
+      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            exe="$("$c" -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>/dev/null)" || continue
+            case "$exe" in /*) ;; *) continue ;; esac
+            case "$exe" in *[[:space:]]*) continue ;; esac
+            [ -f "$exe" ] && [ -x "$exe" ] || continue
+            echo "CHAIN_PY=$exe" >> "$GITHUB_ENV"; exit 0
+          done
+          echo 'chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python3, python)' >&2; exit 2
+      - name: chain python (windows)
+        if: runner.os == 'Windows' && env.CHAIN_PY == ''
+        shell: pwsh
+        run: |
+          foreach ($c in 'python', 'python3') {
+            $cmd = Get-Command $c -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $cmd) { continue }
+            $global:LASTEXITCODE = $null
+            try { $out = & $cmd.Source -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>$null } catch { continue }
+            if ($LASTEXITCODE -ne 0) { continue }
+            $exe = (@($out) -join ' ').Trim()
+            if ($exe -notmatch '^[A-Za-z]:/\S+\z' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+            "CHAIN_PY=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0
+          }
+          [Console]::Error.WriteLine('chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python, python3; never py)'); exit 2
+
+      # Scope: the two csproj consumers this job restores (Godot-Tests.csproj is not in the sln).
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job dotnet-build-test --edges Godot-MCP.csproj --edges Godot-MCP.Tests/Godot-MCP.Tests.csproj
 
       - name: Restore
         run: dotnet restore Godot-MCP.sln
@@ -64,8 +145,9 @@ jobs:
 
       # Coverage REPORTING only — no failing threshold. Publishes the cobertura report
       # produced by coverlet so progress is measurable; the gate never turns red on low coverage.
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload .NET coverage report
-        if: always()
+        if: always() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: dotnet-coverage
@@ -73,35 +155,62 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job dotnet-build-test --edges Godot-MCP.csproj --edges Godot-MCP.Tests/Godot-MCP.Tests.csproj --tier T0 --job-status "${{ job.status }}" --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1
+
   # (b) godot-mcp-cli node tests (Node 20 & 22).
   test-cli:
     uses: ./.github/workflows/test_cli.yml
+    with:
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   # (c) godot_mcp addon-load smoke across the Godot engine matrix (mono).
   test-godot-4-3:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.3.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-4:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.4.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-5:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.5.1"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-6:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.6.3"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-7:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.7.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   # (f) the in-session-rebuild dock-survival guard across the Godot engine matrix
   #     (mono) via the reusable test_godot_dock_reload.yml — boots a headless editor
@@ -114,26 +223,36 @@ jobs:
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.3.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-4:
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.4.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-5:
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.5.1"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-6:
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.6.3"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-7:
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.7.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   # (e) from-scratch terminal-install E2E across the Godot engine matrix (mono):
   #     build the CLI, scaffold a --dotnet project, run the REAL `install-plugin`
@@ -145,33 +264,46 @@ jobs:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.3.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-4:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.4.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-5:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.5.1"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-6:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.6.3"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-7:
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.7.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
 
   # Single-source the server version the harness downloads from the addon's authoritative
   # constant (GodotMcpServerView.ServerVersion) instead of trusting the reusable workflow's
   # hardcoded default. This guarantees the harness ALWAYS runs against the server release the
   # addon actually pins; bumping the addon's ServerVersion automatically bumps the harness.
+  # Under a chain lock its output is ignored by the harness (the self-built server runs
+  # instead); the leg record's warnings[] names the pin drift.
   resolve-server-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       serverVersion: ${{ steps.read.outputs.serverVersion }}
     steps:
@@ -205,6 +337,8 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.3.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
   runtime-harness-4-4:
@@ -212,6 +346,8 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.4.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
   runtime-harness-4-5:
@@ -219,6 +355,8 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.5.1"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
   runtime-harness-4-6:
@@ -226,6 +364,8 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.6.3"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
   runtime-harness-4-7:
@@ -233,4 +373,6 @@ jobs:
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.7.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}

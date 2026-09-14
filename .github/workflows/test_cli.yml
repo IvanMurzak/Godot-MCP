@@ -1,15 +1,35 @@
 name: Test CLI
 
 # Reusable workflow that builds and tests the godot-mcp-cli npm package under
-# cli/ on a Node 20 & 22 matrix. Wiring it into the PR CI pipeline is a
-# follow-up task; this file only defines the reusable job.
+# cli/ on a Node 20 & 22 matrix. test_pull_request.yml calls it as the `test-cli` job.
+#
+# Chain leg (p2-chain-feed-script §C1-C5): when test_pull_request.yml is dispatched
+# with a lock, `chain_feed.py apply` self-builds the lower layers at the lock SHAs and
+# `apply-npm` installs the ws @baizor/gamedev-cli-core tarball AFTER `npm ci`. On an
+# ordinary run `lock` is empty and every chain step is a no-op.
 on:
   workflow_call:
+    inputs:
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   test-cli:
     name: cli (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +40,47 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Chain runs only: this job's scope is the npm edge, so the feed packs cli-core (engines >=22.14).
+      # Installed BEFORE the matrix Node so the tests below still run on the matrix version.
+      - name: Setup Node 22 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            exe="$("$c" -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>/dev/null)" || continue
+            case "$exe" in /*) ;; *) continue ;; esac
+            case "$exe" in *[[:space:]]*) continue ;; esac
+            [ -f "$exe" ] && [ -x "$exe" ] || continue
+            echo "CHAIN_PY=$exe" >> "$GITHUB_ENV"; exit 0
+          done
+          echo 'chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python3, python)' >&2; exit 2
+      - name: chain python (windows)
+        if: runner.os == 'Windows' && env.CHAIN_PY == ''
+        shell: pwsh
+        run: |
+          foreach ($c in 'python', 'python3') {
+            $cmd = Get-Command $c -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $cmd) { continue }
+            $global:LASTEXITCODE = $null
+            try { $out = & $cmd.Source -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>$null } catch { continue }
+            if ($LASTEXITCODE -ne 0) { continue }
+            $exe = (@($out) -join ' ').Trim()
+            if ($exe -notmatch '^[A-Za-z]:/\S+\z' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+            "CHAIN_PY=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0
+          }
+          [Console]::Error.WriteLine('chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python, python3; never py)'); exit 2
+
+      - name: chain feed
+        id: chain
+        working-directory: ${{ github.workspace }}
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job test-cli --edges npm
+
       - name: Setup Node ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
@@ -27,6 +88,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # AFTER `npm ci`, which would undo a --no-save install.
+      - name: chain feed (npm)
+        if: env.CHAIN_ACTIVE == '1'
+        working-directory: ${{ github.workspace }}
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
 
       - name: Build
         run: npm run build
@@ -37,11 +104,27 @@ jobs:
       # Coverage REPORTING only — no failing threshold (vitest v8 provider). Publishes the
       # report so progress is measurable; the gate never turns red on low coverage. Per-node
       # artifact name avoids upload-artifact@v4 duplicate-name collisions across the matrix.
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload CLI coverage report
-        if: always()
+        if: always() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: cli-coverage-node-${{ matrix.node-version }}
           path: cli/coverage/**
           if-no-files-found: warn
           retention-days: 7
+
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job test-cli --edges npm --matrix "node-${{ matrix.node-version }}" --tier T0 --job-status "${{ job.status }}" --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1

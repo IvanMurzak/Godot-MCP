@@ -43,14 +43,35 @@ on:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
         type: string
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+# Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# Scope: `--edges npm` — the CLI this job builds and drives installs the ws cli-core (apply-npm
+# after its own npm ci). This job restores NONE of the manifest's csproj pins (it scaffolds a
+# fresh consumer), and a nuget selector would make `record` demand their assets files, so the
+# nuget override is out of scope here: the scaffolded consumer restores the RELEASED pins and the
+# leg record says `override: not-reached` for it explicitly (never silent).
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   e2e-install:
     name: e2e install ${{ inputs.godotVersion }} (mono)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
-      # The scaffolded project lives OUTSIDE the repo checkout so the install is a
-      # genuine from-scratch consumer (not the in-repo addon source dir).
+      # The scaffolded project lives in a scratch subdirectory of the checkout (NOT the
+      # in-repo addon source dir) so the install is a genuine from-scratch consumer.
       WORK: ${{ github.workspace }}/.e2e-consumer
       PROJECT_NAME: E2EConsumer
     steps:
@@ -67,6 +88,39 @@ jobs:
         with:
           node-version: "22"
 
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            exe="$("$c" -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>/dev/null)" || continue
+            case "$exe" in /*) ;; *) continue ;; esac
+            case "$exe" in *[[:space:]]*) continue ;; esac
+            [ -f "$exe" ] && [ -x "$exe" ] || continue
+            echo "CHAIN_PY=$exe" >> "$GITHUB_ENV"; exit 0
+          done
+          echo 'chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python3, python)' >&2; exit 2
+      - name: chain python (windows)
+        if: runner.os == 'Windows' && env.CHAIN_PY == ''
+        shell: pwsh
+        run: |
+          foreach ($c in 'python', 'python3') {
+            $cmd = Get-Command $c -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $cmd) { continue }
+            $global:LASTEXITCODE = $null
+            try { $out = & $cmd.Source -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>$null } catch { continue }
+            if ($LASTEXITCODE -ne 0) { continue }
+            $exe = (@($out) -join ' ').Trim()
+            if ($exe -notmatch '^[A-Za-z]:/\S+\z' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+            "CHAIN_PY=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0
+          }
+          [Console]::Error.WriteLine('chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python, python3; never py)'); exit 2
+
+      # Node 22 (above) already satisfies cli-core's engines >=22.14 for the feed's pack.
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job e2e-install --edges npm
+
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
         with:
@@ -78,12 +132,24 @@ jobs:
         shell: bash
         run: godot --version --headless
 
-      - name: Build the CLI from source
+      - name: Install the CLI dependencies
         shell: bash
         working-directory: ./cli
         run: |
           set -euo pipefail
           npm ci
+
+      # AFTER `npm ci`, which would undo a --no-save install; BEFORE the build.
+      - name: chain feed (npm)
+        if: env.CHAIN_ACTIVE == '1'
+        shell: bash
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
+
+      - name: Build the CLI from source
+        shell: bash
+        working-directory: ./cli
+        run: |
+          set -euo pipefail
           npm run build
           test -f bin/godot-cli.js
 
@@ -235,8 +301,9 @@ jobs:
 
           echo "Godot ${{ inputs.godotVersion }}: agent-first flows (--with-server / --enroll / configure --agent) verified."
 
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload logs on failure
-        if: failure()
+        if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: e2e-install-${{ inputs.godotVersion }}-logs
@@ -246,3 +313,62 @@ jobs:
             ${{ env.WORK }}/editor-boot.log
           if-no-files-found: ignore
           retention-days: 7
+
+      # The scaffolded consumer is not a manifest pin, so `record` cannot prove it. Its identity is
+      # read from the Godot.NET.Sdk assets file (under .godot/mono/temp/obj/) and handed to `record` — `--warn` when it
+      # resolved the lock's ws versions, `--skip ...=override: not-reached` otherwise (the expected
+      # case under this job's npm-only scope). Never silent.
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          extra=()
+          if [ "${CHAIN_ACTIVE:-}" = "1" ]; then
+            note="$(${{ env.CHAIN_PY }} - <<'PY' 2>&1 || echo "skip=override: not-reached (consumer identity probe failed)"
+          import json, os, pathlib
+          lock = json.load(open(os.environ["CHAIN_LOCK_PATH"], encoding="utf-8"))
+          nodes = lock.get("nodes") or {}
+          expected = {
+              "com.IvanMurzak.ReflectorNet": (nodes.get("reflectornet") or {}).get("ws_version"),
+              "com.IvanMurzak.McpPlugin": (nodes.get("mcp-plugin-dotnet") or {}).get("ws_version"),
+          }
+          project = pathlib.Path(os.environ["WORK"]) / "project"
+          obj = project / ".godot" / "mono" / "temp" / "obj"
+          candidates = sorted(obj.rglob("project.assets.json")) if obj.is_dir() else []
+          candidates += [p for p in [project / "obj" / "project.assets.json"] if p.is_file()]
+          if not candidates:
+              print("skip=override: not-reached - no project.assets.json under %s" % project)
+          else:
+              libraries = json.loads(candidates[0].read_text(encoding="utf-8-sig")).get("libraries") or {}
+              resolved = dict(key.partition("/")[::2] for key in libraries)
+              rows = "; ".join("%s resolved %s expected %s" % (pkg, resolved.get(pkg), want) for pkg, want in sorted(expected.items()))
+              where = candidates[0].relative_to(project)
+              if all(want and resolved.get(pkg) == want for pkg, want in expected.items()):
+                  print("warn=e2e consumer identity ok (%s): %s" % (where, rows))
+              else:
+                  print("skip=override: not-reached (%s): %s" % (where, rows))
+          PY
+          )"
+            note="$(printf '%s\n' "$note" | tail -n 1)"
+            echo "chain: e2e consumer identity -> ${note}"
+            case "$note" in
+              warn=*) extra+=(--warn "${note#warn=}") ;;
+              *)      extra+=(--skip "e2e consumer identity=${note#skip=}") ;;
+            esac
+          fi
+          ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job e2e-install --edges npm \
+            --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" \
+            --tier T3 --job-status "${{ job.status }}" \
+            "${extra[@]}" \
+            --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1
