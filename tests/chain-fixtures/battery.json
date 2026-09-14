@@ -15,6 +15,7 @@
   "calls": [
     { "name": "reflection-method-find", "args": { "filter": { "namespace": "com.IvanMurzak.Godot.MCP.Tools", "typeName": "Tool_Reflection", "methodName": "MethodFind" }, "knownNamespace": true, "typeNameMatchLevel": 6, "methodNameMatchLevel": 6 } },
     { "name": "reflection-method-find", "args": { "filter": { "typeName": "ChainRecordNoSuchType", "methodName": "ChainRecordNoSuchMethod" }, "typeNameMatchLevel": 6, "methodNameMatchLevel": 6 } },
-    { "name": "chain-record-unknown-tool", "args": {} }
+    { "name": "chain-record-unknown-tool", "args": {} },
+    { "name": "chain-record-plant-unknown-tool", "args": {} }
   ]
 }
