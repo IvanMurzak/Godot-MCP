@@ -176,8 +176,9 @@ jobs:
             --boot-deadline 120 \
             --reload-deadline 120
 
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload logs on failure
-        if: failure()
+        if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: dock-reload-${{ inputs.godotVersion }}-logs
@@ -201,3 +202,4 @@ jobs:
           name: ${{ steps.chain_record.outputs.artifact_name }}
           path: chain-leg.json
           if-no-files-found: error
+          retention-days: 1
