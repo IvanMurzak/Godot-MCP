@@ -41,9 +41,11 @@
 #   test-godot-* / dock-reload-* Godot-Tests/Godot-Tests.csproj
 #   runtime-harness-*            Godot-Tests/Godot-Tests.csproj + server-binary
 #   test-cli / e2e-install-*     npm (e2e's scaffolded consumer: `override: not-reached`)
-# ARTIFACTS on a chain run: ONLY the per-job `chain-leg-*` JSON record (~0.5 KB each,
-# `retention-days: 1`). Coverage reports and failure-log bundles are skipped under a lock or a
-# `train/` label (owner artifact rule, 2026-09-14); ordinary pull_request runs keep them.
+# ARTIFACTS on a chain run of THIS workflow: ONLY the small per-job `chain-leg-*` JSON record
+# (`retention-days: 1`). Coverage reports and failure-log bundles are skipped under a lock or a
+# `train/` label (owner artifact rule); ordinary pull_request runs keep them. `ci.yml` is a
+# separate, ungated workflow: it still uploads its tiny `dotnet-coverage` on every push/PR,
+# including a `train/`-labelled one.
 name: Test Pull Request
 
 on:
@@ -126,8 +128,7 @@ jobs:
 
       # Coverage REPORTING only — no failing threshold. Publishes the cobertura report
       # produced by coverlet so progress is measurable; the gate never turns red on low coverage.
-      # Skipped on chain runs (dispatched lock or a train/ label): a chain run uploads ONLY its
-      # small JSON leg record (owner artifact rule, 2026-09-14); ordinary PRs keep the report.
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload .NET coverage report
         if: always() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
