@@ -87,8 +87,9 @@ jobs:
       # Coverage REPORTING only — no failing threshold (vitest v8 provider). Publishes the
       # report so progress is measurable; the gate never turns red on low coverage. Per-node
       # artifact name avoids upload-artifact@v4 duplicate-name collisions across the matrix.
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload CLI coverage report
-        if: always()
+        if: always() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: cli-coverage-node-${{ matrix.node-version }}
@@ -109,3 +110,4 @@ jobs:
           name: ${{ steps.chain_record.outputs.artifact_name }}
           path: chain-leg.json
           if-no-files-found: error
+          retention-days: 1
