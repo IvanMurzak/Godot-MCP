@@ -83,10 +83,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         const string EnvEngineLoggerExpected = "GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED";
 
         /// <summary>
-        /// T2 chain record leg: after the capture phase, keep the connection OPEN for up to this many seconds so
-        /// the workflow's MCP-client recorder (<c>chain_fixture.py record</c>) can finish its <c>tools/list</c> +
-        /// battery calls through the server. Default 0 (unset / invalid) ⇒ no hold — today's behaviour. The hold
-        /// runs AFTER the shared connect+capture deadline, so it never deducts from that budget (issue #196).
+        /// Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): after the capture phase, keep the connection
+        /// OPEN for up to this many seconds while the workflow's MCP-client recorder (<c>chain_fixture.py record</c>)
+        /// drives its <c>tools/list</c> + battery calls through the server. Default 0 (unset / invalid) ⇒ no hold —
+        /// today's behaviour. The hold runs AFTER the shared connect+capture deadline, so it
+        /// never deducts from that budget (issue #196).
         /// </summary>
         const string EnvHoldSeconds = "GODOT_MCP_HARNESS_HOLD_SECONDS";
 
@@ -95,6 +96,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         /// exited, success or not), so a leg spends only as long as the recording actually takes.
         /// </summary>
         const string EnvHoldReleaseFile = "GODOT_MCP_HARNESS_HOLD_RELEASE_FILE";
+
+        /// <summary>
+        /// Optional path the harness CREATES when it enters the hold. The workflow starts the recorder only once
+        /// this file exists, so the recorder's calls can never overlap the connect/raise/capture phase.
+        /// </summary>
+        const string EnvHoldReadyFile = "GODOT_MCP_HARNESS_HOLD_READY_FILE";
 
         /// <summary>
         /// How many Godot.Variant wire shapes <see cref="CheckVariantRoundTrip"/> must have exercised for the
@@ -211,9 +218,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 // 7) Snapshot the captured rows into the report.
                 Snapshot(report);
 
-                // 7b) T2 chain record leg: keep the connection up while the workflow's MCP-client recorder
-                //     drives tools/list + the battery through the server. Env-gated, default 0 = no hold.
-                //     Runs after the snapshot so the recorder's calls can never change what was asserted.
+                // 7b) Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): signal the workflow (ready
+                //     file) and keep the connection up while its MCP-client recorder drives tools/list + the
+                //     battery. Env-gated, default 0 = no hold. The workflow waits for the ready file before it
+                //     starts recording, so the recorder's calls land after the snapshot and cannot change it.
                 await HoldForRecorderAsync();
             }
             catch (Exception ex)
@@ -432,6 +440,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 return;
 
             var releaseFile = OS.GetEnvironment(EnvHoldReleaseFile);
+            var readyFile = OS.GetEnvironment(EnvHoldReadyFile);
+            if (!string.IsNullOrEmpty(readyFile))
+            {
+                try { System.IO.File.WriteAllText(readyFile, "ready"); }
+                catch (Exception ex) { GD.PushWarning($"[harness] hold: could not write the ready file '{readyFile}': {ex.Message}"); }
+            }
+
             var started = DateTime.UtcNow;
             var until = started + TimeSpan.FromSeconds(holdSeconds);
             var releasedBy = "timeout";

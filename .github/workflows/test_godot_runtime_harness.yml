@@ -260,20 +260,21 @@ jobs:
           fi
 
       - name: Run the headless game harness + assert a live tool roundtrip
+        id: harness
         shell: bash
         env:
           ENGINE_LOGGER_EXPECTED: ${{ steps.leg.outputs.engine_logger_expected }}
-          # T2 chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md). The recorder writes into
-          # CHAIN_FIXTURE_DIR (RUNNER_TEMP, never the checkout); the game holds its connection open for
-          # at most HOLD_SECONDS after its own checks and is released early by HOLD_RELEASE_FILE.
-          CHAIN_FIXTURE_DIR: ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}
-          HOLD_SECONDS: "60"
+          # T2 chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md). The recorder writes
+          # RUNNER_TEMP/chain-recorded.jsonl (never the checkout). After its own checks the game creates
+          # HOLD_READY_FILE and holds its connection open for at most HOLD_SECONDS (longer than the
+          # recorder's 60 s cap), released early by HOLD_RELEASE_FILE.
+          HOLD_SECONDS: "90"
+          HOLD_READY_FILE: ${{ runner.temp }}/chain-fixture-hold-ready
           HOLD_RELEASE_FILE: ${{ runner.temp }}/chain-fixture-hold-release
         run: |
           set -uo pipefail
           RESULT="$(pwd)/harness-result.json"
-          rm -f "$RESULT" "$HOLD_RELEASE_FILE"
-          mkdir -p "$CHAIN_FIXTURE_DIR"
+          rm -f "$RESULT" "$HOLD_READY_FILE" "$HOLD_RELEASE_FILE"
 
           # Boot the headless GAME (NOT --editor): project.godot's run/main_scene is
           # Harness/Main.tscn, whose RuntimeHarness.cs (gated by GODOT_MCP_HARNESS=1) builds the
@@ -286,6 +287,7 @@ jobs:
           GODOT_MCP_HARNESS_TIMEOUT_SECONDS=90 \
           GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED="${ENGINE_LOGGER_EXPECTED}" \
           GODOT_MCP_HARNESS_HOLD_SECONDS="${HOLD_SECONDS}" \
+          GODOT_MCP_HARNESS_HOLD_READY_FILE="${HOLD_READY_FILE}" \
           GODOT_MCP_HARNESS_HOLD_RELEASE_FILE="${HOLD_RELEASE_FILE}" \
           GODOT_MCP_CONNECTION_MODE=Custom \
           GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
@@ -317,17 +319,41 @@ jobs:
             sleep 1
           done
 
-          # T2 chain record leg: while the game still holds the connection (its hold keeps it open after
-          # its own checks), record the RUNTIME tool contract over the server's Streamable-HTTP /mcp with
-          # the MCP-client recorder, capped at 60 s. The verdict (record-missing / fixture-missing /
-          # contract-change) is the NEXT step's job; this step only records, then releases the hold so the
-          # game can finish — on success AND on failure, so a broken recorder never costs the hold budget.
+          # T2 chain record leg: record the RUNTIME tool contract over the server's Streamable-HTTP /mcp
+          # with the MCP-client recorder, capped at 60 s. The ping roundtrip lands as soon as the game is
+          # connected, while the harness is still raising and capturing its errors, so do NOT record yet:
+          # wait for HOLD_READY_FILE, which the harness creates only after its snapshot. That keeps the
+          # recorder's calls out of the capture window the harness asserts on. The verdict
+          # (record-missing / fixture-missing / contract-change) is the NEXT step's job; this step only
+          # records, then releases the hold on success AND on failure, so a broken recorder never costs
+          # the hold budget.
           RECORD_LOG="${RUNNER_TEMP}/chain-record.log"
+          HOLD_READY=0
           if [ "$ROUNDTRIP_OK" = "1" ]; then
+            # Bounded by the harness's own 90 s connect+capture budget plus margin, and by the game staying alive.
+            WAIT_START="$(date +%s)"
+            while [ $(( $(date +%s) - WAIT_START )) -lt 120 ]; do
+              if [ -f "$HOLD_READY_FILE" ]; then HOLD_READY=1; break; fi
+              kill -0 "$GAME_PID" 2>/dev/null || break
+              sleep 1
+            done
+            echo "chain-record: harness entered the hold=${HOLD_READY} after $(( $(date +%s) - WAIT_START ))s of waiting."
+          fi
+          if [ "$HOLD_READY" != "1" ]; then
+            if [ "$ROUNDTRIP_OK" = "1" ]; then
+              echo "recorder not run: the harness never entered the hold (the game exited or its checks overran)" > "$RECORD_LOG"
+            else
+              echo "recorder not run: the ping roundtrip never landed" > "$RECORD_LOG"
+            fi
+          else
             PLUGIN_VERSION="$(sed -n 's/^version="\(.*\)"$/\1/p' addons/godot_mcp/plugin.cfg | head -n1)"
             # The McpPlugin version the testbed ACTUALLY resolved (the ws version under a chain lock).
-            ASSETS="$(find "${TEST_PROJECT}" -name project.assets.json 2>/dev/null | head -n1)"
+            ASSETS="$(find "${TEST_PROJECT}" -name project.assets.json 2>/dev/null | sort | head -n1)"
             MCP_PLUGIN_VERSION="$("${CHAIN_PY:-python3}" -c 'import json, sys; libs = json.load(open(sys.argv[1], encoding="utf-8")).get("libraries", {}); print(next((k.split("/", 1)[1] for k in libs if k.lower().startswith("com.ivanmurzak.mcpplugin/")), "unknown"))' "$ASSETS" 2>/dev/null || echo unknown)"
+            # meta.mcp_plugin_version is masked out of the diff, so an unresolved version would never turn a leg red.
+            if [ "${MCP_PLUGIN_VERSION:-unknown}" = "unknown" ]; then
+              echo "::warning title=chain fixture::could not resolve the McpPlugin version from project.assets.json (${ASSETS:-not found}); meta.mcp_plugin_version will read 'unknown'."
+            fi
             REC_START="$(date +%s)"
             timeout 60 "${CHAIN_PY:-python3}" .github/scripts/chain_fixture.py record \
               --server-url "http://localhost:${SERVER_PORT}" \
@@ -339,8 +365,6 @@ jobs:
             RECORD_RC=$?
             echo "chain-record: recorder exit ${RECORD_RC} after $(( $(date +%s) - REC_START ))s (plugin ${PLUGIN_VERSION:-unknown}, McpPlugin ${MCP_PLUGIN_VERSION:-unknown})"
             cat "$RECORD_LOG" || true
-          else
-            echo "recorder not run: the ping roundtrip never landed" > "$RECORD_LOG"
           fi
           touch "$HOLD_RELEASE_FILE"
 
@@ -383,7 +407,9 @@ jobs:
       # tests/chain-fixtures/<godotVersion>/tools.jsonl. Never green without a committed fixture.
       - name: chain fixture diff
         id: chain_fixture
-        if: ${{ !cancelled() }}
+        # Only when the harness step actually ran: a failure BEFORE it (Godot setup, build) is not a recorder
+        # failure and must not be reported as record-missing.
+        if: ${{ !cancelled() && steps.harness.outcome != 'skipped' }}
         shell: bash
         env:
           GODOT_VERSION: ${{ inputs.godotVersion }}
@@ -434,14 +460,14 @@ jobs:
       # fresh.jsonl to commit + diff.txt. A green leg uploads nothing, and a chain run uploads only its
       # JSON leg record (owner artifact rule) — its verdict and meta line are in the job log.
       - name: chain fixture artifact
-        if: ${{ always() && (steps.chain_fixture.outputs.verdict == 'fixture-missing' || steps.chain_fixture.outputs.verdict == 'contract-change') && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
+        if: ${{ always() && (steps.chain_fixture.outputs.verdict == 'fixture-missing' || steps.chain_fixture.outputs.verdict == 'contract-change' || steps.chain_fixture.outputs.verdict == 'error') && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
         uses: actions/upload-artifact@v6
         with:
           name: chain-fixture-godot-${{ inputs.godotVersion }}
           path: |
             ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/fresh.jsonl
             ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/diff.txt
-          if-no-files-found: ignore
+          if-no-files-found: warn
           retention-days: 1
 
       - name: Stop the server
