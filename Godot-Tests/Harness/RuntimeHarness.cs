@@ -83,6 +83,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         const string EnvEngineLoggerExpected = "GODOT_MCP_HARNESS_ENGINE_LOGGER_EXPECTED";
 
         /// <summary>
+        /// Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): after the capture phase, keep the connection
+        /// OPEN for up to this many seconds while the workflow's MCP-client recorder (<c>chain_fixture.py record</c>)
+        /// drives its <c>tools/list</c> + battery calls through the server. Default 0 (unset / invalid) ⇒ no hold —
+        /// today's behaviour. The hold runs AFTER the shared connect+capture deadline, so it
+        /// never deducts from that budget (issue #196).
+        /// </summary>
+        const string EnvHoldSeconds = "GODOT_MCP_HARNESS_HOLD_SECONDS";
+
+        /// <summary>
+        /// Optional path whose EXISTENCE releases the hold early (the workflow touches it once the recorder has
+        /// exited, success or not), so a leg spends only as long as the recording actually takes.
+        /// </summary>
+        const string EnvHoldReleaseFile = "GODOT_MCP_HARNESS_HOLD_RELEASE_FILE";
+
+        /// <summary>
+        /// Optional path the harness CREATES when it enters the hold. The workflow starts the recorder only once
+        /// this file exists, so the recorder's calls can never overlap the connect/raise/capture phase.
+        /// </summary>
+        const string EnvHoldReadyFile = "GODOT_MCP_HARNESS_HOLD_READY_FILE";
+
+        /// <summary>
         /// How many Godot.Variant wire shapes <see cref="CheckVariantRoundTrip"/> must have exercised for the
         /// leg to pass. Pinned so a future edit that accidentally drops cases cannot turn the issue-#292
         /// assertion into a vacuous "no failures recorded".
@@ -196,6 +217,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
                 // 7) Snapshot the captured rows into the report.
                 Snapshot(report);
+
+                // 7b) Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): signal the workflow (ready
+                //     file) and keep the connection up while its MCP-client recorder drives tools/list + the
+                //     battery. Env-gated, default 0 = no hold. The workflow waits for the ready file before it
+                //     starts recording, so the recorder's calls land after the snapshot and cannot change it.
+                await HoldForRecorderAsync();
             }
             catch (Exception ex)
             {
@@ -396,6 +423,48 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             _ = Task.Run(() =>
                 throw new InvalidOperationException(
                     "[harness] deliberate unobserved Task exception for runtime-error capture (issue #186)."));
+        }
+
+        // --- T2 chain record hold --------------------------------------------------------------------
+
+        /// <summary>
+        /// Keep the live connection open for the workflow's MCP-client recorder. Returns immediately when
+        /// <see cref="EnvHoldSeconds"/> is unset/0 (every non-chain-record use of the harness). Otherwise waits
+        /// until the release file named by <see cref="EnvHoldReleaseFile"/> exists or the hold budget expires,
+        /// and prints the measured hold so the leg log carries it.
+        /// </summary>
+        async Task HoldForRecorderAsync()
+        {
+            var holdSeconds = ParseIntOr(OS.GetEnvironment(EnvHoldSeconds), 0);
+            if (holdSeconds <= 0)
+                return;
+
+            var releaseFile = OS.GetEnvironment(EnvHoldReleaseFile);
+            var readyFile = OS.GetEnvironment(EnvHoldReadyFile);
+            if (!string.IsNullOrEmpty(readyFile))
+            {
+                try { System.IO.File.WriteAllText(readyFile, "ready"); }
+                catch (Exception ex) { GD.PushWarning($"[harness] hold: could not write the ready file '{readyFile}': {ex.Message}"); }
+            }
+
+            var started = DateTime.UtcNow;
+            var until = started + TimeSpan.FromSeconds(holdSeconds);
+            var releasedBy = "timeout";
+
+            GD.Print($"[harness] hold: keeping the connection open for the chain recorder (max {holdSeconds}s, " +
+                     $"releaseFile={(string.IsNullOrEmpty(releaseFile) ? "<none>" : releaseFile)}).");
+
+            while (DateTime.UtcNow < until)
+            {
+                if (!string.IsNullOrEmpty(releaseFile) && System.IO.File.Exists(releaseFile))
+                {
+                    releasedBy = "release-file";
+                    break;
+                }
+                await WaitFramesAsync(5);
+            }
+
+            GD.Print($"[harness] hold: released by {releasedBy} after {(DateTime.UtcNow - started).TotalSeconds:F1}s.");
         }
 
         // --- Robust polling (no blind sleeps) ---------------------------------------------------------

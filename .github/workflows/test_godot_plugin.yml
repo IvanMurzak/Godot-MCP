@@ -20,11 +20,31 @@ on:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
         type: string
+      lock:
+        description: "chain lock JSON (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+      lock_hash8:
+        description: "first 8 hex characters of the lock hash (empty on ordinary runs)"
+        required: false
+        default: ""
+        type: string
+
+# Chain leg (p2-chain-feed-script §C1-C5). Every chain step is a no-op when `lock` is empty.
+# This job restores ONLY Godot-Tests/Godot-Tests.csproj, so `apply` and `record` are scoped to
+# that consumer with the SAME --edges (the other csproj pins are named skipped[] rows).
+# The per-run NUGET_PACKAGES `apply` exports lands in $GITHUB_ENV, so the `godot --headless`
+# editor process below inherits it (the runtime assembly resolver reads it).
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
   test-godot-plugin:
     name: godot ${{ inputs.godotVersion }} (mono)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       # The in-repo test project. The addon is copied into <TEST_PROJECT>/addons/
       # at runtime (a dev junction does not survive checkout).
@@ -37,6 +57,47 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
+
+      # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
+      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+        if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: chain python (posix)
+        if: runner.os != 'Windows' && env.CHAIN_PY == ''
+        shell: bash
+        run: |
+          for c in python3 python; do
+            exe="$("$c" -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>/dev/null)" || continue
+            case "$exe" in /*) ;; *) continue ;; esac
+            case "$exe" in *[[:space:]]*) continue ;; esac
+            [ -f "$exe" ] && [ -x "$exe" ] || continue
+            echo "CHAIN_PY=$exe" >> "$GITHUB_ENV"; exit 0
+          done
+          echo 'chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python3, python)' >&2; exit 2
+      - name: chain python (windows)
+        if: runner.os == 'Windows' && env.CHAIN_PY == ''
+        shell: pwsh
+        run: |
+          foreach ($c in 'python', 'python3') {
+            $cmd = Get-Command $c -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $cmd) { continue }
+            $global:LASTEXITCODE = $null
+            try { $out = & $cmd.Source -c 'import sys, select, zlib, hashlib; sys.version_info >= (3, 9) or sys.exit(1); print(sys.executable.replace(chr(92), chr(47)))' 2>$null } catch { continue }
+            if ($LASTEXITCODE -ne 0) { continue }
+            $exe = (@($out) -join ' ').Trim()
+            if ($exe -notmatch '^[A-Za-z]:/\S+\z' -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { continue }
+            "CHAIN_PY=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0
+          }
+          [Console]::Error.WriteLine('chain: no Python 3.9+ on PATH that runs and reports an absolute, space-free sys.executable (tried python, python3; never py)'); exit 2
+
+      - name: chain feed
+        id: chain
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job test-godot-plugin --edges Godot-Tests/Godot-Tests.csproj
 
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         uses: chickensoft-games/setup-godot@v2
@@ -132,8 +193,9 @@ jobs:
 
           echo "Godot ${{ inputs.godotVersion }}: addon loaded cleanly."
 
+      # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
       - name: Upload logs on failure
-        if: failure()
+        if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: godot-${{ inputs.godotVersion }}-logs
@@ -143,3 +205,18 @@ jobs:
             editor-boot.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: chain leg record
+        id: chain_record
+        if: always()
+        shell: bash
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job test-godot-plugin --edges Godot-Tests/Godot-Tests.csproj --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
+
+      - name: chain leg artifact
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1
