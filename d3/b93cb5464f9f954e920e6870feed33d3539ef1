@@ -1,0 +1,32 @@
+.gitattributes
+  s_de71e20c9d8602::t_5fc7f4f0126457 30-35
+Godot-Tests/Harness/RuntimeHarness.cs
+  s_de71e20c9d8602::t_be53a67999b6c8 85-98
+  s_de71e20c9d8602::t_229b7ae269e007 420-454
+  s_de71e20c9d8602::t_59fecd0d977913 213-217
+tests/chain-fixtures/battery.json
+  s_de71e20c9d8602::t_e8d9d9a67812c1 1-20
+.github/workflows/test_godot_runtime_harness.yml
+  s_de71e20c9d8602::t_3d7f5838723318 380-446
+  s_de71e20c9d8602::t_a066267250b3fd 266-271,275-276
+  s_de71e20c9d8602::t_76c9632f4ab352 320-346
+  s_de71e20c9d8602::t_bec32d7b916270 288-289
+.github/scripts/chain_fixture.py
+  s_de71e20c9d8602::t_5104dc5586284c 1-888
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d3b93cb5464f9f954e920e6870feed33d3539ef1",
+  "prompts": {},
+  "sessions": {
+    "s_de71e20c9d8602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b1fa7ae0-224c-4b0e-8499-22456e0d6a3f",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

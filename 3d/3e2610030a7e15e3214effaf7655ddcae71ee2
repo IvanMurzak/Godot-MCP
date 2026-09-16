@@ -1,0 +1,22 @@
+.github/workflows/ci.yml
+  s_59e68aa2558c1c::t_e8e83f820fce50 9-26
+scripts/check-runtime-boundary.py
+  s_59e68aa2558c1c::t_82499923b2a7e9 1-50,66-69,72-75,78-81,100-101,106-117,130-220
+  s_59e68aa2558c1c::t_441e5df3157021 51-65,70-71,76-77,82-99,102-105,118-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "3d3e2610030a7e15e3214effaf7655ddcae71ee2",
+  "prompts": {},
+  "sessions": {
+    "s_59e68aa2558c1c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c1137065-46ff-480d-ac13-5efe7896a8c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

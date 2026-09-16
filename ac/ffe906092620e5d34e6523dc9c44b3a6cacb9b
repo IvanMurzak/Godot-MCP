@@ -1,0 +1,29 @@
+Godot-MCP.Tests/GodotProjectIdentityTests.cs
+  s_aa9148e34dd16d::t_47c0bc9dcc8d9a 207-324
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorSettingsFactory.cs
+  s_aa9148e34dd16d::t_7ff6bf5900880a 41-45,67,85-93,95-108
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_aa9148e34dd16d::t_a62c446de8375a 724-731,741
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_aa9148e34dd16d::t_c6a016849586fb 99-109
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_aa9148e34dd16d::t_56b64c706c0975 1235-1264
+addons/godot_mcp/Runtime/Connection/GodotProjectIdentity.cs
+  s_aa9148e34dd16d::t_abfbd0e83bb6a3 119-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "acffe906092620e5d34e6523dc9c44b3a6cacb9b",
+  "prompts": {},
+  "sessions": {
+    "s_aa9148e34dd16d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a5b4d45637ddaf014",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

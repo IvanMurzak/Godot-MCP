@@ -1,0 +1,35 @@
+Godot-MCP.Tests/RuntimeErrorCaptureRebindTests.cs
+  s_061d04fe51d036::t_b98fd9ec6b8f23 226
+  s_061d04fe51d036::t_3913ab8e88f524 1-113,115,124-126,132,134,137-138,140,142-143,146-152,154,158-160,167,170,174-225,227-233,235-244,247-255,257-270
+  s_061d04fe51d036::t_c83dec09bbdcc2 234,245-246,256
+  s_061d04fe51d036::t_5d7053defd2058 114,116-123,127-131,133,135-136,139,141,144-145,153,155-157,161-166,168-169,171-173
+addons/godot_mcp/Runtime/Tools/ScriptErrorCapture.cs
+  s_061d04fe51d036::t_416ca46a011a63 314-366
+addons/godot_mcp/Runtime/Tools/GodotScriptErrorLogger.cs
+  s_061d04fe51d036::t_ef879183dcbe8b 315,328-330
+  s_061d04fe51d036::t_dcbc742c201781 60-65,72-93
+  s_061d04fe51d036::t_c957b3a686f331 310-314,316-327,331-332,334-337,339-341
+addons/godot_mcp/Runtime/RuntimeErrorCapture.cs
+  s_061d04fe51d036::t_8faaa7612c97e7 252
+  s_061d04fe51d036::t_44d70387f65190 98-101
+  s_061d04fe51d036::t_74748ba0b52097 63,67-71,74
+  s_061d04fe51d036::t_8b150e9ca2b4bb 149,152-156
+  s_061d04fe51d036::t_499e116d8d1aa3 64-66,72-73,75
+  s_061d04fe51d036::t_db53fccb26091c 221-224,229-230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "d552c4c3744754163039d8ae0c9caf5d5f02fa65",
+  "prompts": {},
+  "sessions": {
+    "s_061d04fe51d036": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e91881c-94d8-4d41-b0b1-fe8f4a058c7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

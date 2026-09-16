@@ -1,0 +1,157 @@
+addons/godot_mcp/UI/Agents/Impl/CursorConfigurator.cs
+  s_cf7ef7d7435eeb::t_a13aef8cb0fe95 24-25
+  s_cf7ef7d7435eeb::t_e9e3f90a516368 23
+addons/godot_mcp/UI/Agents/Impl/VisualStudioConfigurator.cs
+  s_cf7ef7d7435eeb::t_bbc5214c7ba76e 1-50
+addons/godot_mcp/UI/DockTheme.cs
+  s_cf7ef7d7435eeb::t_946c11099227e4 73-76
+  s_cf7ef7d7435eeb::t_e0002273ec8ee5 77-80
+  s_cf7ef7d7435eeb::t_d2af690d23b20e 44-50
+  s_cf7ef7d7435eeb::t_8430106941cb81 81-85,87-88
+  h_8325a340bf5897 86,89
+  s_cf7ef7d7435eeb::t_70f586f6caed8b 53-56,58-59
+  s_cf7ef7d7435eeb::t_658309954a7e77 221-223
+addons/godot_mcp/UI/SupportFooterLinks.cs
+  s_cf7ef7d7435eeb::t_e82555e30817c2 53-63
+addons/godot_mcp/UI/Agents/Impl/GitHubCopilotCliConfigurator.cs
+  s_cf7ef7d7435eeb::t_6221573e5a339a 1-47
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_cf7ef7d7435eeb::t_3969c2ea94ea4b 286
+  s_cf7ef7d7435eeb::t_bb1eb4b1fa32ca 301-303
+  s_cf7ef7d7435eeb::t_3988c4545b07a8 288
+  s_cf7ef7d7435eeb::t_87780be89ca9c8 271-272,274-275
+  s_cf7ef7d7435eeb::t_9bb74d9a78500a 444,455-462
+  s_cf7ef7d7435eeb::t_b93690830e01db 743-745
+  s_cf7ef7d7435eeb::t_242a4f886c5f35 689-690
+  s_cf7ef7d7435eeb::t_9434a274753f92 309-316,328
+  s_cf7ef7d7435eeb::t_bc0944478efae2 709-710
+  s_cf7ef7d7435eeb::t_b854f03061f4e8 279,281-285
+  s_cf7ef7d7435eeb::t_32bfdc62d34820 652-653
+  s_cf7ef7d7435eeb::t_78be8954c40e0f 258-261
+  s_cf7ef7d7435eeb::t_b4482764e84a3a 265
+  s_cf7ef7d7435eeb::t_68130687e1e9a9 51-59
+  s_cf7ef7d7435eeb::t_9ea0daffc2945b 434-435
+  s_cf7ef7d7435eeb::t_a9a9f0be29d056 914-915
+addons/godot_mcp/UI/Agents/Impl/ClaudeCodeConfigurator.cs
+  s_cf7ef7d7435eeb::t_d569953f796c5b 27
+  s_cf7ef7d7435eeb::t_b4b9c623021ad7 31-33
+  s_cf7ef7d7435eeb::t_cb5291b19458b6 23
+addons/godot_mcp/UI/Agents/GodotAgentConfiguratorRegistry.cs
+  s_cf7ef7d7435eeb::t_ffa06416f47a73 36-38,40-47
+addons/godot_mcp/UI/Agents/Impl/ClineConfigurator.cs
+  s_cf7ef7d7435eeb::t_ff0bcc89b53b73 1-51
+addons/godot_mcp/UI/Agents/Impl/OpenCodeConfigurator.cs
+  s_cf7ef7d7435eeb::t_9f5d1433a81d46 1-54
+addons/godot_mcp/UI/FeaturesPanel.cs
+  s_cf7ef7d7435eeb::t_8d8b8d84d9af9b 92
+  s_cf7ef7d7435eeb::t_c50e629a39a36d 103-104
+addons/godot_mcp/UI/Agents/Impl/CodexConfigurator.cs
+  s_cf7ef7d7435eeb::t_dd2e5d77b5ebec 1-50
+addons/godot_mcp/UI/SkillsPanel.cs
+  s_cf7ef7d7435eeb::t_04029d1a73447e 173-175
+  s_cf7ef7d7435eeb::t_fd5f8f6a9aa688 78-80
+  s_cf7ef7d7435eeb::t_dbb0d8775c341a 147-151,153,156,164,166,169,171
+  s_cf7ef7d7435eeb::t_c0e95155ca67b1 277
+addons/godot_mcp/UI/Agents/Impl/KiloCodeConfigurator.cs
+  s_cf7ef7d7435eeb::t_6d0469b72121c3 1-46
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_cf7ef7d7435eeb::t_871e9ccdb0c8eb 360-362
+  s_cf7ef7d7435eeb::t_f32bd0b2206501 576
+  s_cf7ef7d7435eeb::t_32c47d731c4e07 587-590
+  s_cf7ef7d7435eeb::t_a0c6d56e19347e 144-145
+  s_cf7ef7d7435eeb::t_d10d177ff28225 178
+  s_cf7ef7d7435eeb::t_751fa8bcee1575 600
+  s_cf7ef7d7435eeb::t_d104ec64cd9aa0 521
+  s_cf7ef7d7435eeb::t_d871294225054c 242-243,250-251,253
+  s_cf7ef7d7435eeb::t_99fb631e8a9cdb 46-49
+  s_cf7ef7d7435eeb::t_3650db09ef699e 188-196,200-202,204-219,221,224
+  s_cf7ef7d7435eeb::t_85cf982baacfe2 203
+  s_cf7ef7d7435eeb::t_e53e2b25bbc247 563
+  s_cf7ef7d7435eeb::t_e6ccfcd85ebfc7 111-113,116
+  s_cf7ef7d7435eeb::t_96edda2c9740dc 291-292
+  s_cf7ef7d7435eeb::t_43c1d12e61578e 359,364-366,370
+  s_cf7ef7d7435eeb::t_4424b492882c14 288
+  s_cf7ef7d7435eeb::t_78fa3ad216bf49 404-417
+Godot-MCP.Tests/DockThemeTests.cs
+  s_cf7ef7d7435eeb::t_9354362d08f431 63-66
+  s_cf7ef7d7435eeb::t_65633c28979c76 89,91
+addons/godot_mcp/UI/Agents/AgentAlertView.cs
+  s_cf7ef7d7435eeb::t_d918a79ab40986 68-71,73-91
+  s_cf7ef7d7435eeb::t_8cd6c212a15e33 31-37,39-44
+addons/godot_mcp/UI/Agents/Impl/GeminiConfigurator.cs
+  s_cf7ef7d7435eeb::t_bd6181713bac6e 1-46
+addons/godot_mcp/UI/Agents/Impl/ClaudeDesktopConfigurator.cs
+  s_cf7ef7d7435eeb::t_47f349ffb49bc0 24
+  s_cf7ef7d7435eeb::t_362a8312edddb8 25
+addons/godot_mcp/UI/Agents/Impl/VisualStudioCodeConfigurator.cs
+  s_cf7ef7d7435eeb::t_5a7c34fcf60839 23-24
+  s_cf7ef7d7435eeb::t_6067b0b7b3b349 26
+  s_cf7ef7d7435eeb::t_e305e268af7747 22,27-28
+addons/godot_mcp/UI/Agents/Impl/RiderConfigurator.cs
+  s_cf7ef7d7435eeb::t_a6640c20dcf194 1-49
+addons/godot_mcp/UI/ConnectionPanelView.cs
+  s_cf7ef7d7435eeb::t_2809c23d080f66 87-88,91-93
+addons/godot_mcp/UI/SupportFooter.cs
+  s_cf7ef7d7435eeb::t_10a2dc51c790e0 40
+  s_cf7ef7d7435eeb::t_5a634336991454 77-78,85,87-88,91-107,109-113
+  s_cf7ef7d7435eeb::t_742343058f1665 38-39
+  s_cf7ef7d7435eeb::t_5933e5d17c8dc1 58
+addons/godot_mcp/UI/DockStyle.cs
+  s_cf7ef7d7435eeb::t_eea945ac78b007 141
+  s_cf7ef7d7435eeb::t_6a949ca1c00d61 542-543,546
+  s_cf7ef7d7435eeb::t_35c1fbed41d01f 114,121
+  s_cf7ef7d7435eeb::t_9d0e0ae2af8be5 153-183,188-191
+  s_cf7ef7d7435eeb::t_a89acd1b1cb54b 528
+  s_cf7ef7d7435eeb::t_45b22f97cc5896 266-267,269-278,280-283,285-294
+  s_cf7ef7d7435eeb::t_c64efd6ed8b06a 213,223,229
+  s_cf7ef7d7435eeb::t_5c092b6a163453 439
+  s_cf7ef7d7435eeb::t_0fdb45fca4d775 513-517,523
+  s_cf7ef7d7435eeb::t_952fb6ebbf62c4 37-67
+  s_cf7ef7d7435eeb::t_ce4b25e360b96a 187
+  s_cf7ef7d7435eeb::t_eca137018f9e8f 204-212,214-218
+  s_cf7ef7d7435eeb::t_726851713389b9 527
+  s_cf7ef7d7435eeb::t_6ade2668011fba 184-186
+  s_cf7ef7d7435eeb::t_e23ef6032c6254 821-837
+addons/godot_mcp/UI/Agents/Impl/ZooCodeConfigurator.cs
+  s_cf7ef7d7435eeb::t_c68412f25a990c 1-46
+Godot-MCP.Tests/AgentConfiguratorTests.cs
+  s_cf7ef7d7435eeb::t_3cb8e5f5583c2f 371,373-376,387,389-408,410-423
+  s_cf7ef7d7435eeb::t_0d8ae5826a6469 409
+Godot-MCP.Tests/ConnectionPanelViewTests.cs
+  s_cf7ef7d7435eeb::t_557e4ce3b74a99 94-96
+Godot-MCP.Tests/AgentAlertViewTests.cs
+  s_cf7ef7d7435eeb::t_ec2b04ceb36bf0 55-64,66-67,76-80,82
+addons/godot_mcp/UI/Agents/AgentConfigPaths.cs
+  s_cf7ef7d7435eeb::t_7cb9ea7cdeea05 69-109
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_cf7ef7d7435eeb::t_1e31b0ae89817a 210-219
+addons/godot_mcp/UI/Agents/Impl/AntigravityConfigurator.cs
+  s_cf7ef7d7435eeb::t_b226ec6fdff66a 17-20,30,34-35,46-47
+  s_cf7ef7d7435eeb::t_3cd8584c141793 1-16,21-29,31-33,36-45,48-49
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_cf7ef7d7435eeb::t_79f1fbf93b3b95 213-217
+  s_cf7ef7d7435eeb::t_11e624320f6956 183-184,187-190,196,199,203-204,206-208,210-212,218-222,225-227,229-230,232,234
+  s_cf7ef7d7435eeb::t_35c5f4f8294447 128-137,143-144,146
+  s_cf7ef7d7435eeb::t_c9bfc5b2650141 100-112,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "046d99fe040b39a47b62d36934ebb1f7136b5851",
+  "prompts": {},
+  "humans": {
+    "h_8325a340bf5897": {
+      "author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_cf7ef7d7435eeb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43e0612a-829b-4e33-b2f7-3d1fbe030ca4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

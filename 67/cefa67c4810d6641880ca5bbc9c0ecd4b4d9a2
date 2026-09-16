@@ -1,0 +1,43 @@
+cli/tests/extensions-catalog-parity.test.ts
+  s_e3cea916442b5e::t_77143c4747a7d6 15-21
+  s_e3cea916442b5e::t_258573fc67ccea 29-37
+  s_e3cea916442b5e::t_e35a83b130c16b 38-40
+  s_58aa3855ce8ef0::t_d1a48a6102764a 41-47,61,86-95
+addons/godot_mcp/Runtime/Extensions/GodotExtensionDescriptor.cs
+  s_e3cea916442b5e::t_525e2a2c48f3e1 18-27
+  s_e3cea916442b5e::t_26f19de3b8012f 15-17
+  s_e3cea916442b5e::t_4d3426b5b907bf 28-30
+  s_58aa3855ce8ef0::t_04ce92ecb4d7a2 31,63-67,74-75,83-85
+Godot-MCP.Tests/GodotExtensionCatalogTests.cs
+  s_58aa3855ce8ef0::t_935ee67c67d2fc 38-44,72-84,96-104
+addons/godot_mcp/Runtime/Extensions/GodotExtensionCatalog.cs
+  s_58aa3855ce8ef0::t_8ed01b4eee9e75 92-100,107-108,152,160-169
+addons/godot_mcp/extensions.catalog.md
+  s_58aa3855ce8ef0::t_7888a48fcedce8 27-33,48-55
+cli/src/utils/extensions-catalog.ts
+  s_58aa3855ce8ef0::t_2e5b455d7f7202 22-38,43-44,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "67cefa67c4810d6641880ca5bbc9c0ecd4b4d9a2",
+  "prompts": {},
+  "sessions": {
+    "s_58aa3855ce8ef0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a2eacca422d3e81f4",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e3cea916442b5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c575ab56-73e6-4952-bb8b-fef415924e27",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

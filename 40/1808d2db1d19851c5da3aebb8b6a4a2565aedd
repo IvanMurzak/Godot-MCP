@@ -1,0 +1,19 @@
+addons/godot_mcp/Tools/Tool_Node.Create.cs
+  s_e36a2a3c4d1c6f::t_09213e104480fd 58-59,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "401808d2db1d19851c5da3aebb8b6a4a2565aedd",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

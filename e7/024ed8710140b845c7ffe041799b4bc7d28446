@@ -1,0 +1,54 @@
+addons/godot_mcp/UI/Agents/GodotAgentConfigurator.cs
+  s_e36a2a3c4d1c6f::t_45c3c0c735c0ad 134-142
+addons/godot_mcp/UI/FeaturesPanelView.cs
+  s_e36a2a3c4d1c6f::t_bcd7668b744c6b 58-68
+Godot-MCP.Tests/DockThemeTests.cs
+  s_e36a2a3c4d1c6f::t_ad327cc1bf7665 74-91
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_4bde9f7d095276 174
+addons/godot_mcp/UI/FeatureRow.cs
+  s_e36a2a3c4d1c6f::t_60f0e608d55865 19-25,50-51,53-63,68,70-71,78,80-82,85-92,97,102,110
+Godot-MCP.Tests/AgentConfiguratorTests.cs
+  s_e36a2a3c4d1c6f::t_6c7120c6d38074 167-231
+addons/godot_mcp/UI/Agents/AgentAlertView.cs
+  s_e36a2a3c4d1c6f::t_eacc029aeaa36a 1-65
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_e36a2a3c4d1c6f::t_6c073ead6885bb 166
+  s_e36a2a3c4d1c6f::t_20b90505ec3e9b 167
+  s_e36a2a3c4d1c6f::t_aaaa7cefdaa1ec 274,283,292,296
+  s_e36a2a3c4d1c6f::t_7ded052fe0ce6c 349
+  s_e36a2a3c4d1c6f::t_ceed1c36a25fb3 45-48
+  s_e36a2a3c4d1c6f::t_3f77fb9639bd97 444-448,459-461,479-519
+  s_e36a2a3c4d1c6f::t_4926a6f32f5b69 375,387,399
+  s_e36a2a3c4d1c6f::t_37f38e5625c93b 49-55,66-69,179,266-267
+  s_e36a2a3c4d1c6f::t_722abc32f8ec5d 177-178,180-192,199,204,213,218,220,222-226,228,237-265
+  s_e36a2a3c4d1c6f::t_7209b0c86abf1c 318,329
+Godot-MCP.Tests/AgentAlertViewTests.cs
+  s_e36a2a3c4d1c6f::t_f5747bf0f840a3 1-76
+Godot-MCP.Tests/FeaturesPanelViewTests.cs
+  s_e36a2a3c4d1c6f::t_7baa3d30c75c30 78-93
+addons/godot_mcp/UI/Agents/AgentConfigJson.cs
+  s_e36a2a3c4d1c6f::t_b6b4bf9b3a8015 128-157
+  s_e36a2a3c4d1c6f::t_6f631144c64f7b 32-49,127
+addons/godot_mcp/UI/DockStyle.cs
+  s_e36a2a3c4d1c6f::t_8569b463cbd5fa 146-179
+addons/godot_mcp/UI/DockTheme.cs
+  s_e36a2a3c4d1c6f::t_78cf92805be5f4 116-127
+  s_e36a2a3c4d1c6f::t_9c79a2f7f74b25 58-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "e7024ed8710140b845c7ffe041799b4bc7d28446",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

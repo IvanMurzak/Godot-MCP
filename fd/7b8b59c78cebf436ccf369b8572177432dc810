@@ -1,0 +1,42 @@
+Godot-MCP.Tests/AgentSessionViewTests.cs
+  s_06c53c82d6e5ea::t_2da05e2a3bca4b 1-62
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_06c53c82d6e5ea::t_45c85267c6ec4c 29,165,501
+  s_06c53c82d6e5ea::t_7db80e67ddf6fc 1177-1178
+  s_06c53c82d6e5ea::t_ccdebdc6483766 372
+  s_06c53c82d6e5ea::t_67be52fdc29d28 1159
+  s_06c53c82d6e5ea::t_ff80a6d301429b 166-182
+  s_06c53c82d6e5ea::t_5b7e748e827dab 248-266
+  s_06c53c82d6e5ea::t_22ac1605191bfd 502-557
+addons/godot_mcp/UI/AgentSessionView.cs
+  s_06c53c82d6e5ea::t_dd1f07ca5c52d1 1-78
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_06c53c82d6e5ea::t_4f22c15569eda1 149
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_06c53c82d6e5ea::t_1c0bc7bde01c85 1073-1086,1088-1112
+  s_06c53c82d6e5ea::t_697f00d5115104 90-93
+  s_06c53c82d6e5ea::t_9bb55bc2d0858c 1087
+  s_06c53c82d6e5ea::t_03f42b9182d286 17
+  s_06c53c82d6e5ea::t_cb76f1f989f9ac 1151-1169
+  s_06c53c82d6e5ea::t_9e949152919792 322-323,325-334,337-344
+  s_06c53c82d6e5ea::t_d99164f52236c3 144-149
+  s_06c53c82d6e5ea::t_7b914b3cb358d1 220-225
+  s_06c53c82d6e5ea::t_05af8a8edd72c7 233
+  s_06c53c82d6e5ea::t_962b45ea089abe 1176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "fd7b8b59c78cebf436ccf369b8572177432dc810",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

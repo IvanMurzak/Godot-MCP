@@ -1,0 +1,21 @@
+Godot-MCP.csproj
+  s_6009cd18fe4856::t_e399d1240b0131 20
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_6009cd18fe4856::t_ad34783bd63016 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1144b6f5b543675ce33e4bfcd92ea5b4a47f83b7",
+  "prompts": {},
+  "sessions": {
+    "s_6009cd18fe4856": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6211f32-f6fe-4c1d-a603-efe42798f8fe",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

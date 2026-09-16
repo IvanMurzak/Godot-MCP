@@ -1,0 +1,21 @@
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_9e1686e62c1946::t_3c455c0dbe1962 62
+addons/godot_mcp/plugin.cfg
+  s_9e1686e62c1946::t_59ac3ff788a11c 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4a81196194d33cd7364a6a215d2e5d0823df6eb7",
+  "prompts": {},
+  "sessions": {
+    "s_9e1686e62c1946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4945dacf-1249-4028-8a7f-8121d8c118b7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
