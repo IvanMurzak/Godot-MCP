@@ -40,7 +40,9 @@
 #   dotnet-build-test            Godot-MCP.csproj + Godot-MCP.Tests/Godot-MCP.Tests.csproj
 #   test-godot-* / dock-reload-* Godot-Tests/Godot-Tests.csproj
 #   runtime-harness-*            Godot-Tests/Godot-Tests.csproj + server-binary
-#   test-cli / e2e-install-*     npm (e2e's scaffolded consumer: `override: not-reached`)
+#   test-cli / e2e-install-*     npm (e2e's scaffolded consumer: `override: not-reached`; under a
+#                                lock the e2e install itself is DEFERRED to post-publish, a named
+#                                skipped[] row — see test_cli_e2e_install.yml's header)
 # ARTIFACTS on a chain run of THIS workflow: ONLY the small per-job `chain-leg-*` JSON record
 # (`retention-days: 1`). Coverage reports and failure-log bundles are skipped under a lock or a
 # `train/` label (owner artifact rule); ordinary pull_request runs keep them. `ci.yml` is a
