@@ -63,14 +63,18 @@ on:
 # DEFERRED UNDER A RELEASE TRAIN (owner decision). `install-plugin` writes the addon's NuGet pins
 # into the scaffolded consumer, and that consumer restores them from nuget.org — on an ordinary
 # run those are RELEASED versions, so the from-scratch install is proven end to end. Under a
-# train/chain lock the pins are the train's NEW versions, which do not exist until `train release`
-# publishes them, so the consumer's restore can only fail (`NU1102`, train chain run 35162293616):
-# the check cannot mean anything yet. So when the job runs under a lock (a dispatched `lock`, or a
-# pull_request carrying a `train/` label, whose lock is in the PR body) `E2E_DEFERRED` is `true`:
-# the chain feed, the CLI install and build (and the npm identity proof) still run, every step
-# from Godot setup through the agent-first flows is skipped, and the leg record carries the named
-# skip row `e2e-install=deferred to post-publish (train pins unpublished)` — never a silent pass.
-# The e2e install is instead run AFTER `train release` publishes, against the real packages.
+# train/chain lock the pins are the train's NEW versions, which do not exist until the train
+# publishes them, so the consumer's restore can only fail (`NU1102`): the check cannot mean
+# anything yet. So when the job runs under a lock (a dispatched `lock`, or a pull_request carrying
+# a `train/` label, whose lock is in the PR body) `E2E_DEFERRED` is `true`:
+#   - still run: checkout, the toolchain setup, the chain feed, the CLI's `npm ci` + build, and
+#     the leg record (with its npm identity proof when the lock overrides cli-core);
+#   - skipped: every Godot and scaffolded-consumer step — Setup Godot, Report Godot version,
+#     Scaffold, Install the addon, Import, Build C#, Boot editor, and the agent-first flows;
+#   - the leg record carries a named skip row beginning
+#     `e2e-install=deferred to post-publish (train pins unpublished)` — never a silent pass.
+# The e2e install must instead be run after the train publishes, against the real packages; that
+# run is not part of this workflow.
 # On an ordinary pull_request / push / release run `E2E_DEFERRED` is `false` and nothing changes.
 env:
   CHAIN_LOCK: ${{ inputs.lock }}
@@ -88,8 +92,11 @@ jobs:
       PROJECT_NAME: E2EConsumer
       # `true` ONLY under a train/chain lock (see the header): the same two chain signals the
       # artifact gates below test. Every deferred step runs unless this is the literal `true`, so
-      # an ordinary run (or an unset value) keeps the full e2e install.
-      E2E_DEFERRED: ${{ inputs.lock != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
+      # an ordinary run (or an unset value) keeps the full e2e install. The label half matches a
+      # label that STARTS with `train/` (the space-joined list is prefixed with a space), like
+      # chain_feed.py's own train-label test — the artifact gates' bare substring match would also
+      # defer, silently and with no leg record, an ordinary PR labelled e.g. `retrain/x`.
+      E2E_DEFERRED: ${{ inputs.lock != '' || contains(format(' {0}', join(github.event.pull_request.labels.*.name, ' ')), ' train/') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -137,6 +144,15 @@ jobs:
         id: chain
         run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply --node godot-mcp --job e2e-install --edges npm
 
+      # The ONE step that runs only under a train/chain lock: names the deferral in the job log and
+      # annotations BEFORE the first skipped step, so the skipped Godot/consumer steps never read as
+      # an unexplained gap.
+      - name: e2e install deferred to post-publish (train pins unpublished)
+        if: env.E2E_DEFERRED == 'true'
+        shell: bash
+        run: |
+          echo "::notice title=e2e install deferred::Godot ${{ inputs.godotVersion }}: under a train/chain lock the scaffolded consumer would restore the train's UNPUBLISHED NuGet pins (NU1102), so the from-scratch install is deferred to a post-publish run against the real packages. The leg record carries the skipped[] row e2e-install=deferred to post-publish (train pins unpublished): ..."
+
       - name: Setup Godot ${{ inputs.godotVersion }} (mono)
         if: env.E2E_DEFERRED != 'true'
         uses: chickensoft-games/setup-godot@v2
@@ -170,14 +186,6 @@ jobs:
           set -euo pipefail
           npm run build
           test -f bin/godot-cli.js
-
-      # The ONE step that runs only under a train/chain lock: names the deferral in the job log and
-      # annotations, so the skipped steps below never read as an unexplained gap.
-      - name: e2e install deferred to post-publish (train pins unpublished)
-        if: env.E2E_DEFERRED == 'true'
-        shell: bash
-        run: |
-          echo "::notice title=e2e install deferred::Godot ${{ inputs.godotVersion }}: under a train/chain lock the scaffolded consumer would restore the train's UNPUBLISHED NuGet pins (NU1102), so the from-scratch install is deferred to a post-publish run against the real packages. The leg record carries skipped[] e2e-install=deferred to post-publish (train pins unpublished)."
 
       - name: Scaffold a fresh --dotnet project (the real terminal flow)
         if: env.E2E_DEFERRED != 'true'
@@ -346,13 +354,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # The scaffolded consumer is not a manifest pin, so `record` cannot prove it. Its identity is
-      # read from the Godot.NET.Sdk assets file (under .godot/mono/temp/obj/) and handed to `record` — `--warn` when it
-      # resolved the lock's ws versions, `--skip ...=override: not-reached` otherwise (the expected
-      # case under this job's npm-only scope). Never silent.
       # Under `E2E_DEFERRED` no consumer was scaffolded, so there is no identity to read: the record
       # instead carries the deferral as its own named skipped[] row (the header says why). `record`
-      # still runs the npm identity proof for the CLI this job did build.
+      # still runs the npm identity proof for the CLI this job did build, when the lock overrides
+      # cli-core.
+      # The `elif` consumer-identity probe below is UNREACHABLE while the deferral holds: `apply`
+      # exports CHAIN_ACTIVE only for a lock from the `lock` input or a `train/` label, and both
+      # already set `E2E_DEFERRED`. It is kept for when the deferral is lifted. There, the
+      # scaffolded consumer is not a manifest pin, so `record` cannot prove it; its identity is read
+      # from the Godot.NET.Sdk assets file (under .godot/mono/temp/obj/) and handed to `record` —
+      # `--warn` when it resolved the lock's ws versions, `--skip ...=override: not-reached`
+      # otherwise. Never silent.
       - name: chain leg record
         id: chain_record
         if: always()
@@ -361,7 +373,7 @@ jobs:
           set -uo pipefail
           extra=()
           if [ "${E2E_DEFERRED:-}" = "true" ]; then
-            extra+=(--skip "e2e-install=deferred to post-publish (train pins unpublished): the scaffolded consumer restores the addon's NuGet pins from nuget.org, which the train has not published yet; run the e2e install after train release")
+            extra+=(--skip "e2e-install=deferred to post-publish (train pins unpublished): the scaffolded consumer restores the addon's NuGet pins from nuget.org, which the train has not published yet; run the e2e install after the train publishes")
           elif [ "${CHAIN_ACTIVE:-}" = "1" ]; then
             note="$(${{ env.CHAIN_PY }} - <<'PY' 2>&1 || echo "skip=override: not-reached (consumer identity probe failed)"
           import json, os, pathlib
