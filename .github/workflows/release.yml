@@ -6,77 +6,87 @@
 # │  See the LICENSE file in the project root for more information.  │
 # └──────────────────────────────────────────────────────────────────┘
 #
-# Release pipeline (Unity-MCP parity: release.yml -> deploy.yml).
+# Release pipeline.
 #
-# Trigger: push to `main`. A `check-version-tag` job reads the release version
-# from addons/godot_mcp/plugin.cfg (the SINGLE source of truth for the release
-# version — see docs/RELEASING.md) and decides whether THIS push should cut a
-# release. The gate (`should_release`) is the conjunction of two conditions:
+# Trigger: MANUAL `workflow_dispatch` ONLY (owner directive 2026-09-16). Merging a
+# version bump to `main` publishes NOTHING; a release happens only when someone (or the
+# release train) dispatches this workflow. Every `test_*.yml` is a `workflow_call`
+# child with no publish path of its own.
 #
-#   1. tag_exists == 'false'      — no `v<version>` tag exists yet for the
-#                                   version currently in plugin.cfg, AND
-#   2. version_changed == 'true'  — this push actually modified plugin.cfg's
-#                                   `version=` line (a deliberate bump).
+# Input `dry_run` (default false): run every test and build job and publish NOTHING —
+# no npm publish, no tag, no GitHub Release, no AssetLib edit, no Discord. Every
+# side-effecting job carries a job-level `if: inputs.dry_run != true`, so the run graph
+# shows them `skipped`.
 #
-# EVERY downstream release/publish job is gated on
-# `needs.check-version-tag.outputs.should_release == 'true'`, so:
+# Guards (first job, `check-version-tag`):
+#   * ref guard     — a non-dry run on any ref other than `refs/heads/main` FAILS.
+#   * version guard — the version is read from addons/godot_mcp/plugin.cfg (the SINGLE
+#                     source of truth — see docs/RELEASING.md) at the dispatched commit.
+#                     If tag `v<version>` already exists a real run FAILS (a dispatch
+#                     never "succeeds" having done nothing); a dry run warns and continues.
 #
-#   * A plain merge to main that does NOT touch plugin.cfg's version is a
-#     guaranteed no-op (version_changed == 'false') — NO release, NO npm
-#     publish — even on a virgin repo that has no tags yet. THIS is what makes
-#     merging a workflow-only / feature PR inert.
-#   * A merge that DOES bump plugin.cfg to a new (untagged) version satisfies
-#     both conditions -> the gate opens, tests run, the GitHub Release (addon
-#     zip) is cut on the new `v<version>` tag, and the cli is published to npm.
-#   * Re-running on an already-released version is also a no-op (tag_exists
-#     short-circuits even if plugin.cfg appears in the diff).
+# Order: full tests -> build (addon zip) -> publish godot-cli to npm (`publish-npm`,
+# idempotent: skipped when the exact version is already on npm) -> tag + GitHub Release
+# (addon zip) -> post-publish verification (npm + Release/asset present, then the
+# from-scratch e2e install of the JUST-PUBLISHED godot-cli from the registry across the
+# Godot matrix) -> AssetLib version edit (advisory) -> Discord. The tag/Release come
+# AFTER the npm publish so a re-dispatch after a failed publish is possible (the
+# version guard only trips once the tag exists). The run is green only if the
+# post-publish e2e install passed.
 #
-# The `version_changed` condition is deliberately STRICTER than Unity-MCP's
-# tag-only gate: Godot-MCP's current 0.1.0 has no tag yet, so a tag-only gate
-# would (wrongly) fire a v0.1.0 release on the very next merge. Requiring an
-# actual version-line bump prevents that and matches the safety contract that
-# the first real publish must be a deliberate maintainer action.
+# The engine CLI `godot-cli` npm publish is the terminal publish leg of THIS plugin's
+# release and lives here — it is never released standalone. The `npm publish` step MUST
+# live DIRECTLY in this workflow file (not in a reusable workflow): the npm Trusted
+# Publisher (OIDC) binding is to this repo + `release.yml`, and reusable-workflow
+# bindings are a known npm Trusted Publishing limitation under workflow_dispatch.
 #
-# The release is gated on the full test set as `needs:` — the .NET build+test,
-# the godot-mcp-cli node tests (test_cli.yml), and the Godot engine smoke matrix
-# (test_godot_plugin.yml for 4.3 → 4.7). The release proceeds only if all pass.
-#
-# Manual dispatch (workflow_dispatch) bypasses the version_changed check (there
-# is no push diff to inspect) but STILL honors tag_exists — a dispatch cuts a
-# release only when the current plugin.cfg version has no tag yet. This is the
-# escape hatch for re-running a release when a bump already landed on main.
-#
-# SAFETY: the npm publish (deploy.yml) runs ONLY on a real version bump AND
-# requires the owner to have configured an npm Trusted Publisher for the
-# godot-mcp-cli package (no NPM_TOKEN secret exists; auth is OIDC at runtime).
-# Until both are true, no publish happens.
+# The publish jobs `needs:` the full deterministic test set — the .NET build+test, the
+# godot-cli node tests (test_cli.yml), and the Godot matrix (4.3 → 4.7) addon-load
+# smoke, dock-reload guard and from-scratch e2e install.
 
 name: release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: run every test + build job, publish NOTHING (no npm, no tag, no Release, no AssetLib, no Discord)."
+        required: false
+        default: false
+        type: boolean
 
-# Least-privilege defaults; the publish job in deploy.yml elevates id-token for OIDC.
+# One release at a time per repo; never cancel an in-flight release.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+# Least-privilege defaults; the `publish-npm` job elevates id-token for OIDC.
 permissions:
   contents: write
 
 jobs:
-  # Read the release version from plugin.cfg and decide whether THIS push
-  # should cut a release: only when no `v<version>` tag exists yet AND this
-  # push actually bumped plugin.cfg's version line (see should_release).
+  # Guards + version resolution. Runs first; everything else needs it.
   check-version-tag:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       tag: ${{ steps.get_version.outputs.tag }}
       tag_exists: ${{ steps.tag_exists.outputs.exists }}
-      version_changed: ${{ steps.version_changed.outputs.changed }}
-      should_release: ${{ steps.gate.outputs.should_release }}
       server_version: ${{ steps.server_version.outputs.server_version }}
     steps:
+      # Ref guard: a real (non-dry) release may only be cut from main.
+      - name: Ref guard (non-dry runs must be on refs/heads/main)
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "${DRY_RUN}" != "true" ] && [ "${REF}" != "refs/heads/main" ]; then
+            echo "::error::A real release (dry_run=false) must be dispatched on refs/heads/main; got ${REF}. Re-dispatch on main, or set dry_run=true."
+            exit 1
+          fi
+          echo "Ref guard OK: ref=${REF} dry_run=${DRY_RUN}"
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -100,6 +110,20 @@ jobs:
           echo "server_version=${server_version}" >> "$GITHUB_OUTPUT"
           echo "Addon-pinned server version: ${server_version}"
 
+      # Server-pin advisory (moved from the local release script): per docs/RELEASING.md
+      # the pinned `v<ServerVersion>` GameDev-MCP-Server release must already exist before
+      # an addon release that pins it. WARNING only — never fails the run.
+      - name: Server-pin advisory (pinned GameDev-MCP-Server release exists)
+        env:
+          SERVER_VERSION: ${{ steps.server_version.outputs.server_version }}
+        run: |
+          set -uo pipefail
+          if git ls-remote --exit-code --tags https://github.com/IvanMurzak/GameDev-MCP-Server.git "refs/tags/v${SERVER_VERSION}" >/dev/null 2>&1; then
+            echo "Server-pin advisory OK: GameDev-MCP-Server v${SERVER_VERSION} exists."
+          else
+            echo "::warning::Pinned GameDev-MCP-Server release v${SERVER_VERSION} was NOT found (or could not be queried). Consumers' local server download will 404 until it exists (docs/RELEASING.md § Server version pin). Advisory only."
+          fi
+
       # plugin.cfg is an INI file, so read its `version="x.y.z"` line directly
       # rather than with npm-get-version-action (which expects a package.json).
       - name: Get version from plugin.cfg
@@ -121,66 +145,32 @@ jobs:
         with:
           tag: ${{ steps.get_version.outputs.tag }}
 
-      # Did THIS push bump the version line in plugin.cfg? On a push event we
-      # diff the pushed range (before..after) and look for a change to the
-      # `version=` line of addons/godot_mcp/plugin.cfg. A plain feature/workflow
-      # merge that does not touch that line yields changed=false, which keeps
-      # the whole release inert. On workflow_dispatch (no push diff) we cannot
-      # inspect a range, so we report changed=true and rely on tag_exists to
-      # keep dispatch a no-op for an already-released version.
-      - name: Detect version-line bump
-        id: version_changed
+      # Version guard: an already-tagged version cannot be released again. A real run
+      # fails loudly here instead of "succeeding" with every publish job skipped.
+      - name: Version guard (tag must not exist yet)
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [ "${EVENT_NAME}" != "push" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Non-push event (${EVENT_NAME}): version-bump check skipped (relying on tag_exists gate)."
-            exit 0
-          fi
-          # A brand-new branch push reports an all-zero before SHA; treat as changed
-          # so a first push that already contains a bump is not silently ignored.
-          if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "No usable 'before' SHA — treating as changed."
-            exit 0
-          fi
-          if git diff "${BEFORE_SHA}" "${AFTER_SHA}" -- addons/godot_mcp/plugin.cfg \
-               | grep -qE '^\+version='; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "plugin.cfg version line changed in ${BEFORE_SHA}..${AFTER_SHA}."
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "plugin.cfg version line unchanged in ${BEFORE_SHA}..${AFTER_SHA} — release is a no-op."
-          fi
-
-      # The release gate: cut a release only when no tag exists yet for the
-      # current version AND this push actually bumped the version line.
-      - name: Compute release gate
-        id: gate
-        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          TAG: ${{ steps.get_version.outputs.tag }}
           TAG_EXISTS: ${{ steps.tag_exists.outputs.exists }}
-          VERSION_CHANGED: ${{ steps.version_changed.outputs.changed }}
         run: |
           set -euo pipefail
-          if [ "${TAG_EXISTS}" = "false" ] && [ "${VERSION_CHANGED}" = "true" ]; then
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "Gate OPEN: tag does not exist and version was bumped -> release."
+          if [ "${TAG_EXISTS}" = "true" ]; then
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "::warning::Tag ${TAG} already exists — a real release of this version would FAIL. Dry run continues."
+            else
+              echo "::error::Tag ${TAG} already exists: this version is already released. Bump addons/godot_mcp/plugin.cfg (node scripts/bump-version.mjs <new>), merge to main, then dispatch again."
+              exit 1
+            fi
           else
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "Gate CLOSED: tag_exists=${TAG_EXISTS}, version_changed=${VERSION_CHANGED} -> no release."
+            echo "Version guard OK: ${TAG} does not exist yet."
           fi
 
-  # --- TEST GATE (only runs when the version tag does not yet exist) ---
+  # --- TEST GATE (runs on every dispatch, dry or real) ---
 
   # .NET build + xUnit (mirrors ci.yml). Required before a release is cut.
   dotnet-build-test:
     runs-on: ubuntu-latest
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -202,41 +192,35 @@ jobs:
   # godot-mcp-cli node tests (Node 20 & 22). Required before a release is cut.
   test-cli:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli.yml
 
   # godot_mcp addon-load smoke across the Godot engine matrix (mono).
   test-godot-4-3:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.3.0"
 
   test-godot-4-4:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.4.0"
 
   test-godot-4-5:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.5.1"
 
   test-godot-4-6:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.6.3"
 
   test-godot-4-7:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.7.0"
@@ -249,35 +233,30 @@ jobs:
   # test_pull_request.yml's dock-reload-4-{3..7} legs.
   dock-reload-4-3:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.3.0"
 
   dock-reload-4-4:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.4.0"
 
   dock-reload-4-5:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.5.1"
 
   dock-reload-4-6:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.6.3"
 
   dock-reload-4-7:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.7.0"
@@ -287,35 +266,30 @@ jobs:
   # install (create-project + install-plugin) can NEVER ship in a release.
   e2e-install-4-3:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.3.0"
 
   e2e-install-4-4:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.4.0"
 
   e2e-install-4-5:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.5.1"
 
   e2e-install-4-6:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.6.3"
 
   e2e-install-4-7:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.7.0"
@@ -329,7 +303,6 @@ jobs:
   # so these advisory legs download the server release the addon actually pins.
   runtime-harness-4-3:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.3.0"
@@ -337,7 +310,6 @@ jobs:
 
   runtime-harness-4-4:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.4.0"
@@ -345,7 +317,6 @@ jobs:
 
   runtime-harness-4-5:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.5.1"
@@ -353,7 +324,6 @@ jobs:
 
   runtime-harness-4-6:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.6.3"
@@ -361,40 +331,31 @@ jobs:
 
   runtime-harness-4-7:
     needs: [check-version-tag]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.7.0"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
 
-  # NOTE: the MCP server is NOT built or released here anymore. The addon consumes the
-  # shared GameDev-MCP-Server (https://github.com/IvanMurzak/GameDev-MCP-Server), whose
-  # own release workflow publishes the `gamedev-mcp-server-<rid>.zip` assets the addon
-  # downloads at the version pinned by `GodotMcpServerView.ServerVersion`. That pinned
-  # `v<ServerVersion>` release must already exist BEFORE cutting an addon release.
+  # --- BUILD (runs on every dispatch, dry or real; after the full test set) ---
 
-  # --- PUBLISH (gated on tag-not-existing AND every test passing) ---
-
-  # Build + package the addon zip and cut the GitHub Release on the new
-  # `v<version>` tag. Identical packaging to the previous tag-triggered flow,
-  # now gated on the version check + tests instead of a tag push. The release
-  # carries ONLY the addon zip — the server binaries live on GameDev-MCP-Server's
-  # own releases.
-  release-addon:
+  # Build + test + package the addon zip (the Godot deliverable — there is no compiled
+  # artifact to ship). Split from the Release job so a dry run still proves the package
+  # builds. The zip is handed to release-addon as a workflow artifact.
+  build-addon:
     runs-on: ubuntu-latest
-    # The release gate depends ONLY on the DETERMINISTIC test legs (check-version-tag,
-    # the .NET build+test, the cli node tests, the addon-LOAD godot smoke, the
-    # in-session-rebuild dock-survival guard (dock-reload), and the from-scratch
-    # e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
-    # in lockstep with test_pull_request.yml's matrix so a green PR can never produce a red
-    # release gate — when you add/remove a Godot version, edit BOTH files together. The
-    # runtime-harness-4-{3..7} legs are deliberately NOT in this `needs:` array: they are
-    # an end-to-end INTEGRATION harness that downloads an external server release and runs a
-    # live, concurrency-sensitive roundtrip — a transient harness flake or an unavailable
-    # upstream server release must NEVER block a Godot-MCP release. The harness legs still
-    # RUN on the release trigger (in parallel, providing advisory signal against the live
-    # server version); they are just decoupled from the release gate. They remain BLOCKING on
-    # PR CI (test_pull_request.yml), so main is always harness-green before a release is cut.
+    # The build + every publish job depend ONLY on the DETERMINISTIC test legs
+    # (check-version-tag, the .NET build+test, the cli node tests, the addon-LOAD godot
+    # smoke, the in-session-rebuild dock-survival guard (dock-reload), and the
+    # from-scratch e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
+    # in lockstep with test_pull_request.yml's matrix so a green PR can never produce a
+    # red release gate — when you add/remove a Godot version, edit BOTH files together.
+    # The runtime-harness-4-{3..7} legs are deliberately NOT in this `needs:` array: they
+    # are an end-to-end INTEGRATION harness that downloads an external server release and
+    # runs a live, concurrency-sensitive roundtrip — a transient harness flake or an
+    # unavailable upstream server release must NEVER block a Godot-MCP release. They still
+    # RUN on every dispatch (advisory signal, and a red leg reddens the run conclusion);
+    # they remain BLOCKING on PR CI (test_pull_request.yml), so main is always
+    # harness-green before a release is dispatched.
     needs:
       [
         check-version-tag,
@@ -416,12 +377,8 @@ jobs:
         e2e-install-4-6,
         e2e-install-4-7,
       ]
-    if: needs.check-version-tag.outputs.should_release == 'true'
     outputs:
-      version: ${{ needs.check-version-tag.outputs.version }}
-      tag: ${{ needs.check-version-tag.outputs.tag }}
-      published: ${{ steps.mark.outputs.published }}
-      release_notes: ${{ steps.read_notes.outputs.release_body }}
+      zip_name: ${{ steps.package.outputs.zip_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -462,19 +419,160 @@ jobs:
           echo "Created ${zip_name}:"
           unzip -l "${zip_name}"
 
-      # Create the GitHub Release + tag with the addon zip attached and
-      # auto-generated notes. tag_name is the `v<version>` computed from
-      # plugin.cfg. The server binaries are NOT attached — the addon downloads
-      # the shared GameDev-MCP-Server release pinned by ServerVersion.
+      - name: Upload addon zip
+        uses: actions/upload-artifact@v6
+        with:
+          name: godot-mcp-addon
+          path: ${{ steps.package.outputs.zip_name }}
+          if-no-files-found: error
+          retention-days: 7
+
+  # NOTE: the MCP server is NOT built or released here anymore. The addon consumes the
+  # shared GameDev-MCP-Server (https://github.com/IvanMurzak/GameDev-MCP-Server), whose
+  # own release workflow publishes the `gamedev-mcp-server-<rid>.zip` assets the addon
+  # downloads at the version pinned by `GodotMcpServerView.ServerVersion`. That pinned
+  # `v<ServerVersion>` release must already exist BEFORE cutting an addon release.
+
+  # --- PUBLISH (real runs only; gated on every deterministic test + the build) ---
+
+  # Publish godot-cli (cli/) to npm via OIDC Trusted Publishing with build provenance.
+  # FIRST side effect, BEFORE the tag/Release, so a failed publish can be re-dispatched
+  # (the version guard only trips once the tag exists). Idempotent: `npm publish` is
+  # skipped when the exact version is already on the registry. Inline (NOT a reusable
+  # workflow) — see the header.
+  #
+  # First-publish prerequisite (owner action): the `godot-cli` package needs an npm
+  # Trusted Publisher authorizing THIS repository + `release.yml`. There is NO
+  # NPM_TOKEN secret — auth is exchanged at runtime via the `id-token: write` OIDC token.
+  # See https://docs.npmjs.com/trusted-publishers
+  publish-npm:
+    name: publish godot-cli to npm
+    runs-on: ubuntu-latest
+    needs:
+      [
+        check-version-tag,
+        build-addon,
+        dotnet-build-test,
+        test-cli,
+        test-godot-4-3,
+        test-godot-4-4,
+        test-godot-4-5,
+        test-godot-4-6,
+        test-godot-4-7,
+        dock-reload-4-3,
+        dock-reload-4-4,
+        dock-reload-4-5,
+        dock-reload-4-6,
+        dock-reload-4-7,
+        e2e-install-4-3,
+        e2e-install-4-4,
+        e2e-install-4-5,
+        e2e-install-4-6,
+        e2e-install-4-7,
+      ]
+    if: inputs.dry_run != true
+    permissions:
+      contents: read
+      id-token: write # OIDC Trusted Publishing — no NPM_TOKEN needed.
+    defaults:
+      run:
+        working-directory: ./cli
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # The GitHub-hosted runner's Node 22 bundle ships npm 10.9.8, but npm OIDC
+      # Trusted Publishing requires npm >= 11.5.1 (older npm never performs the
+      # OIDC token exchange, so the publish PUT fails auth with a masked E404).
+      # Upgrade npm before any publish step. See: https://docs.npmjs.com/trusted-publishers
+      - name: Upgrade npm (OIDC Trusted Publishing requires npm >= 11.5.1)
+        # Pin to the 11.x major: npm 12.0.0 (2026-07-09) regressed
+        # `npm publish --provenance` (fails "Cannot find module 'sigstore'").
+        # 11.x satisfies the >= 11.5.1 OIDC floor and has working provenance.
+        run: npm install -g npm@11
+
+      - name: Resolve version
+        id: version
+        run: |
+          version="${{ needs.check-version-tag.outputs.version }}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Publishing godot-cli version: ${version}"
+
+      # Align the cli package.json version to the release version so the
+      # published artifact matches the GitHub Release tag. plugin.cfg is the
+      # single source of truth for the release version (see docs/RELEASING.md);
+      # this writes that value into the cli at publish time. --allow-same-version
+      # makes it a no-op when cli/package.json already matches.
+      - name: Set package version
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # Idempotency: skip the publish when this exact version is already on the registry.
+      # `npm view <pkg>@<v> version` prints the version when it exists and nothing when it
+      # does not (a never-published package errors with E404, also read as "absent").
+      - name: Check whether this version is already on npm
+        id: npm_exists
+        run: |
+          set -uo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="${{ steps.version.outputs.version }}"
+          got="$(npm view "${name}@${version}" version 2>/dev/null || true)"
+          if [ "${got}" = "${version}" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${name}@${version} is already on npm — skipping npm publish (idempotent re-run)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "${name}@${version} is not on npm yet — publishing."
+          fi
+
+      - name: Publish to npm with provenance
+        if: steps.npm_exists.outputs.exists != 'true'
+        run: npm publish --access public --provenance
+
+  # Cut the GitHub Release + `v<version>` tag with the addon zip attached and
+  # auto-generated notes. The server binaries are NOT attached — the addon downloads
+  # the shared GameDev-MCP-Server release pinned by ServerVersion.
+  release-addon:
+    runs-on: ubuntu-latest
+    needs: [check-version-tag, build-addon, publish-npm]
+    if: inputs.dry_run != true
+    outputs:
+      version: ${{ needs.check-version-tag.outputs.version }}
+      tag: ${{ needs.check-version-tag.outputs.tag }}
+      published: ${{ steps.mark.outputs.published }}
+      release_notes: ${{ steps.read_notes.outputs.release_body }}
+    steps:
+      - name: Download addon zip
+        uses: actions/download-artifact@v7
+        with:
+          name: godot-mcp-addon
+
+      # tag_name is the `v<version>` computed from plugin.cfg. target_commitish pins the
+      # new tag to the dispatched (tested) commit, never to whatever main points at now.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.check-version-tag.outputs.tag }}
           tag_name: ${{ needs.check-version-tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ${{ steps.package.outputs.zip_name }}
+            ${{ needs.build-addon.outputs.zip_name }}
 
       - name: Mark publish success
         id: mark
@@ -521,13 +619,112 @@ jobs:
             printf '%s\n' "$DELIM"
           } >> "$GITHUB_OUTPUT"
 
+  # --- POST-PUBLISH VERIFICATION (real runs only) ---
+
+  # Moved from the local release script (wait-release-and-npm.py): prove the release
+  # ACTUALLY published — godot-cli@<version> is resolvable on registry.npmjs.org (polled,
+  # 5-min cap, name AND version must match) and the GitHub Release on the v-prefixed tag
+  # carries godot-mcp-addon-<version>.zip. Fails the run otherwise.
+  verify-published:
+    runs-on: ubuntu-latest
+    needs: [check-version-tag, publish-npm, release-addon]
+    if: inputs.dry_run != true
+    permissions:
+      contents: read
+    steps:
+      - name: Wait for godot-cli@<version> on the npm registry
+        env:
+          VERSION: ${{ needs.check-version-tag.outputs.version }}
+        run: |
+          set -uo pipefail
+          url="https://registry.npmjs.org/godot-cli/${VERSION}"
+          deadline=$(( $(date +%s) + 300 ))
+          while :; do
+            body="$(curl -sS --max-time 20 -H 'Accept: application/json' "$url" 2>/dev/null || true)"
+            got="$(printf '%s' "$body" | jq -r 'select(type=="object") | "\(.name)@\(.version)"' 2>/dev/null || true)"
+            if [ "$got" = "godot-cli@${VERSION}" ]; then
+              echo "npm OK: ${got}"
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::godot-cli@${VERSION} is not resolvable on registry.npmjs.org after 300s (last read: '${got}'). The publish-npm job reported success — check the npm publish step / Trusted Publisher config."
+              exit 1
+            fi
+            echo "godot-cli@${VERSION} not on npm yet (read: '${got}'); retrying in 15s..."
+            sleep 15
+          done
+
+      - name: Verify the GitHub Release, tag and addon zip asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check-version-tag.outputs.tag }}
+          VERSION: ${{ needs.check-version-tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          json="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName,url,assets)"
+          got_tag="$(jq -r '.tagName' <<<"$json")"
+          if [ "$got_tag" != "$TAG" ]; then
+            echo "::error::Release tagName is '${got_tag}', expected '${TAG}'."
+            exit 1
+          fi
+          if ! jq -e --arg n "godot-mcp-addon-${VERSION}.zip" '[.assets[].name] | index($n) != null' <<<"$json" >/dev/null; then
+            echo "::error::Release ${TAG} has no godot-mcp-addon-${VERSION}.zip asset (assets: $(jq -c '[.assets[].name]' <<<"$json"))."
+            exit 1
+          fi
+          echo "Release OK: $(jq -r '.url' <<<"$json") with godot-mcp-addon-${VERSION}.zip"
+
+  # From-scratch terminal install of the JUST-PUBLISHED release across the Godot matrix:
+  # `godot-cli@<version>` installed from the npm registry, the addon downloaded by the
+  # CLI's default path from the `v<version>` GitHub Release (no --source). The release
+  # run is green only if every leg passes.
+  e2e-published-4-3:
+    needs: [check-version-tag, verify-published]
+    if: inputs.dry_run != true
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.3.0"
+      cliVersion: ${{ needs.check-version-tag.outputs.version }}
+
+  e2e-published-4-4:
+    needs: [check-version-tag, verify-published]
+    if: inputs.dry_run != true
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.4.0"
+      cliVersion: ${{ needs.check-version-tag.outputs.version }}
+
+  e2e-published-4-5:
+    needs: [check-version-tag, verify-published]
+    if: inputs.dry_run != true
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.5.1"
+      cliVersion: ${{ needs.check-version-tag.outputs.version }}
+
+  e2e-published-4-6:
+    needs: [check-version-tag, verify-published]
+    if: inputs.dry_run != true
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.6.3"
+      cliVersion: ${{ needs.check-version-tag.outputs.version }}
+
+  e2e-published-4-7:
+    needs: [check-version-tag, verify-published]
+    if: inputs.dry_run != true
+    uses: ./.github/workflows/test_cli_e2e_install.yml
+    with:
+      godotVersion: "4.7.0"
+      cliVersion: ${{ needs.check-version-tag.outputs.version }}
+
+  # --- DOWNSTREAM (real runs only; after the post-publish verification) ---
+
   # Auto-submit the Godot Asset Library VERSION EDIT for the just-released
-  # version. Runs AFTER the GitHub Release (needs release-addon) and only on a
-  # real version bump (should_release == 'true'). This job is intentionally
-  # ISOLATED: nothing downstream needs it, so an AssetLib failure shows up as a
-  # red job for visibility but never blocks or fails the npm `deploy` job (which
-  # only needs release-addon.published). The one-time INITIAL submission +
-  # moderator approval remain manual (see docs/RELEASING.md); this automates the
+  # version. Runs only after the published release was verified end to end.
+  # This job is intentionally ISOLATED: nothing downstream needs it, so an
+  # AssetLib failure shows up as a red job for visibility but never blocks the
+  # npm publish or the Release. The one-time INITIAL submission + moderator
+  # approval remain manual (see docs/RELEASING.md); this automates the
   # per-release EDIT only.
   #
   # Credentials/ids come ONLY from GitHub-managed config (never hardcoded):
@@ -537,8 +734,18 @@ jobs:
   # and npm publish are unaffected.
   assetlib-edit:
     runs-on: ubuntu-latest
-    needs: [check-version-tag, release-addon]
-    if: needs.check-version-tag.outputs.should_release == 'true'
+    needs:
+      [
+        check-version-tag,
+        release-addon,
+        verify-published,
+        e2e-published-4-3,
+        e2e-published-4-4,
+        e2e-published-4-5,
+        e2e-published-4-6,
+        e2e-published-4-7,
+      ]
+    if: inputs.dry_run != true
     steps:
       - name: Checkout repository
         # The action reads the handlebars template (.github/assetlib/edit.hbs)
@@ -566,34 +773,24 @@ jobs:
           assetId: ${{ vars.GODOT_ASSETLIB_ASSET_ID }}
           assetTemplate: .github/assetlib/edit.hbs
 
-  # Publish godot-mcp-cli to npm (OIDC Trusted Publishing). Gated on the GitHub
-  # Release having been created. The cli version is set to the release version
-  # at publish time inside deploy.yml.
-  deploy:
-    needs: [check-version-tag, release-addon]
-    if: needs.release-addon.outputs.published == 'true'
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/deploy.yml
-    with:
-      version: ${{ needs.check-version-tag.outputs.version }}
-
   # Announce the just-cut GitHub Release in Discord (Unity-MCP parity — see the
-  # `publish_discord` job in Unity-MCP's release.yml). Like assetlib-edit this
-  # job is deliberately ISOLATED: nothing downstream needs it, so a webhook
-  # hiccup surfaces as a red job for visibility but can never block or fail the
-  # release or the npm `deploy`.
-  #
-  # Gated `always() && needs.release-addon.result == 'success'` so it fires ONLY
-  # for a release that actually published — a skipped (no version bump) or failed
-  # release-addon leaves result != 'success' and nothing is announced.
+  # `publish_discord` job in Unity-MCP's release.yml). LAST: fires only on a real run
+  # whose release published AND passed the post-publish verification. Like
+  # assetlib-edit this job is ISOLATED: nothing depends on it, so a webhook hiccup
+  # surfaces as a red job for visibility but can never block or undo the release.
   publish_discord:
     runs-on: ubuntu-latest
-    needs: [release-addon]
-    if: |
-      always() &&
-      needs.release-addon.result == 'success'
+    needs:
+      [
+        release-addon,
+        verify-published,
+        e2e-published-4-3,
+        e2e-published-4-4,
+        e2e-published-4-5,
+        e2e-published-4-6,
+        e2e-published-4-7,
+      ]
+    if: inputs.dry_run != true
     steps:
       - name: Send Release Notes to Discord
         env:

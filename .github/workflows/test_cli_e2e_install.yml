@@ -34,6 +34,12 @@
 # addon" bug: if the CLI stops building before open, nothing else produces the
 # assembly and the plugin-loaded assertion goes red.
 # Called once per matrix version by test_pull_request.yml and release.yml.
+#
+# POST-PUBLISH mode (`cliVersion` set — release.yml's e2e-published-* legs, after the
+# npm publish + GitHub Release): step 1 is replaced by installing `godot-cli@<cliVersion>`
+# FROM THE NPM REGISTRY (never the checkout), and step 3 drops `--source` so the
+# published CLI downloads the addon zip from the `v<cliVersion>` GitHub Release — the
+# exact path a user runs. The downloaded addon must report version <cliVersion>.
 name: Test CLI E2E Install
 
 on:
@@ -42,6 +48,11 @@ on:
       godotVersion:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
+        type: string
+      cliVersion:
+        description: "POST-PUBLISH mode: install godot-cli@<cliVersion> from the npm registry and let it download the addon from the v<cliVersion> GitHub Release. Empty (default) = build the CLI from source + --source the in-repo addon."
+        required: false
+        default: ""
         type: string
       lock:
         description: "chain lock JSON (empty on ordinary runs)"
@@ -73,8 +84,8 @@ on:
 #     Scaffold, Install the addon, Import, Build C#, Boot editor, and the agent-first flows;
 #   - the leg record carries a named skip row beginning
 #     `e2e-install=deferred to post-publish (train pins unpublished)` — never a silent pass.
-# The e2e install must instead be run after the train publishes, against the real packages; that
-# run is not part of this workflow.
+# The e2e install instead runs after the train publishes, against the real packages: release.yml's
+# e2e-published-* legs call this workflow in POST-PUBLISH mode (`cliVersion`), with no lock.
 # On an ordinary pull_request / push / release run `E2E_DEFERRED` is `false` and nothing changes.
 env:
   CHAIN_LOCK: ${{ inputs.lock }}
@@ -82,7 +93,7 @@ env:
 
 jobs:
   e2e-install:
-    name: e2e install ${{ inputs.godotVersion }} (mono)
+    name: e2e install ${{ inputs.godotVersion }} (mono)${{ inputs.cliVersion != '' && format(' published godot-cli@{0}', inputs.cliVersion) || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -90,6 +101,8 @@ jobs:
       # in-repo addon source dir) so the install is a genuine from-scratch consumer.
       WORK: ${{ github.workspace }}/.e2e-consumer
       PROJECT_NAME: E2EConsumer
+      # Non-empty ONLY in post-publish mode (see the header).
+      CLI_VERSION: ${{ inputs.cliVersion }}
       # `true` ONLY under a train/chain lock (see the header): the same two chain signals the
       # artifact gates below test. Every deferred step runs unless this is the literal `true`, so
       # an ordinary run (or an unset value) keeps the full e2e install. The label half matches a
@@ -167,6 +180,7 @@ jobs:
         run: godot --version --headless
 
       - name: Install the CLI dependencies
+        if: env.CLI_VERSION == ''
         shell: bash
         working-directory: ./cli
         run: |
@@ -175,17 +189,58 @@ jobs:
 
       # AFTER `npm ci`, which would undo a --no-save install; BEFORE the build.
       - name: chain feed (npm)
-        if: env.CHAIN_ACTIVE == '1'
+        if: env.CHAIN_ACTIVE == '1' && env.CLI_VERSION == ''
         shell: bash
         run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
 
       - name: Build the CLI from source
+        if: env.CLI_VERSION == ''
         shell: bash
         working-directory: ./cli
         run: |
           set -euo pipefail
           npm run build
           test -f bin/godot-cli.js
+          echo "CLI_JS=${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" >> "$GITHUB_ENV"
+
+      # POST-PUBLISH mode: the CLI under test is the one on the registry, installed into a
+      # scratch prefix OUTSIDE the checkout. Retries cover npm CDN propagation right after
+      # a publish. The resolved package must report exactly <cliVersion>.
+      - name: Install the PUBLISHED godot-cli from the npm registry
+        if: env.CLI_VERSION != ''
+        shell: bash
+        run: |
+          set -uo pipefail
+          prefix="${RUNNER_TEMP}/published-godot-cli"
+          rm -rf "${prefix}"
+          mkdir -p "${prefix}"
+          ok=0
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if npm install --prefix "${prefix}" --no-audit --no-fund "godot-cli@${CLI_VERSION}"; then
+              ok=1
+              break
+            fi
+            echo "npm install godot-cli@${CLI_VERSION} failed (attempt ${attempt}/10); retrying in 20s..."
+            sleep 20
+          done
+          if [ "${ok}" != "1" ]; then
+            echo "::error::Could not install godot-cli@${CLI_VERSION} from the npm registry."
+            exit 1
+          fi
+          pkg="${prefix}/node_modules/godot-cli/package.json"
+          got="$(node -p 'require(process.argv[1]).version' "${pkg}")"
+          if [ "${got}" != "${CLI_VERSION}" ]; then
+            echo "::error::Installed godot-cli reports version ${got}, expected ${CLI_VERSION}."
+            exit 1
+          fi
+          bin_rel="$(node -p 'const b = require(process.argv[1]).bin; typeof b === "string" ? b : b["godot-cli"]' "${pkg}")"
+          cli_js="${prefix}/node_modules/godot-cli/${bin_rel}"
+          if [ ! -f "${cli_js}" ]; then
+            echo "::error::The published godot-cli bin ${cli_js} does not exist."
+            exit 1
+          fi
+          echo "CLI_JS=${cli_js}" >> "$GITHUB_ENV"
+          echo "Published godot-cli@${got} installed: ${cli_js}"
 
       - name: Scaffold a fresh --dotnet project (the real terminal flow)
         if: env.E2E_DEFERRED != 'true'
@@ -194,18 +249,30 @@ jobs:
           set -euo pipefail
           rm -rf "${WORK}"
           mkdir -p "${WORK}"
-          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" create-project \
+          node "${CLI_JS}" create-project \
             --dotnet --name "${PROJECT_NAME}" "${WORK}/project"
           test -f "${WORK}/project/project.godot"
           test -f "${WORK}/project/${PROJECT_NAME}.csproj"
 
-      - name: Install the addon from the repo source (--source, offline/CI path)
+      - name: Install the addon (repo --source; post-publish mode downloads the GitHub Release)
         if: env.E2E_DEFERRED != 'true'
         shell: bash
         run: |
           set -euo pipefail
-          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" install-plugin \
-            --source "${GITHUB_WORKSPACE}/addons/godot_mcp" "${WORK}/project"
+          if [ -z "${CLI_VERSION}" ]; then
+            node "${CLI_JS}" install-plugin \
+              --source "${GITHUB_WORKSPACE}/addons/godot_mcp" "${WORK}/project"
+          else
+            # The real user path: no --source, so the published CLI downloads
+            # godot-mcp-addon-<its own version>.zip from the v<version> GitHub Release.
+            node "${CLI_JS}" install-plugin "${WORK}/project"
+            addon_version="$(grep -E '^version=' "${WORK}/project/addons/godot_mcp/plugin.cfg" | head -n1 | cut -d= -f2- | tr -d '"[:space:]')"
+            if [ "${addon_version}" != "${CLI_VERSION}" ]; then
+              echo "::error::The downloaded addon reports version '${addon_version}', expected ${CLI_VERSION}."
+              exit 1
+            fi
+            echo "Downloaded addon version ${addon_version} matches the published CLI."
+          fi
           # Addon files materialized.
           test -f "${WORK}/project/addons/godot_mcp/plugin.cfg"
           test -f "${WORK}/project/addons/godot_mcp/Editor/GodotMcpPlugin.cs"
@@ -240,7 +307,7 @@ jobs:
           # Disabling the addon" bug), `godot-cli build` is the only thing
           # producing the assembly here, so the plugin-loaded assertion below goes
           # red. A raw `dotnet build` would have masked exactly that gap.
-          node "${GITHUB_WORKSPACE}/cli/bin/godot-cli.js" build \
+          node "${CLI_JS}" build \
             "${WORK}/project" 2>&1 | tee "${WORK}/build.log"
           if ! ls "${WORK}/project"/.godot/mono/temp/bin/*/${PROJECT_NAME}.dll >/dev/null 2>&1; then
             echo "::error::godot-cli build did not produce ${PROJECT_NAME}.dll — the CLI's build-before-open path does not compile the from-scratch install against the addon's NuGet pins."
@@ -294,7 +361,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CLI="${GITHUB_WORKSPACE}/cli/bin/godot-cli.js"
+          CLI="${CLI_JS}"
 
           # A stub managed server binary. The real gamedev-mcp-server download +
           # SHA256SUMS verify is unit-tested with a mocked fetch; --server-source
@@ -346,7 +413,7 @@ jobs:
         if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-install-${{ inputs.godotVersion }}-logs
+          name: e2e-install-${{ inputs.godotVersion }}${{ inputs.cliVersion != '' && '-published' || '' }}-logs
           path: |
             ${{ env.WORK }}/import.log
             ${{ env.WORK }}/build.log

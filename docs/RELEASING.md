@@ -45,11 +45,11 @@ number.
 
 ## How to cut a release
 
-The release is fully automated by [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-(which calls [`deploy.yml`](../.github/workflows/deploy.yml) for the npm publish). The pipeline runs
-on **every push to `main`** but is **version-tag-gated**: it cuts a release only when
-`plugin.cfg`'s version does not yet have a matching `v<version>` tag. A plain merge that does not
-bump the version is therefore a **no-op** — nothing is released and nothing is published.
+The release is performed by [`.github/workflows/release.yml`](../.github/workflows/release.yml),
+which also contains the npm publish directly (npm Trusted Publishing is bound to `release.yml`; it is
+deliberately not a reusable workflow). It runs **only on a manual `workflow_dispatch`** — merging a
+version bump to `main` publishes **nothing**. Every `test_*.yml` is a `workflow_call` child with no
+trigger of its own, so the only path to a publish is a dispatch of `release.yml`.
 
 1. **Bump the version.** Run the release helper from the repository root:
 
@@ -63,22 +63,34 @@ bump the version is therefore a **no-op** — nothing is released and nothing is
    Library submission notes). Land the resulting changes on `main` through the normal PR flow. No
    manual tag push is required — the pipeline derives the tag from `plugin.cfg`.
 
-2. **The pipeline runs on the merge to `main`.** `release.yml`:
-   - `check-version-tag` reads `version` from `plugin.cfg`, computes `v<version>`, and checks whether
-     that tag already exists. If it does (no bump), **every** downstream job is skipped — the run is a
-     no-op. If it does not (a real bump), the gate opens;
-   - the test gate runs as `needs:` — the .NET build+test, the `godot-cli` node tests
-     (`test_cli.yml`, Node 20/22), and the Godot engine smoke matrix (`test_godot_plugin.yml` for
-     4.3/4.4/4.5). The release proceeds only if all pass;
-   - `release-addon` zips `addons/godot_mcp/` into `godot-mcp-addon-<version>.zip` (excluding
-     `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`) and creates the **GitHub Release** + `v<version>`
-     tag with the zip attached and auto-generated notes (`generate_release_notes: true`);
-   - `deploy` (deploy.yml) sets `cli/package.json` to the release version, runs `npm ci && npm run
+2. **(Optional) dry run.** `gh workflow run release.yml -R IvanMurzak/Godot-MCP --ref main -f dry_run=true`
+   runs every test and build job and publishes nothing (no npm, no tag, no Release, no AssetLib, no
+   Discord — those jobs show as `skipped`). A dry run on an already-tagged version warns and continues.
+
+3. **Dispatch the release** on `main`:
+   `gh workflow run release.yml -R IvanMurzak/Godot-MCP --ref main -f dry_run=false`. `release.yml`:
+   - `check-version-tag` fails a non-dry run on any ref other than `refs/heads/main`, reads `version`
+     from `plugin.cfg`, and **fails** if `v<version>` already exists (a dispatch never "succeeds"
+     having done nothing). It also warns if the pinned GameDev-MCP-Server release is missing;
+   - the test gate runs — the .NET build+test, the `godot-cli` node tests (`test_cli.yml`), and the
+     Godot 4.3 → 4.7 matrix (addon-load smoke, dock-reload guard, from-scratch e2e install). The
+     runtime-harness legs run too but are advisory (not in the publish `needs:`);
+   - `build-addon` zips `addons/godot_mcp/` into `godot-mcp-addon-<version>.zip` (excluding
+     `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`);
+   - `publish-npm` sets `cli/package.json` to the release version, runs `npm ci && npm run
      build && npm test`, then **publishes `godot-cli` to npm** with `npm publish --access public
      --provenance` via **OIDC Trusted Publishing** (no `NPM_TOKEN` — see
      [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only)).
+     It skips the publish when that exact version is already on npm;
+   - `release-addon` then creates the **GitHub Release** + `v<version>` tag (on the dispatched commit)
+     with the zip attached and auto-generated notes. The tag comes **after** the npm publish so a
+     failed publish can simply be re-dispatched;
+   - `verify-published` polls npm for `godot-cli@<version>` and checks the Release carries the zip,
+     then `e2e-published-4-{3..7}` install the **just-published** `godot-cli` from the registry and let
+     it download the addon from the Release, across the Godot matrix. The run is green only if they pass;
+   - `assetlib-edit` (advisory) and `publish_discord` run last.
 
-3. **Verify.** Check the new Release at
+4. **Verify.** Check the new Release at
    `https://github.com/IvanMurzak/Godot-MCP/releases/tag/v0.2.0` (zip attached, notes right) and the
    npm package at `https://www.npmjs.com/package/godot-cli`.
 
@@ -86,16 +98,16 @@ bump the version is therefore a **no-op** — nothing is released and nothing is
 
 The npm publish uses **OIDC Trusted Publishing** — there is intentionally **no `NPM_TOKEN` secret**.
 Before the **first** real publish can succeed, the maintainer must configure a **Trusted Publisher**
-for the `godot-cli` package on npmjs.com, authorizing this repository and the `deploy.yml`
+for the `godot-cli` package on npmjs.com, authorizing this repository and the `release.yml`
 workflow. See <https://docs.npmjs.com/trusted-publishers>. Until that is configured, the `npm
-publish` step fails authentication; the addon GitHub Release still succeeds (it does not depend on
-npm). This is a deliberate maintainer gate (see [GATES](#gates--what-requires-the-maintainer-ivan)).
+publish` step fails authentication, and because the Release is cut only after the publish, no
+Release or tag is created. This is a deliberate maintainer gate (see [GATES](#gates--what-requires-the-maintainer-ivan)).
 
-### Manual re-run
+### Re-dispatching after a failure
 
-`release.yml` also accepts a `workflow_dispatch`. Dispatch is useful if `main` already carries a
-bumped-but-unreleased version (e.g. a previous run failed after the bump landed). The same
-version-gate applies: if the tag already exists, the dispatch run is a no-op.
+A failure **before** `release-addon` (tests, build, npm publish) leaves no tag, so fix the cause and
+dispatch again — an npm version that did get published is skipped. Once the `v<version>` tag exists
+the version guard fails every further real dispatch of that version: bump to a new version instead.
 
 ---
 
@@ -192,7 +204,7 @@ top-level path **except** `addons/` (and `LICENSE` / `README.md`) so `git archiv
 GitHub source archives the Asset Library serves — omit them. The result is an addon-only snapshot.
 
 This is **archive-only**: `export-ignore` changes nothing in the working tree, in CI, or in the
-`release.yml` `release-addon` job (which zips `addons/godot_mcp/` directly and never calls
+`release.yml` `build-addon` job (which zips `addons/godot_mcp/` directly and never calls
 `git archive`). After editing the ignore list, verify the snapshot contains only the intended paths:
 
 ```bash
@@ -205,7 +217,7 @@ afterwards.
 
 ### First submission (one-time)
 
-1. Cut the GitHub Release first (the version bump → `release.yml` → `v<version>` tag + addon zip). The
+1. Cut the GitHub Release first (the version bump, then a dispatch of `release.yml` → `v<version>` tag + addon zip). The
    Asset Library entry references the released commit, so the release must exist.
 2. Sign in at <https://godotengine.org/asset-library/> with the maintainer's godotengine.org account.
 3. Click **Submit Asset** and fill every field from
@@ -218,8 +230,8 @@ afterwards.
 The Asset Library entry is **edited in place** — you do NOT create a new entry per version. Once the
 INITIAL submission exists and the three GitHub config entries above are set, this is **automated**:
 
-1. Cut the new GitHub Release (bump `plugin.cfg`, merge → `release.yml` tags `v<newversion>`).
-2. The `assetlib-edit` job runs after the Release and submits the edit automatically — it bumps the
+1. Cut the new GitHub Release (bump `plugin.cfg`, merge, dispatch `release.yml` → tags `v<newversion>`).
+2. The `assetlib-edit` job runs after the Release (and its post-publish verification) and submits the edit automatically — it bumps the
    **Version** to the new `plugin.cfg` semver (`version_string`) and sets **Download Commit** to the
    released commit (`github.sha`). The other field values come from `.github/assetlib/edit.hbs`.
 3. The Godot Asset Library moderator reviews the submitted edit before it goes live (same as a manual
@@ -249,8 +261,8 @@ in this repo):
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
 entry — plus the **`godot-cli` npm package** are the distribution channels for Godot-MCP. There
-is no new NuGet package ID to claim and no NuGet publish secret to configure; `release.yml` /
-`deploy.yml` contain **no** `dotnet pack` / `dotnet nuget push` step, by design. (This is the
+is no new NuGet package ID to claim and no NuGet publish secret to configure; `release.yml`
+contains **no** `dotnet pack` / `dotnet nuget push` step, by design. (This is the
 deliberate difference from the sibling `ReflectorNet` / `MCP-Plugin-dotnet` repos, whose `deploy.yml`
 workflows DO push NuGet packages — those repos ARE the upstream publishers; Godot-MCP only *consumes*
 NuGet packages, and publishes its **cli to npm** rather than to NuGet.)
@@ -266,7 +278,7 @@ by the maintainer:
   maintainer-approved version bump landing on `main` opens the release gate. A no-bump merge is a
   no-op. No agent bumps the version to force a release.
 - **Configuring the npm Trusted Publisher** for `godot-cli` (one-time, before the first publish).
-  A manual step on npmjs.com authorizing this repo + `deploy.yml` to publish via OIDC. Until it is
+  A manual step on npmjs.com authorizing this repo + `release.yml` to publish via OIDC. Until it is
   done, the `npm publish` step fails auth (the GitHub Release still succeeds). See
   [npm Trusted Publisher prerequisite](#npm-trusted-publisher-prerequisite-first-publish-only).
 - **Godot Asset Library INITIAL submission + moderator approval.** Creating the brand-new asset entry
