@@ -301,12 +301,16 @@ jobs:
   # smoke so a transport/capture regression cannot ship in a release.
   # serverVersion is single-sourced from the addon constant (check-version-tag.server_version),
   # so these advisory legs download the server release the addon actually pins.
+  # `advisory: true` runs the harness job with continue-on-error, so a red harness leg cannot
+  # turn this release run red AFTER publishing (the release train judges the run conclusion).
+  # They stay out of the publish `needs:` and stay BLOCKING on PR CI (advisory defaults false).
   runtime-harness-4-3:
     needs: [check-version-tag]
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.3.0"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
 
   runtime-harness-4-4:
     needs: [check-version-tag]
@@ -314,6 +318,7 @@ jobs:
     with:
       godotVersion: "4.4.0"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
 
   runtime-harness-4-5:
     needs: [check-version-tag]
@@ -321,6 +326,7 @@ jobs:
     with:
       godotVersion: "4.5.1"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
 
   runtime-harness-4-6:
     needs: [check-version-tag]
@@ -328,6 +334,7 @@ jobs:
     with:
       godotVersion: "4.6.3"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
 
   runtime-harness-4-7:
     needs: [check-version-tag]
@@ -335,6 +342,7 @@ jobs:
     with:
       godotVersion: "4.7.0"
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
 
   # --- BUILD (runs on every dispatch, dry or real; after the full test set) ---
 
