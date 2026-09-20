@@ -165,6 +165,11 @@ namespace com.IvanMurzak.Godot.MCP
             GodotMcpAssemblyResolver.Log = msg => Log(msg);
             GodotMcpAssemblyResolver.Install();
 
+            // Surface the STJ cache-clear outcome (invoked from Teardown on the ALC-unloading path) in the
+            // editor log / console-get-logs. Without a sink the clear is silent, so a regression there is
+            // indistinguishable from "nothing to clear".
+            GodotMcpStjReflectionCache.Log = msg => Log(msg);
+
             // Arm the reload-safe teardown for the Godot "Build Project" hot-reload path. A C# rebuild
             // raises an AssemblyLoadContext unload WITHOUT first calling this EditorPlugin's _ExitTree, so
             // the connection threads + GC handles that pin the (collectible) addon ALC open would otherwise
