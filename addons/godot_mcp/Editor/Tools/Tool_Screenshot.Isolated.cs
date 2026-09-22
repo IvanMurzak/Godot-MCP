@@ -151,7 +151,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 clone.Transform = Transform3D.Identity;
                 subViewport.AddChild(clone);
 
-                var bounds = ComputeAabb(clone);
+                // Read the AABB from the in-tree ORIGINAL, not from the clone: outside the tree Node3D::
+                // get_global_transform() returns Transform3D() and GetAabb() itself can come back empty, so
+                // ComputeAabb(clone) collapsed to the 0.1-unit fallback below and framed the camera inside
+                // the target's geometry. The clone is re-rooted at the origin, so bring the original's world
+                // AABB into the clone's own space.
+                var bounds = target.GlobalTransform.AffineInverse() * ComputeAabb(target);
                 var radius = bounds.Size.Length() * 0.5f;
                 var distance = ScreenshotMath.ComputeCameraDistance(radius, fov, padding);
 
@@ -187,7 +192,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 light.LookAtFromPosition(camPos, center, upVec);
 
                 return RenderSubViewportToPng(subViewport,
-                    caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})");
+                    caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})",
+                    // The camera above was configured while the SubViewport was still outside the tree, where
+                    // Camera3D::_update_camera() is a no-op (it returns early unless the node is inside the
+                    // tree), so nothing of it reached the RenderingServer. Re-assigning the same values here
+                    // is not enough either: Node3D::set_transform() returns early when the value is
+                    // unchanged, so NOTIFICATION_TRANSFORM_CHANGED never fires. HOffset is the one setter that
+                    // calls _update_camera() unconditionally, so assigning it forces the push.
+                    onHosted: () => camera.HOffset = camera.HOffset);
             }
             finally
             {
@@ -195,9 +207,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
         }
 
-        // Aggregate the world-space AABB of every VisualInstance3D in the subtree (the clone's, already at
-        // the origin). Falls back to a small unit box when the target has no visual geometry so the camera
-        // still gets a sane finite framing distance.
+        // Aggregate the world-space AABB of every VisualInstance3D in the subtree. Falls back to a small
+        // unit box when the target has no visual geometry so the camera still gets a sane finite framing
+        // distance.
         static Aabb ComputeAabb(Node3D root)
         {
             var initialised = false;
