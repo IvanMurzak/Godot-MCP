@@ -186,14 +186,183 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void AdvancedAccessTokenPath_ManualConfigCommand_ShowsBearerToken()
+        public void BearerGatedLocalServer_ManualConfigCommand_ShowsBearerToken()
         {
-            var settings = BuildSettings(HttpCredentialMode.AccessToken, SecretToken);
+            // The manual-steps text follows what Configure WRITES (McpPlugin 8.5 WritesHttpBearer): a local server
+            // in the offline `token` auth mode is Bearer-gated, so its command carries the real local secret.
+            var settings = AgentConfiguratorSettings.CreateForHost(
+                projectRootPath: ProjectRoot,
+                executableFullPath: string.Empty,
+                port: 8080,
+                timeoutMs: 10000,
+                host: "http://localhost:26610",
+                token: SecretToken,
+                connectionMode: ConnectionMode.Local,
+                authOption: AuthOption.token,
+                serverExecutableName: "gamedev-mcp-server",
+                serverVersion: "9.0.0",
+                dockerImage: "aigamedeveloper/mcp-server");
             var description = Claude().Describe(settings, TransportMethod.streamableHttp, NullLogger.Instance);
             var allText = string.Join("\n", description.Sections.SelectMany(s => s.Items).Select(i => i.Text ?? string.Empty));
 
             Assert.Contains("Bearer", allText);
             Assert.Contains(SecretToken, allText);
+        }
+
+        // --- Cloud project key (project-keys contract §7) ---
+
+        const string ProjectKey = "agd_pk_REALSECRET_4b3a2c1d";
+
+        /// <summary>The snapshot <c>AgentConfiguratorSettingsFactory.Create</c> builds when a project key is in use.</summary>
+        static AgentConfiguratorSettings BuildProjectKeySettings(string? cloudToken = SecretToken)
+        {
+            var mode = AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                GodotMcpConnectionMode.Cloud, AuthOption.none, supportsOAuth: true, useAccessToken: false, hasProjectKey: true);
+            return AgentConfiguratorSettings.CreateForHost(
+                projectRootPath: ProjectRoot,
+                executableFullPath: string.Empty,
+                port: 8080,
+                timeoutMs: 10000,
+                host: "https://ai-game.dev/mcp",
+                token: string.Empty, // the factory never feeds the short-lived Cloud token alongside a project key
+                connectionMode: ConnectionMode.Cloud,
+                authOption: AgentConfiguratorCredentialPolicy.ResolveSettingsAuthOption(mode),
+                serverExecutableName: "gamedev-mcp-server",
+                serverVersion: "9.0.0",
+                dockerImage: "aigamedeveloper/mcp-server").WithProjectKey(ProjectKey);
+        }
+
+        [Theory]
+        // Cloud + a project key ⇒ EVERY agent writes the Bearer shape (owner ruling 2026-09-23).
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.none, true, false, true, HttpCredentialMode.AccessToken)]
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.none, false, false, true, HttpCredentialMode.AccessToken)]
+        // Cloud without a key (signed out / mint failed) ⇒ URL-only OAuth — the "Advanced" opt-in and a
+        // non-OAuth configurator no longer force the short-lived access token into the file.
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.none, true, false, false, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.none, true, true, false, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Cloud, AuthOption.token, false, false, false, HttpCredentialMode.Oauth)]
+        // Local-server mode is unchanged — a key is never applied there.
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.none, true, false, true, HttpCredentialMode.Oauth)]
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.oauth, true, true, true, HttpCredentialMode.AccessToken)]
+        [InlineData(GodotMcpConnectionMode.Custom, AuthOption.token, true, false, true, HttpCredentialMode.AccessToken)]
+        public void ResolveCredentialMode_ProjectKey_CloudFollowsTheKey_LocalUnchanged(
+            GodotMcpConnectionMode activeMode, AuthOption activeAuthOption, bool supportsOAuth, bool useAccessToken,
+            bool hasProjectKey, HttpCredentialMode expected)
+        {
+            Assert.Equal(expected, AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                activeMode, activeAuthOption, supportsOAuth, useAccessToken, hasProjectKey));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void CloudMode_PanelModeEqualsTheSharedSettingsResolution(bool hasProjectKey)
+        {
+            // The panel's mode must equal the shared snapshot's own resolution, so Configure's write, the status
+            // check and the manual-steps text (driven by WritesHttpBearer) can never disagree.
+            var settings = hasProjectKey ? BuildProjectKeySettings() : BuildSettings(HttpCredentialMode.Oauth, SecretToken);
+            Assert.Equal(
+                settings.ResolveHttpCredentialMode(),
+                AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                    GodotMcpConnectionMode.Cloud, AuthOption.none, supportsOAuth: true, useAccessToken: false, hasProjectKey));
+        }
+
+        [Theory]
+        [InlineData(AuthOption.none)]
+        [InlineData(AuthOption.oauth)]
+        [InlineData(AuthOption.token)]
+        public void LocalMode_PanelModeEqualsTheSharedSettingsResolution(AuthOption authOption)
+        {
+            // Custom (local server): what Configure writes must match the manual steps McpPlugin renders from
+            // the snapshot's own resolution (WritesHttpBearer) — no panel-only override exists any more.
+            var settings = AgentConfiguratorSettings.CreateForHost(
+                projectRootPath: ProjectRoot,
+                executableFullPath: string.Empty,
+                port: 8080,
+                timeoutMs: 10000,
+                host: "http://localhost:26610",
+                token: SecretToken,
+                connectionMode: ConnectionMode.Local,
+                authOption: authOption,
+                serverExecutableName: "gamedev-mcp-server",
+                serverVersion: "9.0.0",
+                dockerImage: "aigamedeveloper/mcp-server");
+            Assert.Equal(
+                settings.ResolveHttpCredentialMode(),
+                AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                    GodotMcpConnectionMode.Custom, authOption, supportsOAuth: true, useAccessToken: false, hasProjectKey: false));
+        }
+
+        [Fact]
+        public void ProjectKey_EveryAgentWritesPinnedUrlPlusBearerProjectKey()
+        {
+            var settings = BuildProjectKeySettings();
+            foreach (var agent in GodotAgentConfigurators.All.Where(a => a is not com.IvanMurzak.McpPlugin.AgentConfig.Impl.CustomConfigurator))
+            {
+                var config = agent.GetHttpConfig(settings, NullLogger.Instance, settings.ResolveHttpCredentialMode());
+                var content = config.ExpectedFileContent ?? string.Empty;
+                Assert.True(content.Contains("Bearer " + ProjectKey), $"{agent.AgentId}: no project-key header in\n{content}");
+                Assert.True(content.Contains("/mcp/p/"), $"{agent.AgentId}: URL is not pinned");
+                Assert.DoesNotContain(SecretToken, content);
+                Assert.DoesNotContain("GAME_DEV_AUTH_TOKEN", content);
+            }
+        }
+
+        [Fact]
+        public void ProjectKey_ManualConfigPreview_ShowsTheHeaderShape_ButNeverTheKey()
+        {
+            var display = BuildProjectKeySettings().ForDisplay();
+            var description = Claude().Describe(display, TransportMethod.streamableHttp, NullLogger.Instance);
+            var allText = string.Join("\n", description.Sections.SelectMany(s => s.Items).Select(i => i.Text ?? string.Empty));
+
+            Assert.DoesNotContain(ProjectKey, allText);
+            Assert.Contains(AgentConfiguratorSettings.ProjectKeyDisplayPlaceholder, allText);
+        }
+
+        [Theory]
+        [InlineData(GodotMcpConnectionMode.Custom, true, false, true, false, false, ProjectKeyStatus.NotApplicable)]
+        [InlineData(GodotMcpConnectionMode.Cloud, false, false, false, false, false, ProjectKeyStatus.SignedOut)]
+        [InlineData(GodotMcpConnectionMode.Cloud, true, true, true, false, false, ProjectKeyStatus.Working)]
+        [InlineData(GodotMcpConnectionMode.Cloud, true, false, false, false, false, ProjectKeyStatus.None)]
+        [InlineData(GodotMcpConnectionMode.Cloud, true, false, true, false, false, ProjectKeyStatus.InUse)]
+        [InlineData(GodotMcpConnectionMode.Cloud, true, false, false, true, false, ProjectKeyStatus.Unavailable)]
+        [InlineData(GodotMcpConnectionMode.Cloud, true, false, true, false, true, ProjectKeyStatus.RegenerateFailed)]
+        public void ResolveProjectKeyStatus_Matrix(
+            GodotMcpConnectionMode mode, bool signedIn, bool busy, bool hasKey, bool lastFailed, bool regenFailed,
+            ProjectKeyStatus expected)
+        {
+            Assert.Equal(expected, AgentConfiguratorCredentialPolicy.ResolveProjectKeyStatus(
+                mode, signedIn, busy, hasKey, lastFailed, regenFailed));
+        }
+
+        [Fact]
+        public void ProjectKeyStatus_TextAndRegenerateAvailability()
+        {
+            Assert.Null(AgentConfiguratorCredentialPolicy.DescribeProjectKeyStatus(ProjectKeyStatus.NotApplicable));
+            foreach (var status in System.Enum.GetValues(typeof(ProjectKeyStatus)).Cast<ProjectKeyStatus>())
+            {
+                if (status != ProjectKeyStatus.NotApplicable)
+                    Assert.False(string.IsNullOrWhiteSpace(AgentConfiguratorCredentialPolicy.DescribeProjectKeyStatus(status)));
+            }
+            // Signed out ⇒ a hint to sign in; no git/.gitignore talk anywhere (owner ruling 2026-09-23).
+            Assert.Contains("Sign in", AgentConfiguratorCredentialPolicy.DescribeProjectKeyStatus(ProjectKeyStatus.SignedOut));
+            Assert.All(System.Enum.GetValues(typeof(ProjectKeyStatus)).Cast<ProjectKeyStatus>(),
+                st => Assert.DoesNotContain("git", AgentConfiguratorCredentialPolicy.DescribeProjectKeyStatus(st) ?? string.Empty));
+
+            Assert.False(AgentConfiguratorCredentialPolicy.CanRegenerateKey(ProjectKeyStatus.NotApplicable));
+            Assert.False(AgentConfiguratorCredentialPolicy.CanRegenerateKey(ProjectKeyStatus.SignedOut));
+            Assert.False(AgentConfiguratorCredentialPolicy.CanRegenerateKey(ProjectKeyStatus.Working));
+            Assert.True(AgentConfiguratorCredentialPolicy.CanRegenerateKey(ProjectKeyStatus.InUse));
+            Assert.True(AgentConfiguratorCredentialPolicy.CanRegenerateKey(ProjectKeyStatus.None));
+        }
+
+        [Fact]
+        public void EveryAgentPanelButton_HasATooltipNamingActionAndTarget()
+        {
+            Assert.Contains("Regenerate", AgentConfiguratorCredentialPolicy.RegenerateKeyTooltip);
+            Assert.Contains("key", AgentConfiguratorCredentialPolicy.RegenerateKeyTooltip);
+            Assert.Contains("Claude Code", AgentConfiguratorCredentialPolicy.ConfigureTooltip("Claude Code"));
+            Assert.Contains("Claude Code", AgentConfiguratorCredentialPolicy.RemoveTooltip("Claude Code"));
         }
     }
 }

@@ -66,6 +66,7 @@ export type {
   // setup-mcp
   SetupMcpOptions,
   SetupMcpResult,
+  SetupMcpCredential,
   SetupMcpSuccess,
   SetupMcpFailure,
   // setup-skills

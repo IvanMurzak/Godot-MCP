@@ -57,6 +57,16 @@ export interface AgentDefinition {
   getHttpProps(url: string, token: string, authRequired: boolean): Record<string, unknown>;
   /** Keys to delete from a pre-existing entry before merging new props. */
   httpRemoveKeys: string[];
+  /**
+   * The entry key holding static http headers, when it is not `headers` (Codex: `http_headers`). Used to
+   * detect a written `Authorization` header and to clear a stale one from a URL-only Cloud config.
+   */
+  httpHeadersKey?: string;
+}
+
+/** The entry key an agent's static http headers live under (`headers` unless the agent overrides it). */
+export function httpHeadersKeyOf(agent: AgentDefinition): string {
+  return agent.httpHeadersKey ?? 'headers';
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +106,12 @@ function authHeaders(token: string, authRequired: boolean): Record<string, strin
   return undefined;
 }
 
+/** `{ [key]: <Bearer header> }` when {@link authHeaders} emits one, else `{}` — for spreading into props. */
+function headersProp(key: string, token: string, authRequired: boolean): Record<string, unknown> {
+  const headers = authHeaders(token, authRequired);
+  return headers ? { [key]: headers } : {};
+}
+
 // ---------------------------------------------------------------------------
 // Agent Registry
 // ---------------------------------------------------------------------------
@@ -122,7 +138,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -148,7 +164,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -166,7 +182,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -184,7 +200,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -202,7 +218,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -221,7 +237,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       enabled: true,
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['disabled', 'command', 'args'],
   },
@@ -240,7 +256,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'http',
       url,
       tools: ['*'],
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -258,7 +274,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -273,10 +289,11 @@ export const agentRegistry: readonly AgentDefinition[] = [
     configFormat: 'json',
     bodyPath: 'mcpServers',
     getConfigPath: () => path.join(home(), '.gemini', 'config', 'mcp_config.json'),
-    // Antigravity uses a `serverUrl` key (not `url`) and a `disabled` flag.
-    getHttpProps: (url, _token, _authRequired) => ({
+    // Antigravity uses a `serverUrl` key (not `url`), a `disabled` flag, and static `headers`.
+    getHttpProps: (url, token, authRequired) => ({
       disabled: false,
       serverUrl: url,
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args', 'url', 'type'],
   },
@@ -310,7 +327,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'streamableHttp',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -329,7 +346,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'remote',
       enabled: true,
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -344,13 +361,17 @@ export const agentRegistry: readonly AgentDefinition[] = [
     configFormat: 'toml',
     bodyPath: 'mcp_servers',
     getConfigPath: (p) => path.join(p, '.codex', 'config.toml'),
-    getHttpProps: (url, _token, _authRequired) => ({
+    // Codex takes static http headers from the `http_headers` inline table (project-keys contract §7);
+    // the section is rewritten wholesale, so a legacy `bearer_token_env_var` never coexists with it.
+    getHttpProps: (url, token, authRequired) => ({
       enabled: true,
       url,
       tool_timeout_sec: 300,
       startup_timeout_sec: 30,
+      ...headersProp('http_headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args', 'type'],
+    httpHeadersKey: 'http_headers',
   },
 
   // ── Kilo Code ───────────────────────────────────────────────
@@ -367,7 +388,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'streamable-http',
       disabled: false,
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -385,7 +406,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -512,7 +533,7 @@ export function writeJsonAgentConfig(
  * headers are preserved; the target section is replaced wholesale (so a re-run
  * is idempotent and stale keys are dropped). Keys in `removeKeys` are never
  * written. This is a deliberately minimal TOML emitter — Codex's config schema
- * here is flat (string/number/bool/array scalars only), so a full TOML library
+ * here is flat (string/number/bool/array scalars plus the `http_headers` inline table), so a full TOML library
  * dependency is unwarranted.
  */
 export function writeTomlAgentConfig(
@@ -534,6 +555,11 @@ export function writeTomlAgentConfig(
   }
 
   const sectionHeader = `[${bodyPath}.${serverName}]`;
+  // The entry is owned wholesale, so drop its sub-tables too (e.g. a hand-written
+  // `[mcp_servers.<name>.http_headers]`): leaving one beside the inline
+  // `http_headers = {…}` is a duplicate key (invalid TOML), and on a URL-only
+  // write it would keep a stale Authorization header.
+  lines = removeTomlSubTables(lines, `[${bodyPath}.${serverName}.`);
 
   // Find existing section boundaries
   const sectionIdx = lines.findIndex((l) => l.trim() === sectionHeader);
@@ -566,6 +592,23 @@ export function writeTomlAgentConfig(
   fs.writeFileSync(configPath, lines.join('\n') + '\n');
 }
 
+/** Remove every `[<prefix>…]` table (header line through the line before the next header). */
+function removeTomlSubTables(lines: string[], headerPrefix: string): string[] {
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[')) skipping = trimmed.startsWith(headerPrefix);
+    if (!skipping) out.push(line);
+  }
+  return out;
+}
+
+/** A TOML key: bare when it is a valid bare key, else a quoted string. */
+function tomlKey(k: string): string {
+  return /^[A-Za-z0-9_-]+$/.test(k) ? k : tomlValue(k);
+}
+
 function tomlValue(v: unknown): string {
   if (typeof v === 'string') return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   if (typeof v === 'boolean') return String(v);
@@ -579,9 +622,14 @@ function tomlValue(v: unknown): string {
   if (Array.isArray(v)) {
     return `[${v.map(tomlValue).join(', ')}]`;
   }
-  // null/undefined/object have no valid TOML scalar form here; emit a quoted
+  if (v && typeof v === 'object') {
+    // An inline table of string values (Codex `http_headers`).
+    const pairs = Object.entries(v as Record<string, unknown>).map(([k, val]) => `${tomlKey(k)} = ${tomlValue(val)}`);
+    return `{ ${pairs.join(', ')} }`;
+  }
+  // null/undefined have no valid TOML scalar form here; emit a quoted
   // string so we never produce an invalid bare token (the Codex schema only
-  // feeds string/number/bool/array scalars, so this is a defensive fallback).
+  // feeds string/number/bool/array scalars and string tables, so this is a defensive fallback).
   return `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 

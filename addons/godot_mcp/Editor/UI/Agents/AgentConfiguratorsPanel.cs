@@ -9,7 +9,9 @@
 */
 #if TOOLS
 #nullable enable
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.UI.Agents;
 using Godot;
@@ -31,6 +33,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// that DTO onto Godot Control widgets and wires Configure / Remove / Reconfigure back to the shared
     /// config's <c>Configure()</c> / <c>Unconfigure()</c>. No per-agent logic lives here — every agent renders
     /// through the same DTO walk.
+    ///
+    /// <para>
+    /// <b>Cloud project key</b> (project-keys contract §7, owner rulings 2026-09-23): in Cloud mode Configure
+    /// writes this project's non-expiring, pin-bound key (<c>Authorization: Bearer agd_pk_…</c>) for EVERY agent.
+    /// The key is obtained with <see cref="ProjectKeyProvider.GetOrMintAsync"/> OFF the main thread (it does
+    /// network I/O and can wait up to ~75 s on the cross-process credential lock) and the result is marshalled
+    /// back with <c>CallDeferred</c> before any config is written. "Regenerate key" mints a fresh key (revoking the
+    /// old one) and rewrites every configured agent. No machine login, or a failed mint (e.g. the server's 404
+    /// while the feature is off), degrades to the URL-only OAuth config — never an error. The key itself is never
+    /// rendered: the manual-configuration snippets use <see cref="AgentConfig.AgentConfiguratorSettings.ForDisplay"/>.
+    /// </para>
     ///
     /// <para>
     /// Godot-MCP is an HTTP-only CLIENT of the shared/cloud server, so the panel always describes the
@@ -74,18 +87,34 @@ namespace com.IvanMurzak.Godot.MCP.UI
         // Live state for the currently-shown configurator.
         AgentConfig.AiAgentConfigurator? _current;
 
-        // "Advanced: use access token" opt-in (mcp-authorize e1 · PR 5). Default OFF → the DEFAULT configure view
-        // is URL-only (native OAuth: no token in the written config OR the rendered manual-config command). ON →
-        // the escape-hatch path writes the legacy Bearer-header shape (design "Flow C"). Panel-wide (persists
-        // across agent switches within a session); rebuilt into each agent view via BuildAdvancedTokenToggle.
-        bool _useAccessToken;
-        DockCheckBox? _advancedTokenToggle;
-
         // Configure/Remove status-row controls + the reconfigure alert host, rebuilt per agent switch.
         Label? _statusLabel;
         Button? _configureButton;
         Button? _removeButton;
         VBoxContainer? _alertHost;
+
+        // Cloud project-key state (panel-wide, survives agent switches). _projectKey is the key Configure writes
+        // (from the local cache or the last get-or-mint / regenerate) — never logged or rendered.
+        string? _projectKey;
+        bool _projectKeyBusy;
+        bool _projectKeyUnavailable;
+        bool _projectKeyRegenerateFailed;
+        // The agent a Configure press is waiting to write once the off-thread get-or-mint returns.
+        AgentConfig.AiAgentConfigurator? _pendingConfigure;
+        Label? _projectKeyLabel;
+        Button? _regenerateKeyButton;
+        // The v2 routing pin — derived from the project root only, so constant for the editor session.
+        string? _projectPin;
+
+        /// <summary>Which off-thread project-key operation a <see cref="OnProjectKeyResolved"/> result belongs to.</summary>
+        enum ProjectKeyOperation
+        {
+            Configure = 0,
+            Regenerate = 1,
+        }
+
+        /// <summary>Engine id sent with a project-key mint (contract §2).</summary>
+        const string ProjectKeyEngine = "godot";
 
         /// <summary>
         /// Construct the section wired to the live <paramref name="connection"/> (it reads the resolved MCP-client
@@ -146,6 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 index = 0;
 
             _agentSelector.Selected = _agentSelector.GetItemIndex(index);
+            LoadCachedProjectKey();
             ShowAgent(index);
         }
 
@@ -195,7 +225,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _alertHost = null;
             _agentBody = null;
             _skillsSection = null;
-            _advancedTokenToggle = null;
+            _projectKeyLabel = null;
+            _regenerateKeyButton = null;
 
             BuildAgentView(_current);
         }
@@ -205,7 +236,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_agentView == null)
                 return;
 
-            var settings = CurrentSettings();
+            // ForDisplay: the manual-configuration snippets show the SAME shape Configure writes (the Authorization
+            // header is present when a project key is in use) with the key itself redacted.
+            var settings = CurrentSettings().ForDisplay();
             var description = agent.Describe(settings, TransportMethod.streamableHttp, Logger);
 
             // --- Agent header row: a 40px per-agent icon (LEFT) + a column holding the agent NAME (section-title)
@@ -254,13 +287,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 BuildConfigureStatusRow(agent);
             }
 
+            // Cloud project key: status line + "Regenerate key" (rewrites every configured agent).
+            BuildProjectKeyRow();
+
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();
-
-            // "Advanced: use access token" opt-in (mcp-authorize e1 · PR 5): with the default OFF the DTO sections
-            // below (built from `settings`, which carries no token on the OAuth path) render URL-only; toggling ON
-            // re-renders + writes the legacy Bearer shape. Sits above the config sections it governs.
-            BuildAdvancedTokenToggle(agent);
 
             // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets.
             foreach (var section in description.Sections)
@@ -448,12 +479,22 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Button order mirrors Unity: Remove first (left), Configure second (right). Connected via object+method
             // Callables to parameterless instance handlers that re-resolve the agent + a fresh settings snapshot.
-            _removeButton = new Button { Name = "Remove", Text = "Remove" };
+            _removeButton = new Button
+            {
+                Name = "Remove",
+                Text = "Remove",
+                TooltipText = AgentConfiguratorCredentialPolicy.RemoveTooltip(agent.AgentName)
+            };
             DockStyle.ApplyAlertButton(_removeButton);
             DockStyle.ConnectPressed(_removeButton, this, MethodName.OnRemoveButtonPressed);
             configActions.AddChild(_removeButton);
 
-            _configureButton = new Button { Name = "Configure", Text = "Configure" };
+            _configureButton = new Button
+            {
+                Name = "Configure",
+                Text = "Configure",
+                TooltipText = AgentConfiguratorCredentialPolicy.ConfigureTooltip(agent.AgentName)
+            };
             DockStyle.ConnectPressed(_configureButton, this, MethodName.OnConfigureButtonPressed);
             configActions.AddChild(_configureButton);
             // Text / styling / Remove visibility are driven by RefreshStatus().
@@ -470,58 +511,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Build the "Advanced: use access token" opt-in row (mcp-authorize e1 · PR 5) — a right-aligned checkbox
-        /// that flips the written config + the DTO's manual-config command between the DEFAULT URL-only OAuth shape
-        /// and the legacy Bearer-header shape (design "Flow C"). Offered ONLY for OAuth-capable configurators
-        /// (<see cref="AgentConfiguratorCredentialPolicy.ShowAdvancedToggle"/>): a non-OAuth configurator has no
-        /// default path — its token is mandatory — so no toggle is shown and it always renders the token shape.
-        /// </summary>
-        void BuildAdvancedTokenToggle(AgentConfig.AiAgentConfigurator agent)
-        {
-            if (_agentBody == null || !AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(agent.SupportsOAuth))
-                return;
-
-            var row = new HBoxContainer { Name = "AdvancedTokenRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            row.Alignment = BoxContainer.AlignmentMode.Center;
-            _agentBody.AddChild(row);
-
-            var label = new Label { Name = "AdvancedTokenLabel", Text = AgentConfiguratorCredentialPolicy.AdvancedUseAccessTokenLabel };
-            DockStyle.ApplyDescription(label);
-            label.AutowrapMode = TextServer.AutowrapMode.Off;
-            row.AddChild(label);
-
-            row.AddChild(new Control { Name = "AdvancedTokenSpacer", SizeFlagsHorizontal = SizeFlags.ExpandFill });
-
-            // Object+method Callable on the checkbox instance (no delegate += into the ManagedCallable hot-reload
-            // registry) — mirrors SkillsPanel's auto-generate toggle.
-            _advancedTokenToggle = new DockCheckBox { Name = "AdvancedTokenToggle", ButtonPressed = _useAccessToken };
-            _advancedTokenToggle.BindToggled(OnAdvancedTokenToggled);
-            _advancedTokenToggle.Connect(BaseButton.SignalName.Toggled, new Callable(_advancedTokenToggle, DockCheckBox.MethodName.OnToggled));
-            row.AddChild(_advancedTokenToggle);
-        }
-
-        /// <summary>
-        /// Persist the "Advanced: use access token" opt-in in panel state and rebuild the current agent view so the
-        /// DTO's config sections (built from a fresh <see cref="CurrentSettings"/> snapshot) + the Configure write
-        /// reflect the new <see cref="AgentConfig.HttpCredentialMode"/>. No connection/config mutation — the toggle
-        /// only governs how this session's configurator UI surfaces credentials.
-        /// </summary>
-        void OnAdvancedTokenToggled(bool pressed)
-        {
-            if (_useAccessToken == pressed)
-                return;
-
-            _useAccessToken = pressed;
-
-            // Rebuild the current agent view (ShowAgent reads _useAccessToken via CurrentSettings/CurrentCredentialMode).
-            var index = _agentSelector?.GetSelectedId() ?? -1;
-            if (index >= 0)
-                ShowAgent(index);
-        }
-
-        /// <summary>
-        /// The effective <see cref="AgentConfig.HttpCredentialMode"/> for the current agent + the "Advanced: use
-        /// access token" opt-in, per the pure-managed <see cref="AgentConfiguratorCredentialPolicy"/>. Drives both
+        /// The effective <see cref="AgentConfig.HttpCredentialMode"/> for the current agent, per the pure-managed
+        /// <see cref="AgentConfiguratorCredentialPolicy"/> — always the same answer as the shared snapshot's own
+        /// <c>ResolveHttpCredentialMode()</c>, so the written file, the status check and the manual steps (which
+        /// McpPlugin 8.5 renders from <c>WritesHttpBearer</c>) agree. (The former "Advanced: use access token"
+        /// opt-in was removed: it wrote a Bearer header the manual steps no longer showed, and in Cloud the
+        /// project key replaces it.) Drives both
         /// the settings snapshot (<see cref="CurrentSettings"/>) and the explicit mode passed to
         /// <c>GetHttpConfig</c> on Configure / Remove.
         ///
@@ -534,36 +529,279 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// default policy.
         /// </para>
         /// </summary>
-        AgentConfig.HttpCredentialMode CurrentCredentialMode() =>
+        AgentConfig.HttpCredentialMode CurrentCredentialMode() => CredentialModeFor(_current);
+
+        /// <summary>The effective credential mode for <paramref name="agent"/> (see <see cref="CurrentCredentialMode"/>).</summary>
+        AgentConfig.HttpCredentialMode CredentialModeFor(AgentConfig.AiAgentConfigurator? agent) =>
             AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
                 _connection.Config.ActiveMode,
                 _connection.Config.ActiveAuthOption,
-                _current?.SupportsOAuth ?? true,
-                _useAccessToken);
+                agent?.SupportsOAuth ?? true,
+                useAccessToken: false,
+                HasProjectKey);
 
         /// <summary>
         /// Configure-button <c>pressed</c> handler (object+method Callable). Writes the addon's HTTP entry into the
-        /// current agent's config file via the shared config's <c>Configure()</c> (REAL token; never logged), then
-        /// re-evaluates the status + alert.
+        /// current agent's config file via the shared config's <c>Configure()</c> (REAL credential; never logged),
+        /// then re-evaluates the status + alert. In Cloud mode with a machine login it first gets (or mints) the
+        /// project key OFF the main thread and writes once the result is marshalled back.
         /// </summary>
         public void OnConfigureButtonPressed()
         {
-            if (_current == null)
+            if (_current == null || _projectKeyBusy)
                 return;
-            var config = _current.GetHttpConfig(CurrentSettings(), Logger, CurrentCredentialMode());
-            config.Configure();
+
+            if (IsCloudMode)
+            {
+                if (_connection.Account.IsSignedIn)
+                {
+                    StartProjectKeyOperation(ProjectKeyOperation.Configure, _current);
+                    return;
+                }
+                _projectKey = null; // no machine login ⇒ the URL-only OAuth config (contract §6)
+            }
+
+            WriteConfig(_current);
             RefreshStatus();
         }
 
         /// <summary>Remove-button <c>pressed</c> handler (object+method Callable). Removes the addon's entry via <c>Unconfigure()</c>.</summary>
         public void OnRemoveButtonPressed()
         {
-            if (_current == null)
+            if (_current == null || _projectKeyBusy)
                 return;
             var config = _current.GetHttpConfig(CurrentSettings(), Logger, CurrentCredentialMode());
             config.Unconfigure();
             RefreshStatus();
         }
+
+        /// <summary>
+        /// "Regenerate key" <c>pressed</c> handler (object+method Callable): mint a fresh project key off the main
+        /// thread (the provider overwrites the cache entry and revokes the key it replaced), then rewrite every
+        /// agent that already has a config entry.
+        /// </summary>
+        public void OnRegenerateKeyButtonPressed()
+        {
+            if (_projectKeyBusy || !IsCloudMode || !_connection.Account.IsSignedIn)
+                return;
+            StartProjectKeyOperation(ProjectKeyOperation.Regenerate, null);
+        }
+
+        /// <summary>Write <paramref name="agent"/>'s HTTP config for the current connection + project-key state.</summary>
+        void WriteConfig(AgentConfig.AiAgentConfigurator agent)
+            => agent.GetHttpConfig(SettingsFor(agent), Logger, CredentialModeFor(agent)).Configure();
+
+        /// <summary>
+        /// Run a project-key get-or-mint / regenerate OFF the editor main thread (it does network I/O and may wait
+        /// up to ~75 s on the cross-process credential lock) and marshal the result back with <c>CallDeferred</c>
+        /// to <see cref="OnProjectKeyResolved"/>. Everything touching Godot APIs (project root, pin) is resolved
+        /// here, on the main thread, before the hop.
+        /// </summary>
+        void StartProjectKeyOperation(ProjectKeyOperation operation, AgentConfig.AiAgentConfigurator? pendingAgent)
+        {
+            var provider = _connection.Account.GetProjectKeyProvider(_connection.CloudBaseUrl);
+            var pin = ProjectPin;
+            var label = ProjectRoot;
+            var machineName = System.Environment.MachineName;
+
+            _projectKeyBusy = true;
+            _pendingConfigure = pendingAgent;
+            RefreshProjectKeyRow();
+
+            _ = Task.Run(async () =>
+            {
+                string? key = null;
+                var failure = string.Empty;
+                try
+                {
+                    key = operation == ProjectKeyOperation.Regenerate
+                        ? await provider.RegenerateAsync(pin, ProjectKeyEngine, machineName, label).ConfigureAwait(false)
+                        : await provider.GetOrMintAsync(pin, ProjectKeyEngine, machineName, label).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // Any failure degrades to the URL-only config (contract §6); logged on the main thread.
+                    failure = $"{ex.GetType().Name}: {ex.Message}";
+                }
+
+                try
+                {
+                    if (IsInstanceValid(this))
+                        CallDeferred(MethodName.OnProjectKeyResolved, key ?? string.Empty, (int)operation, failure);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The panel was freed (dock rebuilt / hot reload) while the key was in flight — nothing to update.
+                }
+            });
+        }
+
+        /// <summary>
+        /// Main-thread continuation of <see cref="StartProjectKeyOperation"/> (reached via <c>CallDeferred</c>):
+        /// adopt the key (empty ⇒ none), then write the pending agent's config (Configure) or rewrite every agent
+        /// that already has an entry (Regenerate), and refresh the status. A failed Regenerate leaves the previous
+        /// key and every config untouched.
+        /// </summary>
+        public void OnProjectKeyResolved(string key, int operation, string failure)
+        {
+            if (!string.IsNullOrEmpty(failure))
+                GodotMcpLog.Warning($"[Godot-MCP] project key {(ProjectKeyOperation)operation} failed: {failure}");
+            _projectKeyBusy = false;
+            var pending = _pendingConfigure;
+            _pendingConfigure = null;
+            var resolved = string.IsNullOrEmpty(key) ? null : key;
+
+            if ((ProjectKeyOperation)operation == ProjectKeyOperation.Regenerate)
+            {
+                _projectKeyRegenerateFailed = resolved == null;
+                if (resolved == null)
+                {
+                    RefreshProjectKeyRow(); // nothing was written
+                    return;
+                }
+                _projectKey = resolved;
+                _projectKeyUnavailable = false;
+                RewriteConfiguredAgents();
+            }
+            else
+            {
+                _projectKey = resolved;
+                _projectKeyUnavailable = resolved == null;
+                _projectKeyRegenerateFailed = false;
+                if (pending != null)
+                    WriteConfig(pending);
+            }
+
+            // Rebuild the agent view: the manual-configuration sections render the credential shape, which the
+            // key change (header present / absent) just altered.
+            RebuildCurrentAgentView();
+        }
+
+        /// <summary>Rebuild the currently selected agent's view (falls back to a status refresh when none is selected).</summary>
+        void RebuildCurrentAgentView()
+        {
+            var index = _agentSelector?.GetSelectedId() ?? -1;
+            if (index >= 0)
+                ShowAgent(index);
+            else
+                RefreshStatus();
+        }
+
+        /// <summary>
+        /// Rewrite every agent that already has a config entry (the ones a regenerated key must reach), so no
+        /// config keeps the revoked key. Agents without an entry are left alone — Regenerate never configures a
+        /// new agent. One agent's failure does not stop the others.
+        /// </summary>
+        void RewriteConfiguredAgents()
+        {
+            // With a Cloud key every agent resolves the same credential mode, so one snapshot serves them all.
+            var settings = CurrentSettings();
+            var mode = CurrentCredentialMode();
+            foreach (var agent in GodotAgentConfigurators.All)
+            {
+                if (!HasDetectableConfig(agent))
+                    continue;
+                try
+                {
+                    if (agent.IsDetected(settings, Logger))
+                        agent.GetHttpConfig(settings, Logger, mode).Configure();
+                }
+                catch (Exception ex)
+                {
+                    GodotMcpLog.Warning($"[Godot-MCP] could not rewrite the {agent.AgentName} config with the new project key: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adopt the project key the local cache (<c>~/.ai-game-dev/project-keys.json</c>) already holds for this
+        /// project and signed-in account, so the status check compares against the key Configure would write —
+        /// WITHOUT network or minting (a lock-free read). Anything else (not Cloud, signed out, no entry, another
+        /// account's entry, unreadable cache) leaves no key.
+        /// </summary>
+        void LoadCachedProjectKey()
+        {
+            if (_projectKeyBusy)
+                return;
+            _projectKey = null;
+            if (!IsCloudMode || !_connection.Account.IsSignedIn)
+                return;
+            try
+            {
+                var provider = _connection.Account.GetProjectKeyProvider(_connection.CloudBaseUrl);
+                var entry = provider.Store.Get(provider.Issuer, ProjectPin);
+                // Another account's entry is never adopted. When the credential records no subject the entry is
+                // still adopted for the status display — Configure always re-validates via GetOrMintAsync.
+                var subject = _connection.Account.Subject;
+                if (entry != null && (subject == null || entry.Sub == subject))
+                    _projectKey = string.IsNullOrEmpty(entry.Key) ? null : entry.Key;
+            }
+            catch (Exception ex)
+            {
+                GodotMcpLog.Warning($"[Godot-MCP] could not read the project-key cache: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Build the Cloud project-key row: a status line (whether a key is in use) and the "Regenerate key"
+        /// button. Cloud mode only — local-server configs never carry a project key.
+        /// </summary>
+        void BuildProjectKeyRow()
+        {
+            if (_agentBody == null || !IsCloudMode)
+                return;
+
+            var row = new HBoxContainer { Name = "ProjectKeyRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            row.Alignment = BoxContainer.AlignmentMode.Center;
+            _agentBody.AddChild(row);
+
+            _projectKeyLabel = new Label { Name = "ProjectKeyStatus", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            DockStyle.ApplyDescription(_projectKeyLabel);
+            _projectKeyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            row.AddChild(_projectKeyLabel);
+
+            _regenerateKeyButton = new Button
+            {
+                Name = "RegenerateKey",
+                Text = AgentConfiguratorCredentialPolicy.RegenerateKeyLabel,
+                TooltipText = AgentConfiguratorCredentialPolicy.RegenerateKeyTooltip
+            };
+            DockStyle.ApplySecondaryButton(_regenerateKeyButton);
+            DockStyle.ConnectPressed(_regenerateKeyButton, this, MethodName.OnRegenerateKeyButtonPressed);
+            row.AddChild(_regenerateKeyButton);
+            // Text + enabled state are driven by RefreshProjectKeyRow().
+        }
+
+        /// <summary>Re-render the project-key status line + "Regenerate key" enabled state from the current state.</summary>
+        void RefreshProjectKeyRow()
+        {
+            var status = AgentConfiguratorCredentialPolicy.ResolveProjectKeyStatus(
+                _connection.Config.ActiveMode,
+                _connection.Account.IsSignedIn,
+                _projectKeyBusy,
+                HasProjectKey,
+                _projectKeyUnavailable,
+                _projectKeyRegenerateFailed);
+
+            if (_projectKeyLabel != null)
+                _projectKeyLabel.Text = AgentConfiguratorCredentialPolicy.DescribeProjectKeyStatus(status) ?? string.Empty;
+            if (_regenerateKeyButton != null)
+                _regenerateKeyButton.Disabled = !AgentConfiguratorCredentialPolicy.CanRegenerateKey(status);
+            if (_configureButton != null)
+                _configureButton.Disabled = _projectKeyBusy;
+            if (_removeButton != null)
+                _removeButton.Disabled = _projectKeyBusy;
+            // The Setup/Reconfigure alert's button runs Configure too — hide it while a key operation is in flight
+            // (the status line says "working…").
+            if (_alertHost != null)
+                _alertHost.Visible = !_projectKeyBusy;
+        }
+
+        /// <summary>True in Cloud mode (the only mode a project key applies to).</summary>
+        bool IsCloudMode => _connection.Config.ActiveMode == GodotMcpConnectionMode.Cloud;
+
+        /// <summary>True when a Cloud project key is in use for the configs this panel writes.</summary>
+        bool HasProjectKey => IsCloudMode && !string.IsNullOrEmpty(_projectKey);
 
         /// <summary>
         /// Re-render the Configure/Remove status AND the Setup/Reconfiguration alert for the current agent (only
@@ -573,6 +811,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void RefreshStatus()
         {
+            RefreshProjectKeyRow();
             if (_current == null || !HasDetectableConfig(_current) || _statusLabel == null)
                 return;
 
@@ -629,7 +868,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
                    "At least one of the following must be configured:\n• MCP Configuration",
                    "Configure");
 
-            var panel = DockStyle.AlertPanel("AgentAlert", title, message, button, OnConfigureButtonPressed);
+            var panel = DockStyle.AlertPanel(
+                "AgentAlert", title, message, button, OnConfigureButtonPressed,
+                _current != null ? AgentConfiguratorCredentialPolicy.ConfigureTooltip(_current.AgentName) : null);
             _alertHost.AddChild(panel);
         }
 
@@ -640,6 +881,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public void Refresh()
         {
+            // Mode / sign-in may have changed: re-read the cached key (no network) before re-rendering.
+            LoadCachedProjectKey();
             var index = _agentSelector?.GetSelectedId() ?? -1;
             if (index < 0)
             {
@@ -657,8 +900,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// effective <see cref="CurrentCredentialMode"/> — URL-only on the default OAuth path, token-bearing when
         /// the "Advanced: use access token" opt-in (or a non-OAuth configurator) is in force.
         /// </summary>
-        AgentConfig.AgentConfiguratorSettings CurrentSettings() =>
-            AgentConfiguratorSettingsFactory.Create(_connection.Config, CurrentCredentialMode());
+        AgentConfig.AgentConfiguratorSettings CurrentSettings() => SettingsFor(_current);
+
+        /// <summary>The settings snapshot for <paramref name="agent"/>, carrying the Cloud project key when one is in use.</summary>
+        AgentConfig.AgentConfiguratorSettings SettingsFor(AgentConfig.AiAgentConfigurator? agent) =>
+            AgentConfiguratorSettingsFactory.Create(_connection.Config, CredentialModeFor(agent), _projectKey);
+
+        /// <summary>This project's v2 routing pin (computed once — it depends only on the project root).</summary>
+        string ProjectPin => _projectPin ??= CurrentSettings().ProjectPin;
 
         /// <summary>The absolute project root (globalized <c>res://</c>, no trailing slash) — used to render config paths project-relative.</summary>
         string ProjectRoot => ProjectSettings.GlobalizePath("res://").TrimEnd('/');

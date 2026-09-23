@@ -317,7 +317,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.4.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.5.0" />
 </ItemGroup>
 
 <!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
@@ -329,7 +329,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.1` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.4.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.5.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
 registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem
@@ -358,8 +358,10 @@ window to communicate with the LLM.
 Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject`. By default it
 points the client at the **project-pinned** cloud URL `<host>/mcp/p/<pin>`, so an agent session launched in
 this project folder routes to *this* project's editor even when your account has several editors connected;
-pass `--no-pin` for the bare `<host>/mcp` URL. OAuth-capable agents (Claude Code, Cursor, Copilot, …)
-authenticate to the cloud through their own OAuth handshake — no token is written into the config. See the
+pass `--no-pin` for the bare `<host>/mcp` URL. In Cloud mode the config carries this project's **project
+key** (`Authorization: Bearer agd_pk_…`) — a non-expiring credential bound to this project only, created
+with your machine sign-in; without a sign-in (or with `--oauth`) the config is URL-only and the agent signs
+in with its own OAuth. The editor's **Configure** button writes the same config. See the
 [CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for the full list of
 supported agents.
 

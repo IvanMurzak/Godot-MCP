@@ -9,7 +9,21 @@ interface SetupMcpCliOptions {
   token?: string;
   /** Commander maps `--no-pin` to `pin` (default true; false when the flag is passed). */
   pin?: boolean;
+  oauth?: boolean;
+  regenerateKey?: boolean;
   list?: boolean;
+}
+
+/** Human description of the credential a written config carries. */
+function describeCredential(result: { credential: string; projectKeySource?: string }): string {
+  switch (result.credential) {
+    case 'project-key':
+      return `project key (${result.projectKeySource === 'minted' ? 'newly created' : 'reused'})`;
+    case 'token':
+      return 'access token (--token)';
+    default:
+      return 'none (URL-only; the agent signs in with its own OAuth)';
+  }
 }
 
 function listAgents(): void {
@@ -23,6 +37,8 @@ export const setupMcpCommand = new Command('setup-mcp')
   .option('--url <url>', 'MCP server host override (the <host>/mcp client URL is derived from it)')
   .option('--token <token>', 'Auth token override (defaults to GODOT_MCP_TOKEN)')
   .option('--no-pin', 'Write an unpinned <host>/mcp URL (default pins /p/<pin> to route to this project)')
+  .option('--oauth', 'Cloud: write a URL-only config (the agent signs in with its own OAuth) instead of the project key')
+  .option('--regenerate-key', "Cloud: mint a new project key for this project, rewrite the config, then revoke the old key")
   .option('--list', 'List all available agent IDs')
   .action(
     async (
@@ -56,6 +72,8 @@ export const setupMcpCommand = new Command('setup-mcp')
         url: options.url,
         token: options.token,
         noPin: options.pin === false,
+        oauth: options.oauth === true,
+        regenerateKey: options.regenerateKey === true,
       });
 
       if (result.kind === 'failure') {
@@ -76,6 +94,7 @@ export const setupMcpCommand = new Command('setup-mcp')
       ui.label('Server URL', result.serverUrl);
       ui.label('Server name', MCP_SERVER_NAME);
       ui.label('Routing', result.pinned ? 'pinned to this project (/p/<pin>)' : 'unpinned (--no-pin)');
+      ui.label('Credential', describeCredential(result));
 
       for (const warning of result.warnings) {
         console.log('');

@@ -25,7 +25,12 @@ describe('setup-mcp pinned-URL parity with the editor Configure', () => {
   });
 
   it('writes <base>/mcp/p/<pin-v2> — identical to the editor Configure URL', async () => {
-    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      // Hermetic: never consult this machine's real login (no project key ⇒ URL-only config).
+      projectKeyResolver: async () => ({ kind: 'no-login', reason: 'test' }),
+    });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
 
