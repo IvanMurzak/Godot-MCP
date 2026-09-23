@@ -698,14 +698,19 @@ export function rewriteProjectKeyInAgentConfigs(opts: {
       const resolved = path.resolve(configPath);
       if (seen.has(resolved)) continue;
       seen.add(resolved);
-      if (!fs.existsSync(resolved)) continue;
       try {
-        const text = fs.readFileSync(resolved, 'utf-8');
+        let text: string;
+        try {
+          text = fs.readFileSync(resolved, 'utf-8');
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          throw err;
+        }
         if (!text.includes(opts.oldKey)) continue;
         const next =
           agent.configFormat === 'toml'
             ? rewriteKeyInToml(text, agent.bodyPath, opts)
-            : rewriteKeyInJson(text, agent.bodyPath, httpHeadersKeyOf(agent), opts);
+            : rewriteKeyInJson(text, agent.bodyPath, opts);
         if (next === null) continue;
         fs.writeFileSync(resolved, next);
         report.rewritten.push(resolved);
@@ -721,7 +726,6 @@ export function rewriteProjectKeyInAgentConfigs(opts: {
 function rewriteKeyInJson(
   text: string,
   bodyPath: string,
-  headersKey: string,
   opts: { serverUrl: string; oldKey: string; newKey: string },
 ): string | null {
   const root = JSON.parse(text) as Record<string, unknown>;
@@ -730,7 +734,8 @@ function rewriteKeyInJson(
   if (!record) return null;
   const url = typeof record['url'] === 'string' ? record['url'] : record['serverUrl'];
   if (url !== opts.serverUrl) return null;
-  const headers = asRecord(record[headersKey]);
+  // JSON agents all keep static headers under `headers` (only the TOML Codex entry uses `http_headers`).
+  const headers = asRecord(record['headers']);
   if (!headers || headers['Authorization'] !== `Bearer ${opts.oldKey}`) return null;
   headers['Authorization'] = `Bearer ${opts.newKey}`;
   return JSON.stringify(root, null, 2) + '\n';
