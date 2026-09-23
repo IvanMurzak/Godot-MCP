@@ -271,8 +271,8 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
       serverUrl,
       pinned,
       credential,
-      projectKeyId: credential === 'project-key' ? key?.keyId : undefined,
-      projectKeySource: credential === 'project-key' ? key?.source : undefined,
+      projectKeyId: key?.keyId,
+      projectKeySource: key?.source,
       warnings,
     };
   } catch (err: unknown) {

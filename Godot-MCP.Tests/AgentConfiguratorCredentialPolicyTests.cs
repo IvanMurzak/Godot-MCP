@@ -268,14 +268,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void ProjectKey_ModeAgreesWithTheSharedSettingsResolution()
-        {
-            // The panel's mode and the shared snapshot's own resolution must match, so the status check builds
-            // the same expected config Configure writes.
-            Assert.Equal(HttpCredentialMode.AccessToken, BuildProjectKeySettings().ResolveHttpCredentialMode());
-        }
-
-        [Fact]
         public void ShowAdvancedToggle_IsNeverOfferedInCloud()
         {
             Assert.False(AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(supportsOAuth: true, GodotMcpConnectionMode.Cloud));

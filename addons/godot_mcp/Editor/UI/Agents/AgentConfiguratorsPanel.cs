@@ -110,6 +110,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         AgentConfig.AiAgentConfigurator? _pendingConfigure;
         Label? _projectKeyLabel;
         Button? _regenerateKeyButton;
+        // The v2 routing pin — derived from the project root only, so constant for the editor session.
+        string? _projectPin;
 
         /// <summary>Which off-thread project-key operation a <see cref="OnProjectKeyResolved"/> result belongs to.</summary>
         enum ProjectKeyOperation
@@ -657,13 +659,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void StartProjectKeyOperation(ProjectKeyOperation operation, AgentConfig.AiAgentConfigurator? pendingAgent)
         {
             var provider = _connection.Account.GetProjectKeyProvider(_connection.CloudBaseUrl);
-            var pin = CurrentSettings().ProjectPin;
+            var pin = ProjectPin;
             var label = ProjectRoot;
             var machineName = System.Environment.MachineName;
 
             _projectKeyBusy = true;
             _pendingConfigure = pendingAgent;
-            RefreshStatus();
+            RefreshProjectKeyRow();
 
             _ = Task.Run(async () =>
             {
@@ -711,12 +713,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if ((ProjectKeyOperation)operation == ProjectKeyOperation.Regenerate)
             {
                 _projectKeyRegenerateFailed = resolved == null;
-                if (resolved != null)
+                if (resolved == null)
                 {
-                    _projectKey = resolved;
-                    _projectKeyUnavailable = false;
-                    RewriteConfiguredAgents();
+                    RefreshProjectKeyRow(); // nothing was written
+                    return;
                 }
+                _projectKey = resolved;
+                _projectKeyUnavailable = false;
+                RewriteConfiguredAgents();
             }
             else
             {
@@ -737,14 +741,17 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void RewriteConfiguredAgents()
         {
+            // With a Cloud key every agent resolves the same credential mode, so one snapshot serves them all.
+            var settings = CurrentSettings();
+            var mode = CurrentCredentialMode();
             foreach (var agent in GodotAgentConfigurators.All)
             {
                 if (!HasDetectableConfig(agent))
                     continue;
                 try
                 {
-                    if (agent.IsDetected(SettingsFor(agent), Logger))
-                        WriteConfig(agent);
+                    if (agent.IsDetected(settings, Logger))
+                        agent.GetHttpConfig(settings, Logger, mode).Configure();
                 }
                 catch (Exception ex)
                 {
@@ -769,9 +776,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
             try
             {
                 var provider = _connection.Account.GetProjectKeyProvider(_connection.CloudBaseUrl);
-                var entry = provider.Store.Get(provider.Issuer, CurrentSettings().ProjectPin);
+                var entry = provider.Store.Get(provider.Issuer, ProjectPin);
+                // Same account rule the provider applies before reusing a cached key (contract §6).
                 var subject = _connection.Account.Subject;
-                if (entry != null && (subject == null || entry.Sub == null || entry.Sub == subject))
+                if (entry != null && subject != null && entry.Sub == subject)
                     _projectKey = string.IsNullOrEmpty(entry.Key) ? null : entry.Key;
             }
             catch (Exception ex)
@@ -938,8 +946,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>The settings snapshot for <paramref name="agent"/>, carrying the Cloud project key when one is in use.</summary>
         AgentConfig.AgentConfiguratorSettings SettingsFor(AgentConfig.AiAgentConfigurator? agent) =>
-            AgentConfiguratorSettingsFactory.Create(
-                _connection.Config, CredentialModeFor(agent), HasProjectKey ? _projectKey : null);
+            AgentConfiguratorSettingsFactory.Create(_connection.Config, CredentialModeFor(agent), _projectKey);
+
+        /// <summary>This project's v2 routing pin (computed once — it depends only on the project root).</summary>
+        string ProjectPin => _projectPin ??= CurrentSettings().ProjectPin;
 
         /// <summary>The absolute project root (globalized <c>res://</c>, no trailing slash) — used to render config paths project-relative.</summary>
         string ProjectRoot => ProjectSettings.GlobalizePath("res://").TrimEnd('/');

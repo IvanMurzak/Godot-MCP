@@ -106,6 +106,12 @@ function authHeaders(token: string, authRequired: boolean): Record<string, strin
   return undefined;
 }
 
+/** `{ [key]: <Bearer header> }` when {@link authHeaders} emits one, else `{}` — for spreading into props. */
+function headersProp(key: string, token: string, authRequired: boolean): Record<string, unknown> {
+  const headers = authHeaders(token, authRequired);
+  return headers ? { [key]: headers } : {};
+}
+
 // ---------------------------------------------------------------------------
 // Agent Registry
 // ---------------------------------------------------------------------------
@@ -287,7 +293,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       disabled: false,
       serverUrl: url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args', 'url', 'type'],
   },
@@ -362,7 +368,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       url,
       tool_timeout_sec: 300,
       startup_timeout_sec: 30,
-      ...(authHeaders(token, authRequired) ? { http_headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('http_headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args', 'type'],
     httpHeadersKey: 'http_headers',
