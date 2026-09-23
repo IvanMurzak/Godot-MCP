@@ -14,7 +14,7 @@ import { setupMcp } from '../src/lib/setup-mcp.js';
 import { getAgentById, getAgentConfigPaths } from '../src/utils/agents.js';
 import { derivePinV2 } from '../src/utils/project-identity.js';
 import { ENV_HOST, ENV_TOKEN } from '../src/utils/connection.js';
-import type { ProjectKeyResolver } from '@baizor/gamedev-cli-core';
+import { ProjectKeyStore, type ProjectKeyResolver } from '@baizor/gamedev-cli-core';
 
 const SERVER_NAME = 'ai-game-developer';
 const HOME_KEYS = ['APPDATA', 'HOME', 'XDG_CONFIG_HOME', 'USERPROFILE'];
@@ -130,12 +130,16 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
     // Holds the old key but for a DIFFERENT url (unpinned) — not this project's pinned config: untouched.
     const vscode = path.join(project, '.vscode', 'mcp.json');
     writeJson(vscode, { servers: { [SERVER_NAME]: { type: 'http', url: 'https://ai-game.dev/mcp', headers: { Authorization: `Bearer ${OLD}` } } } });
-    return { cursor, codex, vscode };
+    // This project's pinned entry with a DIFFERENT key (the old key appears only in another entry): untouched.
+    const gemini = path.join(project, '.gemini', 'settings.json');
+    writeJson(gemini, { mcpServers: { other: { headers: { Authorization: `Bearer ${OLD}` } }, [SERVER_NAME]: { type: 'http', url: pinned(), headers: { Authorization: 'Bearer agd_pk_other' } } } });
+    return { cursor, codex, vscode, gemini };
   }
 
   it('rewrites every other config holding the old key on the pinned URL, BEFORE revoking', async () => {
-    const { cursor, codex, vscode } = seedOtherConfigs();
+    const { cursor, codex, vscode, gemini } = seedOtherConfigs();
     const vscodeBefore = fs.readFileSync(vscode, 'utf-8');
+    const geminiBefore = fs.readFileSync(gemini, 'utf-8');
     const atRevoke: string[] = [];
     const lookups: [string, string][] = [];
     const r = await setupMcp({
@@ -167,6 +171,7 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
     expect(toml).toContain(`http_headers = { Authorization = "Bearer ${NEW}" }`);
     expect(toml).toContain('[other]\nx = 1');
     expect(fs.readFileSync(vscode, 'utf-8')).toBe(vscodeBefore);
+    expect(fs.readFileSync(gemini, 'utf-8')).toBe(geminiBefore);
     expect(readJson(path.join(project, '.mcp.json')).mcpServers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
   });
 
@@ -193,6 +198,23 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
     expect(r.warnings.join('\n')).toContain('NOT revoked');
     // The configs that could be rewritten still were.
     expect(readJson(agA()).mcpServers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
+  });
+
+  it('by default reads the key being replaced from the machine project-key cache', async () => {
+    const { cursor } = seedOtherConfigs();
+    const pin = derivePinV2(path.resolve(project));
+    // HOME/USERPROFILE point at the temp home, so this is the cache the default lookup reads.
+    new ProjectKeyStore(path.join(home, '.ai-game-dev')).put({
+      key: OLD, keyId: 'kid-old', pin, issuer: 'https://ai-game.dev', sub: 'u1', engine: 'godot', createdAt: '2026-09-23T00:00:00Z',
+    });
+    const r = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: project,
+      regenerateKey: true,
+      projectKeyResolver: keyResolver(NEW, async () => undefined),
+    });
+    expect(r.kind).toBe('success');
+    expect(readJson(cursor).mcpServers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
   });
 
   it('touches nothing else when the regenerate does not revoke a previous key', async () => {
