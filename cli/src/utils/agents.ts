@@ -51,8 +51,14 @@ export interface AgentDefinition {
    * token against a required-auth (typically self-hosted) endpoint (Flow C).
    */
   supportsOAuth: boolean;
-  /** Resolve the absolute config-file path for a given project root. */
+  /** Resolve the absolute (primary) config-file path for a given project root. */
   getConfigPath(projectPath: string): string;
+  /**
+   * Every config file the entry lives in, when the agent has more than one (Antigravity reads either
+   * `~/.gemini/config/mcp_config.json` or `~/.gemini/antigravity/mcp_config.json`, unpredictably per
+   * install, so both are written). Absent ⇒ just {@link getConfigPath}. Use {@link getAgentConfigPaths}.
+   */
+  getConfigPaths?(projectPath: string): string[];
   /** Build the HTTP server entry written under `bodyPath[MCP_SERVER_NAME]`. */
   getHttpProps(url: string, token: string, authRequired: boolean): Record<string, unknown>;
   /** Keys to delete from a pre-existing entry before merging new props. */
@@ -62,6 +68,11 @@ export interface AgentDefinition {
    * detect a written `Authorization` header and to clear a stale one from a URL-only Cloud config.
    */
   httpHeadersKey?: string;
+}
+
+/** Every config file `agent`'s entry is written to / read from / removed from, primary first. */
+export function getAgentConfigPaths(agent: AgentDefinition, projectPath: string): string[] {
+  return agent.getConfigPaths?.(projectPath) ?? [agent.getConfigPath(projectPath)];
 }
 
 /** The entry key an agent's static http headers live under (`headers` unless the agent overrides it). */
@@ -87,6 +98,17 @@ function isWindows(): boolean {
 
 function isMac(): boolean {
   return process.platform === 'darwin';
+}
+
+/**
+ * Antigravity's global MCP config lives in ONE of two places and which one is not predictable (it
+ * differs per machine/install, not per OS), so the entry is written to both. Primary first.
+ */
+function antigravityConfigPaths(): string[] {
+  return [
+    path.join(home(), '.gemini', 'config', 'mcp_config.json'),
+    path.join(home(), '.gemini', 'antigravity', 'mcp_config.json'),
+  ];
 }
 
 /**
@@ -285,10 +307,11 @@ export const agentRegistry: readonly AgentDefinition[] = [
     name: 'Antigravity',
     supportsOAuth: true,
     skillsPath: '.agent/skills',
-    configPathDisplay: '~/.gemini/config/mcp_config.json',
+    configPathDisplay: '~/.gemini/config/mcp_config.json + ~/.gemini/antigravity/mcp_config.json',
     configFormat: 'json',
     bodyPath: 'mcpServers',
-    getConfigPath: () => path.join(home(), '.gemini', 'config', 'mcp_config.json'),
+    getConfigPath: () => antigravityConfigPaths()[0],
+    getConfigPaths: () => antigravityConfigPaths(),
     // Antigravity uses a `serverUrl` key (not `url`), a `disabled` flag, and static `headers`.
     getHttpProps: (url, token, authRequired) => ({
       disabled: false,
@@ -631,6 +654,110 @@ function tomlValue(v: unknown): string {
   // string so we never produce an invalid bare token (the Codex schema only
   // feeds string/number/bool/array scalars and string tables, so this is a defensive fallback).
   return `"${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+// ---------------------------------------------------------------------------
+// Regenerate: carry a new project key into the project's other agent configs
+// ---------------------------------------------------------------------------
+
+/** The outcome of {@link rewriteProjectKeyInAgentConfigs}. */
+export interface ProjectKeyRewriteReport {
+  /** Configs whose `Authorization: Bearer <old key>` now carries the new key. */
+  rewritten: string[];
+  /** Configs that carry (or may carry) the old key but could not be rewritten, with the reason. */
+  failed: { path: string; reason: string }[];
+}
+
+/**
+ * `setup-mcp <agent> --regenerate-key` rewrites ONE agent's config and then revokes the previous key —
+ * which would break every OTHER agent config of this project still holding it. This carries the new key
+ * into each of them first: every EXISTING config of every registered agent (all of an agent's
+ * {@link getAgentConfigPaths}) whose `ai-game-developer` http entry points at `serverUrl` (this project's
+ * pinned URL) and whose static `Authorization` header is exactly `Bearer <oldKey>` gets that header value
+ * replaced — nothing else in the file changes. `skipPaths` (the configs the regenerate just wrote) are
+ * left alone. A config that holds the old key but cannot be read, parsed or written is reported in
+ * `failed`, so the caller can keep the old key alive instead of revoking it. Never throws.
+ */
+export function rewriteProjectKeyInAgentConfigs(opts: {
+  projectPath: string;
+  serverUrl: string;
+  oldKey: string;
+  newKey: string;
+  skipPaths: readonly string[];
+}): ProjectKeyRewriteReport {
+  const report: ProjectKeyRewriteReport = { rewritten: [], failed: [] };
+  const seen = new Set(opts.skipPaths.map((p) => path.resolve(p)));
+  for (const agent of agentRegistry) {
+    let paths: string[];
+    try {
+      paths = getAgentConfigPaths(agent, opts.projectPath);
+    } catch {
+      continue;
+    }
+    for (const configPath of paths) {
+      const resolved = path.resolve(configPath);
+      if (seen.has(resolved)) continue;
+      seen.add(resolved);
+      if (!fs.existsSync(resolved)) continue;
+      try {
+        const text = fs.readFileSync(resolved, 'utf-8');
+        if (!text.includes(opts.oldKey)) continue;
+        const next =
+          agent.configFormat === 'toml'
+            ? rewriteKeyInToml(text, agent.bodyPath, opts)
+            : rewriteKeyInJson(text, agent.bodyPath, httpHeadersKeyOf(agent), opts);
+        if (next === null) continue;
+        fs.writeFileSync(resolved, next);
+        report.rewritten.push(resolved);
+      } catch (err) {
+        report.failed.push({ path: resolved, reason: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  }
+  return report;
+}
+
+/** The rewritten JSON text, or null when the entry is not this project's http entry with the old key. Throws on bad JSON. */
+function rewriteKeyInJson(
+  text: string,
+  bodyPath: string,
+  headersKey: string,
+  opts: { serverUrl: string; oldKey: string; newKey: string },
+): string | null {
+  const root = JSON.parse(text) as Record<string, unknown>;
+  const entry = asRecord(asRecord(root)?.[bodyPath])?.[MCP_SERVER_NAME];
+  const record = asRecord(entry);
+  if (!record) return null;
+  const url = typeof record['url'] === 'string' ? record['url'] : record['serverUrl'];
+  if (url !== opts.serverUrl) return null;
+  const headers = asRecord(record[headersKey]);
+  if (!headers || headers['Authorization'] !== `Bearer ${opts.oldKey}`) return null;
+  headers['Authorization'] = `Bearer ${opts.newKey}`;
+  return JSON.stringify(root, null, 2) + '\n';
+}
+
+/** The rewritten Codex TOML text, or null when the section is not this project's entry with the old key. */
+function rewriteKeyInToml(
+  text: string,
+  bodyPath: string,
+  opts: { serverUrl: string; oldKey: string; newKey: string },
+): string | null {
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => l.trim() === `[${bodyPath}.${MCP_SERVER_NAME}]`);
+  if (start < 0) return null;
+  let end = start + 1;
+  while (end < lines.length && !lines[end].trim().startsWith('[')) end++;
+  const section = lines.slice(start + 1, end);
+  if (!section.some((l) => l.trim() === `url = ${tomlValue(opts.serverUrl)}`)) return null;
+  const oldValue = `"Bearer ${opts.oldKey}"`;
+  const headerIdx = section.findIndex((l) => /^\s*http_headers\s*=/.test(l) && l.includes(oldValue));
+  if (headerIdx < 0) return null;
+  lines[start + 1 + headerIdx] = section[headerIdx].replace(oldValue, `"Bearer ${opts.newKey}"`);
+  return lines.join('\n');
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 export { MCP_SERVER_NAME };

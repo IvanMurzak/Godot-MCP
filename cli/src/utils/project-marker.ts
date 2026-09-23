@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PIN_LENGTH } from './project-identity.js';
-import { agentRegistry, MCP_SERVER_NAME } from './agents.js';
+import { agentRegistry, getAgentConfigPaths, MCP_SERVER_NAME } from './agents.js';
 
 /**
  * The tool-neutral, committable **project marker** `<project>/.ai-game-dev/project.json`
@@ -130,23 +130,25 @@ function isProjectLocalConfig(configPath: string, projectPath: string): boolean 
 export function upsertPinIntoAgentConfigs(projectPath: string, pin: string): string[] {
   const updated: string[] = [];
   for (const agent of agentRegistry) {
-    let configPath: string;
+    let configPaths: string[];
     try {
-      configPath = agent.getConfigPath(projectPath);
+      configPaths = getAgentConfigPaths(agent, projectPath);
     } catch {
       continue;
     }
-    if (!isProjectLocalConfig(configPath, projectPath)) continue;
-    if (!fs.existsSync(configPath)) continue;
+    for (const configPath of configPaths) {
+      if (!isProjectLocalConfig(configPath, projectPath)) continue;
+      if (!fs.existsSync(configPath)) continue;
 
-    try {
-      if (agent.configFormat === 'toml') {
-        if (upsertPinInTomlConfig(configPath, pin)) updated.push(configPath);
-      } else {
-        if (upsertPinInJsonConfig(configPath, agent.bodyPath, pin)) updated.push(configPath);
+      try {
+        if (agent.configFormat === 'toml') {
+          if (upsertPinInTomlConfig(configPath, pin)) updated.push(configPath);
+        } else {
+          if (upsertPinInJsonConfig(configPath, agent.bodyPath, pin)) updated.push(configPath);
+        }
+      } catch {
+        // Best-effort: a single unreadable/malformed config never fails enrollment.
       }
-    } catch {
-      // Best-effort: a single unreadable/malformed config never fails enrollment.
     }
   }
   return updated;
