@@ -97,6 +97,13 @@ export interface SetupMcpOptions {
    * provider already.
    */
   projectKeyResolver?: ProjectKeyResolver;
+  /**
+   * `--regenerate-key` only: returns the cached project key being replaced for `(issuer, pin)`, read
+   * before the resolver overwrites it, so the project's other agent configs still holding it are
+   * rewritten to the new key before it is revoked. Defaults to cli-core's `ProjectKeyStore` (the
+   * `~/.ai-game-dev/project-keys.json` cache the default resolver writes); injectable for tests.
+   */
+  previousProjectKey?: (issuer: string, pin: string) => string | undefined;
   onProgress?: ProgressCallback;
 }
 
@@ -107,7 +114,15 @@ export interface SetupMcpSuccess {
   kind: 'success';
   success: true;
   agentId: string;
+  /** The (primary) config file written — `configPaths[0]`. */
   configPath: string;
+  /** Every config file written (Antigravity writes two: `~/.gemini/config/` and `~/.gemini/antigravity/`). */
+  configPaths: string[];
+  /**
+   * `--regenerate-key` only: the OTHER agent configs of this project that carried the previous key and
+   * now carry the new one (rewritten before the previous key is revoked). Empty otherwise.
+   */
+  rewrittenConfigPaths: string[];
   /** The MCP-client URL written to the config — pinned (`…/mcp/p/<pin-v2>`) unless `noPin`. */
   serverUrl: string;
   /** True when the URL carries the `/p/<pin-v2>` routing segment (the default; false with `--no-pin`). */

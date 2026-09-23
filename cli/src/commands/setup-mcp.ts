@@ -85,12 +85,13 @@ export const setupMcpCommand = new Command('setup-mcp')
       if (positionalPath) {
         verbose(`Project path: ${positionalPath}`);
       }
-      verbose(`Config file: ${result.configPath}`);
+      verbose(`Config file(s): ${result.configPaths.join(', ')}`);
 
       spinner.success(`${agent.name} configured successfully`);
 
       console.log('');
-      ui.label('Config file', result.configPath);
+      for (const configPath of result.configPaths) ui.label('Config file', configPath);
+      for (const configPath of result.rewrittenConfigPaths) ui.label('New key also written to', configPath);
       ui.label('Server URL', result.serverUrl);
       ui.label('Server name', MCP_SERVER_NAME);
       ui.label('Routing', result.pinned ? 'pinned to this project (/p/<pin>)' : 'unpinned (--no-pin)');

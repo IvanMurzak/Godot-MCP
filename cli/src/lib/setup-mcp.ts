@@ -2,6 +2,7 @@ import * as path from 'path';
 import {
   createProjectKeyResolver,
   godotAdapter,
+  ProjectKeyStore,
   isCloudUrl,
   pinUrl,
   toAuthServerRoot,
@@ -15,8 +16,10 @@ import {
 } from '../utils/connection.js';
 import {
   getAgentById,
+  getAgentConfigPaths,
   getAgentIds,
   httpHeadersKeyOf,
+  rewriteProjectKeyInAgentConfigs,
   writeJsonAgentConfig,
   writeTomlAgentConfig,
   MCP_SERVER_NAME,
@@ -183,10 +186,18 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
 
     // Cloud default (contract §7): resolve the project key unless the caller opted out.
     let key: Extract<ProjectKeyResult, { kind: 'ok' }> | undefined;
+    // Regenerate: the key being replaced, read BEFORE the resolver overwrites the cache entry, so the
+    // project's other agent configs still holding it can be carried over to the new key (see below).
+    let previousKey: string | undefined;
     if (cloud && !explicitToken && !opts.oauth) {
+      const issuer = toAuthServerRoot(baseClientUrl);
+      if (opts.regenerateKey) {
+        const lookup = opts.previousProjectKey ?? ((i: string, p: string) => new ProjectKeyStore().get(i, p)?.key);
+        previousKey = lookup(issuer, pin);
+      }
       const resolver = opts.projectKeyResolver ?? createProjectKeyResolver(godotAdapter);
       const outcome = await resolver({
-        issuer: toAuthServerRoot(baseClientUrl),
+        issuer,
         pin,
         engine: 'godot',
         label: projectPath,
@@ -224,7 +235,7 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
         supportsOAuth: agent.supportsOAuth,
       });
 
-    const configPath = agent.getConfigPath(projectPath);
+    const configPaths = getAgentConfigPaths(agent, projectPath);
     const props = agent.getHttpProps(serverUrl, token, authRequired);
     // Gate on whether a static header was ACTUALLY emitted into `props` (an agent whose format lacks
     // one writes none).
@@ -236,15 +247,69 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
     // not carry the Cloud project key along.
     const removeKeys = wroteAuthHeader ? agent.httpRemoveKeys : [...agent.httpRemoveKeys, headersKey];
 
-    if (agent.configFormat === 'toml') {
-      writeTomlAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, removeKeys);
-    } else {
-      writeJsonAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, removeKeys);
+    // Write EVERY config file of the agent (Antigravity has two). One failing must not pass silently,
+    // and must not stop the others: each is attempted, then the failures are reported by path.
+    const write = agent.configFormat === 'toml' ? writeTomlAgentConfig : writeJsonAgentConfig;
+    const written: string[] = [];
+    const failedWrites: string[] = [];
+    for (const configPath of configPaths) {
+      try {
+        write(configPath, agent.bodyPath, MCP_SERVER_NAME, props, removeKeys);
+        written.push(configPath);
+        emitProgress(opts.onProgress, {
+          phase: 'manifest-patched',
+          message: `Wrote ${configPath}`,
+          manifestPath: configPath,
+        });
+      } catch (err) {
+        failedWrites.push(`${configPath} (${err instanceof Error ? err.message : String(err)})`);
+      }
+    }
+    if (failedWrites.length > 0) {
+      // The previous key (on a regenerate) is NOT revoked: a config still holds it.
+      return {
+        kind: 'failure',
+        success: false,
+        warnings,
+        error: new Error(
+          `Could not write ${agent.name} config: ${failedWrites.join('; ')}.` +
+            (written.length > 0 ? ` Written: ${written.join(', ')}.` : '') +
+            // The new key is already cached, so a later --regenerate-key replaces IT, never this one.
+            (key?.revokePrevious
+              ? ' The previous project key was NOT revoked; once the config is fixed, re-run setup-mcp ' +
+                'without --regenerate-key and revoke the previous key from your account page.'
+              : ''),
+        ),
+      };
     }
 
-    // Regenerate (§7): only once the new key is cached AND the config rewritten, revoke the old one.
+    // Regenerate: the other agent configs that still carry the previous key (pinned or `--no-pin` URL —
+    // the key is this project's, whatever URL it sits next to) would break the moment it is revoked (only
+    // a regenerate that replaced this account's cached key revokes — `revokePrevious`) — carry the new key into them first. Revoke
+    // only when every one of them was rewritten; otherwise keep the old key alive and say which failed.
+    const rewrite =
+      key?.revokePrevious && previousKey && previousKey !== key.key
+        ? rewriteProjectKeyInAgentConfigs({
+            projectPath,
+            oldKey: previousKey,
+            newKey: key.key,
+            skipPaths: written,
+          })
+        : undefined;
+    const revokeBlocked = (rewrite?.failed.length ?? 0) > 0;
+    if (rewrite && revokeBlocked) {
+      // Not "run --regenerate-key again": the new key is already cached, so a second regenerate would
+      // treat IT as the previous key and never revoke (or rewrite configs still holding) this one.
+      warnings.push(
+        'These agent configs may still carry the previous project key and could not be rewritten, so the previous key ' +
+          'was NOT revoked (fix them, re-run setup-mcp for their agent to write the new key, then revoke the ' +
+          `previous key from your account page): ${rewrite.failed.map((f) => `${f.path} (${f.reason})`).join('; ')}.`,
+      );
+    }
+
+    // Regenerate (§7): only once the new key is cached AND the configs rewritten, revoke the old one.
     // A revoke failure is reported, never fatal.
-    if (key?.revokePrevious) {
+    if (key?.revokePrevious && !revokeBlocked) {
       try {
         const revokeWarning = await key.revokePrevious();
         if (revokeWarning) warnings.push(revokeWarning);
@@ -255,19 +320,15 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
       }
     }
 
-    emitProgress(opts.onProgress, {
-      phase: 'manifest-patched',
-      message: `Wrote ${configPath}`,
-      manifestPath: configPath,
-    });
-
     emitProgress(opts.onProgress, { phase: 'done', message: `${agent.name} configured successfully.` });
 
     return {
       kind: 'success',
       success: true,
       agentId: agent.id,
-      configPath,
+      configPath: written[0],
+      configPaths: written,
+      rewrittenConfigPaths: rewrite?.rewritten ?? [],
       serverUrl,
       pinned,
       credential,
