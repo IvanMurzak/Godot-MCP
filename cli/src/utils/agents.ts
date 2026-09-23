@@ -672,15 +672,17 @@ export interface ProjectKeyRewriteReport {
  * `setup-mcp <agent> --regenerate-key` rewrites ONE agent's config and then revokes the previous key —
  * which would break every OTHER agent config of this project still holding it. This carries the new key
  * into each of them first: every EXISTING config of every registered agent (all of an agent's
- * {@link getAgentConfigPaths}) whose `ai-game-developer` http entry points at `serverUrl` (this project's
- * pinned URL) and whose static `Authorization` header is exactly `Bearer <oldKey>` gets that header value
- * replaced — nothing else in the file changes. `skipPaths` (the configs the regenerate just wrote) are
- * left alone. A config that holds the old key but cannot be read, parsed or written is reported in
- * `failed`, so the caller can keep the old key alive instead of revoking it. Never throws.
+ * {@link getAgentConfigPaths}) whose `ai-game-developer` entry carries a static `Authorization` header of
+ * exactly `Bearer <oldKey>` gets that header value replaced — whatever URL the entry points at (pinned, or
+ * unpinned via `--no-pin`): the key is this project's secret, so any entry holding it breaks on revoke.
+ * The other entries and fields are kept (a JSON file is re-serialized with 2-space indentation).
+ * `skipPaths` (the configs the regenerate just wrote) are left alone. A config that holds the old key but
+ * cannot be read, parsed or written — or still holds it outside that header (another entry, a renamed
+ * entry, a hand-written TOML sub-table) — is reported in `failed`, so the caller can keep the old key
+ * alive instead of revoking it. Never throws.
  */
 export function rewriteProjectKeyInAgentConfigs(opts: {
   projectPath: string;
-  serverUrl: string;
   oldKey: string;
   newKey: string;
   skipPaths: readonly string[];
@@ -711,9 +713,14 @@ export function rewriteProjectKeyInAgentConfigs(opts: {
           agent.configFormat === 'toml'
             ? rewriteKeyInToml(text, agent.bodyPath, opts)
             : rewriteKeyInJson(text, agent.bodyPath, opts);
-        if (next === null) continue;
-        fs.writeFileSync(resolved, next);
-        report.rewritten.push(resolved);
+        if (next !== null) {
+          fs.writeFileSync(resolved, next);
+          report.rewritten.push(resolved);
+        }
+        // The old key is still in the file outside the rewritten header — revoking it would break that use.
+        if ((next ?? text).includes(opts.oldKey)) {
+          report.failed.push({ path: resolved, reason: `holds the previous key outside its ${MCP_SERVER_NAME} Authorization header` });
+        }
       } catch (err) {
         report.failed.push({ path: resolved, reason: err instanceof Error ? err.message : String(err) });
       }
@@ -722,18 +729,17 @@ export function rewriteProjectKeyInAgentConfigs(opts: {
   return report;
 }
 
-/** The rewritten JSON text, or null when the entry is not this project's http entry with the old key. Throws on bad JSON. */
+/** The rewritten JSON text, or null when the entry does not carry the old key in its header. Throws on bad JSON. */
 function rewriteKeyInJson(
   text: string,
   bodyPath: string,
-  opts: { serverUrl: string; oldKey: string; newKey: string },
+  opts: { oldKey: string; newKey: string },
 ): string | null {
-  const root = JSON.parse(text) as Record<string, unknown>;
+  // A UTF-8 BOM (Visual Studio writes one into `.vs/mcp.json`) is not JSON — strip it before parsing.
+  const root = JSON.parse(text.replace(/^\uFEFF/, '')) as Record<string, unknown>;
   const entry = asRecord(asRecord(root)?.[bodyPath])?.[MCP_SERVER_NAME];
   const record = asRecord(entry);
   if (!record) return null;
-  const url = typeof record['url'] === 'string' ? record['url'] : record['serverUrl'];
-  if (url !== opts.serverUrl) return null;
   // JSON agents all keep static headers under `headers` (only the TOML Codex entry uses `http_headers`).
   const headers = asRecord(record['headers']);
   if (!headers || headers['Authorization'] !== `Bearer ${opts.oldKey}`) return null;
@@ -741,11 +747,11 @@ function rewriteKeyInJson(
   return JSON.stringify(root, null, 2) + '\n';
 }
 
-/** The rewritten Codex TOML text, or null when the section is not this project's entry with the old key. */
+/** The rewritten Codex TOML text, or null when the section does not carry the old key in its header. */
 function rewriteKeyInToml(
   text: string,
   bodyPath: string,
-  opts: { serverUrl: string; oldKey: string; newKey: string },
+  opts: { oldKey: string; newKey: string },
 ): string | null {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => l.trim() === `[${bodyPath}.${MCP_SERVER_NAME}]`);
@@ -753,11 +759,11 @@ function rewriteKeyInToml(
   let end = start + 1;
   while (end < lines.length && !lines[end].trim().startsWith('[')) end++;
   const section = lines.slice(start + 1, end);
-  if (!section.some((l) => l.trim() === `url = ${tomlValue(opts.serverUrl)}`)) return null;
   const oldValue = `"Bearer ${opts.oldKey}"`;
   const headerIdx = section.findIndex((l) => /^\s*http_headers\s*=/.test(l) && l.includes(oldValue));
   if (headerIdx < 0) return null;
-  lines[start + 1 + headerIdx] = section[headerIdx].replace(oldValue, `"Bearer ${opts.newKey}"`);
+  // A replacer FUNCTION, not a string: a replacement string would expand `$&`/`$'`/`$$` inside the key.
+  lines[start + 1 + headerIdx] = section[headerIdx].replace(oldValue, () => `"Bearer ${opts.newKey}"`);
   return lines.join('\n');
 }
 

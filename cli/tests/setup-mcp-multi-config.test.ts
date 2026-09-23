@@ -127,19 +127,19 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
       codex,
       `[other]\nx = 1\n\n[mcp_servers.${SERVER_NAME}]\nenabled = true\nurl = "${pinned()}"\nhttp_headers = { Authorization = "Bearer ${OLD}" }\n`,
     );
-    // Holds the old key but for a DIFFERENT url (unpinned) — not this project's pinned config: untouched.
+    // Holds the old key on the UNPINNED url (a `--no-pin` config) — revoking would break it too: rewritten.
     const vscode = path.join(project, '.vscode', 'mcp.json');
     writeJson(vscode, { servers: { [SERVER_NAME]: { type: 'http', url: 'https://ai-game.dev/mcp', headers: { Authorization: `Bearer ${OLD}` } } } });
-    // This project's pinned entry with a DIFFERENT key (the old key appears only in another entry): untouched.
+    // This project's pinned entry with a DIFFERENT key and no trace of the old one: untouched.
     const gemini = path.join(project, '.gemini', 'settings.json');
-    writeJson(gemini, { mcpServers: { other: { headers: { Authorization: `Bearer ${OLD}` } }, [SERVER_NAME]: { type: 'http', url: pinned(), headers: { Authorization: 'Bearer agd_pk_other' } } } });
+    writeJson(gemini, { mcpServers: { other: { url: 'https://z' }, [SERVER_NAME]: { type: 'http', url: pinned(), headers: { Authorization: 'Bearer agd_pk_other' } } } });
     return { cursor, codex, vscode, gemini };
   }
 
-  it('rewrites every other config holding the old key on the pinned URL, BEFORE revoking', async () => {
+  it('rewrites every other config holding the old key (pinned or unpinned URL), BEFORE revoking', async () => {
     const { cursor, codex, vscode, gemini } = seedOtherConfigs();
-    const vscodeBefore = fs.readFileSync(vscode, 'utf-8');
     const geminiBefore = fs.readFileSync(gemini, 'utf-8');
+    let revoked = false;
     const atRevoke: string[] = [];
     const lookups: [string, string][] = [];
     const r = await setupMcp({
@@ -151,7 +151,8 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
         return OLD;
       },
       projectKeyResolver: keyResolver(NEW, async () => {
-        for (const p of [cursor, agA(), agB(), codex]) {
+        revoked = true;
+        for (const p of [cursor, agA(), agB(), codex, vscode]) {
           if (fs.readFileSync(p, 'utf-8').includes(OLD)) atRevoke.push(p);
         }
         return undefined;
@@ -160,8 +161,9 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
     expect(r.kind).toBe('success');
     if (r.kind !== 'success') return;
     expect(lookups).toEqual([['https://ai-game.dev', derivePinV2(path.resolve(project))]]);
+    expect(revoked).toBe(true); // the revoke RAN — so the check below is not satisfied by a skipped revoke
     expect(atRevoke).toEqual([]); // nothing still held the old key when it was revoked
-    expect([...r.rewrittenConfigPaths].sort()).toEqual([cursor, agA(), agB(), codex].map((p) => path.resolve(p)).sort());
+    expect([...r.rewrittenConfigPaths].sort()).toEqual([cursor, agA(), agB(), codex, vscode].map((p) => path.resolve(p)).sort());
     const c = readJson(cursor).mcpServers;
     expect(c[SERVER_NAME].headers).toEqual({ Authorization: `Bearer ${NEW}`, 'X-Other': 'v' });
     expect(c.keep).toEqual({ url: 'u' });
@@ -170,9 +172,68 @@ describe('--regenerate-key carries the new key into the project\'s other agent c
     const toml = fs.readFileSync(codex, 'utf-8');
     expect(toml).toContain(`http_headers = { Authorization = "Bearer ${NEW}" }`);
     expect(toml).toContain('[other]\nx = 1');
-    expect(fs.readFileSync(vscode, 'utf-8')).toBe(vscodeBefore);
+    expect(readJson(vscode).servers[SERVER_NAME]).toEqual({ type: 'http', url: 'https://ai-game.dev/mcp', headers: { Authorization: `Bearer ${NEW}` } });
     expect(fs.readFileSync(gemini, 'utf-8')).toBe(geminiBefore);
     expect(readJson(path.join(project, '.mcp.json')).mcpServers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
+  });
+
+  it('withholds the revoke when a config holds the old key outside its ai-game-developer header', async () => {
+    seedOtherConfigs();
+    // A renamed / hand-copied entry still using the old key would break on revoke — it is not ours to rewrite.
+    const foreign = path.join(project, '.gemini', 'settings.json');
+    writeJson(foreign, { mcpServers: { 'ai-game-developer-copy': { url: pinned(), headers: { Authorization: `Bearer ${OLD}` } } } });
+    const before = fs.readFileSync(foreign, 'utf-8');
+    let revoked = false;
+    const r = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: project,
+      regenerateKey: true,
+      previousProjectKey: () => OLD,
+      projectKeyResolver: keyResolver(NEW, async () => {
+        revoked = true;
+        return undefined;
+      }),
+    });
+    expect(r.kind).toBe('success');
+    if (r.kind !== 'success') return;
+    expect(revoked).toBe(false);
+    expect(r.warnings.join('\n')).toContain(path.resolve(foreign));
+    expect(fs.readFileSync(foreign, 'utf-8')).toBe(before);
+    expect(readJson(agA()).mcpServers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
+  });
+
+  it('rewrites a config that starts with a UTF-8 BOM', async () => {
+    const vs = path.join(project, '.vs', 'mcp.json');
+    fs.mkdirSync(path.dirname(vs), { recursive: true });
+    fs.writeFileSync(vs, '\uFEFF' + JSON.stringify({ servers: { [SERVER_NAME]: { type: 'http', url: pinned(), headers: { Authorization: `Bearer ${OLD}` } } } }));
+    let revoked = false;
+    const r = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: project,
+      regenerateKey: true,
+      previousProjectKey: () => OLD,
+      projectKeyResolver: keyResolver(NEW, async () => {
+        revoked = true;
+        return undefined;
+      }),
+    });
+    expect(r.kind).toBe('success');
+    expect(revoked).toBe(true);
+    expect(readJson(vs).servers[SERVER_NAME].headers.Authorization).toBe(`Bearer ${NEW}`);
+  });
+
+  it('writes a new key containing `$` replacement patterns into a TOML config verbatim', async () => {
+    const { codex } = seedOtherConfigs();
+    const dollarKey = "agd_pk_a$&b$'c$$d";
+    const r = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: project,
+      regenerateKey: true,
+      previousProjectKey: () => OLD,
+      projectKeyResolver: keyResolver(dollarKey, async () => undefined),
+    });
+    expect(r.kind).toBe('success');
+    expect(fs.readFileSync(codex, 'utf-8')).toContain(`http_headers = { Authorization = "Bearer ${dollarKey}" }`);
   });
 
   it('skips the revoke and names the config when one holding the old key cannot be rewritten', async () => {

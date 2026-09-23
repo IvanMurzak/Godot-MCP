@@ -273,20 +273,24 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
         warnings,
         error: new Error(
           `Could not write ${agent.name} config: ${failedWrites.join('; ')}.` +
-            (written.length > 0 ? ` Written: ${written.join(', ')}.` : ''),
+            (written.length > 0 ? ` Written: ${written.join(', ')}.` : '') +
+            // The new key is already cached, so a later --regenerate-key replaces IT, never this one.
+            (key?.revokePrevious
+              ? ' The previous project key was NOT revoked; once the config is fixed, re-run setup-mcp ' +
+                'without --regenerate-key and revoke the previous key from your account page.'
+              : ''),
         ),
       };
     }
 
-    // Regenerate: the other agent configs of THIS project (same pinned URL) that still carry the
-    // previous key would break the moment it is revoked (only a regenerate that replaced this account's
-    // cached key revokes — `revokePrevious`) — carry the new key into them first. Revoke
+    // Regenerate: the other agent configs that still carry the previous key (pinned or `--no-pin` URL —
+    // the key is this project's, whatever URL it sits next to) would break the moment it is revoked (only
+    // a regenerate that replaced this account's cached key revokes — `revokePrevious`) — carry the new key into them first. Revoke
     // only when every one of them was rewritten; otherwise keep the old key alive and say which failed.
     const rewrite =
       key?.revokePrevious && previousKey && previousKey !== key.key
         ? rewriteProjectKeyInAgentConfigs({
             projectPath,
-            serverUrl: pinUrl(baseClientUrl, pin),
             oldKey: previousKey,
             newKey: key.key,
             skipPaths: written,
@@ -294,11 +298,12 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
         : undefined;
     const revokeBlocked = (rewrite?.failed.length ?? 0) > 0;
     if (rewrite && revokeBlocked) {
+      // Not "run --regenerate-key again": the new key is already cached, so a second regenerate would
+      // treat IT as the previous key and never revoke (or rewrite configs still holding) this one.
       warnings.push(
-        'These agent configs still carry the previous project key and could not be rewritten, so the previous key ' +
-          `was NOT revoked (fix them and run --regenerate-key again): ${rewrite.failed
-            .map((f) => `${f.path} (${f.reason})`)
-            .join('; ')}.`,
+        'These agent configs may still carry the previous project key and could not be rewritten, so the previous key ' +
+          'was NOT revoked (fix them, re-run setup-mcp for their agent to write the new key, then revoke the ' +
+          `previous key from your account page): ${rewrite.failed.map((f) => `${f.path} (${f.reason})`).join('; ')}.`,
       );
     }
 
