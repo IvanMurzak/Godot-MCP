@@ -231,10 +231,10 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
     const headersKey = httpHeadersKeyOf(agent);
     const wroteAuthHeader = Boolean((props as Record<string, unknown>)[headersKey]);
     const credential: SetupMcpCredential = !wroteAuthHeader ? 'none' : key ? 'project-key' : 'token';
-    // A Cloud config that ends up URL-only (--oauth, no login, failed mint) must not keep a stale
-    // header — it would suppress the client's native OAuth. Local-server configs are untouched.
-    const removeKeys =
-      cloud && !wroteAuthHeader ? [...agent.httpRemoveKeys, headersKey] : agent.httpRemoveKeys;
+    // A config written without a header must not keep a stale one: in Cloud (--oauth, no login, failed
+    // mint) it would suppress the client's native OAuth, and re-pointing an entry at a local server must
+    // not carry the Cloud project key along.
+    const removeKeys = wroteAuthHeader ? agent.httpRemoveKeys : [...agent.httpRemoveKeys, headersKey];
 
     if (agent.configFormat === 'toml') {
       writeTomlAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, removeKeys);

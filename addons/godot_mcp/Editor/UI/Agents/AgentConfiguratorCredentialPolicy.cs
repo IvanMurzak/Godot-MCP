@@ -81,8 +81,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// EVERY configurator write <see cref="AgentConfig.HttpCredentialMode.AccessToken"/>
         /// (<c>Authorization: Bearer agd_pk_…</c>), and without one (signed out, mint failed) the config is the
         /// URL-only OAuth shape — so the written file, the status check and the rendered manual steps always agree.
-        /// The "Advanced: use access token" opt-in no longer applies in Cloud (the project key supersedes the
-        /// short-lived access token it used to write). Local-server (Custom) mode is unchanged.
+        /// Local-server (Custom) mode is unchanged.
         /// </summary>
         public static AgentConfig.HttpCredentialMode ResolveCredentialMode(
             GodotMcpConnectionMode activeMode,
@@ -93,14 +92,6 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
             => activeMode == GodotMcpConnectionMode.Cloud
                 ? (hasProjectKey ? AgentConfig.HttpCredentialMode.AccessToken : AgentConfig.HttpCredentialMode.Oauth)
                 : ResolveCredentialMode(activeMode, activeAuthOption, supportsOAuth, useAccessToken);
-
-        /// <summary>
-        /// Whether the "Advanced: use access token" toggle is offered in <paramref name="activeMode"/>: never in
-        /// Cloud (the project key is the Cloud credential — see the 5-argument <c>ResolveCredentialMode</c>),
-        /// otherwise per <see cref="ShowAdvancedToggle(bool)"/>.
-        /// </summary>
-        public static bool ShowAdvancedToggle(bool supportsOAuth, GodotMcpConnectionMode activeMode)
-            => activeMode != GodotMcpConnectionMode.Cloud && ShowAdvancedToggle(supportsOAuth);
 
         /// <summary>
         /// Whether the "Advanced: use access token" TOGGLE is offered for a configurator. Only OAuth-capable
@@ -141,7 +132,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
 
         /// <summary>Hover tooltip of the "Regenerate key" button (owner rule: every button names action + target).</summary>
         public const string RegenerateKeyTooltip =
-            "Regenerate this project's key, rewrite every configured AI agent with it, then revoke the old key";
+            "Regenerate this project's key (the old key is revoked) and rewrite every configured AI agent with it";
 
         /// <summary>Label of the "Regenerate key" button.</summary>
         public const string RegenerateKeyLabel = "Regenerate key";

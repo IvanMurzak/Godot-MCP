@@ -267,12 +267,30 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     GodotMcpConnectionMode.Cloud, AuthOption.none, supportsOAuth: true, useAccessToken: false, hasProjectKey));
         }
 
-        [Fact]
-        public void ShowAdvancedToggle_IsNeverOfferedInCloud()
+        [Theory]
+        [InlineData(AuthOption.none)]
+        [InlineData(AuthOption.oauth)]
+        [InlineData(AuthOption.token)]
+        public void LocalMode_PanelModeEqualsTheSharedSettingsResolution(AuthOption authOption)
         {
-            Assert.False(AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(supportsOAuth: true, GodotMcpConnectionMode.Cloud));
-            Assert.True(AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(supportsOAuth: true, GodotMcpConnectionMode.Custom));
-            Assert.False(AgentConfiguratorCredentialPolicy.ShowAdvancedToggle(supportsOAuth: false, GodotMcpConnectionMode.Custom));
+            // Custom (local server): what Configure writes must match the manual steps McpPlugin renders from
+            // the snapshot's own resolution (WritesHttpBearer) — no panel-only override exists any more.
+            var settings = AgentConfiguratorSettings.CreateForHost(
+                projectRootPath: ProjectRoot,
+                executableFullPath: string.Empty,
+                port: 8080,
+                timeoutMs: 10000,
+                host: "http://localhost:26610",
+                token: SecretToken,
+                connectionMode: ConnectionMode.Local,
+                authOption: authOption,
+                serverExecutableName: "gamedev-mcp-server",
+                serverVersion: "9.0.0",
+                dockerImage: "aigamedeveloper/mcp-server");
+            Assert.Equal(
+                settings.ResolveHttpCredentialMode(),
+                AgentConfiguratorCredentialPolicy.ResolveCredentialMode(
+                    GodotMcpConnectionMode.Custom, authOption, supportsOAuth: true, useAccessToken: false, hasProjectKey: false));
         }
 
         [Fact]

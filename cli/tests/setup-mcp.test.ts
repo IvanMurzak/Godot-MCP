@@ -483,6 +483,49 @@ describe('setupMcp — Cloud project key', () => {
     expect(result.credential).toBe('none');
   });
 
+  it('re-pointing a Cloud entry at a local server drops the Cloud project-key header', async () => {
+    const { resolver } = fakeKeyResolver();
+    await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      url: 'http://localhost:26610',
+      projectKeyResolver: resolver,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    const entry = JSON.parse(fs.readFileSync(result.configPath, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toBeUndefined();
+  });
+
+  it('codex: replaces a pre-existing http_headers sub-table instead of duplicating the key', async () => {
+    const cfg = path.join(tmpDir, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(cfg), { recursive: true });
+    fs.writeFileSync(
+      cfg,
+      [
+        '[mcp_servers.ai-game-developer]',
+        'url = "old"',
+        '',
+        '[mcp_servers.ai-game-developer.http_headers]',
+        'Authorization = "Bearer agd_pk_old"',
+        '',
+        '[profile]',
+        'model = "x"',
+        '',
+      ].join('\n'),
+    );
+    const { resolver } = fakeKeyResolver();
+    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    expect(result.kind).toBe('success');
+    const toml = fs.readFileSync(cfg, 'utf-8');
+    expect(toml).not.toContain('[mcp_servers.ai-game-developer.http_headers]');
+    expect(toml).not.toContain('agd_pk_old');
+    expect(toml.match(/http_headers/g)).toHaveLength(1);
+    expect(toml).toContain('[profile]');
+    expect(toml).toContain('model = "x"');
+  });
+
   it('an explicit --token wins over the project key', async () => {
     const { resolver, requests } = fakeKeyResolver();
     const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, token: 'pat', projectKeyResolver: resolver });

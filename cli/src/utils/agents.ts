@@ -138,7 +138,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -164,7 +164,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -182,7 +182,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -200,7 +200,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -218,7 +218,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -237,7 +237,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       enabled: true,
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['disabled', 'command', 'args'],
   },
@@ -256,7 +256,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'http',
       url,
       tools: ['*'],
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -274,7 +274,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -327,7 +327,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'streamableHttp',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -346,7 +346,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'remote',
       enabled: true,
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -388,7 +388,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
       type: 'streamable-http',
       disabled: false,
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -406,7 +406,7 @@ export const agentRegistry: readonly AgentDefinition[] = [
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
-      ...(authHeaders(token, authRequired) ? { headers: authHeaders(token, authRequired) } : {}),
+      ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],
   },
@@ -555,6 +555,11 @@ export function writeTomlAgentConfig(
   }
 
   const sectionHeader = `[${bodyPath}.${serverName}]`;
+  // The entry is owned wholesale, so drop its sub-tables too (e.g. a hand-written
+  // `[mcp_servers.<name>.http_headers]`): leaving one beside the inline
+  // `http_headers = {…}` is a duplicate key (invalid TOML), and on a URL-only
+  // write it would keep a stale Authorization header.
+  lines = removeTomlSubTables(lines, `[${bodyPath}.${serverName}.`);
 
   // Find existing section boundaries
   const sectionIdx = lines.findIndex((l) => l.trim() === sectionHeader);
@@ -585,6 +590,18 @@ export function writeTomlAgentConfig(
   }
 
   fs.writeFileSync(configPath, lines.join('\n') + '\n');
+}
+
+/** Remove every `[<prefix>…]` table (header line through the line before the next header). */
+function removeTomlSubTables(lines: string[], headerPrefix: string): string[] {
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[')) skipping = trimmed.startsWith(headerPrefix);
+    if (!skipping) out.push(line);
+  }
+  return out;
 }
 
 /** A TOML key: bare when it is a valid bare key, else a quoted string. */
