@@ -5,6 +5,7 @@
 //
 // No top-level side effects, no runtime deps beyond TypeScript types.
 
+import type { ProjectKeyResolver } from '@baizor/gamedev-cli-core';
 import type { ExtensionDescriptor } from '../utils/extensions-catalog.js';
 
 // ---------------------------------------------------------------------------
@@ -77,8 +78,30 @@ export interface SetupMcpOptions {
    * this project's engine instance. Set `true` to write the unpinned `<base>/mcp` URL instead.
    */
   noPin?: boolean;
+  /**
+   * `--oauth`: write a URL-only Cloud config (the client authorizes natively, RFC 9728) instead of the
+   * default project-key header, removing any previously written `Authorization` header.
+   */
+  oauth?: boolean;
+  /**
+   * `--regenerate-key`: mint a fresh project key for this project (overwriting the cached one),
+   * rewrite the config, then revoke the previous key. Cloud http configs only; fails with `oauth` /
+   * an explicit `token` / a local-server URL.
+   */
+  regenerateKey?: boolean;
+  /** Display machine name recorded on a minted project key; defaults to `os.hostname()`. */
+  machineName?: string;
+  /**
+   * Resolves the Cloud project key. Defaults to cli-core's `createProjectKeyResolver(godotAdapter)`
+   * over the machine credential store; injectable for tests and for callers that own a credential
+   * provider already.
+   */
+  projectKeyResolver?: ProjectKeyResolver;
   onProgress?: ProgressCallback;
 }
+
+/** The credential a written config carries: an explicit PAT, a Cloud project key, or none (URL-only). */
+export type SetupMcpCredential = 'token' | 'project-key' | 'none';
 
 export interface SetupMcpSuccess {
   kind: 'success';
@@ -89,6 +112,12 @@ export interface SetupMcpSuccess {
   serverUrl: string;
   /** True when the URL carries the `/p/<pin-v2>` routing segment (the default; false with `--no-pin`). */
   pinned: boolean;
+  /** Which credential the written config carries. */
+  credential: SetupMcpCredential;
+  /** The server-side id of the project key written (credential `project-key` only). */
+  projectKeyId?: string;
+  /** Whether the project key was reused from the local cache or freshly minted. */
+  projectKeySource?: 'reused' | 'minted';
   warnings: string[];
 }
 

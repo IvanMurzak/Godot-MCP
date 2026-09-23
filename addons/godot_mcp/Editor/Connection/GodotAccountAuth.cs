@@ -281,6 +281,41 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
             => Provider.RefreshAsync(cancellationToken);
 
+        readonly object _projectKeyGate = new object();
+        ProjectKeyProvider? _projectKeyProvider;
+
+        /// <summary>
+        /// The Cloud <b>project-key</b> provider (project-keys contract §6/§7) for <paramref name="issuer"/> — the
+        /// cloud base URL the written agent configs point at, so the key's issuer and the config's URL host are
+        /// the same origin. Its access token and account subject are late-bound to the CURRENT credential
+        /// provider (so a sign-in/sign-out swap is picked up) and its cache
+        /// (<c>project-keys.json</c>) lives beside the machine credential store. One instance per issuer is
+        /// reused, so its internal gate serializes this editor's get-or-mint / regenerate calls.
+        /// <para>
+        /// ⚠ <see cref="ProjectKeyProvider.GetOrMintAsync"/> / <see cref="ProjectKeyProvider.RegenerateAsync"/> do
+        /// network I/O and may wait up to ~75 s on the cross-process credential lock — never call them on the
+        /// editor main thread.
+        /// </para>
+        /// </summary>
+        public ProjectKeyProvider GetProjectKeyProvider(string issuer)
+        {
+            var normalized = ProjectKeyStore.NormalizeIssuerOrigin(issuer);
+            lock (_projectKeyGate)
+            {
+                if (_projectKeyProvider == null || _projectKeyProvider.Issuer != normalized)
+                {
+                    _projectKeyProvider = new ProjectKeyProvider(
+                        ct => Provider.GetAccessTokenAsync(ct),
+                        normalized,
+                        new ProjectKeyStore(_store.BaseDirectory),
+                        _httpClient,
+                        subjectFallback: () => Provider.Subject,
+                        logger: _logger);
+                }
+                return _projectKeyProvider;
+            }
+        }
+
         /// <summary>
         /// Run the F1 sign-in end-to-end: the RFC 8628 device flow against <paramref name="asBaseUrl"/> via
         /// <paramref name="flow"/> (scope <c>mcp:agent</c> — the flow's default), then the shared two-lock-hold

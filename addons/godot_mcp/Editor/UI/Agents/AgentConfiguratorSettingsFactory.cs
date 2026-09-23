@@ -53,15 +53,26 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// The mapping is centralized in the pure-managed, unit-tested
         /// <see cref="AgentConfiguratorCredentialPolicy"/>.
         /// </para>
+        ///
+        /// <para>
+        /// A Cloud <paramref name="projectKey"/> (project-keys contract §7) is attached with
+        /// <see cref="AgentConfig.AgentConfiguratorSettings.WithProjectKey"/>, so every configurator writes
+        /// <c>Authorization: Bearer agd_pk_…</c>; the connection's own (short-lived) Cloud token is then NOT fed
+        /// into the snapshot. Ignored outside Cloud mode.
+        /// </para>
         /// </summary>
         public static AgentConfig.AgentConfiguratorSettings Create(
             GodotMcpConfig config,
-            AgentConfig.HttpCredentialMode credentialMode = AgentConfig.HttpCredentialMode.Oauth)
+            AgentConfig.HttpCredentialMode credentialMode = AgentConfig.HttpCredentialMode.Oauth,
+            string? projectKey = null)
         {
-            var token = AgentConfiguratorCredentialPolicy.ResolveSettingsToken(credentialMode, config.Token);
+            var useProjectKey = config.ActiveMode == GodotMcpConnectionMode.Cloud && !string.IsNullOrEmpty(projectKey);
+            var token = useProjectKey
+                ? string.Empty
+                : AgentConfiguratorCredentialPolicy.ResolveSettingsToken(credentialMode, config.Token);
             var authOption = AgentConfiguratorCredentialPolicy.ResolveSettingsAuthOption(credentialMode);
 
-            return AgentConfig.AgentConfiguratorSettings.CreateForHost(
+            var settings = AgentConfig.AgentConfiguratorSettings.CreateForHost(
                 projectRootPath: ProjectRootPath,
                 executableFullPath: string.Empty,
                 port: ResolveLocalServerPort(config),
@@ -73,6 +84,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
                 serverExecutableName: GodotMcpServerView.ExecutableName,
                 serverVersion: GodotMcpServerView.ServerVersion,
                 dockerImage: DockerImage);
+            return useProjectKey ? settings.WithProjectKey(projectKey) : settings;
         }
 
         /// <summary>The Docker Hub image the shared server publishes (mirrors Unity-MCP's literal).</summary>

@@ -358,8 +358,10 @@ window to communicate with the LLM.
 Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject`. By default it
 points the client at the **project-pinned** cloud URL `<host>/mcp/p/<pin>`, so an agent session launched in
 this project folder routes to *this* project's editor even when your account has several editors connected;
-pass `--no-pin` for the bare `<host>/mcp` URL. OAuth-capable agents (Claude Code, Cursor, Copilot, …)
-authenticate to the cloud through their own OAuth handshake — no token is written into the config. See the
+pass `--no-pin` for the bare `<host>/mcp` URL. In Cloud mode the config carries this project's **project
+key** (`Authorization: Bearer agd_pk_…`) — a non-expiring credential bound to this project only, created
+with your machine sign-in; without a sign-in (or with `--oauth`) the config is URL-only and the agent signs
+in with its own OAuth. The editor's **Configure** button writes the same config. See the
 [CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for the full list of
 supported agents.
 
