@@ -103,7 +103,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 subViewport.AddChild(cloneCamera);
 
                 return RenderSubViewportToPng(subViewport,
-                    caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})");
+                    caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})",
+                    // Everything assigned to the clone above is lost: the clone is built outside the tree,
+                    // where Camera3D::_update_camera() is a no-op (it starts with `if (!is_inside_tree())
+                    // return;`), and the SubViewport is only hosted further down. Re-assigning the same
+                    // values while inside the tree is not enough for the transform either: Node3D::set_transform()
+                    // returns early when the value is unchanged, so NOTIFICATION_TRANSFORM_CHANGED never
+                    // fires. HOffset is the one setter that calls _update_camera() unconditionally, so
+                    // assigning it forces the camera state to reach the RenderingServer.
+                    onHosted: () =>
+                    {
+                        cloneCamera.GlobalTransform = source.GlobalTransform;
+                        cloneCamera.Projection = source.Projection;
+                        cloneCamera.Fov = source.Fov;
+                        cloneCamera.Size = source.Size;
+                        cloneCamera.Near = source.Near;
+                        cloneCamera.Far = source.Far;
+                        cloneCamera.HOffset = cloneCamera.HOffset;
+                    });
             }
             finally
             {
@@ -159,7 +176,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // it (via FreeOffscreenViewport) in its own finally — this only hosts/un-hosts it so a throw during
         // construction (before this is even reached) is still covered by the caller. MUST run on the main
         // thread.
-        static ResponseCallTool RenderSubViewportToPng(SubViewport subViewport, string caption)
+        static ResponseCallTool RenderSubViewportToPng(SubViewport subViewport, string caption,
+            Action? onHosted = null)
         {
             // The SubViewport needs a parent in the live tree to allocate a render target. The editor's
             // base control is a stable, always-present host; the SubViewport renders off-screen (it is not
@@ -171,6 +189,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             try
             {
                 host.AddChild(subViewport);
+
+                // Run the caller's hook (if any) while the subtree is inside the tree: this is the earliest
+                // point at which a Camera3D's property assignments actually reach the RenderingServer.
+                onHosted?.Invoke();
 
                 // The SubViewport renders into its target across the next draw. A SINGLE force-draw issued
                 // immediately after AddChild can read back BEFORE the off-screen target has the scene content
