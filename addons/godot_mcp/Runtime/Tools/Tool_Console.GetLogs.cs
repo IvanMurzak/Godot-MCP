@@ -28,7 +28,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )]
         [Description("Retrieve captured Godot-MCP editor log lines. By default (sinceSequence=0), returns " +
             "newest-first. When sinceSequence > 0, acts as a polling cursor and returns only entries newer " +
-            "than that sequence, oldest-first, useful for agents fetching log deltas. The Godot analog of " +
+            "than that sequence, oldest-first, in continuous pages without gaps. If returned sequences are lower " +
+            "than your cursor, the log restarted (use the oldest returned sequence as your next cursor). The Godot analog of " +
             "Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log hook, so this returns " +
             "the plugin's own captured editor activity (not the entire Godot editor console) — including its " +
             "connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load, skill-gen, " +
@@ -43,8 +44,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'runtime-errors-get'.\n" +
             "Inputs:\n" +
             "  - 'sinceSequence' (default 0): polling cursor. 0 = return all available, newest-first. " +
-            "    When > 0, return only entries with sequence > this value, oldest-first.\n" +
-            "  - 'maxEntries' (default 100, min 1): caps the returned array (most-recent lines kept when capping).\n" +
+            "    When > 0, return only entries with sequence > this value, oldest-first (continuous pages, no gaps). " +
+            "    If returned sequences are lower than your cursor, the log restarted.\n" +
+            "  - 'maxEntries' (default 100, min 1): caps the returned array (oldest page on overflow).\n" +
             "  - 'logTypeFilter' (default null = all): restrict to Log / Warning / Error.\n" +
             "  - 'includeStackTrace' (default false): include stack-trace strings.\n" +
             "  - 'lastMinutes' (default 0 = all): only lines captured in the last N minutes.")]
@@ -59,8 +61,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description("Return logs from the last N minutes. 0 returns all available logs. Default 0.")]
             int lastMinutes = 0,
             [Description("Polling cursor: 0 returns all available entries (newest-first); when > 0, " +
-                "returns only entries with sequence > this value (oldest-first). Use the highest sequence " +
-                "from a prior call to fetch only new entries. Default 0.")]
+                "returns only entries with sequence > this value (oldest-first, continuous pages without gaps). " +
+                "Use the highest sequence from a prior call to fetch only new entries. If returned sequences are " +
+                "lower than your cursor, the log restarted. Default 0.")]
             long sinceSequence = 0
         )
         {

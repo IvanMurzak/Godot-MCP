@@ -43,8 +43,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         readonly object _gate = new();
         readonly Queue<LogEntry> _entries = new(Capacity);
-        long _nextSequence = 1;
-        long _highestSequence = 0;
+
+        /// <summary>Process-wide monotonic sequence counter, shared across all collector instances.
+        /// Incremented with Interlocked for thread-safety; never resets, ensuring sequences always
+        /// increase even when the editor reloads and a fresh collector is installed.</summary>
+        static long _globalNextSequence = 1;
+
+        /// <summary>Process-wide highest sequence ever assigned; retained across collector resets.</summary>
+        static long _globalHighestSequence = 0;
 
         /// <summary>Backing field for <see cref="Current"/>; accessed only through Volatile read/write.</summary>
         static GodotLogCollector? _current;
@@ -90,7 +96,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>Append a captured line, evicting the oldest when at <see cref="Capacity"/>. Assigns a
-        /// monotonic sequence number under the lock.</summary>
+        /// monotonic sequence number from the process-wide counter.</summary>
         public void Append(LogEntry entry)
         {
             if (entry == null)
@@ -98,9 +104,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             lock (_gate)
             {
-                var seq = _nextSequence++;
+                // Use Interlocked to safely increment the global counter from any thread.
+                var seq = Interlocked.Increment(ref _globalNextSequence) - 1; // -1 because Increment returns the new value
                 entry.Sequence = seq;
-                _highestSequence = seq;
+
+                // Update global highest if this sequence is higher (should always be true, but defensive).
+                long current = Volatile.Read(ref _globalHighestSequence);
+                while (seq > current && Interlocked.CompareExchange(ref _globalHighestSequence, seq, current) != current)
+                {
+                    current = Volatile.Read(ref _globalHighestSequence);
+                }
 
                 if (_entries.Count >= Capacity)
                     _entries.Dequeue();
@@ -128,12 +141,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// The highest sequence number ever assigned (retained across eviction and <see cref="Clear"/>). An
-        /// agent passes this back as <c>sinceSequence</c> to poll only newer entries. 0 before any append.
+        /// The highest sequence number ever assigned across all instances (retained across eviction,
+        /// <see cref="Clear"/>, and collector resets). An agent passes this back as <c>sinceSequence</c> to poll
+        /// only newer entries. 0 before any append. Process-wide, so survives <c>_EnterTree</c> reloads.
         /// </summary>
         public long HighestSequence
         {
-            get { lock (_gate) { return _highestSequence; } }
+            get { return Volatile.Read(ref _globalHighestSequence); }
         }
 
         /// <summary>
@@ -190,15 +204,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
                 else
                 {
-                    // Oldest-first for polling: when capping, keep the newest (most recent) entries.
-                    bool overflow = matching.Count > maxEntries;
-                    IEnumerable<LogEntry> page = overflow
-                        ? matching.Skip(matching.Count - maxEntries)
-                        : matching;
+                    // Oldest-first for polling: cursor → filters → ascending → limit.
+                    // When matching exceeds maxEntries (overflow), return the oldest page (first maxEntries).
+                    // When cursor is stale (no matches), return the oldest page available.
 
-                    return page
-                        .Select(e => Copy(e, includeStackTrace))
-                        .ToArray();
+                    if (matching.Count > 0)
+                    {
+                        // Normal case: entries match the cursor. Return oldest page (first maxEntries).
+                        return matching
+                            .Take(maxEntries)
+                            .Select(e => Copy(e, includeStackTrace))
+                            .ToArray();
+                    }
+                    else
+                    {
+                        // Stale cursor case: sinceSequence is above all current entries, or no matches at all.
+                        // Return the oldest available page (first maxEntries of the buffer).
+                        return _entries
+                            .Take(maxEntries)
+                            .Select(e => Copy(e, includeStackTrace))
+                            .ToArray();
+                    }
                 }
             }
         }
