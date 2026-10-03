@@ -153,11 +153,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>
         /// Query the retained lines, newest-first by default, mirroring Unity-MCP's <c>LogCollector.Query</c>
         /// semantics: optional severity filter, optional last-N-minutes window, stack-trace strip, and a
-        /// <paramref name="maxEntries"/> cap applied AFTER ordering (so the cap keeps the most recent
-        /// lines). When <paramref name="sinceSequence"/> is 0 (default), returns newest-first; when > 0,
-        /// returns only entries with sequence > sinceSequence, in ascending (oldest-first) order, capping to
-        /// the newest entries when overflow. Returns a fresh array of copies so the caller can serialize off
-        /// the lock.
+        /// <paramref name="maxEntries"/> cap applied AFTER ordering. When <paramref name="sinceSequence"/> is 0 (default),
+        /// returns all entries newest-first. When > 0, returns only entries with sequence > sinceSequence in ascending
+        /// (oldest-first) order, capping to the oldest page. When sinceSequence is stale (> HighestSequence, indicating
+        /// process restart), returns oldest page of all entries with filters applied. Returns a fresh array of copies so
+        /// the caller can serialize off the lock.
         /// </summary>
         public LogEntry[] Query(
             int maxEntries = 100,
@@ -175,8 +175,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 IEnumerable<LogEntry> q = _entries;
 
-                // Apply cursor filter: sequence > sinceSequence
-                if (sinceSequence > 0)
+                // Cursor semantics: a cursor is stale only when sinceSequence > HighestSequence (process restart).
+                // Since HighestSequence is process-wide, this rarely happens and behaves like cursor=0 (below everything).
+                bool stale = sinceSequence > 0 && sinceSequence > Volatile.Read(ref _globalHighestSequence);
+
+                // Apply cursor filter: sequence > sinceSequence (but NOT when stale - treat stale like 0).
+                if (sinceSequence > 0 && !stale)
                     q = q.Where(e => e.Sequence > sinceSequence);
 
                 // Apply severity filter
@@ -190,8 +194,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // Convert to list to allow multiple enumerations
                 var matching = q.ToList();
 
-                // When sinceSequence is 0, use newest-first (reverse order, keep most recent).
-                // When sinceSequence > 0, use oldest-first (keep newest page on overflow).
+                // Ordering and capping logic
                 if (sinceSequence == 0)
                 {
                     // Newest-first: reverse, then cap to keep the most recent lines.
@@ -204,27 +207,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
                 else
                 {
-                    // Oldest-first for polling: cursor → filters → ascending → limit.
-                    // When matching exceeds maxEntries (overflow), return the oldest page (first maxEntries).
-                    // When cursor is stale (no matches), return the oldest page available.
-
-                    if (matching.Count > 0)
-                    {
-                        // Normal case: entries match the cursor. Return oldest page (first maxEntries).
-                        return matching
-                            .Take(maxEntries)
-                            .Select(e => Copy(e, includeStackTrace))
-                            .ToArray();
-                    }
-                    else
-                    {
-                        // Stale cursor case: sinceSequence is above all current entries, or no matches at all.
-                        // Return the oldest available page (first maxEntries of the buffer).
-                        return _entries
-                            .Take(maxEntries)
-                            .Select(e => Copy(e, includeStackTrace))
-                            .ToArray();
-                    }
+                    // Oldest-first for polling (sinceSequence > 0).
+                    // Contract: cursor → filters → ascending → Take(maxEntries) as oldest page.
+                    // Normal poll (nothing new): matching is empty, returns empty array.
+                    // Stale cursor: matching has filtered entries, returns oldest page.
+                    return matching
+                        .Take(maxEntries)
+                        .Select(e => Copy(e, includeStackTrace))
+                        .ToArray();
                 }
             }
         }

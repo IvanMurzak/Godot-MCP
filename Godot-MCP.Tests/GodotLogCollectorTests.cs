@@ -397,6 +397,49 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Single(rows);
             Assert.Equal("recent-log", rows[0].Message);
         }
+
+        [Fact]
+        public void Query_SinceSequence_CursorAtMax_ReturnsEmpty()
+        {
+            // (a) FAILING TEST: Normal idle poll - cursor at current max, nothing new → empty array
+            var collector = new GodotLogCollector();
+            var maxBefore = collector.HighestSequence;
+
+            for (int i = 0; i < 5; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            var maxAfter = collector.HighestSequence;
+            // Query with cursor = max (nothing new since last poll)
+            var rows = collector.Query(sinceSequence: maxAfter, maxEntries: 100);
+
+            // Should return EMPTY (not the oldest entries!)
+            Assert.Empty(rows);
+        }
+
+        [Fact]
+        public void Query_SinceSequence_TrulyStale_WithFilter()
+        {
+            // (b) FAILING TEST: Truly stale cursor (process restarted): HighestSequence + 1000
+            // Should return oldest page with filter applied
+            var collector = new GodotLogCollector();
+            var maxBefore = collector.HighestSequence;
+
+            // Mix of entry types
+            collector.Append(GodotLogType.Log, "log1");
+            collector.Append(GodotLogType.Warning, "warn1");
+            collector.Append(GodotLogType.Log, "log2");
+            collector.Append(GodotLogType.Error, "err1");
+
+            // Query with a stale cursor (way beyond current max)
+            var rows = collector.Query(
+                sinceSequence: maxBefore + 1000,
+                logTypeFilter: GodotLogType.Log,
+                maxEntries: 100);
+
+            // Should return oldest page with LOG TYPE FILTER APPLIED
+            Assert.Equal(2, rows.Length);  // Only 2 Log entries, not 4!
+            Assert.All(rows, r => Assert.Equal(GodotLogType.Log, r.LogType));
+        }
     }
 
     /// <summary>
