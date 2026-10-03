@@ -1,0 +1,32 @@
+addons/godot_mcp/Runtime/GodotMcpRuntimeHandle.cs
+  s_59e68aa2558c1c::t_64c85de0d20a05 1-3,5-96
+  s_59e68aa2558c1c::t_44656e83608f24 4
+Godot-MCP.Tests/GodotMcpRuntimeBuilderTests.cs
+  s_59e68aa2558c1c::t_79d247724cbb18 1-192
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_59e68aa2558c1c::t_4b47cafa0a0899 226-235
+  s_59e68aa2558c1c::t_6ad1f71620919a 236-240
+addons/godot_mcp/Runtime/GodotMcpRuntimeBuilder.cs
+  s_59e68aa2558c1c::t_ea04b85f294a59 1-133,143-159
+  s_59e68aa2558c1c::t_c4e104bdf790ae 134-142
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_59e68aa2558c1c::t_6ea4a24abba8bb 118
+  s_59e68aa2558c1c::t_64f0799b51c1f7 1-117,119-140,176-221
+  s_59e68aa2558c1c::t_5e6ae2e96b939e 141-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "8eb9ad70d5cf7478f0bfa6a1393b64b3acc4e18e",
+  "prompts": {},
+  "sessions": {
+    "s_59e68aa2558c1c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c1137065-46ff-480d-ac13-5efe7896a8c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

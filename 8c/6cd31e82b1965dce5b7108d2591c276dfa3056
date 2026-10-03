@@ -1,0 +1,55 @@
+addons/godot_mcp/Connection/GodotMcpConfig.cs
+  s_e36a2a3c4d1c6f::t_9121e551635964 115-121,129-135
+  s_e36a2a3c4d1c6f::t_7a6b1255f08ae1 76-81
+  s_e36a2a3c4d1c6f::t_303f52005a5d86 29-44,114,136,278-279
+  s_e36a2a3c4d1c6f::t_8e3684e391edc5 245-252,255-257,262-277
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_73313cf49482c5 209-224,228-230,243-252,256-257
+addons/godot_mcp/Connection/GodotMcpTokenGenerator.cs
+  s_e36a2a3c4d1c6f::t_e928696b76d2d4 1-48
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_e36a2a3c4d1c6f::t_2bdb53097b72d9 138-173
+  s_e36a2a3c4d1c6f::t_75ee0ce4f4a504 401-404,406-407
+  s_e36a2a3c4d1c6f::t_f57a44d994b0ea 268,273-278,282-286,387
+  s_e36a2a3c4d1c6f::t_d407d60bfac399 55-64
+  s_e36a2a3c4d1c6f::t_980854302d1f1a 287-337
+  s_e36a2a3c4d1c6f::t_e08071516329fc 373-379,383-386,388-389,391,395,399,405,408-423,428-432
+Godot-MCP.Tests/GodotMcpEnvFileTests.cs
+  s_e36a2a3c4d1c6f::t_849e1e9df55ddc 247-277
+  s_e36a2a3c4d1c6f::t_41db2aec13a7ed 406-407
+Godot-MCP.Tests/GodotMcpTokenGeneratorTests.cs
+  s_e36a2a3c4d1c6f::t_1fb3dd2dfc2cde 1-71
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_f12af50443a896 55-57
+Godot-MCP.Tests/GodotMcpConfigStoreTests.cs
+  s_e36a2a3c4d1c6f::t_d411ce793d9e23 250-251
+  s_e36a2a3c4d1c6f::t_245cab13ba89e6 155-156,167
+Godot-MCP.Tests/GodotMcpAuthOptionTests.cs
+  s_e36a2a3c4d1c6f::t_b68116725ea2e9 1-225
+Godot-MCP.Tests/GodotMcpConfigTests.cs
+  s_e36a2a3c4d1c6f::t_98d4fc951329e6 226-227
+  s_e36a2a3c4d1c6f::t_7cb01533fb24c9 253-254
+  s_e36a2a3c4d1c6f::t_341f34f4500c55 326-327
+addons/godot_mcp/Connection/GodotMcpEnvFile.cs
+  s_e36a2a3c4d1c6f::t_d916a51224ffa1 184-191
+  s_e36a2a3c4d1c6f::t_c38610e0514f00 48,54-55
+  s_e36a2a3c4d1c6f::t_147f34d82a2313 242-257
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_e36a2a3c4d1c6f::t_35790be60bc70f 117-121,134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "8c6cd31e82b1965dce5b7108d2591c276dfa3056",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

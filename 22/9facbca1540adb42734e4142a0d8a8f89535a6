@@ -1,0 +1,20 @@
+Godot-MCP.Tests/GodotMcpLocalTokenLifecycleTests.cs
+  s_6f32a5f92d24ee::t_69f1b7da9726ec 104
+  s_6f32a5f92d24ee::t_ab940eeccca43c 92-101,103,105-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "229facbca1540adb42734e4142a0d8a8f89535a6",
+  "prompts": {},
+  "sessions": {
+    "s_6f32a5f92d24ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff4253cd-8946-4cca-af11-69c0c8e8639b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

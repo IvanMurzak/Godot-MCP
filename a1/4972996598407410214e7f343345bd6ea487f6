@@ -1,0 +1,115 @@
+Godot-MCP.Tests/GodotMcpEnvFileTests.cs
+  s_b899ca3d0e837d::t_56d018aea14a99 16
+  s_8193e238b6d602::t_c73ee7be5ee854 291-300,304,310-311,313-314,323-324
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_b899ca3d0e837d::t_2186129a570c29 15
+  s_b899ca3d0e837d::t_6a57c40e3fb20f 63-64
+  s_e76879ce38f93b::t_e8863d7fed5e9c 121-130,133,177,365-378,382-386,388-393,399-401,403,407-409,411-413,415,418-439
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_b899ca3d0e837d::t_1640f420effbbd 18
+  s_8193e238b6d602::t_149a16820e9b21 103,108,110-111,423,437,646-657,739-744,757-776,779,865-868,872-873,883-884,902-904,909,1003-1004,1010,1013-1019
+addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs
+  s_b899ca3d0e837d::t_5af780f6baf945 14
+  s_e76879ce38f93b::t_d4d63df32ab616 69,432,435-450,454-472
+Godot-MCP.Tests/GodotMcpAuthOptionTests.cs
+  s_b899ca3d0e837d::t_ee7ec289987c07 16,21-26,43,49-55,58-59,63-74,82-96,99,108,117,123,130,136,143,145-146,150,153,157-185,191,197,210,217,222,232-256,261-262,264
+addons/godot_mcp/Editor/Connection/GodotMcpServerManager.cs
+  s_b899ca3d0e837d::t_3c79d5e2ea72b3 22
+  s_8193e238b6d602::t_92d65ca3b29bc5 408-411,413-419,427,434-440,465,467
+.github/assetlib/edit.hbs
+  s_364be739bc892c::t_6bee9027163871 3
+CLAUDE.md
+  s_364be739bc892c::t_8b60985a05518e 17,168
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_8c19f166a0a4cd::t_b856f9eed8961d 41
+Godot-MCP.csproj
+  s_364be739bc892c::t_70abbbd3dd1761 20
+Godot-Tests/Godot-Tests.csproj
+  s_e76879ce38f93b::t_0ba60bb21428c6 15,37
+Godot-Tests/README.md
+  s_364be739bc892c::t_7a31f21398d1a3 15
+addons/godot_mcp/Runtime/Connection/GodotMcpEnvFile.cs
+  s_e76879ce38f93b::t_e2d901af89c94c 14,253-258,260
+addons/godot_mcp/Runtime/GodotMcpRuntimeBuilder.cs
+  s_364be739bc892c::t_c12d1b084b9aea 86,242-243
+cli/src/utils/addon-deps.ts
+  s_364be739bc892c::t_0147d5c4b5f96f 46
+cli/src/utils/server-source.ts
+  s_364be739bc892c::t_b31cc1f2377d68 23
+cli/tests/skills-addon-parity.test.ts
+  s_8c19f166a0a4cd::t_991fce0a177b7e 241,246,248
+docs/ARCHITECTURE.md
+  s_364be739bc892c::t_39a9df737b76bb 216
+docs/RELEASING.md
+  s_364be739bc892c::t_c22bb7a4f314c7 248
+docs/assetlib/SUBMISSION.md
+  s_364be739bc892c::t_10dc2b7c726bef 70
+docs/runtime-security.md
+  s_8c19f166a0a4cd::t_4bc870d128866b 35-36,40,45,55,70,83
+Godot-MCP.Tests/GodotMcpConfigJsonContextTests.cs
+  s_8193e238b6d602::t_5219121a385827 15,51,61,66
+Godot-MCP.Tests/GodotMcpConfigStoreTests.cs
+  s_8193e238b6d602::t_870ea33cdd2ab4 16,191-192,203
+Godot-MCP.Tests/GodotMcpConfigTests.cs
+  s_8193e238b6d602::t_d7b02c01a9046a 16,227-228,254-255
+Godot-MCP.Tests/GodotMcpRuntimeBuilderTests.cs
+  s_8193e238b6d602::t_32b25d055031b5 18,272,283
+Godot-MCP.Tests/GodotMcpServerViewTests.cs
+  s_8193e238b6d602::t_3fb3abe6110b90 260-261,264,266-267,269,273,275-276,280,282-299,303-309,315,323-325,329
+README.md
+  s_8193e238b6d602::t_b4fe1dd80ba6c2 305,317,527,529,543-545,660,812,819,841
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorsPanel.cs
+  s_8193e238b6d602::t_5ecd9f501e2330 527-535,537-544
+addons/godot_mcp/Runtime/Connection/GodotMcpConfigStore.cs
+  s_8193e238b6d602::t_b09379c91dfad7 72-82
+addons/godot_mcp/Runtime/GodotMcpEnv.cs
+  s_8193e238b6d602::t_3cae7acf9e2342 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a14972996598407410214e7f343345bd6ea487f6",
+  "prompts": {},
+  "sessions": {
+    "s_364be739bc892c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8f91f54-742b-4579-9e3a-eeb38012be81",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_8193e238b6d602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a143ead5c73aac845",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_8c19f166a0a4cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df8298f2-beea-41ba-9052-0bf0c5fc46f2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_b899ca3d0e837d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf4cf357-6db5-4b31-aed0-27730e6286c4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e76879ce38f93b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "90bb756d-c158-4063-aaec-3f5e702c2d20",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
