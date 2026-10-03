@@ -255,6 +255,241 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(GodotLogCollector.Capacity, rows.Length);
             Assert.All(rows, r => Assert.False(string.IsNullOrEmpty(r.Message)));
         }
+
+        // ---- Sequence and polling (sinceSequence cursor) ------------------------------------------
+
+        [Fact]
+        public void Append_AssignsMonotonicSequence_StartsAt1()
+        {
+            var collector = new GodotLogCollector();
+            collector.Append(GodotLogType.Log, "first");
+            collector.Append(GodotLogType.Log, "second");
+            collector.Append(GodotLogType.Log, "third");
+
+            var rows = collector.Query();
+            Assert.Equal(new long[] { 3, 2, 1 }, rows.Select(r => r.Sequence));
+        }
+
+        [Fact]
+        public void HighestSequence_ReturnsLargestEverAssigned()
+        {
+            var collector = new GodotLogCollector();
+            Assert.Equal(0, collector.HighestSequence);
+
+            collector.Append(GodotLogType.Log, "first");
+            Assert.Equal(1, collector.HighestSequence);
+
+            collector.Append(GodotLogType.Log, "second");
+            Assert.Equal(2, collector.HighestSequence);
+        }
+
+        [Fact]
+        public void HighestSequence_PersistsPastClear()
+        {
+            // This mirrors RuntimeErrorCollector behavior: Clear() does not reset the sequence counter.
+            var collector = new GodotLogCollector();
+            for (int i = 0; i < 5; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            Assert.Equal(5, collector.HighestSequence);
+            collector.Clear();
+            Assert.Equal(5, collector.HighestSequence);
+
+            // New appends continue above the pre-clear maximum.
+            collector.Append(GodotLogType.Log, "new");
+            Assert.Equal(6, collector.HighestSequence);
+        }
+
+        [Fact]
+        public void Query_SinceSequence0_ReturnsAllNewestFirst_WithSequenceField()
+        {
+            // Backward compatibility: sinceSequence=0 (default) returns all entries newest-first, just as
+            // before, but now each entry carries its sequence number.
+            var collector = new GodotLogCollector();
+            collector.Append(GodotLogType.Log, "first");
+            collector.Append(GodotLogType.Log, "second");
+            collector.Append(GodotLogType.Log, "third");
+
+            var rows = collector.Query(sinceSequence: 0);
+
+            Assert.Equal(3, rows.Length);
+            Assert.Equal("third", rows[0].Message);
+            Assert.Equal("second", rows[1].Message);
+            Assert.Equal("first", rows[2].Message);
+            Assert.Equal(new long[] { 3, 2, 1 }, rows.Select(r => r.Sequence));
+        }
+
+        [Fact]
+        public void Query_SinceSequence_ReturnsOnlyNewer_OldestFirst()
+        {
+            // When sinceSequence > 0, return only entries with sequence > sinceSequence, in ascending order.
+            var collector = new GodotLogCollector();
+            for (int i = 0; i < 5; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            var rows = collector.Query(sinceSequence: 2, maxEntries: 100);
+
+            Assert.Equal(3, rows.Length);
+            Assert.Equal(new long[] { 3, 4, 5 }, rows.Select(r => r.Sequence)); // oldest-first
+            Assert.Equal(new string[] { "line-2", "line-3", "line-4" }, rows.Select(r => r.Message));
+        }
+
+        [Fact]
+        public void Query_SinceSequence_PagingWithCursor()
+        {
+            // Test paging with sinceSequence > 0: fetching entries in oldest-first order, capping to keep
+            // the newest entries, and verifying no gaps or duplicates across pages.
+            var collector = new GodotLogCollector();
+            var messages = new (GodotLogType type, string msg)[]
+            {
+                (GodotLogType.Log, "log1"),
+                (GodotLogType.Warning, "warn1"),
+                (GodotLogType.Log, "log2"),
+                (GodotLogType.Error, "err1"),
+                (GodotLogType.Log, "log3"),
+            };
+
+            foreach (var (type, msg) in messages)
+                collector.Append(type, msg);
+
+            // Sequences: log1=1, warn1=2, log2=3, err1=4, log3=5
+            // Log entries only: 1,3,5
+
+            // Page 1: query from sinceSequence=0 returns all entries, newest-first, cap at 2
+            // All Log entries in buffer (oldest-first): [1,3,5]. Reverse to newest-first: [5,3,1]. Cap to 2: [5,3]
+            var page1 = collector.Query(logTypeFilter: GodotLogType.Log, maxEntries: 2, sinceSequence: 0);
+            Assert.Equal(2, page1.Length);
+            Assert.Equal(new long[] { 5, 3 }, page1.Select(r => r.Sequence));  // newest-first
+
+            // Page 2: continue from sequence 3, should get sequence > 3 which is only 5
+            // But we already got 5 in page1, so this returns empty
+            var page2 = collector.Query(logTypeFilter: GodotLogType.Log, maxEntries: 2, sinceSequence: 5);
+            Assert.Empty(page2);
+
+            // Verify all Log entries with sinceSequence=0 (newest-first)
+            var allQuery = collector.Query(logTypeFilter: GodotLogType.Log, maxEntries: 100, sinceSequence: 0);
+            Assert.Equal(3, allQuery.Length);
+            Assert.Equal(new long[] { 5, 3, 1 }, allQuery.Select(r => r.Sequence));  // newest-first
+        }
+
+        [Fact]
+        public void Query_SinceSequence_AboveMaximum_ReturnsEmpty()
+        {
+            // A cursor above the current maximum returns nothing.
+            var collector = new GodotLogCollector();
+            collector.Append(GodotLogType.Log, "line1");
+            collector.Append(GodotLogType.Log, "line2");
+
+            var rows = collector.Query(sinceSequence: 100); // above max of 2
+
+            Assert.Empty(rows);
+        }
+
+        [Fact]
+        public void Query_SinceSequence0_ReturnsNewestFirst()
+        {
+            // When sinceSequence=0 (backward compatible), return newest-first (not oldest-first).
+            var collector = new GodotLogCollector();
+            for (int i = 0; i < 10; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            var rows = collector.Query(sinceSequence: 0, maxEntries: 3);
+
+            Assert.Equal(3, rows.Length);
+            // Newest-first: sequences are [10,9,8]
+            Assert.Equal(new long[] { 10, 9, 8 }, rows.Select(r => r.Sequence));
+        }
+
+        [Fact]
+        public void Query_SinceSequence0_PersistsPastEviction()
+        {
+            // When appending past Capacity, the oldest entries are evicted but HighestSequence keeps advancing.
+            // sinceSequence=0 returns newest-first (backward compatible), so newest available (highest sequence) comes first.
+            var collector = new GodotLogCollector();
+            int total = GodotLogCollector.Capacity + 50;
+            for (int i = 0; i < total; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            Assert.Equal(GodotLogCollector.Capacity, collector.Count);
+            Assert.Equal(total, collector.HighestSequence);
+
+            // Query with sinceSequence=0 returns all available, newest-first.
+            // The first 50 were evicted, so oldest available is 51. Newest-first means newest (total) comes first.
+            var rows = collector.Query(sinceSequence: 0, maxEntries: GodotLogCollector.Capacity);
+            Assert.Equal(GodotLogCollector.Capacity, rows.Length);
+            Assert.Equal(total, rows.First().Sequence);  // newest first
+            Assert.Equal(51, rows.Last().Sequence);      // oldest available last
+        }
+
+        [Fact]
+        public void Query_SinceSequence_StaleAtCapacity_ReturnsNewestPage()
+        {
+            // When appending past Capacity, all older entries are evicted. A since-poll with a sequence in
+            // the evicted range returns the NEWEST available page (capped to maxEntries), in oldest-first order.
+            // This matches RuntimeErrorCollector behavior: when overflow, keep newest deltas to avoid losing recent data.
+            var collector = new GodotLogCollector();
+            int total = GodotLogCollector.Capacity + 100;
+            for (int i = 0; i < total; i++)
+                collector.Append(GodotLogType.Log, $"line-{i}");
+
+            // The buffer holds sequences 101-1100 (the last 1000). Query for sinceSequence=50 (evicted).
+            // Matching entries: 101-1100 (1000 total). Capped to 50 newest: [1051,...,1100].
+            var rows = collector.Query(sinceSequence: 50, maxEntries: 50);
+
+            // Should return the newest 50 entries available, in oldest-first order.
+            Assert.Equal(50, rows.Length);
+            Assert.Equal(1051, rows.First().Sequence);  // oldest of the newest 50
+            Assert.Equal(1100, rows.Last().Sequence);   // newest
+        }
+
+        [Fact]
+        public void Reset_NewCollectorInstance_SequenceContinuesAbovePrevious()
+        {
+            // When _EnterTree creates a fresh collector, the new instance has a fresh sequence counter,
+            // but the old buffer stays readable until replaced. This demonstrates the scenario: old session's
+            // buffer still has its entries, a new session installs fresh (starting at 1 again).
+            var session1 = new GodotLogCollector();
+            session1.Append(GodotLogType.Log, "s1-line1");
+            session1.Append(GodotLogType.Log, "s1-line2");
+
+            var session1Max = session1.HighestSequence;
+            Assert.Equal(2, session1Max);
+
+            // Session 2 installs fresh (new GodotLogCollector instance).
+            var session2 = new GodotLogCollector();
+            session2.Append(GodotLogType.Log, "s2-line1");
+
+            // Session 2 sequences restart at 1 (it's a fresh instance).
+            Assert.Equal(1, session2.HighestSequence);
+            var s2rows = session2.Query();
+            Assert.Single(s2rows);
+            Assert.Equal(1, s2rows[0].Sequence);
+        }
+
+        [Fact]
+        public void Query_WithFiltersAndSinceSequence_CombinesCorrectly()
+        {
+            // Verify that sinceSequence, logTypeFilter, and lastMinutes all apply together.
+            var now = DateTime.UtcNow;
+            var collector = new GodotLogCollector();
+
+            // Append mixed types at different times.
+            collector.Append(new LogEntry(GodotLogType.Log, "old-log", now.AddMinutes(-10)));
+            collector.Append(new LogEntry(GodotLogType.Warning, "recent-warn", now.AddMinutes(-1)));
+            collector.Append(new LogEntry(GodotLogType.Log, "recent-log", now));
+            collector.Append(new LogEntry(GodotLogType.Error, "recent-err", now));
+
+            // Query: last 5 minutes, Log type only, sinceSequence=1.
+            var rows = collector.Query(
+                sinceSequence: 1,
+                logTypeFilter: GodotLogType.Log,
+                lastMinutes: 5,
+                maxEntries: 10);
+
+            Assert.Single(rows);
+            Assert.Equal("recent-log", rows[0].Message);
+            Assert.Equal(3, rows[0].Sequence);
+        }
     }
 
     /// <summary>
