@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Xunit;
 
@@ -38,16 +39,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// importer's extensions AND the native loaders' extensions, mixed. Spelled the way Godot does
         /// (lower-case, no dot).
         /// </summary>
-        static readonly string[] EditorRecognizedExtensions =
-        {
-            "png", "jpg", "webp", "svg", "wav", "ogg", "glb", "ttf",
-            "tscn", "tres", "res", "gd", "cs", "gdshader", "json",
-        };
-
         static readonly HashSet<string> NativeExtensions = new HashSet<string>(StringComparer.Ordinal)
         {
             "tscn", "tres", "res", "gd", "cs", "gdshader", "json",
         };
+
+        static readonly string[] EditorRecognizedExtensions =
+            new[] { "png", "jpg", "webp", "svg", "wav", "ogg", "glb", "ttf" }.Concat(NativeExtensions).ToArray();
+
+        static readonly IReadOnlyDictionary<string, ImportOutcome> NoOutcomes = new Dictionary<string, ImportOutcome>();
 
         /// <summary>A fake project in which only the listed paths have an import sidecar.</summary>
         static Func<string, bool> ProjectWithImported(params string[] importedFiles)
@@ -109,7 +109,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var plan = ReimportClassifier.Plan(
                 new[] { "res://art/HERO.PNG" },
                 ProjectWithImported(),
-                new[] { ".Png" });
+                new[] { ".Png" },
+                _ => false);
 
             Assert.Equal(new[] { "res://art/HERO.PNG" }, plan.NewImportable);
         }
@@ -131,18 +132,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Empty(plan.NewImportable);
             Assert.Equal(new[] { "res://notes/todo.txt", "res://bin/blob.xyz", "res://LICENSE" }, plan.Native);
-        }
-
-        [Fact]
-        public void Plan_WithoutNativeLoaderProbe_UsesTheExtensionSetAlone()
-        {
-            var plan = ReimportClassifier.Plan(
-                new[] { "res://a.png", "res://a.tscn" },
-                ProjectWithImported(),
-                new[] { "png" });
-
-            Assert.Equal(new[] { "res://a.png" }, plan.NewImportable);
-            Assert.Equal(new[] { "res://a.tscn" }, plan.Native);
         }
 
         [Fact]
@@ -220,7 +209,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             {
                 probed.Add(path);
                 return false;
-            }, EditorRecognizedExtensions);
+            }, EditorRecognizedExtensions, LoadsNatively);
 
             Assert.Equal(new[] { "res://art/hero.png.import" }, probed);
         }
@@ -228,9 +217,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Plan_NullArguments_AreRejected()
         {
-            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(null!, _ => true, EditorRecognizedExtensions));
-            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(Array.Empty<string>(), null!, EditorRecognizedExtensions));
-            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(Array.Empty<string>(), _ => true, null!));
+            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(null!, _ => true, EditorRecognizedExtensions, LoadsNatively));
+            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(Array.Empty<string>(), null!, EditorRecognizedExtensions, LoadsNatively));
+            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(Array.Empty<string>(), _ => true, null!, LoadsNatively));
+            // The native-loader probe is what keeps #310 fixed — it may not be omitted.
+            Assert.Throws<ArgumentNullException>(() => ReimportClassifier.Plan(Array.Empty<string>(), _ => true, EditorRecognizedExtensions, null!));
+            Assert.Throws<ArgumentNullException>(() => Plan(Array.Empty<string>(), ProjectWithImported()).Describe(null!));
         }
 
         // ---- Sidecar verification ------------------------------------------------------------------
@@ -295,7 +287,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // imported nothing.
             var plan = Plan(new[] { "res://levels/01.tscn", "res://levels/02.tscn" }, ProjectWithImported());
 
-            var described = plan.Describe();
+            var described = plan.Describe(NoOutcomes);
 
             Assert.DoesNotContain("Reimported", described);
             Assert.DoesNotContain("Imported", described);
@@ -345,7 +337,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Without outcomes nothing was observed, so nothing may be claimed — for new AND existing imports.
             var plan = Plan(new[] { "res://new.png", "res://art/hero.png" }, ProjectWithImported("res://art/hero.png"));
 
-            var described = plan.Describe();
+            var described = plan.Describe(NoOutcomes);
 
             Assert.StartsWith("NOT imported 2 file(s)", described);
             Assert.Contains("res://new.png (" + ImportOutcome.NoOutcomeReason + ")", described);

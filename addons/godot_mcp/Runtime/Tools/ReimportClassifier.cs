@@ -82,13 +82,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Probe answering whether a given sidecar path exists — <c>Godot.FileAccess.FileExists</c> in the
         /// editor, a fake in tests.
         /// </param>
-        /// <param name="importerExtensions">
-        /// Extensions the editor's import system recognises (with or without a leading dot; compared
+        /// <param name="recognizedExtensions">
+        /// Extensions the editor's loaders recognise (with or without a leading dot; compared
         /// case-insensitively). In the editor this is <c>ResourceLoader.GetRecognizedExtensionsForType("")</c>,
-        /// which also lists the native loaders' extensions — <paramref name="loadsNatively"/> filters those.
+        /// which lists the importer's extensions AND the native loaders' — <paramref name="loadsNatively"/>
+        /// filters the latter, so it is required: without it a sidecar-less <c>.tscn</c> would be queued for
+        /// import again (#310).
         /// </param>
         /// <param name="loadsNatively">
-        /// Optional probe answering whether a non-importer (native) loader can load the file as it is —
+        /// Probe answering whether a non-importer (native) loader can load the file as it is —
         /// <c>ResourceLoader.Exists</c> in the editor, which is true for a sidecar-less <c>.tscn</c>/<c>.gd</c>
         /// and false for a sidecar-less <c>.png</c> (only the importer loader handles that, and only once a
         /// sidecar exists). When it answers true the file is native whatever its extension.
@@ -96,18 +98,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static ReimportPlan Plan(
             IEnumerable<string> paths,
             Func<string, bool> importSidecarExists,
-            IEnumerable<string> importerExtensions,
-            Func<string, bool>? loadsNatively = null)
+            IEnumerable<string> recognizedExtensions,
+            Func<string, bool> loadsNatively)
         {
             if (paths == null)
                 throw new ArgumentNullException(nameof(paths));
             if (importSidecarExists == null)
                 throw new ArgumentNullException(nameof(importSidecarExists));
-            if (importerExtensions == null)
-                throw new ArgumentNullException(nameof(importerExtensions));
+            if (recognizedExtensions == null)
+                throw new ArgumentNullException(nameof(recognizedExtensions));
+            if (loadsNatively == null)
+                throw new ArgumentNullException(nameof(loadsNatively));
 
             var importExts = new HashSet<string>(
-                importerExtensions
+                recognizedExtensions
                     .Where(e => !string.IsNullOrWhiteSpace(e))
                     .Select(e => e.Trim().TrimStart('.').ToLowerInvariant()),
                 StringComparer.Ordinal);
@@ -124,7 +128,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 if (importSidecarExists(ImportSidecarPath(path)))
                     importable.Add(path);
-                else if (importExts.Contains(ExtensionOf(path)) && !(loadsNatively?.Invoke(path) ?? false))
+                else if (importExts.Contains(ExtensionOf(path)) && !loadsNatively(path))
                     newImportable.Add(path);
                 else
                     native.Add(path);
@@ -206,30 +210,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// with no outcome is reported as not imported — the text never claims an import that was not
         /// observed. Files that failed are listed first, by path, with the reason.
         /// </summary>
-        public string Describe(IReadOnlyDictionary<string, ImportOutcome>? outcomes = null)
+        public string Describe(IReadOnlyDictionary<string, ImportOutcome> outcomes)
         {
+            if (outcomes == null)
+                throw new ArgumentNullException(nameof(outcomes));
+
             if (Importable.Count == 0 && NewImportable.Count == 0 && Native.Count == 0)
                 return "No files to refresh";
 
-            var failed = new List<string>();
-            var reimported = 0;
-            var imported = new List<string>();
+            bool Imported(string path) => outcomes.GetValueOrDefault(path)?.Imported == true;
 
-            foreach (var path in Importable)
-            {
-                if (TryGetOutcome(outcomes, path, out var o) && o.Imported)
-                    reimported++;
-                else
-                    failed.Add($"{path} ({o?.Reason ?? ImportOutcome.NoOutcomeReason})");
-            }
-
-            foreach (var path in NewImportable)
-            {
-                if (TryGetOutcome(outcomes, path, out var o) && o.Imported)
-                    imported.Add(path);
-                else
-                    failed.Add($"{path} ({o?.Reason ?? ImportOutcome.NoOutcomeReason})");
-            }
+            var failed = Importable.Concat(NewImportable)
+                .Where(path => !Imported(path))
+                .Select(path => $"{path} ({outcomes.GetValueOrDefault(path)?.Reason ?? ImportOutcome.NoOutcomeReason})")
+                .ToList();
+            var reimported = Importable.Count(Imported);
+            var imported = NewImportable.Where(Imported).ToList();
 
             var parts = new List<string>();
             if (failed.Count > 0)
@@ -246,12 +242,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return string.Join("; ", parts);
         }
-
-        static bool TryGetOutcome(IReadOnlyDictionary<string, ImportOutcome>? outcomes, string path, out ImportOutcome? outcome)
-        {
-            outcome = null;
-            return outcomes != null && outcomes.TryGetValue(path, out outcome) && outcome != null;
-        }
     }
 
     /// <summary>The verified result of routing one file through Godot's importer.</summary>
@@ -260,21 +250,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>Reason used when the handler recorded no outcome for a routed file.</summary>
         public const string NoOutcomeReason = "no import result was observed";
 
-        ImportOutcome(bool imported, string? reason)
-        {
-            Imported = imported;
-            Reason = reason;
-        }
+        ImportOutcome(string? reason) => Reason = reason;
 
         /// <summary>True only when the import was OBSERVED to succeed (a valid sidecar exists afterwards).</summary>
-        public bool Imported { get; }
+        public bool Imported => Reason == null;
 
         /// <summary>Why the file was not imported; null when <see cref="Imported"/> is true.</summary>
         public string? Reason { get; }
 
-        public static ImportOutcome Success() => new ImportOutcome(true, null);
+        public static ImportOutcome Success() => new ImportOutcome(null);
 
         public static ImportOutcome Failure(string reason)
-            => new ImportOutcome(false, string.IsNullOrWhiteSpace(reason) ? NoOutcomeReason : reason);
+            => new ImportOutcome(string.IsNullOrWhiteSpace(reason) ? NoOutcomeReason : reason);
     }
 }

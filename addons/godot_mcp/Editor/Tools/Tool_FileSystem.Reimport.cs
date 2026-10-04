@@ -77,22 +77,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             // Step 1 (main thread): validate, classify, refresh the native files, and register the new
             // importable ones with the editor filesystem.
-            var start = MainThread.Instance.Run(() => StartTargetedReimport(files));
-            var plan = start.Plan;
+            var (plan, needsRegistration) = MainThread.Instance.Run(() => StartTargetedReimport(files));
 
             // Step 2: a brand-new file is only importable once EditorFileSystem knows it. UpdateFile registers
             // it when its folder is already known; a file in a folder the editor has never scanned needs a
             // Scan(), whose result is applied on a later main-loop FRAME — so wait OFF the main thread,
             // probing on it, so the editor can run those frames. (When we were called ON the main thread no
             // frame can run until we return; the unregistered files are then reported as not imported.)
-            if (start.NeedsRegistration && !MainThread.Instance.IsMainThread)
+            if (needsRegistration && !MainThread.Instance.IsMainThread)
             {
                 for (var polls = 0; polls < RegisterMaxPolls; polls++)
                 {
                     var pending = MainThread.Instance.Run(() =>
                     {
                         var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
-                        return efs.IsScanning() || plan.NewImportable.Any(p => !IsKnownToFileSystem(efs, p));
+                        return efs.IsScanning() || AnyUnregistered(efs, plan);
                     });
                     if (!pending)
                         break;
@@ -104,19 +103,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return MainThread.Instance.Run(() => FinishTargetedReimport(plan));
         }
 
-        sealed class TargetedStart
-        {
-            public TargetedStart(ReimportPlan plan, bool needsRegistration)
-            {
-                Plan = plan;
-                NeedsRegistration = needsRegistration;
-            }
-
-            public ReimportPlan Plan { get; }
-            public bool NeedsRegistration { get; }
-        }
-
-        static TargetedStart StartTargetedReimport(List<string> files)
+        static (ReimportPlan Plan, bool NeedsRegistration) StartTargetedReimport(List<string> files)
         {
             var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
 
@@ -144,19 +131,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 ResourceLoader.GetRecognizedExtensionsForType(string.Empty),
                 p => ResourceLoader.Exists(p));
 
-            foreach (var nativePath in plan.Native)
-                efs.UpdateFile(nativePath);
-
-            foreach (var newPath in plan.NewImportable)
-                efs.UpdateFile(newPath);
+            foreach (var path in plan.Native.Concat(plan.NewImportable))
+                efs.UpdateFile(path);
 
             // A new file whose folder the editor has never scanned stays unknown after UpdateFile — only a
             // scan registers the folder.
-            var needsRegistration = plan.NewImportable.Any(p => !IsKnownToFileSystem(efs, p));
+            var needsRegistration = AnyUnregistered(efs, plan);
             if (needsRegistration && !efs.IsScanning())
                 efs.Scan();
 
-            return new TargetedStart(plan, needsRegistration);
+            return (plan, needsRegistration);
         }
 
         static string FinishTargetedReimport(ReimportPlan plan)
@@ -169,7 +153,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var toImport = new List<string>(plan.Importable);
             foreach (var path in plan.NewImportable)
             {
-                if (HasValidImport(path))
+                if (VerifyImport(path).Imported)
                     outcomes[path] = ImportOutcome.Success();
                 else if (!IsKnownToFileSystem(efs, path))
                     outcomes[path] = ImportOutcome.Failure(
@@ -188,21 +172,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             foreach (var path in toImport)
                 outcomes[path] = VerifyImport(path);
 
-            var action = plan.Describe(outcomes);
-
             // ReimportFiles/UpdateFile are synchronous; only a tail scan (if any) may still be in flight. Do
             // NOT prime here — a prime that never observes a scan would falsely report "never started". Just
             // drain whatever scan is currently running (bounded).
-            var tailWaits = 0;
-            while (efs.IsScanning() && tailWaits < ReimportMaxWaits)
-            {
-                Thread.Sleep(ReimportSleepMs);
-                tailWaits++;
-            }
-
-            return !efs.IsScanning()
-                ? $"{action}; filesystem settled."
-                : $"{action}; filesystem still scanning after {ReimportMaxWaits * ReimportSleepMs}ms (progress={efs.GetScanningProgress():0.00}).";
+            return DrainScan(efs, plan.Describe(outcomes));
         }
 
         static string FullScan()
@@ -217,50 +190,41 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             efs.Scan();
             const string action = "Full filesystem scan";
 
-            var primed = false;
-            var primePolls = 0;
-            while (primePolls < ReimportPrimeWaits)
-            {
-                if (efs.IsScanning())
-                {
-                    primed = true;
-                    break;
-                }
+            for (var primePolls = 0; primePolls < ReimportPrimeWaits && !efs.IsScanning(); primePolls++)
                 Thread.Sleep(ReimportSleepMs);
-                primePolls++;
-            }
 
-            if (!primed)
+            if (!efs.IsScanning())
                 // The scan never started within the prime window. Report it explicitly rather than
                 // silently claiming "settled" — the caller should not assume the index was refreshed.
                 return $"{action}; scan did not start within {ReimportPrimeWaits * ReimportSleepMs}ms — filesystem may be unchanged or busy (NOT confirmed settled).";
 
             // Scan observed running; now drain it (bounded).
-            var waits = 0;
-            while (efs.IsScanning() && waits < ReimportMaxWaits)
-            {
+            return DrainScan(efs, action);
+        }
+
+        /// <summary>
+        /// Wait (bounded) for any running scan to finish and suffix <paramref name="action"/> with whether the
+        /// filesystem settled. Main-thread only.
+        /// </summary>
+        static string DrainScan(EditorFileSystem efs, string action)
+        {
+            for (var waits = 0; waits < ReimportMaxWaits && efs.IsScanning(); waits++)
                 Thread.Sleep(ReimportSleepMs);
-                waits++;
-            }
 
             return !efs.IsScanning()
                 ? $"{action}; filesystem settled."
                 : $"{action}; filesystem still scanning after {ReimportMaxWaits * ReimportSleepMs}ms (progress={efs.GetScanningProgress():0.00}).";
         }
 
+        /// <summary>Whether any of the plan's new files is still unknown to <c>EditorFileSystem</c>. Main-thread only.</summary>
+        static bool AnyUnregistered(EditorFileSystem efs, ReimportPlan plan)
+            => plan.NewImportable.Any(p => !IsKnownToFileSystem(efs, p));
+
         /// <summary>Whether <c>EditorFileSystem</c> has an entry for <paramref name="resPath"/>. Main-thread only.</summary>
         static bool IsKnownToFileSystem(EditorFileSystem efs, string resPath)
         {
-            var slash = resPath.LastIndexOf('/');
-            var dir = efs.GetFilesystemPath(resPath.Substring(0, slash + 1));
-            return dir != null && dir.FindFileIndex(resPath.Substring(slash + 1)) >= 0;
-        }
-
-        static bool HasValidImport(string resPath)
-        {
-            var sidecar = ReimportClassifier.ImportSidecarPath(resPath);
-            return FileAccess.FileExists(sidecar)
-                && ReimportClassifier.SidecarRecordsValidImport(FileAccess.GetFileAsString(sidecar));
+            var dir = efs.GetFilesystemPath(ResPathNormalizer.ParentDir(resPath));
+            return dir != null && dir.FindFileIndex(GetLeafName(resPath)) >= 0;
         }
 
         static ImportOutcome VerifyImport(string resPath)
