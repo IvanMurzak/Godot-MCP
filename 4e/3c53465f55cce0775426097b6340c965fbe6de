@@ -1,0 +1,23 @@
+addons/godot_mcp/Tools/Tool_Script.cs
+  s_e36a2a3c4d1c6f::t_ef1e87e13c4d83 128-137,146-148,151
+addons/godot_mcp/Tools/Tool_Script.AttachToNode.cs
+  s_e36a2a3c4d1c6f::t_4e3beadd4eeb21 34-35,42-43,49-50
+addons/godot_mcp/Tools/Tool_Script.Delete.cs
+  s_e36a2a3c4d1c6f::t_2186a54c84774c 55-64,66-70,73-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4e3c53465f55cce0775426097b6340c965fbe6de",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

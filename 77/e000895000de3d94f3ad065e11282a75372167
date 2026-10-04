@@ -1,0 +1,35 @@
+Godot-Tests/Harness/RuntimeHarness.cs
+  s_de71e20c9d8602::t_35de6932b042f9 443-449
+  s_de71e20c9d8602::t_851ebea2af7eb6 86,90
+  s_de71e20c9d8602::t_0f2bd41afd5259 101-105
+  s_de71e20c9d8602::t_9b68e68562c3f1 87-89
+  s_de71e20c9d8602::t_be17e4948771a2 221-224
+  s_de71e20c9d8602::t_8e41d72a02cd74 100
+.github/workflows/test_godot_runtime_harness.yml
+  s_de71e20c9d8602::t_80b04dc128aeb7 263
+  s_de71e20c9d8602::t_d666c7a5eeb7a5 353-356
+  s_de71e20c9d8602::t_cef3045ac9ade2 290
+  s_de71e20c9d8602::t_1f6e04bf0e58dc 470
+  s_de71e20c9d8602::t_e9fc4a653e95f4 267
+  s_de71e20c9d8602::t_a8a0bbd174e861 351
+  s_de71e20c9d8602::t_57c175e0a683d3 268-272,277
+  s_de71e20c9d8602::t_c1440cb2f4ffff 410-412
+  s_de71e20c9d8602::t_fb627a88894c3d 463
+  s_de71e20c9d8602::t_d0d2c326884778 322-329,331,333-348
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "77e000895000de3d94f3ad065e11282a75372167",
+  "prompts": {},
+  "sessions": {
+    "s_de71e20c9d8602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b1fa7ae0-224c-4b0e-8499-22456e0d6a3f",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

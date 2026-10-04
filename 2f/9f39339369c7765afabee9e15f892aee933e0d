@@ -1,0 +1,23 @@
+Godot-MCP.csproj
+  s_53ce73f91e4281::t_6b73c45919a07e 26
+.github/workflows/release.yml
+  s_53ce73f91e4281::t_d8a2c288d57162 280-283
+  s_53ce73f91e4281::t_d7169b423873fe 222
+  s_53ce73f91e4281::t_dcd7372143ceab 212-216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2f9f39339369c7765afabee9e15f892aee933e0d",
+  "prompts": {},
+  "sessions": {
+    "s_53ce73f91e4281": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e24c1167-2410-4c32-885c-4fd71d157405",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

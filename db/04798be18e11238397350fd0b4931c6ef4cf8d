@@ -1,0 +1,51 @@
+addons/godot_mcp/UI/Agents/GodotAgentConfigurators.cs
+  s_94cae3b80679a2::t_ac61621750210c 1-72
+Godot-MCP.csproj
+  s_94cae3b80679a2::t_f0474edb9cfd4c 20
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_94cae3b80679a2::t_72579ef3646203 16-19,24-40,44-46,57,61,66-67,71-74,78,82-83,97-98,107,109,116-117,124,135,148-149,153,159,166,175,182,187-192,198,203,206,210-212,214-219,221,226-229,231-233,236-252,254-262,264-272,274-294,296-312,314-321,323-328,330-347,351-353,355,357,360,379-382,384,389-390,392,399,402-403,407-408,417,423-424,433,436,447-449,455-457,460,465-466,472-474,478,481-484,486,489,493-494,497,500,502,507-510,512,514,517,519,523,526-535,540-541,545-552,557-558,560,563-564,566-569
+Godot-MCP.Tests/SkillsTests.cs
+  s_94cae3b80679a2::t_568e4abeee99ec 171-172,177
+  s_94cae3b80679a2::t_f3f591f9b6df5d 17,22-29,35,45,56,71,74,80,86,88,95,100,112,120,127,130,133,135,137-139,141-147,151,153,155-156,158-159,162,165,167-170,173,175-176,183,189,191-193,195,200-212
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_94cae3b80679a2::t_35bdc7bd780c9b 195-202,204-206
+CLAUDE.md
+  s_94cae3b80679a2::t_5b7f0162e57d0f 163
+  s_94cae3b80679a2::t_b1c358f7cecfec 17-21
+addons/godot_mcp/UI/SkillsPlan.cs
+  s_94cae3b80679a2::t_03e54c9c3a395e 9-10,16-25,48-53,55,60-61,64
+README.md
+  s_94cae3b80679a2::t_fb27c166bcf6a7 278
+  s_94cae3b80679a2::t_4a5558b97dd0bd 271
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_94cae3b80679a2::t_4f5fec0e5c421c 450,453
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_94cae3b80679a2::t_a96b9168f28de3 705,708
+addons/godot_mcp/UI/SkillsPathUtils.cs
+  s_94cae3b80679a2::t_c3e34249c270c6 1-99
+addons/godot_mcp/UI/SkillsPanel.cs
+  s_94cae3b80679a2::t_69200a2418756c 143
+  s_94cae3b80679a2::t_2a7d5b96d0700e 297,300-301
+  s_94cae3b80679a2::t_f8f66f5203f412 40
+  s_94cae3b80679a2::t_fa6f9e8b5fba97 26
+addons/godot_mcp/UI/Agents/AgentConfiguratorSettingsFactory.cs
+  s_94cae3b80679a2::t_d1899685aaea34 53
+  s_94cae3b80679a2::t_050ee75dad209f 75-78
+  s_94cae3b80679a2::t_8ae4a91951fd49 1-52,54-74,79-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "db04798be18e11238397350fd0b4931c6ef4cf8d",
+  "prompts": {},
+  "sessions": {
+    "s_94cae3b80679a2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d15dc434-a705-4009-9c19-05eae0bfc388",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

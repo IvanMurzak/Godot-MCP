@@ -1,0 +1,129 @@
+cli/src/commands/run-tool.ts
+  s_e36a2a3c4d1c6f::t_815837ac26311a 1-13
+cli/tests/helpers/cli.ts
+  s_e36a2a3c4d1c6f::t_51fd0ae31f799e 1-42
+cli/tsconfig.json
+  s_e36a2a3c4d1c6f::t_83715a1050feda 1-17
+cli/src/lib/setup-mcp.ts
+  s_e36a2a3c4d1c6f::t_0b23ca61552f21 1-141
+cli/src/commands/run-tool-builder.ts
+  s_e36a2a3c4d1c6f::t_20d12c9832d1be 1-168
+cli/src/utils/project-godot.ts
+  s_e36a2a3c4d1c6f::t_4b6ca0b3f57695 1-149
+cli/src/commands/close.ts
+  s_e36a2a3c4d1c6f::t_894d0df8879dc1 1-140
+cli/src/lib/progress.ts
+  s_e36a2a3c4d1c6f::t_a991c9e3465740 1-15
+cli/src/cli.ts
+  s_e36a2a3c4d1c6f::t_7012fe3032709e 1-17
+cli/src/utils/json-parse.ts
+  s_e36a2a3c4d1c6f::t_13bbabcc0212f3 1-111
+cli/src/commands/wait-for-ready.ts
+  s_e36a2a3c4d1c6f::t_9644625c299d8d 1-75
+cli/src/commands/update.ts
+  s_e36a2a3c4d1c6f::t_3359ea95317405 1-86
+cli/tests/open.test.ts
+  s_e36a2a3c4d1c6f::t_98c298d77ffef6 1-4,6,19-115,119-127,130-136
+  s_e36a2a3c4d1c6f::t_cdb0e00dea3998 5,7-18
+  s_e36a2a3c4d1c6f::t_7718844dacd0be 116-118,128-129
+cli/tests/run-tool.test.ts
+  s_e36a2a3c4d1c6f::t_5a8080d7e7b717 1-103
+cli/tests/config.test.ts
+  s_e36a2a3c4d1c6f::t_bac49674a908ca 1-70
+cli/docs/README.md
+  s_e36a2a3c4d1c6f::t_6a0af5f4a8aa85 1-7
+cli/src/utils/config.ts
+  s_e36a2a3c4d1c6f::t_56971c69d11e34 1-125
+cli/.npmignore
+  s_e36a2a3c4d1c6f::t_bfd6d212162df1 1-7
+cli/src/commands/status.ts
+  s_e36a2a3c4d1c6f::t_2fd9dd744af93d 1-75
+cli/tests/setup-mcp.test.ts
+  s_e36a2a3c4d1c6f::t_dcf6c3932e347d 1-87
+cli/src/lib/validation.ts
+  s_e36a2a3c4d1c6f::t_9d7b415596472b 1-58
+cli/tests/cli.test.ts
+  s_e36a2a3c4d1c6f::t_efeb6a5f2e888b 1-190
+cli/src/lib/open.ts
+  s_e36a2a3c4d1c6f::t_95aa63844adee1 1-240
+cli/CHANGELOG.md
+  s_e36a2a3c4d1c6f::t_808cafe4579cb5 1-25
+.github/workflows/test_cli.yml
+  s_e36a2a3c4d1c6f::t_fc7fed485abee7 1-35
+cli/src/lib/run-tool.ts
+  s_e36a2a3c4d1c6f::t_5a9cbb7309e588 1-217
+cli/src/utils/godot-process.ts
+  s_e36a2a3c4d1c6f::t_98d2a19b2a92b2 1-110
+cli/src/lib/install-plugin.ts
+  s_e36a2a3c4d1c6f::t_59e997744a06d9 1-143
+cli/package.json
+  s_e36a2a3c4d1c6f::t_c3835226cdb6fa 1-73
+cli/src/utils/update-check.ts
+  s_e36a2a3c4d1c6f::t_e9a07996ce0e12 1-110
+cli/src/commands/configure.ts
+  s_e36a2a3c4d1c6f::t_e2a08c7204bc7e 1-148
+cli/tests/connection.test.ts
+  s_e36a2a3c4d1c6f::t_e6c55ef6578098 1-70
+cli/tests/project-godot.test.ts
+  s_e36a2a3c4d1c6f::t_82471da129d4de 1-95
+cli/src/utils/ui.ts
+  s_e36a2a3c4d1c6f::t_17f90019d54107 1-269
+cli/bin/godot-mcp-cli.js
+  s_e36a2a3c4d1c6f::t_d820b26eb3876f 1-2
+cli/README.md
+  s_e36a2a3c4d1c6f::t_333c00e3b3db5e 1-101
+cli/src/lib/types.ts
+  s_e36a2a3c4d1c6f::t_28575edcbf881d 1-260
+cli/src/utils/input.ts
+  s_e36a2a3c4d1c6f::t_7d5a291a6b99b3 1-76
+cli/src/utils/semver.ts
+  s_e36a2a3c4d1c6f::t_031851285856c3 1-26
+cli/src/lib.ts
+  s_e36a2a3c4d1c6f::t_5685fbc19145ec 1-57
+cli/src/utils/godot-editor.ts
+  s_e36a2a3c4d1c6f::t_4974ab3b60a4f9 1-212
+cli/src/commands/open.ts
+  s_e36a2a3c4d1c6f::t_4d8eedeb282704 1-170
+cli/src/utils/agents.ts
+  s_e36a2a3c4d1c6f::t_f989fb37662286 1-264
+cli/src/utils/godot-shutdown.ts
+  s_e36a2a3c4d1c6f::t_3e9ccb44bffdbc 1-78
+cli/src/commands/install-plugin.ts
+  s_e36a2a3c4d1c6f::t_b26217616d50a3 1-44
+cli/src/commands/remove-plugin.ts
+  s_e36a2a3c4d1c6f::t_82a9832cbf44df 1-39
+cli/src/utils/probe.ts
+  s_e36a2a3c4d1c6f::t_2f14a8ac7f176e 1-73
+cli/src/commands/setup-mcp.ts
+  s_e36a2a3c4d1c6f::t_2cff477057cf19 1-80
+cli/src/commands/run-system-tool.ts
+  s_e36a2a3c4d1c6f::t_4a1caff7fab058 1-13
+cli/src/utils/connection.ts
+  s_e36a2a3c4d1c6f::t_f4130b7352b8c8 1-148
+cli/src/index.ts
+  s_e36a2a3c4d1c6f::t_80162894fde98d 1-78
+cli/.gitignore
+  s_e36a2a3c4d1c6f::t_01a5213d6c6011 3-7
+  s_e36a2a3c4d1c6f::t_6796ba69eb011c 1-2
+cli/tests/godot-editor.test.ts
+  s_e36a2a3c4d1c6f::t_c7897320a438cd 1-4,6,15-65,73-74,76-90,93-97,100-102,105-112
+  s_e36a2a3c4d1c6f::t_c351c194bf45f3 91-92,98-99,103-104
+  s_e36a2a3c4d1c6f::t_075e38a42b8fb2 66-72,75
+  s_e36a2a3c4d1c6f::t_e7b538a262e0b0 5,7-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "0a3076566d6af49f2f236ae414ec522286ede1a7",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

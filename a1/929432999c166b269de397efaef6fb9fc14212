@@ -1,0 +1,33 @@
+.github/workflows/test_cli.yml
+  s_de71e20c9d8602::t_7490e86f93a8df 4
+.github/workflows/test_godot_dock_reload.yml
+  s_de71e20c9d8602::t_d8782df23710e0 49
+.github/workflows/test_godot_plugin.yml
+  s_de71e20c9d8602::t_67ae5b5f96ae65 38
+.github/workflows/test_godot_runtime_harness.yml
+  s_de71e20c9d8602::t_fb37845b153d5f 162-168,176
+  s_de71e20c9d8602::t_51a91afcfe3d05 366-369,379,381-383
+.github/workflows/test_cli_e2e_install.yml
+  s_de71e20c9d8602::t_ec2152006fd37d 300
+  s_de71e20c9d8602::t_6b70bdc64d5b80 73-74
+.github/workflows/test_pull_request.yml
+  s_de71e20c9d8602::t_175d46e6a7501e 66
+  s_de71e20c9d8602::t_fcb13c2d48d639 31-32
+  s_de71e20c9d8602::t_21c60b1ed95b90 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a1929432999c166b269de397efaef6fb9fc14212",
+  "prompts": {},
+  "sessions": {
+    "s_de71e20c9d8602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b1fa7ae0-224c-4b0e-8499-22456e0d6a3f",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
