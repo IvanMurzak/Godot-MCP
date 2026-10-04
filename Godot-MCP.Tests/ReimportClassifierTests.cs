@@ -265,6 +265,93 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(ReimportClassifier.SidecarRecordsValidImport(text));
         }
 
+        [Theory]
+        [InlineData("[remap]\nimporter=\"texture\"\nvalid = false\n")]
+        [InlineData("[remap]\nimporter=\"texture\"\nvalid=False\n")]
+        public void SidecarRecordsValidImport_ToleratesSpacingAndCase(string text)
+        {
+            Assert.False(ReimportClassifier.SidecarRecordsValidImport(text));
+        }
+
+        // ---- Did THIS request import the file? -----------------------------------------------------
+
+        const string GoodSidecar = "[remap]\n\nimporter=\"texture\"\npath=\"res://.godot/imported/a.ctex\"\n";
+        const string FailedSidecar = "[remap]\n\nimporter=\"texture\"\nvalid=false\n";
+        const ulong RequestStarted = 1_791_000_000;
+
+        [Fact]
+        public void JudgeImport_ValidSidecarWrittenDuringTheRequest_IsImported()
+        {
+            Assert.True(ReimportClassifier.JudgeImport(GoodSidecar, RequestStarted + 1, RequestStarted).Imported);
+            // Same second as the request start (GetModifiedTime has whole-second resolution) still counts.
+            Assert.True(ReimportClassifier.JudgeImport(GoodSidecar, RequestStarted, RequestStarted).Imported);
+        }
+
+        [Fact]
+        public void JudgeImport_ValidSidecarFromBeforeTheRequest_IsNotImported()
+        {
+            // ReimportFiles returns nothing and silently skips a file it cannot find, so an UNTOUCHED valid
+            // sidecar from an earlier import must not be reported as this request's success.
+            var outcome = ReimportClassifier.JudgeImport(GoodSidecar, RequestStarted - 1, RequestStarted);
+
+            Assert.False(outcome.Imported);
+            Assert.Equal(ReimportClassifier.StaleSidecarReason, outcome.Reason);
+        }
+
+        [Fact]
+        public void JudgeImport_NoSidecar_IsNotImported()
+        {
+            var outcome = ReimportClassifier.JudgeImport(null, 0, RequestStarted);
+
+            Assert.False(outcome.Imported);
+            Assert.Equal(ReimportClassifier.NoSidecarReason, outcome.Reason);
+        }
+
+        [Fact]
+        public void JudgeImport_FreshSidecarMarkedInvalid_ReportsTheImporterFailure()
+        {
+            var outcome = ReimportClassifier.JudgeImport(FailedSidecar, RequestStarted + 1, RequestStarted);
+
+            Assert.False(outcome.Imported);
+            Assert.Equal(ReimportClassifier.ImporterFailedReason, outcome.Reason);
+        }
+
+        [Fact]
+        public void JudgeImport_UnreadableSidecar_IsNotImported_WithItsOwnReason()
+        {
+            // Godot's FileAccess.GetFileAsString returns "" when the read fails.
+            var outcome = ReimportClassifier.JudgeImport(string.Empty, RequestStarted + 1, RequestStarted);
+
+            Assert.False(outcome.Imported);
+            Assert.Equal(ReimportClassifier.UnreadableSidecarReason, outcome.Reason);
+        }
+
+        [Fact]
+        public void FailureReasons_DoNotContainTheListSeparator()
+        {
+            // Describe joins failed files with "; " — a reason containing it would split one entry in two.
+            foreach (var reason in new[]
+            {
+                ReimportClassifier.NoSidecarReason, ReimportClassifier.StaleSidecarReason,
+                ReimportClassifier.UnreadableSidecarReason, ReimportClassifier.ImporterFailedReason,
+                ImportOutcome.NoOutcomeReason,
+            })
+                Assert.DoesNotContain(";", reason);
+        }
+
+        [Fact]
+        public void Plan_IgnoresBlankEntriesInTheExtensionList()
+        {
+            var plan = ReimportClassifier.Plan(
+                new[] { "res://a.png", "res://noext" },
+                ProjectWithImported(),
+                new[] { null!, " ", "", "png" },
+                _ => false);
+
+            Assert.Equal(new[] { "res://a.png" }, plan.NewImportable);
+            Assert.Equal(new[] { "res://noext" }, plan.Native);
+        }
+
         // ---- The status string the agent reads ----------------------------------------------------
 
         [Fact]

@@ -174,6 +174,48 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return true;
         }
+
+        /// <summary>Reason: no sidecar exists after the import.</summary>
+        public const string NoSidecarReason =
+            "Godot wrote no '.import' sidecar, so the file was not imported — see the editor log";
+
+        /// <summary>Reason: the sidecar predates the request, so this request's import never ran.</summary>
+        public const string StaleSidecarReason =
+            "Godot did not rewrite the '.import' sidecar during this request, so the import did not run — " +
+            "the editor may have been busy importing or scanning, so retry or run filesystem-reimport without 'files'";
+
+        /// <summary>Reason: the sidecar exists but could not be read.</summary>
+        public const string UnreadableSidecarReason =
+            "the '.import' sidecar could not be read, so the import could not be verified";
+
+        /// <summary>Reason: Godot's importer recorded a failure.</summary>
+        public const string ImporterFailedReason =
+            "Godot's importer failed (the '.import' sidecar is marked valid=false) — the file may be corrupt " +
+            "or in an unsupported format, see the editor log";
+
+        /// <summary>
+        /// Decide whether ONE file was imported by the current request. Godot rewrites the sidecar on every
+        /// import attempt, so a sidecar last written BEFORE the request started proves only that an earlier
+        /// import happened — <c>ReimportFiles</c> returns nothing and silently skips a file it cannot find, so
+        /// an untouched sidecar must not count as this request's success. The comparison is in whole seconds
+        /// (Godot's <c>FileAccess.GetModifiedTime</c> resolution), so a sidecar written in the same second the
+        /// request started is accepted.
+        /// </summary>
+        /// <param name="sidecarText">The sidecar's text, or null when no sidecar exists.</param>
+        /// <param name="sidecarModifiedUnix">The sidecar's modification time, Unix seconds.</param>
+        /// <param name="requestStartedUnix">When the request started, Unix seconds (rounded down).</param>
+        public static ImportOutcome JudgeImport(string? sidecarText, ulong sidecarModifiedUnix, ulong requestStartedUnix)
+        {
+            if (sidecarText == null)
+                return ImportOutcome.Failure(NoSidecarReason);
+            if (sidecarModifiedUnix < requestStartedUnix)
+                return ImportOutcome.Failure(StaleSidecarReason);
+            if (string.IsNullOrWhiteSpace(sidecarText))
+                return ImportOutcome.Failure(UnreadableSidecarReason);
+            return SidecarRecordsValidImport(sidecarText)
+                ? ImportOutcome.Success()
+                : ImportOutcome.Failure(ImporterFailedReason);
+        }
     }
 
     /// <summary>
@@ -208,7 +250,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Human-readable summary of what happened, for the tool's result string. <paramref name="outcomes"/>
         /// carries the VERIFIED result of every file routed to the importer (keyed by path); a routed file
         /// with no outcome is reported as not imported — the text never claims an import that was not
-        /// observed. Files that failed are listed first, by path, with the reason.
+        /// observed. Files that failed are listed first (in request order), each with its reason.
         /// </summary>
         public string Describe(IReadOnlyDictionary<string, ImportOutcome> outcomes)
         {
@@ -236,7 +278,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 parts.Add($"Imported {imported.Count} new file(s): {string.Join(", ", imported)}");
             if (Native.Count > 0)
                 parts.Add(parts.Count == 0
-                    ? $"Refreshed {Native.Count} native file(s) (no importer — none of them are imported assets)"
+                    ? $"Refreshed {Native.Count} native file(s) (no importer handles them — Godot's native formats " +
+                      "or unknown types — so they were refreshed via EditorFileSystem.UpdateFile, not imported)"
                     : $"refreshed {Native.Count} native file(s) (.tscn/.tres/.gd and friends have no importer, " +
                       "so they were refreshed via EditorFileSystem.UpdateFile rather than queued for import)");
 
