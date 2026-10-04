@@ -11,6 +11,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
@@ -22,7 +24,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// <summary>
     /// Pure-managed coverage for <see cref="GodotLogCollector"/> (issue #173): the bounded ring buffer
     /// itself, and — the heart of the issue — the concurrency contract on the process-wide
-    /// <see cref="GodotLogCollector.Current"/> static. Also covers the sequence cursor contract (02 §2, D5).
+    /// <see cref="GodotLogCollector.Current"/> static. In the real plugin the framework log-routing path
+    /// (<c>GodotMcpConnection.RouteFrameworkLog</c> + the plugin <c>Log*</c> helpers) reads
+    /// <c>Current?.Append(...)</c> from ARBITRARY background threads while the editor main thread swaps
+    /// <c>Current</c> at <c>_EnterTree</c> / no longer nulls it at teardown. These tests assert that:
+    /// (1) the swap is published via Volatile so a concurrent reader never sees a torn reference and never
+    /// crashes, and (2) the collector is no longer nulled on teardown, so the buffer stays readable until
+    /// the next install overwrites it. They also pin the <c>sinceSequence</c> cursor contract of
+    /// <see cref="GodotLogCollector.Query"/>.
+    ///
+    /// <para>
+    /// The collector is a plain managed ring buffer (no Godot native types, no <c>#if TOOLS</c>), so it is
+    /// fully unit-testable in this plain xUnit host with no Godot binary. The tests own/restore the
+    /// process-wide <see cref="GodotLogCollector.Current"/> static so they do not leak state into other
+    /// tests (xUnit runs test classes in parallel by default; this class is marked non-parallel via the
+    /// dedicated collection below because it mutates a process-wide static). The non-parallel collection
+    /// also keeps other classes from advancing the process-wide sequence counter mid-test, which is what
+    /// lets the cursor tests assert exact sequence values relative to <see cref="GodotLogCollector.HighestSequence"/>.
+    /// </para>
     /// </summary>
     [Collection(GodotLogCollectorCurrentCollection.Name)]
     public class GodotLogCollectorTests : IDisposable
@@ -119,6 +138,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Issue #173 background: teardown must NOT null Current — the buffer stays readable so
             // console-get-logs still surfaces the teardown-window diagnostics, and only the next _EnterTree
             // install displaces it.
+            //
+            // SCOPE of this test: it pins the GodotLogCollector.Current PROPERTY contract only —
+            // last-writer-wins, and a previously-installed buffer stays queryable until the next assignment.
+            // It does NOT (and cannot) invoke GodotMcpPlugin.Teardown, which needs a live Godot host, so it
+            // would NOT catch a regression that re-added a `Current = null` to the plugin's teardown body.
+            // That teardown-null regression is guarded by code review + the Suite-3 headless smoke (see the
+            // testbed runbook), NOT by this unit test. The `// ... teardown runs here ...` line below models
+            // the property-level no-op, not an actual plugin teardown call.
             var session1 = new GodotLogCollector();
             GodotLogCollector.Current = session1;
             session1.Append(GodotLogType.Error, "teardown-window failure");
@@ -141,6 +168,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public async Task BackgroundAppend_WhileMainThreadSwapsCurrent_NoTornReads_NoCrash()
         {
+            // Reproduce the issue #173 race: a background thread continuously routes log lines through
+            // GodotLogCollector.Current?.Append(...) (exactly what RouteFrameworkLog / Log* do off-thread)
+            // while the "main thread" repeatedly swaps Current to a freshly installed buffer (the _EnterTree
+            // path).
+            //
+            // NOTE on what this test does and does NOT prove: this is a SMOKE / LIVENESS test, not a
+            // discriminating guard for the Volatile read/write contract. On the x86/x64 arch the CI runs,
+            // reference-sized reads/writes are already atomic AND effectively acquire/release (x86-TSO), so
+            // deleting the Volatile would NOT make this test fail here — the discipline only matters on a
+            // weak memory model (e.g. ARM), which this suite never executes on. So treat a green result as
+            // "the off-thread null-conditional Append path runs to completion under a swap storm without
+            // crashing", NOT as "no torn reference is possible". The torn-read correctness rests on the
+            // Volatile annotations in GodotLogCollector being kept (verified by review), not on this assert.
             const int swaps = 200;
             const int appendThreads = 4;
 
@@ -159,6 +199,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     readersStarted.Signal();
                     while (!token.IsCancellationRequested)
                     {
+                        // The exact off-thread shape from RouteFrameworkLog: null-conditional Append on the
+                        // volatile static. A torn read here would surface as an AccessViolation / bad ref.
                         var current = GodotLogCollector.Current;
                         current?.Append(GodotLogType.Log, "bg");
                         if (current != null)
@@ -176,6 +218,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 SpinWait.SpinUntil(() => Volatile.Read(ref appendsObserved) > 0, TimeSpan.FromSeconds(5)),
                 "The readers should exercise the append path before the swap storm starts.");
 
+            // Main thread: install a fresh collector repeatedly (the _EnterTree swap), interleaved with the
+            // background Append storm.
             await Task.Run(() =>
             {
                 for (int i = 0; i < swaps; i++)
@@ -188,14 +232,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             cts.Cancel();
             await Task.WhenAll(readers);
 
-            Assert.Null(readerFault);
-            Assert.True(appendsObserved > 0);
-            Assert.NotNull(GodotLogCollector.Current);
+            Assert.Null(readerFault);                 // no torn read / no crash on any reader thread
+            Assert.True(appendsObserved > 0);         // the readers actually exercised the path
+            Assert.NotNull(GodotLogCollector.Current); // never nulled out from under the readers
         }
 
         [Fact]
         public void ConcurrentAppend_SingleCollector_NoLostWritesPastCapacity()
         {
+            // The buffer's own lock must serialize concurrent Append so the count never exceeds Capacity and
+            // the structure is never corrupted under parallel producers (the other half of the issue: the
+            // single shared collector is written from many threads).
             var collector = new GodotLogCollector();
             const int threads = 8;
             const int perThread = 500;
@@ -206,6 +253,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     collector.Append(GodotLogType.Log, $"t{t}-{i}");
             });
 
+            // Total appended (4000) far exceeds Capacity, so the bounded buffer must be exactly full and
+            // internally consistent (Query does not throw, returns Capacity rows).
             Assert.Equal(GodotLogCollector.Capacity, collector.Count);
             var rows = collector.Query(maxEntries: GodotLogCollector.Capacity);
             Assert.Equal(GodotLogCollector.Capacity, rows.Length);
@@ -214,236 +263,182 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         // ---- Sequence and polling (sinceSequence cursor) ------------------------------------------
 
-        [Fact]
-        public void Append_AssignsMonotonicSequence_Increments()
+        /// <summary>
+        /// Advance the process-wide counter on a throwaway collector and return the new high-water mark, so
+        /// a test's cursor is always &gt; 0 (a cursor of 0 would silently select the newest-first default
+        /// mode) and every line the test then appends is numbered strictly above it.
+        /// </summary>
+        static long Baseline()
         {
-            var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
-
-            collector.Append(GodotLogType.Log, "first");
-            collector.Append(GodotLogType.Log, "second");
-            collector.Append(GodotLogType.Log, "third");
-
-            var rows = collector.Query();
-            Assert.Equal(3, rows.Length);
-
-            // Sequences should be monotonically increasing
-            var seqs = rows.Select(r => r.Sequence).ToArray();
-            Assert.True(seqs[0] > seqs[1] && seqs[1] > seqs[2], "Sequences should be decreasing (newest-first)");
-            Assert.Equal(seqs[0] - 1, seqs[1]);  // Each sequence increments by 1
-            Assert.Equal(seqs[1] - 1, seqs[2]);
-            Assert.True(seqs[0] > maxBefore, "Sequences should increment from previous max");
+            new GodotLogCollector().Append(GodotLogType.Log, "baseline");
+            return GodotLogCollector.HighestSequence;
         }
 
-        [Fact]
-        public void HighestSequence_PersistsAcrossInstances()
-        {
-            // Process-wide counter: highest sequence persists across collector resets.
-            var maxBefore = new GodotLogCollector().HighestSequence;
-
-            var session1 = new GodotLogCollector();
-            session1.Append(GodotLogType.Log, "first");
-            session1.Append(GodotLogType.Log, "second");
-            var session1Max = session1.HighestSequence;
-            Assert.True(session1Max > maxBefore);
-
-            // Session 2 (new instance) should continue from session1's max
-            var session2 = new GodotLogCollector();
-            var session2StartingMax = session2.HighestSequence; // Should equal session1Max
-            Assert.Equal(session1Max, session2StartingMax);
-
-            // New appends continue above the maximum
-            session2.Append(GodotLogType.Log, "new");
-            Assert.Equal(session1Max + 1, session2.HighestSequence);
-        }
+        static long[] Seqs(LogEntry[] rows) => rows.Select(r => r.Sequence).ToArray();
 
         [Fact]
-        public void HighestSequence_PersistsPastClear()
+        public void Append_StampsConsecutiveSequences()
         {
-            var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
-
-            for (int i = 0; i < 5; i++)
-                collector.Append(GodotLogType.Log, $"line-{i}");
-
-            var maxAfterAppend = collector.HighestSequence;
-            Assert.True(maxAfterAppend > maxBefore);
-
-            collector.Clear();
-            Assert.Equal(maxAfterAppend, collector.HighestSequence);
-
-            // New appends continue above the pre-clear maximum.
-            collector.Append(GodotLogType.Log, "new");
-            Assert.Equal(maxAfterAppend + 1, collector.HighestSequence);
-        }
-
-        [Fact]
-        public void Query_SinceSequence0_ReturnsAllNewestFirst_WithSequenceField()
-        {
+            var b = Baseline();
             var collector = new GodotLogCollector();
             collector.Append(GodotLogType.Log, "first");
             collector.Append(GodotLogType.Log, "second");
             collector.Append(GodotLogType.Log, "third");
 
-            var rows = collector.Query(sinceSequence: 0, includeStackTrace: true);
-
-            Assert.Equal(3, rows.Length);
-            Assert.Equal("third", rows[0].Message);
-            Assert.Equal("second", rows[1].Message);
-            Assert.Equal("first", rows[2].Message);
-            // Verify all have sequences (byte-identical except for sequence field)
-            Assert.All(rows, r => Assert.True(r.Sequence > 0, "Each row should have a sequence"));
+            Assert.Equal(new[] { b + 3, b + 2, b + 1 }, Seqs(collector.Query()));
+            Assert.Equal(b + 3, GodotLogCollector.HighestSequence);
         }
 
         [Fact]
-        public void Query_SinceSequence_ReturnsOnlyNewer_OldestFirst()
+        public void Sequence_ContinuesPastClear_AndAcrossANewCollector()
         {
+            // The _EnterTree reinstall: a cursor taken from the replaced collector must still sit below every
+            // line the new collector captures, so polling the new one with it returns those lines.
+            var a = new GodotLogCollector();
+            a.Append(GodotLogType.Log, "a1");
+            a.Append(GodotLogType.Log, "a2");
+            var cursor = Seqs(a.Query()).Max();
+
+            a.Clear();
+            a.Append(GodotLogType.Log, "a3");
+            Assert.Equal(cursor + 1, a.Query().Single().Sequence);
+
+            var b = new GodotLogCollector();
+            b.Append(GodotLogType.Log, "b1");
+            b.Append(GodotLogType.Log, "b2");
+
+            var rows = b.Query(sinceSequence: cursor);
+            Assert.Equal(new[] { "b1", "b2" }, rows.Select(r => r.Message).ToArray());
+            Assert.All(rows, r => Assert.True(r.Sequence > cursor, $"sequence {r.Sequence} <= cursor {cursor}"));
+        }
+
+        [Fact]
+        public void Query_SinceSequence_Paging_UnionOfPagesIsTheFullMatchingSet()
+        {
+            // Two matching lines, then four non-matching ones, repeated: a page boundary lands inside a run of
+            // non-matching lines, so capping BEFORE filtering yields an empty page and stops the walk early,
+            // and a newest-page cap jumps the cursor past everything in between.
+            var b = Baseline();
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
+            var expected = new List<long>();
+            for (int i = 0; i < 30; i++)
+            {
+                var matches = i % 6 < 2;
+                collector.Append(matches ? GodotLogType.Error : GodotLogType.Log, $"line-{i}");
+                if (matches)
+                    expected.Add(b + 1 + i);
+            }
 
-            for (int i = 0; i < 5; i++)
-                collector.Append(GodotLogType.Log, $"line-{i}");
+            const int pageSize = 3;
+            var seen = new List<long>();
+            var cursor = b;
+            for (int guard = 0; guard < 100; guard++)
+            {
+                var page = Seqs(collector.Query(sinceSequence: cursor, logTypeFilter: GodotLogType.Error, maxEntries: pageSize));
+                if (page.Length == 0)
+                    break;
+                Assert.Equal(page.OrderBy(s => s).ToArray(), page);                       // oldest-first
+                Assert.Equal(Math.Min(pageSize, expected.Count - seen.Count), page.Length); // full pages
+                seen.AddRange(page);
+                cursor = page.Max();
+            }
 
-            var rows = collector.Query(sinceSequence: maxBefore + 2, maxEntries: 100);
-
-            Assert.Equal(3, rows.Length);
-            // Check relative ordering: should be oldest-first
-            var seqs = rows.Select(r => r.Sequence).ToArray();
-            Assert.True(seqs[0] < seqs[1] && seqs[1] < seqs[2], "Sequences should be increasing (oldest-first)");
+            Assert.Equal(expected, seen); // no gaps, no duplicates, nothing extra
         }
 
         [Fact]
         public void Query_SinceSequence_OverflowReturnsOldestPage()
         {
-            // FIX #1: When sinceSequence > 0 and matching exceeds maxEntries, return OLDEST page (first maxEntries), not newest.
+            var b = Baseline();
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
-
             for (int i = 0; i < 10; i++)
                 collector.Append(GodotLogType.Log, $"line-{i}");
 
-            // Query with maxEntries < matching count, return oldest page
-            var rows = collector.Query(sinceSequence: maxBefore, maxEntries: 3);
-
-            Assert.Equal(3, rows.Length);
-            // Sequences should be the FIRST 3 (oldest), not the last 3 (newest)
-            var seqs = rows.Select(r => r.Sequence).ToArray();
-            var expectedSeqs = rows.Select(r => r.Sequence).OrderBy(s => s).Take(3).ToArray();
-            Assert.Equal(expectedSeqs, seqs);  // Should be the oldest 3, in order
+            Assert.Equal(new[] { b + 1, b + 2, b + 3 }, Seqs(collector.Query(sinceSequence: b, maxEntries: 3)));
         }
 
         [Fact]
-        public void Query_SinceSequence_StaleReturnsOldestAvailable()
+        public void Query_SinceSequence_CursorAtHighest_ReturnsEmpty()
         {
-            // FIX #2: When sinceSequence > highest sequence, return the oldest available page.
+            // The idle poll: nothing captured since the last page.
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
-
             for (int i = 0; i < 5; i++)
                 collector.Append(GodotLogType.Log, $"line-{i}");
 
-            // Query with a cursor way above the highest sequence (stale cursor)
-            var rows = collector.Query(sinceSequence: maxBefore + 100, maxEntries: 2);
-
-            // Should return the oldest available entries
-            Assert.Equal(2, rows.Length);
-            var seqs = rows.Select(r => r.Sequence).ToArray();
-            Assert.True(seqs[0] < seqs[1], "Should be oldest-first");
-            Assert.True(seqs[0] == maxBefore + 1, "Should start from first available");  // First appended after maxBefore
+            Assert.Empty(collector.Query(sinceSequence: GodotLogCollector.HighestSequence));
         }
 
         [Fact]
-        public void Query_SinceSequence0_ByteIdenticalExceptSequence()
+        public void Query_SinceSequence_CursorBeforeFilters_NewerNonMatchingLineDoesNotReopenOlderOnes()
         {
-            // DoD 3: Verify sinceSequence=0 output is byte-identical except for sequence field.
+            // The cursor equals a real (non-matching) line, so it is NOT stale even though no matching line
+            // reaches it: the older matching line must stay behind the cursor.
+            var b = Baseline();
             var collector = new GodotLogCollector();
-            var entry = new LogEntry(GodotLogType.Warning, "test message", DateTime.UtcNow, "stack trace");
-            collector.Append(entry);
+            collector.Append(GodotLogType.Error, "older error");  // b + 1
+            collector.Append(GodotLogType.Log, "newer log");      // b + 2
 
-            var rows = collector.Query(sinceSequence: 0, includeStackTrace: true);
-
-            Assert.Single(rows);
-            var retrieved = rows[0];
-
-            // All fields should match except Sequence (which is new)
-            Assert.Equal(entry.LogType, retrieved.LogType);
-            Assert.Equal(entry.Message, retrieved.Message);
-            Assert.Equal(entry.Timestamp, retrieved.Timestamp);
-            Assert.Equal(entry.StackTrace, retrieved.StackTrace);
-            Assert.True(retrieved.Sequence > 0, "Should have a sequence assigned");
+            Assert.Empty(collector.Query(sinceSequence: b + 2, logTypeFilter: GodotLogType.Error));
         }
 
         [Fact]
-        public void Query_WithFiltersAndSinceSequence_CombinesCorrectly()
+        public void Query_StaleCursor_ReturnsOldestFilteredPage()
         {
-            var now = DateTime.UtcNow;
+            // A cursor above HighestSequence means the counter restarted (assembly reload): treat it as below
+            // everything — oldest-first, filters still applied — instead of returning [] forever.
+            var b = Baseline();
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
+            collector.Append(GodotLogType.Log, "log1");     // b + 1
+            collector.Append(GodotLogType.Warning, "warn1"); // b + 2
+            collector.Append(GodotLogType.Log, "log2");     // b + 3
+            collector.Append(GodotLogType.Log, "log3");     // b + 4
 
-            // Append mixed types at different times.
-            collector.Append(new LogEntry(GodotLogType.Log, "old-log", now.AddMinutes(-10)));
-            collector.Append(new LogEntry(GodotLogType.Warning, "recent-warn", now.AddMinutes(-1)));
-            collector.Append(new LogEntry(GodotLogType.Log, "recent-log", now));
-            collector.Append(new LogEntry(GodotLogType.Error, "recent-err", now));
-
-            // Query: last 5 minutes, Log type only, since first append.
             var rows = collector.Query(
-                sinceSequence: maxBefore,
+                sinceSequence: GodotLogCollector.HighestSequence + 1000,
                 logTypeFilter: GodotLogType.Log,
-                lastMinutes: 5,
-                maxEntries: 10);
+                maxEntries: 2);
 
-            // Should get the recent-log, but not old-log or the warning/error
-            Assert.Single(rows);
-            Assert.Equal("recent-log", rows[0].Message);
+            Assert.Equal(new[] { b + 1, b + 3 }, Seqs(rows));
         }
 
         [Fact]
-        public void Query_SinceSequence_CursorAtMax_ReturnsEmpty()
+        public void Query_SinceSequence0_JsonIsUnchangedExceptTheSequenceField()
         {
-            // (a) FAILING TEST: Normal idle poll - cursor at current max, nothing new → empty array
+            // The pre-cursor output for this fixture (newest-first, cap keeps the most recent lines), with the
+            // new "sequence" member removed, must be byte-identical to what the collector produced before.
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
+            var t = new DateTime(2026, 6, 20, 1, 2, 3, DateTimeKind.Utc);
+            collector.Append(new LogEntry(GodotLogType.Log, "a", t, "at A()"));
+            collector.Append(new LogEntry(GodotLogType.Warning, "b", t.AddSeconds(1)));
+            collector.Append(new LogEntry(GodotLogType.Error, "c", t.AddSeconds(2), "at C()"));
 
-            for (int i = 0; i < 5; i++)
-                collector.Append(GodotLogType.Log, $"line-{i}");
+            var json = JsonSerializer.Serialize(collector.Query(maxEntries: 2, includeStackTrace: true));
 
-            var maxAfter = collector.HighestSequence;
-            // Query with cursor = max (nothing new since last poll)
-            var rows = collector.Query(sinceSequence: maxAfter, maxEntries: 100);
-
-            // Should return EMPTY (not the oldest entries!)
-            Assert.Empty(rows);
+            Assert.Equal(
+                "[{\"logType\":2,\"message\":\"c\",\"timestamp\":\"2026-06-20T01:02:05Z\",\"stackTrace\":\"at C()\"}," +
+                "{\"logType\":1,\"message\":\"b\",\"timestamp\":\"2026-06-20T01:02:04Z\",\"stackTrace\":null}]",
+                Regex.Replace(json, "\"sequence\":\\d+,", string.Empty));
+            Assert.Equal(2, Regex.Matches(json, "\"sequence\":\\d+,").Count);
         }
 
         [Fact]
-        public void Query_SinceSequence_TrulyStale_WithFilter()
+        public void Query_NegativeSinceSequence_BehavesLikeZero()
         {
-            // (b) FAILING TEST: Truly stale cursor (process restarted): HighestSequence + 1000
-            // Should return oldest page with filter applied
             var collector = new GodotLogCollector();
-            var maxBefore = collector.HighestSequence;
+            collector.Append(GodotLogType.Log, "first");
+            collector.Append(GodotLogType.Log, "second");
+            collector.Append(GodotLogType.Log, "third");
 
-            // Mix of entry types
-            collector.Append(GodotLogType.Log, "log1");
-            collector.Append(GodotLogType.Warning, "warn1");
-            collector.Append(GodotLogType.Log, "log2");
-            collector.Append(GodotLogType.Error, "err1");
-
-            // Query with a stale cursor (way beyond current max)
-            var rows = collector.Query(
-                sinceSequence: maxBefore + 1000,
-                logTypeFilter: GodotLogType.Log,
-                maxEntries: 100);
-
-            // Should return oldest page with LOG TYPE FILTER APPLIED
-            Assert.Equal(2, rows.Length);  // Only 2 Log entries, not 4!
-            Assert.All(rows, r => Assert.Equal(GodotLogType.Log, r.LogType));
+            Assert.Equal(
+                collector.Query(maxEntries: 2).Select(r => r.Message).ToArray(),
+                collector.Query(maxEntries: 2, sinceSequence: -1).Select(r => r.Message).ToArray());
         }
     }
 
     /// <summary>
-    /// Dedicated xUnit collection so <see cref="GodotLogCollectorTests"/> runs in isolation.
+    /// Dedicated xUnit collection so <see cref="GodotLogCollectorTests"/> runs in isolation: it mutates the
+    /// process-wide <see cref="GodotLogCollector.Current"/> static (and reads the process-wide sequence
+    /// counter), which would race other test classes if run in the default parallel collection.
     /// </summary>
     [CollectionDefinition(Name, DisableParallelization = true)]
     public sealed class GodotLogCollectorCurrentCollection

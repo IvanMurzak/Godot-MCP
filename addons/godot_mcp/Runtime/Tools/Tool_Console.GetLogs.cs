@@ -26,11 +26,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             IdempotentHint = true,
             OpenWorldHint = false
         )]
-        [Description("Retrieve captured Godot-MCP editor log lines. By default (sinceSequence=0), returns " +
-            "newest-first. When sinceSequence > 0, acts as a polling cursor and returns only entries newer " +
-            "than that sequence, oldest-first, in continuous pages without gaps. If returned sequences are lower " +
-            "than your cursor, the log restarted (use the oldest returned sequence as your next cursor). The Godot analog of " +
-            "Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log hook, so this returns " +
+        [Description("Retrieve captured Godot-MCP editor log lines: newest-first by default, oldest-first when " +
+            "polling with 'sinceSequence'. To fetch only new lines, pass the highest 'sequence' you have received " +
+            "as 'sinceSequence'. The Godot analog of Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log hook, so this returns " +
             "the plugin's own captured editor activity (not the entire Godot editor console) — including its " +
             "connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load, skill-gen, " +
             "dev-control, dispatcher, and runtime-capture warnings).\n" +
@@ -43,10 +41,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "(GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture()).Build() + Connect()) and read " +
             "'runtime-errors-get'.\n" +
             "Inputs:\n" +
-            "  - 'sinceSequence' (default 0): polling cursor. 0 = return all available, newest-first. " +
-            "    When > 0, return only entries with sequence > this value, oldest-first (continuous pages, no gaps). " +
-            "    If returned sequences are lower than your cursor, the log restarted.\n" +
-            "  - 'maxEntries' (default 100, min 1): caps the returned array (oldest page on overflow).\n" +
+            "  - 'sinceSequence' (default 0, min 0): polling cursor. 0 = newest-first. > 0 = only lines with a " +
+            "higher sequence, oldest-first, so the next poll (with the highest sequence returned) continues where " +
+            "this page stopped. If returned sequences are lower than your cursor, the log restarted. Lines evicted " +
+            "from the 1000-line buffer or cleared before you poll are not returned.\n" +
+            "  - 'maxEntries' (default 100, min 1): caps the returned array — the most recent lines at " +
+            "sinceSequence=0, the oldest page with a cursor.\n" +
             "  - 'logTypeFilter' (default null = all): restrict to Log / Warning / Error.\n" +
             "  - 'includeStackTrace' (default false): include stack-trace strings.\n" +
             "  - 'lastMinutes' (default 0 = all): only lines captured in the last N minutes.")]
@@ -60,15 +60,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             bool includeStackTrace = false,
             [Description("Return logs from the last N minutes. 0 returns all available logs. Default 0.")]
             int lastMinutes = 0,
-            [Description("Polling cursor: 0 returns all available entries (newest-first); when > 0, " +
-                "returns only entries with sequence > this value (oldest-first, continuous pages without gaps). " +
-                "Use the highest sequence from a prior call to fetch only new entries. If returned sequences are " +
-                "lower than your cursor, the log restarted. Default 0.")]
+            [Description("Polling cursor: pass the highest 'sequence' you have received to get only newer lines, " +
+                "oldest-first. 0 returns lines newest-first. Minimum 0, default 0.")]
             long sinceSequence = 0
         )
         {
             if (maxEntries < 1)
                 throw new ArgumentException($"maxEntries must be >= 1; got {maxEntries}.", nameof(maxEntries));
+            if (sinceSequence < 0)
+                throw new ArgumentException($"sinceSequence must be >= 0; got {sinceSequence}.", nameof(sinceSequence));
 
             var collector = GodotLogCollector.GetOrCreate();
             return collector.Query(
