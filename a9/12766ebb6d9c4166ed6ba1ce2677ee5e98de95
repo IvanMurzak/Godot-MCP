@@ -1,0 +1,43 @@
+addons/godot_mcp/Runtime/Tools/ErrorCaptureManager.cs
+  s_691219d4926cd4::t_1eccfbc67e1834 1-346
+addons/godot_mcp/Runtime/RuntimeErrorCapture.cs
+  s_691219d4926cd4::t_beae44f8f99185 39-50,54-55,68-71,79-81,90,96-100,106,108-114,117-126,134-140,146-155,163-164,170-171
+Godot-MCP.Tests/ErrorCaptureManagerTests.cs
+  s_691219d4926cd4::t_98c407f8c5a68f 1-245
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_8866be828ff748::t_297cd2d7466e01 302-308
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_cbaf22c510ec9a::t_c16d0f5caa40b0 48-53,144-152,468,471-476,478,495-499
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "a912766ebb6d9c4166ed6ba1ce2677ee5e98de95",
+  "prompts": {},
+  "sessions": {
+    "s_691219d4926cd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a03f9130-abea-4823-a2ca-de912ca1baaf",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_8866be828ff748": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6aaa18f3-02a2-482c-8ba3-352853a8d5fa",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_cbaf22c510ec9a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ad00d9d78fabcab07",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

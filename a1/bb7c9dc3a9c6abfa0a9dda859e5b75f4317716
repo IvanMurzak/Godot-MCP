@@ -1,0 +1,26 @@
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_e36a2a3c4d1c6f::t_64cb207108b946 160-161
+  s_e36a2a3c4d1c6f::t_b4e652ce8199d9 251-254,256-259,261-265,269-271,273-274,276-279,281-284,286-287,289,294-299
+  s_e36a2a3c4d1c6f::t_2837e8dee7f3c5 395-397,399-403
+  s_e36a2a3c4d1c6f::t_4b3044b5fbd13f 51
+  s_e36a2a3c4d1c6f::t_57f911aac5f078 72-74,76,79-84,255,285
+  s_e36a2a3c4d1c6f::t_a6aebf92cd12e6 148
+addons/godot_mcp/UI/DockStyle.cs
+  s_e36a2a3c4d1c6f::t_8859596b3d4bc4 98-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a1bb7c9dc3a9c6abfa0a9dda859e5b75f4317716",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

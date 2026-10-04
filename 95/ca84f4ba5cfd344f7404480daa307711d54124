@@ -1,0 +1,43 @@
+cli/src/utils/skills.ts
+  s_fd7546e55bcb75::t_331086f21db3db 1-242
+cli/src/lib/setup-skills.ts
+  s_fd7546e55bcb75::t_a6adf9c735e342 1-117
+cli/src/cli.ts
+  s_fd7546e55bcb75::t_cb3a98d1ac04cc 13
+cli/README.md
+  s_fd7546e55bcb75::t_01a38d82b15270 34
+  s_fd7546e55bcb75::t_ae6515feb61c2f 77,79-98
+cli/tests/cli.test.ts
+  s_fd7546e55bcb75::t_0a42d84d36a5f6 40
+  s_fd7546e55bcb75::t_1f075defe4521e 49,52
+CLAUDE.md
+  s_fd7546e55bcb75::t_0c6d7bc518de53 74-80
+cli/src/index.ts
+  s_fd7546e55bcb75::t_d2665e276d6362 41
+  s_fd7546e55bcb75::t_1b7af91704c878 9
+cli/src/lib/types.ts
+  s_fd7546e55bcb75::t_858c7c39d66b17 76-107
+cli/src/commands/setup-skills.ts
+  s_fd7546e55bcb75::t_a777da7558bfb1 1-82
+cli/tests/setup-skills.test.ts
+  s_fd7546e55bcb75::t_a21c0992879516 1-198
+cli/src/lib.ts
+  s_fd7546e55bcb75::t_fb97df77eeba6a 20
+  s_fd7546e55bcb75::t_8a6f65fbcdb7e2 55-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "95ca84f4ba5cfd344f7404480daa307711d54124",
+  "prompts": {},
+  "sessions": {
+    "s_fd7546e55bcb75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ada76b30-8908-4a75-ac19-6c216305f5bb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

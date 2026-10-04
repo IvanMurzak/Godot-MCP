@@ -1,0 +1,19 @@
+addons/godot_mcp/Runtime/Tools/ErrorCaptureManager.cs
+  s_691219d4926cd4::t_d158c433fb4446 238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "2f1b356698da80f95d1daf5e2a8b911a4a4d97df",
+  "prompts": {},
+  "sessions": {
+    "s_691219d4926cd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a03f9130-abea-4823-a2ca-de912ca1baaf",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

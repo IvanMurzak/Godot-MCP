@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_d6b528f71c68c2::t_f5c83c81fc1ac5 191-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "ce13b5c16ba4c1f5351d7794ef8742c0e787a1ae",
+  "prompts": {},
+  "sessions": {
+    "s_d6b528f71c68c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-acb242b108ba2684d",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

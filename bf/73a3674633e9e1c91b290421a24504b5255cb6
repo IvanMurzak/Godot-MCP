@@ -1,0 +1,19 @@
+addons/godot_mcp/Runtime/Tools/ScriptDiagnosticsFilter.cs
+  s_f2c38c5bb8e069::t_726e09186670de 46-50,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "bf73a3674633e9e1c91b290421a24504b5255cb6",
+  "prompts": {},
+  "sessions": {
+    "s_f2c38c5bb8e069": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ebc9ea1-9953-406e-902f-35e72655e0fc",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

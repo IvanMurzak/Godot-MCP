@@ -1,0 +1,21 @@
+Godot-MCP.Tests/SkillsTests.cs
+  s_e36a2a3c4d1c6f::t_06a3d8d7f7021d 71-77,80-81
+addons/godot_mcp/UI/Agents/AgentConfigPaths.cs
+  s_e36a2a3c4d1c6f::t_5f8c106b90e487 90-107,111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2563448edebbf89400ebee63e9499caa54840743",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

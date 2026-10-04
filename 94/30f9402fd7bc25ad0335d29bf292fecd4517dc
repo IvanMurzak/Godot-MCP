@@ -1,0 +1,47 @@
+cli/README.md
+  s_a4f2da54d8a361::t_f14687f2a2eee8 89,281-282
+cli/package-lock.json
+  s_a4f2da54d8a361::t_40d1caf0f97a11 12,80-88
+cli/package.json
+  s_a4f2da54d8a361::t_e1d5d9ce7a6e8c 65
+cli/src/commands/setup-mcp.ts
+  s_a4f2da54d8a361::t_8699ae0d57eb13 10-11,25,58,78
+cli/src/lib/enroll.ts
+  s_a4f2da54d8a361::t_b96c382a29cd15 10,87-91,93
+cli/src/lib/setup-mcp.ts
+  s_a4f2da54d8a361::t_35473e98b78fd8 2,17,142-152,207
+cli/src/lib/types.ts
+  s_a4f2da54d8a361::t_4569661e0d7be9 74-79,88,90-91
+cli/src/utils/cloud-login.ts
+  s_a4f2da54d8a361::t_5b1899211679e1 6-13,35-46,50-59,70-78,80-96,98-99,101,103-104,122,124-126,135,141-143,153
+cli/src/utils/project-identity.ts
+  s_a4f2da54d8a361::t_ed4ab83ae8d95c 2-7,9-16,18-19,22-42
+cli/tests/cloud-login.test.ts
+  s_a4f2da54d8a361::t_d4b791dff6b6fc 8-12,14,23-28,31-32,36-43,60-61,74-75,95,99-100,107-109,125-126,141-142
+cli/tests/enroll-b5-regression.test.ts
+  s_a4f2da54d8a361::t_a160067ba28205 1-7,10-19,21-22,24-27,30-32,35-37,40-47,49,51-56,58-60,63-92
+cli/tests/enroll-plugin.test.ts
+  s_a4f2da54d8a361::t_9d558563bdadcf 8,60,71,84,86,105
+cli/tests/machine-credentials-core-parity.test.ts
+  s_a4f2da54d8a361::t_eb453bb3e349be 1-44
+cli/tests/setup-mcp-pin-parity.test.ts
+  s_a4f2da54d8a361::t_6115e61f3dfbb1 1-57
+cli/tests/setup-mcp.test.ts
+  s_a4f2da54d8a361::t_958808c66bce50 23,28-36,101,106-107,111,115,123,125-139,141-142,145-153,157,160,166,169,178,182,188,191,200,204,213,217,225,229,236,241,248,254,262,287-288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9430f9402fd7bc25ad0335d29bf292fecd4517dc",
+  "prompts": {},
+  "sessions": {
+    "s_a4f2da54d8a361": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_a4f2da54d8a361",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

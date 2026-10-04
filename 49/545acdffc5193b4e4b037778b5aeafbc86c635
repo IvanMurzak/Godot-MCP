@@ -1,0 +1,55 @@
+.github/assetlib/edit.hbs
+  s_5801a853f78e8a::t_818b7b0b599198 3
+CLAUDE.md
+  s_5801a853f78e8a::t_db7ed56ac21ef2 16-17,169-170
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5801a853f78e8a::t_9624eecfe1d60e 45-46
+Godot-MCP.csproj
+  s_5801a853f78e8a::t_d262a71b0abf44 19-20
+Godot-Tests/Godot-Tests.csproj
+  s_5801a853f78e8a::t_8dac8ba6418de5 15,36-37
+Godot-Tests/README.md
+  s_5801a853f78e8a::t_436c147b27d85a 14-15
+README.md
+  s_5801a853f78e8a::t_ec384251f12c2e 319-320,331-332
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_5801a853f78e8a::t_37e80912662c01 70
+addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs
+  s_5801a853f78e8a::t_7edd2f6c9aa0de 69
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_5801a853f78e8a::t_b419adab593aeb 286
+addons/godot_mcp/plugin.cfg
+  s_5801a853f78e8a::t_ba0abecfdf42c5 6
+cli/package-lock.json
+  s_5801a853f78e8a::t_e9e9f5f7891c73 3,9
+cli/package.json
+  s_5801a853f78e8a::t_d835e6108d870a 3
+cli/src/utils/addon-deps.ts
+  s_5801a853f78e8a::t_8dd8d673819a41 45-46
+cli/src/utils/server-source.ts
+  s_5801a853f78e8a::t_3a78a337eb0950 23
+cli/tests/skills-addon-parity.test.ts
+  s_5801a853f78e8a::t_641b3addc07f44 323
+docs/ARCHITECTURE.md
+  s_5801a853f78e8a::t_aca73322b3b990 219-220
+docs/RELEASING.md
+  s_5801a853f78e8a::t_15ff89598c93de 247-248
+docs/assetlib/SUBMISSION.md
+  s_5801a853f78e8a::t_91e3d4a1bcb645 28,32,69-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "49545acdffc5193b4e4b037778b5aeafbc86c635",
+  "prompts": {},
+  "sessions": {
+    "s_5801a853f78e8a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a4e9-83c5-7213-9989-30fded927707",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_9aa15001a2b0fb::t_a9d1ba9a5d28c9 13
+  s_1cbafefb7d4ff9::t_60a71ce332a893 200-208,211,223-237,245-249
+Godot-Tests/Godot-Tests.csproj
+  s_4d68fcead85c12::t_79d6d50bc72a3e 15,36-37
+cli/tests/skills-addon-parity.test.ts
+  s_1fa507dcfe6e4b::t_6c491e9fca900b 241-243,246,248
+docs/ARCHITECTURE.md
+  s_4d68fcead85c12::t_a65954abc99e02 215-216
+docs/RELEASING.md
+  s_1fa507dcfe6e4b::t_14ff5849cab55f 247-248
+docs/assetlib/SUBMISSION.md
+  s_4d68fcead85c12::t_bb2f584b8d47f8 69-70
+.github/assetlib/edit.hbs
+  s_1cbafefb7d4ff9::t_719c9b9232a61b 3
+CLAUDE.md
+  s_1cbafefb7d4ff9::t_8b8496ec64884a 16-17,167-168
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_1cbafefb7d4ff9::t_2c6c205cd7e1ef 40-41
+Godot-MCP.csproj
+  s_1cbafefb7d4ff9::t_23a874f11c49a1 19-20
+README.md
+  s_1cbafefb7d4ff9::t_cfafea0e863eef 304-305,316-317
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "97fe1c70036ab6f4ec043a2035dbf0f92a77abb8",
+  "prompts": {},
+  "sessions": {
+    "s_1cbafefb7d4ff9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aa702612ccf1e9bb4",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_1fa507dcfe6e4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c5cccaf-6d8b-406c-bca4-4326ca56510f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_4d68fcead85c12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e554db1e-8d99-4f43-8cb8-319a6b2dfb3c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_9aa15001a2b0fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9125bd0a-e6a5-4958-87c5-c0f9bb7c742a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
