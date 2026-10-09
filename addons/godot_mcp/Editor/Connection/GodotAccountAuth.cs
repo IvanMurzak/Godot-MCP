@@ -205,7 +205,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         PluginCredentialProvider Provider => Volatile.Read(ref _provider);
 
         /// <summary>True when a usable machine-store credential is present (the zero-button signed-in state).</summary>
-        public bool IsSignedIn => Provider.IsSignedIn;
+        public bool IsSignedIn => Provider.IsSignedIn && GodotMcpConfig.SameServerOrigin(Provider.ServerTarget, _asBaseUrlProvider());
 
         /// <summary>The account id (<c>sub</c>) the current credential resolves to, if known (diagnostic only).</summary>
         public string? Subject => Provider.Subject;
@@ -215,7 +215,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// the provider's own <c>State</c>, not just the connection's rejection signal). Stable across the
         /// internal provider swaps.
         /// </summary>
-        public AuthState AuthState => Provider.State.CurrentValue;
+        public AuthState AuthState => GodotMcpConfig.SameServerOrigin(Provider.ServerTarget, _asBaseUrlProvider())
+            ? Provider.State.CurrentValue : AuthState.SignedOut;
 
         /// <summary>
         /// Raised when the CURRENT provider surfaces a terminal sign-in-required verdict (its
@@ -246,6 +247,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var signInRequired = provider.OnSignInRequired.Subscribe(_ => SignInRequired?.Invoke());
             var stateChanged = provider.State.Subscribe(state =>
             {
+                if (!GodotMcpConfig.SameServerOrigin(provider.ServerTarget, _asBaseUrlProvider()))
+                    state = AuthState.SignedOut;
                 lock (_eventGate)
                 {
                     if (_lastForwardedAuthState == state)
@@ -270,7 +273,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// machine transparently falls back to the connection's existing token resolution. Late-bound to the
         /// CURRENT provider so a post-commit/migration rebuild is picked up by an already-captured delegate.
         /// </summary>
-        public Func<Task<string?>> AccessTokenProvider => () => Provider.GetAccessTokenAsync(CancellationToken.None);
+        public Func<Task<string?>> AccessTokenProvider => () => GetAccessTokenForOriginAsync(_asBaseUrlProvider());
+
+        public async Task<string?> GetAccessTokenForOriginAsync(string origin)
+        {
+            var provider = Provider;
+            if (!GodotMcpConfig.SameServerOrigin(provider.ServerTarget, origin))
+                return null;
+            var token = await provider.GetAccessTokenAsync(CancellationToken.None).ConfigureAwait(false);
+            // A peer refresh can adopt a different stored account/target while the await is in flight.
+            return ReferenceEquals(provider, Provider) && GodotMcpConfig.SameServerOrigin(provider.ServerTarget, origin) &&
+                GodotMcpConfig.SameServerOrigin(_asBaseUrlProvider(), origin) ? token : null;
+        }
 
         /// <summary>
         /// Refresh the access token now (driven by the connection's 3-strike authorization-rejected signal).
@@ -305,7 +319,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (_projectKeyProvider == null || _projectKeyProvider.Issuer != normalized)
                 {
                     _projectKeyProvider = new ProjectKeyProvider(
-                        ct => Provider.GetAccessTokenAsync(ct),
+                        ct => GetAccessTokenForOriginAsync(normalized),
                         normalized,
                         new ProjectKeyStore(_store.BaseDirectory),
                         _httpClient,
@@ -534,7 +548,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var result = await MachineWideSignOut.SignOutAsync(
                 _store,
                 _lock,
-                new TokenRevocationClient(_asBaseUrlProvider(), _httpClient),
+                new TokenRevocationClient(GodotMcpConfig.DefaultCloudBaseUrl, _httpClient),
                 _clientId,
                 _logger,
                 cancellationToken).ConfigureAwait(false);

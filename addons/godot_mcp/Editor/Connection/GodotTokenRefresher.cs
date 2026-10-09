@@ -33,25 +33,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </list>
     ///
     /// <para>
-    /// The one Godot-local behavior this adapter ADDS is the live default-AS-base seam: a stored
-    /// credential without a <c>serverTarget</c> refreshes against <paramref name="defaultAsBaseUrl"/>
-    /// READ LIVE per call (so a <c>.env</c>/env cloud-URL override applies without a rebuild — the
-    /// documented behavior of the pre-f1 refresher), where the shared refresher's own default is
-    /// captured once at construction. Trailing-<c>/mcp</c> stripping and target normalization stay with
-    /// the shared implementation. Pure-managed (no Godot native types, no <c>#if TOOLS</c>) and
-    /// unit-testable with a fake <see cref="HttpMessageHandler"/>; fails closed and never logs token
-    /// material (both inherited from the shared refresher).
+    /// A stored credential without a serverTarget belongs to the original production origin.
+    /// Changing the project cloud URL must never redirect an unbound legacy refresh token.
+    /// Explicit stored targets and family client IDs are delegated to the shared implementation.
     /// </para>
     /// </summary>
     public sealed class GodotTokenRefresher : ITokenRefresher
     {
         readonly HttpTokenRefresher _inner;
-        readonly Func<string> _defaultAsBaseUrl;
 
         /// <summary>
-        /// Construct the adapter. <paramref name="defaultAsBaseUrl"/> supplies the AS base URL when the
-        /// stored credential carries no <c>serverTarget</c> (read live so a <c>.env</c> cloud-URL override
-        /// applies). <paramref name="clientId"/> is this component's OWN id, presented only for legacy
+        /// Construct the adapter. <paramref name="defaultAsBaseUrl"/> is retained for API compatibility;
+        /// target-less legacy credentials remain bound to production. <paramref name="clientId"/> is this component's OWN id, presented only for legacy
         /// families of unknown id (04 §3.7) — it defaults to
         /// <see cref="GodotDeviceAuthFlow.DefaultClientId"/> and never overrides a family's stored id.
         /// <paramref name="httpClient"/> is injectable for tests (fake handler); the shared refresher's
@@ -62,10 +55,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             string? clientId = null,
             HttpClient? httpClient = null)
         {
-            _defaultAsBaseUrl = defaultAsBaseUrl ?? throw new ArgumentNullException(nameof(defaultAsBaseUrl));
-            // The inner default target is deliberately unused (empty): every request is resolved against
-            // the LIVE default below before delegation, so the shared refresher always receives an
-            // explicit ServerTarget.
+            _ = defaultAsBaseUrl ?? throw new ArgumentNullException(nameof(defaultAsBaseUrl));
+            // Every request below has an explicit stored/original legacy target.
             _inner = new HttpTokenRefresher(
                 defaultServerTarget: string.Empty,
                 componentClientId: string.IsNullOrEmpty(clientId) ? GodotDeviceAuthFlow.DefaultClientId : clientId!,
@@ -86,7 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// The family-aware refresh: resolve a missing <see cref="TokenRefreshRequest.ServerTarget"/> from
-        /// the LIVE default AS base, then delegate to the shared <see cref="HttpTokenRefresher"/> with the
+        /// the original production AS base, then delegate to the shared <see cref="HttpTokenRefresher"/> with the
         /// request's family context (stored <c>clientId</c>) intact.
         /// </summary>
         public Task<TokenRefreshResult> RefreshAsync(TokenRefreshRequest request, CancellationToken cancellationToken = default)
@@ -95,7 +86,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 throw new ArgumentNullException(nameof(request));
 
             var resolved = string.IsNullOrEmpty(request.ServerTarget)
-                ? new TokenRefreshRequest(request.RefreshToken, _defaultAsBaseUrl(), request.ClientId)
+                ? new TokenRefreshRequest(request.RefreshToken, GodotMcpConfig.DefaultCloudBaseUrl, request.ClientId)
                 : request;
 
             return _inner.RefreshAsync(resolved, cancellationToken);

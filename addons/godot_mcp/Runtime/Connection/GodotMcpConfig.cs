@@ -131,6 +131,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonPropertyName("cloudToken")]
         public string? CloudToken { get; set; }
 
+        /// <summary>Origin that issued CloudToken; older unbound tokens belong to the production default.</summary>
+        [JsonPropertyName("cloudTokenServerTarget")]
+        public string? CloudTokenServerTarget { get; set; }
+
         /// <summary>The configured connection mode (overridable by <see cref="EnvConnectionMode"/> via <see cref="ResolveActiveMode"/>).</summary>
         [JsonPropertyName("connectionMode")]
         public GodotMcpConnectionMode ConnectionMode { get; set; } = GodotMcpConnectionMode.Cloud;
@@ -237,7 +241,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             set
             {
                 if (ActiveMode == GodotMcpConnectionMode.Cloud)
+                {
                     CloudToken = value;
+                    CloudTokenServerTarget = ResolveCloudBaseUrl(CloudBaseUrl);
+                }
                 else
                     CustomToken = value;
             }
@@ -379,7 +386,21 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public string? ResolveCloudToken()
         {
             var envToken = NormalizeEnv(ReadEnv(EnvToken));
-            return string.IsNullOrEmpty(envToken) ? CloudToken : envToken;
+            if (!string.IsNullOrEmpty(envToken))
+                return envToken; // Explicit process override belongs to the configured connection.
+            return SameServerOrigin(CloudTokenServerTarget, ResolveCloudBaseUrl(CloudBaseUrl)) ? CloudToken : null;
+        }
+
+        /// <summary>Compare credential origins without allowing malformed URLs to inherit a trusted default.</summary>
+        public static bool SameServerOrigin(string? issuedFor, string target)
+        {
+            issuedFor = string.IsNullOrWhiteSpace(issuedFor) ? DefaultCloudBaseUrl : issuedFor;
+            return Uri.TryCreate(issuedFor, UriKind.Absolute, out var source) &&
+                Uri.TryCreate(target, UriKind.Absolute, out var destination) &&
+                (source.Scheme == Uri.UriSchemeHttps || source.Scheme == Uri.UriSchemeHttp) &&
+                string.IsNullOrEmpty(source.UserInfo) && string.IsNullOrEmpty(destination.UserInfo) &&
+                string.Equals(source.GetLeftPart(UriPartial.Authority), destination.GetLeftPart(UriPartial.Authority),
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

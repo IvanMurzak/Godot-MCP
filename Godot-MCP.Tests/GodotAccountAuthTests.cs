@@ -50,6 +50,42 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- Boot auto-adopt (the zero-button rule) ---
 
         [Fact]
+        public async Task ProductionCredential_IsNeverSentToEnrolledSandbox()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, "production-token", "production-refresh", AlreadyExpired, "stored-id");
+            const string sandbox = "https://sandbox.example.test";
+            using var account = new GodotAccountAuth(() => sandbox, Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.False(account.IsSignedIn);
+            Assert.Equal(AuthState.SignedOut, account.AuthState);
+            Assert.Null(await account.AccessTokenProvider());
+            Assert.Null(await account.GetProjectKeyProvider(sandbox).GetOrMintAsync(ProjectPin, "godot", "box"));
+            Assert.Equal(AsBaseUrl, Store(tmp).Read()!.ServerTarget);
+            Assert.Equal("production-token", Store(tmp).Read()!.Families!.Plugin!.AccessToken);
+        }
+
+        [Fact]
+        public async Task MatchingSandboxCredential_IsAdoptedWithoutNetworkIo()
+        {
+            using var tmp = new TempDir();
+            const string sandbox = "https://sandbox.example.test";
+            Store(tmp).Write(new MachineCredentials { AccessToken = "sandbox-token", ServerTarget = sandbox });
+            using var account = new GodotAccountAuth(() => sandbox, Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.True(account.IsSignedIn);
+            Assert.Equal("sandbox-token", await account.AccessTokenProvider());
+            Assert.Null(await account.GetProjectKeyProvider(AsBaseUrl).GetOrMintAsync(ProjectPin, "godot", "box"));
+        }
+
+        [Fact]
+        public async Task LegacyCredentialWithoutTarget_IsProductionOnly()
+        {
+            using var tmp = new TempDir();
+            Store(tmp).Write(new MachineCredentials { AccessToken = "legacy-token" });
+            using var account = new GodotAccountAuth(() => "https://sandbox.example.test", Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.Null(await account.AccessTokenProvider());
+        }
+
+        [Fact]
         public void EmptyStore_NotSignedIn()
         {
             using var tmp = new TempDir();

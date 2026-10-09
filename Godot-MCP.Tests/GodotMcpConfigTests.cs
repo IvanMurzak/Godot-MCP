@@ -77,6 +77,41 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         // --- Cloud URL resolution ---
 
+        [Fact]
+        public void DevelopmentCredentialDirectory_ProcessOverridesProject_AndRejectsRelativePath()
+        {
+            var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "godot-store-" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(directory);
+            try
+            {
+                using var env = EnvScope.Set(GodotMcpEnvFile.EnvCredentialsDirectory, "");
+                var projectStore = System.IO.Path.Combine(directory, "project-store");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, ".env"),
+                    GodotMcpEnvFile.EnvCredentialsDirectory + "=" + projectStore);
+                Assert.Equal(projectStore, GodotMcpEnvFile.ResolveCredentialsDirectory(directory));
+                var processStore = System.IO.Path.Combine(directory, "process-store");
+                using var process = EnvScope.Set(GodotMcpEnvFile.EnvCredentialsDirectory, processStore);
+                Assert.Equal(processStore, GodotMcpEnvFile.ResolveCredentialsDirectory(directory));
+                using var relative = EnvScope.Set(GodotMcpEnvFile.EnvCredentialsDirectory, "relative-store");
+                Assert.Throws<ArgumentException>(() => GodotMcpEnvFile.ResolveCredentialsDirectory(directory));
+            }
+            finally { System.IO.Directory.Delete(directory, recursive: true); }
+        }
+
+        [Fact]
+        public void LegacyCloudToken_DoesNotFollowNewProjectOrigin()
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig();
+            config.ApplyProjectMarker(new ProjectMarker { ServerTarget = "https://sandbox.example.test" });
+            GodotMcpConfigStore.ApplyPersisted(config, new GodotMcpConfig { CloudToken = "production-token" });
+            Assert.Null(config.Token);
+            config.Token = "explicit-sandbox-token";
+            Assert.Equal("explicit-sandbox-token", config.Token);
+            config.CloudBaseUrl = "https://other.example.test";
+            Assert.Null(config.Token);
+        }
+
         [Theory]
         [InlineData("https://sandbox.example.test")]
         [InlineData("https://sandbox.example.test/mcp/")]

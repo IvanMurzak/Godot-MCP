@@ -1240,6 +1240,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         void ApplyAuthorizedToken(string token)
         {
             _connection.Config.CloudToken = token;
+            _connection.Config.CloudTokenServerTarget = _connection.CloudBaseUrl;
             _connection.Save();
             ApplyCloudAuthState();
             ApplyAlertVisibility(_connection.ConnectionStatus);

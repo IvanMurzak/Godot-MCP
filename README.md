@@ -391,6 +391,7 @@ is appended automatically). This is the default `connectionMode`.
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | Force the mode: `Cloud` or `Custom` (case-insensitive). | `Cloud` |
 | `GODOT_MCP_CLOUD_URL` | Override the cloud base URL. A trailing `/mcp` is stripped if present; a non-http(s) value falls back to the default. | `https://ai-game.dev` |
+| `GODOT_MCP_CREDENTIALS_DIR` | Absolute credential-store directory for isolated development/testing. Also accepted in the project's `.env`; process environment wins. Omit for the regular machine store. | Platform user profile's `.ai-game-dev` |
 | `GODOT_MCP_TOKEN` | Bearer token, routed to the active mode's token. Surrounding quotes are trimmed. | (none) |
 
 ## Custom mode — your own server

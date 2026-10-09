@@ -131,6 +131,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             target.CustomHost = persisted.CustomHost;
             target.CustomToken = persisted.CustomToken;
             target.CloudToken = persisted.CloudToken;
+            target.CloudTokenServerTarget = persisted.CloudTokenServerTarget;
             target.ConnectionMode = persisted.ConnectionMode;
             target.AuthOption = persisted.AuthOption;
             target.LogLevel = persisted.LogLevel;
