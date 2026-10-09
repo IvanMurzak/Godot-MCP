@@ -125,6 +125,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (persisted == null)
                 return target;
 
+            // Older config files have no cloud origin: preserve the enrolled marker in that case.
+            if (!string.IsNullOrWhiteSpace(persisted.CloudBaseUrl))
+                target.CloudBaseUrl = persisted.CloudBaseUrl;
             target.CustomHost = persisted.CustomHost;
             target.CustomToken = persisted.CustomToken;
             target.CloudToken = persisted.CloudToken;

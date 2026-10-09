@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.McpPlugin.AgentConfig;
 using Xunit;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
@@ -75,6 +76,63 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         // --- Cloud URL resolution ---
+
+        [Theory]
+        [InlineData("https://sandbox.example.test")]
+        [InlineData("https://sandbox.example.test/mcp/")]
+        public void EnrolledCloudTarget_RoutesPluginAccountAndAgentToSameOrigin(string target)
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig();
+            config.ApplyProjectMarker(new ProjectMarker { ServerTarget = target });
+            Assert.Equal(GodotMcpConnectionMode.Cloud, config.ActiveMode);
+            Assert.Equal("https://sandbox.example.test/mcp", config.Host);
+            Assert.Equal(config.Host, GodotMcpConfig.ResolveMcpClientUrl(config));
+            Assert.Equal("https://sandbox.example.test", GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl));
+            // A pre-existing config without this new field must not discard enrollment.
+            GodotMcpConfigStore.ApplyPersisted(config, new GodotMcpConfig());
+            Assert.Equal("https://sandbox.example.test/mcp", config.Host);
+        }
+
+        [Fact]
+        public void CloudOrigin_PrecedenceAndSerialization()
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig();
+            config.ApplyProjectMarker(new ProjectMarker { ServerTarget = "https://marker.example.test" });
+            var persisted = JsonSerializer.Deserialize<GodotMcpConfig>(
+                JsonSerializer.Serialize(new GodotMcpConfig { CloudBaseUrl = "https://saved.example.test" }))!;
+            GodotMcpConfigStore.ApplyPersisted(config, persisted);
+            Assert.Equal("https://saved.example.test/mcp", config.Host);
+            GodotMcpEnvFile.Apply(config, new Dictionary<string, string> {
+                [GodotMcpConfig.EnvCloudUrl] = "https://file.example.test"
+            });
+            Assert.Equal("https://file.example.test/mcp", config.Host);
+            using var env = EnvScope.Set(GodotMcpConfig.EnvCloudUrl, "https://process.example.test");
+            Assert.Equal("https://process.example.test/mcp", config.Host);
+            Assert.Equal(config.Host, GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Theory]
+        [InlineData("not-a-url")]
+        [InlineData("file:///tmp/test")]
+        public void InvalidConfiguredCloudOrigin_FallsBackToDefault(string target)
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig { CloudBaseUrl = target };
+            Assert.Equal("https://ai-game.dev/mcp", config.Host);
+        }
+
+        [Fact]
+        public void EnrolledLoopbackTarget_StillUsesCustomHost()
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig();
+            config.ApplyProjectMarker(new ProjectMarker { ServerTarget = "http://localhost:23456" });
+            Assert.Equal(GodotMcpConnectionMode.Custom, config.ActiveMode);
+            Assert.Equal("http://localhost:23456", config.Host);
+            Assert.Equal("http://localhost:23456/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
 
         [Fact]
         public void CloudUrl_Default_AppendsMcpHubPath()

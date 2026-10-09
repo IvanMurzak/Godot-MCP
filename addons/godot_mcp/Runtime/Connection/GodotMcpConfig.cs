@@ -12,6 +12,7 @@ using System;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.AgentConfig;
 using HubConsts = com.IvanMurzak.McpPlugin.Common.Consts.Hub;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
@@ -97,6 +98,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public const string DefaultCustomHost = "http://localhost:8080";
 
         // --- Serialized backing fields. ---
+
+        /// <summary>Optional enrolled/configured cloud origin. Process environment overrides it.</summary>
+        [JsonPropertyName("cloudBaseUrl")]
+        public string? CloudBaseUrl { get; set; }
+
+        /// <summary>Apply an enrolled target before persisted/project/process overrides.</summary>
+        public void ApplyProjectMarker(ProjectMarker? marker)
+        {
+            var target = GodotProjectIdentity.ResolveServerTarget(marker);
+            if (target == null)
+                return;
+            ConnectionMode = target.Value.Mode;
+            if (target.Value.Mode == GodotMcpConnectionMode.Cloud)
+                CloudBaseUrl = target.Value.ServerTarget;
+            else
+                CustomHost = target.Value.CustomHost!;
+        }
 
         /// <summary>
         /// Backing field for the custom-mode server URL. Serialized as <c>host</c>.
@@ -194,7 +212,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonIgnore]
         public override string Host
         {
-            get => ActiveMode == GodotMcpConnectionMode.Cloud ? ResolveCloudUrl() : ResolveCustomHost();
+            get => ActiveMode == GodotMcpConnectionMode.Cloud ? ResolveCloudUrl(CloudBaseUrl) : ResolveCustomHost();
             set => CustomHost = value;
         }
 
@@ -285,9 +303,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Invalid / non-http(s) overrides fall back to <see cref="DefaultCloudBaseUrl"/>. A trailing
         /// <c>/mcp</c> is stripped so <see cref="ResolveCloudUrl"/> never produces <c>/mcp/mcp</c>.
         /// </summary>
-        public static string ResolveCloudBaseUrl()
+        public static string ResolveCloudBaseUrl(string? configured = null)
         {
             var normalized = NormalizeUrl(ReadEnv(EnvCloudUrl));
+            if (string.IsNullOrEmpty(normalized))
+                normalized = NormalizeUrl(configured);
             if (string.IsNullOrEmpty(normalized))
                 return DefaultCloudBaseUrl;
 
@@ -301,7 +321,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>Resolve the full cloud connection URL (base + <see cref="CloudHubPath"/>).</summary>
-        public static string ResolveCloudUrl() => ResolveCloudBaseUrl() + CloudHubPath;
+        public static string ResolveCloudUrl(string? configured = null) => ResolveCloudBaseUrl(configured) + CloudHubPath;
 
         /// <summary>
         /// Resolve the MCP-client endpoint URL an external AI client (Claude Code, Cursor, …) should POST to —
@@ -327,7 +347,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 throw new ArgumentNullException(nameof(config));
 
             if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
-                return ResolveCloudUrl();
+                return ResolveCloudUrl(config.CloudBaseUrl);
 
             // Custom mode: the plugin connects to <host>/hub/mcp-server; the MCP client connects to <host>/mcp.
             var host = config.ResolveCustomHost().TrimEnd('/');

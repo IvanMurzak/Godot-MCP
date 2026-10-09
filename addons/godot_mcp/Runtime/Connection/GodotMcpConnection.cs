@@ -248,7 +248,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// on. The dock's Cloud-auth section passes this to <see cref="GodotDeviceAuthFlow.StartAsync"/> and it
         /// backs the account coordinator's refresh target. Read live off the config so an env override applies.
         /// </summary>
-        public string CloudBaseUrl => GodotMcpConfig.ResolveCloudBaseUrl();
+        public string CloudBaseUrl => GodotMcpConfig.ResolveCloudBaseUrl(_config.CloudBaseUrl);
 
         /// <summary>
         /// The ai-game.dev account-credential coordinator (machine store + proactive/reactive refresh). Exposed
@@ -650,7 +650,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return;
 
             var sinkToken = _persistedSinkCloudToken;
-            var serverTarget = GodotMcpConfig.ResolveCloudBaseUrl();
+            var serverTarget = GodotMcpConfig.ResolveCloudBaseUrl(_config.CloudBaseUrl);
             _ = Task.Run(() =>
             {
                 try
@@ -1247,9 +1247,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (resolution == null)
                 return;
 
-            _config.ConnectionMode = resolution.Value.Mode;
-            if (resolution.Value.Mode == GodotMcpConnectionMode.Custom && !string.IsNullOrEmpty(resolution.Value.CustomHost))
-                _config.CustomHost = resolution.Value.CustomHost!;
+            _config.ApplyProjectMarker(marker);
 
             GodotMcpLog.Info(
                 $"[Godot-MCP] project marker enrolled server target '{resolution.Value.ServerTarget}' -> mode={resolution.Value.Mode}.");

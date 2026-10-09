@@ -166,10 +166,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (values.TryGetValue(GodotMcpConfig.EnvHost, out var fileHost))
                 config.CustomHost = fileHost;
 
-            // GODOT_MCP_CLOUD_URL has no serialized backing field on the config (the cloud base is
-            // resolved purely from env/default by ResolveCloudBaseUrl). There is nothing to write for it
-            // at the file layer beyond informing the loopback decision below; a file CLOUD_URL only takes
-            // effect when also exported to the process env, matching the env-only cloud-base contract.
+            if (values.TryGetValue(GodotMcpConfig.EnvCloudUrl, out var fileCloudUrl))
+                config.CloudBaseUrl = fileCloudUrl;
 
             // 2) Mode: explicit file mode wins next; else loopback host → Custom. (Env mode already wins
             //    live via ActiveMode, so we never need to special-case it here.)
