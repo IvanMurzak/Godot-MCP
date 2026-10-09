@@ -310,9 +310,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Invalid / non-http(s) overrides fall back to <see cref="DefaultCloudBaseUrl"/>. A trailing
         /// <c>/mcp</c> is stripped so <see cref="ResolveCloudUrl"/> never produces <c>/mcp/mcp</c>.
         /// </summary>
-        public static string ResolveCloudBaseUrl(string? configured = null)
+        public static string ResolveCloudBaseUrl(string? configured = null, bool useProcessEnvironment = true)
         {
-            var normalized = NormalizeUrl(ReadEnv(EnvCloudUrl));
+            var normalized = useProcessEnvironment ? NormalizeUrl(ReadEnv(EnvCloudUrl)) : null;
             if (string.IsNullOrEmpty(normalized))
                 normalized = NormalizeUrl(configured);
             if (string.IsNullOrEmpty(normalized))

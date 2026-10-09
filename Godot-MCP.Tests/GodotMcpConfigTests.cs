@@ -77,6 +77,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         // --- Cloud URL resolution ---
 
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData("https://ai-game.dev", null)]
+        [InlineData("https://sandbox.example.test/mcp", "file-token")]
+        public void ProcessCloudOverride_DoesNotRelabelProjectFileToken(string? fileOrigin, string? expectedToken)
+        {
+            using var _ = EnvScope.ClearAll();
+            using var env = EnvScope.Set(GodotMcpConfig.EnvCloudUrl, "https://sandbox.example.test");
+            var values = new Dictionary<string, string> { [GodotMcpConfig.EnvToken] = "file-token" };
+            if (fileOrigin != null) values[GodotMcpConfig.EnvCloudUrl] = fileOrigin;
+            var config = new GodotMcpConfig();
+            GodotMcpEnvFile.Apply(config, values);
+            Assert.Equal("https://sandbox.example.test/mcp", config.Host);
+            Assert.Equal(expectedToken, config.Token);
+        }
+
         [Fact]
         public void DevelopmentCredentialDirectory_ProcessOverridesProject_AndRejectsRelativePath()
         {

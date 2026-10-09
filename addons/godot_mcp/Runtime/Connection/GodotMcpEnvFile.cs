@@ -221,7 +221,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
                 {
                     config.CloudToken = fileToken;
-                    config.CloudTokenServerTarget = GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl);
+                    // A process URL override must not relabel a project's existing token.
+                    // Target-less legacy file tokens belong to the original production origin.
+                    values.TryGetValue(GodotMcpConfig.EnvCloudUrl, out var tokenOrigin);
+                    config.CloudTokenServerTarget = GodotMcpConfig.ResolveCloudBaseUrl(tokenOrigin, useProcessEnvironment: false);
                 }
                 else
                     config.CustomToken = fileToken;
