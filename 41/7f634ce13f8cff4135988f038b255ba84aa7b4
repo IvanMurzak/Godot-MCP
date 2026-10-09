@@ -1,0 +1,53 @@
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_da4d21064dfadb 56-60,140
+  s_e36a2a3c4d1c6f::t_b16fea50f43377 141-210
+  s_e36a2a3c4d1c6f::t_95765791a2db25 102-107
+  s_e36a2a3c4d1c6f::t_fc1e7100794eae 221
+addons/godot_mcp/Connection/GodotMcpLoggerProvider.cs
+  s_e36a2a3c4d1c6f::t_2d0b71bebe8083 1-50
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_e36a2a3c4d1c6f::t_6826c412845ba5 118
+  s_e36a2a3c4d1c6f::t_05080ea4e888e5 135
+addons/godot_mcp/Connection/GodotMcpLogger.cs
+  s_e36a2a3c4d1c6f::t_8303ba1fe11d15 1-115
+addons/godot_mcp/Connection/GodotMcpConfig.cs
+  s_e36a2a3c4d1c6f::t_749e43d993f270 131-139
+  s_e36a2a3c4d1c6f::t_a1924bfd5503f2 317-335
+  s_e36a2a3c4d1c6f::t_74e1206ff517c2 166-173
+  s_e36a2a3c4d1c6f::t_ee9b3e3f176143 82-89,130,165
+addons/godot_mcp/Connection/GodotMcpEnvFile.cs
+  s_e36a2a3c4d1c6f::t_6d329e66490805 193-200
+  s_e36a2a3c4d1c6f::t_d82ff035b64cfd 55-56
+  s_e36a2a3c4d1c6f::t_e72cd019456c15 267-282
+Godot-MCP.Tests/GodotMcpLogLevelConfigTests.cs
+  s_e36a2a3c4d1c6f::t_e9a4a3babb3c58 1-204
+Godot-MCP.Tests/GodotMcpLogGateTests.cs
+  s_e36a2a3c4d1c6f::t_190eaf9b4009c6 14
+  s_e36a2a3c4d1c6f::t_e3ec13458fd2d5 1-13,15-180
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_a2e099dbf2318d 55-62
+Godot-MCP.Tests/ConnectionPanelViewTests.cs
+  s_e36a2a3c4d1c6f::t_528598c056018b 73-90
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_cc8f40a8d5ca34 329-354
+  s_e36a2a3c4d1c6f::t_2ec7af624a5f5d 199-207
+  s_e36a2a3c4d1c6f::t_149cfd3c83c95d 17,20
+addons/godot_mcp/Connection/GodotMcpLogLevel.cs
+  s_e36a2a3c4d1c6f::t_fd7f704708f540 1-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "417f634ce13f8cff4135988f038b255ba84aa7b4",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

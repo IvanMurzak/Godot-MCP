@@ -1,0 +1,26 @@
+cli/tests/godot-editor.test.ts
+  s_fd7546e55bcb75::t_64827539676e3a 178-182,189,191,193-208,211-215,218,220,222-231,234-237,243,245,249-255,258-294
+  s_fd7546e55bcb75::t_941b5c938b8988 183-188,190,192,209-210,216-217,219,221,232-233,238-242,244,246-248,256-257
+cli/src/utils/godot-editor.ts
+  s_fd7546e55bcb75::t_9bb3df1d973d45 315-320
+  s_fd7546e55bcb75::t_c3db1dbaea72c9 162-164,166-172
+  s_fd7546e55bcb75::t_6ef081c793d764 45-79,99,104,109,253
+  s_fd7546e55bcb75::t_a2de935960a615 178-196,201,203,205-206,213,229-230,237-252,256-266
+  s_fd7546e55bcb75::t_24f3452cc52e20 354-356,358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "972d0d5c1f0c2aec8b27ad6ee4d6dedbc62cc004",
+  "prompts": {},
+  "sessions": {
+    "s_fd7546e55bcb75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ada76b30-8908-4a75-ac19-6c216305f5bb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

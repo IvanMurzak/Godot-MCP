@@ -1,0 +1,21 @@
+addons/godot_mcp/extensions.catalog.json
+  s_cdc58198875d84::t_7803734b1e1390 32-47
+cli/src/utils/extensions-catalog.ts
+  s_cdc58198875d84::t_ac42609028ad73 75-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7b2d723a6c9050f6e6c8df0eec069171f3b6d858",
+  "prompts": {},
+  "sessions": {
+    "s_cdc58198875d84": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4777c9eb5abc2f3d",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

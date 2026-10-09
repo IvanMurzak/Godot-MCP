@@ -1,0 +1,37 @@
+Godot-MCP.Tests/FeatureFilterTests.cs
+  s_e36a2a3c4d1c6f::t_c7588b526f18d7 1-205
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_880673031dbe47 451-455,457,461
+addons/godot_mcp/UI/FeatureListWindow.cs
+  s_e36a2a3c4d1c6f::t_cadd511e62c2a8 12,19-29,33-34,43-45,49-51,58,65,82-87,92-93,102,108-110,112-113,120-172,174-176,178,180-183,185-192,195-196,198-203,205,207-209,211-218,220-221,223-233,236-237,240-242,245-320,327-340
+addons/godot_mcp/UI/FeatureFilter.cs
+  s_e36a2a3c4d1c6f::t_ecb33499ce046c 158-193
+  s_e36a2a3c4d1c6f::t_7420d0893b736f 1-14,16,18-157,194-195
+  s_e36a2a3c4d1c6f::t_101a73b8c1246d 15,17
+addons/godot_mcp/UI/DockTheme.cs
+  s_e36a2a3c4d1c6f::t_a2cba20cc98bbb 156-195
+Godot-MCP.Tests/DockThemeTests.cs
+  s_e36a2a3c4d1c6f::t_2ed3cfc8e8ab64 74-113,120-127
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_e066f570fb9f59 155-162
+addons/godot_mcp/UI/DockStyle.cs
+  s_e36a2a3c4d1c6f::t_949dfd949c4281 268-328
+addons/godot_mcp/Connection/FeatureManagerAdapters.cs
+  s_e36a2a3c4d1c6f::t_b584ec7336170a 14,26-29,36-41,50,59,61-69,77,86,88-96,104,113,115-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "c0f09ff977f6f41fe2822f3cdb667163e57923d4",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
