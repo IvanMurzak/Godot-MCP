@@ -275,6 +275,29 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public Func<Task<string?>> AccessTokenProvider => () => GetAccessTokenForOriginAsync(_asBaseUrlProvider());
 
+        /// <summary>Bind all credential paths to the connection host captured when the transport is built.</summary>
+        public Func<Task<string?>> CreateConnectionCredentialProvider(GodotMcpConfig config)
+        {
+            var mode = config.ActiveMode;
+            var host = config.Host;
+            var origin = GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl);
+            bool Matches() => config.ActiveMode == mode && string.Equals(config.Host, host, StringComparison.Ordinal);
+            return async () =>
+            {
+                if (!Matches())
+                    return null;
+                if (mode == GodotMcpConnectionMode.Cloud && IsSignedIn)
+                {
+                    var token = await GetAccessTokenForOriginAsync(origin).ConfigureAwait(false);
+                    if (!Matches())
+                        return null;
+                    if (!string.IsNullOrEmpty(token))
+                        return token;
+                }
+                return Matches() ? config.Token : null;
+            };
+        }
+
         public async Task<string?> GetAccessTokenForOriginAsync(string origin)
         {
             var provider = Provider;

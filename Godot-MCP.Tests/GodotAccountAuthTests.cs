@@ -50,6 +50,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- Boot auto-adopt (the zero-button rule) ---
 
         [Fact]
+        public async Task ConnectionCredential_OriginChangedDuringRefresh_DoesNotFallBackToNewToken()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, "production-token", "production-refresh", AlreadyExpired, "stored-id");
+            var config = new GodotMcpConfig();
+            var server = new FakeAuthServer { Refresh = () => {
+                config.CloudBaseUrl = "https://sandbox.example.test";
+                config.Token = "new-sandbox-token";
+                return JsonResponse(HttpStatusCode.OK, TokenJson("fresh-production-token", "fresh-production-refresh", 3600));
+            }};
+            using var account = new GodotAccountAuth(() => GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl), Store(tmp), new HttpClient(server));
+            var credential = account.CreateConnectionCredentialProvider(config);
+            Assert.Null(await credential());
+            Assert.Equal("new-sandbox-token", config.Token);
+            Assert.Single(server.Requests);
+        }
+
+        [Fact]
         public async Task ProductionCredential_IsNeverSentToEnrolledSandbox()
         {
             using var tmp = new TempDir();

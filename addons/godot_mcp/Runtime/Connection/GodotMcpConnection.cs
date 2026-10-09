@@ -369,20 +369,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // (CloudToken in Cloud mode / CustomToken in Custom mode, env-overridable) so a signed-out machine
             // and every Custom-mode connection behave exactly as before. Set here (not wrapped) so a Reconnect's
             // repeat Start() re-assigns the SAME composite rather than nesting delegates.
-            var connectionCloudOrigin = CloudBaseUrl;
-            _config.CredentialProvider = async () =>
-            {
-                if (_config.ActiveMode == GodotMcpConnectionMode.Cloud &&
-                    !GodotMcpConfig.SameServerOrigin(connectionCloudOrigin, CloudBaseUrl))
-                    return null;
-                if (_config.ActiveMode == GodotMcpConnectionMode.Cloud && _account.IsSignedIn)
-                {
-                    var accountToken = await _account.GetAccessTokenForOriginAsync(connectionCloudOrigin).ConfigureAwait(false);
-                    if (!string.IsNullOrEmpty(accountToken))
-                        return accountToken;
-                }
-                return _config.Token;
-            };
+            _config.CredentialProvider = _account.CreateConnectionCredentialProvider(_config);
 
             // Instance-metadata handshake (design 04 — mcp-authorize e1, PR 3). Identify THIS editor
             // session to the server so it can route/dedup by account + project + instance instead of by
