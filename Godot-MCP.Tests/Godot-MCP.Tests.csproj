@@ -18,6 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpReconnectWatchdog.cs" Link="Source\GodotMcpReconnectWatchdog.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
@@ -43,7 +44,7 @@
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.6.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
   </ItemGroup>
 
   <ItemGroup>

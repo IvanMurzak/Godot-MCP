@@ -251,6 +251,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public override void _EnterTree()
         {
+            // Hot-reload creates an unwired shell before the plugin replaces the dock.
+            if (_connection == null)
+                return;
             // Remove-then-add so a re-entry never double-subscribes. The connection marshals these events onto
             // the editor main thread, so the handlers may touch Controls directly.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
@@ -1536,6 +1539,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         public override void _ExitTree()
         {
+            if (_connection == null)
+                return;
             // Unsubscribe so a freed panel does not receive a late main-thread push.
             _connection.ConnectionStatusChanged -= OnConnectionStatusChanged;
             _connection.AuthorizationRejected -= OnAuthorizationRejected;
@@ -1569,7 +1574,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public override void _Notification(int what)
         {
             if (what == NotificationPredelete)
-                _serverManager.Dispose();
+                _serverManager?.Dispose();
         }
     }
 }

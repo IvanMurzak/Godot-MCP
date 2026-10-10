@@ -44,8 +44,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     ///   <item>Build an <see cref="IMcpPlugin"/> via <see cref="McpPluginBuilder"/>, scanning the
     ///   addon assembly for <c>[AiToolType]</c>/<c>[AiTool]</c> methods (the <c>ping</c> tool today).</item>
     ///   <item>Apply the resolved <see cref="GodotMcpConfig"/> (Cloud/Custom host + bearer token).</item>
-    ///   <item>Connect. Auto-reconnect/backoff is handled inside the McpPlugin client when
-    ///   <see cref="ConnectionConfig.KeepConnected"/> is true — NOT reimplemented here.</item>
+    ///   <item>Connect. McpPlugin owns transport reconnect/backoff; editor ticks re-arm exhausted
+    ///   bounded batches after an idle cooldown without keeping background work alive.</item>
     /// </list>
     /// </para>
     ///
@@ -67,7 +67,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// drift if you forget). The live, parsed value in <see cref="PluginVersion"/> is the source of
         /// truth; <see cref="ResolvePluginVersion"/> emits a warning whenever it has to fall back here.
         /// </summary>
-        const string FallbackPluginVersion = "0.25.1";
+        const string FallbackPluginVersion = "0.25.2";
 
         /// <summary>
         /// Plugin version reported to the server in the MCP handshake. Resolved ONCE from
@@ -134,6 +134,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         readonly GodotMcpConfig _config;
         IMcpPlugin? _plugin;
+        readonly GodotMcpReconnectWatchdog _reconnectWatchdog = new();
+        volatile bool _authorizationRejected;
+        volatile bool _recoverySuspended;
+        volatile bool _disposed;
         Reflector? _publishedReflector;
 
         /// <summary>
@@ -343,6 +347,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public void Start()
         {
+            if (_disposed)
+                return;
             if (_plugin != null)
             {
                 GodotMcpLog.Info("[Godot-MCP] connection already started; ignoring duplicate Start().");
@@ -451,8 +457,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // COLLECTIBLE AssemblyLoadContext, so an UNREACHABLE server retried forever would keep a negotiate
             // in-flight and pin the ALC on a C# hot-reload (godotengine/godot#78513). Giving up after a few
             // failures (and failing the connect fast) settles the connection into idle-Disconnected so reloads are
-            // clean; the dock can reconnect once the server is up. These are McpPlugin defaults of 0 (= unlimited,
-            // the historical behaviour Unity/Unreal keep) — we set them here so the opt-in is addon-local.
+            // clean; editor ticks re-arm another bounded batch after an idle cooldown. These are McpPlugin
+            // defaults of 0 (= unlimited, the historical behaviour Unity/Unreal keep) — the opt-in is addon-local.
             _config.MaxConsecutiveConnectionFailures = 4;
             _config.ConnectTimeoutSeconds = 5;
 
@@ -618,6 +624,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         void RaiseAuthorizationRejected()
         {
+            _authorizationRejected = true;
             AuthorizationRejected?.Invoke();
             TryAccountRefreshAndReconnect();
         }
@@ -625,9 +632,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Reactively refresh the machine-store account credential and reconnect with the fresh JWT, guarded so
         /// a burst of rejections cannot fan out concurrent refreshes. No-op unless the account is signed in and
-        /// the live mode is Cloud. A refresh FAILURE returns false (the provider has surfaced sign-in-required)
-        /// and we do NOT reconnect — that stops a reject→refresh→reject loop; recovery is then an explicit
-        /// re-sign-in.
+        /// the live mode is Cloud. A transient refresh failure preserves SignedIn and the editor watchdog
+        /// retries after its idle cooldown. A definitive credential failure surfaces SignInRequired and
+        /// suppresses further recovery until authorization returns.
         /// </summary>
         /// <summary>
         /// Kick off the O8/F11.2 legacy-sink migration on a background task, at most once per editor
@@ -675,17 +682,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         async Task RefreshThenReconnectAsync()
         {
+            var plugin = _plugin;
             try
             {
                 var refreshed = await _account.RefreshAsync().ConfigureAwait(false);
                 if (!refreshed)
-                    return; // sign-in-required surfaced by the provider; do not loop
+                    return; // signed-in transient failure retries from editor ticks; terminal failure stays parked
 
                 // Reconnect on the editor main thread (it touches _statusTracker + raises events).
+                void ReconnectIfStillWanted()
+                {
+                    if (!_disposed && !_recoverySuspended && _config.KeepConnected && ReferenceEquals(_plugin, plugin) && _account.IsSignedIn)
+                        Reconnect();
+                }
                 if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                    MainThreadDispatcher.Enqueue(Reconnect);
+                    MainThreadDispatcher.Enqueue(ReconnectIfStillWanted);
                 else
-                    Reconnect();
+                    ReconnectIfStillWanted();
             }
             catch (Exception ex)
             {
@@ -1051,6 +1064,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public void Connect()
         {
+            if (_disposed)
+                return;
+            _authorizationRejected = false;
+            _recoverySuspended = false;
             // Keep the persisted/boot intent aligned with the user's explicit Connect (boot honours this
             // via Start()'s ConnectIfNeeded analogue); the LIVE reconnect re-arm happens inside
             // plugin.Connect() below, which flips the client's own KeepConnected to true.
@@ -1099,6 +1116,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public void Reconnect()
         {
+            if (_disposed)
+                return;
+            _authorizationRejected = false;
+            _recoverySuspended = false;
             _config.KeepConnected = true;
             DisposePlugin();
 
@@ -1511,6 +1532,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public void DisconnectImmediate()
         {
+            _recoverySuspended = true;
             var plugin = _plugin;
             if (plugin == null)
                 return;
@@ -1555,6 +1577,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <param name="timeout">Upper bound on the wait for the dispatched connection teardown to complete.</param>
         public void DisconnectAndDrain(TimeSpan timeout)
         {
+            _recoverySuspended = true;
             var plugin = _plugin;
             if (plugin == null)
                 return;
@@ -1600,12 +1623,35 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         public void Dispose()
         {
+            _disposed = true;
+            _recoverySuspended = true;
             _stateSubscription.Dispose();
             _authRejectedSubscription.Dispose();
             _featuresSubscription.Dispose();
             _agentsSubscription.Dispose();
             _account.Dispose();
             DisposePlugin();
+        }
+
+        /// <summary>Editor-main-thread tick; idle recovery stops with the editor's own lifecycle.</summary>
+        internal void PollReconnect(double delta)
+        {
+            var plugin = _plugin;
+            if (plugin == null || _disposed)
+                return;
+            var state = plugin.ConnectionState.CurrentValue;
+            // Clear a previous rejection once the transport successfully reconnects.
+            if (state == HubConnectionState.Connected)
+                _authorizationRejected = false;
+            var canRefresh = _config.ActiveMode == GodotMcpConnectionMode.Cloud && _account.IsSignedIn;
+            if (_reconnectWatchdog.Tick(delta, !_recoverySuspended && _config.KeepConnected,
+                state, plugin.KeepConnected.CurrentValue, _authorizationRejected, canRefresh))
+            {
+                if (_authorizationRejected)
+                    TryAccountRefreshAndReconnect();
+                else
+                    _ = ConnectAsync();
+            }
         }
 
         /// <summary>
