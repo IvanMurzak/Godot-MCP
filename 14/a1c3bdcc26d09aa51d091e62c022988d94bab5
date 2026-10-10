@@ -1,0 +1,52 @@
+Godot-MCP.Tests/GodotTokenRefresherTests.cs
+  s_2d6cb848c62662::t_b963eabaca98ec 121,124,131
+README.md
+  s_2d6cb848c62662::t_314e585a57e3ab 394
+addons/godot_mcp/Editor/Connection/GodotTokenRefresher.cs
+  s_2d6cb848c62662::t_b963eabaca98ec 89
+  s_2d6cb848c62662::t_76cda733271e20 36-38,46-47,58-59,80
+Godot-MCP.Tests/GodotAccountAuthTests.cs
+  s_2d6cb848c62662::t_7bd252565f9f07 53-87
+  s_2d6cb848c62662::t_4eb283ab57e4e2 52
+addons/godot_mcp/Runtime/Connection/GodotMcpEnvFile.cs
+  s_2d6cb848c62662::t_85606d4ecca363 49-57,63-64,73-74
+  s_2d6cb848c62662::t_bacfdd1bc02e2c 58-62
+  s_2d6cb848c62662::t_c66661514bcf82 222,224-225
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_2d6cb848c62662::t_bacfdd1bc02e2c 372,375-377,380
+  s_2d6cb848c62662::t_b963eabaca98ec 227,660,1447
+  s_2d6cb848c62662::t_85606d4ecca363 335-336
+  s_2d6cb848c62662::t_f8a28d86668e6e 659
+Godot-MCP.Tests/GodotMcpConfigTests.cs
+  s_2d6cb848c62662::t_314e585a57e3ab 80-101,113
+  s_2d6cb848c62662::t_7bd252565f9f07 102-112
+  s_2d6cb848c62662::t_20eb59fb1a5809 114
+addons/godot_mcp/Editor/Connection/GodotAccountAuth.cs
+  s_2d6cb848c62662::t_b963eabaca98ec 208,218-219,285
+  s_2d6cb848c62662::t_85606d4ecca363 250-251,551
+  s_2d6cb848c62662::t_bacfdd1bc02e2c 278
+  s_2d6cb848c62662::t_c66661514bcf82 276-277,280-284,286-287,322
+  s_2d6cb848c62662::t_c816e99469e859 279
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_2d6cb848c62662::t_c66661514bcf82 134-137,244,246-247,389-403
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_2d6cb848c62662::t_f8a28d86668e6e 1243
+addons/godot_mcp/Runtime/Connection/GodotMcpConfigStore.cs
+  s_2d6cb848c62662::t_c66661514bcf82 134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14a1c3bdcc26d09aa51d091e62c022988d94bab5",
+  "prompts": {},
+  "sessions": {
+    "s_2d6cb848c62662": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11af2-b157-7121-97aa-5de5a862c876",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
