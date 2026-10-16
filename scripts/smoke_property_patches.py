@@ -254,6 +254,34 @@ def main() -> int:
     except RuntimeError:
         check("R11 deleted script cannot be attached", True)
 
+    # R13: resource-move / resource-delete carry the '.uid' sidecar (Godot 4.4+) with the file.
+    mover, moved_script = f"{d}/mover.gd", f"{d}/mover_moved.gd"
+    call(host, "script-create", {"scriptPath": mover, "content": "extends Node\n"})
+    uid_file = project / (mover.replace("res://", "") + ".uid")
+    for _ in range(20):  # the editor writes the sidecar on its filesystem scan
+        if uid_file.exists():
+            break
+        time.sleep(0.5)
+    if uid_file.exists():
+        uid = uid_file.read_text(encoding="utf-8").strip()
+        call(host, "resource-move", {"sourcePath": mover, "destinationPath": moved_script})
+        moved_uid = project / (moved_script.replace("res://", "") + ".uid")
+        check("R13 .uid moved with the script", moved_uid.exists() and moved_uid.read_text(encoding="utf-8").strip() == uid)
+        check("R13 no orphaned .uid at the old path", not uid_file.exists())
+        call(host, "resource-delete", {"resourcePath": moved_script})
+        check("R13 .uid deleted with the script", not moved_uid.exists())
+    else:
+        print("[SKIP] R13: this Godot version writes no .uid sidecar")
+
+    # R14: moving the open scene makes the editor save it at the new path, not recreate the old file.
+    tab, tab_moved = f"{d}/tab.tscn", f"{d}/tab_moved.tscn"
+    call(host, "scene-create", {"resourcePath": tab, "rootTypeClassName": "Node3D", "rootName": "Tab"})
+    call(host, "scene-open", {"resourcePath": tab})
+    call(host, "resource-move", {"sourcePath": tab, "destinationPath": tab_moved})
+    call(host, "scene-save", {})
+    check("R14 saving does not recreate the old scene file", not (project / tab.replace("res://", "")).exists())
+    check("R14 the scene is at its new path", (project / tab_moved.replace("res://", "")).exists())
+
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
 

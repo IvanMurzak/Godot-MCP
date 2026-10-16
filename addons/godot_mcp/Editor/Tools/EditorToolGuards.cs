@@ -142,6 +142,42 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
         }
 
+        /// <summary>Metadata files Godot keeps next to a resource file: import settings and (4.4+) its UID.</summary>
+        internal static readonly string[] Sidecars = { ".import", ".uid" };
+
+        /// <summary>
+        /// Point open scenes at a moved scene file: the edited scene (and, on Godot 4.4+, every open scene tab)
+        /// whose root — or an instance inside it — still names <paramref name="oldPath"/>. The editor saves a
+        /// scene to its root's <c>scene_file_path</c>, so without this the next save recreated the old file.
+        /// Main-thread only.
+        /// </summary>
+        internal static void RetargetOpenScenes(string oldPath, string newPath)
+        {
+            var editor = EditorInterface.Singleton;
+            var roots = new List<Node>();
+            if (editor.GetEditedSceneRoot() is { } edited)
+                roots.Add(edited);
+            // get_open_scene_roots exists from Godot 4.4; the addon compiles against 4.3, so call it by name.
+            if (editor.HasMethod("get_open_scene_roots"))
+            {
+                foreach (var root in editor.Call("get_open_scene_roots").AsGodotArray())
+                {
+                    if (root.AsGodotObject() is Node node && !roots.Contains(node))
+                        roots.Add(node);
+                }
+            }
+
+            var pending = new Stack<Node>(roots);
+            while (pending.Count > 0)
+            {
+                var node = pending.Pop();
+                if (node.SceneFilePath == oldPath)
+                    node.SceneFilePath = newPath;
+                foreach (var child in node.GetChildren())
+                    pending.Push(child);
+            }
+        }
+
         /// <summary>
         /// Ensure <paramref name="absDir"/> exists, creating it recursively when missing and throwing on
         /// failure. Mirrors the "ResourceSaver/FileAccess does not create parent dirs" guard the create-style

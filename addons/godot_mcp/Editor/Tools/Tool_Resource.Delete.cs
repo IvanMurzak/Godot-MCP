@@ -29,8 +29,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )]
         [Description("Delete a resource file from the res:// filesystem. 'resourcePath' must be a res:// file " +
             "path. The resource's identity (path, uid, type) is captured BEFORE deletion and returned for " +
-            "confirmation. The resource file is removed with DirAccess, along with its sidecar '.import' " +
-            "metadata when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
+            "confirmation. The resource file is removed with DirAccess, along with its '.import' / '.uid' " +
+            "sidecars when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
             "a hard reference to this file will break — verify with '" + ResourceFindToolId + "' first. A " +
             "loaded copy is detached from the path, so an open scene still using it embeds it on its next save.")]
         public ResourceInfo Delete
@@ -64,15 +64,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 {
                     EditorToolGuards.RebindCachedResource(resPath, newPath: null);
 
-                    // Remove the sidecar '.import' metadata if present.
-                    var importPath = resPath + ".import";
-                    if (FileAccess.FileExists(importPath))
+                    // Remove the '.import' / '.uid' sidecars too, so no orphaned metadata is left behind.
+                    foreach (var sidecar in EditorToolGuards.Sidecars)
                     {
-                        var rmImportErr = DirAccess.RemoveAbsolute(importPath);
-                        if (rmImportErr != Error.Ok)
+                        var sidecarPath = resPath + sidecar;
+                        if (!FileAccess.FileExists(sidecarPath))
+                            continue;
+                        var rmSidecarErr = DirAccess.RemoveAbsolute(sidecarPath);
+                        if (rmSidecarErr != Error.Ok)
                             throw new Exception(
-                                $"Inconsistent state: resource '{resPath}' was deleted but its '.import' " +
-                                $"sidecar '{importPath}' failed to remove ({rmImportErr}). The resource itself " +
+                                $"Inconsistent state: resource '{resPath}' was deleted but its '{sidecar}' " +
+                                $"sidecar '{sidecarPath}' failed to remove ({rmSidecarErr}). The resource itself " +
                                 "is already gone; remove the orphaned sidecar manually.");
                     }
                 }
