@@ -188,26 +188,26 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
 
             var resolved = PropertyPatchPath.Resolve(current ?? target, patch.Path);
-            if (resolved.MemberType != null)
+            if (valueIsVariant && resolved.MemberType != null && resolved.MemberType != typeof(Variant))
             {
-                if (valueIsVariant && resolved.MemberType != typeof(Variant))
-                {
-                    logs.Error($"{label}: a 'Godot.Variant' value can only be applied to a top-level Godot property; " +
-                        $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
-                    return false;
-                }
+                logs.Error($"{label}: a 'Godot.Variant' value can only be applied to a top-level Godot property; " +
+                    $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
+                return false;
             }
 
             // A top-level C# member backed by a Godot property is read back like the native route.
             var readBack = segment == null ? null : PropertyPatchPath.GodotBackingProperty(target.GetType(), resolved.Path, GodotProperties.Keys);
             var before = readBack == null ? default : Snapshot.Of(target.Get(readBack));
 
-            // ReflectorNet (5.4.3+) reads a mismatched numeric typeName as the member's declared type and reports a
-            // failed write to Logs with a false result; only a false without a logged reason is a silent no-op.
-            var failuresBefore = ReflectionArgumentGuard.Failures(logs).Count;
-            if (!reflector.TryModifyAt(ref current, resolved.Path, value, logs: logs))
+            // ReflectorNet (5.4.3+) reports a failed write to Logs with a false result; only a false without a
+            // logged reason is a silent no-op.
+            var local = new Logs();
+            var modified = reflector.TryModifyAt(ref current, resolved.Path, value, logs: local);
+            foreach (var entry in local)
+                logs.AddLast(entry);
+            if (!modified)
             {
-                if (ReflectionArgumentGuard.Failures(logs).Count == failuresBefore)
+                if (ReflectionArgumentGuard.Failures(local).Count == 0)
                     logs.Warning($"{label} did not modify the target (no-op).");
                 return false;
             }

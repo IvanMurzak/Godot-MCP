@@ -24,9 +24,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 {
     /// <summary>
     /// The pure-managed rules behind <see cref="GodotObjectPatcher"/>: how a patch path is resolved against
-    /// a live object, which route (native Godot property vs. ReflectorNet CLR member) a top-level segment
-    /// takes, and how a mismatched primitive <c>typeName</c> is aligned. No Godot native call, so every rule
-    /// is unit-tested with plain CLR objects.
+    /// a live object and which route (native Godot property vs. ReflectorNet CLR member) a top-level segment
+    /// takes. No Godot native call, so every rule is unit-tested with plain CLR objects.
     /// </summary>
     public static class PropertyPatchPath
     {
