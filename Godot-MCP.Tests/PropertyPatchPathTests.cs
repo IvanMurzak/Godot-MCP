@@ -121,14 +121,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         [Theory]
         // Same segmentation as ReflectorNet 5.4.3's ParsePath: '/' inside brackets belongs to the key, escapes stay.
-        [InlineData("map/[a/b]", "Map/[a/b]")]
-        [InlineData("map/[a\\]b]", "Map/[a\\]b]")]
-        [InlineData("map/[]", "Map/[]")]
-        public void Resolve_BracketKeys_FollowReflectorNetParsing(string path, string expected)
+        [InlineData("map/[a/b]", "Map/[a/b]", "a/b")]
+        [InlineData("map/[a\\]b]", "Map/[a\\]b]", "a]b")]
+        [InlineData("map/[]", "Map/[]", "")]
+        public void Resolve_BracketKeys_FollowReflectorNetParsing(string path, string expected, string key)
         {
             var r = PropertyPatchPath.Resolve(new Sample(), path);
             Assert.Equal(expected, r.Path);
             Assert.Equal(typeof(int), r.MemberType);
+
+            // The resolved path must address the same key in ReflectorNet's own parser.
+            object? target = new Sample();
+            Assert.True(new Reflector().TryModifyAt(ref target, r.Path, Number("System.Int32", 7), logs: new Logs()));
+            Assert.Equal(7, ((Sample)target!).Map[key]);
         }
 
         [Fact]
@@ -286,6 +291,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             public float Value { get; set; }
 
+            public int Count { get; set; }
+
+            public VariantType Kind { get; set; }
+
             public int Guarded
             {
                 get => 0;
@@ -296,16 +305,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         static SerializedMember Number(string typeName, double value)
             => new SerializedMember { typeName = typeName, valueJsonElement = JsonDocument.Parse(value.ToString(System.Globalization.CultureInfo.InvariantCulture)).RootElement };
 
-        [Fact]
-        public void TryModifyAt_MismatchedNumericType_LandsAsTheDeclaredType()
+        [Theory]
+        [InlineData("Value", "System.Double", 0.5, 0.5f)]
+        [InlineData("Count", "System.Int64", 3, 3)]
+        [InlineData("Kind", "System.Int32", 3, VariantType.Float)]
+        public void TryModifyAt_MismatchedNumericType_LandsAsTheDeclaredType(string member, string typeName, double sent, object expected)
         {
             // 5.4.2 parsed the value as the sent 'System.Double', the float setter threw, and the failure was hidden
-            // (#370). The patcher relies on 5.4.3+ reading it as the member's declared type instead.
+            // (#370). The patcher relies on 5.4.3+ reading a numeric typeName as the member's declared numeric or
+            // enum type instead.
             object? target = new FloatHolder();
             var logs = new Logs();
 
-            Assert.True(new Reflector().TryModifyAt(ref target, "Value", Number("System.Double", 0.5), logs: logs));
-            Assert.Equal(0.5f, ((FloatHolder)target!).Value);
+            Assert.True(new Reflector().TryModifyAt(ref target, member, Number(typeName, sent), logs: logs));
+            Assert.Equal(expected, typeof(FloatHolder).GetProperty(member)!.GetValue(target));
             Assert.Empty(ReflectionArgumentGuard.Failures(logs));
         }
 
@@ -317,6 +330,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var logs = new Logs();
 
             Assert.False(new Reflector().TryModifyAt(ref target, "Guarded", Number("System.Int32", 2), logs: logs));
+            Assert.Contains(ReflectionArgumentGuard.Failures(logs), m => m.Contains("guarded"));
+        }
+
+        [Fact]
+        public void TryPatch_ThrowingSetter_FailsAndLogsTheReason()
+        {
+            // The jsonPatch route relies on the same contract from TryPatch.
+            object? target = new FloatHolder();
+            var logs = new Logs();
+
+            Assert.False(new Reflector().TryPatch(ref target, "{\"Guarded\":2}", logs: logs));
             Assert.Contains(ReflectionArgumentGuard.Failures(logs), m => m.Contains("guarded"));
         }
     }

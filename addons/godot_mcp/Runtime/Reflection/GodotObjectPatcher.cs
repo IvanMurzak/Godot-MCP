@@ -160,9 +160,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         bool ApplyReflectorJson(string json, string label)
         {
-            // ReflectorNet reports every failure (a throwing setter included) to Logs and returns false.
+            // ReflectorNet reports a failure (a throwing setter included) to Logs and returns false; its message
+            // names the member, not the patch entry, so say which entry it belongs to.
             if (!reflector.TryPatch(ref current, json, logs: logs))
+            {
+                logs.Error($"{label} was NOT applied.");
                 return false;
+            }
             RecordDivergence(label);
             return true;
         }
@@ -200,7 +204,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             var before = readBack == null ? default : Snapshot.Of(target.Get(readBack));
 
             // ReflectorNet (5.4.3+) reports a failed write to Logs with a false result; only a false without a
-            // logged reason is a silent no-op.
+            // logged reason is a silent no-op. Its message names the member, not the patch entry.
             var local = new Logs();
             var modified = reflector.TryModifyAt(ref current, resolved.Path, value, logs: local);
             foreach (var entry in local)
@@ -209,8 +213,14 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             {
                 if (ReflectionArgumentGuard.Failures(local).Count == 0)
                     logs.Warning($"{label} did not modify the target (no-op).");
+                else
+                    logs.Error($"{label}: the value was NOT applied.");
                 return false;
             }
+            // Applied, but a converter reported a problem on the way (e.g. an unresolved reference written as
+            // null): the member did change, so it counts, and the entry is named so the error is not lost.
+            if (ReflectionArgumentGuard.Failures(local).Count > 0)
+                logs.Error($"{label}: applied, but with the error(s) above — check the value that was written.");
             RecordDivergence(label);
 
             if (readBack != null && before.IsSameAs(Snapshot.Of(target.Get(readBack))))
