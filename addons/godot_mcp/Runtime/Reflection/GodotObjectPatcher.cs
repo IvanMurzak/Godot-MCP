@@ -231,13 +231,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 return false;
             }
 
-            var current = target.Get(name);
-            if (!TryKeepCollectionTyping(ref intended, current))
+            var stored = target.Get(name);
+            if (!TryKeepCollectionTyping(ref intended, stored))
             {
                 logs.Error($"{label}: not every element fits the typed collection '{name}'; nothing changed.");
                 return false;
             }
-            var before = Snapshot.Of(current);
+            var before = Snapshot.Of(stored);
             var requested = Snapshot.Of(intended);
             target.Set(name, intended);
             if (name == "script")
@@ -309,8 +309,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             if (intended.VariantType == Variant.Type.Array && current.VariantType == Variant.Type.Array)
             {
                 var source = intended.AsGodotArray();
-                var typed = current.AsGodotArray().Duplicate();
-                typed.Clear();
+                var typed = current.AsGodotArray().Slice(0, 0); // empty, but carries the typing
                 foreach (var item in source)
                     typed.Add(item);
                 intended = typed;
@@ -335,8 +334,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// </summary>
         readonly struct Snapshot
         {
+            /// <summary>Largest value (in nested values) compared by payload; a bigger one is compared by its text form.</summary>
+            const int MaxPayloadValues = 1 << 16;
+
             readonly Variant value;
-            readonly GodotVariantPayload? payload; // null for Rid / Callable / Signal, which have no payload form
+            // null for Rid / Callable / Signal (no payload form) and for a collection over MaxPayloadValues
+            // (or containing itself), which are compared by their text form instead.
+            readonly GodotVariantPayload? payload;
 
             Snapshot(Variant value, GodotVariantPayload? payload)
             {
@@ -345,16 +349,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
 
             public static Snapshot Of(Variant value)
-            {
-                try
-                {
-                    return new Snapshot(value, Godot_Variant_ReflectionConverter.ToPayload(value));
-                }
-                catch (NotSupportedException)
-                {
-                    return new Snapshot(value, null);
-                }
-            }
+                => new Snapshot(value, Godot_Variant_ReflectionConverter.TryToPayload(value, MaxPayloadValues));
 
             /// <summary>True when <paramref name="stored"/> holds this requested value as Godot stores it (float32 rounding allowed).</summary>
             public bool IsHeldBy(Snapshot stored) => Equivalent(stored, allowFloatRounding: true);
@@ -365,7 +360,6 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             bool Equivalent(Snapshot other, bool allowFloatRounding)
                 => payload != null && other.payload != null
                     ? payload.IsEquivalentTo(other.payload, allowFloatRounding)
-                    // Rid / Callable / Signal are small, so their text form is cheap.
                     : value.VariantType == other.value.VariantType && GD.VarToStr(value) == GD.VarToStr(other.value);
 
             public override string ToString()
@@ -382,6 +376,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 // Never serialize a whole collection into a log line.
                 if (payload?.CollectionCount is { } count)
                     return $"{payload.Kind}({count})";
+                if (value.VariantType is Variant.Type.Array or Variant.Type.Dictionary || GodotVariantPayload.PackedElementKind(value.VariantType) != null)
+                    return value.VariantType.ToString();
                 var text = GD.VarToStr(value);
                 return text.Length > 120 ? text.Substring(0, 120) + "…" : text;
             }

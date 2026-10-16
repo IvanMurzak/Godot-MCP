@@ -57,6 +57,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// </summary>
         public static readonly string[] ValueKeys = { "value", "obj" };
 
+        /// <summary>
+        /// Wire key of the explanatory note on a value that was reported but not carried (see
+        /// <c>Godot_Variant_ReflectionConverter.ToWireNode</c>). An envelope with a note is never read back as a value.
+        /// </summary>
+        public const string NoteKey = "note";
+
         /// <summary>Human-readable description of the accepted wire shapes — reused in tool descriptions AND in every parse error.</summary>
         public const string WireFormatHelp =
             "A Godot.Variant is written either as a bare JSON scalar (null => Nil, true/false => Bool, " +
@@ -209,8 +215,24 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 var byKey = other.Entries.ToDictionary(e => e.Key.TextValue, e => e.Value, StringComparer.Ordinal);
                 return Entries.All(e => byKey.TryGetValue(e.Key.TextValue, out var v) && e.Value.IsEquivalentTo(v, allowFloatRounding));
             }
-            return Entries.All(e => other.Entries.Any(o =>
-                e.Key.IsEquivalentTo(o.Key, allowFloatRounding: false) && e.Value.IsEquivalentTo(o.Value, allowFloatRounding)));
+            // Godot keys are distinct by type too (1 and 1.0 are two keys), so match each entry to its own
+            // unused counterpart with a same-kind key.
+            var used = new bool[other.Entries.Count];
+            foreach (var e in Entries)
+            {
+                var match = -1;
+                for (var i = 0; i < used.Length && match < 0; i++)
+                {
+                    var o = other.Entries[i];
+                    if (!used[i] && o.Key.Kind == e.Key.Kind && e.Key.IsEquivalentTo(o.Key, allowFloatRounding: false)
+                        && e.Value.IsEquivalentTo(o.Value, allowFloatRounding))
+                        match = i;
+                }
+                if (match < 0)
+                    return false;
+                used[match] = true;
+            }
+            return true;
         }
 
         const int ListFamily = 7;
@@ -393,6 +415,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             var typeName = typeElement.GetString() ?? string.Empty;
             var kind = ParseVariantType(typeName);
+
+            // A get-data entry that could not be written out carries a note instead of the value; reading it back
+            // must not succeed (an Object one would otherwise read as null and clear the property).
+            if (TryFindProperty(json, NoteKey, out _, out _))
+                throw Bad($"this '{kind}' entry carries a '{NoteKey}' instead of a value (it was reported, not " +
+                    "written out), so it cannot be sent back — supply the value explicitly");
 
             TryFindProperty(json, ValueKeys, out var valueElement, out _);
             var hasValue = valueElement.ValueKind != JsonValueKind.Undefined && valueElement.ValueKind != JsonValueKind.Null;

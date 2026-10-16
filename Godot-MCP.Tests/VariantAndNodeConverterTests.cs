@@ -422,6 +422,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Object\",\"value\":5}"));
         }
 
+        [Theory]
+        [InlineData("{\"variantType\":\"Object\",\"note\":\"Could not be serialized\"}")]
+        [InlineData("{\"variantType\":\"PackedByteArray\",\"value\":\"[0, 1, ...]\",\"note\":\"too big\"}")]
+        public void Parse_ANotedEntry_IsRejectedInsteadOfReadAsAValue(string json)
+        {
+            // An Object note entry must not read back as a null that clears the property.
+            var ex = Assert.Throws<ArgumentException>(() => Parse(json));
+            Assert.Contains("carries a 'note'", ex.Message);
+        }
+
         // ---- IsEquivalentTo ---------------------------------------------------------------------------
 
         [Theory]
@@ -437,6 +447,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("{\"variantType\":\"Dictionary\",\"value\":{\"a\":1,\"b\":2}}", "{\"variantType\":\"Dictionary\",\"value\":{\"b\":2,\"a\":1}}", false, true)]
         [InlineData("{\"variantType\":\"Dictionary\",\"value\":{\"a\":1}}", "{\"variantType\":\"Dictionary\",\"value\":{\"a\":2}}", false, false)]
         [InlineData("null", "{\"variantType\":\"Object\",\"value\":null}", false, true)]
+        [InlineData("{\"variantType\":\"Dictionary\",\"value\":[{\"key\":1,\"value\":\"x\"},{\"key\":{\"variantType\":\"Float\",\"value\":1},\"value\":\"x\"}]}", "{\"variantType\":\"Dictionary\",\"value\":[{\"key\":1,\"value\":\"x\"},{\"key\":2,\"value\":\"y\"}]}", false, false)]
+        [InlineData("{\"variantType\":\"Dictionary\",\"value\":[{\"key\":2,\"value\":\"y\"},{\"key\":1,\"value\":\"x\"}]}", "{\"variantType\":\"Dictionary\",\"value\":[{\"key\":1,\"value\":\"x\"},{\"key\":2,\"value\":\"y\"}]}", false, true)]
         [InlineData("null", "0", false, false)]
         [InlineData("{\"variantType\":\"Object\",\"value\":{\"resourcePath\":\"res://a.tres\"}}", "{\"variantType\":\"Object\",\"value\":{\"resourcePath\":\"res://b.tres\"}}", false, false)]
         public void IsEquivalentTo(string a, string b, bool allowFloatRounding, bool expected)

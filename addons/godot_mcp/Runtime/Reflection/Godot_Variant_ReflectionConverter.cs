@@ -52,7 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <para>
     /// <b>#if TOOLS / testability split.</b> Everything decidable — parsing, validation, error text — lives
     /// in the pure-managed <see cref="GodotVariantPayload"/> and is unit-tested in the plain xUnit host. Only
-    /// <see cref="ToVariant"/> / <see cref="ToPayload"/> touch native Godot marshalling (which faults the
+    /// <see cref="ToVariant"/> / <see cref="TryToPayload"/> touch native Godot marshalling (which faults the
     /// test host without a Godot native library), and they are reached only from a live editor/game process.
     /// Mirrors the pure-ref / injected-resolver split of
     /// <see cref="Godot_Resource_ReflectionConverter{T}"/>.
@@ -70,7 +70,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         public static readonly string ValueKey = GodotVariantPayload.ValueKeys[0];
 
         /// <summary>JSON key carrying an explanatory note for a variant that cannot be written back.</summary>
-        public const string NoteKey = "note";
+        public const string NoteKey = GodotVariantPayload.NoteKey;
 
         // A Variant is a leaf on the wire (a scalar, or a {variantType, value} envelope) — there is no nested
         // object graph to descend into. Turning cascade off routes the raw JsonElement (scalar OR object) to
@@ -253,18 +253,24 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             if (payload.IsNullObject)
                 return null;
 
-            if (payload.ResourcePath != null && Godot_Resource_ReflectionConverter.ResourceResolver is { } resolveResource)
+            // A built-in sub-resource's path ('res://a.tres::Font_x') does not load on its own; when the entry
+            // also carries the live instance id (every get-data entry does), resolve by that instead.
+            var path = payload.ResourcePath != null && !(payload.InstanceId != 0 && payload.ResourcePath.Contains("::"))
+                ? payload.ResourcePath
+                : null;
+
+            if (path != null && Godot_Resource_ReflectionConverter.ResourceResolver is { } resolveResource)
             {
-                if (resolveResource(new ResourceRef(payload.ResourcePath), out var resource, out var error))
+                if (resolveResource(new ResourceRef(path), out var resource, out var error))
                     return (GodotObject)resource!;
                 throw new ArgumentException($"Cannot read a Godot.Variant: {error}");
             }
 
-            var resolved = MainThread.Instance.Run(() => payload.ResourcePath != null
-                ? ResourceLoader.Exists(payload.ResourcePath) ? ResourceLoader.Load(payload.ResourcePath) : null
+            var resolved = MainThread.Instance.Run(() => path != null
+                ? ResourceLoader.Exists(path) ? ResourceLoader.Load(path) : null
                 : GodotObject.IsInstanceIdValid(payload.InstanceId) ? GodotObject.InstanceFromId(payload.InstanceId) : null);
             return resolved ?? throw new ArgumentException(
-                $"Cannot read a Godot.Variant: no object found for {(payload.ResourcePath != null ? $"'{payload.ResourcePath}'" : $"instanceId {payload.InstanceId}")}.");
+                $"Cannot read a Godot.Variant: no object found for {(path != null ? $"'{path}'" : $"instanceId {payload.InstanceId}")}.");
         }
 
         static Vector2 ToVector2(GodotVariantPayload p) => new Vector2(p.Component(0), p.Component(1));
@@ -285,12 +291,20 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         /// <summary>
         /// Describe a live variant as the wire payload (the inverse of <see cref="ToVariant"/> for every
-        /// round-trippable type). Reads native variant storage, so it runs only in a live Godot process.
+        /// round-trippable type), or <c>null</c> when it has no payload form (Rid / Callable / Signal, also
+        /// nested) or holds more than <paramref name="maxValues"/> values — the bound also stops a collection
+        /// that contains itself. Reads native variant storage, so it runs only in a live Godot process.
         /// </summary>
-        public static GodotVariantPayload ToPayload(global::Godot.Variant variant)
+        public static GodotVariantPayload? TryToPayload(global::Godot.Variant variant, int maxValues)
         {
-            var unlimited = int.MaxValue;
-            return ToPayload(variant, ref unlimited);
+            try
+            {
+                return ToPayload(variant, ref maxValues);
+            }
+            catch (Exception ex) when (ex is NotSupportedException or BudgetExceededException)
+            {
+                return null;
+            }
         }
 
         /// <summary>Thrown when a variant holds more values than the caller's budget allows.</summary>
@@ -374,7 +388,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 case VariantType.Object:
                     var obj = variant.AsGodotObject();
                     // Both identities are kept: the path is what a caller can send back, the id is what equality needs.
-                    return GodotVariantPayload.FromObject((obj as Resource)?.ResourcePath, obj?.GetInstanceId() ?? 0);
+                    // Native reads, and reflection-method-call serializes its result off the main thread: marshal
+                    // (inline when already there), like Godot_Resource_ReflectionConverter.ToResourceRef.
+                    return obj == null
+                        ? GodotVariantPayload.FromObject(null, 0)
+                        : MainThread.Instance.Run(() => GodotVariantPayload.FromObject((obj as Resource)?.ResourcePath, obj.GetInstanceId()));
                 case VariantType.Array:
                 {
                     var source = variant.AsGodotArray();
