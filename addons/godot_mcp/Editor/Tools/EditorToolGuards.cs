@@ -82,6 +82,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
+        /// Keep Godot's resource cache in step with a file that was moved (<paramref name="newPath"/>) or deleted
+        /// (<c>null</c>); otherwise a loaded instance stays bound to the old path. Main-thread only.
+        /// </summary>
+        internal static void RebindCachedResource(string oldPath, string? newPath)
+        {
+            // CacheMode.Reuse returns the cached instance without touching the (moved or deleted) file.
+            if (!ResourceLoader.HasCached(oldPath)
+                || ResourceLoader.Load(oldPath, cacheMode: ResourceLoader.CacheMode.Reuse) is not { } cached)
+                return;
+            if (newPath == null)
+                cached.ResourcePath = string.Empty;
+            else
+                cached.TakeOverPath(newPath);
+        }
+
+        /// <summary>
         /// Ensure <paramref name="absDir"/> exists, creating it recursively when missing and throwing on
         /// failure. Mirrors the "ResourceSaver/FileAccess does not create parent dirs" guard the create-style
         /// tools share. Main-thread only.

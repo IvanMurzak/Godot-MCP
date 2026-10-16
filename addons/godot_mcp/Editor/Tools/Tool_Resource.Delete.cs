@@ -54,7 +54,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var rmErr = DirAccess.RemoveAbsolute(resPath);
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
-                RebindCachedResource(resPath, newPath: null);
+                EditorToolGuards.RebindCachedResource(resPath, newPath: null);
 
                 // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import
                 // sidecar): if the sidecar removal throws below, the resource itself is still deleted. Rescan

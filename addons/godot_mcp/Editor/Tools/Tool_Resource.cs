@@ -118,24 +118,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Build a <see cref="Data.ResourceInfo"/> from a resource path (and an optional already-loaded
         /// resource for the type). Main-thread only (reads <see cref="ResourceLoader"/>/the resource).
         /// </summary>
-        /// <summary>
-        /// Keep Godot's resource cache in step with a file that was moved (<paramref name="newPath"/>) or deleted
-        /// (<c>null</c>). A loaded instance stays cached under its old path even after the file is gone, so
-        /// <c>ResourceLoader.Load</c>/<c>Exists</c> kept returning the deleted resource and refused a new one at
-        /// that path; after a move the next load created a second, disconnected instance.
-        /// </summary>
-        internal static void RebindCachedResource(string oldPath, string? newPath)
-        {
-            // CacheMode.Reuse returns the cached instance without touching the (moved or deleted) file.
-            if (!ResourceLoader.HasCached(oldPath)
-                || ResourceLoader.Load(oldPath, cacheMode: ResourceLoader.CacheMode.Reuse) is not { } cached)
-                return;
-            if (newPath == null)
-                cached.ResourcePath = string.Empty;
-            else
-                cached.TakeOverPath(newPath);
-        }
-
         internal static ResourceInfo ToResourceInfo(string resPath, Resource? loaded = null)
         {
             var uidId = ResourceLoader.GetResourceUid(resPath);

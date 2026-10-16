@@ -50,6 +50,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var rmErr = DirAccess.RemoveAbsolute(resPath);
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
+                EditorToolGuards.RebindCachedResource(resPath, newPath: null);
 
                 // From here the script file is already gone. This is a MULTI-FILE op (script + '.uid'
                 // sidecar): the PRIMARY delete already succeeded, so a failure to remove the SECONDARY sidecar

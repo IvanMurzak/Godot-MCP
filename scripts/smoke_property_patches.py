@@ -183,7 +183,20 @@ def main() -> int:
     call(host, "resource-move", {"sourcePath": cached, "destinationPath": moved})
     call(host, "resource-modify", {"resourceRef": {"resourcePath": moved}, "pathPatches": [
         {"path": "roughness", "value": {"typeName": "Godot.Variant", "value": 0.75}}]})
-    check("R10 moved resource keeps its loaded state", file_has(project, moved, r"^metallic = 0\.5$") and file_has(project, moved, r"^roughness = 0\.75$"))
+    check("R10 moved resource keeps its pre-move change", file_has(project, moved, r"^metallic = 0\.5$"))
+    check("R10 moved resource takes the new change", file_has(project, moved, r"^roughness = 0\.75$"))
+
+    # R11: a deleted script is not served from the cache anymore.
+    script = f"{d}/lamp.gd"
+    call(host, "script-create", {"scriptPath": script, "content": "extends OmniLight3D\n"})
+    call(host, "script-attach-to-node", {**node, "scriptPath": script})  # loads + caches it
+    call(host, "script-attach-to-node", {**node, "scriptPath": ""})
+    call(host, "script-delete", {"scriptPath": script})
+    try:
+        call(host, "script-attach-to-node", {**node, "scriptPath": script})
+        check("R11 deleted script cannot be attached", False, "attach succeeded")
+    except RuntimeError:
+        check("R11 deleted script cannot be attached", True)
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
