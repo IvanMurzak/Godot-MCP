@@ -1,0 +1,101 @@
+name: Godot extension suite
+
+on:
+  workflow_call:
+    inputs:
+      godotVersion:
+        required: true
+        type: string
+      lock:
+        default: ""
+        type: string
+      lock_hash8:
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CHAIN_LOCK: ${{ inputs.lock }}
+  CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  extension-suite:
+    name: extensions Godot ${{ inputs.godotVersion }} (one editor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Apply release-train artifact overrides
+        run: python .github/scripts/chain_feed.py apply --node godot-mcp --job extension-suite --edges Godot-MCP.csproj --edges server-binary --edges npm
+      - name: Build identity consumer
+        run: dotnet build Godot-MCP.csproj --configuration Debug
+      - name: Install candidate CLI dependencies
+        working-directory: cli
+        run: npm ci
+      - name: Apply candidate CLI core
+        run: python .github/scripts/chain_feed.py apply-npm --node godot-mcp --dir cli
+      - name: Build candidate CLI
+        working-directory: cli
+        run: npm run build
+      - name: Install Godot mono
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godotVersion }}
+          use-dotnet: true
+          include-templates: false
+      - name: Independent consumers and one shared live editor
+        env:
+          GODOT_VERSION: ${{ inputs.godotVersion }}
+        run: python scripts/test_extensions.py --sdk "$GODOT_VERSION" --godot "$(command -v godot)" --skip-unit --prove-isolation
+      - name: Record release-train identity
+        id: chain_record
+        if: always()
+        env:
+          GODOT_VERSION: ${{ inputs.godotVersion }}
+          JOB_STATUS: ${{ job.status }}
+        run: python .github/scripts/chain_feed.py record --node godot-mcp --job extension-suite --edges Godot-MCP.csproj --edges server-binary --edges npm --matrix "$GODOT_VERSION" --engine godot --engine-version "$GODOT_VERSION" --tier T3 --job-status "$JOB_STATUS" --out chain-leg.json
+      - uses: actions/upload-artifact@v6
+        if: always() && steps.chain_record.outputs.artifact_name != ''
+        with:
+          name: ${{ steps.chain_record.outputs.artifact_name }}
+          path: chain-leg.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload verification evidence
+        if: inputs.lock == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/upload-artifact@v6
+        with:
+          name: extension-suite-${{ inputs.godotVersion }}
+          path: |
+            .artifacts/extensions/**/suite.json
+            .artifacts/extensions/**/live-result.json
+            .artifacts/extensions/**/*-build.log
+            .artifacts/extensions/**/canary-*.log
+            .artifacts/extensions/**/editor.log
+            .artifacts/extensions/**/server.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload failure diagnostics
+        if: failure() && inputs.lock == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        uses: actions/upload-artifact@v6
+        with:
+          name: extension-failure-${{ inputs.godotVersion }}
+          path: .artifacts/extensions/**/*.log
+          if-no-files-found: warn
+          retention-days: 7

@@ -186,6 +186,11 @@ jobs:
       - name: Build
         run: dotnet build Godot-MCP.sln --configuration Debug --no-restore
 
+      - name: Extension unit tests
+        run: |
+          python3 -m unittest discover -s scripts/tests -v
+          python3 scripts/test_extensions.py --unit-only
+
       - name: Test
         run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal
 
@@ -384,6 +389,11 @@ jobs:
         e2e-install-4-5,
         e2e-install-4-6,
         e2e-install-4-7,
+        extension-suite-4-3,
+        extension-suite-4-4,
+        extension-suite-4-5,
+        extension-suite-4-6,
+        extension-suite-4-7,
       ]
     outputs:
       zip_name: ${{ steps.package.outputs.zip_name }}
@@ -953,3 +963,33 @@ jobs:
               exit 1
               ;;
           esac
+
+  extension-suite-4-3:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.3.0"
+
+  extension-suite-4-4:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.4.0"
+
+  extension-suite-4-5:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.5.1"
+
+  extension-suite-4-6:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.6.3"
+
+  extension-suite-4-7:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"

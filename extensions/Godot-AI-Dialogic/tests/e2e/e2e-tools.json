@@ -1,0 +1,32 @@
+{
+  "description": "Live run-tool E2E tool list for the Dialogic Tools extension (CLASS-B: wraps the third-party dialogic-godot/dialogic addon, installed into testbed/addons/dialogic by CI). Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "No 'setup' scene is needed: every Dialogic tool authors/reads res:// RESOURCES (.dtl/.dch) by path, not scene nodes, so none resolves against EditorInterface.GetEditedSceneRoot(). The tools are ordered so add-text/get operate on resources the create tools just wrote. Because the addon IS installed in the testbed, the editor tools assert the Class-B happy path '\"Installed\":true'. 'expect' substrings are matched against godot-cli's compact --raw JSON (ReflectorNet serializes PascalCase property names, so the casing here is PascalCase).",
+  "setup": [],
+  "tools": [
+    {
+      "tool": "dialogic-timeline-create",
+      "input": { "resourcePath": "res://e2e_intro", "text": "Hello from CI", "speaker": "Narrator" },
+      "expect": ["\"Installed\":true", "\"ResourceKind\":\"timeline\"", "\"ResourcePath\":\"res://e2e_intro.dtl\"", "\"EventCount\":1"]
+    },
+    {
+      "tool": "dialogic-character-create",
+      "input": { "resourcePath": "res://e2e_hero", "displayName": "Hero", "color": "#e91e63", "description": "The brave protagonist." },
+      "expect": ["\"Installed\":true", "\"ResourceKind\":\"character\"", "\"ResourcePath\":\"res://e2e_hero.dch\"", "\"DisplayName\":\"Hero\"", "\"Color\":\"#e91e63\""]
+    },
+    {
+      "tool": "dialogic-timeline-add-text",
+      "input": { "resourcePath": "res://e2e_intro.dtl", "text": "A second line", "speaker": "Hero" },
+      "expect": ["\"Installed\":true", "\"ResourceKind\":\"timeline\"", "\"EventCount\":2"]
+    },
+    {
+      "tool": "dialogic-get",
+      "input": { "resourcePath": "res://e2e_hero.dch" },
+      "expect": ["\"Installed\":true", "\"ResourceKind\":\"character\"", "\"DisplayName\":\"Hero\"", "\"Color\":\"#e91e63\""]
+    },
+    {
+      "tool": "dialogic-defaults",
+      "input": {},
+      "expect": ["\"ResourceKind\":\"defaults\"", "\"DisplayName\":\"Narrator\""]
+    }
+  ]
+}

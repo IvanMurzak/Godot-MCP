@@ -1,0 +1,12 @@
+{
+  "name": "Godot-AI-Animation",
+  "packageId": "com.IvanMurzak.Godot.MCP.Animation",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj",
+  "tests": "extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/Godot-AI-Animation.Tests.csproj",
+  "minGodotVersion": "4.3.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-Animation",
+    "commit": "a570da57469298f8d8a0b6abcdadc1b2a6bc114c"
+  }
+}

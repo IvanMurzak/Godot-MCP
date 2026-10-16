@@ -1,0 +1,48 @@
+{
+  "description": "Live run-tool E2E tool list for the Animation Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "The editor tools (player-create/library-add/create/add-track/insert-key/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'scene-create' tool. animation-defaults is pure-managed and needs no scene. The entries are stateful and run in order against one live editor session: create the player, then a clip, then a track, then a key, then read it all back. The 'expect' substrings are matched against godot-cli's compact --raw JSON, and assert extension-PRODUCED structured fields (Length, LoopMode, QualifiedName, TrackCount, Kind, KeyCount, AnimationCount) rather than the node's GetClass() TypeName, whose casing can differ from the C# binding.",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "animation-defaults",
+      "input": { "loopMode": "linear" },
+      "expect": ["\"Length\":1", "\"LoopMode\":\"linear\""]
+    },
+    {
+      "tool": "animation-player-create",
+      "input": { "name": "Player" },
+      "expect": ["\"AnimationCount\":0", "\"LibraryCount\":0"]
+    },
+    {
+      "tool": "animation-library-add",
+      "input": { "nodePath": "Player", "libraryName": "Extra" },
+      "expect": ["\"LibraryCount\":1"]
+    },
+    {
+      "tool": "animation-create",
+      "input": { "nodePath": "Player", "name": "Idle", "length": 2.0 },
+      "expect": ["\"QualifiedName\":\"Idle\"", "\"Length\":2", "\"LoopMode\":\"none\""]
+    },
+    {
+      "tool": "animation-add-track",
+      "input": { "nodePath": "Player", "animationName": "Idle", "trackType": "value", "targetPath": "Root", "property": "position:x" },
+      "expect": ["\"TrackCount\":1", "\"Kind\":\"value\""]
+    },
+    {
+      "tool": "animation-insert-key",
+      "input": { "nodePath": "Player", "animationName": "Idle", "trackIndex": 0, "time": 0.5, "value": 1.0 },
+      "expect": ["\"KeyCount\":1"]
+    },
+    {
+      "tool": "animation-get",
+      "input": { "nodePath": "Player", "animationName": "Idle" },
+      "expect": ["\"AnimationCount\":1", "\"TrackCount\":1"]
+    }
+  ]
+}

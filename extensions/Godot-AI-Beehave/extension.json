@@ -1,0 +1,18 @@
+{
+  "name": "Godot-AI-Beehave",
+  "packageId": "com.IvanMurzak.Godot.MCP.Beehave",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj",
+  "tests": "extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Godot-AI-Beehave.Tests.csproj",
+  "minGodotVersion": "4.3.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-Beehave",
+    "commit": "261220302ca91fd49461daebbb7e78026a1c60f7"
+  },
+  "testAddon": {
+    "repo": "bitbrain/beehave",
+    "tag": "v2.9.2",
+    "dir": "beehave",
+    "kind": "gdscript"
+  }
+}

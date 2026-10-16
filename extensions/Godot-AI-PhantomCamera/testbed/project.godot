@@ -1,0 +1,35 @@
+; Engine configuration file.
+; Minimal Godot 4 C# CONSUMER project used to E2E-verify the PhantomCamera Tools extension:
+; the core `godot_mcp` addon is installed into it by CI (godot-cli install-plugin), the extension
+; package is restored from a local NuGet feed, and each tool is called via `godot-cli run-tool`.
+; No game content. The analog of Godot-MCP's engines/godot/test-project.
+
+config_version=5
+
+[application]
+
+config/name="PhantomCamera-Testbed"
+config/description="Minimal C# testbed that consumes the PhantomCamera Tools extension via NuGet for headless E2E."
+config/features=PackedStringArray("4.5", "C#")
+
+[dotnet]
+
+project/assembly_name="PhantomCamera-Testbed"
+
+[editor_plugins]
+
+; godot_mcp is installed by CI (godot-cli install-plugin). phantom_camera is the Class-B addon under test:
+; CI downloads the pinned release into addons/phantom_camera BEFORE import (test.yml ADDON_* env), so listing
+; it enabled here lets the editor load it on boot. Its @tool PhantomCamera3D nodes call
+; Engine.get_singleton("PhantomCameraManager") in _enter_tree with NO null-guard, so the manager autoload below
+; is REQUIRED or creating any PhantomCamera crashes the headless editor — copying the addon folder is NOT
+; enough for this addon. Locally (addon absent) only the dotnet build legs run; the editor is booted only in
+; the e2e leg, where the addon IS present.
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/phantom_camera/plugin.cfg")
+
+[autoload]
+
+; The PhantomCameraManager singleton the addon's plugin normally adds via _enable_plugin(). Pre-registered
+; here so Engine.get_singleton("PhantomCameraManager") resolves on the first editor boot (the e2e leg has the
+; addon present), matching the project.godot a user gets after enabling the plugin.
+PhantomCameraManager="*res://addons/phantom_camera/scripts/managers/phantom_camera_manager.gd"

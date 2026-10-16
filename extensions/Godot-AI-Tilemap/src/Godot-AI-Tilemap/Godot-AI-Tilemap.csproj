@@ -1,0 +1,101 @@
+<!--
+  ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  SOURCE-ONLY NuGet package recipe — the load-bearing detail of a Godot-MCP extension.          │
+  │  Full rationale + the consumer story: docs/source-only-nuget-recipe.md.                        │
+  └──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Why source-only? An extension's tools call Godot's C# API (Node, EditorInterface, …). Shipping a
+  pre-compiled DLL would LOCK the package to one GodotSharp version. Instead we ship the .cs SOURCE and
+  let it compile INSIDE the consumer's Godot project, against the CONSUMER's own GodotSharp (supplied by
+  their `Godot.NET.Sdk`). No bundled Godot, no version lock.
+
+  How (3 levers):
+    1. <IncludeBuildOutput>false</IncludeBuildOutput>  — do NOT put this project's compiled DLL in the package.
+    2. The .cs are packed under `src/` (plain files) and injected as <Compile> items in the consumer by
+       `build/<PackageId>.props` (auto-imported by NuGet). See that props file.
+    3. NO GodotSharp dependency is declared (DisableImplicitGodotSharpReferences + PrivateAssets=all below)
+       — the consumer provides it. Only the MCP/reflection stack is declared as a (min-version) dependency,
+       which the consumer already has via the core Godot-MCP addon.
+
+  This project ALSO uses `Godot.NET.Sdk` for AUTHORING only: so the editor-only sample (#if TOOLS,
+  touches `Godot.EditorInterface`) compiles + the `Godot` namespace resolves when you build/test locally.
+  No Godot binary is needed — `Godot.NET.Sdk` pulls `GodotSharp` from NuGet at compile time.
+-->
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>com.IvanMurzak.Godot.MCP.Tilemap</RootNamespace>
+    <AssemblyName>com.IvanMurzak.Godot.MCP.Tilemap</AssemblyName>
+
+    <!-- ===== Package identity (bump-version.ps1 / get-version.ps1 own the Version element) ===== -->
+    <IsPackable>true</IsPackable>
+    <PackageId>com.IvanMurzak.Godot.MCP.Tilemap</PackageId>
+    <Version>0.1.2</Version>
+    <Title>Tilemap Tools</Title>
+    <Authors>Ivan Murzak</Authors>
+    <Description>AI MCP tools for Godot Tilemap.</Description>
+    <PackageTags>godot;mcp;ai;tools;godot-mcp;ai-game-developer</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/IvanMurzak/Godot-MCP</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/IvanMurzak/Godot-MCP</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- ===== Source-only levers ===== -->
+    <!-- 1) Do not ship the compiled DLL; the consumer compiles our source against their GodotSharp. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- NU5128: source-only package (dependencies but no lib/ref) — expected, silence it.
+         NU1504: Godot.SourceGenerators is re-stated PrivateAssets=all to keep it out of deps (see below). -->
+    <NoWarn>$(NoWarn);NU5128;NU1504</NoWarn>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <!-- We hand-pick exactly which files ship (below); turn off default None globbing to avoid duplicates. -->
+    <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
+    <!-- Drop the SDK's implicit GodotSharp/GodotSharpEditor so we can re-add them PrivateAssets=all (a body
+         <PackageReference Update> does NOT work — the SDK adds them after the project body is evaluated). -->
+    <DisableImplicitGodotSharpReferences>true</DisableImplicitGodotSharpReferences>
+  </PropertyGroup>
+
+  <!--
+    Package DEPENDENCIES: only the engine-agnostic MCP/reflection stack, as MIN-versions (a NuGet
+    Version="x" is a ">= x" floor). The consumer already references these via the core Godot-MCP addon,
+    so they resolve to the consumer's pins. `update-core.ps1` keeps these in lockstep with the addon.
+    Keep these aligned with Godot-MCP/Godot-MCP.csproj.
+  -->
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+  </ItemGroup>
+
+  <!--
+    GodotSharp is needed for AUTHORING compile only, NOT as a package dependency (the consumer supplies its
+    own, version-matched). PrivateAssets=all stops these flowing into the package's dependency list — this
+    is the "no GodotSharp dependency" guarantee, verified by inspecting the generated .nuspec.
+  -->
+  <ItemGroup>
+    <PackageReference Include="GodotSharp" Version="4.3.0" PrivateAssets="all" />
+    <PackageReference Include="GodotSharpEditor" Version="4.3.0" PrivateAssets="all" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- Godot.SourceGenerators has no SDK opt-out property, so re-state it (Include) PrivateAssets=all to
+         keep it out of the package deps too. This duplicates the SDK's implicit add -> NU1504 (suppressed
+         above). The analyzer still runs locally (PrivateAssets governs only what flows to CONSUMERS). -->
+    <PackageReference Include="Godot.SourceGenerators" Version="4.3.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    What ships in the .nupkg:
+      • the .cs SOURCE under `src/` (plain files — NOT contentFiles; injected by the props below),
+      • `build/<PackageId>.props` (auto-imported by NuGet in the consumer; does the <Compile> injection),
+      • README.md (package page).
+    The .cs are <Compile> items in THIS authoring build (Godot.NET.Sdk default glob) so they compile +
+    unit-test locally; adding them to <None Pack="true"> just also bundles them into the package.
+  -->
+  <ItemGroup>
+    <None Include="Runtime/**/*.cs" Pack="true" PackagePath="src/Runtime/" />
+    <None Include="Editor/**/*.cs" Pack="true" PackagePath="src/Editor/" />
+    <None Include="build/com.IvanMurzak.Godot.MCP.Tilemap.props" Pack="true" PackagePath="build/" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,199 @@
+# Manual version bump for a Godot-MCP extension. Activated by `init` (bump_version.yml-sample -> .yml).
+#
+# Two modes, selected by the `mode` input:
+#
+#   pr      (DEFAULT — unchanged legacy behaviour, and the rollback lever)
+#           Opens a PR that bumps the package csproj <Version>. Merging to main then triggers the
+#           version-gated release.yml through its `push` trigger.
+#
+#   direct  Commits the same bump straight to the default branch with this job's GITHUB_TOKEN, then
+#           EXPLICITLY dispatches release.yml.
+#           The dispatch is not belt-and-braces — it is the only thing that starts the release. A push
+#           made with GITHUB_TOKEN deliberately creates NO workflow runs (documented GitHub rule,
+#           re-confirmed empirically on this repo), so release.yml's `push` trigger never fires for it.
+#           `workflow_dispatch` events, by contrast, ALWAYS create a run. Hence push-then-dispatch,
+#           which is why this job needs `actions: write` on top of `contents: write`.
+#
+# Both modes apply the SAME edit through the SAME script (commands/bump-version.ps1), so the two paths
+# cannot drift in which files they change.
+name: bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version (e.g. 1.2.3)"
+        required: true
+        type: string
+      mode:
+        description: "pr = branch + PR (default); direct = commit to the default branch and dispatch release.yml"
+        required: false
+        default: pr
+        type: choice
+        options:
+          - pr
+          - direct
+
+jobs:
+  # ------------------------------------------------------------------------------------------------
+  # mode=pr — today's path, behaviourally untouched.
+  # The guard is `!= 'direct'` rather than `== 'pr'` on purpose: the two job conditions are then
+  # exhaustive as well as mutually exclusive, so a dispatch that omits `mode` (or supplies an empty
+  # one) falls back to the safe legacy path instead of matching neither job and silently doing nothing.
+  # ------------------------------------------------------------------------------------------------
+  bump-version:
+    if: inputs.mode != 'direct'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Validate version
+        run: |
+          if ! [[ "${{ github.event.inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: version must be X.Y.Z (got ${{ github.event.inputs.version }})"; exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "release/${{ github.event.inputs.version }}"
+
+      - name: Bump version
+        shell: pwsh
+        run: ./commands/bump-version.ps1 -NewVersion "${{ github.event.inputs.version }}"
+
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
+          git push origin "release/${{ github.event.inputs.version }}"
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base "${{ github.ref_name }}" \
+            --head "release/${{ github.event.inputs.version }}" \
+            --title "chore: bump version to ${{ github.event.inputs.version }}" \
+            --body "Automated version bump to \`${{ github.event.inputs.version }}\`."
+
+  # ------------------------------------------------------------------------------------------------
+  # mode=direct — bump on the default branch, then dispatch release.yml for the sha we just pushed.
+  # Inputs reach the shell through `env:` rather than inline `${{ }}` expansion so the version string
+  # is data, never script text. (The pr path above keeps its inline form because it must stay
+  # behaviourally untouched.)
+  # ------------------------------------------------------------------------------------------------
+  bump-version-direct:
+    if: inputs.mode == 'direct'
+    runs-on: ubuntu-latest
+    # New job, so this bounds nothing that previously ran unbounded. Every step is a git or API call
+    # measured in seconds; 10 min is runaway insurance against a hung push/dispatch.
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the bump commit to the default branch
+      actions: write # dispatch release.yml via the Actions workflow-dispatch API
+    steps:
+      - name: Validate version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: version must be X.Y.Z (got $VERSION)"; exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same script, same argument as the pr path — the single source of the version edit.
+      - name: Bump version
+        shell: pwsh
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: ./commands/bump-version.ps1 -NewVersion "$env:VERSION"
+
+      - name: Commit the bump
+        id: commit
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          # A no-op bump would push nothing and then dispatch a release for an unbumped tree — the
+          # version gate would silently do nothing and the caller would wait for a commit that never
+          # arrives. Fail loudly instead.
+          if git diff --cached --quiet; then
+            echo "Error: bump-version.ps1 changed nothing — is the version already $VERSION?"
+            exit 1
+          fi
+          echo "Staged files:"
+          git diff --cached --name-only
+          # Recorded so the dispatching side can assert the changed-file set is exactly the version files.
+          {
+            echo "files<<EOF"
+            git diff --cached --name-only
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          git commit -m "release: bump version to $VERSION"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push to ${{ github.ref_name }}
+        env:
+          TARGET_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:$TARGET_REF"
+
+      # This push created no run (GITHUB_TOKEN), so start the release explicitly.
+      - name: Dispatch release.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --ref "$TARGET_REF"
+
+      - name: Summary
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          BUMP_SHA: ${{ steps.commit.outputs.sha }}
+          CHANGED: ${{ steps.commit.outputs.files }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Direct bump → release dispatch"
+            echo ""
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| version | \`$VERSION\` |"
+            echo "| branch | \`${{ github.ref_name }}\` |"
+            echo "| pushed sha | \`$BUMP_SHA\` |"
+            echo ""
+            echo "### Changed files"
+            echo ""
+            echo '```'
+            echo "$CHANGED"
+            echo '```'
+            echo ""
+            echo "### Finding the dispatched release run"
+            echo ""
+            echo "The release run is a \`workflow_dispatch\` event, so match it by **head sha**, never by event:"
+            echo ""
+            echo '```bash'
+            echo "gh run list --repo ${{ github.repository }} --workflow release.yml \\"
+            echo "  --json databaseId,headSha,status,conclusion,event \\"
+            echo "  --jq '[.[] | select(.headSha==\"$BUMP_SHA\")]'"
+            echo '```'
+            echo ""
+            echo "If that returns \`[]\` more than a few minutes after this job, the dispatch did not take —"
+            echo "that is the trigger-chain-failure signature, not a slow release."
+          } >> "$GITHUB_STEP_SUMMARY"

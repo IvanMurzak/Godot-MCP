@@ -1,0 +1,33 @@
+# .NET build artifacts
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+
+# Godot (C#) generated
+.godot/
+.mono/
+mono_crash.*
+*.uid
+
+# Local NuGet feed produced by `dotnet pack` (CI + local recipe verification)
+local-nuget/
+_pkg/
+dist/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# env
+*.env
+.env
+
+# Python bytecode (the e2e run-tool driver)
+__pycache__/
+*.pyc

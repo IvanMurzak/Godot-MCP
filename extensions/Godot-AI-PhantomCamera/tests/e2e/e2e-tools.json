@@ -1,0 +1,48 @@
+{
+  "description": "Live run-tool E2E tool list for the PhantomCamera Tools extension (Class B — wraps the third-party Phantom Camera addon). Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor (with the pinned Phantom Camera addon installed into testbed/addons/phantom_camera and its PhantomCameraManager autoload registered) + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "phantomcamera-defaults is pure-managed (no scene, no addon needed). The editor tools resolve nodes relative to the edited scene root, so 'setup' opens a scene via the core scene-create tool. host-create creates a Camera3D named 'Camera3D' under Root and a PhantomCameraHost under it; create makes 'PCam'; set-follow/set-look-at target that Camera3D. Each happy-path editor entry asserts \"Installed\":true (the Class-B presence gate is satisfied because the addon is installed). 'expect' substrings are matched against godot-cli's compact --raw JSON (ReflectorNet serializes the PascalCase property names of PhantomCameraInfo).",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "phantomcamera-defaults",
+      "input": { "dimension": "3D" },
+      "expect": ["\"TypeName\":\"PhantomCamera3D\"", "\"Priority\":10", "\"FollowMode\":\"Simple\""]
+    },
+    {
+      "tool": "phantomcamera-host-create",
+      "input": {},
+      "expect": ["\"Installed\":true", "\"TypeName\":\"PhantomCameraHost\""]
+    },
+    {
+      "tool": "phantomcamera-create",
+      "input": { "name": "PCam", "priority": 20 },
+      "expect": ["\"Installed\":true", "\"Priority\":20"]
+    },
+    {
+      "tool": "phantomcamera-set-follow",
+      "input": { "nodePath": "PCam", "followMode": "Simple", "targetPath": "Camera3D" },
+      "expect": ["\"Installed\":true", "\"FollowMode\":\"Simple\""]
+    },
+    {
+      "tool": "phantomcamera-set-look-at",
+      "input": { "nodePath": "PCam", "lookAtMode": "Simple", "targetPath": "Camera3D" },
+      "expect": ["\"Installed\":true", "\"LookAtMode\":\"Simple\""]
+    },
+    {
+      "tool": "phantomcamera-set-priority",
+      "input": { "nodePath": "PCam", "priority": 50 },
+      "expect": ["\"Installed\":true", "\"Priority\":50"]
+    },
+    {
+      "tool": "phantomcamera-get",
+      "input": { "nodePath": "PCam" },
+      "expect": ["\"Installed\":true", "\"Priority\":50", "\"FollowMode\":\"Simple\""]
+    }
+  ]
+}

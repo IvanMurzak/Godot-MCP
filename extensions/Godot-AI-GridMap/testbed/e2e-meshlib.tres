@@ -1,0 +1,8 @@
+[gd_resource type="MeshLibrary" format=3]
+
+; Minimal empty MeshLibrary used ONLY by the headless run-tool E2E (tests/e2e/e2e-tools.json):
+; gridmap-set-mesh-library loads it from res://e2e-meshlib.tres and assigns it to the test GridMap so
+; the tool's "set" path is exercised against a real resource. GridMap.set_cell_item does NOT validate
+; item ids against the library, so an empty library is sufficient for the gridmap-set-cell assertion.
+
+[resource]

@@ -142,6 +142,11 @@ jobs:
       - name: Build
         run: dotnet build Godot-MCP.sln --configuration Debug --no-restore
 
+      - name: Extension unit tests
+        run: |
+          python3 -m unittest discover -s scripts/tests -v
+          python3 scripts/test_extensions.py --unit-only
+
       - name: Test
         run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory TestResults
 
@@ -378,3 +383,43 @@ jobs:
       lock: ${{ inputs.lock }}
       lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
+
+  extension-suite-4-3:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.3.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
+
+  extension-suite-4-4:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.4.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
+
+  extension-suite-4-5:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.5.1"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
+
+  extension-suite-4-6:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.6.3"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}
+
+  extension-suite-4-7:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"
+      lock: ${{ inputs.lock }}
+      lock_hash8: ${{ inputs.lock_hash8 }}

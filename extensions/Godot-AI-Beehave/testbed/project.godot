@@ -1,0 +1,30 @@
+; Engine configuration file.
+; Minimal Godot 4 C# CONSUMER project used to E2E-verify the Beehave Tools extension:
+; the core `godot_mcp` addon is installed into it by CI (godot-cli install-plugin), the extension
+; package is restored from a local NuGet feed, and each tool is called via `godot-cli run-tool`.
+; No game content. The analog of Godot-MCP's engines/godot/test-project.
+
+config_version=5
+
+[application]
+
+config/name="Beehave-Testbed"
+config/description="Minimal C# testbed that consumes the Beehave Tools extension via NuGet for headless E2E."
+config/features=PackedStringArray("4.5", "C#")
+
+[dotnet]
+
+project/assembly_name="Beehave-Testbed"
+
+[autoload]
+
+; Beehave (Class-B addon under test) registers these two autoload singletons in its plugin.gd _init().
+; Some @tool Beehave nodes resolve them at runtime, so pre-bake them here (the leading '*' = enabled)
+; so the headless --import/--editor e2e boot is clean even before the plugin's _init() runs. The CI
+; ADDON_* step downloads the pinned addon into testbed/addons/beehave/ before import. (Guide §3.)
+BeehaveGlobalMetrics="*res://addons/beehave/metrics/beehave_global_metrics.gd"
+BeehaveGlobalDebugger="*res://addons/beehave/debug/global_debugger.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/beehave/plugin.cfg")

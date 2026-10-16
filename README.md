@@ -975,3 +975,7 @@ Contributions are highly appreciated. **Please give this project a star 🌟 if 
 # License
 
 [Apache-2.0](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) © Ivan Murzak
+
+## Extension modules
+
+Extensions live in `extensions/` with independent NuGet versions and releases. See the [monorepo guide](docs/EXTENSION-MONOREPO.md) for one-editor live tests, isolated consumers, releases and adding a module.

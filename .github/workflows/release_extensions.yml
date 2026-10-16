@@ -1,0 +1,127 @@
+name: Release extensions
+
+on:
+  workflow_dispatch:
+    inputs:
+      extensions:
+        description: "all or comma-separated module names/package IDs"
+        required: true
+        default: all
+        type: string
+      dry_run:
+        description: "Validate and build without publishing"
+        default: true
+        type: boolean
+      expected_sha:
+        description: "Train: refuse publication if main advanced from this tested commit"
+        default: ""
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate selection and main-branch publication
+        env:
+          SELECTION: ${{ inputs.extensions }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          if [ "$DRY_RUN" != true ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo '::error::Publish extensions only from main'
+            exit 1
+          fi
+          if [ -n "$EXPECTED_SHA" ] && [ "$EXPECTED_SHA" != "$GITHUB_SHA" ]; then
+            echo '::error::Source advanced beyond the tested component release plan'
+            exit 1
+          fi
+          python scripts/extension_release.py plan --only "$SELECTION"
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Unit tests and release tooling
+        run: |
+          python -m unittest discover -s scripts/tests -v
+          python scripts/test_extensions.py --unit-only
+
+  cli:
+    needs: validate
+    uses: ./.github/workflows/test_cli.yml
+
+  godot-4-3:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.3.0"
+  godot-4-4:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.4.0"
+  godot-4-5:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.5.1"
+  godot-4-6:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.6.3"
+  godot-4-7:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"
+
+  publish:
+    needs: [validate, cli, godot-4-3, godot-4-4, godot-4-5, godot-4-6, godot-4-7]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SELECTION: ${{ inputs.extensions }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Stage only selected versions (reuse published packages)
+        id: stage
+        run: python scripts/extension_release.py stage --only "$SELECTION"
+      - name: NuGet trusted login
+        if: inputs.dry_run != true && steps.stage.outputs.pending == 'true'
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish missing NuGet versions and verify registry bytes
+        if: inputs.dry_run != true
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: python scripts/extension_release.py push --only "$SELECTION"
+      - name: Publish independent component releases (preserve core latest)
+        if: inputs.dry_run != true
+        run: python scripts/extension_release.py publish-github --only "$SELECTION"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: selected-extension-packages
+          path: .artifacts/component-releases/*.nupkg
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,18 @@
+# extensions/
+
+Optional Godot-MCP packages. Each `Godot-AI-<Feature>/` owns its source-only NuGet
+package, version, license, pure-managed tests and live-tool manifest.
+
+- `manifest.json` — explicit module inventory; no automatic discovery of arbitrary folders.
+- `Godot-AI-*/extension.json` — identity, source provenance and pinned test-addon metadata.
+- `Godot-AI-*/src/` — package source and NuGet build props; no dependency on another extension.
+- `Godot-AI-*/tests/` — original xUnit projects and E2E assertions.
+- `Godot-AI-*/testbed/` — isolated consumer fixture; not the combined live project.
+
+Never add module sources to the core assembly. Compilation of a consumer containing
+core plus exactly one packed extension must succeed independently of the combined
+live-editor test. A combined build alone cannot prove dependency isolation.
+
+Keep package IDs and historical NuGet versions stable. Publish only selected changed
+versions. GodotSharp and third-party addons must not enter package dependencies.
+Shared tests and release commands are documented in `../docs/EXTENSION-MONOREPO.md`.

@@ -1,0 +1,28 @@
+# PR gate for a Godot-MCP extension. Activated by `init` (test-pull-request.yml-sample -> .yml).
+# Fans the reusable test.yml across a multi-Godot-version matrix. Edit the matrix to the versions you
+# support; keep `sdk` == `godot` (the Godot.NET.Sdk/GodotSharp version ships with that editor).
+name: test-pull-request
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - godot: "4.3.0"
+            sdk: "4.3.0"
+          - godot: "4.4.1"
+            sdk: "4.4.1"
+          - godot: "4.5.1"
+            sdk: "4.5.1"
+    uses: ./.github/workflows/test.yml
+    with:
+      godot-version: ${{ matrix.godot }}
+      godot-sdk-version: ${{ matrix.sdk }}
+    secrets: inherit
