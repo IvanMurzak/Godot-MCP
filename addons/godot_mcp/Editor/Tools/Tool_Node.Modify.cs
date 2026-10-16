@@ -35,18 +35,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "Identify the Node with 'nodeRef'. Two modification surfaces (supply at least one; both may be " +
             "combined, applied jsonPatch first then pathPatches):\n" +
             "  1. 'pathPatches' — list of {path, value} entries routed through Reflector.TryModifyAt for " +
-            "atomic per-path modification. Path syntax: 'fieldName', 'nested/field', 'arrayField/[i]', " +
-            "'dictField/[key]'.\n" +
+            "atomic per-path modification. See the path syntax below.\n" +
             "  2. 'jsonPatch' — a JSON Merge Patch (RFC 7396) string routed through Reflector.TryPatch.\n" +
-            "Returns a log of what was changed and what was ignored.")]
+            "Returns a log of what was changed and what was ignored.\n" +
+            GodotObjectPatcher.PathSyntaxHelp)]
         public Logs Modify
         (
             [Description("Reference to the Node to modify (instanceId preferred, else scene-tree path).")]
             NodeRef nodeRef,
             [Description("Optional list of path-scoped patches routed through Reflector.TryModifyAt. " +
-                "Each entry is a {path, value}. Path syntax: 'fieldName', 'nested/field', 'arrayField/[i]', 'dictField/[key]'.")]
+                "Each entry is a {path, value}. " + GodotObjectPatcher.PathSyntaxHelp)]
             List<NodePropertyPatch>? pathPatches = null,
-            [Description("Optional JSON Merge Patch (RFC 7396) applied via Reflector.TryPatch.")]
+            [Description("Optional JSON Merge Patch (RFC 7396) applied via Reflector.TryPatch; top-level keys may be Godot property names, as in 'pathPatches'.")]
             string? jsonPatch = null
         )
         {
@@ -73,21 +73,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     return logs;
                 }
 
-                var reflector = GodotMcpReflector.GetOrCreate();
-                object? objToModify = node;
+                var patcher = new GodotObjectPatcher(GodotMcpReflector.GetOrCreate(), node, logs);
                 var anyChange = false;
 
-                // ReflectorNet's TryPatch/TryModifyAt are documented to accumulate errors into 'logs' and
-                // never throw, but a malformed patch could still surface an exception from a converter or
-                // navigation edge case. Wrap each patch-surface call so a bad entry degrades to a logged
-                // skip instead of aborting MainThread.Run and leaving the scene half-modified + not marked.
-                // 1) JSON Merge Patch (applied first).
+                // 1) JSON Merge Patch (applied first), 2) path patches. A bad entry degrades to a logged skip
+                // instead of aborting MainThread.Run and leaving the scene half-modified + not marked.
                 if (hasJsonPatch)
                 {
                     try
                     {
-                        if (reflector.TryPatch(ref objToModify, jsonPatch!, logs: logs))
-                            anyChange = true;
+                        anyChange |= patcher.ApplyJsonPatch(jsonPatch!);
                     }
                     catch (Exception ex)
                     {
@@ -95,7 +90,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     }
                 }
 
-                // 2) Path patches.
                 if (hasPathPatches)
                 {
                     for (int i = 0; i < pathPatches!.Count; i++)
@@ -111,28 +105,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                             logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
                             continue;
                         }
-                        // A value carrying nothing settable (no 'value', no 'fields', no 'props' — e.g. a
-                        // '{typeName}'-only entry) cannot change anything. Warn naming the path instead of
-                        // letting the no-op pass silently, then skip it.
-                        if (NodePropertyPatch.IsStructuralNoOp(patch.Value))
-                        {
-                            logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') has no value/fields/props " +
-                                "to apply — nothing to set; skipped (no-op).");
-                            continue;
-                        }
                         try
                         {
-                            if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
-                            {
-                                anyChange = true;
-                            }
-                            else
-                            {
-                                // TryModifyAt accumulates its own errors into 'logs', but a plain false can
-                                // also mean the patch resolved to a no-op (e.g. an unresolved path or a value
-                                // that changed nothing). Surface a path-named warning so the no-op is visible.
-                                logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') did not modify the Node (no-op).");
-                            }
+                            anyChange |= patcher.ApplyPathPatch(patch, $"{nameof(pathPatches)}[{i}] ('{patch.Path}')");
                         }
                         catch (Exception ex)
                         {
@@ -141,14 +116,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     }
                 }
 
-                // 'objToModify' is passed by ref: a patch may reassign it to a fresh boxed instance (e.g. a
-                // '$type' replacement) instead of mutating the live node in place. Node is a reference type,
-                // so in-place writes hit the editor's node — but if the ref diverged, the live node was NOT
-                // updated, so reporting success + marking unsaved would be a silent no-op. Guard against it.
-                if (anyChange && !ReferenceEquals(objToModify, node))
+                // A '$type' replacement assigns a fresh instance instead of mutating the live node, so reporting
+                // success + marking unsaved would be a silent no-op. Guard against it.
+                if (patcher.DivergedSurface != null)
                 {
-                    logs.Error("Modification produced a new instance instead of mutating the live Node in " +
-                        "place (the editor Node was not updated); the scene was left unchanged.");
+                    logs.Error($"Modification via {patcher.DivergedSurface} produced a new instance instead of " +
+                        "mutating the live Node in place (the editor Node was not updated); the scene was left unchanged.");
                     return logs;
                 }
 
