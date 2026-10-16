@@ -34,7 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             OpenWorldHint = false
         )]
         [Description("Get the serialized data of a Godot Resource (.tres/.res asset) — every serializable " +
-            "property — via ReflectorNet. Identify the resource with 'resourceRef' (a res:// path is " +
+            "property — via ReflectorNet. Each property's name and value can be sent back to '" + ResourceModifyToolId +
+            "' unchanged. Identify the resource with 'resourceRef' (a res:// path is " +
             "preferred; an instance id of an already-loaded resource also works). Use '" + ResourceFindToolId +
             "' to locate the resource first. Returns a ReflectorNet SerializedMember describing the resource; " +
             "a resource that cannot be resolved yields a structured error.")]
@@ -65,51 +66,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     name: name,
                     recursive: true);
 
-                // The Resource converter deliberately serializes a resource as a reference only, so `member`
-                // carries no props. Expand this top-level resource from Godot's own property list: every
-                // PROPERTY_USAGE_STORAGE entry, i.e. exactly what ResourceSaver writes.
-                foreach (var prop in resource.GetPropertyList())
-                {
-                    if (!prop.TryGetValue("usage", out var usage) ||
-                        (usage.As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) == 0 ||
-                        !prop.TryGetValue("name", out var propName))
-                        continue;
-
-                    // Skip unset values (Nil, or an Object-typed Variant holding null): they only add noise.
-                    var value = resource.Get(propName.AsStringName());
-                    if (value.VariantType == Variant.Type.Nil)
-                        continue;
-                    object boxed = value;
-                    if (value.VariantType == Variant.Type.Object)
-                    {
-                        var godotObject = value.AsGodotObject();
-                        if (godotObject == null)
-                            continue;
-                        // A sub-resource goes through the Resource converter so the caller gets a resolvable
-                        // ResourceRef (res:// path / instance id), not the Variant's "<Type#id>" string form.
-                        if (godotObject is Resource subResource)
-                            boxed = subResource;
-                    }
-
-                    // One property the reflector cannot serialize must not take down the whole read.
-                    try
-                    {
-                        member.AddProperty(reflector.Serialize(
-                            obj: boxed,
-                            name: propName.AsString(),
-                            recursive: true));
-                    }
-                    catch (Exception ex)
-                    {
-                        // Keep the property in the reply so the caller can tell the data is partial.
-                        member.AddProperty(SerializedMember.FromJson(typeof(Variant),
-                            Godot_Variant_ReflectionConverter.NoteNode(value.VariantType, $"Could not be serialized: {ex.Message}").ToJsonString(),
-                            propName.AsString()));
-                        GodotMcpLog.Warning($"[Godot-MCP] {ResourceGetDataToolId}: property '{propName}' " +
-                            $"of '{name}' could not be serialized: {ex.Message}");
-                    }
-                }
-
+                GodotStoredProperties.AddTo(member, reflector, resource, name, ResourceGetDataToolId);
                 return member;
             });
         }
