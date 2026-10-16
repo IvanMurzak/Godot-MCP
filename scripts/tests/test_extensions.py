@@ -74,6 +74,16 @@ class PackageVerification(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'dependency floor'):
             self.verify()
 
+    def test_train_package_requires_exact_candidate_dependency(self):
+        (self.root / 'Directory.Build.targets').write_text('''<Project><ItemGroup>
+<PackageReference Update="com.IvanMurzak.McpPlugin" Version="[8.7.1-ws.ga1b2c3d4]"/>
+</ItemGroup></Project>''')
+        with patch.dict(os.environ, {'CHAIN_LOCK': 'candidate lock'}):
+            with self.assertRaisesRegex(ValueError, 'dependency floor'):
+                self.verify()
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'[8.7.1-ws.ga1b2c3d4]')
+            self.assertTrue(self.verify())
+
 
 class SuiteGuards(unittest.TestCase):
     def test_script_failure_is_never_hidden_by_gridmap_diagnostic(self):

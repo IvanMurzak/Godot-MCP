@@ -42,7 +42,7 @@ jobs:
           cache: npm
           cache-dependency-path: cli/package-lock.json
       - name: Apply release-train artifact overrides
-        run: python .github/scripts/chain_feed.py apply --node godot-mcp --edges Godot-MCP.csproj --edges server-binary --edges npm
+        run: python .github/scripts/chain_feed.py apply --node godot-mcp --job extension-suite --edges Godot-MCP.csproj --edges server-binary --edges npm
       - name: Build identity consumer
         run: dotnet build Godot-MCP.csproj --configuration Debug
       - name: Install candidate CLI dependencies

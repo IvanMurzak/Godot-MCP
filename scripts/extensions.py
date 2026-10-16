@@ -95,6 +95,7 @@ def verify_package(archive, module, root=ROOT, version=None):
         authoring = ET.parse(root / module['project'])
         floors = {node.attrib['Include']: node.attrib['Version'] for node in
                   authoring.findall('.//PackageReference') if node.attrib.get('Include') in expected}
+        floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
         for node in spec.iter():
             if node.tag.rsplit('}', 1)[-1] == 'dependency':
                 if node.attrib.get('version') != floors[node.attrib['id']]:
@@ -117,9 +118,15 @@ def verify_package(archive, module, root=ROOT, version=None):
 def core_pins(root=ROOT):
     pins = {node.attrib['Include']: node.attrib['Version'] for node in
             ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')}
+    pins.update({package: pin.strip('[]') for package, pin in chain_pins(root).items() if package in pins})
+    return pins
+
+
+def chain_pins(root):
     overrides = root / 'Directory.Build.targets'
+    pins = {}
     if os.environ.get('CHAIN_LOCK') and overrides.is_file():
         for entry in ET.parse(overrides).findall('.//PackageReference'):
-            if entry.attrib.get('Update') in pins:
-                pins[entry.attrib['Update']] = entry.attrib['Version'].strip('[]')
+            if entry.attrib.get('Update'):
+                pins[entry.attrib['Update']] = entry.attrib['Version']
     return pins
