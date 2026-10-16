@@ -73,7 +73,7 @@ dotnet build testbed/Beehave-Testbed.csproj                # consumes the local 
 
 `Godot.NET.Sdk` supplies GodotSharp from NuGet, so build/test/pack and the source-injection proof need no
 Godot install (the testbed build is a faithful proxy for `godot --build-solutions`). CI proves the recipe
-across Godot 4.3 / 4.4 / 4.5 (the `test-pull-request.yml` matrix). `dotnet pack` reuses the **global NuGet
+across Godot 4.3 / 4.4 / 4.5 (the central monorepo SDK matrix). `dotnet pack` reuses the **global NuGet
 cache** for an already-cached version: when re-packing the same `Version`, clear
 `~/.nuget/packages/com.ivanmurzak.godot.mcp.beehave/<ver>` (or pack a unique version) before re-restoring the
 testbed, or you silently build the stale cached source.

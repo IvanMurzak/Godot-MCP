@@ -18,6 +18,17 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot "../extension.json")) {
+    $pythonCommand = Get-Command py, python3, python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $pythonCommand) { throw "Python 3 is required for the central version helper." }
+    $pythonArguments = @()
+    if ($pythonCommand.Name -match '^py(\.exe)?$') { $pythonArguments += '-3' }
+    $pythonArguments += @((Join-Path $PSScriptRoot "bump-version.py"), $NewVersion)
+    if ($WhatIf) { $pythonArguments += '--what-if' }
+    & $pythonCommand.Source @pythonArguments
+    exit $LASTEXITCODE
+}
+
 if ($NewVersion -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z\.\-]+)?$') {
     throw "Invalid semantic version: '$NewVersion' (expected major.minor.patch[-prerelease])."
 }

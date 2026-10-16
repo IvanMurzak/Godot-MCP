@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -146,6 +147,11 @@ class SuiteGuards(unittest.TestCase):
             self.assertNotIn('YOUR_FEATURE', (folder / 'extension.json').read_text())
             with self.assertRaisesRegex(ValueError, 'already exists'):
                 new_extension.create('ExampleFeature', root)
+            shutil.copytree(extensions.ROOT / 'scripts', root / 'scripts',
+                            ignore=shutil.ignore_patterns('tests', '__pycache__'))
+            subprocess.run([sys.executable, str(folder / 'commands/bump-version.py'), '0.1.1'],
+                           check=True, capture_output=True)
+            self.assertEqual('0.1.1', extensions.modules(root)[-1]['version'])
 
 
 if __name__ == '__main__':

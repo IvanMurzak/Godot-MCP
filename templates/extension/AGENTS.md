@@ -31,7 +31,7 @@ The package id is always `com.IvanMurzak.Godot.MCP.<Feature>`, written literally
 - `commands/` — `init`, `bump-version`, `update-core` (`.ps1` + `.py`), `get-version.ps1`.
 - `.github/workflows/*.yml-sample` — CI, inert until `init`. Never commit live `.github/workflows/*.yml` here.
 - `docs/` — `source-only-nuget-recipe.md` (the packaging recipe, the centerpiece, + consumer story);
-  `ci.md` (workflows, version gate, multi-Godot matrix, the `NUGET_API_KEY` secret).
+  `ci.md` (workflows, version gate, multi-Godot matrix, the NuGet Trusted Publishing).
 - `README.md` — user walkthrough: scaffold → init → write → build/test → publish → install.
 
 ## Build / test (no Godot binary)

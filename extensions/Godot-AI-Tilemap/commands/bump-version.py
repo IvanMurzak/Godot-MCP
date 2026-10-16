@@ -30,6 +30,22 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parent.parent
+    if (root / "extension.json").is_file():
+        # Keep the monorepo inventory and package README versions in sync.
+        sys.path.insert(0, str(root.parents[1] / "scripts"))
+        from extension_release import bump
+        from extensions import modules, SEMVER as stable_version
+        module = modules(only=[root.name])[0]
+        if args.get:
+            print(module["version"])
+            return 0
+        if not args.version or not stable_version.fullmatch(args.version):
+            ap.error("pass a stable major.minor.patch version")
+        if args.what_if:
+            print(f"{module['name']}: {module['version']} -> {args.version} (what-if)")
+            return 0
+        bump(module, args.version)
+        return 0
     csproj = find_package_csproj(root)
     content = csproj.read_text(encoding="utf-8")
     m = re.search(r"<Version>([^<]+)</Version>", content)
