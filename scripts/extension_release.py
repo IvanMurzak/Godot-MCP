@@ -120,17 +120,29 @@ def push(selected, output):
         time.sleep(min(PUBLICATION_POLL_SECONDS, remaining))
 
 
+def find_release(release_tag):
+    # REST's releases/tags endpoint returns only published releases. The CLI
+    # resolves drafts too; fetch their full metadata through the numeric ID.
+    response = subprocess.run(['gh', 'release', 'view', release_tag, '--repo', REPO, '--json', 'apiUrl'],
+                              capture_output=True, text=True)
+    if response.returncode:
+        if response.stderr.strip().lower() == 'release not found':
+            return None
+        raise RuntimeError('Cannot inspect component release: ' + response.stderr)
+    url = json.loads(response.stdout).get('apiUrl', '')
+    prefix = f'https://api.github.com/repos/{REPO}/releases/'
+    if not url.startswith(prefix) or not url.removeprefix(prefix).isdigit():
+        raise ValueError('Invalid component release API coordinate')
+    return json.loads(run(['gh', 'api', url.removeprefix('https://api.github.com/')]))
+
+
 def publish_github(module, output):
     """Forward-only: prove existing registry bytes and never replace a published asset."""
     verify_registry(module, output)
     archive = output / f"{module['packageId']}.{module['version']}.nupkg"
     verify_package(archive, module)
     release_tag = tag(module)
-    response = subprocess.run(['gh', 'api', f'repos/{REPO}/releases/tags/{release_tag}'],
-                              capture_output=True, text=True)
-    if response.returncode and 'HTTP 404' not in response.stderr:
-        raise RuntimeError('Cannot inspect component release: ' + response.stderr)
-    release = json.loads(response.stdout) if response.returncode == 0 else None
+    release = find_release(release_tag)
     if release:
         if release['prerelease']:
             raise ValueError('Existing component release is marked prerelease: ' + release_tag)
@@ -174,7 +186,9 @@ def publish_github(module, output):
         if content != sums.read_bytes():
             raise ValueError('Existing component checksum differs; refusing to overwrite published bytes')
     # Prove uploaded bytes before making a draft public, including a resumed run.
-    uploaded = json.loads(run(['gh', 'api', f'repos/{REPO}/releases/tags/{release_tag}']))
+    uploaded = find_release(release_tag)
+    if uploaded is None:
+        raise ValueError('Component draft is not visible after asset upload')
     for filename, expected in ((asset_name, archive.read_bytes()), ('SHA256SUMS', sums.read_bytes())):
         matches = [asset for asset in uploaded['assets'] if asset['name'] == filename]
         if len(matches) != 1:

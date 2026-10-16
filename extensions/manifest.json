@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "assetLibrary": true,
   "extensions": [
     "Godot-AI-Animation",
     "Godot-AI-Beehave",
