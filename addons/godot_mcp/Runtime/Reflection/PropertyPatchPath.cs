@@ -10,9 +10,11 @@
 #nullable enable
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -66,25 +68,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             for (var i = 0; i < segments.Length; i++)
             {
-                var segment = segments[i];
+                // Only intermediate values are needed to find the next member's runtime type; the terminal
+                // getter may be a native call returning a large copy.
                 var last = i == segments.Length - 1;
-                if (IsBracket(segment))
-                {
-                    memberType = ElementType(currentType);
-                    current = null;
-                }
-                else
-                {
-                    var member = FindMember(currentType, segment);
-                    if (member == null)
-                        return new Resolution(string.Join("/", segments), null);
-
-                    segments[i] = member.Name;
-                    memberType = MemberType(member);
-                    // Only intermediate values are needed to find the next member's runtime type; the terminal
-                    // getter may be a native call returning a large copy.
-                    current = last || current == null ? null : TryGetValue(member, current);
-                }
+                if (!TryStep(currentType, current, segments[i], needValue: !last, out segments[i], out memberType, out current))
+                    return new Resolution(string.Join("/", segments), null);
 
                 if (memberType == null)
                     return new Resolution(string.Join("/", segments), null);
@@ -101,6 +89,19 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// wins, so a <c>new</c>-hidden member never throws <see cref="AmbiguousMatchException"/>.
         /// </summary>
         public static MemberInfo? FindMember(Type type, string name)
+        {
+            if (MemberCache.TryGetValue((type, name), out var cached))
+                return cached;
+            var member = FindMemberUncached(type, name);
+            // Only hits are cached: misses are caller-supplied names and would grow the cache without bound.
+            if (member != null)
+                MemberCache[(type, name)] = member;
+            return member;
+        }
+
+        static readonly ConcurrentDictionary<(Type Type, string Name), MemberInfo> MemberCache = new();
+
+        static MemberInfo? FindMemberUncached(Type type, string name)
         {
             MemberInfo? loose = null;
             for (var t = type; t != null; t = t.BaseType)
@@ -167,29 +168,112 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         }
 
         /// <summary>
-        /// Rewrite <paramref name="value"/>'s <c>typeName</c> to the declared primitive/enum type of the target
-        /// when the caller sent a different numeric one (e.g. <c>System.Double</c> for a <c>float</c>).
+        /// A copy of <paramref name="value"/> typed as the declared primitive/enum type of the target when the
+        /// caller sent a different numeric one (e.g. <c>System.Double</c> for a <c>float</c>), else <c>null</c>.
         /// ReflectorNet picks its converter from <c>typeName</c>; a mismatch deserializes to the wrong CLR type
-        /// and the setter rejects it. Non-numeric type names are never touched. Returns <c>true</c> when
-        /// the type name was changed.
+        /// and the setter rejects it. Non-numeric type names are never touched, and the caller's patch is left
+        /// as it was sent.
         /// </summary>
-        public static bool AlignPrimitiveTypeName(SerializedMember value, Type declaredType)
+        public static SerializedMember? WithAlignedPrimitiveTypeName(SerializedMember value, Type declaredType)
         {
             var target = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
             if (!IsNumericLike(target))
-                return false;
+                return null;
 
             var expected = target.GetTypeId();
             if (value.typeName == expected)
-                return false;
+                return null;
 
             var given = TypeUtils.GetType(value.typeName);
             if (given == null || !IsNumericLike(Nullable.GetUnderlyingType(given) ?? given))
-                return false;
+                return null;
 
-            value.typeName = expected;
+            return new SerializedMember
+            {
+                name = value.name,
+                typeName = expected,
+                valueJsonElement = value.valueJsonElement,
+                fields = value.fields,
+                props = value.props,
+            };
+        }
+
+        /// <summary>
+        /// Rewrite the keys of a JSON Merge Patch to the C# members they name on the live <paramref name="target"/>
+        /// (snake_case → PascalCase, e.g. <c>{"position":{"x":1}}</c> → <c>{"Position":{"X":1}}</c>), at every
+        /// depth, following runtime values. It descends only where the reflector merges a JSON object into the
+        /// existing value — not into a <c>Resource</c>/<c>Node</c>/<c>Variant</c>, whose JSON object is the whole
+        /// (reference) value. Unknown keys are left for ReflectorNet to report.
+        /// </summary>
+        public static void CanonicalizeMergePatch(Reflector reflector, object? target, Type type, JsonObject patch)
+        {
+            var entries = patch.ToList();
+            var sent = new HashSet<string>(entries.Select(e => e.Key), StringComparer.Ordinal);
+            patch.Clear(); // detaches the nodes so they can be re-added under their canonical names
+            // Only a bracket segment addresses a collection's element; a bare key is never one of its own
+            // members (Count, Keys, …), so it is left for ReflectorNet to report as it was sent.
+            var isCollection = ElementType(type) != null;
+            foreach (var (key, node) in entries)
+            {
+                var name = key;
+                if (key != "$type" && (!isCollection || IsBracket(key))
+                    && TryStep(type, null, key, needValue: false, out var canonical, out var childType, out _))
+                {
+                    // Never fold two sent keys into one: the later would silently overwrite the earlier.
+                    if (canonical != key && !sent.Contains(canonical) && !patch.ContainsKey(canonical))
+                        name = canonical;
+                    if (node is JsonObject inner && childType != null && IsMergeTarget(reflector, childType))
+                    {
+                        // A nested "$type" replaces the value, so its keys name members of that type; otherwise
+                        // read the live value only now: its runtime type may expose members the declared one lacks.
+                        var replaced = inner["$type"] is JsonValue typeNode && typeNode.TryGetValue<string>(out var typeName)
+                            ? TypeUtils.GetType(typeName)
+                            : null;
+                        object? child = null;
+                        if (replaced == null)
+                            TryStep(type, target, key, needValue: true, out _, out _, out child);
+                        var nested = replaced ?? child?.GetType() ?? childType;
+                        if (IsMergeTarget(reflector, nested))
+                            CanonicalizeMergePatch(reflector, child, nested, inner);
+                    }
+                }
+                patch[name] = node;
+            }
+        }
+
+        /// <summary>
+        /// One path segment against <paramref name="type"/>: its canonical spelling, the declared type below it,
+        /// and — when <paramref name="needValue"/> — the live value. <c>false</c> for an unknown member.
+        /// </summary>
+        static bool TryStep(Type type, object? current, string segment, bool needValue, out string canonical, out Type? next, out object? value)
+        {
+            value = null;
+            canonical = segment;
+            if (IsBracket(segment))
+            {
+                next = ElementType(type);
+                return true;
+            }
+            var member = FindMember(type, segment);
+            if (member == null)
+            {
+                next = null;
+                return false;
+            }
+            canonical = member.Name;
+            next = MemberType(member);
+            if (needValue && current != null)
+                value = TryGetValue(member, current);
             return true;
         }
+
+        /// <summary>
+        /// Whether ReflectorNet merges a JSON object into a value of <paramref name="type"/> (rather than reading
+        /// it as the whole value): the same converter decision TryPatch makes.
+        /// </summary>
+        static bool IsMergeTarget(Reflector reflector, Type type)
+            => !IsNumericLike(type) && type != typeof(string)
+                && reflector.Converters.GetConverter(type)?.TreatJsonObjectAsAtomicValue(type) != true;
 
         /// <summary>
         /// Whether Godot can store a <paramref name="value"/>-typed Variant in a <paramref name="property"/>-typed

@@ -197,11 +197,19 @@ def main() -> int:
     expect_logs("N4 large int change", logs, errors=False, saved_marker=None)
     check("N4 counted as a change", not any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
 
+    # N5: jsonPatch merges into a struct by Godot names; N6: one bad key does not hide the others.
+    logs = call(host, "node-modify", {**node, "jsonPatch": json.dumps({"position": {"x": 7}, "omni_range": 9})})
+    expect_logs("N5 nested Godot names in jsonPatch", logs, errors=False, saved_marker=None)
+    logs = call(host, "node-modify", {**node, "jsonPatch": json.dumps({"LightIndirectEnergy": 2.25, "NoSuchProperty": 1})})
+    expect_logs("N6 partial jsonPatch", logs, errors=True, saved_marker=None)
+    check("N6 the valid key still counts", not any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
+
     call(host, "scene-save", {})
     check("N1 light_energy = 3.5", file_has(project, scene, r"^light_energy = 3\.5$"))
-    check("N1 position.x = 4", file_has(project, scene, r"^transform = Transform3D\(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0\)$"))
+    check("N6 light_indirect_energy = 2.25", file_has(project, scene, r"^light_indirect_energy = 2\.25$"))
+    check("N5 position.x = 7", file_has(project, scene, r"^transform = Transform3D\(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 0\)$"))
     check("N1 light_color", file_has(project, scene, r"^light_color = Color\(1, 0\.5, 0, 1\)$"))
-    check("N2 omni_range = 7", file_has(project, scene, r"^omni_range = 7\.0$"))
+    check("N5 omni_range = 9", file_has(project, scene, r"^omni_range = 9\.0$"))
     check("N2 shadow_enabled = true", file_has(project, scene, r"^shadow_enabled = true$"))
     check("N4 light_cull_mask = 4294967294", file_has(project, scene, r"^light_cull_mask = 4294967294$"))
 

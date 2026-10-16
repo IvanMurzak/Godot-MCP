@@ -47,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ResourceRef resourceRef,
             [Description("Optional list of path-scoped patches, each a {path, value}; see the path syntax in the tool description.")]
             List<NodePropertyPatch>? pathPatches = null,
-            [Description("Optional JSON Merge Patch (RFC 7396); top-level keys may be Godot property names, as in 'pathPatches'.")]
+            [Description("Optional JSON Merge Patch (RFC 7396); keys may be Godot property names at any depth (see the path syntax in the tool description).")]
             string? jsonPatch = null
         )
         {
