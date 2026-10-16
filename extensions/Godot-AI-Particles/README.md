@@ -30,3 +30,14 @@ Previous NuGet versions remain installable after the repository migration.
 See the [monorepo test and release guide](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/EXTENSION-MONOREPO.md).
 This module retains its own package, version, tests and Apache-2.0 [license](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Particles/LICENSE).
 Releasing another module does not rebuild or republish this package.
+
+## Asset Library installation
+
+The independent Asset Library entry is named **Godot MCP - Particles** and becomes public after moderator approval.
+It downloads only this extension from its versioned GitHub release. Install Godot MCP core
+and configure its NuGet dependencies first, then install the archive into the project and build C#.
+The archive includes its own license, README and installation instructions. Third-party addon
+prerequisites listed above still apply. Use either this source installation or this extension
+NuGet package in a project; installing both creates duplicate C# types.
+
+See the [Asset Library release guide](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/EXTENSION-MONOREPO.md#godot-asset-library).

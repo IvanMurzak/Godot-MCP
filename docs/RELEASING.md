@@ -116,6 +116,11 @@ the version guard fails every further real dispatch of that version: bump to a n
 
 ## Godot Asset Library submission
 
+Independent extension entries use the component publisher described in
+[`EXTENSION-MONOREPO.md`](EXTENSION-MONOREPO.md#godot-asset-library). It creates initial
+submissions and version edits with per-component source ZIPs. The following section
+describes the core addon, whose existing Asset Library release job is unchanged.
+
 The Godot Asset Library is the discoverable in-editor channel (*AssetLib* tab). It has two distinct
 operations:
 

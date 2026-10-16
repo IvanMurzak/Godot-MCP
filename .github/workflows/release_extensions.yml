@@ -120,6 +120,12 @@ jobs:
       - name: Publish independent component releases (preserve core latest)
         if: inputs.dry_run != true
         run: python scripts/extension_release.py publish-github --only "$SELECTION"
+      - name: Submit independent Asset Library entries
+        if: inputs.dry_run != true
+        env:
+          GODOT_ASSETLIB_USERNAME: ${{ secrets.GODOT_ASSETLIB_USERNAME }}
+          GODOT_ASSETLIB_PASSWORD: ${{ secrets.GODOT_ASSETLIB_PASSWORD }}
+        run: python scripts/assetlib_extensions.py sync --only "$SELECTION"
       - uses: actions/upload-artifact@v6
         with:
           name: selected-extension-packages
