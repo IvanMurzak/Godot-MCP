@@ -6,6 +6,8 @@ import * as zlib from 'zlib';
 import { installPlugin } from '../src/lib/install-plugin.js';
 import { GODOT_MCP_PLUGIN_PATH, parseEnabledPlugins } from '../src/utils/project-godot.js';
 import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES } from '../src/utils/addon-deps.js';
+import { parseCsprojPackageReferences } from '../src/utils/addon-nuget-deps.js';
+import { fileURLToPath } from 'url';
 
 const MINIMAL_PROJECT = '; Engine configuration file.\nconfig_version=5\n\n[application]\n\nconfig/name="Test"\n';
 const CSPROJ = `<Project Sdk="Godot.NET.Sdk/4.3.0">
@@ -308,5 +310,147 @@ describe('installPlugin — skipMaterialize', () => {
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+// ---- NuGet versions come from the INSTALLED addon, not from this CLI build ----
+// Versions deliberately unlike ADDON_PACKAGE_REFERENCES, so a test can only pass when the
+// installer read them from the addon (or the checkout) rather than the built-in constants.
+const ADDON_MANIFEST_REFS = [
+  { id: 'com.IvanMurzak.ReflectorNet', version: '1.11.1' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '2.22.2-test' },
+];
+const CHECKOUT_CSPROJ_REFS = [
+  { id: 'com.IvanMurzak.ReflectorNet', version: '3.33.3' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '4.44.4' },
+];
+const nugetDepsJson = (refs: { id: string; version: string }[]): Buffer =>
+  Buffer.from(JSON.stringify({ schemaVersion: 1, packageReferences: refs }));
+
+function expectPinned(csprojFile: string, refs: readonly { id: string; version: string }[]): void {
+  const text = fs.readFileSync(csprojFile, 'utf-8');
+  for (const ref of refs) expect(text).toContain(`Include="${ref.id}" Version="${ref.version}"`);
+}
+
+describe('installPlugin — NuGet versions from the installed addon', () => {
+  let tmp: string;
+  let csprojFile: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gmcp-deps-'));
+    fs.writeFileSync(path.join(tmp, 'project.godot'), MINIMAL_PROJECT);
+    csprojFile = path.join(tmp, 'MyGame.csproj');
+    fs.writeFileSync(csprojFile, CSPROJ);
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  const zipWith = (manifest?: Buffer): Buffer =>
+    buildZip([
+      { path: 'addons/godot_mcp/plugin.cfg', content: Buffer.from('[plugin]\nname="godot_mcp"\nversion="9.9.9"\n') },
+      ...(manifest ? [{ path: 'addons/godot_mcp/nuget-deps.json', content: manifest }] : []),
+    ]);
+
+  it("download: pins the versions from the zip's nuget-deps.json, not the CLI build", async () => {
+    const result = await installPlugin({
+      godotProjectPath: tmp,
+      version: '9.9.9',
+      fetchImpl: mockFetchZip(zipWith(nugetDepsJson(ADDON_MANIFEST_REFS))),
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.csproj.packagesOrigin).toBe('addon-manifest');
+    expect(result.csproj.packages).toEqual(ADDON_MANIFEST_REFS.map((r) => ({ ...r, action: 'added' })));
+    expectPinned(csprojFile, ADDON_MANIFEST_REFS);
+    expect(result.warnings.filter((w) => w.includes('nuget-deps.json'))).toEqual([]);
+  });
+
+  it("download: re-pins a consumer csproj that carries the CLI build's versions", async () => {
+    await installPlugin({ godotProjectPath: tmp, skipMaterialize: true }); // built-in pins
+    expectPinned(csprojFile, ADDON_PACKAGE_REFERENCES);
+    const result = await installPlugin({
+      godotProjectPath: tmp,
+      version: '9.9.9',
+      fetchImpl: mockFetchZip(zipWith(nugetDepsJson(ADDON_MANIFEST_REFS))),
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.csproj.packages.map((p) => p.action)).toEqual(['updated', 'updated']);
+    expectPinned(csprojFile, ADDON_MANIFEST_REFS);
+  });
+
+  it('download of an old zip without nuget-deps.json falls back to the built-in pins, with a warning', async () => {
+    const result = await installPlugin({ godotProjectPath: tmp, version: '0.25.0', fetchImpl: mockFetchZip(zipWith()) });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.csproj.packagesOrigin).toBe('builtin');
+    expectPinned(csprojFile, ADDON_PACKAGE_REFERENCES);
+    expect(result.warnings.some((w) => w.includes('nuget-deps.json'))).toBe(true);
+  });
+
+  it('a malformed nuget-deps.json falls back to the built-in pins, with a warning', async () => {
+    const bad = Buffer.from(JSON.stringify({ packageReferences: [{ id: 'x', version: '1" Evil="' }] }));
+    const result = await installPlugin({ godotProjectPath: tmp, version: '9.9.9', fetchImpl: mockFetchZip(zipWith(bad)) });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.csproj.packagesOrigin).toBe('builtin');
+    expectPinned(csprojFile, ADDON_PACKAGE_REFERENCES);
+    expect(result.warnings.some((w) => w.includes('malformed'))).toBe(true);
+  });
+
+  it('skipMaterialize: reads nuget-deps.json from the addon already in the project', async () => {
+    const addon = path.join(tmp, 'addons', 'godot_mcp');
+    fs.mkdirSync(addon, { recursive: true });
+    fs.writeFileSync(path.join(addon, 'plugin.cfg'), '[plugin]\n');
+    fs.writeFileSync(path.join(addon, 'nuget-deps.json'), nugetDepsJson(ADDON_MANIFEST_REFS));
+    const result = await installPlugin({ godotProjectPath: tmp, skipMaterialize: true });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.csproj.packagesOrigin).toBe('addon-manifest');
+    expectPinned(csprojFile, ADDON_MANIFEST_REFS);
+  });
+
+  describe('--source', () => {
+    let src: string;
+    let addon: string;
+    beforeEach(() => {
+      src = fs.mkdtempSync(path.join(os.tmpdir(), 'gmcp-deps-src-'));
+      addon = path.join(src, 'addons', 'godot_mcp');
+      fs.mkdirSync(addon, { recursive: true });
+      fs.writeFileSync(path.join(addon, 'plugin.cfg'), '[plugin]\n');
+    });
+    afterEach(() => fs.rmSync(src, { recursive: true, force: true }));
+
+    it('a Godot-MCP checkout: reads its Godot-MCP.csproj (over a stale generated manifest)', async () => {
+      const refs = CHECKOUT_CSPROJ_REFS.map((r) => `    <PackageReference Include="${r.id}" Version="${r.version}" />`);
+      fs.writeFileSync(
+        path.join(src, 'Godot-MCP.csproj'),
+        `<Project Sdk="Godot.NET.Sdk/4.3.0">\n  <ItemGroup>\n${refs.join('\n')}\n  </ItemGroup>\n</Project>\n`,
+      );
+      fs.writeFileSync(path.join(addon, 'nuget-deps.json'), nugetDepsJson(ADDON_MANIFEST_REFS));
+      const result = await installPlugin({ godotProjectPath: tmp, source: addon });
+      expect(result.kind).toBe('success');
+      if (result.kind !== 'success') return;
+      expect(result.csproj.packagesOrigin).toBe('source-csproj');
+      expectPinned(csprojFile, CHECKOUT_CSPROJ_REFS);
+    });
+
+    it('an extracted release zip (no csproj): reads the copied nuget-deps.json', async () => {
+      fs.writeFileSync(path.join(addon, 'nuget-deps.json'), nugetDepsJson(ADDON_MANIFEST_REFS));
+      const result = await installPlugin({ godotProjectPath: tmp, source: src });
+      expect(result.kind).toBe('success');
+      if (result.kind !== 'success') return;
+      expect(result.csproj.packagesOrigin).toBe('addon-manifest');
+      expectPinned(csprojFile, ADDON_MANIFEST_REFS);
+    });
+
+    it("this repo's own addons/godot_mcp: pins exactly what Godot-MCP.csproj pins", async () => {
+      const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+      const result = await installPlugin({ godotProjectPath: tmp, source: path.join(repoRoot, 'addons', 'godot_mcp') });
+      expect(result.kind).toBe('success');
+      if (result.kind !== 'success') return;
+      expect(result.csproj.packagesOrigin).toBe('source-csproj');
+      expect(result.csproj.packages.map(({ id, version }) => ({ id, version }))).toEqual(
+        parseCsprojPackageReferences(fs.readFileSync(path.join(repoRoot, 'Godot-MCP.csproj'), 'utf-8')),
+      );
+    });
   });
 });

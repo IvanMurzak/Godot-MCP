@@ -316,8 +316,8 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.4.0" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.1" />
 </ItemGroup>
 
 <!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
@@ -328,8 +328,8 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 
 | Package | Version | Role |
 | --- | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.1` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.4.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.2` | Reflection / serialization core |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.7.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
 registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem
@@ -358,8 +358,10 @@ window to communicate with the LLM.
 Write the agent's MCP-client config with `godot-cli setup-mcp <agent> ./MyGodotProject`. By default it
 points the client at the **project-pinned** cloud URL `<host>/mcp/p/<pin>`, so an agent session launched in
 this project folder routes to *this* project's editor even when your account has several editors connected;
-pass `--no-pin` for the bare `<host>/mcp` URL. OAuth-capable agents (Claude Code, Cursor, Copilot, …)
-authenticate to the cloud through their own OAuth handshake — no token is written into the config. See the
+pass `--no-pin` for the bare `<host>/mcp` URL. In Cloud mode the config carries this project's **project
+key** (`Authorization: Bearer agd_pk_…`) — a non-expiring credential bound to this project only, created
+with your machine sign-in; without a sign-in (or with `--oauth`) the config is URL-only and the agent signs
+in with its own OAuth. The editor's **Configure** button writes the same config. See the
 [CLI documentation](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/README.md) for the full list of
 supported agents.
 
@@ -389,6 +391,7 @@ is appended automatically). This is the default `connectionMode`.
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | Force the mode: `Cloud` or `Custom` (case-insensitive). | `Cloud` |
 | `GODOT_MCP_CLOUD_URL` | Override the cloud base URL. A trailing `/mcp` is stripped if present; a non-http(s) value falls back to the default. | `https://ai-game.dev` |
+| `GODOT_MCP_CREDENTIALS_DIR` | Absolute credential-store directory for isolated development/testing. Also accepted in the project's `.env`; process environment wins. Omit for the regular machine store. | Platform user profile's `.ai-game-dev` |
 | `GODOT_MCP_TOKEN` | Bearer token, routed to the active mode's token. Surrounding quotes are trimmed. | (none) |
 
 ## Custom mode — your own server
@@ -959,8 +962,8 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 ```
 
 A Godot 4.3+ editor is only needed for live behavioral verification of the engine-driving tools. See
-[`CLAUDE.md`](https://github.com/IvanMurzak/Godot-MCP/blob/main/CLAUDE.md) for the full build/test/run
-runbook, the editor-runtime assembly-load fix, conventions, and the headless testbed smoke.
+[`AGENTS.md`](https://github.com/IvanMurzak/Godot-MCP/blob/main/AGENTS.md) for the build/test commands,
+the editor-runtime assembly-load notes, conventions, and the headless testbed smoke.
 
 Contributions are highly appreciated. **Please give this project a star 🌟 if you find it useful!**
 

@@ -118,18 +118,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public async Task RefreshAsync_NullServerTarget_UsesTheLiveDefaultBase()
+        public async Task RefreshAsync_NullServerTarget_StaysBoundToOriginalProductionOrigin()
         {
             var handler = new RecordingHandler(TokenOk(NewAccess, NewRefresh));
-            // Read LIVE per call (a .env cloud-URL override applies without a rebuild): flip the value
-            // between construction and the call to prove the resolution is not captured at construction.
+            // A changed cloud URL cannot redirect a legacy refresh token without an issuer.
             var liveBase = "https://constructed.example";
             var refresher = MakeRefresher(handler, defaultBase: () => liveBase);
             liveBase = "https://local-as.example";
 
             await refresher.RefreshAsync("old-refresh", serverTarget: null);
 
-            Assert.Equal("https://local-as.example/oauth/token", handler.LastRequestUri);
+            Assert.Equal("https://ai-game.dev/oauth/token", handler.LastRequestUri);
         }
 
         [Fact]

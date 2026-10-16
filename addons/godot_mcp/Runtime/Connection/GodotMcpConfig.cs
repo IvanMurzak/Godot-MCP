@@ -12,6 +12,7 @@ using System;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.AgentConfig;
 using HubConsts = com.IvanMurzak.McpPlugin.Common.Consts.Hub;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
@@ -98,6 +99,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         // --- Serialized backing fields. ---
 
+        /// <summary>Optional enrolled/configured cloud origin. Process environment overrides it.</summary>
+        [JsonPropertyName("cloudBaseUrl")]
+        public string? CloudBaseUrl { get; set; }
+
+        /// <summary>Apply an enrolled target before persisted/project/process overrides.</summary>
+        public void ApplyProjectMarker(ProjectMarker? marker)
+        {
+            var target = GodotProjectIdentity.ResolveServerTarget(marker);
+            if (target == null)
+                return;
+            ConnectionMode = target.Value.Mode;
+            if (target.Value.Mode == GodotMcpConnectionMode.Cloud)
+                CloudBaseUrl = target.Value.ServerTarget;
+            else
+                CustomHost = target.Value.CustomHost!;
+        }
+
         /// <summary>
         /// Backing field for the custom-mode server URL. Serialized as <c>host</c>.
         /// Use <see cref="Host"/> for the active connection URL (which routes through Cloud mode).
@@ -112,6 +130,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>Backing field for the cloud-mode bearer token. Serialized as <c>cloudToken</c>.</summary>
         [JsonPropertyName("cloudToken")]
         public string? CloudToken { get; set; }
+
+        /// <summary>Origin that issued CloudToken; older unbound tokens belong to the production default.</summary>
+        [JsonPropertyName("cloudTokenServerTarget")]
+        public string? CloudTokenServerTarget { get; set; }
 
         /// <summary>The configured connection mode (overridable by <see cref="EnvConnectionMode"/> via <see cref="ResolveActiveMode"/>).</summary>
         [JsonPropertyName("connectionMode")]
@@ -194,7 +216,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonIgnore]
         public override string Host
         {
-            get => ActiveMode == GodotMcpConnectionMode.Cloud ? ResolveCloudUrl() : ResolveCustomHost();
+            get => ActiveMode == GodotMcpConnectionMode.Cloud ? ResolveCloudUrl(CloudBaseUrl) : ResolveCustomHost();
             set => CustomHost = value;
         }
 
@@ -219,7 +241,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             set
             {
                 if (ActiveMode == GodotMcpConnectionMode.Cloud)
+                {
                     CloudToken = value;
+                    CloudTokenServerTarget = ResolveCloudBaseUrl(CloudBaseUrl);
+                }
                 else
                     CustomToken = value;
             }
@@ -285,9 +310,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Invalid / non-http(s) overrides fall back to <see cref="DefaultCloudBaseUrl"/>. A trailing
         /// <c>/mcp</c> is stripped so <see cref="ResolveCloudUrl"/> never produces <c>/mcp/mcp</c>.
         /// </summary>
-        public static string ResolveCloudBaseUrl()
+        public static string ResolveCloudBaseUrl(string? configured = null, bool useProcessEnvironment = true)
         {
-            var normalized = NormalizeUrl(ReadEnv(EnvCloudUrl));
+            var normalized = useProcessEnvironment ? NormalizeUrl(ReadEnv(EnvCloudUrl)) : null;
+            if (string.IsNullOrEmpty(normalized))
+                normalized = NormalizeUrl(configured);
             if (string.IsNullOrEmpty(normalized))
                 return DefaultCloudBaseUrl;
 
@@ -301,7 +328,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>Resolve the full cloud connection URL (base + <see cref="CloudHubPath"/>).</summary>
-        public static string ResolveCloudUrl() => ResolveCloudBaseUrl() + CloudHubPath;
+        public static string ResolveCloudUrl(string? configured = null) => ResolveCloudBaseUrl(configured) + CloudHubPath;
 
         /// <summary>
         /// Resolve the MCP-client endpoint URL an external AI client (Claude Code, Cursor, …) should POST to —
@@ -327,7 +354,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 throw new ArgumentNullException(nameof(config));
 
             if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
-                return ResolveCloudUrl();
+                return ResolveCloudUrl(config.CloudBaseUrl);
 
             // Custom mode: the plugin connects to <host>/hub/mcp-server; the MCP client connects to <host>/mcp.
             var host = config.ResolveCustomHost().TrimEnd('/');
@@ -359,7 +386,21 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public string? ResolveCloudToken()
         {
             var envToken = NormalizeEnv(ReadEnv(EnvToken));
-            return string.IsNullOrEmpty(envToken) ? CloudToken : envToken;
+            if (!string.IsNullOrEmpty(envToken))
+                return envToken; // Explicit process override belongs to the configured connection.
+            return SameServerOrigin(CloudTokenServerTarget, ResolveCloudBaseUrl(CloudBaseUrl)) ? CloudToken : null;
+        }
+
+        /// <summary>Compare credential origins without allowing malformed URLs to inherit a trusted default.</summary>
+        public static bool SameServerOrigin(string? issuedFor, string target)
+        {
+            issuedFor = string.IsNullOrWhiteSpace(issuedFor) ? DefaultCloudBaseUrl : issuedFor;
+            return Uri.TryCreate(issuedFor, UriKind.Absolute, out var source) &&
+                Uri.TryCreate(target, UriKind.Absolute, out var destination) &&
+                (source.Scheme == Uri.UriSchemeHttps || source.Scheme == Uri.UriSchemeHttp) &&
+                string.IsNullOrEmpty(source.UserInfo) && string.IsNullOrEmpty(destination.UserInfo) &&
+                string.Equals(source.GetLeftPart(UriPartial.Authority), destination.GetLeftPart(UriPartial.Authority),
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

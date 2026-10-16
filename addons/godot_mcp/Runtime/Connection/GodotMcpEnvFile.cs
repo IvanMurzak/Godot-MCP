@@ -46,6 +46,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// </summary>
     public static class GodotMcpEnvFile
     {
+        /// <summary>Explicit storage isolation for development/test Editors. Contains a path, never a token.</summary>
+        public const string EnvCredentialsDirectory = "GODOT_MCP_CREDENTIALS_DIR";
+
+        /// <summary>Use process > project .env > platform machine-store default. Only absolute paths are accepted.</summary>
+        public static string? ResolveCredentialsDirectory(string? projectRoot)
+        {
+            var directory = Environment.GetEnvironmentVariable(EnvCredentialsDirectory);
+            if (string.IsNullOrWhiteSpace(directory) && !string.IsNullOrEmpty(projectRoot))
+                LoadFile(Path.Combine(projectRoot, ".env")).TryGetValue(EnvCredentialsDirectory, out directory);
+            if (string.IsNullOrWhiteSpace(directory))
+                return null;
+            if (!Path.IsPathFullyQualified(directory))
+                throw new ArgumentException("GODOT_MCP_CREDENTIALS_DIR must be an absolute path.");
+            return Path.GetFullPath(directory);
+        }
+
         /// <summary>The recognized keys. Any other key in the file is ignored.</summary>
         static readonly string[] RecognizedKeys =
         {
@@ -54,7 +70,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             GodotMcpConfig.EnvCloudUrl,
             GodotMcpConfig.EnvToken,
             GodotMcpConfig.EnvAuthOption,
-            GodotMcpConfig.EnvLogLevel
+            GodotMcpConfig.EnvLogLevel,
+            EnvCredentialsDirectory
         };
 
         /// <summary>
@@ -166,10 +183,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (values.TryGetValue(GodotMcpConfig.EnvHost, out var fileHost))
                 config.CustomHost = fileHost;
 
-            // GODOT_MCP_CLOUD_URL has no serialized backing field on the config (the cloud base is
-            // resolved purely from env/default by ResolveCloudBaseUrl). There is nothing to write for it
-            // at the file layer beyond informing the loopback decision below; a file CLOUD_URL only takes
-            // effect when also exported to the process env, matching the env-only cloud-base contract.
+            if (values.TryGetValue(GodotMcpConfig.EnvCloudUrl, out var fileCloudUrl))
+                config.CloudBaseUrl = fileCloudUrl;
 
             // 2) Mode: explicit file mode wins next; else loopback host → Custom. (Env mode already wins
             //    live via ActiveMode, so we never need to special-case it here.)
@@ -204,7 +219,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (values.TryGetValue(GodotMcpConfig.EnvToken, out var fileToken))
             {
                 if (config.ActiveMode == GodotMcpConnectionMode.Cloud)
+                {
                     config.CloudToken = fileToken;
+                    // A process URL override must not relabel a project's existing token.
+                    // Target-less legacy file tokens belong to the original production origin.
+                    values.TryGetValue(GodotMcpConfig.EnvCloudUrl, out var tokenOrigin);
+                    config.CloudTokenServerTarget = GodotMcpConfig.ResolveCloudBaseUrl(tokenOrigin, useProcessEnvironment: false);
+                }
                 else
                     config.CustomToken = fileToken;
             }

@@ -468,3 +468,9 @@ obj/
 ## Agent memory (per the infra workspace convention — never commit nested agent-memory dirs)
 ##
 **/.claude/agent-memory/
+
+##
+## Generated at release time by scripts/write-nuget-deps.mjs (from Godot-MCP.csproj) and packed into
+## the addon zip for `godot-cli install-plugin`. Never committed: the csproj is the source of truth.
+##
+addons/godot_mcp/nuget-deps.json

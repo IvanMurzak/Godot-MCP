@@ -1,5 +1,13 @@
 import * as path from 'path';
-import { pinUrl } from '@baizor/gamedev-cli-core';
+import {
+  createProjectKeyResolver,
+  godotAdapter,
+  ProjectKeyStore,
+  isCloudUrl,
+  pinUrl,
+  toAuthServerRoot,
+  type ProjectKeyResult,
+} from '@baizor/gamedev-cli-core';
 import {
   CLOUD_MCP_URL,
   ENV_HOST,
@@ -8,7 +16,10 @@ import {
 } from '../utils/connection.js';
 import {
   getAgentById,
+  getAgentConfigPaths,
   getAgentIds,
+  httpHeadersKeyOf,
+  rewriteProjectKeyInAgentConfigs,
   writeJsonAgentConfig,
   writeTomlAgentConfig,
   MCP_SERVER_NAME,
@@ -16,7 +27,7 @@ import {
 import { derivePinV2 } from '../utils/project-identity.js';
 import { emitProgress } from './progress.js';
 import { requireExistingPath } from './validation.js';
-import type { SetupMcpOptions, SetupMcpResult } from './types.js';
+import type { SetupMcpCredential, SetupMcpOptions, SetupMcpResult } from './types.js';
 
 /**
  * Normalize an env-supplied value (trim + strip a single wrapping double-quote
@@ -80,16 +91,22 @@ export function shouldWriteAuthHeader(input: {
   return input.explicitToken;
 }
 
-/** True when `configPath` resolves inside `projectPath` (a project-scoped, likely VCS-tracked file). */
-function isInsideProject(projectPath: string, configPath: string): boolean {
-  const rel = path.relative(projectPath, configPath);
-  return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
-}
-
 /**
  * Write MCP configuration for the given AI agent so it can talk to a Godot-MCP
  * server. Library-safe: no stdout noise, no process.exit, no throws past the
  * public boundary.
+ *
+ * **Credential policy (project-keys contract §7, owner rulings 2026-09-23)** — mirrors cli-core's
+ * `setupMcp`:
+ *   - an explicit `token` always wins (the Flow C PAT opt-in, see `shouldWriteAuthHeader`);
+ *   - otherwise a **Cloud** config (a non-loopback hub URL) carries `Authorization: Bearer agd_pk_…` —
+ *     a non-expiring project key strictly bound to this project's pin, reused from
+ *     `~/.ai-game-dev/project-keys.json` or minted with the machine credential — for EVERY agent,
+ *     through each agent's own static-header key (`headers`, Codex `http_headers`);
+ *   - `oauth` opts out (URL-only, any previous header removed);
+ *   - `regenerateKey` mints a fresh key, rewrites the config, then revokes the previous key;
+ *   - no machine login / a failed mint ⇒ URL-only with a warning (the write itself never fails);
+ *   - a local-server (loopback) config is unchanged.
  *
  * Writes an HTTP server entry pointing at the resolved MCP-client URL. The
  * Godot config body shape mirrors the addon's `AgentConfigJson` / `AgentConfigPaths`
@@ -148,52 +165,160 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
     // — decision M8).
     const baseClientUrl = resolveMcpClientUrl(opts.url);
     const pinned = opts.noPin !== true;
-    const serverUrl = pinned ? pinUrl(baseClientUrl, derivePinV2(projectPath)) : baseClientUrl;
+    const pin = derivePinV2(projectPath);
+    const serverUrl = pinned ? pinUrl(baseClientUrl, pin) : baseClientUrl;
     // A token supplied EXPLICITLY by the caller (`--token` / the library `token`
     // arg) is a deliberate Flow C PAT opt-in; a token that is only present in the
     // ambient `GODOT_MCP_TOKEN` env (e.g. one a prior `login` set) is NOT.
     const explicitToken = typeof opts.token === 'string' && opts.token.length > 0;
-    const token = opts.token ?? normalizeEnv(process.env[ENV_TOKEN]) ?? '';
-    // OAuth-aware header gate (design D11 / auth Flow A & C): OAuth-capable clients
-    // get a credential-free, URL-only config so their native RFC 9728 OAuth runs;
-    // a static Authorization header is written only for a non-OAuth client or an
-    // explicit PAT opt-in. See `shouldWriteAuthHeader`.
-    const authRequired = shouldWriteAuthHeader({
-      hasToken: token.length > 0,
-      explicitToken,
-      supportsOAuth: agent.supportsOAuth,
-    });
+    const cloud = isCloudUrl(baseClientUrl);
+    if (opts.regenerateKey && (opts.oauth || explicitToken || !cloud)) {
+      return {
+        kind: 'failure',
+        success: false,
+        warnings,
+        error: new Error(
+          '--regenerate-key applies only to a Cloud config without --oauth / --token ' +
+            '(project keys are not used for a local server).',
+        ),
+      };
+    }
 
-    const configPath = agent.getConfigPath(projectPath);
+    // Cloud default (contract §7): resolve the project key unless the caller opted out.
+    let key: Extract<ProjectKeyResult, { kind: 'ok' }> | undefined;
+    // Regenerate: the key being replaced, read BEFORE the resolver overwrites the cache entry, so the
+    // project's other agent configs still holding it can be carried over to the new key (see below).
+    let previousKey: string | undefined;
+    if (cloud && !explicitToken && !opts.oauth) {
+      const issuer = toAuthServerRoot(baseClientUrl);
+      if (opts.regenerateKey) {
+        const lookup = opts.previousProjectKey ?? ((i: string, p: string) => new ProjectKeyStore().get(i, p)?.key);
+        previousKey = lookup(issuer, pin);
+      }
+      const resolver = opts.projectKeyResolver ?? createProjectKeyResolver(godotAdapter);
+      const outcome = await resolver({
+        issuer,
+        pin,
+        engine: 'godot',
+        label: projectPath,
+        machineName: opts.machineName,
+        regenerate: opts.regenerateKey === true,
+      });
+      if (outcome.kind === 'ok') {
+        key = outcome;
+        warnings.push(...outcome.warnings);
+      } else if (opts.regenerateKey) {
+        return {
+          kind: 'failure',
+          success: false,
+          warnings,
+          error: new Error(`Could not regenerate the project key: ${outcome.reason}`),
+        };
+      } else {
+        warnings.push(
+          `No project key written (${outcome.reason}) — the config is URL-only and the agent must sign in with its own OAuth. ` +
+            'Sign in on this machine (`godot-cli login`) and run setup-mcp again to write a project key.',
+        );
+      }
+    }
+
+    // OAuth-aware header gate (design D11 / auth Flow A & C): without a project key, OAuth-capable
+    // clients get a credential-free, URL-only config so their native RFC 9728 OAuth runs; a static
+    // Authorization header is written only for a non-OAuth client or an explicit PAT opt-in. A
+    // project key is written for every agent.
+    const token = key?.key ?? opts.token ?? normalizeEnv(process.env[ENV_TOKEN]) ?? '';
+    const authRequired =
+      key !== undefined ||
+      shouldWriteAuthHeader({
+        hasToken: token.length > 0,
+        explicitToken,
+        supportsOAuth: agent.supportsOAuth,
+      });
+
+    const configPaths = getAgentConfigPaths(agent, projectPath);
     const props = agent.getHttpProps(serverUrl, token, authRequired);
+    // Gate on whether a static header was ACTUALLY emitted into `props` (an agent whose format lacks
+    // one writes none).
+    const headersKey = httpHeadersKeyOf(agent);
+    const wroteAuthHeader = Boolean((props as Record<string, unknown>)[headersKey]);
+    const credential: SetupMcpCredential = !wroteAuthHeader ? 'none' : key ? 'project-key' : 'token';
+    // A config written without a header must not keep a stale one: in Cloud (--oauth, no login, failed
+    // mint) it would suppress the client's native OAuth, and re-pointing an entry at a local server must
+    // not carry the Cloud project key along.
+    const removeKeys = wroteAuthHeader ? agent.httpRemoveKeys : [...agent.httpRemoveKeys, headersKey];
 
-    // Flow C safety: a static PAT written into a project-scoped config file is a
-    // VCS leak risk — warn so the user prefers an env var / user-scoped config (or
-    // relies on native OAuth by omitting the token). Gate on whether a static
-    // header was ACTUALLY emitted into `props`, not merely on `authRequired`:
-    // agents whose `getHttpProps` ignore the token (e.g. Codex / Antigravity)
-    // write no `headers`, so an explicit `--token` there must NOT raise a "leaked
-    // credential" warning about a header that was never written to the file.
-    const wroteAuthHeader = Boolean((props as { headers?: unknown }).headers);
-    if (wroteAuthHeader && isInsideProject(projectPath, configPath)) {
+    // Write EVERY config file of the agent (Antigravity has two). One failing must not pass silently,
+    // and must not stop the others: each is attempted, then the failures are reported by path.
+    const write = agent.configFormat === 'toml' ? writeTomlAgentConfig : writeJsonAgentConfig;
+    const written: string[] = [];
+    const failedWrites: string[] = [];
+    for (const configPath of configPaths) {
+      try {
+        write(configPath, agent.bodyPath, MCP_SERVER_NAME, props, removeKeys);
+        written.push(configPath);
+        emitProgress(opts.onProgress, {
+          phase: 'manifest-patched',
+          message: `Wrote ${configPath}`,
+          manifestPath: configPath,
+        });
+      } catch (err) {
+        failedWrites.push(`${configPath} (${err instanceof Error ? err.message : String(err)})`);
+      }
+    }
+    if (failedWrites.length > 0) {
+      // The previous key (on a regenerate) is NOT revoked: a config still holds it.
+      return {
+        kind: 'failure',
+        success: false,
+        warnings,
+        error: new Error(
+          `Could not write ${agent.name} config: ${failedWrites.join('; ')}.` +
+            (written.length > 0 ? ` Written: ${written.join(', ')}.` : '') +
+            // The new key is already cached, so a later --regenerate-key replaces IT, never this one.
+            (key?.revokePrevious
+              ? ' The previous project key was NOT revoked; once the config is fixed, re-run setup-mcp ' +
+                'without --regenerate-key and revoke the previous key from your account page.'
+              : ''),
+        ),
+      };
+    }
+
+    // Regenerate: the other agent configs that still carry the previous key (pinned or `--no-pin` URL —
+    // the key is this project's, whatever URL it sits next to) would break the moment it is revoked (only
+    // a regenerate that replaced this account's cached key revokes — `revokePrevious`) — carry the new key into them first. Revoke
+    // only when every one of them was rewritten; otherwise keep the old key alive and say which failed.
+    const rewrite =
+      key?.revokePrevious && previousKey && previousKey !== key.key
+        ? rewriteProjectKeyInAgentConfigs({
+            projectPath,
+            oldKey: previousKey,
+            newKey: key.key,
+            skipPaths: written,
+          })
+        : undefined;
+    const revokeBlocked = (rewrite?.failed.length ?? 0) > 0;
+    if (rewrite && revokeBlocked) {
+      // Not "run --regenerate-key again": the new key is already cached, so a second regenerate would
+      // treat IT as the previous key and never revoke (or rewrite configs still holding) this one.
       warnings.push(
-        `Wrote a static Authorization (PAT) header into the project-scoped config ${configPath}. ` +
-          `Committing this file would leak the credential — prefer setting ${ENV_TOKEN} in your ` +
-          `environment or a user-scoped config, or omit the token to use the client's native OAuth.`,
+        'These agent configs may still carry the previous project key and could not be rewritten, so the previous key ' +
+          'was NOT revoked (fix them, re-run setup-mcp for their agent to write the new key, then revoke the ' +
+          `previous key from your account page): ${rewrite.failed.map((f) => `${f.path} (${f.reason})`).join('; ')}.`,
       );
     }
 
-    if (agent.configFormat === 'toml') {
-      writeTomlAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);
-    } else {
-      writeJsonAgentConfig(configPath, agent.bodyPath, MCP_SERVER_NAME, props, agent.httpRemoveKeys);
+    // Regenerate (§7): only once the new key is cached AND the configs rewritten, revoke the old one.
+    // A revoke failure is reported, never fatal.
+    if (key?.revokePrevious && !revokeBlocked) {
+      try {
+        const revokeWarning = await key.revokePrevious();
+        if (revokeWarning) warnings.push(revokeWarning);
+      } catch (err) {
+        warnings.push(
+          `Revoking the previous project key failed (${err instanceof Error ? err.message : String(err)}).`,
+        );
+      }
     }
-
-    emitProgress(opts.onProgress, {
-      phase: 'manifest-patched',
-      message: `Wrote ${configPath}`,
-      manifestPath: configPath,
-    });
 
     emitProgress(opts.onProgress, { phase: 'done', message: `${agent.name} configured successfully.` });
 
@@ -201,9 +326,14 @@ export async function setupMcp(opts: SetupMcpOptions): Promise<SetupMcpResult> {
       kind: 'success',
       success: true,
       agentId: agent.id,
-      configPath,
+      configPath: written[0],
+      configPaths: written,
+      rewrittenConfigPaths: rewrite?.rewritten ?? [],
       serverUrl,
       pinned,
+      credential,
+      projectKeyId: key?.keyId,
+      projectKeySource: key?.source,
       warnings,
     };
   } catch (err: unknown) {

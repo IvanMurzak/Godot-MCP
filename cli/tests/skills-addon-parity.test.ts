@@ -193,7 +193,7 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
       inAddonNotInCatalog,
       `Addon tool families with NO entry in cli/src/utils/skills.ts § SKILL_FAMILIES: ` +
         `[${inAddonNotInCatalog.join(', ')}]. Add a SkillFamily whose \`title\` is the ` +
-        `\`Tool_<Family>\` suffix (and update CLAUDE.md + README family count).`,
+        `\`Tool_<Family>\` suffix (and update the README family count).`,
     ).toEqual([]);
 
     expect(
@@ -257,7 +257,7 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
 
 describe('docs single-source: counts + McpPlugin version derive from addon source + csproj', () => {
   // The doc surfaces (README headline + Asset Library submission template + its
-  // mirrored SUBMISSION.md, plus CLAUDE.md) must state the SAME tool/family count
+  // mirrored SUBMISSION.md) must state the SAME tool/family count
   // the addon actually ships, and the Asset Library template must state the SAME
   // McpPlugin version the csproj pins. Deriving the expected values from the addon
   // source + csproj (not hard-coding them) keeps the addon + pin the single source
@@ -289,7 +289,6 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
     'README.md',
     '.github/assetlib/edit.hbs',
     'docs/assetlib/SUBMISSION.md',
-    'CLAUDE.md',
   ];
 
   for (const rel of countDocs) {
@@ -320,7 +319,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
     const pinMatch = csproj.match(/McpPlugin"\s+Version="([^"]+)"/);
     expect(pinMatch, 'Godot-MCP.csproj must declare a com.IvanMurzak.McpPlugin PackageReference').not.toBeNull();
     const expectedMcpPlugin = pinMatch![1];
-    expect(expectedMcpPlugin).toBe('8.4.0');
+    expect(expectedMcpPlugin).toBe('8.7.1');
 
     // edit.hbs renders `com.IvanMurzak.McpPlugin     version 7.1.1` — tolerate the
     // literal lowercase word `version` and runs of spaces between name and version.
@@ -341,8 +340,8 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   });
 
   // The adjacency assert above covers ONLY the two Asset Library surfaces. The pin is
-  // restated in four more consumer-facing docs, and none of them was gated — which is
-  // exactly how `README.md` and `CLAUDE.md` shipped a stale `7.1.1` while the csproj
+  // restated in three more docs, and none of them was gated — which is
+  // exactly how `README.md` (and the former agent-instructions file) shipped a stale `7.1.1` while the csproj
   // had moved to `7.3.0`. This block closes that hole for BOTH reused packages.
   //
   // Rule: on any LINE that names a reused package by its FULL id, every semantic
@@ -351,8 +350,9 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   // the many prose/`using`/URL mentions that carry no version at all. The full-id
   // requirement (plus a `(?!\.)` guard) skips sub-packages (`McpPlugin.Common`,
   // `ReflectorNet.Utils`) and bare-name prose such as the historical
-  // `'ReflectorNet, Version=5.3.1.0'` exception text in CLAUDE.md.
-  const PIN_DOCS = ['README.md', 'CLAUDE.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
+  // `'ReflectorNet, Version=5.3.1.0'` exception text.
+  // The agent index (AGENTS.md) is deliberately NOT gated: it must not restate pins at all.
+  const PIN_DOCS = ['README.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
   const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin'];
 
   /** Escape a literal package id so it cannot act as a regex pattern (`.` above all). */

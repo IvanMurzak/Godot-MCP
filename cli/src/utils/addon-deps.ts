@@ -1,13 +1,14 @@
 // The NuGet PackageReferences a consumer's Godot C# project MUST declare so the
 // `addons/godot_mcp/` sources compile into the project assembly (Godot globs every
 // `*.cs` under the project into one assembly — see the addon README
-// "Consumer-install story"). `install-plugin` writes these into the generated
-// consumer `.csproj` so a from-scratch terminal install actually builds.
+// "Consumer-install story").
 //
-// SINGLE SOURCE OF TRUTH: these values mirror the addon's own reused pins in
-// `Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`).
-// They are NOT a bump of those pins — they are the SAME values, copied so the
-// scaffold installs exactly what the addon was built against. A parity test
+// FALLBACK ONLY: `install-plugin` takes the versions from the addon it installs
+// (`addon-nuget-deps.ts`: the addon's generated `nuget-deps.json`, or the
+// checkout's `Godot-MCP.csproj` for `--source`). These constants are used only for
+// addon zips that predate that manifest. They mirror the addon's own reused pins in
+// `Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`) at
+// this CLI's version — the SAME values, never a bump of those pins. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
 // never silently install a mismatched version.
@@ -37,13 +38,13 @@ export interface AddonEmbeddedResource {
 }
 
 /**
- * The exact NuGet `PackageReference`s the consumer's project `.csproj` needs,
- * single-sourced from the addon's `Godot-MCP.csproj` pins. Order matches the
- * addon csproj (ReflectorNet first, then McpPlugin).
+ * The NuGet `PackageReference`s the addon of THIS CLI's version needs (fallback when
+ * the installed addon carries no `nuget-deps.json`), mirroring `Godot-MCP.csproj`.
+ * Order matches the addon csproj (ReflectorNet first, then McpPlugin).
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
-  { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.1' },
-  { id: 'com.IvanMurzak.McpPlugin', version: '8.4.0' },
+  { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.2' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '8.7.1' },
 ] as const;
 
 /**

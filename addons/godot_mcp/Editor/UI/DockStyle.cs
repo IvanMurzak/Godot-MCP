@@ -535,9 +535,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// warm <paramref name="message"/> and a primary (cyan) action button. Used for "Authorization Required"
         /// and "Connection Required". The returned panel is shown/hidden by the caller per the pure-managed
         /// <see cref="ConnectionPanelView.ShowAuthorizationRequired"/> / <see cref="ConnectionPanelView.ShowConnectionRequired"/>
-        /// rules. <paramref name="onPressed"/> wires the button.
+        /// rules. <paramref name="onPressed"/> wires the button; <paramref name="buttonTooltip"/> is its hover tooltip.
         /// </summary>
-        public static PanelContainer AlertPanel(string name, string title, string message, string buttonText, System.Action onPressed)
+        public static PanelContainer AlertPanel(
+            string name, string title, string message, string buttonText, System.Action onPressed, string? buttonTooltip = null)
         {
             var box = new StyleBoxFlat
             {
@@ -577,7 +578,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Full-width, centered cyan button — Unity's alert button is a `.btn-primary` that fills the frame
             // (`alertButton` spans the panel), not a left-hugging compact button.
-            var button = new DockActionButton { Name = "AlertButton", Text = buttonText };
+            var button = new DockActionButton { Name = "AlertButton", Text = buttonText, TooltipText = buttonTooltip ?? string.Empty };
             ApplyPrimaryButton(button);
             button.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             button.BindPressed(onPressed);

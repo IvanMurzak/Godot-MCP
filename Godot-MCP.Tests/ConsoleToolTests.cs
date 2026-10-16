@@ -22,10 +22,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// dispatcher would and assert the wrapper's own contract:
     /// <list type="bullet">
     /// <item><c>GetLogs</c> reads the process-wide <see cref="GodotLogCollector.GetOrCreate"/> collector and
-    /// forwards its <c>maxEntries</c> / <c>logTypeFilter</c> / <c>includeStackTrace</c> / <c>lastMinutes</c>
-    /// arguments straight into <see cref="GodotLogCollector.Query"/> (newest-first, post-order cap).</item>
-    /// <item><c>GetLogs</c> rejects <c>maxEntries &lt; 1</c> with an <see cref="ArgumentException"/> at the
-    /// tool boundary (unlike the buffer's <c>Query</c>, which silently clamps the floor to 1).</item>
+    /// forwards its <c>maxEntries</c> / <c>logTypeFilter</c> / <c>includeStackTrace</c> / <c>lastMinutes</c> /
+    /// <c>sinceSequence</c> arguments straight into <see cref="GodotLogCollector.Query"/> (newest-first,
+    /// post-order cap; oldest-first after a cursor).</item>
+    /// <item><c>GetLogs</c> rejects <c>maxEntries &lt; 1</c> and <c>sinceSequence &lt; 0</c> with an
+    /// <see cref="ArgumentException"/> at the tool boundary (unlike the buffer's <c>Query</c>, which silently
+    /// clamps both).</item>
     /// <item><c>ClearLogs</c> empties the same shared collector that <c>GetLogs</c> reads.</item>
     /// </list>
     ///
@@ -137,6 +139,28 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var ex = Assert.Throws<ArgumentException>(() => new Tool_Console().GetLogs(maxEntries: maxEntries));
             Assert.Equal("maxEntries", ex.ParamName);
+        }
+
+        [Fact]
+        public void GetLogs_ForwardsSinceSequence_ToQuery_OldestFirst()
+        {
+            var collector = GodotLogCollector.GetOrCreate();
+            collector.Append(GodotLogType.Log, "a");
+            collector.Append(GodotLogType.Log, "b");
+            collector.Append(GodotLogType.Log, "c");
+            var cursor = Array.Find(collector.Query(), r => r.Message == "a")!.Sequence;
+
+            var rows = new Tool_Console().GetLogs(sinceSequence: cursor);
+
+            Assert.Equal(new[] { "b", "c" }, Array.ConvertAll(rows, r => r.Message));
+        }
+
+        [Fact]
+        public void GetLogs_RejectsNegativeSinceSequence()
+        {
+            // The tool boundary rejects it; the buffer's Query would silently treat it as 0.
+            var ex = Assert.Throws<ArgumentException>(() => new Tool_Console().GetLogs(sinceSequence: -1));
+            Assert.Equal("sinceSequence", ex.ParamName);
         }
 
         // ---- console-clear-logs empties the shared collector -------------------------------------

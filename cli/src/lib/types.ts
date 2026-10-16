@@ -5,7 +5,9 @@
 //
 // No top-level side effects, no runtime deps beyond TypeScript types.
 
+import type { ProjectKeyResolver } from '@baizor/gamedev-cli-core';
 import type { ExtensionDescriptor } from '../utils/extensions-catalog.js';
+import type { AddonNugetDepsOrigin } from '../utils/addon-nuget-deps.js';
 
 // ---------------------------------------------------------------------------
 // Progress events
@@ -77,18 +79,61 @@ export interface SetupMcpOptions {
    * this project's engine instance. Set `true` to write the unpinned `<base>/mcp` URL instead.
    */
   noPin?: boolean;
+  /**
+   * `--oauth`: write a URL-only Cloud config (the client authorizes natively, RFC 9728) instead of the
+   * default project-key header, removing any previously written `Authorization` header.
+   */
+  oauth?: boolean;
+  /**
+   * `--regenerate-key`: mint a fresh project key for this project (overwriting the cached one),
+   * rewrite the config, then revoke the previous key. Cloud http configs only; fails with `oauth` /
+   * an explicit `token` / a local-server URL.
+   */
+  regenerateKey?: boolean;
+  /** Display machine name recorded on a minted project key; defaults to `os.hostname()`. */
+  machineName?: string;
+  /**
+   * Resolves the Cloud project key. Defaults to cli-core's `createProjectKeyResolver(godotAdapter)`
+   * over the machine credential store; injectable for tests and for callers that own a credential
+   * provider already.
+   */
+  projectKeyResolver?: ProjectKeyResolver;
+  /**
+   * `--regenerate-key` only: returns the cached project key being replaced for `(issuer, pin)`, read
+   * before the resolver overwrites it, so the project's other agent configs still holding it are
+   * rewritten to the new key before it is revoked. Defaults to cli-core's `ProjectKeyStore` (the
+   * `~/.ai-game-dev/project-keys.json` cache the default resolver writes); injectable for tests.
+   */
+  previousProjectKey?: (issuer: string, pin: string) => string | undefined;
   onProgress?: ProgressCallback;
 }
+
+/** The credential a written config carries: an explicit PAT, a Cloud project key, or none (URL-only). */
+export type SetupMcpCredential = 'token' | 'project-key' | 'none';
 
 export interface SetupMcpSuccess {
   kind: 'success';
   success: true;
   agentId: string;
+  /** The (primary) config file written — `configPaths[0]`. */
   configPath: string;
+  /** Every config file written (Antigravity writes two: `~/.gemini/config/` and `~/.gemini/antigravity/`). */
+  configPaths: string[];
+  /**
+   * `--regenerate-key` only: the OTHER agent configs of this project that carried the previous key and
+   * now carry the new one (rewritten before the previous key is revoked). Empty otherwise.
+   */
+  rewrittenConfigPaths: string[];
   /** The MCP-client URL written to the config — pinned (`…/mcp/p/<pin-v2>`) unless `noPin`. */
   serverUrl: string;
   /** True when the URL carries the `/p/<pin-v2>` routing segment (the default; false with `--no-pin`). */
   pinned: boolean;
+  /** Which credential the written config carries. */
+  credential: SetupMcpCredential;
+  /** The server-side id of the project key written (credential `project-key` only). */
+  projectKeyId?: string;
+  /** Whether the project key was reused from the local cache or freshly minted. */
+  projectKeySource?: 'reused' | 'minted';
   warnings: string[];
 }
 
@@ -432,6 +477,12 @@ export interface CsprojPatchOutcome {
   csprojPath?: string;
   /** True when the csproj text was modified (pins and/or embeds). */
   changed: boolean;
+  /**
+   * Where the package versions came from: the installed addon's generated
+   * `nuget-deps.json`, the `--source` checkout's `Godot-MCP.csproj`, or this CLI
+   * build's own pins (`builtin`, for addon zips that predate the manifest).
+   */
+  packagesOrigin: AddonNugetDepsOrigin;
   /** Per-package summary: each addon pin's add / update / unchanged outcome. */
   packages: { id: string; action: 'added' | 'updated' | 'unchanged'; version: string }[];
   /** Per-resource summary: each addon `<EmbeddedResource>`'s add / update / unchanged outcome. */

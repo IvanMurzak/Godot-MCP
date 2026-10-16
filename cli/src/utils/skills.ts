@@ -16,7 +16,7 @@ import * as path from 'path';
 // agent's `skillsPath`, with content describing the godot_mcp addon's tool
 // families (NOT Unity's tool names). This makes the command self-contained — no
 // server, no running editor — and idempotent (re-running rewrites the same
-// bytes). The catalog mirrors `Godot-MCP/CLAUDE.md` § Tool families; keep the
+// bytes). The catalog mirrors the README "Tools Reference"; keep the
 // two in lockstep when the addon's tool surface changes.
 
 /** A single Godot-MCP tool family and the individual tools it exposes. */
@@ -33,7 +33,7 @@ export interface SkillFamily {
 
 /**
  * The Godot-MCP tool-family catalog. Mirrors the 12 families documented in
- * `Godot-MCP/CLAUDE.md` § Tool families and the `[AiToolType]` classes under
+ * the README "Tools Reference" and the `[AiToolType]` classes under
  * `addons/godot_mcp/Runtime/Tools/` and `addons/godot_mcp/Editor/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
  * an MCP client invokes.
  *

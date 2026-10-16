@@ -131,7 +131,7 @@ jobs:
           # benign "progress dialog while flushing the message queue" warnings and
           # may exit non-zero on teardown — neither is fatal, so do NOT gate on the
           # import's exit code (the real gates are the emitted DLL below + the
-          # plugin-loaded assertion). See ../../CLAUDE.md "Testbed runbook".
+          # plugin-loaded assertion). See ../../AGENTS.md "Headless live-editor smoke".
           godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
           echo "Import pass complete."
 
