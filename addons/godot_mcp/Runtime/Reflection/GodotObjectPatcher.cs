@@ -135,26 +135,23 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     var godotName = PropertyPatchPath.GodotPropertyFor(target.GetType(), entry.Name, isEnvelope, GodotProperties.Keys);
                     // A plain JSON object for a non-object property is a merge into its value ({"position":{"x":1}}),
                     // which only the ReflectorNet route can do; an object property's JSON object is a reference.
-                    if (godotName != null && entry.Value.ValueKind == JsonValueKind.Object && !isEnvelope
-                        && GodotProperties[godotName].Type != Variant.Type.Object)
-                        godotName = null;
-                    if (godotName == null)
+                    var isMerge = entry.Value.ValueKind == JsonValueKind.Object && !isEnvelope;
+                    if (godotName == null || !GodotProperties.TryGetValue(godotName, out var property)
+                        || (isMerge && property.Type != Variant.Type.Object))
                     {
                         residual[entry.Name] = JsonNode.Parse(entry.Value.GetRawText());
                         continue;
                     }
-                    var property = GodotProperties[godotName];
                     changed |= ApplyGodotProperty(godotName, property, SerializedMember.FromJson(property.ValueType, entry.Value), $"jsonPatch '{entry.Name}'");
                 }
 
-                PropertyPatchPath.CanonicalizeMergePatch(current, (current ?? target).GetType(), residual);
+                PropertyPatchPath.CanonicalizeMergePatch(reflector, current, (current ?? target).GetType(), residual);
                 // One TryPatch per key: TryPatch reports false when ANY key fails, even though the others were
                 // already applied, which would hide those applied changes from the caller.
-                foreach (var key in residual.Select(p => p.Key).ToList())
-                {
-                    var single = new JsonObject { [key] = residual[key]?.DeepClone() };
-                    changed |= ApplyReflectorJson(single.ToJsonString(), $"jsonPatch '{key}'");
-                }
+                var keys = residual.ToList();
+                residual.Clear(); // detaches the nodes so each can move into its own single-key patch
+                foreach (var (key, node) in keys)
+                    changed |= ApplyReflectorJson(new JsonObject { [key] = node }.ToJsonString(), $"jsonPatch '{key}'");
                 return changed;
             }
         }

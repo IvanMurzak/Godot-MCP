@@ -221,7 +221,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         static string Canonical(object target, string json)
         {
             var patch = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(json)!;
-            PropertyPatchPath.CanonicalizeMergePatch(target, target.GetType(), patch);
+            PropertyPatchPath.CanonicalizeMergePatch(GodotReflectorFactory.CreateDefaultReflector(), target, target.GetType(), patch);
             return patch.ToJsonString();
         }
 

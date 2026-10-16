@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -67,25 +68,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             for (var i = 0; i < segments.Length; i++)
             {
-                var segment = segments[i];
+                // Only intermediate values are needed to find the next member's runtime type; the terminal
+                // getter may be a native call returning a large copy.
                 var last = i == segments.Length - 1;
-                if (IsBracket(segment))
-                {
-                    memberType = ElementType(currentType);
-                    current = null;
-                }
-                else
-                {
-                    var member = FindMember(currentType, segment);
-                    if (member == null)
-                        return new Resolution(string.Join("/", segments), null);
-
-                    segments[i] = member.Name;
-                    memberType = MemberType(member);
-                    // Only intermediate values are needed to find the next member's runtime type; the terminal
-                    // getter may be a native call returning a large copy.
-                    current = last || current == null ? null : TryGetValue(member, current);
-                }
+                if (!TryStep(currentType, current, segments[i], needValue: !last, out segments[i], out memberType, out current))
+                    return new Resolution(string.Join("/", segments), null);
 
                 if (memberType == null)
                     return new Resolution(string.Join("/", segments), null);
@@ -102,6 +89,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// wins, so a <c>new</c>-hidden member never throws <see cref="AmbiguousMatchException"/>.
         /// </summary>
         public static MemberInfo? FindMember(Type type, string name)
+            => MemberCache.GetOrAdd((type, name), key => FindMemberUncached(key.Type, key.Name));
+
+        static readonly ConcurrentDictionary<(Type Type, string Name), MemberInfo?> MemberCache = new();
+
+        static MemberInfo? FindMemberUncached(Type type, string name)
         {
             MemberInfo? loose = null;
             for (var t = type; t != null; t = t.BaseType)
@@ -201,47 +193,67 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <summary>
         /// Rewrite the keys of a JSON Merge Patch to the C# members they name on the live <paramref name="target"/>
         /// (snake_case → PascalCase, e.g. <c>{"position":{"x":1}}</c> → <c>{"Position":{"X":1}}</c>), at every
-        /// depth, following runtime values. It does not descend into a <c>Godot.Variant</c> envelope or into a
-        /// member whose JSON object is a reference rather than a merge (<c>Resource</c>, <c>Node</c>,
-        /// <c>Variant</c>). Unknown keys are left for ReflectorNet to report.
+        /// depth, following runtime values. It descends only where the reflector merges a JSON object into the
+        /// existing value — not into a <c>Resource</c>/<c>Node</c>/<c>Variant</c>, whose JSON object is the whole
+        /// (reference) value. Unknown keys are left for ReflectorNet to report.
         /// </summary>
-        public static void CanonicalizeMergePatch(object? target, Type type, JsonObject patch)
+        public static void CanonicalizeMergePatch(Reflector reflector, object? target, Type type, JsonObject patch)
         {
-            foreach (var key in patch.Select(p => p.Key).ToList())
+            var entries = patch.ToList();
+            patch.Clear(); // detaches the nodes so they can be re-added under their canonical names
+            foreach (var (key, node) in entries)
             {
-                if (key == "$type")
-                    continue;
-
-                var node = patch[key];
-                object? child = null;
-                Type? childType;
-                if (IsBracket(key))
+                var name = key;
+                if (key != "$type" && TryStep(type, null, key, needValue: false, out var canonical, out var childType, out _))
                 {
-                    childType = ElementType(type);
-                }
-                else
-                {
-                    var member = FindMember(type, key);
-                    if (member == null)
-                        continue;
-                    if (member.Name != key && !patch.ContainsKey(member.Name))
+                    if (canonical != key && !entries.Any(e => e.Key == canonical))
+                        name = canonical;
+                    if (node is JsonObject inner && childType != null && IsMergeTarget(reflector, childType))
                     {
-                        patch.Remove(key);
-                        patch[member.Name] = node;
+                        // Only now read the live value: its runtime type may expose members the declared one lacks.
+                        TryStep(type, target, key, needValue: true, out _, out _, out var child);
+                        var nested = child?.GetType() ?? childType;
+                        if (IsMergeTarget(reflector, nested))
+                            CanonicalizeMergePatch(reflector, child, nested, inner);
                     }
-                    childType = MemberType(member);
-                    child = target == null ? null : TryGetValue(member, target);
                 }
-
-                var nested = child?.GetType() ?? childType;
-                if (node is JsonObject inner && nested != null && IsMergeTarget(nested) && !inner.ContainsKey(GodotVariantPayload.TypeKeys[0]))
-                    CanonicalizeMergePatch(child, nested, inner);
+                patch[name] = node;
             }
         }
 
-        static bool IsMergeTarget(Type type)
-            => !typeof(global::Godot.GodotObject).IsAssignableFrom(type) && type != typeof(global::Godot.Variant)
-                && !type.IsPrimitive && type != typeof(string);
+        /// <summary>
+        /// One path segment against <paramref name="type"/>: its canonical spelling, the declared type below it,
+        /// and — when <paramref name="needValue"/> — the live value. <c>false</c> for an unknown member.
+        /// </summary>
+        static bool TryStep(Type type, object? current, string segment, bool needValue, out string canonical, out Type? next, out object? value)
+        {
+            value = null;
+            canonical = segment;
+            if (IsBracket(segment))
+            {
+                next = ElementType(type);
+                return true;
+            }
+            var member = FindMember(type, segment);
+            if (member == null)
+            {
+                next = null;
+                return false;
+            }
+            canonical = member.Name;
+            next = MemberType(member);
+            if (needValue && current != null)
+                value = TryGetValue(member, current);
+            return true;
+        }
+
+        /// <summary>
+        /// Whether ReflectorNet merges a JSON object into a value of <paramref name="type"/> (rather than reading
+        /// it as the whole value): the same converter decision TryPatch makes.
+        /// </summary>
+        static bool IsMergeTarget(Reflector reflector, Type type)
+            => !IsNumericLike(type) && type != typeof(string)
+                && reflector.Converters.GetConverter(type)?.TreatJsonObjectAsAtomicValue(type) != true;
 
         /// <summary>
         /// Whether Godot can store a <paramref name="value"/>-typed Variant in a <paramref name="property"/>-typed
