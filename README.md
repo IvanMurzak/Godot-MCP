@@ -319,7 +319,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.1" />
 </ItemGroup>
 
@@ -331,7 +331,7 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 
 | Package | Version | Role |
 | --- | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.2` | Reflection / serialization core |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.3` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.7.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
