@@ -199,6 +199,18 @@ class PackageVerification(unittest.TestCase):
             self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'[8.7.1-ws.ga1b2c3d4]')
             self.assertTrue(self.verify())
 
+    def test_train_pr_run_pins_from_the_applied_override(self):
+        # A train PR run takes its lock from the PR body: CHAIN_LOCK is empty, CHAIN_ACTIVE is set.
+        (self.root / 'Directory.Build.targets').write_text('''<Project><ItemGroup>
+<PackageReference Update="com.IvanMurzak.McpPlugin" Version="[8.7.1-ws.ga1b2c3d4]"/>
+</ItemGroup></Project>''')
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'[8.7.1-ws.ga1b2c3d4]')
+        with patch.dict(os.environ, {'CHAIN_LOCK': '', 'CHAIN_ACTIVE': '1'}):
+            self.assertTrue(self.verify())
+        with patch.dict(os.environ, {'CHAIN_LOCK': '', 'CHAIN_ACTIVE': ''}):
+            with self.assertRaisesRegex(ValueError, 'dependency floor'):
+                self.verify()
+
 
 class SuiteGuards(unittest.TestCase):
     def test_script_failure_is_never_hidden_by_gridmap_diagnostic(self):

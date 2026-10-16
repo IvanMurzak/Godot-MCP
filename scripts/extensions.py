@@ -122,10 +122,16 @@ def core_pins(root=ROOT):
     return pins
 
 
+def chain_active():
+    # A train PR run reads its lock from the PR body, so CHAIN_LOCK (the dispatch input) is
+    # empty there; CHAIN_ACTIVE is what chain_feed exports once ANY lock's override is applied.
+    return bool(os.environ.get('CHAIN_LOCK')) or os.environ.get('CHAIN_ACTIVE') == '1'
+
+
 def chain_pins(root):
     overrides = root / 'Directory.Build.targets'
     pins = {}
-    if os.environ.get('CHAIN_LOCK') and overrides.is_file():
+    if chain_active() and overrides.is_file():
         for entry in ET.parse(overrides).findall('.//PackageReference'):
             if entry.attrib.get('Update'):
                 pins[entry.attrib['Update']] = entry.attrib['Version']
