@@ -31,29 +31,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             Title = "Node / Modify",
             IdempotentHint = true
         )]
-        [Description("Modify properties of a Node in the currently edited Godot scene via ReflectorNet. " +
+        [Description("Modify properties of a Node in the currently edited Godot scene. " +
             "Identify the Node with 'nodeRef'. Two modification surfaces (supply at least one; both may be " +
             "combined, applied jsonPatch first then pathPatches):\n" +
-            "  1. 'pathPatches' — list of {path, value} entries routed through Reflector.TryModifyAt for " +
-            "atomic per-path modification. See the path syntax below.\n" +
-            "  2. 'jsonPatch' — a JSON Merge Patch (RFC 7396) string routed through Reflector.TryPatch.\n" +
+            "  1. 'pathPatches' — list of {path, value} entries, each applied and read back.\n" +
+            "  2. 'jsonPatch' — a JSON Merge Patch (RFC 7396) string.\n" +
             "Returns a log of what was changed and what was ignored.\n" +
             GodotObjectPatcher.PathSyntaxHelp)]
         public Logs Modify
         (
             [Description("Reference to the Node to modify (instanceId preferred, else scene-tree path).")]
             NodeRef nodeRef,
-            [Description("Optional list of path-scoped patches routed through Reflector.TryModifyAt. " +
-                "Each entry is a {path, value}. " + GodotObjectPatcher.PathSyntaxHelp)]
+            [Description("Optional list of path-scoped patches, each a {path, value}; see the path syntax in the tool description.")]
             List<NodePropertyPatch>? pathPatches = null,
-            [Description("Optional JSON Merge Patch (RFC 7396) applied via Reflector.TryPatch; top-level keys may be Godot property names, as in 'pathPatches'.")]
+            [Description("Optional JSON Merge Patch (RFC 7396); top-level keys may be Godot property names, as in 'pathPatches'.")]
             string? jsonPatch = null
         )
         {
-            var hasPathPatches = pathPatches != null && pathPatches.Count > 0;
-            var hasJsonPatch = !string.IsNullOrWhiteSpace(jsonPatch);
-
-            if (!hasPathPatches && !hasJsonPatch)
+            if ((pathPatches == null || pathPatches.Count == 0) && string.IsNullOrWhiteSpace(jsonPatch))
                 throw new ArgumentException(
                     $"At least one of '{nameof(pathPatches)}' or '{nameof(jsonPatch)}' is required.");
 
@@ -74,47 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
 
                 var patcher = new GodotObjectPatcher(GodotMcpReflector.GetOrCreate(), node, logs);
-                var anyChange = false;
-
-                // 1) JSON Merge Patch (applied first), 2) path patches. A bad entry degrades to a logged skip
-                // instead of aborting MainThread.Run and leaving the scene half-modified + not marked.
-                if (hasJsonPatch)
-                {
-                    try
-                    {
-                        anyChange |= patcher.ApplyJsonPatch(jsonPatch!);
-                    }
-                    catch (Exception ex)
-                    {
-                        logs.Error($"jsonPatch threw and was skipped: {ex.Message}");
-                    }
-                }
-
-                if (hasPathPatches)
-                {
-                    for (int i = 0; i < pathPatches!.Count; i++)
-                    {
-                        var patch = pathPatches[i];
-                        if (patch == null || string.IsNullOrEmpty(patch.Path))
-                        {
-                            logs.Error($"{nameof(pathPatches)}[{i}] with empty path skipped.");
-                            continue;
-                        }
-                        if (patch.Value == null)
-                        {
-                            logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
-                            continue;
-                        }
-                        try
-                        {
-                            anyChange |= patcher.ApplyPathPatch(patch, $"{nameof(pathPatches)}[{i}] ('{patch.Path}')");
-                        }
-                        catch (Exception ex)
-                        {
-                            logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') threw and was skipped: {ex.Message}");
-                        }
-                    }
-                }
+                var anyChange = patcher.Apply(jsonPatch, pathPatches);
 
                 // A '$type' replacement assigns a fresh instance instead of mutating the live node, so reporting
                 // success + marking unsaved would be a silent no-op. Guard against it.

@@ -28,6 +28,7 @@ import json
 import pathlib
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -82,14 +83,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="http://localhost:8080")
     ap.add_argument("--project", required=True, type=pathlib.Path, help="Godot project root open in the editor")
-    ap.add_argument("--dir", default="res://smoke_property_patches", help="res:// folder for the smoke assets")
+    ap.add_argument("--dir", default="res://smoke_property_patches", help="res:// folder; each run uses a fresh subfolder")
     a = ap.parse_args()
-    host, project, d = a.host.rstrip("/"), a.project, a.dir.rstrip("/")
+    host, project = a.host.rstrip("/"), a.project
+    # A fresh folder per run: right after resource-delete, resource-create can still see the cached resource.
+    d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}"
 
     mat, tex, scene = f"{d}/mat.tres", f"{d}/tex.tres", f"{d}/scene.tscn"
-    for path in (mat, tex, scene):
-        if (project / path.replace("res://", "")).exists():
-            call(host, "resource-delete", {"resourcePath": path})
     call(host, "resource-create", {"resourcePath": mat, "typeClassName": "StandardMaterial3D"})
     call(host, "resource-create", {"resourcePath": tex, "typeClassName": "GradientTexture2D"})
     ref = {"resourcePath": mat}
@@ -125,7 +125,7 @@ def main() -> int:
     check("R4 file references the texture", file_has(project, mat, r'^albedo_texture = ExtResource\("[^"]+"\)$'))
     props = {p["name"]: p for p in call(host, "resource-get-data", {"resourceRef": ref}).get("props") or []}
     tex_entry = props.get("albedo_texture", {})
-    check("R4 get-data returns the texture path", json.dumps(tex_entry).find(tex) >= 0, json.dumps(tex_entry)[:300])
+    check("R4 get-data returns the texture path", tex in json.dumps(tex_entry), json.dumps(tex_entry)[:300])
 
     # R5: the same value again is not a change and does not re-save.
     logs = modify(pathPatches=[{"path": "metallic", "value": {"typeName": "Godot.Variant", "value": 0.33}}])

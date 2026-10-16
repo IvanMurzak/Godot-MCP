@@ -77,9 +77,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void FindMember_ExactOnly_IgnoresSnakeCase()
+        public void FindMember_SkipsIndexers()
         {
-            Assert.Null(PropertyPatchPath.FindMember(typeof(Sample), "light_energy", exactOnly: true));
+            Assert.Null(PropertyPatchPath.FindMember(typeof(Sample), "Item"));
         }
 
         [Fact]
@@ -95,7 +95,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var r = PropertyPatchPath.Resolve(new Sample(), "light_energy");
             Assert.Equal("LightEnergy", r.Path);
             Assert.Equal(typeof(float), r.MemberType);
-            Assert.Equal("LightEnergy", r.TopLevelMember?.Name);
         }
 
         [Fact]
@@ -105,7 +104,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var r = PropertyPatchPath.Resolve(new Sample(), "boxed/ratio");
             Assert.Equal("Boxed/Ratio", r.Path);
             Assert.Equal(typeof(float), r.MemberType);
-            Assert.Null(r.TopLevelMember);
         }
 
         [Fact]
@@ -142,6 +140,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void GodotPropertyFor_ChoosesRoute(string segment, bool valueIsVariant, string? expected)
         {
             Assert.Equal(expected, PropertyPatchPath.GodotPropertyFor(typeof(Sample), segment, valueIsVariant, GodotNames));
+        }
+
+        [Theory]
+        [InlineData("light_energy", "light_energy")]
+        [InlineData("LightEnergy", "light_energy")]
+        [InlineData("OMNI_RANGE", "omni_range")]
+        [InlineData("Title", null)]
+        public void MatchGodotProperty(string name, string? expected)
+        {
+            Assert.Equal(expected, PropertyPatchPath.MatchGodotProperty(name, GodotNames));
+        }
+
+        [Theory]
+        [InlineData("{\"variantType\":\"Float\",\"value\":1}", true)]
+        [InlineData("{\"type\":\"Color\",\"value\":[1,0,0]}", true)]
+        [InlineData("{\"VariantType\":\"Int\",\"value\":1}", true)]
+        [InlineData("{\"resourcePath\":\"res://a.tres\"}", false)]
+        [InlineData("0.5", false)]
+        public void GodotVariantPayload_IsEnvelope(string json, bool expected)
+        {
+            Assert.Equal(expected, GodotVariantPayload.IsEnvelope(JsonDocument.Parse(json).RootElement));
         }
 
         [Fact]

@@ -28,22 +28,17 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// </summary>
     public static class PropertyPatchPath
     {
-        /// <summary>The binding flags ReflectorNet's <c>TryModifyAt</c>/<c>TryPatch</c> navigate with by default.</summary>
-        public const BindingFlags ReflectorFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        // The members ReflectorNet's TryModifyAt/TryPatch navigate by default.
+        const BindingFlags ReflectorFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
         static readonly string VariantTypeId = typeof(global::Godot.Variant).GetTypeId();
 
         /// <summary>
         /// The resolved CLR target of a path: <see cref="Path"/> with every member segment rewritten to its
-        /// declared CLR name, the declared <see cref="MemberType"/> of the terminal segment (<c>null</c> when
-        /// the walk could not get there), and the <see cref="TopLevelMember"/> when the path is one member.
+        /// declared CLR name, and the declared <see cref="MemberType"/> of the terminal segment (<c>null</c>
+        /// when the walk could not get there).
         /// </summary>
-        public sealed class Resolution
-        {
-            public string Path { get; init; } = string.Empty;
-            public Type? MemberType { get; init; }
-            public MemberInfo? TopLevelMember { get; init; }
-        }
+        public readonly record struct Resolution(string Path, Type? MemberType);
 
         /// <summary>
         /// The single member name a path addresses, or <c>null</c> for a nested (<c>a/b</c>) or bracket
@@ -68,11 +63,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             object? current = root;
             var currentType = root.GetType();
             Type? memberType = null;
-            MemberInfo? topLevel = null;
 
             for (var i = 0; i < segments.Length; i++)
             {
                 var segment = segments[i];
+                var last = i == segments.Length - 1;
                 if (IsBracket(segment))
                 {
                     memberType = ElementType(currentType);
@@ -82,73 +77,77 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 {
                     var member = FindMember(currentType, segment);
                     if (member == null)
-                        return new Resolution { Path = string.Join("/", segments) };
+                        return new Resolution(string.Join("/", segments), null);
 
                     segments[i] = member.Name;
                     memberType = MemberType(member);
-                    if (i == 0 && segments.Length == 1)
-                        topLevel = member;
-                    current = current == null ? null : TryGetValue(member, current);
+                    // Only intermediate values are needed to find the next member's runtime type; the terminal
+                    // getter may be a native call returning a large copy.
+                    current = last || current == null ? null : TryGetValue(member, current);
                 }
 
                 if (memberType == null)
-                    return new Resolution { Path = string.Join("/", segments) };
+                    return new Resolution(string.Join("/", segments), null);
                 currentType = current?.GetType() ?? memberType;
             }
 
-            return new Resolution { Path = string.Join("/", segments), MemberType = memberType, TopLevelMember = topLevel };
+            return new Resolution(string.Join("/", segments), memberType);
         }
 
         /// <summary>
-        /// Find a field or property on <paramref name="type"/>: the exact name first (any visibility, as
-        /// ReflectorNet does), then — unless <paramref name="exactOnly"/> — a public member whose name equals
-        /// <paramref name="name"/> ignoring case and underscores. The most-derived declaration wins, so a
-        /// <c>new</c>-hidden member never throws <see cref="AmbiguousMatchException"/>.
+        /// Find a field or property on <paramref name="type"/>: the exact name (any visibility, as ReflectorNet
+        /// does), else a public member whose name equals <paramref name="name"/> ignoring case and underscores
+        /// (<c>albedo_color</c> → <c>AlbedoColor</c>). An exact match always wins; the most-derived declaration
+        /// wins, so a <c>new</c>-hidden member never throws <see cref="AmbiguousMatchException"/>.
         /// </summary>
-        public static MemberInfo? FindMember(Type type, string name, bool exactOnly = false)
+        public static MemberInfo? FindMember(Type type, string name)
         {
-            var normalized = Normalize(name);
             MemberInfo? loose = null;
             for (var t = type; t != null; t = t.BaseType)
             {
-                foreach (var member in t.GetMembers(ReflectorFlags | BindingFlags.DeclaredOnly))
+                foreach (var field in t.GetFields(ReflectorFlags))
                 {
-                    if (member is not (FieldInfo or PropertyInfo) || member is PropertyInfo { CanRead: false })
+                    if (field.Name == name)
+                        return field;
+                    if (loose == null && field.IsPublic && SameName(field.Name, name))
+                        loose = field;
+                }
+                foreach (var property in t.GetProperties(ReflectorFlags))
+                {
+                    var exact = property.Name == name;
+                    if (!exact && (loose != null || !SameName(property.Name, name) || property.GetMethod?.IsPublic != true))
                         continue;
-                    if (member is PropertyInfo p && p.GetIndexParameters().Length != 0)
+                    if (!property.CanRead || property.GetIndexParameters().Length != 0)
                         continue;
-                    if (member.Name == name)
-                        return member;
-                    if (!exactOnly && loose == null && IsPublic(member) && Normalize(member.Name) == normalized)
-                        loose = member;
+                    if (exact)
+                        return property;
+                    loose = property;
                 }
             }
             return loose;
         }
 
         /// <summary>
+        /// The entry of <paramref name="godotProperties"/> named <paramref name="name"/>, exactly or ignoring
+        /// case and underscores (<c>LightEnergy</c> → <c>light_energy</c>); <c>null</c> when there is none.
+        /// </summary>
+        public static string? MatchGodotProperty(string name, IReadOnlyCollection<string> godotProperties)
+            => godotProperties.Contains(name) ? name : godotProperties.FirstOrDefault(p => SameName(p, name));
+
+        /// <summary>
         /// The Godot property a top-level segment must be applied to natively, or <c>null</c> to leave it on
-        /// the ReflectorNet CLR route. Native when the segment is a Godot property name (what
-        /// <c>resource-get-data</c> returns, or a GDScript property) that is not also an exact CLR member, or
-        /// when the value is a <c>Godot.Variant</c> envelope aimed at a CLR member that is not itself a
-        /// Variant — the CLR route cannot assign a Variant to a <c>float</c>, Godot's own setter can.
+        /// the ReflectorNet route: a Godot property name (as get-data returns it, or a GDScript property) that
+        /// is not also an exact C# member, or any member named with a <c>Godot.Variant</c> value that is not
+        /// itself a Variant — ReflectorNet cannot assign a Variant to a <c>float</c>, Godot's setter can.
         /// </summary>
         public static string? GodotPropertyFor(Type targetType, string segment, bool valueIsVariant, IReadOnlyCollection<string> godotProperties)
         {
-            var exact = FindMember(targetType, segment, exactOnly: true);
-            if (exact == null && godotProperties.Contains(segment))
+            var member = FindMember(targetType, segment);
+            if (member?.Name != segment && godotProperties.Contains(segment))
                 return segment;
-
-            if (!valueIsVariant)
+            if (!valueIsVariant || (member != null && MemberType(member) == typeof(global::Godot.Variant)))
                 return null;
-            var member = exact ?? FindMember(targetType, segment);
-            if (member != null && MemberType(member) == typeof(global::Godot.Variant))
-                return null;
-
-            if (godotProperties.Contains(segment))
-                return segment;
-            var normalized = Normalize(segment);
-            return godotProperties.FirstOrDefault(p => Normalize(p) == normalized);
+            return MatchGodotProperty(segment, godotProperties);
         }
 
         /// <summary>
@@ -212,13 +211,6 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         static bool IsNumericLike(Type type) => type.IsPrimitive || type.IsEnum || type == typeof(decimal);
 
-        static bool IsPublic(MemberInfo member) => member switch
-        {
-            FieldInfo f => f.IsPublic,
-            PropertyInfo p => p.GetMethod?.IsPublic == true,
-            _ => false,
-        };
-
         static Type? MemberType(MemberInfo member) => member switch
         {
             FieldInfo f => f.FieldType,
@@ -252,10 +244,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             return typeof(IEnumerable).IsAssignableFrom(type) ? TypeUtils.GetEnumerableItemType(type) : null;
         }
 
-        static string Normalize(string name) => name.Replace("_", string.Empty).ToLowerInvariant();
+        static bool SameName(string a, string b)
+            => string.Equals(a.Replace("_", string.Empty), b.Replace("_", string.Empty), StringComparison.OrdinalIgnoreCase);
 
         static bool IsBracket(string segment) => segment.Length > 2 && segment[0] == '[' && segment[segment.Length - 1] == ']';
 
+        // Mirrors ReflectorNet's private Reflector.ParsePath / TryParseBracketSegment (Reflector.ModifyAt.cs).
         static string[] Split(string path)
         {
             if (path.StartsWith("#/", StringComparison.Ordinal))
