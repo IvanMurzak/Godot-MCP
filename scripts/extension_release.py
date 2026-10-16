@@ -17,6 +17,8 @@ from extension_live import download
 from extensions import ROOT, SEMVER, modules, read_json, run, verify_package
 
 REPO = 'IvanMurzak/Godot-MCP'
+PUBLICATION_WAIT_SECONDS = 3600
+PUBLICATION_POLL_SECONDS = 30
 
 
 def tag(module):
@@ -87,9 +89,11 @@ def stage(selected, output):
 
 def push(selected, output):
     pending = read_json(output / 'pending.json')
-    for module in selected:
-        if module['packageId'] not in pending:
-            continue
+    waiting = [module for module in selected if module['packageId'] in pending]
+    # Submit the whole batch before waiting: NuGet validation/indexing can take
+    # up to an hour. Sequential waits delay every other package and can expire
+    # the one-hour OIDC publishing key before the final package is submitted.
+    for module in waiting:
         if not published(module):
             key = os.environ.get('NUGET_API_KEY')
             if not key:
@@ -98,12 +102,22 @@ def push(selected, output):
             verify_package(path, module)
             run(['dotnet', 'nuget', 'push', path, '--api-key', key,
                  '--source', 'https://api.nuget.org/v3/index.json'])
-        deadline = time.monotonic() + 300
-        while not published(module):
-            if time.monotonic() >= deadline:
-                raise RuntimeError('NuGet publication not visible: ' + module['packageId'])
-            time.sleep(10)
-        verify_registry(module, output)
+            print(f"Submitted {module['packageId']} {module['version']}; awaiting NuGet validation", flush=True)
+    deadline = time.monotonic() + PUBLICATION_WAIT_SECONDS
+    while waiting:
+        for module in waiting[:]:
+            if published(module):
+                verify_registry(module, output)
+                waiting.remove(module)
+                print(f"Verified public NuGet payload: {module['packageId']} {module['version']}", flush=True)
+        if not waiting:
+            return
+        missing = ', '.join(module['packageId'] + '@' + module['version'] for module in waiting)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError('NuGet publication not visible after validation wait: ' + missing)
+        print('Waiting for NuGet validation/indexing: ' + missing, flush=True)
+        time.sleep(min(PUBLICATION_POLL_SECONDS, remaining))
 
 
 def publish_github(module, output):
