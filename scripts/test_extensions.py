@@ -169,6 +169,24 @@ def prepare(sdk, output, *, prove_isolation=False):
         print(f'Compiled {name}: {len(subset)} extension(s), exact packed-source inclusion verified', flush=True)
     if prove_isolation:
         isolation_canary(projects['Godot-AI-Animation'], projects['combined'], cache, output)
+    # AssetLib installs sources directly into addons/, with no extension NuGet
+    # references. Compile that distribution separately while keeping the live
+    # editor on the existing combined NuGet consumer. No extra editor launch.
+    from assetlib_extensions import pack_archive, extract_archive
+    asset_project = consumer(output / 'assetlib', sdk, [], version, feed, cache)
+    for module in selected:
+        package = feed / f"{module['packageId']}.{version}.nupkg"
+        archive = pack_archive(module, package, output / 'assetlib-archives', package_version=version)
+        extract_archive(archive, asset_project.parent)
+    compile_consumer(asset_project, [], version, cache, output / 'assetlib-build.log')
+    env = {**os.environ, 'NUGET_PACKAGES': str(cache)}
+    evaluated = json.loads(run(['dotnet', 'msbuild', asset_project, '-getItem:Compile', '-verbosity:quiet'], env=env))
+    compiled = {Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
+    source_folder = asset_project.parent / 'addons/godot_mcp_extensions'
+    expected = {path.resolve() for path in source_folder.rglob('*.cs')}
+    actual = {path for path in compiled if path.is_relative_to(source_folder.resolve())}
+    if not expected or expected != actual:
+        raise ValueError('Asset Library consumer did not compile the exact installed archive sources')
     plan = {'sdk': sdk, 'ciVersion': version, 'modules': [m['name'] for m in selected],
             'project': str(projects['combined']), 'nugetCache': str(cache)}
     (output / 'suite.json').write_text(json.dumps(plan, indent=2) + '\n')
