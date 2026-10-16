@@ -39,7 +39,8 @@ GridMap gizmo diagnostic under the headless dummy renderer is narrowly matched a
 Godot 4.4's [upstream cold-import progress-dialog diagnostic](https://github.com/godotengine/godot/issues/103398)
 is also matched by exact native frames, only in the log captured before the first tool call,
 and reported separately. It remains fatal during tool calls or on other engine versions.
-Dialogic fixtures use alpha-19 on 4.4 and alpha-20 on 4.5+, since alpha-20 contains the
+Dialogic fixtures use alpha-18 on 4.4 (alpha-19 editor resources require `DPITexture`, introduced
+in 4.5) and alpha-20 on 4.5+, since alpha-20 contains the
 upstream Godot 4.7 parser fix and requires Godot 4.5. These are test fixtures, not bundled addons.
 
 ## Releases and installation

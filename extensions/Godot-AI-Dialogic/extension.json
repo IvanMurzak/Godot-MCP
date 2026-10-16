@@ -11,9 +11,10 @@
   },
   "testAddon": {
     "repo": "dialogic-godot/dialogic",
-    "tag": "2.0-alpha-19",
+    "tag": "2.0-alpha-18",
     "tagFromSdk": { "4.5.0": "2.0-alpha-20" },
     "dir": "dialogic",
     "kind": "gdscript"
-  }
+  },
+  "testAutoloads": { "Dialogic": "res://addons/dialogic/Core/DialogicGameHandler.gd" }
 }
