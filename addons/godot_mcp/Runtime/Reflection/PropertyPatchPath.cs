@@ -13,6 +13,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -167,29 +168,80 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         }
 
         /// <summary>
-        /// Rewrite <paramref name="value"/>'s <c>typeName</c> to the declared primitive/enum type of the target
-        /// when the caller sent a different numeric one (e.g. <c>System.Double</c> for a <c>float</c>).
+        /// A copy of <paramref name="value"/> typed as the declared primitive/enum type of the target when the
+        /// caller sent a different numeric one (e.g. <c>System.Double</c> for a <c>float</c>), else <c>null</c>.
         /// ReflectorNet picks its converter from <c>typeName</c>; a mismatch deserializes to the wrong CLR type
-        /// and the setter rejects it. Non-numeric type names are never touched. Returns <c>true</c> when
-        /// the type name was changed.
+        /// and the setter rejects it. Non-numeric type names are never touched, and the caller's patch is left
+        /// as it was sent.
         /// </summary>
-        public static bool AlignPrimitiveTypeName(SerializedMember value, Type declaredType)
+        public static SerializedMember? WithAlignedPrimitiveTypeName(SerializedMember value, Type declaredType)
         {
             var target = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
             if (!IsNumericLike(target))
-                return false;
+                return null;
 
             var expected = target.GetTypeId();
             if (value.typeName == expected)
-                return false;
+                return null;
 
             var given = TypeUtils.GetType(value.typeName);
             if (given == null || !IsNumericLike(Nullable.GetUnderlyingType(given) ?? given))
-                return false;
+                return null;
 
-            value.typeName = expected;
-            return true;
+            return new SerializedMember
+            {
+                name = value.name,
+                typeName = expected,
+                valueJsonElement = value.valueJsonElement,
+                fields = value.fields,
+                props = value.props,
+            };
         }
+
+        /// <summary>
+        /// Rewrite the keys of a JSON Merge Patch to the C# members they name on the live <paramref name="target"/>
+        /// (snake_case → PascalCase, e.g. <c>{"position":{"x":1}}</c> → <c>{"Position":{"X":1}}</c>), at every
+        /// depth, following runtime values. It does not descend into a <c>Godot.Variant</c> envelope or into a
+        /// member whose JSON object is a reference rather than a merge (<c>Resource</c>, <c>Node</c>,
+        /// <c>Variant</c>). Unknown keys are left for ReflectorNet to report.
+        /// </summary>
+        public static void CanonicalizeMergePatch(object? target, Type type, JsonObject patch)
+        {
+            foreach (var key in patch.Select(p => p.Key).ToList())
+            {
+                if (key == "$type")
+                    continue;
+
+                var node = patch[key];
+                object? child = null;
+                Type? childType;
+                if (IsBracket(key))
+                {
+                    childType = ElementType(type);
+                }
+                else
+                {
+                    var member = FindMember(type, key);
+                    if (member == null)
+                        continue;
+                    if (member.Name != key && !patch.ContainsKey(member.Name))
+                    {
+                        patch.Remove(key);
+                        patch[member.Name] = node;
+                    }
+                    childType = MemberType(member);
+                    child = target == null ? null : TryGetValue(member, target);
+                }
+
+                var nested = child?.GetType() ?? childType;
+                if (node is JsonObject inner && nested != null && IsMergeTarget(nested) && !inner.ContainsKey(GodotVariantPayload.TypeKeys[0]))
+                    CanonicalizeMergePatch(child, nested, inner);
+            }
+        }
+
+        static bool IsMergeTarget(Type type)
+            => !typeof(global::Godot.GodotObject).IsAssignableFrom(type) && type != typeof(global::Godot.Variant)
+                && !type.IsPrimitive && type != typeof(string);
 
         /// <summary>
         /// Whether Godot can store a <paramref name="value"/>-typed Variant in a <paramref name="property"/>-typed

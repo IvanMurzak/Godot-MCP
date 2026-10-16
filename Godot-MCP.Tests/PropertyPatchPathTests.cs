@@ -196,11 +196,46 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("Godot.Variant", typeof(float), false, "Godot.Variant")]
         [InlineData("System.Double", typeof(string), false, "System.Double")]
         [InlineData("System.Int32", typeof(VariantType), true, "Godot.Variant-Type")]
-        public void AlignPrimitiveTypeName(string sent, System.Type declared, bool changed, string expected)
+        public void WithAlignedPrimitiveTypeName(string sent, System.Type declared, bool changed, string expected)
         {
-            var value = new SerializedMember { typeName = sent };
-            Assert.Equal(changed, PropertyPatchPath.AlignPrimitiveTypeName(value, declared));
-            Assert.Equal(expected, value.typeName);
+            var value = new SerializedMember { typeName = sent, name = "n" };
+            var aligned = PropertyPatchPath.WithAlignedPrimitiveTypeName(value, declared);
+
+            Assert.Equal(changed, aligned != null);
+            Assert.Equal(expected, (aligned ?? value).typeName);
+            Assert.Equal(sent, value.typeName); // the caller's patch is never mutated
+            if (aligned != null)
+                Assert.Equal("n", aligned.name);
+        }
+
+        // ---- CanonicalizeMergePatch -----------------------------------------------------------------
+
+        class Holder
+        {
+            public global::Godot.Vector3 Position { get; set; }
+            public Inner Child { get; set; } = new Inner();
+            public List<Inner> Items { get; set; } = new List<Inner> { new Inner() };
+            public global::Godot.Variant Any { get; set; }
+        }
+
+        static string Canonical(object target, string json)
+        {
+            var patch = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(json)!;
+            PropertyPatchPath.CanonicalizeMergePatch(target, target.GetType(), patch);
+            return patch.ToJsonString();
+        }
+
+        [Theory]
+        [InlineData("{\"position\":{\"x\":1}}", "{\"Position\":{\"X\":1}}")]
+        [InlineData("{\"child\":{\"ratio\":0.5}}", "{\"Child\":{\"Ratio\":0.5}}")]
+        [InlineData("{\"items\":{\"[0]\":{\"ratio\":2}}}", "{\"Items\":{\"[0]\":{\"Ratio\":2}}}")]
+        [InlineData("{\"unknown_key\":1}", "{\"unknown_key\":1}")]
+        [InlineData("{\"$type\":\"X\",\"child\":{}}", "{\"$type\":\"X\",\"Child\":{}}")]
+        // A Variant member's object is an envelope, never a merge: its keys stay as sent.
+        [InlineData("{\"any\":{\"variant_type\":\"Int\"}}", "{\"Any\":{\"variant_type\":\"Int\"}}")]
+        public void CanonicalizeMergePatch_RewritesKeysToCSharpMembers(string json, string expected)
+        {
+            Assert.Equal(expected, Canonical(new Holder(), json));
         }
 
         [Fact]
@@ -265,9 +300,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             object? target = new FloatHolder();
             var value = Number("System.Double", 0.5);
             var logger = new ErrorCapturingLogger();
-            Assert.True(PropertyPatchPath.AlignPrimitiveTypeName(value, typeof(float)));
+            var aligned = PropertyPatchPath.WithAlignedPrimitiveTypeName(value, typeof(float));
+            Assert.NotNull(aligned);
 
-            Assert.True(new Reflector().TryModifyAt(ref target, "Value", value, logs: new Logs(), logger: logger));
+            Assert.True(new Reflector().TryModifyAt(ref target, "Value", aligned!, logs: new Logs(), logger: logger));
 
             Assert.Equal(0.5f, ((FloatHolder)target!).Value);
             Assert.Empty(logger.Errors);
