@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -75,6 +76,59 @@ class PublicationWait(unittest.TestCase):
                     extension_release.push([module], root)
             submit.assert_not_called()
             sleep.assert_not_called()
+
+
+class DraftPublication(unittest.TestCase):
+    def test_draft_lookup_uses_numeric_release_id(self):
+        response = SimpleNamespace(returncode=0, stdout=json.dumps({
+            'apiUrl': 'https://api.github.com/repos/IvanMurzak/Godot-MCP/releases/42'}), stderr='')
+        with patch.object(extension_release.subprocess, 'run', return_value=response), \
+                patch.object(extension_release, 'run', return_value='{"id":42,"draft":true}') as api:
+            self.assertEqual({'id': 42, 'draft': True}, extension_release.find_release('animation-v0.1.2'))
+        api.assert_called_once_with(['gh', 'api', 'repos/IvanMurzak/Godot-MCP/releases/42'])
+
+    def test_lookup_distinguishes_missing_release_from_transport_failure(self):
+        response = SimpleNamespace(returncode=1, stdout='', stderr='release not found\n')
+        with patch.object(extension_release.subprocess, 'run', return_value=response):
+            self.assertIsNone(extension_release.find_release('missing-v0.1.2'))
+            response.stderr = 'network unavailable'
+            with self.assertRaisesRegex(RuntimeError, 'Cannot inspect'):
+                extension_release.find_release('missing-v0.1.2')
+
+    def test_draft_assets_are_proven_before_publish_and_corruption_blocks_publication(self):
+        module = {'name': 'Godot-AI-Example', 'packageId': 'example', 'version': '1.2.3'}
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary)
+                package = output / 'example.1.2.3.nupkg'
+                package.write_bytes(b'candidate package')
+                calls, downloads = [], []
+                draft = {'id': 42, 'draft': True, 'assets': [
+                    {'name': package.name, 'id': 11}, {'name': 'SHA256SUMS', 'id': 12}]}
+                def command(args):
+                    calls.append(args)
+                    if args[:2] == ['git', 'rev-parse']:
+                        return 'a' * 40
+                    if args[:3] == ['gh', 'release', 'edit']:
+                        self.assertEqual([11, 12], downloads)
+                    return ''
+                def download(args, **kwargs):
+                    asset = int(args[2].rsplit('/', 1)[-1])
+                    downloads.append(asset)
+                    content = package.read_bytes() if asset == 11 else (output / module['name'] / 'SHA256SUMS').read_bytes()
+                    return SimpleNamespace(stdout=b'corrupt' if corrupt else content)
+                with patch.object(extension_release, 'verify_registry'), \
+                        patch.object(extension_release, 'verify_package'), \
+                        patch.object(extension_release, 'find_release', side_effect=[None, draft]), \
+                        patch.object(extension_release, 'run', side_effect=command), \
+                        patch.object(extension_release.subprocess, 'run', side_effect=download):
+                    if corrupt:
+                        with self.assertRaisesRegex(ValueError, 'Uploaded component asset differs'):
+                            extension_release.publish_github(module, output)
+                    else:
+                        extension_release.publish_github(module, output)
+                edits = [args for args in calls if args[:3] == ['gh', 'release', 'edit']]
+                self.assertEqual(0 if corrupt else 1, len(edits))
 
 
 class PackageVerification(unittest.TestCase):

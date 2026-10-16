@@ -68,6 +68,33 @@ All missing packages are submitted before waiting for NuGet validation/indexing 
 The workflow then verifies their public payloads before creating GitHub component releases.
 Existing published assets must match; retries resume drafts without replacing public assets.
 Component releases never replace the core's GitHub `latest` release.
+
+## Godot Asset Library
+
+Each component also carries `godot-mcp-<feature>-v<version>-assetlib.zip`, its `.sha256`,
+and `assetlib-submission.json` on the same independent GitHub release. The ZIP contains
+only that extension's C# sources, README, license and installation instructions under
+`addons/godot_mcp_extensions/<Feature>/`. It includes no core, sibling modules, DLLs,
+test projects or third-party addons. Godot MCP core must already be installed with its
+NuGet dependencies configured. Use the source ZIP or the extension's NuGet package in
+a project; installing both produces duplicate C# types.
+
+`release_extensions.yml` submits initial entries and later version edits through the
+Asset Library API using the existing `GODOT_ASSETLIB_USERNAME` and `GODOT_ASSETLIB_PASSWORD`
+repository secrets. `Custom` download URLs point at the selected component ZIP, not the
+monorepo source archive. The core's existing `assetlib-edit` release job is unchanged.
+
+Submissions require moderator approval. A receipt with `status: submitted` records a
+pending edit ID, not a public catalog entry. The publisher reconciles existing owned
+assets and pending edits before submitting, reuses matching submissions on retry, and
+does not duplicate or overwrite an in-review edit. Unchanged ZIPs and receipts are reused.
+The Train verifies their version, archive URL/digest and submission ID when the inventory's
+`assetLibrary` flag is enabled. Approval by Godot moderators remains external to the release.
+
+Every supported SDK compiles an additional consumer containing the extracted source ZIPs
+without extension NuGet references. The existing isolated NuGet consumers, sibling-reference
+canary and combined one-editor suite remain in place; the archive check launches no editor.
+
 The CLI and dock resolve each package's latest stable version from NuGet, independently of
 GitHub tags. Package IDs stay unchanged, so historical versions remain installable. Extensions
 contain C# sources and MSBuild props, not compiled Godot DLLs; they compile against the user's SDK.
