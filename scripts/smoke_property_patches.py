@@ -136,6 +136,45 @@ def main() -> int:
     logs = modify(pathPatches=[{"path": "roughness", "value": {"typeName": "Godot.Variant", "value": "abc"}}])
     expect_logs("R6 string into float", logs, errors=True, saved_marker=None)
 
+    # R7: collections round-trip. Packed arrays edited from their get-data entries.
+    grad = f"{d}/grad.tres"
+    call(host, "resource-create", {"resourcePath": grad, "typeClassName": "Gradient"})
+    gprops = {p["name"]: p for p in call(host, "resource-get-data", {"resourceRef": {"resourcePath": grad}}).get("props") or []}
+    offsets, colors = dict(gprops.get("offsets", {})), dict(gprops.get("colors", {}))
+    check("R7 get-data inlines packed arrays", offsets.get("value", {}).get("value") == [0, 1], json.dumps(offsets)[:300])
+    offsets["value"] = {"variantType": "PackedFloat32Array", "value": [0, 0.5, 1]}
+    colors["value"] = {"variantType": "PackedColorArray", "value": [[1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]]}
+    logs = call(host, "resource-modify", {"resourceRef": {"resourcePath": grad}, "pathPatches": [
+        {"path": "offsets", "value": offsets}, {"path": "colors", "value": colors}]})
+    expect_logs("R7 packed arrays", logs, errors=False, saved_marker=f"Resource '{grad}' modified and saved.")
+    check("R7 file has offsets", file_has(project, grad, r"^offsets = PackedFloat32Array\(0, 0\.5, 1\)$"))
+    check("R7 file has colors", file_has(project, grad, r"^colors = PackedColorArray\(1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1\)$"))
+
+    # R8: a typed Array[Font] of resource references and an int-keyed Dictionary; then the get-data entry back.
+    font, fallback = f"{d}/font.tres", f"{d}/fallback.tres"
+    for path in (font, fallback):
+        call(host, "resource-create", {"resourcePath": path, "typeClassName": "FontVariation"})
+    fref = {"resourcePath": font}
+    logs = call(host, "resource-modify", {"resourceRef": fref, "pathPatches": [
+        {"path": "fallbacks", "value": {"typeName": "Godot.Variant", "value": {"variantType": "Array", "value": [
+            {"variantType": "Object", "value": {"resourcePath": fallback}}]}}},
+        {"path": "variation_opentype", "value": {"typeName": "Godot.Variant", "value": {"variantType": "Dictionary", "value": [
+            {"key": 2003265652, "value": 700}]}}}]})
+    expect_logs("R8 typed array + dictionary", logs, errors=False, saved_marker=f"Resource '{font}' modified and saved.")
+    check("R8 file has Array[Font]", file_has(project, font, r'^fallbacks = Array\[Font\]\(\[ExtResource\("[^"]+"\)\]\)$'))
+    check("R8 file has the dictionary", file_has(project, font, r"^2003265652: 700$"))
+    fprops = {p["name"]: p for p in call(host, "resource-get-data", {"resourceRef": fref}).get("props") or []}
+    logs = call(host, "resource-modify", {"resourceRef": fref, "pathPatches": [
+        {"path": "fallbacks", "value": fprops.get("fallbacks", {})}, {"path": "variation_opentype", "value": fprops.get("variation_opentype", {})}]})
+    expect_logs("R8 get-data entries sent back unchanged", logs, errors=False, saved_marker=None)
+    check("R8 unchanged entries are not re-saved", not any("modified and saved" in m for m in log_types(logs).get("Success", [])), json.dumps(logs)[:400])
+
+    # R9: an element the typed array refuses is an error and keeps the existing content.
+    logs = call(host, "resource-modify", {"resourceRef": fref, "pathPatches": [
+        {"path": "fallbacks", "value": {"typeName": "Godot.Variant", "value": {"variantType": "Array", "value": [5]}}}]})
+    expect_logs("R9 wrong element type", logs, errors=True, saved_marker=None)
+    check("R9 file keeps the fallback", file_has(project, font, r'^fallbacks = Array\[Font\]\(\[ExtResource\("[^"]+"\)\]\)$'))
+
     # Nodes: build a scene with an OmniLight3D, patch it, save, read the .tscn.
     call(host, "scene-create", {"resourcePath": scene, "rootTypeClassName": "Node3D", "rootName": "Root"})
     call(host, "scene-open", {"resourcePath": scene})

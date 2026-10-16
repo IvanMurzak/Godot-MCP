@@ -101,8 +101,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     }
                     catch (Exception ex)
                     {
+                        // Keep the property in the reply so the caller can tell the data is partial.
+                        member.AddProperty(SerializedMember.FromJson(typeof(Variant),
+                            Godot_Variant_ReflectionConverter.NoteNode(value.VariantType, $"Could not be serialized: {ex.Message}").ToJsonString(),
+                            propName.AsString()));
                         GodotMcpLog.Warning($"[Godot-MCP] {ResourceGetDataToolId}: property '{propName}' " +
-                            $"of '{name}' could not be serialized and was omitted: {ex.Message}");
+                            $"of '{name}' could not be serialized: {ex.Message}");
                     }
                 }
 

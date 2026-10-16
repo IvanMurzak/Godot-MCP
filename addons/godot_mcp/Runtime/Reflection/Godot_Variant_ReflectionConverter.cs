@@ -9,13 +9,16 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Converter;
 using com.IvanMurzak.ReflectorNet.Model;
+using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 using VariantType = global::Godot.Variant.Type;
@@ -49,7 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <para>
     /// <b>#if TOOLS / testability split.</b> Everything decidable — parsing, validation, error text — lives
     /// in the pure-managed <see cref="GodotVariantPayload"/> and is unit-tested in the plain xUnit host. Only
-    /// <see cref="ToVariant"/> / <see cref="ToPayload"/> touch native Godot marshalling (which faults the
+    /// <see cref="ToVariant"/> / <see cref="TryToPayload"/> touch native Godot marshalling (which faults the
     /// test host without a Godot native library), and they are reached only from a live editor/game process.
     /// Mirrors the pure-ref / injected-resolver split of
     /// <see cref="Godot_Resource_ReflectionConverter{T}"/>.
@@ -67,7 +70,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         public static readonly string ValueKey = GodotVariantPayload.ValueKeys[0];
 
         /// <summary>JSON key carrying an explanatory note for a variant that cannot be written back.</summary>
-        public const string NoteKey = "note";
+        public const string NoteKey = GodotVariantPayload.NoteKey;
 
         // A Variant is a leaf on the wire (a scalar, or a {variantType, value} envelope) — there is no nested
         // object graph to descend into. Turning cascade off routes the raw JsonElement (scalar OR object) to
@@ -155,7 +158,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return global::Godot.Variant.CreateFrom(new NodePath(payload.TextValue));
 
                 case VariantType.Vector2:
-                    return global::Godot.Variant.CreateFrom(new Vector2(payload.Component(0), payload.Component(1)));
+                    return global::Godot.Variant.CreateFrom(ToVector2(payload));
                 case VariantType.Vector2I:
                     return global::Godot.Variant.CreateFrom(new Vector2I(payload.ComponentInt(0), payload.ComponentInt(1)));
                 case VariantType.Vector3:
@@ -175,8 +178,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return global::Godot.Variant.CreateFrom(new Plane(
                         payload.Component(0), payload.Component(1), payload.Component(2), payload.Component(3)));
                 case VariantType.Color:
-                    return global::Godot.Variant.CreateFrom(new Color(
-                        payload.Component(0), payload.Component(1), payload.Component(2), payload.Component(3)));
+                    return global::Godot.Variant.CreateFrom(ToColor(payload));
 
                 case VariantType.Rect2:
                     return global::Godot.Variant.CreateFrom(new Rect2(
@@ -202,12 +204,78 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return global::Godot.Variant.CreateFrom(new Projection(
                         ToVector4(payload, 0), ToVector4(payload, 4), ToVector4(payload, 8), ToVector4(payload, 12)));
 
+                case VariantType.Object:
+                    return ResolveObject(payload) is { } resolved ? global::Godot.Variant.CreateFrom(resolved) : default;
+                case VariantType.Array:
+                    var array = new global::Godot.Collections.Array();
+                    foreach (var item in payload.Items)
+                        array.Add(ToVariant(item));
+                    return global::Godot.Variant.CreateFrom(array);
+                case VariantType.Dictionary:
+                    var dictionary = new global::Godot.Collections.Dictionary();
+                    foreach (var entry in payload.Entries)
+                        dictionary[ToVariant(entry.Key)] = ToVariant(entry.Value);
+                    return global::Godot.Variant.CreateFrom(dictionary);
+                case VariantType.PackedByteArray:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => (byte)i.IntValue).ToArray());
+                case VariantType.PackedInt32Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => (int)i.IntValue).ToArray());
+                case VariantType.PackedInt64Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => i.IntValue).ToArray());
+                case VariantType.PackedFloat32Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => (float)i.FloatValue).ToArray());
+                case VariantType.PackedFloat64Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => i.FloatValue).ToArray());
+                case VariantType.PackedStringArray:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => i.TextValue).ToArray());
+                case VariantType.PackedVector2Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(ToVector2).ToArray());
+                case VariantType.PackedVector3Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => ToVector3(i, 0)).ToArray());
+                case VariantType.PackedVector4Array:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(i => ToVector4(i, 0)).ToArray());
+                case VariantType.PackedColorArray:
+                    return global::Godot.Variant.CreateFrom(payload.Items.Select(ToColor).ToArray());
+
                 default:
                     // Unreachable: GodotVariantPayload.Parse rejects every type not handled above.
                     throw new ArgumentException(
                         $"Cannot build a Godot.Variant of type '{payload.Kind}'. {GodotVariantPayload.WireFormatHelp}");
             }
         }
+
+        /// <summary>
+        /// Resolve an <c>Object</c> payload to the live object. A resource path goes through the same resolver as a
+        /// <c>Resource</c>-typed value (main thread, existence check); an id alone may name any object, a Node too.
+        /// </summary>
+        static GodotObject? ResolveObject(GodotVariantPayload payload)
+        {
+            if (payload.IsNullObject)
+                return null;
+
+            // A built-in sub-resource's path ('res://a.tres::Font_x') does not load on its own; when the entry
+            // also carries the live instance id (every get-data entry does), resolve by that instead.
+            var path = payload.ResourcePath != null && !(payload.InstanceId != 0 && payload.ResourcePath.Contains("::"))
+                ? payload.ResourcePath
+                : null;
+
+            if (path != null && Godot_Resource_ReflectionConverter.ResourceResolver is { } resolveResource)
+            {
+                if (resolveResource(new ResourceRef(path), out var resource, out var error))
+                    return (GodotObject)resource!;
+                throw new ArgumentException($"Cannot read a Godot.Variant: {error}");
+            }
+
+            var resolved = MainThread.Instance.Run(() => path != null
+                ? ResourceLoader.Exists(path) ? ResourceLoader.Load(path) : null
+                : GodotObject.IsInstanceIdValid(payload.InstanceId) ? GodotObject.InstanceFromId(payload.InstanceId) : null);
+            return resolved ?? throw new ArgumentException(
+                $"Cannot read a Godot.Variant: no object found for {(path != null ? $"'{path}'" : $"instanceId {payload.InstanceId}")}.");
+        }
+
+        static Vector2 ToVector2(GodotVariantPayload p) => new Vector2(p.Component(0), p.Component(1));
+
+        static Color ToColor(GodotVariantPayload p) => new Color(p.Component(0), p.Component(1), p.Component(2), p.Component(3));
 
         static Vector3 ToVector3(GodotVariantPayload p, int offset)
             => new Vector3(p.Component(offset), p.Component(offset + 1), p.Component(offset + 2));
@@ -223,10 +291,35 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         /// <summary>
         /// Describe a live variant as the wire payload (the inverse of <see cref="ToVariant"/> for every
-        /// round-trippable type). Reads native variant storage, so it runs only in a live Godot process.
+        /// round-trippable type), or <c>null</c> when it has no payload form (Rid / Callable / Signal, also
+        /// nested) or holds more than <paramref name="maxValues"/> values — the bound also stops a collection
+        /// that contains itself. Reads native variant storage, so it runs only in a live Godot process.
         /// </summary>
-        public static GodotVariantPayload ToPayload(global::Godot.Variant variant)
+        public static GodotVariantPayload? TryToPayload(global::Godot.Variant variant, int maxValues)
         {
+            try
+            {
+                return ToPayload(variant, ref maxValues);
+            }
+            catch (Exception ex) when (ex is NotSupportedException or BudgetExceededException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Thrown when a variant holds more values than the caller's budget allows.</summary>
+        sealed class BudgetExceededException : Exception { }
+
+        static void Spend(ref int budget, int count)
+        {
+            budget -= count;
+            if (budget < 0)
+                throw new BudgetExceededException();
+        }
+
+        static GodotVariantPayload ToPayload(global::Godot.Variant variant, ref int budget)
+        {
+            Spend(ref budget, 1);
             switch (variant.VariantType)
             {
                 case VariantType.Nil:
@@ -243,8 +336,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return GodotVariantPayload.FromText(variant.VariantType, variant.AsString());
 
                 case VariantType.Vector2:
-                    var v2 = variant.AsVector2();
-                    return Components(variant.VariantType, v2.X, v2.Y);
+                    return Components(variant.VariantType, Flatten(variant.AsVector2()));
                 case VariantType.Vector2I:
                     var v2i = variant.AsVector2I();
                     return Components(variant.VariantType, v2i.X, v2i.Y);
@@ -266,8 +358,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     var plane = variant.AsPlane();
                     return Components(variant.VariantType, plane.Normal.X, plane.Normal.Y, plane.Normal.Z, plane.D);
                 case VariantType.Color:
-                    var c = variant.AsColor();
-                    return Components(variant.VariantType, c.R, c.G, c.B, c.A);
+                    return Components(variant.VariantType, Flatten(variant.AsColor()));
 
                 case VariantType.Rect2:
                     var r2 = variant.AsRect2();
@@ -294,15 +385,73 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     return Components(variant.VariantType, Flatten(proj.X)
                         .Concat(Flatten(proj.Y)).Concat(Flatten(proj.Z)).Concat(Flatten(proj.W)).ToArray());
 
+                case VariantType.Object:
+                    var obj = variant.AsGodotObject();
+                    // Both identities are kept: the path is what a caller can send back, the id is what equality needs.
+                    // Native reads, and reflection-method-call serializes its result off the main thread: marshal
+                    // (inline when already there), like Godot_Resource_ReflectionConverter.ToResourceRef.
+                    return obj == null
+                        ? GodotVariantPayload.FromObject(null, 0)
+                        : MainThread.Instance.Run(() => GodotVariantPayload.FromObject((obj as Resource)?.ResourcePath, obj.GetInstanceId()));
+                case VariantType.Array:
+                {
+                    var source = variant.AsGodotArray();
+                    var items = new GodotVariantPayload[source.Count];
+                    for (var i = 0; i < items.Length; i++)
+                        items[i] = ToPayload(source[i], ref budget);
+                    return GodotVariantPayload.FromItems(VariantType.Array, items);
+                }
+                case VariantType.Dictionary:
+                {
+                    var entries = new List<KeyValuePair<GodotVariantPayload, GodotVariantPayload>>();
+                    foreach (var entry in variant.AsGodotDictionary())
+                        entries.Add(new KeyValuePair<GodotVariantPayload, GodotVariantPayload>(
+                            ToPayload(entry.Key, ref budget), ToPayload(entry.Value, ref budget)));
+                    return GodotVariantPayload.FromEntries(entries);
+                }
+                case VariantType.PackedByteArray:
+                    return Packed(variant.VariantType, variant.AsByteArray(), b => GodotVariantPayload.FromInt(b), ref budget);
+                case VariantType.PackedInt32Array:
+                    return Packed(variant.VariantType, variant.AsInt32Array(), i => GodotVariantPayload.FromInt(i), ref budget);
+                case VariantType.PackedInt64Array:
+                    return Packed(variant.VariantType, variant.AsInt64Array(), GodotVariantPayload.FromInt, ref budget);
+                case VariantType.PackedFloat32Array:
+                    return Packed(variant.VariantType, variant.AsFloat32Array(), f => GodotVariantPayload.FromFloat(f), ref budget);
+                case VariantType.PackedFloat64Array:
+                    return Packed(variant.VariantType, variant.AsFloat64Array(), GodotVariantPayload.FromFloat, ref budget);
+                case VariantType.PackedStringArray:
+                    return Packed(variant.VariantType, variant.AsStringArray(), t => GodotVariantPayload.FromText(VariantType.String, t), ref budget);
+                case VariantType.PackedVector2Array:
+                    return Packed(variant.VariantType, variant.AsVector2Array(), v => Components(VariantType.Vector2, Flatten(v)), ref budget);
+                case VariantType.PackedVector3Array:
+                    return Packed(variant.VariantType, variant.AsVector3Array(), v => Components(VariantType.Vector3, Flatten(v)), ref budget);
+                case VariantType.PackedVector4Array:
+                    return Packed(variant.VariantType, variant.AsVector4Array(), v => Components(VariantType.Vector4, Flatten(v)), ref budget);
+                case VariantType.PackedColorArray:
+                    return Packed(variant.VariantType, variant.AsColorArray(), c => Components(VariantType.Color, Flatten(c)), ref budget);
+
                 default:
                     throw new NotSupportedException($"Godot Variant.Type '{variant.VariantType}' has no JSON payload form.");
             }
         }
 
+        static GodotVariantPayload Packed<T>(VariantType kind, T[] source, Func<T, GodotVariantPayload> element, ref int budget)
+        {
+            Spend(ref budget, source.Length); // before converting a single element
+            var items = new GodotVariantPayload[source.Length];
+            for (var i = 0; i < items.Length; i++)
+                items[i] = element(source[i]);
+            return GodotVariantPayload.FromItems(kind, items);
+        }
+
         static GodotVariantPayload Components(VariantType kind, params double[] components)
             => GodotVariantPayload.FromComponents(kind, components);
 
+        static double[] Flatten(Vector2 v) => new double[] { v.X, v.Y };
+
         static double[] Flatten(Vector3 v) => new double[] { v.X, v.Y, v.Z };
+
+        static double[] Flatten(Color c) => new double[] { c.R, c.G, c.B, c.A };
 
         static double[] Flatten(Vector4 v) => new double[] { v.X, v.Y, v.Z, v.W };
 
@@ -314,13 +463,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         };
 
         /// <summary>
-        /// Build the wire JSON for a live variant. Two kinds of variant cannot be written back as an
-        /// argument — types with no JSON form (Object / Array / Dictionary / Packed*Array / Rid / Callable /
-        /// Signal), and any variant holding a non-finite float (JSON has no literal for NaN/±Infinity, and
-        /// <c>JsonValue.Create(double.NaN).ToJsonString()</c> throws). Both are reported honestly, as the
-        /// declared <c>variantType</c> plus Godot's own string rendering and a note, rather than being
-        /// silently emitted as something that would not round-trip — and, critically, rather than turning a
-        /// SUCCESSFUL call into an opaque serialization failure.
+        /// Build the wire JSON for a live variant. Three kinds of variant are not written out in full: types
+        /// with no JSON form (Rid / Callable / Signal), a variant holding a non-finite float (JSON has no literal
+        /// for NaN/±Infinity), and a collection of more than <see cref="MaxInlineNodes"/> values. Each is reported
+        /// honestly, as the declared <c>variantType</c> plus a (truncated) Godot string rendering and a note,
+        /// rather than as something that would not round-trip or as an opaque serialization failure.
         /// </summary>
         internal static JsonObject ToWireNode(global::Godot.Variant variant)
         {
@@ -330,7 +477,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             string? reason = null;
             try
             {
-                payload = ToPayload(variant);
+                var budget = MaxInlineNodes;
+                payload = ToPayload(variant, ref budget);
                 if (!IsJsonWritable(payload))
                     reason = "it holds a non-finite float (NaN or +/-Infinity), which JSON cannot represent";
             }
@@ -338,10 +486,15 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             {
                 reason = $"Godot Variant.Type '{variant.VariantType}' has no JSON form";
             }
+            catch (BudgetExceededException)
+            {
+                reason = $"it holds more than the {MaxInlineNodes} values inlined in a reply";
+            }
 
             if (reason != null)
             {
-                node[ValueKey] = variant.ToString();
+                var text = variant.ToString();
+                node[ValueKey] = text.Length > MaxRenderedChars ? text.Substring(0, MaxRenderedChars) + "…" : text;
                 node[NoteKey] =
                     $"Rendered as Godot's own string form because {reason}; it cannot be sent back as a " +
                     "Godot.Variant argument. " + GodotVariantPayload.WireFormatHelp;
@@ -351,6 +504,16 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             node[ValueKey] = ToWireValue(payload!);
             return node;
         }
+
+        /// <summary>Largest collection (in nested values) written out in full; bigger ones get a note instead.</summary>
+        const int MaxInlineNodes = 4096;
+
+        /// <summary>Longest string rendering kept for a variant that is not written out in full.</summary>
+        const int MaxRenderedChars = 256;
+
+        /// <summary>A <c>{variantType, note}</c> wire object for a value that is reported but not carried.</summary>
+        public static JsonObject NoteNode(VariantType kind, string note)
+            => new JsonObject { [VariantTypeKey] = kind.ToString(), [NoteKey] = note };
 
         /// <summary>True when every number in <paramref name="payload"/> can be written as a JSON literal.</summary>
         static bool IsJsonWritable(GodotVariantPayload payload)
@@ -363,8 +526,19 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 if (double.IsNaN(component) || double.IsInfinity(component))
                     return false;
             }
-            return true;
+            return payload.Items.All(IsJsonWritable) && payload.Entries.All(e => IsJsonWritable(e.Key) && IsJsonWritable(e.Value));
         }
+
+        /// <summary>
+        /// The wire form of a collection element or dictionary key/value: Bool/Int/String/Nil as bare JSON
+        /// (they parse back to the same type), everything else as an envelope — a bare 1.0 would come back
+        /// as an Int.
+        /// </summary>
+        static JsonNode? ToElementWire(GodotVariantPayload payload) => payload.Kind switch
+        {
+            VariantType.Nil or VariantType.Bool or VariantType.Int or VariantType.String => ToWireValue(payload),
+            _ => new JsonObject { [VariantTypeKey] = payload.Kind.ToString(), [ValueKey] = ToWireValue(payload) },
+        };
 
         static JsonNode? ToWireValue(GodotVariantPayload payload)
         {
@@ -382,6 +556,28 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 case VariantType.StringName:
                 case VariantType.NodePath:
                     return JsonValue.Create(payload.TextValue);
+                case VariantType.Object:
+                    if (payload.IsNullObject)
+                        return null;
+                    var reference = new JsonObject { [ResourceRef.ResourceRefProperty.InstanceId] = payload.InstanceId };
+                    if (payload.ResourcePath != null)
+                        reference[ResourceRef.ResourceRefProperty.ResourcePath] = payload.ResourcePath;
+                    return reference;
+                case VariantType.Array:
+                    return new JsonArray(payload.Items.Select(ToElementWire).ToArray());
+                case VariantType.Dictionary:
+                    if (payload.Entries.All(e => e.Key.Kind == VariantType.String))
+                    {
+                        var map = new JsonObject();
+                        foreach (var entry in payload.Entries)
+                            map[entry.Key.TextValue] = ToElementWire(entry.Value);
+                        return map;
+                    }
+                    return new JsonArray(payload.Entries
+                        .Select(e => (JsonNode)new JsonObject { ["key"] = ToElementWire(e.Key), ["value"] = ToElementWire(e.Value) })
+                        .ToArray());
+                case var kind when GodotVariantPayload.PackedElementKind(kind) != null:
+                    return new JsonArray(payload.Items.Select(ToWireValue).ToArray());
                 default:
                     var array = new JsonArray();
                     foreach (var component in payload.Components)

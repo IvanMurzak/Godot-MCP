@@ -204,23 +204,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 return true;
             if (value == VariantType.Nil)
                 return property == VariantType.Object;
-            return Family(value) is { } family && family == Family(property);
+            return GodotVariantPayload.Family(value) is { } family && family == GodotVariantPayload.Family(property);
         }
-
-        static int? Family(VariantType type) => type switch
-        {
-            VariantType.Bool or VariantType.Int or VariantType.Float => 1,
-            VariantType.String or VariantType.StringName or VariantType.NodePath => 2,
-            VariantType.Vector2 or VariantType.Vector2I => 3,
-            VariantType.Vector3 or VariantType.Vector3I => 4,
-            VariantType.Vector4 or VariantType.Vector4I => 5,
-            VariantType.Rect2 or VariantType.Rect2I => 6,
-            VariantType.Array or VariantType.PackedByteArray or VariantType.PackedInt32Array or VariantType.PackedInt64Array
-                or VariantType.PackedFloat32Array or VariantType.PackedFloat64Array or VariantType.PackedStringArray
-                or VariantType.PackedVector2Array or VariantType.PackedVector3Array or VariantType.PackedColorArray
-                or VariantType.PackedVector4Array => 7,
-            _ => null,
-        };
 
         /// <summary>True when <paramref name="typeName"/> names <c>Godot.Variant</c>.</summary>
         public static bool IsVariantTypeName(string? typeName) => typeName == VariantTypeId;
