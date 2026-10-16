@@ -160,15 +160,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         bool ApplyReflectorJson(string json, string label)
         {
-            // ReflectorNet 5.4 sends a failed member setter only to its ILogger (its Logs still say "Set value").
-            var logger = new ErrorCapturingLogger();
-            var applied = reflector.TryPatch(ref current, json, logs: logs, logger: logger);
-            foreach (var error in logger.Errors)
-                logs.Error($"{label}: {error} — the value was NOT applied.");
-            if (!applied)
+            // ReflectorNet reports every failure (a throwing setter included) to Logs and returns false.
+            if (!reflector.TryPatch(ref current, json, logs: logs))
                 return false;
             RecordDivergence(label);
-            return logger.Errors.Count == 0;
+            return true;
         }
 
         bool ApplyPathPatch(NodePropertyPatch patch, string label)
@@ -200,28 +196,19 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                         $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
                     return false;
                 }
-                if (PropertyPatchPath.WithAlignedPrimitiveTypeName(value, resolved.MemberType) is { } aligned)
-                {
-                    logs.Info($"{label}: value typeName '{value.typeName}' aligned to '{aligned.typeName}'.");
-                    value = aligned;
-                }
             }
 
             // A top-level C# member backed by a Godot property is read back like the native route.
             var readBack = segment == null ? null : PropertyPatchPath.GodotBackingProperty(target.GetType(), resolved.Path, GodotProperties.Keys);
             var before = readBack == null ? default : Snapshot.Of(target.Get(readBack));
 
-            // ReflectorNet 5.4 sends a failed member setter only to its ILogger and still returns true.
-            var logger = new ErrorCapturingLogger();
-            if (!reflector.TryModifyAt(ref current, resolved.Path, value, logs: logs, logger: logger))
+            // ReflectorNet (5.4.3+) reads a mismatched numeric typeName as the member's declared type and reports a
+            // failed write to Logs with a false result; only a false without a logged reason is a silent no-op.
+            var failuresBefore = ReflectionArgumentGuard.Failures(logs).Count;
+            if (!reflector.TryModifyAt(ref current, resolved.Path, value, logs: logs))
             {
-                logs.Warning($"{label} did not modify the target (no-op).");
-                return false;
-            }
-            if (logger.Errors.Count > 0)
-            {
-                foreach (var error in logger.Errors)
-                    logs.Error($"{label}: {error} — the value was NOT applied.");
+                if (ReflectionArgumentGuard.Failures(logs).Count == failuresBefore)
+                    logs.Warning($"{label} did not modify the target (no-op).");
                 return false;
             }
             RecordDivergence(label);

@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// Coverage for the pure-managed rules behind <c>node-modify</c> / <c>resource-modify</c>
-    /// (<see cref="PropertyPatchPath"/>, <see cref="ErrorCapturingLogger"/>). The native half — Godot's
+    /// (<see cref="PropertyPatchPath"/>) and the pinned ReflectorNet's write-back contract. The native half — Godot's
     /// <c>Set</c>/<c>Get</c> read-back — is covered by <c>scripts/smoke_property_patches.py</c> against a
     /// running editor.
     /// </summary>
@@ -61,6 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("#/LightEnergy", "LightEnergy")]
         [InlineData("Child/Ratio", null)]
         [InlineData("[0]", null)]
+        [InlineData("[]", null)]
+        [InlineData("[a/b]", null)]
         [InlineData("", null)]
         public void SingleMemberSegment(string path, string? expected)
         {
@@ -115,6 +117,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(typeof(float), PropertyPatchPath.Resolve(new Sample(), "items/[0]/ratio").MemberType);
             Assert.Equal("Items/[0]/Ratio", PropertyPatchPath.Resolve(new Sample(), "items/[0]/ratio").Path);
             Assert.Equal(typeof(int), PropertyPatchPath.Resolve(new Sample(), "Map/[k]").MemberType);
+        }
+
+        [Theory]
+        // Same segmentation as ReflectorNet 5.4.3's ParsePath: '/' inside brackets belongs to the key, escapes stay.
+        [InlineData("map/[a/b]", "Map/[a/b]")]
+        [InlineData("map/[a\\]b]", "Map/[a\\]b]")]
+        [InlineData("map/[]", "Map/[]")]
+        public void Resolve_BracketKeys_FollowReflectorNetParsing(string path, string expected)
+        {
+            var r = PropertyPatchPath.Resolve(new Sample(), path);
+            Assert.Equal(expected, r.Path);
+            Assert.Equal(typeof(int), r.MemberType);
         }
 
         [Fact]
@@ -184,28 +198,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var names = new HashSet<string> { "any" };
             Assert.Null(PropertyPatchPath.GodotPropertyFor(typeof(Sample), "Any", valueIsVariant: true, names));
-        }
-
-        // ---- WithAlignedPrimitiveTypeName -------------------------------------------------------------
-
-        [Theory]
-        [InlineData("System.Double", typeof(float), true, "System.Single")]
-        [InlineData("System.Int64", typeof(int), true, "System.Int32")]
-        [InlineData("System.Single", typeof(float), false, "System.Single")]
-        [InlineData("System.String", typeof(float), false, "System.String")]
-        [InlineData("Godot.Variant", typeof(float), false, "Godot.Variant")]
-        [InlineData("System.Double", typeof(string), false, "System.Double")]
-        [InlineData("System.Int32", typeof(VariantType), true, "Godot.Variant-Type")]
-        public void WithAlignedPrimitiveTypeName(string sent, System.Type declared, bool changed, string expected)
-        {
-            var value = new SerializedMember { typeName = sent, name = "n" };
-            var aligned = PropertyPatchPath.WithAlignedPrimitiveTypeName(value, declared);
-
-            Assert.Equal(changed, aligned != null);
-            Assert.Equal(expected, (aligned ?? value).typeName);
-            Assert.Equal(sent, value.typeName); // the caller's patch is never mutated
-            if (aligned != null)
-                Assert.Equal("n", aligned.name);
         }
 
         // ---- CanonicalizeMergePatch -----------------------------------------------------------------
@@ -288,57 +280,44 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(expected, PropertyPatchPath.IsAssignable(value, property));
         }
 
-        // ---- ErrorCapturingLogger + ReflectorNet ----------------------------------------------------
+        // ---- Pinned ReflectorNet write-back contract (5.4.3+) -----------------------------------------
 
         class FloatHolder
         {
             public float Value { get; set; }
+
+            public int Guarded
+            {
+                get => 0;
+                set => throw new System.InvalidOperationException("guarded");
+            }
         }
 
         static SerializedMember Number(string typeName, double value)
             => new SerializedMember { typeName = typeName, valueJsonElement = JsonDocument.Parse(value.ToString(System.Globalization.CultureInfo.InvariantCulture)).RootElement };
 
         [Fact]
-        public void TryModifyAt_MismatchedNumericType_ReportsSuccessButOnlyTheLoggerSeesTheFailure()
+        public void TryModifyAt_MismatchedNumericType_LandsAsTheDeclaredType()
         {
-            // The root cause of the silent drop: ReflectorNet deserializes to the sent type, the setter throws,
-            // and the failure goes to the ILogger alone while TryModifyAt still returns true.
+            // 5.4.2 parsed the value as the sent 'System.Double', the float setter threw, and the failure was hidden
+            // (#370). The patcher relies on 5.4.3+ reading it as the member's declared type instead.
             object? target = new FloatHolder();
             var logs = new Logs();
-            var logger = new ErrorCapturingLogger();
 
-            var ok = new Reflector().TryModifyAt(ref target, "Value", Number("System.Double", 0.5), logs: logs, logger: logger);
-
-            Assert.True(ok);
-            Assert.Equal(0f, ((FloatHolder)target!).Value);
-            Assert.Single(logger.Errors);
-            Assert.Contains("Value", logger.Errors[0]);
-        }
-
-        [Fact]
-        public void TryModifyAt_AlignedTypeName_Lands()
-        {
-            object? target = new FloatHolder();
-            var value = Number("System.Double", 0.5);
-            var logger = new ErrorCapturingLogger();
-            var aligned = PropertyPatchPath.WithAlignedPrimitiveTypeName(value, typeof(float));
-            Assert.NotNull(aligned);
-
-            Assert.True(new Reflector().TryModifyAt(ref target, "Value", aligned!, logs: new Logs(), logger: logger));
-
+            Assert.True(new Reflector().TryModifyAt(ref target, "Value", Number("System.Double", 0.5), logs: logs));
             Assert.Equal(0.5f, ((FloatHolder)target!).Value);
-            Assert.Empty(logger.Errors);
+            Assert.Empty(ReflectionArgumentGuard.Failures(logs));
         }
 
         [Fact]
-        public void ErrorCapturingLogger_RecordsOnlyErrors()
+        public void TryModifyAt_ThrowingSetter_FailsAndLogsTheReason()
         {
-            var logger = new ErrorCapturingLogger();
-            Assert.False(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning));
-            Assert.True(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Critical));
-            Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(logger, "ignored");
-            Microsoft.Extensions.Logging.LoggerExtensions.LogError(logger, "  kept  ");
-            Assert.Equal(new[] { "kept" }, logger.Errors);
+            // The patcher reports a write as failed only through TryModifyAt's result and Logs (no ILogger capture).
+            object? target = new FloatHolder();
+            var logs = new Logs();
+
+            Assert.False(new Reflector().TryModifyAt(ref target, "Guarded", Number("System.Int32", 2), logs: logs));
+            Assert.Contains(ReflectionArgumentGuard.Failures(logs), m => m.Contains("guarded"));
         }
     }
 }
