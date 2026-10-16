@@ -95,9 +95,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     Projection = source.Projection,
                     Fov = source.Fov,
                     Size = source.Size,
+                    FrustumOffset = source.FrustumOffset,
                     Near = source.Near,
                     Far = source.Far,
+                    HOffset = source.HOffset,
+                    VOffset = source.VOffset,
                     KeepAspect = source.KeepAspect,
+                    CullMask = source.CullMask,
+                    Environment = source.Environment,
+                    Attributes = source.Attributes,
                     Current = true,
                 };
                 subViewport.AddChild(cloneCamera);
@@ -172,6 +178,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 host.AddChild(subViewport);
 
+                // The render below happens before the engine's next frame, but hosting only QUEUES the
+                // subtree's render-side updates for that frame: transform-change notifications (which push
+                // camera / instance / light transforms) are flushed by the SceneTree once per frame, and
+                // CSG shapes build their mesh in a deferred call. Apply both now, or the capture shows every
+                // node at an identity transform (camera at the origin, light along -Z, children collapsed)
+                // and CSG targets as empty.
+                FlushPendingRenderState(subViewport);
+
                 // The SubViewport renders into its target across the next draw. A SINGLE force-draw issued
                 // immediately after AddChild can read back BEFORE the off-screen target has the scene content
                 // (empirically: the first draw yields the clear color only). The SubViewport is created with
@@ -193,6 +207,25 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (subViewport.GetParent() != null)
                     subViewport.GetParent().RemoveChild(subViewport);
             }
+        }
+
+        // CSGShape3D::update_shape, bound to scripting as "_update_shape". Normally only invoked deferred.
+        static readonly StringName CsgUpdateShapeMethod = "_update_shape";
+
+        // Synchronously apply the render-side state that the engine would only apply on its next frame:
+        // build root CSG meshes and run every Node3D's queued transform-change notification (which pushes
+        // camera / mesh / light transforms to the RenderingServer). MUST run on the main thread, with the
+        // subtree inside the tree.
+        static void FlushPendingRenderState(Node node)
+        {
+            if (node is CsgShape3D csg && csg.IsRootShape())
+                csg.Call(CsgUpdateShapeMethod);
+
+            if (node is Node3D node3D)
+                node3D.ForceUpdateTransform();
+
+            foreach (var child in node.GetChildren())
+                FlushPendingRenderState(child);
         }
 
         // Free an off-screen SubViewport and its descendants. Idempotent-safe to call from the caller's

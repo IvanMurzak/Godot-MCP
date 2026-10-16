@@ -151,7 +151,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 clone.Transform = Transform3D.Identity;
                 subViewport.AddChild(clone);
 
-                var bounds = ComputeAabb(clone);
+                // Read the AABB from the in-tree ORIGINAL, not from the clone: outside the tree Node3D::
+                // get_global_transform() returns Transform3D() and a CSG clone has no mesh yet, so the
+                // clone's bounds collapse to the fallback. The clone is re-rooted at the origin, so the
+                // bounds are taken in the target's own space.
+                var bounds = ComputeLocalAabb(target);
                 var radius = bounds.Size.Length() * 0.5f;
                 var distance = ScreenshotMath.ComputeCameraDistance(radius, fov, padding);
 
@@ -195,43 +199,54 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
         }
 
-        // Aggregate the world-space AABB of every VisualInstance3D in the subtree (the clone's, already at
-        // the origin). Falls back to a small unit box when the target has no visual geometry so the camera
-        // still gets a sane finite framing distance.
-        static Aabb ComputeAabb(Node3D root)
+        // Aggregate the AABB of every VisualInstance3D in the subtree, in the root's own space. Each instance
+        // AABB is transformed straight into root space (not via world space) so a rotated root is not
+        // inflated twice. Falls back to a small box at the root's origin when the target has no visual
+        // geometry so the camera still gets a sane finite framing distance.
+        static Aabb ComputeLocalAabb(Node3D root)
         {
+            var fallback = new Aabb(Vector3.One * -0.05f, Vector3.One * 0.1f);
+
+            // A zero-scaled root (or ancestor) has a singular basis: AffineInverse would throw, and nothing
+            // has extent in its own space anyway.
+            var rootGlobal = root.GlobalTransform;
+            if (rootGlobal.Basis.Determinant() == 0f)
+                return fallback;
+
             var initialised = false;
             var bounds = new Aabb();
+            var worldToRoot = rootGlobal.AffineInverse();
 
             foreach (var vi in CollectVisualInstances(root))
             {
-                var local = vi.GetAabb();
-                // Transform the instance-local AABB into the root's space via the instance's global transform.
-                var worldAabb = vi.GlobalTransform * local;
+                var localAabb = (worldToRoot * vi.GlobalTransform) * vi.GetAabb();
                 if (!initialised)
                 {
-                    bounds = worldAabb;
+                    bounds = localAabb;
                     initialised = true;
                 }
                 else
                 {
-                    bounds = bounds.Merge(worldAabb);
+                    bounds = bounds.Merge(localAabb);
                 }
             }
 
             if (!initialised || bounds.Size.LengthSquared() < 1e-8f)
-                bounds = new Aabb(Vector3.Zero, Vector3.One * 0.1f);
+                bounds = fallback;
 
             return bounds;
         }
 
-        static IEnumerable<VisualInstance3D> CollectVisualInstances(Node node)
+        // A non-root CSG shape below the target only contributes to its root's mesh (and may even be
+        // subtracted from it), so it is skipped. The target itself always counts: its clone becomes a root
+        // shape in the isolated world, and a non-root CSG shape's AABB is its combined brush.
+        static IEnumerable<VisualInstance3D> CollectVisualInstances(Node node, bool isTarget = true)
         {
-            if (node is VisualInstance3D vi)
+            if (node is VisualInstance3D vi && (isTarget || vi is not CsgShape3D csg || csg.IsRootShape()))
                 yield return vi;
             foreach (var child in node.GetChildren(includeInternal: false))
             {
-                foreach (var nested in CollectVisualInstances(child))
+                foreach (var nested in CollectVisualInstances(child, isTarget: false))
                     yield return nested;
             }
         }
