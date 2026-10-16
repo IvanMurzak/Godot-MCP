@@ -11,11 +11,13 @@
 #nullable enable
 using System;
 using System.ComponentModel;
+using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
+using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -63,41 +65,45 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     name: name,
                     recursive: true);
 
-                // ReflectorNet has no Godot-native property walk for a Resource: `member` carries only the
-                // reference (value = { instanceId, resourcePath }) and leaves `props` empty, so this tool
-                // could not read a resource back at all. Godot's own property list is the authority here -
-                // take every property ResourceSaver would write (PROPERTY_USAGE_STORAGE) and serialize each
-                // value through the same reflector, so the shape matches the other tools. The original
-                // `value` (the resource reference) is kept as-is for existing callers.
+                // The Resource converter deliberately serializes a resource as a reference only, so `member`
+                // carries no props. Expand this top-level resource from Godot's own property list: every
+                // PROPERTY_USAGE_STORAGE entry, i.e. exactly what ResourceSaver writes.
                 foreach (var prop in resource.GetPropertyList())
                 {
-                    if (!prop.ContainsKey("name") || !prop.ContainsKey("usage"))
+                    if (!prop.TryGetValue("usage", out var usage) ||
+                        (usage.As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) == 0 ||
+                        !prop.TryGetValue("name", out var propName))
                         continue;
 
-                    var propName = prop["name"].AsString();
-                    if (string.IsNullOrEmpty(propName))
+                    // Skip unset values (Nil, or an Object-typed Variant holding null): they only add noise.
+                    var value = resource.Get(propName.AsStringName());
+                    if (value.VariantType == Variant.Type.Nil)
                         continue;
+                    object boxed = value;
+                    if (value.VariantType == Variant.Type.Object)
+                    {
+                        var godotObject = value.AsGodotObject();
+                        if (godotObject == null)
+                            continue;
+                        // A sub-resource goes through the Resource converter so the caller gets a resolvable
+                        // ResourceRef (res:// path / instance id), not the Variant's "<Type#id>" string form.
+                        if (godotObject is Resource subResource)
+                            boxed = subResource;
+                    }
 
-                    // Fully qualified on purpose: this file lives in com.IvanMurzak.Godot.MCP.Tools, where a
-                    // bare `Godot.` binds to com.IvanMurzak.Godot (CS0234); adding `using Godot;` would also
-                    // make `MainThread` ambiguous with this addon's own MainThread.
-                    var usage = (global::Godot.PropertyUsageFlags)prop["usage"].AsInt64();
-                    if ((usage & global::Godot.PropertyUsageFlags.Storage) == 0)
-                        continue;
-
-                    var value = resource.Get(propName);
-                    // An unset reference is an Object-typed Variant holding null (not Nil). Each one would
-                    // otherwise carry the sizeable "how a Variant is written" note while telling the caller
-                    // nothing but "not set" - measured: 15 of them accounted for ~20 KB of a 41 KB reply.
-                    if (value.VariantType == global::Godot.Variant.Type.Nil)
-                        continue;
-                    if (value.VariantType == global::Godot.Variant.Type.Object && value.AsGodotObject() == null)
-                        continue;
-
-                    member.AddProperty(reflector.Serialize(
-                        obj: (object)value,
-                        name: propName,
-                        recursive: true));
+                    // One property the reflector cannot serialize must not take down the whole read.
+                    try
+                    {
+                        member.AddProperty(reflector.Serialize(
+                            obj: boxed,
+                            name: propName.AsString(),
+                            recursive: true));
+                    }
+                    catch (Exception ex)
+                    {
+                        GodotMcpLog.Warning($"[Godot-MCP] {ResourceGetDataToolId}: property '{propName}' " +
+                            $"of '{name}' could not be serialized and was omitted: {ex.Message}");
+                    }
                 }
 
                 return member;

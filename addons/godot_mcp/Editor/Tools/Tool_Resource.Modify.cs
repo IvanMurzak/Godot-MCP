@@ -16,6 +16,7 @@ using System.ComponentModel;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
@@ -127,41 +128,36 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                             logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
                             continue;
                         }
-                        // ReflectorNet picks its write converter from patch.Value.typeName, and a mismatch is
-                        // accepted, logged as a success, and then dropped: patching a `float` property with
-                        // 'System.Double' reported success on every step and ResourceSaver.Save returned Ok,
-                        // yet the saved .tres contained no such line (with 'System.Single' it did). Align a
-                        // top-level path's value type with the property's real CLR type before writing, and
-                        // remember whether it had to be corrected.
-                        var topLevelProperty = TopLevelProperty(resource, patch.Path);
-                        var expectedTypeName = topLevelProperty == null ? null : TypeNameForValueType(topLevelProperty.PropertyType);
-                        var valueTypeMismatch = expectedTypeName != null &&
-                            !string.Equals(patch.Value.typeName, expectedTypeName, StringComparison.Ordinal);
-                        if (valueTypeMismatch)
-                            patch.Value.typeName = expectedTypeName!;
-                        var valueBefore = topLevelProperty?.GetValue(resource);
-
+                        // ReflectorNet picks its write converter from the value's typeName and silently drops a
+                        // mismatched write (e.g. 'System.Double' into a float property) while reporting success.
+                        // For a top-level primitive property, align the typeName and read the value back.
                         try
                         {
+                            var primitiveProperty = TopLevelPrimitiveProperty(resource, patch.Path);
+                            var expectedTypeName = primitiveProperty?.PropertyType.GetTypeId();
+                            var valueTypeCorrected = expectedTypeName != null &&
+                                !string.Equals(patch.Value.typeName, expectedTypeName, StringComparison.Ordinal);
+                            if (valueTypeCorrected)
+                                patch.Value.typeName = expectedTypeName!;
+                            var valueBefore = primitiveProperty?.GetValue(resource);
+
                             if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
                             {
+                                // "Reported as applied" is not "changed": a top-level primitive that reads back
+                                // unchanged does not count as a change, so it alone never triggers a re-save
+                                // that reports success.
+                                if (primitiveProperty != null && ReferenceEquals(objToModify, resource) &&
+                                    Equals(valueBefore, primitiveProperty.GetValue(resource)))
+                                {
+                                    logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') read back " +
+                                        "unchanged (same value, or silently ignored) and was not counted as a change" +
+                                        (valueTypeCorrected ? $"; its value type was corrected to '{expectedTypeName}'." : "."));
+                                    continue;
+                                }
+
                                 anyChange = true;
                                 if (divergedSurface == null && !ReferenceEquals(objToModify, resource))
                                     divergedSurface = $"pathPatches[{i}] ('{patch.Path}')";
-
-                                // "Reported as applied" is not "changed": read the property back so a dropped
-                                // patch can never again leave the caller believing it was written.
-                                if (topLevelProperty != null && Equals(valueBefore, topLevelProperty.GetValue(resource)))
-                                {
-                                    if (valueTypeMismatch)
-                                        logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') was reported as " +
-                                            "applied but reading the property back shows NO change - the value type " +
-                                            "did not match the property and the patch was silently dropped; the " +
-                                            "resource was NOT re-saved with it.");
-                                    else
-                                        logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') read back " +
-                                            "unchanged (same value, or silently ignored).");
-                                }
                             }
                         }
                         catch (Exception ex)
@@ -203,35 +199,32 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return logs;
             });
         }
+
         /// <summary>
-        /// Resolve the CLR property named by a **top-level single-segment** patch path, or <c>null</c> for a
-        /// nested path (<c>'a/b'</c>, <c>'arr/[i]'</c>) or an unknown name. Case-insensitive, so both the CLR
-        /// (PascalCase) and Godot (snake_case) spelling resolve.
+        /// Resolve the primitive-typed (<c>float</c>, <c>int</c>, <c>bool</c>, ...) CLR property named by a
+        /// top-level single-segment patch path, or <c>null</c> for a nested path, an unknown name or any other
+        /// type. Matches the CLR (PascalCase) and Godot (snake_case) spelling; the most-derived declaration of a
+        /// <c>new</c>-hidden property wins.
         /// </summary>
-        static PropertyInfo? TopLevelProperty(object target, string path)
+        static PropertyInfo? TopLevelPrimitiveProperty(object target, string path)
         {
-            if (path.IndexOf('/') >= 0 || path.IndexOf('[') >= 0)
+            if (path.IndexOfAny(PathSeparators) >= 0)
                 return null;
 
-            return target.GetType().GetProperty(
-                path,
-                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-        }
-
-        /// <summary>
-        /// The ReflectorNet type name a scalar CLR type must carry for the write to land, or <c>null</c> for
-        /// anything this patch does not second-guess (structs, strings, resources, ...). See the call site for
-        /// the measured evidence that a mismatched numeric type is dropped silently.
-        /// </summary>
-        static string? TypeNameForValueType(Type type)
-        {
-            if (type == typeof(float)) return "System.Single";
-            if (type == typeof(double)) return "System.Double";
-            if (type == typeof(int)) return "System.Int32";
-            if (type == typeof(long)) return "System.Int64";
-            if (type == typeof(bool)) return "System.Boolean";
+            var normalized = path.Replace("_", string.Empty);
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                {
+                    if (string.Equals(property.Name, normalized, StringComparison.OrdinalIgnoreCase) &&
+                        property.CanRead && property.GetIndexParameters().Length == 0)
+                        return property.PropertyType.IsPrimitive ? property : null;
+                }
+            }
             return null;
         }
+
+        static readonly char[] PathSeparators = { '/', '[' };
     }
 }
 #endif
