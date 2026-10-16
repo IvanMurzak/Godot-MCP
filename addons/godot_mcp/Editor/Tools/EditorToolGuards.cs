@@ -142,6 +142,61 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
         }
 
+        /// <summary>The UID file Godot 4.4+ keeps next to scripts, shaders and other non-imported resources.</summary>
+        internal const string UidSidecarSuffix = ".uid";
+
+        /// <summary>Metadata files Godot keeps next to a resource file: import settings and (4.4+) its UID.</summary>
+        internal static readonly string[] Sidecars = { ReimportClassifier.ImportSidecarSuffix, UidSidecarSuffix };
+
+        /// <summary>
+        /// Point open scenes at a moved scene file: the edited scene (and, on Godot 4.4+, every open scene tab)
+        /// whose root — or an instance inside it — still names <paramref name="oldPath"/>. The editor saves a
+        /// scene to its root's <c>scene_file_path</c>, so without this the next save recreated the old file.
+        /// </summary>
+        internal static void RetargetOpenScenes(string oldPath, string newPath)
+        {
+            // scene_file_path is stored simplified; a caller path like 'res://a/./b.tscn' must still match.
+            oldPath = oldPath.SimplifyPath();
+            newPath = newPath.SimplifyPath();
+            var editor = EditorInterface.Singleton;
+            var pending = new Stack<Node>();
+            // get_open_scene_roots (Godot 4.4+, which includes the edited scene) is called by name because the
+            // addon compiles against 4.3; there, only the edited scene is reachable.
+            if (editor.HasMethod("get_open_scene_roots"))
+            {
+                foreach (var root in editor.Call("get_open_scene_roots").AsGodotArray())
+                {
+                    if (root.AsGodotObject() is Node node)
+                        pending.Push(node);
+                }
+            }
+            else if (editor.GetEditedSceneRoot() is { } edited)
+            {
+                pending.Push(edited);
+            }
+
+            while (pending.Count > 0)
+            {
+                var node = pending.Pop();
+                if (node.SceneFilePath == oldPath)
+                    node.SceneFilePath = newPath;
+                foreach (var child in node.GetChildren())
+                    pending.Push(child);
+            }
+        }
+
+        /// <summary>
+        /// Close the edited scene when its file was just deleted, so the next save cannot recreate it (the editor
+        /// keeps the open scene's path). Uses <c>close_scene</c> (Godot 4.4+, called by name: the addon compiles
+        /// against 4.3); on 4.3, and for scenes open in background tabs, nothing can be done from a tool.
+        /// </summary>
+        internal static void CloseDeletedScene(string deletedPath)
+        {
+            var editor = EditorInterface.Singleton;
+            if (editor.GetEditedSceneRoot()?.SceneFilePath == deletedPath.SimplifyPath() && editor.HasMethod("close_scene"))
+                editor.Call("close_scene");
+        }
+
         /// <summary>
         /// Ensure <paramref name="absDir"/> exists, creating it recursively when missing and throwing on
         /// failure. Mirrors the "ResourceSaver/FileAccess does not create parent dirs" guard the create-style

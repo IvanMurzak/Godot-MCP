@@ -47,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 {
                     if (!path!.StartsWith("res://", StringComparison.Ordinal))
                         throw new ArgumentException($"path must be a 'res://' path; got '{path}'.", nameof(path));
-                    if (!EndsWithSceneExt(path))
+                    if (!ResPathNormalizer.IsScenePath(path))
                         throw new ArgumentException($"path must end with '.tscn' or '.scn'; got '{path}'.", nameof(path));
 
                     // SaveSceneAs returns void (no Error), so a silent failure (e.g. an unwritable target
@@ -76,10 +76,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return ToActiveSceneData(rootAfter);
             });
         }
-
-        static bool EndsWithSceneExt(string path)
-            => path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith(".scn", StringComparison.OrdinalIgnoreCase);
     }
 }
 #endif

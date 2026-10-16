@@ -56,13 +56,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // From here the script file is already gone. This is a MULTI-FILE op (script + '.uid'
                 // sidecar): the PRIMARY delete already succeeded, so a failure to remove the SECONDARY sidecar
                 // is a degraded (not failed) outcome — we report it as a warning in the status rather than
-                // throwing a transport error (mirrors resource-move/delete's "primary op succeeded, secondary
-                // degraded" principle). Refresh regardless so the editor index drops the removed entry.
+                // throwing a transport error. Refresh regardless so the editor index drops the removed entry.
                 string? sidecarWarning = null;
 
-                // Godot 4.3+ emits a '.uid' sidecar next to a script; remove it too when present so no
+                // Godot 4.4+ emits a '.uid' sidecar next to a script; remove it too when present so no
                 // orphaned uid file is left behind (the analog of Unity's '.meta').
-                var uidPath = resPath + ".uid";
+                var uidPath = resPath + EditorToolGuards.UidSidecarSuffix;
                 if (FileAccess.FileExists(uidPath))
                 {
                     var rmUidErr = DirAccess.RemoveAbsolute(uidPath);

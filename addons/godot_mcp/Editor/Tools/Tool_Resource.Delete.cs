@@ -29,10 +29,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )]
         [Description("Delete a resource file from the res:// filesystem. 'resourcePath' must be a res:// file " +
             "path. The resource's identity (path, uid, type) is captured BEFORE deletion and returned for " +
-            "confirmation. The resource file is removed with DirAccess, along with its sidecar '.import' " +
-            "metadata when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
+            "confirmation. The resource file is removed with DirAccess, along with its '.import' / '.uid' " +
+            "sidecars when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
             "a hard reference to this file will break — verify with '" + ResourceFindToolId + "' first. A " +
-            "loaded copy is detached from the path, so an open scene still using it embeds it on its next save.")]
+            "loaded copy is detached from the path, so an open scene still using it embeds it on its next save; a " +
+            "deleted scene that is the edited scene is closed (Godot 4.4+), so a later save cannot recreate it.")]
         public ResourceInfo Delete
         (
             [Description("res:// path of the resource file to delete.")]
@@ -56,23 +57,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
 
-                // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import
-                // sidecar): if the sidecar removal throws below, the resource itself is still deleted. Rescan
+                // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import/.uid
+                // sidecars): if the sidecar removal throws below, the resource itself is still deleted. Rescan
                 // in a 'finally' regardless so the editor index drops the removed entry even on partial
                 // failure — never leave a stale index pointing at a file that no longer exists.
                 try
                 {
                     EditorToolGuards.RebindCachedResource(resPath, newPath: null);
+                    if (ResPathNormalizer.IsScenePath(resPath))
+                        EditorToolGuards.CloseDeletedScene(resPath);
 
-                    // Remove the sidecar '.import' metadata if present.
-                    var importPath = resPath + ".import";
-                    if (FileAccess.FileExists(importPath))
+                    // Remove the '.import' / '.uid' sidecars too, so no orphaned metadata is left behind.
+                    foreach (var sidecar in EditorToolGuards.Sidecars)
                     {
-                        var rmImportErr = DirAccess.RemoveAbsolute(importPath);
-                        if (rmImportErr != Error.Ok)
+                        var sidecarPath = resPath + sidecar;
+                        if (!FileAccess.FileExists(sidecarPath))
+                            continue;
+                        var rmSidecarErr = DirAccess.RemoveAbsolute(sidecarPath);
+                        if (rmSidecarErr != Error.Ok)
                             throw new Exception(
-                                $"Inconsistent state: resource '{resPath}' was deleted but its '.import' " +
-                                $"sidecar '{importPath}' failed to remove ({rmImportErr}). The resource itself " +
+                                $"Inconsistent state: resource '{resPath}' was deleted but its '{sidecar}' " +
+                                $"sidecar '{sidecarPath}' failed to remove ({rmSidecarErr}). The resource itself " +
                                 "is already gone; remove the orphaned sidecar manually.");
                     }
                 }

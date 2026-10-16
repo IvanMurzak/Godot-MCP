@@ -75,8 +75,12 @@ def expect_logs(name: str, logs: list, errors: bool, saved_marker: str | None) -
         check(f"{name}: reported saved", saved, json.dumps(types)[:600])
 
 
+def disk(project: pathlib.Path, res_path: str) -> pathlib.Path:
+    return project / res_path.replace("res://", "")
+
+
 def file_has(project: pathlib.Path, res_path: str, pattern: str) -> bool:
-    text = (project / res_path.replace("res://", "")).read_text(encoding="utf-8")
+    text = disk(project, res_path).read_text(encoding="utf-8")
     return re.search(pattern, text, re.MULTILINE) is not None
 
 
@@ -88,7 +92,7 @@ def main() -> int:
     a = ap.parse_args()
     host, project = a.host.rstrip("/"), a.project
     # A fresh folder per run keeps the runs independent of each other.
-    d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}"
+    d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() // 1_000_000 % 1000:03d}"
 
     mat, tex, scene = f"{d}/mat.tres", f"{d}/tex.tres", f"{d}/scene.tscn"
     call(host, "resource-create", {"resourcePath": mat, "typeClassName": "StandardMaterial3D"})
@@ -251,7 +255,7 @@ def main() -> int:
 
     # R12: moving a resource also moves its built-in sub-resources ('<path>::<id>') in the cache.
     with_sub, moved_sub = f"{d}/with_sub.tres", f"{d}/moved_sub.tres"
-    (project / with_sub.replace("res://", "")).write_text(
+    disk(project, with_sub).write_text(
         '[gd_resource type="StandardMaterial3D" load_steps=2 format=3]\n\n'
         '[sub_resource type="GradientTexture2D" id="GradientTexture2D_sub"]\n\n'
         '[resource]\nalbedo_texture = SubResource("GradientTexture2D_sub")\n', encoding="utf-8")
@@ -272,6 +276,49 @@ def main() -> int:
         check("R11 deleted script cannot be attached", False, "attach succeeded")
     except RuntimeError:
         check("R11 deleted script cannot be attached", True)
+
+    # R13: resource-move / resource-delete carry the '.uid' sidecar (Godot 4.4+) with the file. The editor writes
+    # the sidecar lazily on a filesystem scan, so the smoke writes one itself when it is not there yet: what is
+    # tested is that an existing sidecar travels with its file.
+    mover, moved_script = f"{d}/mover.gd", f"{d}/mover_moved.gd"
+    call(host, "script-create", {"scriptPath": mover, "content": "extends Node\n"})
+    uid_file = disk(project, mover + ".uid")
+    if not uid_file.exists():
+        uid_file.write_text("uid://smokeprobe" + time.strftime("%H%M%S") + "\n", encoding="utf-8")
+    uid = uid_file.read_text(encoding="utf-8").strip()
+    call(host, "resource-move", {"sourcePath": mover, "destinationPath": moved_script})
+    moved_uid = disk(project, moved_script + ".uid")
+    check("R13 .uid moved with the script", moved_uid.exists() and moved_uid.read_text(encoding="utf-8").strip() == uid)
+    check("R13 no orphaned .uid at the old path", not uid_file.exists())
+    call(host, "resource-delete", {"resourcePath": moved_script})
+    check("R13 .uid deleted with the script", not moved_uid.exists())
+
+    # R14: moving the open scene makes the editor save it at the new path, not recreate the old file.
+    tab, tab_moved = f"{d}/tab.tscn", f"{d}/tab_moved.tscn"
+    call(host, "scene-create", {"resourcePath": tab, "rootTypeClassName": "Node3D", "rootName": "Tab"})
+    call(host, "scene-open", {"resourcePath": tab})
+    call(host, "resource-move", {"sourcePath": tab, "destinationPath": tab_moved})
+    call(host, "scene-save", {})
+    check("R14 saving does not recreate the old scene file", not disk(project, tab).exists())
+    check("R14 the scene is at its new path", disk(project, tab_moved).exists())
+
+    # R15: deleting the open scene does not let the next save recreate it.
+    gone = f"{d}/gone.tscn"
+    call(host, "scene-create", {"resourcePath": gone, "rootTypeClassName": "Node3D", "rootName": "Gone"})
+    call(host, "scene-open", {"resourcePath": gone})
+    call(host, "resource-delete", {"resourcePath": gone})
+    try:
+        call(host, "scene-save", {})
+    except RuntimeError:
+        pass  # no scene left to save is fine too
+    check("R15 saving does not recreate a deleted open scene", not disk(project, gone).exists())
+
+    # R16: an orphaned sidecar at the destination is not adopted by the moved file.
+    plain, adopted = f"{d}/plain.tres", f"{d}/adopted.tres"
+    call(host, "resource-create", {"resourcePath": plain, "typeClassName": "Resource"})
+    disk(project, adopted + ".uid").write_text("uid://bogus_orphan\n", encoding="utf-8")
+    call(host, "resource-move", {"sourcePath": plain, "destinationPath": adopted})
+    check("R16 orphaned destination sidecar removed", not disk(project, adopted + ".uid").exists())
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0

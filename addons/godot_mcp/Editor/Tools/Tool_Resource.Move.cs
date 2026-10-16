@@ -30,9 +30,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )]
         [Description("Move or rename a resource file in the res:// filesystem. Both 'sourcePath' and " +
             "'destinationPath' must be res:// file paths. The resource file is moved with DirAccess; its " +
-            "sidecar '.import' metadata (when present) is moved alongside it so the import pipeline stays " +
-            "consistent. The editor filesystem is then rescanned so the new location is indexed. Returns the " +
-            "moved resource's identity at its new path. NOTE: hard-coded res:// path references in OTHER " +
+            "'.import' and '.uid' sidecars (when present) move with it, so import settings and the UID stay " +
+            "intact (orphaned sidecars at the destination are removed), and an open scene being moved keeps " +
+            "saving to its new path (on Godot 4.3: the currently edited scene only). The editor filesystem is then " +
+            "rescanned so the new location is indexed. Returns the moved resource's identity at its new path. NOTE: hard-coded res:// path references in OTHER " +
             "resources are not rewritten — prefer addressing assets by uid where stable references matter.")]
         public ResourceInfo Move
         (
@@ -60,6 +61,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (FileAccess.FileExists(dst))
                     throw new ArgumentException($"A file already exists at '{dst}'.", nameof(destinationPath));
 
+                // The destination file does not exist, so any sidecar already there is an orphan (left by a file
+                // deleted outside these tools); drop it rather than let the moved file adopt a stale UID/import.
+                foreach (var sidecar in EditorToolGuards.Sidecars)
+                {
+                    if (FileAccess.FileExists(dst + sidecar))
+                        DirAccess.RemoveAbsolute(dst + sidecar);
+                }
+
                 // Ensure the destination directory exists (DirAccess.Rename does not create it).
                 var dstDir = dst.Substring(0, dst.LastIndexOf('/') + 1);
                 if (!DirAccess.DirExistsAbsolute(dstDir))
@@ -75,24 +84,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     throw new Exception($"Failed to move '{src}' to '{dst}': {moveErr}.");
 
                 // From here the resource file is already at 'dst'. This is a MULTI-FILE op (resource +
-                // .import sidecar): if the sidecar rename throws below, the filesystem is left half-moved.
+                // .import/.uid sidecars): if a sidecar rename throws below, the filesystem is left half-moved.
                 // Rescan in a 'finally' regardless so the editor index reflects on-disk reality (resource at
                 // dst) even on a partial failure — never leave a stale index pointing at the old location.
                 try
                 {
                     EditorToolGuards.RebindCachedResource(src, dst);
+                    if (ResPathNormalizer.IsScenePath(src))
+                        EditorToolGuards.RetargetOpenScenes(src, dst);
 
-                    // Move the sidecar '.import' metadata if it exists (imported assets carry one; .tres
-                    // usually do not). Keeping it next to the resource preserves import settings + uid mapping.
-                    var srcImport = src + ".import";
-                    if (FileAccess.FileExists(srcImport))
+                    // Carry the sidecars, so import settings and the UID (uid:// references) survive the move.
+                    foreach (var sidecar in EditorToolGuards.Sidecars)
                     {
-                        var importErr = DirAccess.RenameAbsolute(srcImport, dst + ".import");
-                        if (importErr != Error.Ok)
+                        string from = src + sidecar, to = dst + sidecar;
+                        if (!FileAccess.FileExists(from))
+                            continue;
+                        var sidecarErr = DirAccess.RenameAbsolute(from, to);
+                        if (sidecarErr != Error.Ok)
                             throw new Exception(
-                                $"Inconsistent state: resource moved to '{dst}' but its '.import' sidecar " +
-                                $"failed to move ('{srcImport}' -> '{dst}.import': {importErr}). A manual " +
-                                "reimport of the moved resource is required to repair the import metadata.");
+                                $"Inconsistent state: resource moved to '{dst}' but its '{sidecar}' sidecar " +
+                                $"failed to move ('{from}' -> '{to}': {sidecarErr}). Move it manually " +
+                                "(or reimport the resource) to repair its metadata.");
                     }
                 }
                 finally
