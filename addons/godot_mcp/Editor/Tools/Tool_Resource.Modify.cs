@@ -11,10 +11,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.ComponentModel;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.ReflectorNet;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
@@ -126,10 +128,33 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                             logs.Error($"{nameof(pathPatches)}[{i}] ('{patch.Path}') with null value skipped.");
                             continue;
                         }
+                        // ReflectorNet picks its write converter from the value's typeName and silently drops a
+                        // mismatched write (e.g. 'System.Double' into a float property) while reporting success.
+                        // For a top-level primitive property, align the typeName and read the value back.
                         try
                         {
+                            var primitiveProperty = TopLevelPrimitiveProperty(resource, patch.Path);
+                            var expectedTypeName = primitiveProperty?.PropertyType.GetTypeId();
+                            var valueTypeCorrected = expectedTypeName != null &&
+                                !string.Equals(patch.Value.typeName, expectedTypeName, StringComparison.Ordinal);
+                            if (valueTypeCorrected)
+                                patch.Value.typeName = expectedTypeName!;
+                            var valueBefore = primitiveProperty?.GetValue(resource);
+
                             if (reflector.TryModifyAt(ref objToModify, patch.Path, patch.Value, logs: logs))
                             {
+                                // "Reported as applied" is not "changed": a top-level primitive that reads back
+                                // unchanged does not count as a change, so it alone never triggers a re-save
+                                // that reports success.
+                                if (primitiveProperty != null && ReferenceEquals(objToModify, resource) &&
+                                    Equals(valueBefore, primitiveProperty.GetValue(resource)))
+                                {
+                                    logs.Warning($"{nameof(pathPatches)}[{i}] ('{patch.Path}') read back " +
+                                        "unchanged (same value, or silently ignored) and was not counted as a change" +
+                                        (valueTypeCorrected ? $"; its value type was corrected to '{expectedTypeName}'." : "."));
+                                    continue;
+                                }
+
                                 anyChange = true;
                                 if (divergedSurface == null && !ReferenceEquals(objToModify, resource))
                                     divergedSurface = $"pathPatches[{i}] ('{patch.Path}')";
@@ -174,6 +199,32 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return logs;
             });
         }
+
+        /// <summary>
+        /// Resolve the primitive-typed (<c>float</c>, <c>int</c>, <c>bool</c>, ...) CLR property named by a
+        /// top-level single-segment patch path, or <c>null</c> for a nested path, an unknown name or any other
+        /// type. Matches the CLR (PascalCase) and Godot (snake_case) spelling; the most-derived declaration of a
+        /// <c>new</c>-hidden property wins.
+        /// </summary>
+        static PropertyInfo? TopLevelPrimitiveProperty(object target, string path)
+        {
+            if (path.IndexOfAny(PathSeparators) >= 0)
+                return null;
+
+            var normalized = path.Replace("_", string.Empty);
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                {
+                    if (string.Equals(property.Name, normalized, StringComparison.OrdinalIgnoreCase) &&
+                        property.CanRead && property.GetIndexParameters().Length == 0)
+                        return property.PropertyType.IsPrimitive ? property : null;
+                }
+            }
+            return null;
+        }
+
+        static readonly char[] PathSeparators = { '/', '[' };
     }
 }
 #endif
