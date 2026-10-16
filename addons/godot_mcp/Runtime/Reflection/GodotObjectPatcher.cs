@@ -396,7 +396,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 if (payload?.CollectionCount is { } count)
                     return $"{payload.Kind}({count})";
                 if (value.VariantType is Variant.Type.Array or Variant.Type.Dictionary || GodotVariantPayload.PackedElementKind(value.VariantType) != null)
-                    return value.VariantType.ToString();
+                    return Godot_Variant_ReflectionConverter.CollectionSummary(value);
                 var text = GD.VarToStr(value);
                 return text.Length > 120 ? text.Substring(0, 120) + "…" : text;
             }

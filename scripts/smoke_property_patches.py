@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Read-back smoke for the property-patch tools (`resource-modify`, `node-modify`, `resource-get-data`).
+Read-back smoke for the property-patch tools (`resource-modify`, `node-modify`, `resource-get-data`,
+`node-get-data`).
 
 Every case calls a tool and then verifies the result where it cannot lie: the `.tres` / `.tscn` text
 that Godot itself wrote to disk. It guards three regressions (issues #370 and the follow-up):
@@ -204,6 +205,15 @@ def main() -> int:
     expect_logs("N6 partial jsonPatch", logs, errors=True, saved_marker=None)
     check("N6 the valid key still counts", not any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
 
+    # N7: node-get-data entries round-trip into node-modify.
+    nprops = {p["name"]: p for p in call(host, "node-get-data", node).get("props") or []}
+    check("N7 node-get-data lists light_energy", "light_energy" in nprops, ", ".join(list(nprops)[:12]))
+    logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "light_energy", "value": nprops.get("light_energy", {})}]})
+    check("N7 an unchanged entry is not a change", any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
+    entry = {**nprops.get("light_specular", {}), "value": {"variantType": "Float", "value": 0.125}}
+    logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "light_specular", "value": entry}]})
+    expect_logs("N7 edited entry", logs, errors=False, saved_marker=None)
+
     call(host, "scene-save", {})
     check("N1 light_energy = 3.5", file_has(project, scene, r"^light_energy = 3\.5$"))
     check("N6 light_indirect_energy = 2.25", file_has(project, scene, r"^light_indirect_energy = 2\.25$"))
@@ -211,6 +221,7 @@ def main() -> int:
     check("N1 light_color", file_has(project, scene, r"^light_color = Color\(1, 0\.5, 0, 1\)$"))
     check("N5 omni_range = 9", file_has(project, scene, r"^omni_range = 9\.0$"))
     check("N2 shadow_enabled = true", file_has(project, scene, r"^shadow_enabled = true$"))
+    check("N7 light_specular = 0.125", file_has(project, scene, r"^light_specular = 0\.125$"))
     check("N4 light_cull_mask = 4294967294", file_has(project, scene, r"^light_cull_mask = 4294967294$"))
 
     # R10: delete / move keep the resource cache in step with the files.
