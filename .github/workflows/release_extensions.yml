@@ -12,6 +12,10 @@ on:
         description: "Validate and build without publishing"
         default: true
         type: boolean
+      expected_sha:
+        description: "Train: refuse publication if main advanced from this tested commit"
+        default: ""
+        type: string
 
 concurrency:
   group: release
@@ -32,9 +36,14 @@ jobs:
         env:
           SELECTION: ${{ inputs.extensions }}
           DRY_RUN: ${{ inputs.dry_run }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
           if [ "$DRY_RUN" != true ] && [ "$GITHUB_REF" != refs/heads/main ]; then
             echo '::error::Publish extensions only from main'
+            exit 1
+          fi
+          if [ -n "$EXPECTED_SHA" ] && [ "$EXPECTED_SHA" != "$GITHUB_SHA" ]; then
+            echo '::error::Source advanced beyond the tested component release plan'
             exit 1
           fi
           python scripts/extension_release.py plan --only "$SELECTION"
