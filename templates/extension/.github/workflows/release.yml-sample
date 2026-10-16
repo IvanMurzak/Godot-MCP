@@ -1,0 +1,174 @@
+# Version-gated release for a Godot-MCP extension. Activated by `init` (release.yml-sample -> .yml).
+#
+# Gate: publishes ONLY when the package csproj <Version> increases AND a tag for it does not yet exist.
+# Flow: check-version -> full test suite (multi-Godot matrix, reusable test.yml) -> pack the source-only
+#       nupkg at the real version -> publish to NuGet (trusted publishing) -> atomic GitHub Release.
+#
+# Publishing uses NuGet Trusted Publishing (OIDC) via the official NuGet/login action — NO long-lived
+# NUGET_API_KEY is ever stored. The runner mints a short-lived token from a GitHub OIDC claim that the
+# nuget.org trusted-publishing policy validates. Owner one-time setup to enable publishing:
+#   1. Create a trusted-publishing policy on nuget.org (Account -> Trusted Publishing) bound to:
+#        repository owner = <owner>, repository = <repo>, workflow file = release.yml, environment = (none).
+#   2. gh variable set NUGET_USER --repo <owner>/<repo> --body <your-nuget.org-username>
+# Until the NUGET_USER repo variable is set, the publish job cleanly NO-OPs (green, nothing pushed/tagged).
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Serialises release runs per ref so two releases can never publish concurrently.
+# `cancel-in-progress` is deliberately UNSET: an in-flight release may already have pushed the package
+# to NuGet or created the tag/Release, so it must be allowed to finish. `queue: max` raises the pending
+# queue from the default 1 to 100 — without it a queued release is silently cancelled and replaced by
+# the next trigger, which is how one version can be published while an earlier one never runs at all.
+# NOTE: `queue: max` together with `cancel-in-progress: true` is a workflow validation error.
+concurrency:
+  group: release-${{ github.ref }}
+  queue: max
+
+jobs:
+  check-version-tag:
+    runs-on: ubuntu-latest
+    # Observed 4-6 s on every historical run (full-history checkout + fetch-tags + tag-exists action).
+    # 10 min is runaway insurance for the network legs, against GitHub's 360 min default.
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+      tag_exists: ${{ steps.tag.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Read package version
+        id: get
+        run: |
+          set -e
+          pkg=$(find src -name '*.csproj' -exec grep -l '<PackageId>' {} \; | head -1)
+          version=$(grep -oP '<Version>\K[^<]+(?=</Version>)' "$pkg" | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Package version: $version"
+      - name: Check if tag exists
+        id: tag
+        uses: mukunku/tag-exists-action@v1.7.0
+        with:
+          tag: ${{ steps.get.outputs.version }}
+
+  # NOTE: no `timeout-minutes` on this job. It calls a reusable workflow (`uses:`), and a caller job
+  # rejects `timeout-minutes` with a hard workflow validation error — the bound has to live on the jobs
+  # INSIDE test.yml. Observed there: package-and-consume 23-30 s, e2e-godot 36-48 s; e2e-godot is the
+  # one leg with real network variance because it downloads a Godot binary. Left unbounded here
+  # deliberately: bounding it means editing test.yml, which is outside this change.
+  test:
+    needs: [check-version-tag]
+    if: needs.check-version-tag.outputs.tag_exists == 'false'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - godot: "4.3.0"
+            sdk: "4.3.0"
+          - godot: "4.4.1"
+            sdk: "4.4.1"
+          - godot: "4.5.1"
+            sdk: "4.5.1"
+    uses: ./.github/workflows/test.yml
+    with:
+      godot-version: ${{ matrix.godot }}
+      godot-sdk-version: ${{ matrix.sdk }}
+    secrets: inherit
+
+  publish:
+    runs-on: ubuntu-latest
+    # Real publish (NUGET_USER set) observed at 26 s; the owner-gated no-op path at 5 s. The headroom
+    # covers the third-party network legs this job does not control: the `dotnet pack` NuGet restore,
+    # the OIDC token mint, `dotnet nuget push` to nuget.org, and the Release asset upload.
+    timeout-minutes: 15
+    needs: [check-version-tag, test]
+    if: needs.check-version-tag.outputs.tag_exists == 'false'
+    permissions:
+      contents: write   # create the GitHub Release + tag
+      id-token: write   # mint the OIDC token for NuGet trusted publishing (NuGet/login)
+    # OWNER-GATED PUBLISH (NuGet Trusted Publishing / OIDC — no long-lived API key). Every publishing step is
+    # guarded on the NUGET_USER repo variable, so without it the job cleanly NO-OPs (green, nothing pushed or
+    # tagged) — the supply-chain gate. Once the owner (1) creates a trusted-publishing policy on nuget.org for
+    # this repository + workflow file and (2) runs
+    #   gh variable set NUGET_USER --repo <owner>/<repo> --body <nuget.org-username>
+    # the same version-bumped push to main mints a short-lived OIDC token, publishes the source-only package,
+    # and cuts the atomic GitHub Release.
+    steps:
+      - name: Owner-gated publish notice
+        if: ${{ vars.NUGET_USER == '' }}
+        run: echo "::notice::NUGET_USER not set — skipping publish (owner-gated supply-chain step). Create a nuget.org trusted-publishing policy for this repo+workflow, then 'gh variable set NUGET_USER --body <nuget-username>' to enable release publishing."
+
+      - uses: actions/checkout@v6
+        if: ${{ vars.NUGET_USER != '' }}
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        if: ${{ vars.NUGET_USER != '' }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Pack source-only nupkg at the release version
+        id: pack
+        if: ${{ vars.NUGET_USER != '' }}
+        run: |
+          set -e
+          version="${{ needs.check-version-tag.outputs.version }}"
+          pkg=$(find src -name '*.csproj' -exec grep -l '<PackageId>' {} \; | head -1)
+          dotnet pack "$pkg" -c Release -p:Version="$version" -o dist
+          echo "nupkg=$(ls dist/*.nupkg | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        if: ${{ vars.NUGET_USER != '' }}
+        run: |
+          set -e
+          version="${{ needs.check-version-tag.outputs.version }}"
+          prev=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          {
+            echo "# $version"
+            echo "**Released:** $(date +'%B %e, %Y')"
+            echo ""
+            if [ -n "$prev" ]; then
+              echo "## Changes since $prev"
+              git log --pretty=format:'- %s (%h)' "$prev"..HEAD
+            fi
+          } > release.md
+
+      # Publish to NuGet via trusted publishing (OIDC), then create the GitHub Release in the SAME job so both
+      # are gated on every test. NuGet/login exchanges the GitHub OIDC token for a short-lived nuget.org API
+      # key (exposed as steps.nuget-login.outputs.NUGET_API_KEY) — nothing long-lived is stored in the repo.
+      - name: NuGet trusted-publishing login (OIDC)
+        id: nuget-login
+        if: ${{ vars.NUGET_USER != '' }}
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Publish source-only package to NuGet
+        if: ${{ vars.NUGET_USER != '' }}
+        run: |
+          dotnet nuget push "${{ steps.pack.outputs.nupkg }}" \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Atomic GitHub Release (tag + nupkg + notes)
+        if: ${{ vars.NUGET_USER != '' }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.check-version-tag.outputs.version }}
+          name: ${{ needs.check-version-tag.outputs.version }}
+          body_path: release.md
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: dist/*.nupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

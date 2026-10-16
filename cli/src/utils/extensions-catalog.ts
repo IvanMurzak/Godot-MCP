@@ -67,7 +67,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot GpuParticles (2D & 3D): create, configure, start/stop, and inspect emitters.',
     packageId: 'com.IvanMurzak.Godot.MCP.Particles',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Particles',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Particles/README.md',
     tools: [
       { name: 'particles-defaults', description: 'Return the recommended starter config for a 2D/3D emitter.' },
       { name: 'particles-create', description: 'Create a GpuParticles2D/GpuParticles3D node in the edited scene.' },
@@ -82,7 +82,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot TileMapLayer (4.3+): create layers, assign tilesets, set/erase cells, and inspect used cells.',
     packageId: 'com.IvanMurzak.Godot.MCP.Tilemap',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Tilemap',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Tilemap/README.md',
     tools: [
       { name: 'tilemap-create', description: 'Create a TileMapLayer node in the currently edited Godot scene.' },
       { name: 'tilemap-set-tileset', description: 'Assign a TileSet resource to an existing TileMapLayer.' },
@@ -98,7 +98,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot navigation (2D & 3D): create regions, agents, and links, set region meshes, configure agents, and inspect navigation nodes.',
     packageId: 'com.IvanMurzak.Godot.MCP.Navigation',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Navigation',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Navigation/README.md',
     tools: [
       { name: 'navigation-defaults', description: 'Return the recommended starter config (radius, distances, max speed) for a 2D/3D NavigationAgent.' },
       { name: 'navigation-region-create', description: 'Create a NavigationRegion2D/NavigationRegion3D node (a navigable area) in the edited scene.' },
@@ -115,7 +115,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot AnimationPlayer: create players, libraries, and animations, add tracks, insert keyframes, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.Animation',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Animation',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Animation/README.md',
     tools: [
       { name: 'animation-defaults', description: 'Return the recommended starter config (length, loop mode) for a new animation.' },
       { name: 'animation-player-create', description: 'Create an AnimationPlayer node in the currently edited Godot scene.' },
@@ -132,7 +132,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot CSG (Constructive Solid Geometry): create box/sphere/cylinder primitives and combiners, set boolean operations, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.CSG',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-CSG',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-CSG/README.md',
     tools: [
       { name: 'csg-defaults', description: 'Return the recommended starter config (size / radius / height / segments) for a CSG node of the requested kind.' },
       { name: 'csg-box-create', description: 'Create a CsgBox3D primitive in the currently edited Godot scene.' },
@@ -149,7 +149,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for Godot GridMap (3D tile-based maps): create, set/clear cells, assign a MeshLibrary, and inspect.',
     packageId: 'com.IvanMurzak.Godot.MCP.GridMap',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-GridMap',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-GridMap/README.md',
     tools: [
       { name: 'gridmap-defaults', description: 'Return the recommended starter configuration for a new GridMap node.' },
       { name: 'gridmap-create', description: 'Create a GridMap node in the currently edited Godot scene.' },
@@ -166,7 +166,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for the Godot Phantom Camera addon (Cinemachine-style virtual cameras): create hosts and cameras, set follow/look-at targets and priority, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.PhantomCamera',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-PhantomCamera',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-PhantomCamera/README.md',
     tools: [
       { name: 'phantomcamera-defaults', description: 'Return the recommended starter config (priority, follow/look-at mode, damping) for a Phantom Camera.' },
       { name: 'phantomcamera-host-create', description: 'Ensure a PhantomCameraHost exists under a Camera3D in the edited scene (required by the addon).' },
@@ -189,7 +189,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for the Godot Beehave addon (behaviour-tree AI): scaffold a tree root, add composites, decorators, and leaf placeholders, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.Beehave',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Beehave',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Beehave/README.md',
     tools: [
       { name: 'beehave-defaults', description: 'Return the recommended starter skeleton (root, tick rate, a composite, and leaf placeholders) for a Beehave behaviour tree.' },
       { name: 'beehave-tree-create', description: 'Create a BeehaveTree behaviour-tree root in the currently edited Godot scene.' },
@@ -211,7 +211,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for the Godot Dialogic addon (dialogue / visual novels): create timeline and character resources, append text events, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.Dialogic',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Dialogic',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Dialogic/README.md',
     tools: [
       { name: 'dialogic-defaults', description: 'Return the recommended starter timeline and character config for Dialogic authoring.' },
       { name: 'dialogic-timeline-create', description: 'Create a Dialogic timeline resource (.dtl), seeded with a first text event.' },
@@ -232,7 +232,7 @@ export const EXTENSIONS_CATALOG: readonly ExtensionDescriptor[] = [
       'AI MCP tools for the Godot Terrain3D addon (TokisanGames heightmap terrain): create terrains, set the data directory, region size, and material, and inspect them.',
     packageId: 'com.IvanMurzak.Godot.MCP.Terrain3D',
     version: null,
-    gitUrl: 'https://github.com/IvanMurzak/Godot-AI-Terrain3D',
+    gitUrl: 'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Terrain3D/README.md',
     tools: [
       { name: 'terrain3d-defaults', description: 'Return the recommended starter config (region size, mesh LODs, mesh size, vertex spacing, data directory) for a Terrain3D node.' },
       { name: 'terrain3d-create', description: 'Create a Terrain3D node in the currently edited Godot scene (requires the Terrain3D addon).' },

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unit-test project for the YOUR_DISPLAY_NAME extension. A PLAIN xUnit assembly (Microsoft.NET.Sdk),
+    NOT a Godot game project — so it builds + runs in CI with no Godot binary.
+
+    It compiles ONLY the PURE-MANAGED extension sources (the tools that live OUTSIDE #if TOOLS and touch
+    no Godot native types). Editor-only tools (#if TOOLS, touching EditorInterface / live Node) are NOT
+    compiled here — a plain xUnit host has no live Godot main loop, so calling them would fault. Those
+    are verified by the headless-Godot E2E instead (see .github/workflows/test.yml-sample).
+
+    This mirrors the core addon's Godot-MCP.Tests pattern: selectively <Compile Include> the
+    CI-friendly subset rather than ProjectReference the Godot.NET.Sdk project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>com.IvanMurzak.Godot.MCP.YOUR_FEATURE.Tests</RootNamespace>
+    <AssemblyName>com.IvanMurzak.Godot.MCP.YOUR_FEATURE.Tests</AssemblyName>
+    <!-- No GodotSharp here: only pure-managed sources are compiled, and they reference no Godot type. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- Same MCP/reflection pins as the package; needed because the tools use [AiTool]/[AiToolType]. -->
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+  </ItemGroup>
+
+  <!--
+    Compile the PURE-MANAGED extension sources under test. Add one <Compile Include> line per
+    pure-managed source file you want to unit-test. Do NOT add files guarded by #if TOOLS here.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Godot-AI-YOUR_FEATURE\Runtime\Tools\Tool_YOUR_FEATURE.cs" Link="Source\Tool_YOUR_FEATURE.cs" />
+    <Compile Include="..\..\src\Godot-AI-YOUR_FEATURE\Runtime\Tools\Tool_YOUR_FEATURE.Echo.cs" Link="Source\Tool_YOUR_FEATURE.Echo.cs" />
+  </ItemGroup>
+
+</Project>

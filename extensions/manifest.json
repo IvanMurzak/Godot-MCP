@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "extensions": [
+    "Godot-AI-Animation",
+    "Godot-AI-Beehave",
+    "Godot-AI-CSG",
+    "Godot-AI-Dialogic",
+    "Godot-AI-GridMap",
+    "Godot-AI-Navigation",
+    "Godot-AI-Particles",
+    "Godot-AI-PhantomCamera",
+    "Godot-AI-Terrain3D",
+    "Godot-AI-Tilemap"
+  ]
+}

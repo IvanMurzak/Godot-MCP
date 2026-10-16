@@ -1,0 +1,83 @@
+{
+  "description": "Live run-tool E2E tool list for the Tilemap Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "One shared editor session; create a Node2D scene, assert cell operations and assign the real e2e-tileset.tres fixture.",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": {
+        "resourcePath": "res://e2e.tscn",
+        "rootTypeClassName": "Node2D",
+        "rootName": "Root"
+      },
+      "expect": [
+        "\"isActive\":true"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "tilemap-create",
+      "input": {
+        "name": "Layer"
+      },
+      "expect": [
+        "\"TypeName\":\"TileMapLayer\"",
+        "\"UsedCellCount\":0"
+      ]
+    },
+    {
+      "tool": "tilemap-set-cell",
+      "input": {
+        "nodePath": "Layer",
+        "x": 0,
+        "y": 0,
+        "sourceId": 0,
+        "atlasX": 0,
+        "atlasY": 0
+      },
+      "expect": [
+        "\"UsedCellCount\":1"
+      ]
+    },
+    {
+      "tool": "tilemap-get-used-cells",
+      "input": {
+        "nodePath": "Layer"
+      },
+      "expect": [
+        "\"UsedCellCount\":1",
+        "\"SourceId\":0"
+      ]
+    },
+    {
+      "tool": "tilemap-erase-cell",
+      "input": {
+        "nodePath": "Layer",
+        "x": 0,
+        "y": 0
+      },
+      "expect": [
+        "\"UsedCellCount\":0"
+      ]
+    },
+    {
+      "tool": "tilemap-set-tileset",
+      "input": {
+        "nodePath": "Layer",
+        "tileSetPath": "res://e2e-tileset.tres"
+      },
+      "expect": [
+        "\"TileSetPath\":\"res://e2e-tileset.tres\""
+      ]
+    },
+    {
+      "tool": "tilemap-clear",
+      "input": {
+        "nodePath": "Layer"
+      },
+      "expect": [
+        "\"UsedCellCount\":0"
+      ]
+    }
+  ]
+}

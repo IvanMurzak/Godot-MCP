@@ -1,0 +1,43 @@
+{
+  "description": "Live run-tool E2E tool list for the Beehave Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor (with the third-party Beehave addon installed by the ADDON_* CI step) + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "beehave-defaults is pure-managed (no scene, no addon). The editor tools resolve nodes relative to EditorInterface.GetEditedSceneRoot(), so the 'setup' phase opens a scene first via the core godot_mcp 'scene-create' tool, then the tools scaffold a tree under it. Beehave is a Class-B addon: every editor tool is presence-gated and the happy path asserts \"Installed\":true (PascalCase — ReflectorNet serializes C# property names PascalCase). 'expect' substrings are matched against godot-cli's compact --raw JSON. ClassName is the Beehave class_name we instantiated (NOT node.GetClass(), which returns the native base 'Node' for a GDScript class_name node).",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "beehave-defaults",
+      "input": {},
+      "expect": ["\"RootClass\":\"BeehaveTree\"", "\"CompositeClass\":\"SelectorComposite\""]
+    },
+    {
+      "tool": "beehave-tree-create",
+      "input": { "name": "BT", "tickRate": 1 },
+      "expect": ["\"Installed\":true", "\"ClassName\":\"BeehaveTree\"", "\"Enabled\":true"]
+    },
+    {
+      "tool": "beehave-add-composite",
+      "input": { "kind": "selector", "parentPath": "BT", "name": "Sel" },
+      "expect": ["\"Installed\":true", "\"ClassName\":\"SelectorComposite\""]
+    },
+    {
+      "tool": "beehave-add-decorator",
+      "input": { "kind": "inverter", "parentPath": "BT/Sel", "name": "Inv" },
+      "expect": ["\"Installed\":true", "\"ClassName\":\"InverterDecorator\""]
+    },
+    {
+      "tool": "beehave-add-leaf",
+      "input": { "kind": "action", "parentPath": "BT/Sel/Inv", "name": "Act" },
+      "expect": ["\"Installed\":true", "\"ClassName\":\"ActionLeaf\""]
+    },
+    {
+      "tool": "beehave-get",
+      "input": { "nodePath": "BT" },
+      "expect": ["\"Installed\":true", "\"Enabled\":true", "\"ClassName\":\"SelectorComposite\""]
+    }
+  ]
+}

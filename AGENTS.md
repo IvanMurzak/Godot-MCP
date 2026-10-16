@@ -27,6 +27,8 @@ them here.** The current pins are in `Godot-MCP.csproj` (mirrored by `Godot-MCP.
 - `Godot-Tests/` — headless Godot CI testbed + runtime harness ([`Godot-Tests/README.md`](Godot-Tests/README.md)).
 - `cli/` — the `godot-cli` npm package; see [`cli/AGENTS.md`](cli/AGENTS.md).
 - `scripts/` — CI/release helpers (`bump-version.mjs`, `check-runtime-boundary.py`, harness asserts).
+- `extensions/` — independent source-only NuGet modules; read its AGENTS.md before editing.
+- `templates/extension/` — extension scaffolding; never included in core or consumer assemblies.
 - `docs/` — `ARCHITECTURE.md`, `RELEASING.md`, `runtime-security.md`, Asset Library material.
 - `tests/chain-fixtures/`, `.github/scripts/chain_*.py` — release-train fixtures; byte-compared, LF-pinned.
 

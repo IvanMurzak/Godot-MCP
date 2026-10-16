@@ -1,0 +1,12 @@
+{
+  "name": "Godot-AI-GridMap",
+  "packageId": "com.IvanMurzak.Godot.MCP.GridMap",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj",
+  "tests": "extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Godot-AI-GridMap.Tests.csproj",
+  "minGodotVersion": "4.3.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-GridMap",
+    "commit": "570dde8832b290fbdfdf3534994740c83de08260"
+  }
+}

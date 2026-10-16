@@ -1,0 +1,48 @@
+{
+  "description": "Live run-tool E2E tool list for the Navigation Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "The editor tools (region-create/region-set-mesh/agent-create/agent-configure/link-create/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a 3D scene first via the core godot_mcp 'scene-create' tool, and the entries below exercise the 3D variants (NavigationRegion3D/NavigationAgent3D/NavigationLink3D). navigation-defaults is pure-managed and needs no scene. The 'expect' substrings are matched against godot-cli's compact --raw JSON; they assert structured fields produced by the extension's own code (Kind/Dimension/Radius/…) rather than node.GetClass() casing.",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "navigation-defaults",
+      "input": { "dimension": "3D" },
+      "expect": ["\"Kind\":\"Agent\"", "\"Dimension\":\"3D\""]
+    },
+    {
+      "tool": "navigation-region-create",
+      "input": { "dimension": "3D", "name": "NavRegion" },
+      "expect": ["\"Kind\":\"Region\"", "\"Dimension\":\"3D\""]
+    },
+    {
+      "tool": "navigation-region-set-mesh",
+      "input": { "nodePath": "NavRegion" },
+      "expect": ["\"ResourceType\":\"NavigationMesh\""]
+    },
+    {
+      "tool": "navigation-agent-create",
+      "input": { "dimension": "3D", "name": "NavAgent" },
+      "expect": ["\"Kind\":\"Agent\"", "\"Dimension\":\"3D\""]
+    },
+    {
+      "tool": "navigation-agent-configure",
+      "input": { "nodePath": "NavAgent", "radius": 0.75, "maxSpeed": 8.0, "avoidanceEnabled": true },
+      "expect": ["\"Radius\":0.75", "\"AvoidanceEnabled\":true"]
+    },
+    {
+      "tool": "navigation-link-create",
+      "input": { "dimension": "3D", "name": "NavLink", "startX": 0, "startY": 0, "startZ": 0, "endX": 5, "endY": 0, "endZ": 0 },
+      "expect": ["\"Kind\":\"Link\"", "\"EndX\":5"]
+    },
+    {
+      "tool": "navigation-get",
+      "input": { "nodePath": "NavAgent" },
+      "expect": ["\"Kind\":\"Agent\"", "\"Radius\":0.75"]
+    }
+  ]
+}

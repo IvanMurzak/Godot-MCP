@@ -1,0 +1,21 @@
+{
+  "name": "Godot-AI-Terrain3D",
+  "packageId": "com.IvanMurzak.Godot.MCP.Terrain3D",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj",
+  "tests": "extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj",
+  "minGodotVersion": "4.4.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-Terrain3D",
+    "commit": "6acdb9fa7f965f954abc1f8d85dbe615e06a8bf7"
+  },
+  "testAddon": {
+    "repo": "TokisanGames/Terrain3D",
+    "tag": "v1.0.2-stable",
+    "dir": "terrain_3d",
+    "kind": "gdextension"
+  },
+  "testDirectories": [
+    "terrain_data"
+  ]
+}

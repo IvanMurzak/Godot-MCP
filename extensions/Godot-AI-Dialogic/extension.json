@@ -1,0 +1,18 @@
+{
+  "name": "Godot-AI-Dialogic",
+  "packageId": "com.IvanMurzak.Godot.MCP.Dialogic",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj",
+  "tests": "extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/Godot-AI-Dialogic.Tests.csproj",
+  "minGodotVersion": "4.4.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-Dialogic",
+    "commit": "f4985b698bb267084b53f909b1a8972c696a5370"
+  },
+  "testAddon": {
+    "repo": "dialogic-godot/dialogic",
+    "tag": "2.0-alpha-19",
+    "dir": "dialogic",
+    "kind": "gdscript"
+  }
+}

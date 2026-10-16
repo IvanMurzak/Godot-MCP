@@ -1,0 +1,21 @@
+; Engine configuration file.
+; Minimal Godot 4 C# CONSUMER project used to E2E-verify the YOUR_DISPLAY_NAME extension:
+; the core `godot_mcp` addon is installed into it by CI (godot-cli install-plugin), the extension
+; package is restored from a local NuGet feed, and each tool is called via `godot-cli run-tool`.
+; No game content. The analog of Godot-MCP's engines/godot/test-project.
+
+config_version=5
+
+[application]
+
+config/name="YOUR_FEATURE-Testbed"
+config/description="Minimal C# testbed that consumes the YOUR_DISPLAY_NAME extension via NuGet for headless E2E."
+config/features=PackedStringArray("4.5", "C#")
+
+[dotnet]
+
+project/assembly_name="YOUR_FEATURE-Testbed"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")

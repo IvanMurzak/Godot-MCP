@@ -1,0 +1,48 @@
+{
+  "description": "Live run-tool E2E tool list for the GridMap Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "The six editor tools (create/set-mesh-library/set-cell/clear-cell/clear/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'scene-create' tool. They run in order and share state: create makes the 'Grid' node, then later tools address it by node path 'Grid'. gridmap-set-mesh-library loads the committed res://e2e-meshlib.tres MeshLibrary from the testbed. gridmap-defaults is pure-managed and needs no scene. Assertions pin extension-PRODUCED fields (Kind, CellSizeX, CellCount, MeshLibraryPath, Item) rather than the engine class name (Node.GetClass() casing can differ from the C# binding). The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "gridmap-defaults",
+      "input": {},
+      "expect": ["\"Kind\":\"GridMap\"", "\"CellSizeX\":1"]
+    },
+    {
+      "tool": "gridmap-create",
+      "input": { "name": "Grid", "cellSizeX": 3, "cellSizeY": 3, "cellSizeZ": 3 },
+      "expect": ["\"Kind\":\"GridMap\"", "\"CellSizeX\":3", "\"CellCount\":0"]
+    },
+    {
+      "tool": "gridmap-set-mesh-library",
+      "input": { "nodePath": "Grid", "resourcePath": "res://e2e-meshlib.tres" },
+      "expect": ["\"MeshLibraryPath\":\"res://e2e-meshlib.tres\""]
+    },
+    {
+      "tool": "gridmap-set-cell",
+      "input": { "nodePath": "Grid", "cellX": 1, "cellY": 0, "cellZ": 1, "item": 0 },
+      "expect": ["\"Item\":0", "\"CellX\":1", "\"CellZ\":1"]
+    },
+    {
+      "tool": "gridmap-get",
+      "input": { "nodePath": "Grid" },
+      "expect": ["\"CellCount\":1", "\"MeshLibraryPath\":\"res://e2e-meshlib.tres\""]
+    },
+    {
+      "tool": "gridmap-clear-cell",
+      "input": { "nodePath": "Grid", "cellX": 1, "cellY": 0, "cellZ": 1 },
+      "expect": ["\"Item\":-1", "\"CellX\":1"]
+    },
+    {
+      "tool": "gridmap-clear",
+      "input": { "nodePath": "Grid" },
+      "expect": ["\"CellCount\":0"]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Godot-AI-PhantomCamera",
+  "packageId": "com.IvanMurzak.Godot.MCP.PhantomCamera",
+  "version": "0.1.2",
+  "project": "extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj",
+  "tests": "extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Godot-AI-PhantomCamera.Tests.csproj",
+  "minGodotVersion": "4.4.0",
+  "source": {
+    "repo": "IvanMurzak/Godot-AI-PhantomCamera",
+    "commit": "e30fc62be4064585a5bb8a7ec0fe8254277037b2"
+  },
+  "testAddon": {
+    "repo": "ramokz/phantom-camera",
+    "tag": "v0.11.0.2",
+    "dir": "phantom_camera",
+    "kind": "gdscript"
+  },
+  "testAutoloads": {
+    "PhantomCameraManager": "res://addons/phantom_camera/scripts/managers/phantom_camera_manager.gd"
+  }
+}

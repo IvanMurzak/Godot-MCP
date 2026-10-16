@@ -1,0 +1,38 @@
+{
+  "description": "Live run-tool E2E tool list for the Particles extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
+  "notes": "The four editor tools (create/get/configure/set-emitting) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'scene-create' tool. particles-defaults is pure-managed and needs no scene. The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "setup": [
+    {
+      "tool": "scene-create",
+      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
+      "expect": ["\"isActive\":true"]
+    }
+  ],
+  "tools": [
+    {
+      "tool": "particles-defaults",
+      "input": { "dimension": "3D" },
+      "expect": ["\"Amount\":16", "\"Dimension\":\"3D\""]
+    },
+    {
+      "tool": "particles-create",
+      "input": { "dimension": "3D", "name": "FX", "amount": 32, "lifetime": 2.0 },
+      "expect": ["\"TypeName\":\"GPUParticles3D\"", "\"Amount\":32", "\"Lifetime\":2"]
+    },
+    {
+      "tool": "particles-get",
+      "input": { "nodePath": "FX" },
+      "expect": ["\"Amount\":32", "\"Lifetime\":2"]
+    },
+    {
+      "tool": "particles-configure",
+      "input": { "nodePath": "FX", "amount": 0, "explosiveness": 2.0 },
+      "expect": ["\"Amount\":1", "\"Explosiveness\":1"]
+    },
+    {
+      "tool": "particles-set-emitting",
+      "input": { "nodePath": "FX", "emitting": false, "restart": true },
+      "expect": ["\"Emitting\":false"]
+    }
+  ]
+}

@@ -36,6 +36,8 @@
   <ItemGroup>
     <Compile Remove="Godot-MCP.Tests/**/*.cs" />
     <Compile Remove="Godot-Tests/**/*.cs" />
+    <!-- Optional packages and fixtures must never leak through the root SDK glob. -->
+    <Compile Remove="extensions/**/*.cs;templates/**/*.cs;tests/**/*.cs;.artifacts/**/*.cs" />
   </ItemGroup>
 
   <!--

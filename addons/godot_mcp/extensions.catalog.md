@@ -57,7 +57,7 @@ It is consumed by all THREE install channels so they can never drift:
 ## Adding an extension
 
 The first published Godot-MCP extension is **Particles Tools**
-(`com.IvanMurzak.Godot.MCP.Particles`, https://github.com/IvanMurzak/Godot-AI-Particles). To add another
+(`com.IvanMurzak.Godot.MCP.Particles`, https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Particles/README.md). To add another
 published extension: append ONE entry to `extensions` here — the dock reads it via the embedded resource,
 and the CLI's parity test (`cli/tests/extensions-catalog-parity.test.ts`) forces the typed mirror
 `cli/src/utils/extensions-catalog.ts` to be updated to match, which the CLI then consumes. (When the

@@ -1,0 +1,32 @@
+<!--
+  CONSUMER testbed for the Navigation Tools extension (analog of Godot-MCP/engines/godot/test-project).
+
+  Godot compiles EVERY .cs under this project into ONE assembly. The extension is a SOURCE-ONLY NuGet
+  package: restoring it imports `build/com.IvanMurzak.Godot.MCP.Navigation.props`, which injects the
+  package's `.cs` as <Compile> items here — so the extension's tools compile against THIS project's own
+  GodotSharp. That is the whole point of the source-only recipe, exercised end-to-end.
+
+  Like any Godot-MCP consumer, this csproj declares the core MCP pins (the addon needs them too). The
+  extension package itself is restored from the local `nuget.config` feed (`../local-nuget`), which CI
+  fills with `dotnet pack -p:Version=0.0.0-ci`. Keep <PackageReference Version> = that CI version.
+
+  SDK pin = the local editor's Godot.NET.Sdk. The CI matrix rewrites this line per Godot version
+  (see .github/workflows/test.yml-sample). Keep the GodotSharp version the SDK ships in lockstep.
+-->
+<Project Sdk="Godot.NET.Sdk/4.5.1">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Navigation_Testbed</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core MCP pins (the godot_mcp addon depends on these); keep in lockstep with the addon. -->
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+    <!-- The extension under test, restored from the local feed (CI packs it as 0.0.0-ci). -->
+    <PackageReference Include="com.IvanMurzak.Godot.MCP.Navigation" Version="0.0.0-ci" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,380 @@
+# Reusable test workflow for a Godot-MCP extension. Activated by `init` (test.yml-sample -> test.yml).
+# Called by test-pull-request.yml (per Godot version) and release.yml (full gate).
+#
+# Two legs:
+#   1. package-and-consume  — PROVEN-deterministic, NO Godot binary: build the source-only package,
+#      run the pure-managed unit tests, `dotnet pack`, then build the testbed CONSUMING the local
+#      package. This validates the whole source-injection recipe (props -> <Compile> -> compiles
+#      against the consumer's GodotSharp) using only `dotnet` + Godot.NET.Sdk from NuGet.
+#   2. e2e-godot           — full live E2E: boot a real HEADLESS Godot, install the core godot_mcp
+#      addon, build the solution, boot the editor CONNECTED to a local gamedev-mcp-server, and call
+#      each tool via `godot-cli run-tool` / `run-system-tool`, asserting success (one assertion per
+#      tool). The per-tool list is data-driven (tests/e2e/e2e-tools.json) and run by the generic
+#      driver tests/e2e/run_tool_e2e.py — a tool that throws turns this leg RED (no continue-on-error).
+name: test
+
+on:
+  workflow_call:
+    inputs:
+      godot-version:
+        description: "Godot editor version for the E2E leg (e.g. 4.5.1)"
+        required: true
+        type: string
+      godot-sdk-version:
+        description: "Godot.NET.Sdk/GodotSharp version the testbed compiles against (e.g. 4.5.1)"
+        required: true
+        type: string
+
+jobs:
+  package-and-consume:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Locate projects
+        id: paths
+        run: |
+          set -e
+          pkg=$(find src -name '*.csproj' -exec grep -l '<PackageId>' {} \; | head -1)
+          tests=$(find tests -name '*.csproj' | head -1)
+          testbed=$(find testbed -name '*.csproj' | head -1)
+          echo "pkg=$pkg"         >> "$GITHUB_OUTPUT"
+          echo "tests=$tests"     >> "$GITHUB_OUTPUT"
+          echo "testbed=$testbed" >> "$GITHUB_OUTPUT"
+
+      - name: Build package (source-only, headless)
+        run: dotnet build "${{ steps.paths.outputs.pkg }}" -c Debug
+
+      - name: Unit tests (pure-managed, xUnit)
+        run: dotnet test "${{ steps.paths.outputs.tests }}" -c Debug
+
+      - name: Pack source-only nupkg (Version=0.0.0-ci) into local feed
+        run: dotnet pack "${{ steps.paths.outputs.pkg }}" -c Release -p:Version=0.0.0-ci -o local-nuget
+
+      - name: Assert nupkg is source-only and declares NO GodotSharp dependency
+        run: |
+          set -e
+          nupkg=$(ls local-nuget/*.nupkg | head -1)
+          unzip -o "$nupkg" -d _pkg > /dev/null
+          # No compiled lib/ assembly:
+          if find _pkg -path '*/lib/*' -name '*.dll' | grep -q .; then
+            echo "::error::package contains a lib/*.dll — it must be source-only"; exit 1
+          fi
+          nuspec=$(find _pkg -name '*.nuspec' | head -1)
+          if grep -qiE 'id="GodotSharp"|id="Godot.SourceGenerators"' "$nuspec"; then
+            echo "::error::package declares a GodotSharp/SourceGenerators dependency — must be PrivateAssets=all"; exit 1
+          fi
+          grep -q 'id="com.IvanMurzak.McpPlugin"'   "$nuspec" || { echo "::error::missing McpPlugin dep";   exit 1; }
+          grep -q 'id="com.IvanMurzak.ReflectorNet"' "$nuspec" || { echo "::error::missing ReflectorNet dep"; exit 1; }
+          echo "OK: source-only, only MCP/reflection deps."
+
+      - name: Align testbed Godot.NET.Sdk to the matrix version
+        run: |
+          sed -i 's#Godot.NET.Sdk/[0-9][0-9.]*#Godot.NET.Sdk/${{ inputs.godot-sdk-version }}#' "${{ steps.paths.outputs.testbed }}"
+
+      - name: Build testbed CONSUMING the local source-only package (injection proof)
+        # Emulates `godot --build-solutions`: the props injects the package's .cs into the testbed,
+        # which compiles them against the testbed's own GodotSharp. Green here == the recipe works.
+        run: dotnet build "${{ steps.paths.outputs.testbed }}" -c Debug
+
+  e2e-godot:
+    runs-on: ubuntu-latest
+    needs: [package-and-consume]
+    # REAL GATE. Boots a live HEADLESS Godot with the core `godot_mcp` addon + this extension enabled,
+    # then drives every tool over a LIVE MCP server. The build uses the SAFE three-process pattern
+    # (import -> `dotnet build` -> `--editor`) that Godot-MCP's own test_godot_plugin.yml uses, NOT cold
+    # `--build-solutions --quit`. The cold single-process `--build-solutions` path SIGSEGVs (exit 139) on
+    # the CI runners across every Godot 4.x version — that is an UPSTREAM godotengine/godot engine bug
+    # (any first C# [Tool] EditorPlugin instantiation crashes there before managed code runs;
+    # matches godot #81790 / #100805), NOT an extension or core-addon defect. Splitting the compile out to
+    # `dotnet build` (Godot.NET.Sdk resolves GodotSharp from NuGet, deterministic) and booting the editor
+    # in a SEPARATE process sidesteps the engine crash.
+    #
+    # After the clean-boot assertion, the leg starts the shared gamedev-mcp-server (the EXACT release the
+    # installed addon pins, Authorization=none) and boots a SECOND headless editor in Custom connection
+    # mode so its `[AiTool]` handlers (incl. the `#if TOOLS` editor tools) are live. tests/e2e/run_tool_e2e.py
+    # then calls each tool in tests/e2e/e2e-tools.json via `godot-cli run-tool` and asserts success — a
+    # real per-tool gate (an exception comes back HTTP 500 -> godot-cli exits non-zero -> the leg fails).
+    env:
+      # Fixed loopback port the server listens on and the editor connects to (auth=none).
+      SERVER_PORT: "5300"
+      # ubuntu-latest is linux-x64, so the release asset is fixed. The binary filename inside the zip is
+      # stable (gamedev-mcp-server); its PATH is not (the release is a publish-per-RID layout nesting the
+      # payload under <rid>/), so the download step resolves the real path with `find`.
+      SERVER_ASSET: gamedev-mcp-server-linux-x64.zip
+      SERVER_BIN_NAME: gamedev-mcp-server
+      # ── CLASS-B (addon-dependent) extensions ONLY ────────────────────────────────────────────────
+      # A CLASS-B extension wraps a THIRD-PARTY Godot addon, so CI must install that addon into the
+      # testbed BEFORE the import below (so its class_name / GDExtension types register and the
+      # extension's presence-gated tools see them). `init` leaves these EMPTY, so the "Install the
+      # third-party addon" step below is a NO-OP and a CLASS-A leg is unchanged. A Class-B author fills
+      # them in their activated test.yml (see the create-extension pipeline step 02 "Class B" branch):
+      #   ADDON_REPO — owner/name of the addon's GitHub repo (the release zip is downloaded from here).
+      #   ADDON_TAG  — the RELEASE TAG to pin (never @latest — keeps the leg reproducible).
+      #   ADDON_DIR  — the folder name under testbed/addons/ the addon installs into.
+      #   ADDON_KIND — "gdscript" (class_name addon; a copy is enough) or "gdextension" (needs a linux .so).
+      ADDON_REPO: ""
+      ADDON_TAG: ""
+      ADDON_DIR: ""
+      ADDON_KIND: ""
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Godot (mono / .NET)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ inputs.godot-version }}
+          use-dotnet: true
+
+      - name: Setup Node (for godot-cli)
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install godot-cli (install-plugin + run-tool/wait-for-ready)
+        run: npm install -g godot-cli@latest
+
+      - name: Pack the extension into a local feed (0.0.0-ci)
+        run: |
+          pkg=$(find src -name '*.csproj' -exec grep -l '<PackageId>' {} \; | head -1)
+          dotnet pack "$pkg" -c Release -p:Version=0.0.0-ci -o local-nuget
+
+      - name: Install the core godot_mcp addon into the testbed
+        # The extension's tools are auto-discovered only with the core addon present. install-plugin
+        # downloads the addon from the Godot-MCP release and enables it.
+        run: godot-cli install-plugin testbed
+
+      - name: Install the third-party addon under test (CLASS-B only; pinned)
+        # CLASS-B extensions wrap a THIRD-PARTY Godot addon. Download + unzip the PINNED addon release
+        # into testbed/addons/<ADDON_DIR>/ BEFORE the import below, so its class_name (GDScript) or
+        # ClassDB/singleton (GDExtension) types are registered when the editor imports and the
+        # extension's presence-gated tools run against a real installed addon.
+        #   • NO-OP for CLASS-A: when ADDON_REPO is empty the step exits 0 immediately, so a built-in-feature
+        #     extension's e2e leg behaves exactly as before this step existed.
+        #   • The addon is a CI-TIME DOWNLOAD only — never vendored into the extension repo (keeps it free of
+        #     someone else's licence + avoids a stale copy). CI just simulates a consumer who installed it.
+        #   • Pin a RELEASE TAG (never @latest) so the leg is reproducible and an upstream class/property rename
+        #     can't turn it red out of nowhere.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ADDON_REPO}" ]; then
+            echo "ADDON_REPO is empty — Class-A extension (no third-party addon). Skipping."
+            exit 0
+          fi
+          : "${ADDON_TAG:?ADDON_TAG must pin a release tag when ADDON_REPO is set}"
+          : "${ADDON_DIR:?ADDON_DIR must name the addons/ folder when ADDON_REPO is set}"
+          rm -rf _addon && mkdir -p _addon testbed/addons
+          # Prefer the GitHub Release zip (versioned, stable; ships the addons/<x>/ tree). Fall back to a
+          # shallow tag clone when the release carries no zip asset.
+          if gh release download "${ADDON_TAG}" --repo "${ADDON_REPO}" --pattern '*.zip' --dir _addon --clobber 2>/dev/null; then
+            unzip -o -q "$(find _addon -maxdepth 1 -name '*.zip' | head -n1)" -d _addon
+          else
+            echo "No release zip on ${ADDON_REPO}@${ADDON_TAG}; falling back to a shallow tag clone."
+            git clone --depth 1 --branch "${ADDON_TAG}" "https://github.com/${ADDON_REPO}.git" _addon/clone
+          fi
+          # Locate addons/<ADDON_DIR>/ anywhere in the extracted payload and copy it into the testbed.
+          found="$(find _addon -type d -path "*/addons/${ADDON_DIR}" | head -n1)"
+          if [ -z "${found}" ]; then
+            echo "::error::could not find addons/${ADDON_DIR}/ in ${ADDON_REPO}@${ADDON_TAG} (release zip nor tag clone)."
+            exit 1
+          fi
+          rm -rf "testbed/addons/${ADDON_DIR}"
+          cp -R "${found}" "testbed/addons/${ADDON_DIR}"
+          # A GDExtension addon must ship a linux-x64 .so (the runner is linux); the editor needs it present
+          # BEFORE import to register the native classes. Fail loudly on a Windows-only release.
+          if [ "${ADDON_KIND}" = "gdextension" ] && ! find "testbed/addons/${ADDON_DIR}" -name '*.so' | grep -q .; then
+            echo "::error::ADDON_KIND=gdextension but no linux .so under testbed/addons/${ADDON_DIR} — the addon release must ship a linux-x64 binary."
+            exit 1
+          fi
+          echo "Installed ${ADDON_REPO}@${ADDON_TAG} -> testbed/addons/${ADDON_DIR} (kind=${ADDON_KIND:-gdscript})."
+
+      - name: Align testbed Godot.NET.Sdk to the matrix version
+        run: |
+          set -euo pipefail
+          testbed=$(find testbed -name '*.csproj' | head -1)
+          sed -i 's#Godot.NET.Sdk/[0-9][0-9.]*#Godot.NET.Sdk/${{ inputs.godot-sdk-version }}#' "$testbed"
+          echo "TESTBED=$testbed" >> "$GITHUB_ENV"
+          echo "TESTBED_ASM=$(basename "$testbed" .csproj)" >> "$GITHUB_ENV"
+
+      - name: Import the testbed (generate .godot layout)
+        run: |
+          set -uo pipefail
+          # SAFE PATTERN, step 1/3 (mirrors Godot-MCP/.github/workflows/test_godot_plugin.yml).
+          # A cold CI checkout has no .godot/. `godot --build-solutions` is a silent no-op until the
+          # project has been imported once, AND the cold single-process `--build-solutions` path
+          # SIGSEGVs (exit 139) on a first C# [Tool] EditorPlugin — an UPSTREAM godot engine bug
+          # (godot #81790 / #100805), not an addon/extension defect. So we DON'T use `--build-solutions`
+          # at all. First, run an import pass to materialize the .godot/mono layout. Headless import
+          # prints benign "progress dialog while flushing the message queue" warnings and may exit
+          # non-zero on teardown — neither is fatal, so do NOT gate on the import's exit code (the real
+          # gates are the emitted DLL in the next step + the plugin-loaded assertion after).
+          godot --headless --path testbed --import --quit 2>&1 | tee import.log || true
+          echo "Import pass complete."
+
+      - name: Build C# (addon + extension compile into the testbed assembly)
+        run: |
+          set -euo pipefail
+          # SAFE PATTERN, step 2/3. Compile via `dotnet build` directly on the testbed .csproj rather
+          # than `godot --build-solutions` — the latter silently no-ops in a headless cold checkout AND
+          # crashes the engine (see above). `dotnet build` is deterministic: Godot.NET.Sdk resolves
+          # GodotSharp from nuget.org for the pinned SDK, and the source-only extension package's *.cs
+          # (injected via its build props) globs into THIS testbed assembly, so a successful build proves
+          # the extension's C# compiles against the consumer's own GodotSharp + the frozen MCP pins.
+          dotnet build "$TESTBED" -c Debug 2>&1 | tee build.log
+          if ! ls testbed/.godot/mono/temp/bin/*/"$TESTBED_ASM".dll >/dev/null 2>&1; then
+            echo "::error::C# build did not produce $TESTBED_ASM.dll — the testbed/extension failed to compile."
+            echo "----- build.log -----"; cat build.log || true
+            exit 1
+          fi
+
+      - name: Boot editor headless and assert the addon loads
+        run: |
+          set -euo pipefail
+          # SAFE PATTERN, step 3/3. Boot the editor in a SEPARATE process; the godot_mcp EditorPlugin
+          # runs its _EnterTree and prints "[Godot-MCP] plugin loaded". This separate-process boot does
+          # NOT hit the cold `--build-solutions` engine crash.
+          godot --headless --path testbed --editor --quit 2>&1 | tee editor-boot.log || true
+          echo "----- editor-boot.log -----"; cat editor-boot.log
+          if ! grep -qF "[Godot-MCP] plugin loaded" editor-boot.log; then
+            echo "::error::'[Godot-MCP] plugin loaded' was NOT found — the addon did not load on Godot ${{ inputs.godot-version }}."
+            exit 1
+          fi
+          if grep -qE "FileNotFoundException|Cannot open file|Failed to load script|Unable to load addon|addon .* failed" editor-boot.log; then
+            echo "::error::An addon-load / assembly-resolution error appeared in the editor boot output on Godot ${{ inputs.godot-version }}."
+            exit 1
+          fi
+          echo "Godot ${{ inputs.godot-version }}: addon + extension loaded cleanly."
+
+      # ----------------------------------------------------------------------------------------------
+      # LIVE-SERVER run-tool E2E: start the gamedev-mcp-server, boot a CONNECTED headless editor, and
+      # assert every tool. Single-sourced + modeled on Godot-MCP/.github/workflows/test_godot_runtime_harness.yml.
+      # ----------------------------------------------------------------------------------------------
+      - name: Resolve the addon-pinned gamedev-mcp-server version
+        id: server-version
+        run: |
+          set -euo pipefail
+          # Single-source the server version from the addon install-plugin just laid into the testbed
+          # (GodotMcpServerView.ServerVersion), so the leg ALWAYS runs against the server release the
+          # installed addon actually pins — never a drifting hardcoded default.
+          src="testbed/addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs"
+          version="$(grep -oE 'ServerVersion[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "$src" \
+            | head -n1 | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')"
+          if [ -z "${version}" ]; then
+            echo "::error::Could not read ServerVersion from ${src}"; exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Addon-pinned server version: ${version}"
+
+      - name: Download the released gamedev-mcp-server
+        id: server
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVER_VERSION: ${{ steps.server-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p server
+          # Pull the EXACT release asset the addon would fetch
+          # (https://github.com/IvanMurzak/GameDev-MCP-Server/releases/download/v<ver>/<asset>).
+          gh release download "v${SERVER_VERSION}" \
+            --repo IvanMurzak/GameDev-MCP-Server \
+            --pattern "${SERVER_ASSET}" \
+            --dir server --clobber
+          unzip -o -q "server/${SERVER_ASSET}" -d server/bin
+          # The release zip is a publish-per-RID layout: the binary lives under a <rid>/ subdir
+          # (server/bin/linux-x64/gamedev-mcp-server), NOT at the zip root. Resolve with `find` so a
+          # future flat-vs-nested layout change can't re-break this — the filename is the contract.
+          SERVER_BIN="$(find server/bin -type f -name "${SERVER_BIN_NAME}" | head -n1)"
+          if [ -z "${SERVER_BIN}" ]; then
+            echo "::error::could not locate '${SERVER_BIN_NAME}' under server/bin after extracting ${SERVER_ASSET}."
+            ls -laR server/bin || true; exit 1
+          fi
+          chmod +x "${SERVER_BIN}"
+          echo "resolved server binary: ${SERVER_BIN}"
+          echo "bin=${SERVER_BIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Start the gamedev-mcp-server (Authorization=none, streamableHttp)
+        env:
+          SERVER_BIN: ${{ steps.server.outputs.bin }}
+        run: |
+          set -euo pipefail
+          test -x "${SERVER_BIN}"
+          # Same launch shape as the addon's GodotMcpServerView.BuildLaunchArguments.
+          nohup "${SERVER_BIN}" \
+            port="${SERVER_PORT}" \
+            plugin-timeout=10000 \
+            client-transport=streamableHttp \
+            authorization=none \
+            > server.log 2>&1 &
+          echo "$!" > server.pid
+          # Wait-for-ready: poll /help (200 when the HTTP host is up).
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${SERVER_PORT}/help" || true)"
+            if [ "$code" = "200" ]; then echo "server ready after ${i}s (/help -> 200)."; exit 0; fi
+            sleep 1
+          done
+          echo "::error::server did not become ready on port ${SERVER_PORT} within 60s."
+          echo "----- server.log -----"; cat server.log || true
+          exit 1
+
+      - name: Boot a headless editor CONNECTED to the server (held open)
+        run: |
+          set -euo pipefail
+          # Boot the editor in Custom connection mode so the plugin connects to the local server and
+          # holds the connection (NO --quit; it runs the editor main loop until we kill it). The addon
+          # reads host/mode/auth from its GODOT_MCP_* env contract.
+          GODOT_MCP_CONNECTION_MODE=Custom \
+          GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
+          GODOT_MCP_AUTH_OPTION=None \
+            godot --headless --path testbed --editor > editor-connect.log 2>&1 &
+          echo "$!" > editor.pid
+          echo "editor booting (pid $(cat editor.pid)); waiting for the MCP connection..."
+
+      - name: Wait for the editor's MCP connection (ping roundtrip)
+        run: |
+          set -euo pipefail
+          # wait-for-ready polls <url>/api/tools/ping, which only returns 200 once the editor's plugin
+          # is connected + handshaken (an unconnected server returns 500 "Response data is null").
+          godot-cli wait-for-ready --url "http://localhost:${SERVER_PORT}" --timeout 120000 --interval 3000
+
+      - name: E2E — call each tool via godot-cli (one assertion per tool)
+        run: |
+          set -euo pipefail
+          # tests/e2e/e2e-tools.json is the per-extension tool list; tests/e2e/run_tool_e2e.py calls
+          # each via `godot-cli run-tool`, gating on exit-code 0 + a {"status":"success"} envelope +
+          # the per-call `expect` substrings. A regression in ANY tool fails this step (no continue-on-error).
+          python3 tests/e2e/run_tool_e2e.py \
+            --url "http://localhost:${SERVER_PORT}" \
+            --manifest tests/e2e/e2e-tools.json \
+            --cli-cmd godot-cli
+
+      - name: Stop the connected editor and server
+        if: always()
+        run: |
+          if [ -f editor.pid ]; then kill "$(cat editor.pid)" 2>/dev/null || true; fi
+          if [ -f server.pid ]; then kill "$(cat server.pid)" 2>/dev/null || true; fi
+
+      - name: Upload e2e logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-godot-${{ inputs.godot-version }}-logs
+          path: |
+            import.log
+            build.log
+            editor-boot.log
+            editor-connect.log
+            server.log
+          if-no-files-found: ignore
+          retention-days: 7
