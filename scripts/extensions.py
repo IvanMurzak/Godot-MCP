@@ -123,9 +123,8 @@ def core_pins(root=ROOT):
 
 
 def chain_active():
-    # A train PR run reads its lock from the PR body, so CHAIN_LOCK (the dispatch input) is
-    # empty there; CHAIN_ACTIVE is what chain_feed exports once ANY lock's override is applied.
-    return bool(os.environ.get('CHAIN_LOCK')) or os.environ.get('CHAIN_ACTIVE') == '1'
+    # chain_feed exports CHAIN_ACTIVE once an override is applied, whatever the lock source.
+    return os.environ.get('CHAIN_ACTIVE') == '1'
 
 
 def chain_pins(root):
