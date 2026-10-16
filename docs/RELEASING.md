@@ -75,8 +75,11 @@ trigger of its own, so the only path to a publish is a dispatch of `release.yml`
    - the test gate runs — the .NET build+test, the `godot-cli` node tests (`test_cli.yml`), and the
      Godot 4.3 → 4.7 matrix (addon-load smoke, dock-reload guard, from-scratch e2e install). The
      runtime-harness legs run too but are advisory (not in the publish `needs:`);
-   - `build-addon` zips `addons/godot_mcp/` into `godot-mcp-addon-<version>.zip` (excluding
-     `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`);
+   - `build-addon` generates `addons/godot_mcp/nuget-deps.json` from `Godot-MCP.csproj`
+     (`scripts/write-nuget-deps.mjs`; gitignored, never committed) and zips `addons/godot_mcp/` into
+     `godot-mcp-addon-<version>.zip` (excluding `*.uid`, `*.import`, `bin/`, `obj/`, `.godot/`).
+     `godot-cli install-plugin` reads that manifest to pin the consumer csproj to the NuGet versions
+     of the addon it installs, not to its own build's constants;
    - `publish-npm` sets `cli/package.json` to the release version, runs `npm ci && npm run
      build && npm test`, then **publishes `godot-cli` to npm** with `npm publish --access public
      --provenance` via **OIDC Trusted Publishing** (no `NPM_TOKEN` — see
@@ -193,7 +196,7 @@ has these field constraints worth knowing before you start:
 The Asset Library does **not** download the curated `godot-mcp-addon-<version>.zip` from the GitHub
 Release — it downloads a **GitHub source archive of the whole repo** at the Download Commit. Without
 intervention that archive would carry `cli/`, `Godot-MCP.Tests/`, `Godot-Tests/`,
-`Godot-MCP.csproj`, `Godot-MCP.sln`, `docs/`, `.github/`, and `CLAUDE.md` straight into the consumer's
+`Godot-MCP.csproj`, `Godot-MCP.sln`, `docs/`, `.github/`, and `AGENTS.md` straight into the consumer's
 project. Because Godot's mono build compiles **every** `.cs` under a project into one assembly, that
 stray test C# would land in the consumer's project and **break their build** — the opposite of
 the install story this release promises.
@@ -256,8 +259,8 @@ in this repo):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.4.1` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `8.4.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.ReflectorNet` | `5.4.2` | reflection / serialization core |
+| `com.IvanMurzak.McpPlugin` | `8.7.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library
 entry — plus the **`godot-cli` npm package** are the distribution channels for Godot-MCP. There

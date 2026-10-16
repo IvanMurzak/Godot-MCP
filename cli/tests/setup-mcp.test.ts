@@ -22,6 +22,20 @@ import {
 } from '../src/utils/agents.js';
 import { derivePinV2 } from '../src/utils/project-identity.js';
 import { ENV_HOST, ENV_TOKEN } from '../src/utils/connection.js';
+import type { ProjectKeyRequest, ProjectKeyResolver } from '@baizor/gamedev-cli-core';
+
+/** A resolver for a machine with no login — setup-mcp falls back to the URL-only config. */
+const noLogin: ProjectKeyResolver = async () => ({ kind: 'no-login', reason: 'not signed in' });
+
+/** A resolver that hands out a fixed project key and records every request it received. */
+function fakeKeyResolver(key = 'agd_pk_test123', source: 'reused' | 'minted' = 'minted') {
+  const requests: ProjectKeyRequest[] = [];
+  const resolver: ProjectKeyResolver = async (request) => {
+    requests.push(request);
+    return { kind: 'ok', key, keyId: 'kid-1', pin: request.pin, source, warnings: [] };
+  };
+  return { resolver, requests };
+}
 
 const SERVER_NAME = 'ai-game-developer';
 
@@ -39,7 +53,9 @@ describe('setupMcp', () => {
   const saved: Record<string, string | undefined> = {};
   // Env vars that steer home-dir / global agent config paths (agents.ts `appData()`
   // reads APPDATA; the posix branches of `home()` read HOME/XDG_CONFIG_HOME).
-  const HOME_ENV_KEYS = ['APPDATA', 'HOME', 'XDG_CONFIG_HOME'];
+  // USERPROFILE too: cli-core's default project-key resolver reads `~/.ai-game-dev/` via os.homedir(),
+  // so a test that does not inject a resolver must never see the developer's real machine login.
+  const HOME_ENV_KEYS = ['APPDATA', 'HOME', 'XDG_CONFIG_HOME', 'USERPROFILE'];
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-setup-mcp-'));
@@ -267,11 +283,10 @@ describe('setupMcp', () => {
   // --- D11 / Flow A: OAuth-capable clients get a credential-free, URL-only config ---
 
   it('omits the Authorization header for OAuth-capable clients even when GODOT_MCP_TOKEN is set (flagship g1 fix)', async () => {
-    // A prior `login` leaves GODOT_MCP_TOKEN in the environment. setup-mcp must NOT
-    // inject it as a static header for OAuth-capable clients (claude-code, cursor,
-    // copilot, …): the hosted AS rejects the token (401) AND the client then skips
-    // its own OAuth handshake ("OAuth fallback is disabled when headers.Authorization
-    // is set"). The config must stay URL-only so native RFC 9728 OAuth runs (Flow A).
+    // A prior `login` leaves GODOT_MCP_TOKEN in the environment. Without a project key, setup-mcp must
+    // NOT inject it as a static header for OAuth-capable clients (claude-code, cursor, copilot, …): the
+    // hosted AS rejects the token (401) AND the client then skips its own OAuth handshake ("OAuth
+    // fallback is disabled when headers.Authorization is set"). The config stays URL-only (Flow A).
     process.env[ENV_TOKEN] = 'agd_pat_ambient';
     const cases: Array<[string, string[], string]> = [
       ['claude-code', ['.mcp.json'], 'mcpServers'],
@@ -279,7 +294,7 @@ describe('setupMcp', () => {
       ['vscode-copilot', ['.vscode', 'mcp.json'], 'servers'],
     ];
     for (const [id, rel, body] of cases) {
-      const result = await setupMcp({ agentId: id, godotProjectPath: tmpDir });
+      const result = await setupMcp({ agentId: id, godotProjectPath: tmpDir, projectKeyResolver: noLogin });
       expect(result.kind).toBe('success');
       if (result.kind !== 'success') continue;
       const json = JSON.parse(fs.readFileSync(path.join(tmpDir, ...rel), 'utf-8'));
@@ -287,14 +302,13 @@ describe('setupMcp', () => {
       // Default is pinned; the credential-free (no static header) policy is orthogonal to pinning.
       expect(entry).toMatchObject({ type: 'http', url: pinnedFor(tmpDir) });
       expect(entry.headers).toBeUndefined();
-      // No credential landed in the file → no VCS-leak warning.
-      expect(result.warnings).toEqual([]);
+      expect(result.credential).toBe('none');
     }
   });
 
   it('codex writes URL-only TOML (no Authorization) even with an ambient GODOT_MCP_TOKEN', async () => {
     process.env[ENV_TOKEN] = 'agd_pat_ambient';
-    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir });
+    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, projectKeyResolver: noLogin });
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     const toml = fs.readFileSync(result.configPath, 'utf-8');
@@ -302,7 +316,7 @@ describe('setupMcp', () => {
     expect(toml).not.toContain('headers');
   });
 
-  it('adds an Authorization header on an explicit --token opt-in (Flow C) and warns about the project-file PAT (claude-code)', async () => {
+  it('adds an Authorization header on an explicit --token opt-in (Flow C), with no git warning (claude-code)', async () => {
     // Passing --token / the library `token` arg is a deliberate PAT opt-in, unlike
     // the ambient env token above — the legacy header shape is still written.
     const result = await setupMcp({
@@ -315,11 +329,12 @@ describe('setupMcp', () => {
     if (result.kind !== 'success') return;
     const json = JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf-8'));
     expect(json.mcpServers[SERVER_NAME].headers).toEqual({ Authorization: 'Bearer secret' });
-    // Flow C: writing a PAT into a project-scoped config warns about the VCS-leak risk.
-    expect(result.warnings.some((w) => /PAT/i.test(w) && /leak/i.test(w))).toBe(true);
+    expect(result.credential).toBe('token');
+    // Owner ruling 2026-09-23: no git / VCS warnings — the file is just written.
+    expect(result.warnings).toEqual([]);
   });
 
-  it('does NOT add Authorization headers to codex (token-less TOML)', async () => {
+  it('writes codex static headers through http_headers on an explicit --token (no bearer_token_env_var)', async () => {
     const result = await setupMcp({
       agentId: 'codex',
       godotProjectPath: tmpDir,
@@ -329,13 +344,246 @@ describe('setupMcp', () => {
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     const toml = fs.readFileSync(result.configPath, 'utf-8');
-    expect(toml).not.toContain('Authorization');
-    expect(toml).not.toContain('headers');
-    // Codex's getHttpProps ignores the token (URL-only TOML), so no static header
-    // lands in the file — and therefore NO VCS-leak warning must be raised. The
-    // warning is gated on the header actually written to the config, not on the
-    // presence of an (explicit) token.
-    expect(result.warnings.some((w) => /PAT/i.test(w) && /leak/i.test(w))).toBe(false);
+    expect(toml).toContain('http_headers = { Authorization = "Bearer secret" }');
+    expect(toml).not.toContain('bearer_token_env_var');
+    expect(result.credential).toBe('token');
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Project keys (project-keys contract §7)
+// ---------------------------------------------------------------------------
+
+describe('setupMcp — Cloud project key', () => {
+  let tmpDir: string;
+  const saved: Record<string, string | undefined> = {};
+  const ENV_KEYS = [ENV_HOST, ENV_TOKEN, 'APPDATA', 'HOME', 'XDG_CONFIG_HOME', 'USERPROFILE'];
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-setup-mcp-pk-'));
+    for (const k of ENV_KEYS) saved[k] = process.env[k];
+    delete process.env[ENV_HOST];
+    delete process.env[ENV_TOKEN];
+    for (const k of ['APPDATA', 'HOME', 'XDG_CONFIG_HOME', 'USERPROFILE']) process.env[k] = tmpDir;
+    homeHolder.dir = tmpDir;
+  });
+  afterEach(() => {
+    homeHolder.dir = '';
+    for (const k of ENV_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes Authorization: Bearer <project key> for EVERY agent by default', async () => {
+    for (const agent of agentRegistry) {
+      const { resolver } = fakeKeyResolver();
+      const result = await setupMcp({ agentId: agent.id, godotProjectPath: tmpDir, projectKeyResolver: resolver });
+      expect(result.kind, agent.id).toBe('success');
+      if (result.kind !== 'success') continue;
+      expect(result.credential, agent.id).toBe('project-key');
+      expect(result.projectKeyId).toBe('kid-1');
+      expect(result.projectKeySource).toBe('minted');
+      const text = fs.readFileSync(result.configPath, 'utf-8');
+      if (agent.configFormat === 'toml') {
+        expect(text).toContain('http_headers = { Authorization = "Bearer agd_pk_test123" }');
+      } else {
+        const entry = JSON.parse(text)[agent.bodyPath][SERVER_NAME];
+        expect(entry.headers, agent.id).toEqual({ Authorization: 'Bearer agd_pk_test123' });
+      }
+    }
+  });
+
+  it('asks the resolver for this project pin against the hosted issuer', async () => {
+    const { resolver, requests } = fakeKeyResolver();
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      projectKeyResolver: resolver,
+      machineName: 'box-1',
+    });
+    expect(result.kind).toBe('success');
+    expect(requests).toEqual([
+      {
+        issuer: 'https://ai-game.dev',
+        pin: derivePinV2(path.resolve(tmpDir)),
+        engine: 'godot',
+        label: path.resolve(tmpDir),
+        machineName: 'box-1',
+        regenerate: false,
+      },
+    ]);
+  });
+
+  it('falls back to a URL-only config with a sign-in hint when there is no machine login, clearing a stale header', async () => {
+    const cfg = path.join(tmpDir, '.mcp.json');
+    fs.writeFileSync(
+      cfg,
+      JSON.stringify({ mcpServers: { [SERVER_NAME]: { type: 'http', url: 'x', headers: { Authorization: 'Bearer agd_pk_old' } } } }),
+    );
+    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: noLogin });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.credential).toBe('none');
+    const entry = JSON.parse(fs.readFileSync(cfg, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toBeUndefined();
+    expect(entry.url).toBe(pinnedFor(tmpDir));
+    expect(result.warnings.some((w) => /No project key written/.test(w) && /Sign in/.test(w))).toBe(true);
+  });
+
+  it('degrades to URL-only when minting fails (e.g. the server returns 404 while the feature is off)', async () => {
+    const failing: ProjectKeyResolver = async () => ({ kind: 'error', reason: 'mint returned HTTP 404' });
+    const result = await setupMcp({ agentId: 'cursor', godotProjectPath: tmpDir, projectKeyResolver: failing });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.credential).toBe('none');
+    const entry = JSON.parse(fs.readFileSync(result.configPath, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toBeUndefined();
+  });
+
+  it('--oauth writes URL-only without consulting the resolver and removes a previous header', async () => {
+    const { resolver, requests } = fakeKeyResolver();
+    await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      projectKeyResolver: resolver,
+      oauth: true,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(requests).toHaveLength(1); // only the first (default) run asked for a key
+    expect(result.credential).toBe('none');
+    const entry = JSON.parse(fs.readFileSync(result.configPath, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toBeUndefined();
+  });
+
+  it('--oauth on codex rewrites the TOML section without http_headers', async () => {
+    const { resolver } = fakeKeyResolver();
+    await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, projectKeyResolver: resolver, oauth: true });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(fs.readFileSync(result.configPath, 'utf-8')).not.toContain('http_headers');
+  });
+
+  it('never uses a project key for a local server', async () => {
+    const { resolver, requests } = fakeKeyResolver();
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      url: 'http://localhost:8080',
+      projectKeyResolver: resolver,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(requests).toHaveLength(0);
+    expect(result.credential).toBe('none');
+  });
+
+  it('re-pointing a Cloud entry at a local server drops the Cloud project-key header', async () => {
+    const { resolver } = fakeKeyResolver();
+    await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    const result = await setupMcp({
+      agentId: 'claude-code',
+      godotProjectPath: tmpDir,
+      url: 'http://localhost:26610',
+      projectKeyResolver: resolver,
+    });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    const entry = JSON.parse(fs.readFileSync(result.configPath, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toBeUndefined();
+  });
+
+  it('codex: replaces a pre-existing http_headers sub-table instead of duplicating the key', async () => {
+    const cfg = path.join(tmpDir, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(cfg), { recursive: true });
+    fs.writeFileSync(
+      cfg,
+      [
+        '[mcp_servers.ai-game-developer]',
+        'url = "old"',
+        '',
+        '[mcp_servers.ai-game-developer.http_headers]',
+        'Authorization = "Bearer agd_pk_old"',
+        '',
+        '[profile]',
+        'model = "x"',
+        '',
+      ].join('\n'),
+    );
+    const { resolver } = fakeKeyResolver();
+    const result = await setupMcp({ agentId: 'codex', godotProjectPath: tmpDir, projectKeyResolver: resolver });
+    expect(result.kind).toBe('success');
+    const toml = fs.readFileSync(cfg, 'utf-8');
+    expect(toml).not.toContain('[mcp_servers.ai-game-developer.http_headers]');
+    expect(toml).not.toContain('agd_pk_old');
+    expect(toml.match(/http_headers/g)).toHaveLength(1);
+    expect(toml).toContain('[profile]');
+    expect(toml).toContain('model = "x"');
+  });
+
+  it('an explicit --token wins over the project key', async () => {
+    const { resolver, requests } = fakeKeyResolver();
+    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, token: 'pat', projectKeyResolver: resolver });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(requests).toHaveLength(0);
+    expect(result.credential).toBe('token');
+    const entry = JSON.parse(fs.readFileSync(result.configPath, 'utf-8')).mcpServers[SERVER_NAME];
+    expect(entry.headers).toEqual({ Authorization: 'Bearer pat' });
+  });
+
+  it('--regenerate-key asks for a fresh key and revokes the previous one only AFTER the config is rewritten', async () => {
+    const cfg = path.join(tmpDir, '.mcp.json');
+    let headerAtRevoke: unknown;
+    const requests: ProjectKeyRequest[] = [];
+    const resolver: ProjectKeyResolver = async (request) => {
+      requests.push(request);
+      return {
+        kind: 'ok',
+        key: 'agd_pk_new',
+        keyId: 'kid-2',
+        pin: request.pin,
+        source: 'minted',
+        warnings: [],
+        revokePrevious: async () => {
+          headerAtRevoke = JSON.parse(fs.readFileSync(cfg, 'utf-8')).mcpServers[SERVER_NAME].headers;
+          return 'revoke failed: offline';
+        },
+      };
+    };
+    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: resolver, regenerateKey: true });
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(requests[0].regenerate).toBe(true);
+    expect(headerAtRevoke).toEqual({ Authorization: 'Bearer agd_pk_new' });
+    // A revoke failure is a warning, never a failure.
+    expect(result.warnings).toContain('revoke failed: offline');
+  });
+
+  it('--regenerate-key fails when no key can be minted (nothing is written)', async () => {
+    const result = await setupMcp({ agentId: 'claude-code', godotProjectPath: tmpDir, projectKeyResolver: noLogin, regenerateKey: true });
+    expect(result.kind).toBe('failure');
+    expect(fs.existsSync(path.join(tmpDir, '.mcp.json'))).toBe(false);
+  });
+
+  it('--regenerate-key is refused with --oauth, --token or a local server', async () => {
+    const { resolver, requests } = fakeKeyResolver();
+    for (const extra of [{ oauth: true }, { token: 'pat' }, { url: 'http://localhost:8080' }]) {
+      const result = await setupMcp({
+        agentId: 'claude-code',
+        godotProjectPath: tmpDir,
+        projectKeyResolver: resolver,
+        regenerateKey: true,
+        ...extra,
+      });
+      expect(result.kind).toBe('failure');
+    }
+    expect(requests).toHaveLength(0);
   });
 });
 

@@ -7,7 +7,7 @@ import {
 
 /**
  * Idempotently reconcile a Godot consumer `.csproj`'s `<PackageReference>`s so it
- * declares exactly the addon's two required NuGet pins (see `addon-deps.ts`).
+ * declares the addon's required NuGet pins (`requiredRefs`; default: `addon-deps.ts`).
  *
  * Pure: operates on the csproj TEXT and returns the new text + what changed; never
  * touches the filesystem. Exported for unit tests. Handles, idempotently:

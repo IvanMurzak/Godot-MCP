@@ -407,6 +407,13 @@ jobs:
       - name: Test
         run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal
 
+      # Generate addons/godot_mcp/nuget-deps.json from Godot-MCP.csproj (gitignored, never
+      # committed — the csproj stays the single source of truth). `godot-cli install-plugin`
+      # reads it from the addon it installs to pin the consumer csproj to THIS release's
+      # NuGet versions rather than the ones baked into the CLI build.
+      - name: Generate addon NuGet manifest
+        run: node scripts/write-nuget-deps.mjs
+
       # Package only the addon SOURCE folder (the deliverable — Godot has no
       # compiled artifact to ship). Exclude dev cruft so the zip is install-clean.
       - name: Package addon zip
@@ -423,6 +430,11 @@ jobs:
             -x '*/bin/*' \
             -x '*/obj/*' \
             -x '*/.godot/*'
+          # godot-cli install-plugin reads this manifest; never ship a zip without it.
+          if ! unzip -l "${zip_name}" addons/godot_mcp/nuget-deps.json >/dev/null; then
+            echo "::error::${zip_name} is missing addons/godot_mcp/nuget-deps.json"
+            exit 1
+          fi
           echo "zip_name=${zip_name}" >> "$GITHUB_OUTPUT"
           echo "Created ${zip_name}:"
           unzip -l "${zip_name}"

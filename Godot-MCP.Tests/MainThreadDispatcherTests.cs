@@ -317,6 +317,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // to run it inline on the completing thread IF the TCS allows synchronous continuations — which is
             // exactly what RunContinuationsAsynchronously forbids. So with the fix this continuation can never
             // observe the drain thread.
+            //
+            // The proof is the thread the continuation ran on, never "has it run yet": once posted to the pool
+            // it may legitimately finish before DrainForTests returns, so a timing check would be a race. This
+            // thread is blocked in Wait() below after the drain, so it cannot pick the continuation up later
+            // either — the only way to observe the drain thread's id is the inline run #179 forbids.
+            var drainThreadId = Thread.CurrentThread.ManagedThreadId;
             var continuationThreadId = 0;
             var continuationRan = new ManualResetEventSlim(false);
             var cont = task.ContinueWith(_ =>
@@ -329,17 +335,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 TaskScheduler.Default);
 
             // Drain on THIS thread — models the main-thread pump completing the buffered body.
-            var drainThreadId = Thread.CurrentThread.ManagedThreadId;
             MainThreadDispatcher.DrainForTests();
-
-            // The body completed the task, but with RunContinuationsAsynchronously the continuation was posted
-            // off-thread; it must NOT have run inline during the drain on this thread.
             Assert.True(task.IsCompletedSuccessfully);
-            Assert.False(continuationRan.IsSet); // not run inline on the drain thread
 
-            // It does still run — just asynchronously, on a thread that is NOT the drain thread.
-            Assert.True(continuationRan.Wait(TimeSpan.FromSeconds(5)), "continuation never ran asynchronously");
-            Assert.NotEqual(drainThreadId, continuationThreadId);
+            // The continuation still runs — asynchronously, on a thread that is NOT the drain thread.
+            Assert.True(continuationRan.Wait(TimeSpan.FromSeconds(5)), "continuation never ran");
+            Assert.True(continuationThreadId != drainThreadId, "continuation ran inline on the drain thread");
             Assert.Equal(7, await task);
             await cont;
         }

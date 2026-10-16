@@ -90,11 +90,11 @@ npx godot-cli install-plugin /path/to/godot/project
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
 | `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
-| `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). Add `--no-pin` for the bare `<host>/mcp` URL. |
+| `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
-| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the required NuGet `PackageReference`s + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
+| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
 | `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional AI-tool-family package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
@@ -243,8 +243,11 @@ It performs four steps:
    directory that *is* `addons/godot_mcp` or one that *contains* it.
 2. **Add the NuGet packages** the addon needs (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`)
    to the project's `.csproj`, idempotently — adding when missing, reconciling a stale version, and
-   leaving a correct pin untouched. The versions are single-sourced from the addon's own
-   `Godot-MCP.csproj` pins, so the scaffold can never drift.
+   leaving a correct pin untouched. The versions come from the addon being installed: its
+   `nuget-deps.json` (generated from `Godot-MCP.csproj` into every release zip by the release
+   workflow), or, with `--source` pointing into a Godot-MCP checkout, that checkout's
+   `Godot-MCP.csproj`. Older addon zips
+   without the manifest fall back to the versions built into the CLI, with a warning.
 3. **Embed the extension catalog** (`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json"
    LogicalName="Godot-MCP.extensions.catalog.json" />`) into the project's `.csproj`, idempotently. Without
    it the addon's extension registry reads no catalog at editor runtime and the **Extensions panel is
@@ -331,12 +334,18 @@ generate its skill files). Use `--list` on either command to see every supported
 godot-cli setup-mcp --list                    # list every supported agent id
 godot-cli setup-mcp claude-code ./MyGame      # write the agent's MCP client config (pinned to this project)
 godot-cli setup-mcp claude-code ./MyGame --no-pin   # write the bare, unpinned <host>/mcp URL instead
+godot-cli setup-mcp claude-code ./MyGame --oauth    # URL-only: the agent signs in with its own OAuth
+godot-cli setup-mcp claude-code ./MyGame --regenerate-key   # new project key; the old one is revoked
 ```
 
-OAuth-capable agents (Claude Code, Cursor, Codex, Copilot, …) authenticate to the cloud with their **own**
-OAuth handshake, so `setup-mcp` writes them a credential-free, URL-only config — no bearer token is stored
-in the agent file. A static `Authorization` header is written only for a client that cannot OAuth, or when
-you pass an explicit `--token` (a deliberate personal-token opt-in for a self-hosted, required-auth server).
+In Cloud mode `setup-mcp` writes a **project key** into the agent config for every agent:
+`Authorization: Bearer agd_pk_…` (Codex: `http_headers`). A project key never expires, is bound to this
+project's pin (it cannot reach any other project on your account), and is created once per project with
+your machine sign-in (`godot-cli login`), then reused from `~/.ai-game-dev/project-keys.json`.
+`--regenerate-key` replaces it and revokes the old one. Without a machine sign-in (or while the server cannot
+issue keys) the config is URL-only and the agent authenticates with its own OAuth; `--oauth` asks for that
+URL-only config explicitly. An explicit `--token` always wins. A local server config (`--url
+http://localhost:…`) never carries a project key.
 
 > For the full Godot-MCP project documentation, see the
 > [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by

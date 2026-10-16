@@ -9,7 +9,7 @@
 // — so flipping `Tool_Ping`'s `ToolType` silently MOVES the route and every hardcoded
 // caller 404s/500s. That regression shipped once: when `ping` became a System tool
 // (owner ruling 2026-07-25, for parity with Unity-MCP), `probe.ts`, the runtime-harness
-// workflow and the CLAUDE.md runbook still POSTed `/api/tools/ping` — all five
+// workflow and the agent-instructions runbook still POSTed `/api/tools/ping` — all five
 // `runtime-harness-4-*` CI legs went red, and `godot-cli status` / `wait-for-ready`
 // would have reported a healthy editor as unreachable.
 //

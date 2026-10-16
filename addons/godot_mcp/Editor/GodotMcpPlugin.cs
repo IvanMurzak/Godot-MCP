@@ -58,6 +58,12 @@ namespace com.IvanMurzak.Godot.MCP
         // so there is no cross-thread race to protect against.
         bool _torndown;
 
+        public override void _Process(double delta)
+        {
+            if (!_torndown)
+                _connection?.PollReconnect(delta);
+        }
+
         // The live plugin instance the static ReloadTeardown closure reaches. Set in _EnterTree, cleared in
         // Teardown. The ALC-unloading hook (a static event handler in GodotMcpAssemblyResolver) has no
         // instance to call into otherwise — this is the Godot analog of Unity's static

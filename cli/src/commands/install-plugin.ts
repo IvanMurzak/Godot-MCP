@@ -130,7 +130,7 @@ export const installPluginCommand = new Command('install-plugin')
     // csproj outcome.
     if (result.csproj.csprojPath) {
       const summary = result.csproj.packages.map((p) => `${p.id}@${p.version} (${p.action})`).join(', ');
-      ui.label('NuGet packages', summary || '(none)');
+      ui.label('NuGet packages', `${summary || '(none)'} [from ${result.csproj.packagesOrigin}]`);
       const embedSummary = result.csproj.embeds.map((e) => `${e.logicalName} (${e.action})`).join(', ');
       ui.label('Embedded resources', embedSummary || '(none)');
     }

@@ -11,8 +11,8 @@ external checkout or junction.
 
 - `project.godot` — enables `res://addons/godot_mcp/plugin.cfg` in `[editor_plugins]`.
 - `Godot-Tests.csproj` — `Godot.NET.Sdk` + the **same frozen NuGet pins** as
-  `../Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet` 5.4.1,
-  `com.IvanMurzak.McpPlugin` 8.4.0), so the addon's C# compiles into the project
+  `../Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet` 5.4.2,
+  `com.IvanMurzak.McpPlugin` 8.7.1), so the addon's C# compiles into the project
   assembly. Excluded from `../Godot-MCP.sln` so the `dotnet build (.NET 8)` gate is
   unaffected.
 - No game content, no scenes, no committed addon copy.
@@ -72,7 +72,7 @@ degradation (no engine logger, frames null) while the C# channel still captures.
 ## Local run
 
 Mirror the CI smoke against the infra testbed instead (it junctions the live
-addon) — see `../CLAUDE.md` "Testbed runbook". To run this exact project locally,
+addon) — see [`../AGENTS.md`](../AGENTS.md) "Headless live-editor smoke". To run this exact project locally,
 copy the addon in first:
 
 ```bash

@@ -75,6 +75,25 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
                 : ResolveCredentialMode(supportsOAuth, useAccessToken);
 
         /// <summary>
+        /// The effective credential mode the AI-agent panel writes (project-keys contract §7, owner ruling
+        /// 2026-09-23). In <b>Cloud</b> mode it is exactly the shared
+        /// <see cref="AgentConfig.AgentConfiguratorSettings.ResolveHttpCredentialMode"/> answer: a project key makes
+        /// EVERY configurator write <see cref="AgentConfig.HttpCredentialMode.AccessToken"/>
+        /// (<c>Authorization: Bearer agd_pk_…</c>), and without one (signed out, mint failed) the config is the
+        /// URL-only OAuth shape — so the written file, the status check and the rendered manual steps always agree.
+        /// Local-server (Custom) mode is unchanged.
+        /// </summary>
+        public static AgentConfig.HttpCredentialMode ResolveCredentialMode(
+            GodotMcpConnectionMode activeMode,
+            AuthOption activeAuthOption,
+            bool supportsOAuth,
+            bool useAccessToken,
+            bool hasProjectKey)
+            => activeMode == GodotMcpConnectionMode.Cloud
+                ? (hasProjectKey ? AgentConfig.HttpCredentialMode.AccessToken : AgentConfig.HttpCredentialMode.Oauth)
+                : ResolveCredentialMode(activeMode, activeAuthOption, supportsOAuth, useAccessToken);
+
+        /// <summary>
         /// Whether the "Advanced: use access token" TOGGLE is offered for a configurator. Only OAuth-capable
         /// configurators get the toggle — a non-OAuth one has no default (OAuth) path, so its token is
         /// mandatory and there is nothing to toggle (the field is always shown for it via
@@ -108,5 +127,94 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// </summary>
         public static AuthOption ResolveSettingsAuthOption(AgentConfig.HttpCredentialMode mode)
             => mode == AgentConfig.HttpCredentialMode.AccessToken ? AuthOption.required : AuthOption.none;
+
+        // --- Cloud project key (project-keys contract §7) ---------------------------------------------------
+
+        /// <summary>Hover tooltip of the "Regenerate key" button (owner rule: every button names action + target).</summary>
+        public const string RegenerateKeyTooltip =
+            "Regenerate this project's key (the old key is revoked) and rewrite every configured AI agent with it";
+
+        /// <summary>Label of the "Regenerate key" button.</summary>
+        public const string RegenerateKeyLabel = "Regenerate key";
+
+        /// <summary>The Configure button's hover tooltip for <paramref name="agentName"/>.</summary>
+        public static string ConfigureTooltip(string agentName) => $"Write the MCP config for {agentName}";
+
+        /// <summary>The Remove button's hover tooltip for <paramref name="agentName"/>.</summary>
+        public static string RemoveTooltip(string agentName) => $"Remove the MCP config from {agentName}";
+
+        /// <summary>
+        /// The project-key status line shown under the Configure row in Cloud mode, or <c>null</c> when no line is
+        /// shown (any non-Cloud mode — local-server configs never carry a project key).
+        /// </summary>
+        public static string? DescribeProjectKeyStatus(ProjectKeyStatus status) => status switch
+        {
+            ProjectKeyStatus.SignedOut =>
+                "Project key: not signed in — Configure writes a URL-only config and the agent signs in with its own OAuth. Sign in above to use a project key.",
+            ProjectKeyStatus.None => "Project key: none yet — Configure creates one for this project.",
+            ProjectKeyStatus.InUse => "Project key: in use — configured agents authenticate with this project's key.",
+            ProjectKeyStatus.Working => "Project key: working…",
+            ProjectKeyStatus.Unavailable =>
+                "Project key: unavailable right now — the config was written URL-only (the agent signs in with its own OAuth).",
+            ProjectKeyStatus.RegenerateFailed =>
+                "Project key: could not be regenerated — the current key and configs were left unchanged.",
+            _ => null,
+        };
+
+        /// <summary>
+        /// The project-key status for the panel's current state. <paramref name="lastAttemptFailed"/> is the
+        /// outcome of the most recent get-or-mint (a mint failure degrades to URL-only, never an error);
+        /// <paramref name="regenerateFailed"/> that of the most recent Regenerate.
+        /// </summary>
+        public static ProjectKeyStatus ResolveProjectKeyStatus(
+            GodotMcpConnectionMode activeMode,
+            bool signedIn,
+            bool busy,
+            bool hasProjectKey,
+            bool lastAttemptFailed,
+            bool regenerateFailed)
+        {
+            if (activeMode != GodotMcpConnectionMode.Cloud)
+                return ProjectKeyStatus.NotApplicable;
+            if (busy)
+                return ProjectKeyStatus.Working;
+            if (!signedIn)
+                return ProjectKeyStatus.SignedOut;
+            if (regenerateFailed)
+                return ProjectKeyStatus.RegenerateFailed;
+            if (hasProjectKey)
+                return ProjectKeyStatus.InUse;
+            return lastAttemptFailed ? ProjectKeyStatus.Unavailable : ProjectKeyStatus.None;
+        }
+
+        /// <summary>"Regenerate key" is offered only when a Cloud key could be minted now (signed in, not busy).</summary>
+        public static bool CanRegenerateKey(ProjectKeyStatus status)
+            => status is ProjectKeyStatus.None or ProjectKeyStatus.InUse
+                or ProjectKeyStatus.Unavailable or ProjectKeyStatus.RegenerateFailed;
+    }
+
+    /// <summary>The Cloud project-key state the AI-agent panel surfaces (see <see cref="AgentConfiguratorCredentialPolicy.ResolveProjectKeyStatus"/>).</summary>
+    public enum ProjectKeyStatus
+    {
+        /// <summary>Not Cloud mode — no project key applies.</summary>
+        NotApplicable,
+
+        /// <summary>Cloud, but the machine is not signed in: configs are URL-only.</summary>
+        SignedOut,
+
+        /// <summary>Signed in, no key cached for this project yet (Configure creates one).</summary>
+        None,
+
+        /// <summary>A key is cached for this project and written by Configure.</summary>
+        InUse,
+
+        /// <summary>A get-or-mint / regenerate is in flight off the main thread.</summary>
+        Working,
+
+        /// <summary>The last get-or-mint returned no key (server unreachable, feature off, auth rejected).</summary>
+        Unavailable,
+
+        /// <summary>The last Regenerate minted nothing; the previous key and configs are unchanged.</summary>
+        RegenerateFailed,
     }
 }

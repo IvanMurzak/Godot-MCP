@@ -50,6 +50,60 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // --- Boot auto-adopt (the zero-button rule) ---
 
         [Fact]
+        public async Task ConnectionCredential_OriginChangedDuringRefresh_DoesNotFallBackToNewToken()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, "production-token", "production-refresh", AlreadyExpired, "stored-id");
+            var config = new GodotMcpConfig();
+            var server = new FakeAuthServer { Refresh = () => {
+                config.CloudBaseUrl = "https://sandbox.example.test";
+                config.Token = "new-sandbox-token";
+                return JsonResponse(HttpStatusCode.OK, TokenJson("fresh-production-token", "fresh-production-refresh", 3600));
+            }};
+            using var account = new GodotAccountAuth(() => GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl), Store(tmp), new HttpClient(server));
+            var credential = account.CreateConnectionCredentialProvider(config);
+            Assert.Null(await credential());
+            Assert.Equal("new-sandbox-token", config.Token);
+            Assert.Single(server.Requests);
+        }
+
+        [Fact]
+        public async Task ProductionCredential_IsNeverSentToEnrolledSandbox()
+        {
+            using var tmp = new TempDir();
+            WritePluginFamily(tmp, "production-token", "production-refresh", AlreadyExpired, "stored-id");
+            const string sandbox = "https://sandbox.example.test";
+            using var account = new GodotAccountAuth(() => sandbox, Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.False(account.IsSignedIn);
+            Assert.Equal(AuthState.SignedOut, account.AuthState);
+            Assert.Null(await account.AccessTokenProvider());
+            Assert.Null(await account.GetProjectKeyProvider(sandbox).GetOrMintAsync(ProjectPin, "godot", "box"));
+            Assert.Equal(AsBaseUrl, Store(tmp).Read()!.ServerTarget);
+            Assert.Equal("production-token", Store(tmp).Read()!.Families!.Plugin!.AccessToken);
+        }
+
+        [Fact]
+        public async Task MatchingSandboxCredential_IsAdoptedWithoutNetworkIo()
+        {
+            using var tmp = new TempDir();
+            const string sandbox = "https://sandbox.example.test";
+            Store(tmp).Write(new MachineCredentials { AccessToken = "sandbox-token", ServerTarget = sandbox });
+            using var account = new GodotAccountAuth(() => sandbox, Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.True(account.IsSignedIn);
+            Assert.Equal("sandbox-token", await account.AccessTokenProvider());
+            Assert.Null(await account.GetProjectKeyProvider(AsBaseUrl).GetOrMintAsync(ProjectPin, "godot", "box"));
+        }
+
+        [Fact]
+        public async Task LegacyCredentialWithoutTarget_IsProductionOnly()
+        {
+            using var tmp = new TempDir();
+            Store(tmp).Write(new MachineCredentials { AccessToken = "legacy-token" });
+            using var account = new GodotAccountAuth(() => "https://sandbox.example.test", Store(tmp), new HttpClient(FakeAuthServer.Throwing()));
+            Assert.Null(await account.AccessTokenProvider());
+        }
+
+        [Fact]
         public void EmptyStore_NotSignedIn()
         {
             using var tmp = new TempDir();
@@ -815,6 +869,111 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(GodotLegacyTokenMigrationResult.NoSinkToken, account.TryMigrateLegacyCloudToken(null, AsBaseUrl));
             Assert.Equal(GodotLegacyTokenMigrationResult.NoSinkToken, account.TryMigrateLegacyCloudToken("", AsBaseUrl));
             Assert.False(Store(tmp).Exists);
+        }
+
+        // --- Cloud project key (project-keys contract §6/§7) ---
+
+        const string ProjectPin = "0a1b2c3d";
+
+        [Fact]
+        public async Task ProjectKey_SignedOut_ReturnsNull_WithoutNetworkIo()
+        {
+            using var tmp = new TempDir();
+            using var account = MakeAccount(tmp, FakeAuthServer.Throwing());
+
+            var key = await account.GetProjectKeyProvider(AsBaseUrl).GetOrMintAsync(ProjectPin, "godot", "box", "/p/Game");
+
+            // No machine login ⇒ no key ⇒ the caller writes the URL-only config (never an error).
+            Assert.Null(key);
+        }
+
+        [Fact]
+        public async Task ProjectKey_SignedIn_MintsWithTheStoredAccessToken_CachesBesideCredentials_ThenReuses()
+        {
+            using var tmp = new TempDir();
+            SignIn(tmp);
+            var server = new ProjectKeyServer();
+            using var account = MakeAccount(tmp, server);
+            var provider = account.GetProjectKeyProvider(AsBaseUrl);
+
+            var first = await provider.GetOrMintAsync(ProjectPin, "godot", "box", "/p/Game");
+            var second = await provider.GetOrMintAsync(ProjectPin, "godot", "box", "/p/Game");
+
+            Assert.Equal("agd_pk_minted", first);
+            Assert.Equal(first, second); // validated via GET …/current and reused, not minted again
+            Assert.Equal(1, server.Mints);
+            Assert.Equal("Bearer stored-access", server.MintAuthorization);
+            Assert.Contains("\"engine\":\"godot\"", server.MintBody);
+            Assert.True(File.Exists(Path.Combine(tmp.Path, ProjectKeyStore.FileName)));
+        }
+
+        [Fact]
+        public async Task ProjectKey_MintRefused_DegradesToNull()
+        {
+            using var tmp = new TempDir();
+            SignIn(tmp);
+            // 404 while the backend mint flag is off (contract §4 Rollout) must degrade, never throw.
+            using var account = MakeAccount(tmp, new ProjectKeyServer { MintStatus = HttpStatusCode.NotFound });
+
+            Assert.Null(await account.GetProjectKeyProvider(AsBaseUrl).GetOrMintAsync(ProjectPin, "godot", "box"));
+        }
+
+        [Fact]
+        public void ProjectKey_Provider_IsReusedPerIssuer_AndKeyedOnTheIssuerOrigin()
+        {
+            using var tmp = new TempDir();
+            using var account = MakeAccount(tmp, FakeAuthServer.Throwing());
+
+            var a = account.GetProjectKeyProvider("https://AI-Game.dev/");
+            var b = account.GetProjectKeyProvider("https://ai-game.dev");
+            var local = account.GetProjectKeyProvider("http://agd.localhost");
+
+            Assert.Same(a, b);
+            Assert.Equal("https://ai-game.dev", a.Issuer);
+            Assert.NotSame(a, local);
+            Assert.Equal(tmp.Path, a.Store.BaseDirectory);
+        }
+
+        static void SignIn(TempDir tmp) => Store(tmp).Write(new MachineCredentials
+        {
+            AccessToken = "stored-access",
+            RefreshToken = "stored-refresh",
+            ExpiresAt = null,
+            ServerTarget = AsBaseUrl,
+            Subject = "user-1",
+        });
+
+        /// <summary>The project-key endpoints (contract §2): mint (POST) and validate (GET …/current).</summary>
+        sealed class ProjectKeyServer : HttpMessageHandler
+        {
+            public HttpStatusCode MintStatus { get; set; } = HttpStatusCode.Created;
+            public int Mints { get; private set; }
+            public string? MintAuthorization { get; private set; }
+            public string MintBody { get; private set; } = string.Empty;
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var path = request.RequestUri!.AbsolutePath;
+                if (request.Method == HttpMethod.Post && path == "/api/mcp/project-keys")
+                {
+                    Mints++;
+                    MintAuthorization = request.Headers.Authorization?.ToString();
+                    MintBody = request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+                    return new HttpResponseMessage(MintStatus)
+                    {
+                        Content = new StringContent(
+                            $"{{\"key\":\"agd_pk_minted\",\"key_id\":\"kid-1\",\"project_pin\":\"{ProjectPin}\",\"created_at\":\"2026-09-23T00:00:00Z\"}}"),
+                    };
+                }
+                if (request.Method == HttpMethod.Get && path == "/api/mcp/project-keys/current")
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent($"{{\"key_id\":\"kid-1\",\"project_pin\":\"{ProjectPin}\",\"active\":true}}"),
+                    };
+                }
+                throw new InvalidOperationException($"unexpected/unscripted request: {request.Method} {path}");
+            }
         }
 
         // --- helpers ---

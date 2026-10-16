@@ -43,6 +43,10 @@ namespace com.IvanMurzak.Godot.MCP.Data
     [Description("A captured Godot editor log line: severity, message, timestamp, and optional stack trace.")]
     public class LogEntry
     {
+        [JsonInclude, JsonPropertyName("sequence")]
+        [Description("Monotonic sequence number assigned when the line was captured; used for polling with sinceSequence.")]
+        public long Sequence { get; set; } = 0;
+
         [JsonInclude, JsonPropertyName("logType")]
         [Description("Severity of the log line (Log / Warning / Error).")]
         public GodotLogType LogType { get; set; } = GodotLogType.Log;

@@ -23,7 +23,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>
         /// The Discord invite opened by the footer's "Help / Talk" button.
         /// NOTE: this is the SHARED ai-game.dev / Unity-MCP community Discord invite (the same one used by
-        /// the Unity-MCP docs badges) — Godot-MCP has no separate server. The repo's README/CLAUDE.md did
+        /// the Unity-MCP docs badges) — Godot-MCP has no separate server. The repo's README/agent docs did
         /// not declare a Godot-specific invite at the time this was written; if a dedicated Godot-MCP invite
         /// is later created, swap it here.
         /// </summary>

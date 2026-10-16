@@ -6,7 +6,7 @@ import {
   togglePluginInText,
 } from '../utils/project-godot.js';
 import { addAddonPackageReferences, addAddonEmbeddedResources } from '../utils/csproj-deps.js';
-import { ADDON_PACKAGE_REFERENCES } from '../utils/addon-deps.js';
+import { resolveAddonNugetDeps } from '../utils/addon-nuget-deps.js';
 import {
   addonDownloadUrl,
   assertTrustedDownloadUrl,
@@ -34,8 +34,10 @@ const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
  *     `godot-mcp-addon-<version>.zip` over HTTPS from github.com only (the
  *     `IvanMurzak/Godot-MCP` release `v<version>`), or, with `--source <path>`,
  *     copying the addon from a local directory (offline / dev / CI).
- *  2. Add the two NuGet `PackageReference`s the addon needs to the consumer
- *     `.csproj`, idempotently and single-sourced from the addon's own pins.
+ *  2. Add the NuGet `PackageReference`s the INSTALLED addon needs to the consumer
+ *     `.csproj`, idempotently: read from the addon's `nuget-deps.json` (or, for
+ *     `--source`, the checkout's `Godot-MCP.csproj`), falling back to this CLI
+ *     build's pins for addon zips that predate the manifest (`addon-nuget-deps.ts`).
  *  3. Flip the `[editor_plugins] enabled` flag in `project.godot`.
  *
  * Library-safe: no stdout noise, no `process.exit`, no throws past the public
@@ -71,7 +73,7 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
     const materialize = await materializeAddon(projectPath, opts, warnings);
 
     // 2. Patch the consumer csproj with the addon's NuGet PackageReferences.
-    const csproj = patchConsumerCsproj(projectPath, warnings, opts.onProgress);
+    const csproj = patchConsumerCsproj(projectPath, materialize, warnings, opts.onProgress);
 
     // 3. Enable the plugin in project.godot.
     const text = fs.readFileSync(projectGodotPath, 'utf-8');
@@ -288,7 +290,8 @@ function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir:
 /**
  * Find the consumer's `.csproj` (the one Godot compiles the addon into) and add
  * the addon's NuGet PackageReferences AND the EmbeddedResource(s) it needs,
- * idempotently and single-sourced from the addon's own pins/embeds. The csproj is
+ * idempotently; the package versions are those of the installed addon
+ * (`resolveAddonNugetDeps`). The csproj is
  * the single `*.csproj` at the project root (the `--dotnet` scaffold writes
  * `<AssemblyName>.csproj` there). When there is no csproj (a GDScript-only
  * project), the patch is skipped with a warning — the addon's C# cannot compile
@@ -300,20 +303,24 @@ function extractAddonEntries(entries: ZipEntry[], projectPath: string, addonDir:
  */
 function patchConsumerCsproj(
   projectPath: string,
+  materialize: AddonMaterializeOutcome,
   warnings: string[],
   onProgress?: ProgressCallback,
 ): CsprojPatchOutcome {
+  const deps = resolveAddonNugetDeps(materialize.addonDir, materialize.sourceDir);
+  warnings.push(...deps.warnings);
+
   const csprojPath = findConsumerCsproj(projectPath, warnings);
   if (csprojPath === null) {
     warnings.push(
       'No .csproj found at the project root — the godot_mcp addon is C# and needs a Godot.NET.Sdk project. ' +
-        `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${ADDON_PACKAGE_REFERENCES.map((r) => r.id).join(' + ')} PackageReferences + the EmbeddedResource for the extension catalog.`,
+        `Create one (e.g. \`godot-cli create-project --dotnet\`) and add the ${deps.refs.map((r) => `${r.id} ${r.version}`).join(' + ')} PackageReferences + the EmbeddedResource for the extension catalog.`,
     );
-    return { changed: false, packages: [], embeds: [] };
+    return { changed: false, packagesOrigin: deps.origin, packages: [], embeds: [] };
   }
 
   const before = fs.readFileSync(csprojPath, 'utf-8');
-  const pkgPatched = addAddonPackageReferences(before);
+  const pkgPatched = addAddonPackageReferences(before, deps.refs);
   const embedPatched = addAddonEmbeddedResources(pkgPatched.text);
   const changed = pkgPatched.changed || embedPatched.changed;
   if (changed) {
@@ -328,6 +335,7 @@ function patchConsumerCsproj(
   return {
     csprojPath,
     changed,
+    packagesOrigin: deps.origin,
     packages: pkgPatched.changes.map((c) => ({
       id: c.id,
       action: c.action,

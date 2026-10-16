@@ -4,6 +4,25 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`install-plugin` pins the NuGet packages of the addon it installs.** The consumer `.csproj`'s
+  `PackageReference` versions now come from the installed addon — `addons/godot_mcp/nuget-deps.json`,
+  which the release workflow generates from `Godot-MCP.csproj` into the addon zip — instead of the
+  versions baked into this CLI build, so `--version <other>` and `skipMaterialize` over a different
+  addon no longer pin mismatched packages. `--source <checkout>/addons/godot_mcp` reads the checkout's
+  `Godot-MCP.csproj`. Addon zips without the manifest (releases up to and including 0.25.2) fall
+  back to the built-in pins with a warning. The library result gains `csproj.packagesOrigin`
+  (`addon-manifest` | `source-csproj` | `builtin`).
+
+- **Antigravity: two config file locations.** Antigravity reads its global MCP config from
+  `~/.gemini/config/mcp_config.json` *or* `~/.gemini/antigravity/mcp_config.json` (which one differs per
+  install), so `setup-mcp antigravity` now writes the entry into **both** (creating missing files,
+  preserving every other entry), prints both paths, and fails naming the path it could not write.
+  The library result gains `configPaths`.
+- **`setup-mcp <agent> --regenerate-key` no longer breaks the project's other agent configs.** Before
+  revoking the previous key it rewrites every other agent config whose `ai-game-developer` entry still
+  carries it (pinned or `--no-pin` URL); if any cannot be rewritten — or still holds the key anywhere
+  else — the previous key is NOT revoked and the configs are named in a warning. The library result gains `rewrittenConfigPaths`.
+
 - **Unified machine auth (unified-machine-auth f2).** The CLI adopts
   `@baizor/gamedev-cli-core@0.4.0`'s shared machine-auth stack; the CLI-local machine-credential
   store copy (`src/utils/machine-credentials.ts`) is **deleted** — cli-core is the only TS store
