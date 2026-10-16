@@ -48,9 +48,10 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
     id: 'node',
     title: 'Node',
-    summary: 'Find, create, modify, reparent, reorder, duplicate, and delete nodes in the open scene tree.',
+    summary: 'Find, read, create, modify, reparent, reorder, duplicate, and delete nodes in the open scene tree.',
     tools: [
       { name: 'node-find', description: 'Find nodes in the open scene by path, name, or type.' },
+      { name: 'node-get-data', description: 'Read the stored properties of a node (send them back to node-modify unchanged).' },
       {
         name: 'node-create',
         description:

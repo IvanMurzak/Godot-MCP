@@ -62,8 +62,12 @@ Stale assembly → wipe `.godot/mono/temp/{obj,bin}` and rebuild. Live connect: 
 server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localhost:<port>` (plus `GODOT_MCP_TOKEN` if the server requires auth), boot with
 `--quit-after 600000`, then `curl -X POST <host>/api/system-tools/ping -d '{}'` → `pong`. `ping` is a
 **System** tool: `/api/system-tools/`, not `/api/tools/`. With that connection up,
-`python scripts/smoke_property_patches.py --host <host> --project <testbed>` checks `node-modify` /
-`resource-modify` / `resource-get-data` by reading back the `.tres`/`.tscn` Godot wrote.
+`python scripts/smoke_property_patches.py --host <host> --project <testbed>` checks `node-get-data` / `node-modify` /
+`resource-modify` / `resource-get-data` by reading back the `.tres`/`.tscn` Godot wrote. Two traps: build
+the testbed with the `Godot.NET.Sdk` version of the running editor (CI rewrites the `Sdk=` pin; a 4.3
+build on a 4.4+ editor throws `MissingMethodException` from changed APIs), and keep exactly ONE editor
+connected (a background launch must record Godot's own PID — `(cd tb && exec godot …) &` — or stale
+editors keep answering tool calls with an old build).
 
 ## Load-bearing gotchas
 
