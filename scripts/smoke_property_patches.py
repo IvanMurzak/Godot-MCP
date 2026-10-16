@@ -166,6 +166,25 @@ def main() -> int:
     check("N2 shadow_enabled = true", file_has(project, scene, r"^shadow_enabled = true$"))
     check("N4 light_cull_mask = 4294967294", file_has(project, scene, r"^light_cull_mask = 4294967294$"))
 
+    # R10: delete / move keep the resource cache in step with the files.
+    cached = f"{d}/cached.tres"
+    call(host, "resource-create", {"resourcePath": cached, "typeClassName": "StandardMaterial3D"})
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": cached}, "pathPatches": [
+        {"path": "metallic", "value": {"typeName": "Godot.Variant", "value": 0.25}}]})  # loads + caches it
+    call(host, "resource-delete", {"resourcePath": cached})
+    try:
+        call(host, "resource-create", {"resourcePath": cached, "typeClassName": "StandardMaterial3D"})
+        check("R10 create after delete", True)
+    except RuntimeError as e:
+        check("R10 create after delete", False, str(e))
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": cached}, "pathPatches": [
+        {"path": "metallic", "value": {"typeName": "Godot.Variant", "value": 0.5}}]})
+    moved = f"{d}/moved.tres"
+    call(host, "resource-move", {"sourcePath": cached, "destinationPath": moved})
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": moved}, "pathPatches": [
+        {"path": "roughness", "value": {"typeName": "Godot.Variant", "value": 0.75}}]})
+    check("R10 moved resource keeps its loaded state", file_has(project, moved, r"^metallic = 0\.5$") and file_has(project, moved, r"^roughness = 0\.75$"))
+
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
 

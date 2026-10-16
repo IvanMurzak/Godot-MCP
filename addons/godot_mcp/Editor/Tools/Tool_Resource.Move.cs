@@ -73,6 +73,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var moveErr = DirAccess.RenameAbsolute(src, dst);
                 if (moveErr != Error.Ok)
                     throw new Exception($"Failed to move '{src}' to '{dst}': {moveErr}.");
+                RebindCachedResource(src, dst);
 
                 // From here the resource file is already at 'dst'. This is a MULTI-FILE op (resource +
                 // .import sidecar): if the sidecar rename throws below, the filesystem is left half-moved.
