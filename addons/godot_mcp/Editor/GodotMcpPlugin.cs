@@ -171,6 +171,11 @@ namespace com.IvanMurzak.Godot.MCP
             GodotMcpAssemblyResolver.Log = msg => Log(msg);
             GodotMcpAssemblyResolver.Install();
 
+            // Surface the STJ cache-clear outcome (invoked from Teardown on the ALC-unloading path) in the
+            // editor log / console-get-logs. Without a sink the clear is silent, so a regression there is
+            // indistinguishable from "nothing to clear".
+            GodotMcpStjReflectionCache.Log = msg => Log(msg);
+
             // Arm the reload-safe teardown for the Godot "Build Project" hot-reload path. A C# rebuild
             // raises an AssemblyLoadContext unload WITHOUT first calling this EditorPlugin's _ExitTree, so
             // the connection threads + GC handles that pin the (collectible) addon ALC open would otherwise
@@ -523,11 +528,10 @@ namespace com.IvanMurzak.Godot.MCP
             }
             catch { /* swallow during unload */ }
 
-            // Drop System.Text.Json's process-wide reflection-emit member-accessor cache, which holds compiled
-            // accessor delegates over THIS collectible assembly's types (config / device-auth DTOs / tool
-            // models routed through ReflectorNet, …) and is a systematic root of godot#78513. One clear
-            // releases every STJ-cached addon type at once — including the reflection-based ReflectorNet path
-            // that cannot be source-generated. Best-effort + fully defensive (see GodotMcpStjReflectionCache).
+            // Flush System.Text.Json's process-wide reflection caches — BOTH families (member-accessor AND every
+            // options' type-info cache); either alone keeps the ALC pinned (godot#78513), so do NOT narrow this to
+            // an accessor-only clear. Rationale: GodotMcpStjReflectionCache. Runs after the connection drain
+            // (step 2); a straggler thread from a timed-out drain can still re-populate the caches afterwards.
             try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
             // Drop ReflectorNet's process-wide static reflection caches. They live in the NON-collectible Default
