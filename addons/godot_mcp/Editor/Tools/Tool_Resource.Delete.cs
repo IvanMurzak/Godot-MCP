@@ -31,7 +31,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "path. The resource's identity (path, uid, type) is captured BEFORE deletion and returned for " +
             "confirmation. The resource file is removed with DirAccess, along with its sidecar '.import' " +
             "metadata when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
-            "a hard reference to this file will break — verify with '" + ResourceFindToolId + "' first.")]
+            "a hard reference to this file will break — verify with '" + ResourceFindToolId + "' first. A " +
+            "loaded copy is detached from the path, so an open scene still using it embeds it on its next save.")]
         public ResourceInfo Delete
         (
             [Description("res:// path of the resource file to delete.")]
@@ -54,7 +55,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var rmErr = DirAccess.RemoveAbsolute(resPath);
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
-                EditorToolGuards.RebindCachedResource(resPath, newPath: null);
 
                 // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import
                 // sidecar): if the sidecar removal throws below, the resource itself is still deleted. Rescan
@@ -62,6 +62,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // failure — never leave a stale index pointing at a file that no longer exists.
                 try
                 {
+                    EditorToolGuards.RebindCachedResource(resPath, newPath: null);
+
                     // Remove the sidecar '.import' metadata if present.
                     var importPath = resPath + ".import";
                     if (FileAccess.FileExists(importPath))

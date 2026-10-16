@@ -33,7 +33,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "deletion and returned for confirmation. The file is removed with DirAccess, along with its " +
             "Godot '.uid' sidecar when present, then the editor filesystem is rescanned and (for a '.cs' file) " +
             "BOUNDED-settles. WARNING: nodes/resources referencing the deleted script will break — verify " +
-            "with '" + ScriptReadToolId + "' first. Returns a structured ScriptInfo.")]
+            "with '" + ScriptReadToolId + "' first. A loaded copy is detached from the path, so an open scene " +
+            "still using it embeds it on its next save. Returns a structured ScriptInfo.")]
         public ScriptInfo Delete
         (
             [Description("res:// path of the script file to delete, ending in '.cs' or '.gd'.")]

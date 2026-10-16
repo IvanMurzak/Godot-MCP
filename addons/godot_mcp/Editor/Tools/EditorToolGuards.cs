@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -91,10 +92,54 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (!ResourceLoader.HasCached(oldPath)
                 || ResourceLoader.Load(oldPath, cacheMode: ResourceLoader.CacheMode.Reuse) is not { } cached)
                 return;
+            Rebind(cached, newPath);
+
+            // Built-in sub-resources are cached as '<old>::<id>' too; carry them along (or unbind them).
+            var prefix = oldPath + "::";
+            var seen = new HashSet<ulong>();
+            var pending = new Stack<Resource>();
+            pending.Push(cached);
+            while (pending.Count > 0)
+            {
+                var owner = pending.Pop();
+                if (!seen.Add(owner.GetInstanceId()))
+                    continue;
+                foreach (var info in owner.GetPropertyList())
+                {
+                    if ((info["usage"].As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) != 0)
+                        CollectSubResources(owner.Get(info["name"].AsStringName()), prefix, newPath, pending);
+                }
+            }
+        }
+
+        static void Rebind(Resource resource, string? newPath)
+        {
             if (newPath == null)
-                cached.ResourcePath = string.Empty;
+                resource.ResourcePath = string.Empty;
             else
-                cached.TakeOverPath(newPath);
+                resource.TakeOverPath(newPath);
+        }
+
+        static void CollectSubResources(Variant value, string oldPrefix, string? newPath, Stack<Resource> pending)
+        {
+            switch (value.VariantType)
+            {
+                case Variant.Type.Object when value.AsGodotObject() is Resource sub && sub.ResourcePath.StartsWith(oldPrefix, StringComparison.Ordinal):
+                    Rebind(sub, newPath == null ? null : newPath + "::" + sub.ResourcePath.Substring(oldPrefix.Length));
+                    pending.Push(sub);
+                    break;
+                case Variant.Type.Array:
+                    foreach (var item in value.AsGodotArray())
+                        CollectSubResources(item, oldPrefix, newPath, pending);
+                    break;
+                case Variant.Type.Dictionary:
+                    foreach (var entry in value.AsGodotDictionary())
+                    {
+                        CollectSubResources(entry.Key, oldPrefix, newPath, pending);
+                        CollectSubResources(entry.Value, oldPrefix, newPath, pending);
+                    }
+                    break;
+            }
         }
 
         /// <summary>

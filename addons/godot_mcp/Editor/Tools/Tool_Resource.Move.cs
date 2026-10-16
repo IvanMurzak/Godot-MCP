@@ -73,7 +73,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var moveErr = DirAccess.RenameAbsolute(src, dst);
                 if (moveErr != Error.Ok)
                     throw new Exception($"Failed to move '{src}' to '{dst}': {moveErr}.");
-                EditorToolGuards.RebindCachedResource(src, dst);
 
                 // From here the resource file is already at 'dst'. This is a MULTI-FILE op (resource +
                 // .import sidecar): if the sidecar rename throws below, the filesystem is left half-moved.
@@ -81,6 +80,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // dst) even on a partial failure — never leave a stale index pointing at the old location.
                 try
                 {
+                    EditorToolGuards.RebindCachedResource(src, dst);
+
                     // Move the sidecar '.import' metadata if it exists (imported assets carry one; .tres
                     // usually do not). Keeping it next to the resource preserves import settings + uid mapping.
                     var srcImport = src + ".import";
