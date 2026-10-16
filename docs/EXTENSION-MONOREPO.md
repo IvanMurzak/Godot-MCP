@@ -64,6 +64,8 @@ GitHub Godot-MCP Releases
 ```
 
 Unchanged versions reuse the immutable registry package and are not rebuilt or republished.
+All missing packages are submitted before waiting for NuGet validation/indexing (up to one hour).
+The workflow then verifies their public payloads before creating GitHub component releases.
 Existing published assets must match; retries resume drafts without replacing public assets.
 Component releases never replace the core's GitHub `latest` release.
 The CLI and dock resolve each package's latest stable version from NuGet, independently of

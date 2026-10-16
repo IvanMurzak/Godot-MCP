@@ -17,6 +17,66 @@ import extensions
 import new_extension
 
 
+class PublicationWait(unittest.TestCase):
+    def test_whole_batch_is_submitted_before_slow_indexing_and_existing_version_is_not_pushed(self):
+        selected = [{'name': name, 'packageId': name, 'version': '1.2.3'}
+                    for name in ('first', 'second', 'existing')]
+        clock, submitted = [0], []
+        def sleep(seconds):
+            self.assertEqual(['first.1.2.3.nupkg', 'second.1.2.3.nupkg'], submitted)
+            clock[0] += seconds
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'pending.json').write_text(json.dumps([m['packageId'] for m in selected]))
+            with patch.object(extension_release, 'published', side_effect=lambda m: m['name'] == 'existing' or clock[0] >= 600), \
+                    patch.object(extension_release, 'verify_package'), \
+                    patch.object(extension_release, 'verify_registry') as verify, \
+                    patch.object(extension_release, 'run', side_effect=lambda args: submitted.append(args[3].name)), \
+                    patch.object(extension_release.time, 'monotonic', side_effect=lambda: clock[0]), \
+                    patch.object(extension_release.time, 'sleep', side_effect=sleep), \
+                    patch.dict(os.environ, {'NUGET_API_KEY': 'fixture-token'}):
+                extension_release.push(selected, root)
+            self.assertEqual(600, clock[0])
+            self.assertCountEqual([m['packageId'] for m in selected],
+                                  [call.args[0]['packageId'] for call in verify.call_args_list])
+
+    def test_wait_is_bounded_and_reports_only_unpublished_packages(self):
+        selected = [{'name': name, 'packageId': name, 'version': '1.2.3'} for name in ('ready', 'missing')]
+        clock = [0]
+        def sleep(seconds):
+            clock[0] += seconds
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'pending.json').write_text(json.dumps([m['packageId'] for m in selected]))
+            with patch.object(extension_release, 'published', side_effect=lambda m: m['name'] == 'ready'), \
+                    patch.object(extension_release, 'verify_package'), \
+                    patch.object(extension_release, 'verify_registry') as verify, \
+                    patch.object(extension_release, 'run'), \
+                    patch.object(extension_release, 'PUBLICATION_WAIT_SECONDS', 120), \
+                    patch.object(extension_release.time, 'monotonic', side_effect=lambda: clock[0]), \
+                    patch.object(extension_release.time, 'sleep', side_effect=sleep), \
+                    patch.dict(os.environ, {'NUGET_API_KEY': 'fixture-token'}):
+                with self.assertRaisesRegex(RuntimeError, 'missing@1.2.3') as error:
+                    extension_release.push(selected, root)
+            self.assertNotIn('ready@', str(error.exception))
+            self.assertEqual(120, clock[0])
+            self.assertEqual(['ready'], [call.args[0]['name'] for call in verify.call_args_list])
+
+    def test_invalid_public_payload_fails_without_waiting_or_pushing(self):
+        module = {'name': 'existing', 'packageId': 'existing', 'version': '1.2.3'}
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'pending.json').write_text('["existing"]')
+            with patch.object(extension_release, 'published', return_value=True), \
+                    patch.object(extension_release, 'verify_registry', side_effect=ValueError('modified source')), \
+                    patch.object(extension_release, 'run') as submit, \
+                    patch.object(extension_release.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(ValueError, 'modified source'):
+                    extension_release.push([module], root)
+            submit.assert_not_called()
+            sleep.assert_not_called()
+
+
 class PackageVerification(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
