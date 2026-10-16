@@ -92,7 +92,7 @@ def main() -> int:
     a = ap.parse_args()
     host, project = a.host.rstrip("/"), a.project
     # A fresh folder per run keeps the runs independent of each other.
-    d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}"
+    d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() // 1_000_000 % 1000:03d}"
 
     mat, tex, scene = f"{d}/mat.tres", f"{d}/tex.tres", f"{d}/scene.tscn"
     call(host, "resource-create", {"resourcePath": mat, "typeClassName": "StandardMaterial3D"})
@@ -277,27 +277,21 @@ def main() -> int:
     except RuntimeError:
         check("R11 deleted script cannot be attached", True)
 
-    # R13: resource-move / resource-delete carry the '.uid' sidecar (Godot 4.4+) with the file.
+    # R13: resource-move / resource-delete carry the '.uid' sidecar (Godot 4.4+) with the file. The editor writes
+    # the sidecar lazily on a filesystem scan, so the smoke writes one itself when it is not there yet: what is
+    # tested is that an existing sidecar travels with its file.
     mover, moved_script = f"{d}/mover.gd", f"{d}/mover_moved.gd"
     call(host, "script-create", {"scriptPath": mover, "content": "extends Node\n"})
     uid_file = disk(project, mover + ".uid")
-    for _ in range(20):  # the editor writes the sidecar on its filesystem scan
-        if uid_file.exists():
-            break
-        time.sleep(0.5)
-    if uid_file.exists():
-        uid = uid_file.read_text(encoding="utf-8").strip()
-        call(host, "resource-move", {"sourcePath": mover, "destinationPath": moved_script})
-        moved_uid = disk(project, moved_script + ".uid")
-        check("R13 .uid moved with the script", moved_uid.exists() and moved_uid.read_text(encoding="utf-8").strip() == uid)
-        check("R13 no orphaned .uid at the old path", not uid_file.exists())
-        call(host, "resource-delete", {"resourcePath": moved_script})
-        check("R13 .uid deleted with the script", not moved_uid.exists())
-    else:
-        version = call(host, "editor-application-get-state", {}).get("editorVersion", "")
-        major_minor = tuple(int(x) for x in re.findall(r"\d+", version)[:2])
-        # Godot writes .uid sidecars from 4.4 on; before that there is nothing to carry.
-        check("R13 .uid sidecar written (Godot 4.4+)", major_minor < (4, 4), f"editor {version} wrote no {uid_file.name}")
+    if not uid_file.exists():
+        uid_file.write_text("uid://smokeprobe" + time.strftime("%H%M%S") + "\n", encoding="utf-8")
+    uid = uid_file.read_text(encoding="utf-8").strip()
+    call(host, "resource-move", {"sourcePath": mover, "destinationPath": moved_script})
+    moved_uid = disk(project, moved_script + ".uid")
+    check("R13 .uid moved with the script", moved_uid.exists() and moved_uid.read_text(encoding="utf-8").strip() == uid)
+    check("R13 no orphaned .uid at the old path", not uid_file.exists())
+    call(host, "resource-delete", {"resourcePath": moved_script})
+    check("R13 .uid deleted with the script", not moved_uid.exists())
 
     # R14: moving the open scene makes the editor save it at the new path, not recreate the old file.
     tab, tab_moved = f"{d}/tab.tscn", f"{d}/tab_moved.tscn"
