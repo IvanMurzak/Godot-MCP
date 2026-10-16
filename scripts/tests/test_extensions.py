@@ -202,6 +202,8 @@ class PackageVerification(unittest.TestCase):
         with patch.dict(os.environ, {'CHAIN_LOCK': 'candidate lock', 'CHAIN_ACTIVE': ''}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.7.0')
+            self.assertTrue(self.verify())
 
 
 class SuiteGuards(unittest.TestCase):
