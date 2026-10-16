@@ -203,6 +203,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// <summary>Every <see cref="VariantType"/> this payload can represent, for error messages.</summary>
         public static IEnumerable<VariantType> SupportedTypes => SupportedTypeList;
 
+        /// <summary>
+        /// True when <paramref name="json"/> is the <c>{"variantType": ..., "value": ...}</c> envelope (any accepted
+        /// alias or casing of the type key) rather than a bare scalar or some other object.
+        /// </summary>
+        public static bool IsEnvelope(JsonElement json)
+            => json.ValueKind == JsonValueKind.Object && TryFindProperty(json, TypeKeys, out _, out _);
+
         // --- Parsing ----------------------------------------------------------------------------------
 
         /// <summary>

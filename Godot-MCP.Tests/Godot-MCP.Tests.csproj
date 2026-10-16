@@ -80,6 +80,9 @@
          into a hard failure so a method is never invoked with a silently defaulted argument. Pure list
          inspection, no Godot API. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ReflectionArgumentGuard.cs" Link="Source\ReflectionArgumentGuard.cs" />
+    <!-- Pure-managed property-patch rules (GodotObjectPatcher.cs itself is native; see scripts/smoke_property_patches.py). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\PropertyPatchPath.cs" Link="Source\PropertyPatchPath.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ErrorCapturingLogger.cs" Link="Source\ErrorCapturingLogger.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->

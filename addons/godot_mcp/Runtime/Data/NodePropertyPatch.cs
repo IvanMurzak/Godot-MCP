@@ -26,15 +26,16 @@ namespace com.IvanMurzak.Godot.MCP.Data
     /// </summary>
     [System.Serializable]
     [Description("A path-scoped property patch: 'path' locates the member, 'value' carries the new value " +
-        "as a ReflectorNet SerializedMember. Path syntax: 'fieldName', 'nested/field', 'arrayField/[i]', 'dictField/[key]'.")]
+        "as a ReflectorNet SerializedMember. Path syntax: a Godot property name ('albedo_color'), or 'FieldName', " +
+        "'nested/field', 'arrayField/[i]', 'dictField/[key]'.")]
     public class NodePropertyPatch
     {
         [JsonInclude, JsonPropertyName("path")]
-        [Description("Path to the member to modify. Syntax: 'fieldName', 'nested/field', 'arrayField/[i]', 'dictField/[key]'. Leading '#/' is stripped.")]
+        [Description("Path to the member to modify: a Godot property name ('albedo_color', as returned by get-data), or 'FieldName', 'nested/field', 'arrayField/[i]', 'dictField/[key]'. Leading '#/' is stripped.")]
         public string Path { get; set; } = string.Empty;
 
         [JsonInclude, JsonPropertyName("value")]
-        [Description("New value for the member, as a ReflectorNet SerializedMember.")]
+        [Description("New value for the member, as a ReflectorNet SerializedMember. For a Godot property, an entry copied from a get-data result works as-is.")]
         public SerializedMember? Value { get; set; } = null;
 
         public NodePropertyPatch() { }

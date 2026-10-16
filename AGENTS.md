@@ -61,7 +61,9 @@ dotnet build <testbed>/<testbed>.csproj -c Debug          # compile C#
 Stale assembly → wipe `.godot/mono/temp/{obj,bin}` and rebuild. Live connect: start a local MCP
 server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localhost:<port>` (plus `GODOT_MCP_TOKEN` if the server requires auth), boot with
 `--quit-after 600000`, then `curl -X POST <host>/api/system-tools/ping -d '{}'` → `pong`. `ping` is a
-**System** tool: `/api/system-tools/`, not `/api/tools/`.
+**System** tool: `/api/system-tools/`, not `/api/tools/`. With that connection up,
+`python scripts/smoke_property_patches.py --host <host> --project <testbed>` checks `node-modify` /
+`resource-modify` / `resource-get-data` by reading back the `.tres`/`.tscn` Godot wrote.
 
 ## Load-bearing gotchas
 
