@@ -31,7 +31,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Move or rename a resource file in the res:// filesystem. Both 'sourcePath' and " +
             "'destinationPath' must be res:// file paths. The resource file is moved with DirAccess; its " +
             "'.import' and '.uid' sidecars (when present) move with it, so import settings and the UID stay " +
-            "intact, and an open scene being moved keeps saving to its new path. The editor filesystem is then " +
+            "intact (orphaned sidecars at the destination are removed), and an open scene being moved keeps " +
+            "saving to its new path (on Godot 4.3: the currently edited scene only). The editor filesystem is then " +
             "rescanned so the new location is indexed. Returns the moved resource's identity at its new path. NOTE: hard-coded res:// path references in OTHER " +
             "resources are not rewritten — prefer addressing assets by uid where stable references matter.")]
         public ResourceInfo Move
@@ -60,6 +61,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (FileAccess.FileExists(dst))
                     throw new ArgumentException($"A file already exists at '{dst}'.", nameof(destinationPath));
 
+                // The destination file does not exist, so any sidecar already there is an orphan (left by a file
+                // deleted outside these tools); drop it rather than let the moved file adopt a stale UID/import.
+                foreach (var sidecar in EditorToolGuards.Sidecars)
+                {
+                    if (FileAccess.FileExists(dst + sidecar))
+                        DirAccess.RemoveAbsolute(dst + sidecar);
+                }
+
                 // Ensure the destination directory exists (DirAccess.Rename does not create it).
                 var dstDir = dst.Substring(0, dst.LastIndexOf('/') + 1);
                 if (!DirAccess.DirExistsAbsolute(dstDir))
@@ -81,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 try
                 {
                     EditorToolGuards.RebindCachedResource(src, dst);
-                    if (dst.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase) || dst.EndsWith(".scn", StringComparison.OrdinalIgnoreCase))
+                    if (ResPathNormalizer.IsScenePath(src))
                         EditorToolGuards.RetargetOpenScenes(src, dst);
 
                     // Carry the sidecars, so import settings and the UID (uid:// references) survive the move.

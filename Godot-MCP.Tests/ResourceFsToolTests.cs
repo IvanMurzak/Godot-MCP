@@ -227,6 +227,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.DoesNotContain("not a directory", ex.Message);
         }
 
+        // ---- ResPathNormalizer.IsScenePath -------------------------------------------------------
+
+        [Theory]
+        [InlineData("res://levels/a.tscn", true)]
+        [InlineData("res://levels/a.SCN", true)]
+        [InlineData("res://levels/a.tres", false)]
+        [InlineData("res://levels/a.tscn.bak", false)]
+        [InlineData(null, false)]
+        public void IsScenePath_MatchesSceneExtensions(string? path, bool expected)
+        {
+            Assert.Equal(expected, ResPathNormalizer.IsScenePath(path));
+        }
+
         // ---- ResPathNormalizer.ParentDir (mkdir-parents derivation) ------------------------------
 
         [Theory]

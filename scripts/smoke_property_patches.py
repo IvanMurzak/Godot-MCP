@@ -283,7 +283,10 @@ def main() -> int:
         call(host, "resource-delete", {"resourcePath": moved_script})
         check("R13 .uid deleted with the script", not moved_uid.exists())
     else:
-        print("[SKIP] R13: this Godot version writes no .uid sidecar")
+        version = call(host, "editor-application-get-state", {}).get("editorVersion", "")
+        major_minor = tuple(int(x) for x in re.findall(r"\d+", version)[:2])
+        # Godot writes .uid sidecars from 4.4 on; before that there is nothing to carry.
+        check("R13 .uid sidecar written (Godot 4.4+)", major_minor < (4, 4), f"editor {version} wrote no {uid_file.name}")
 
     # R14: moving the open scene makes the editor save it at the new path, not recreate the old file.
     tab, tab_moved = f"{d}/tab.tscn", f"{d}/tab_moved.tscn"
@@ -293,6 +296,24 @@ def main() -> int:
     call(host, "scene-save", {})
     check("R14 saving does not recreate the old scene file", not disk(project, tab).exists())
     check("R14 the scene is at its new path", disk(project, tab_moved).exists())
+
+    # R15: deleting the open scene does not let the next save recreate it.
+    gone = f"{d}/gone.tscn"
+    call(host, "scene-create", {"resourcePath": gone, "rootTypeClassName": "Node3D", "rootName": "Gone"})
+    call(host, "scene-open", {"resourcePath": gone})
+    call(host, "resource-delete", {"resourcePath": gone})
+    try:
+        call(host, "scene-save", {})
+    except RuntimeError:
+        pass  # no scene left to save is fine too
+    check("R15 saving does not recreate a deleted open scene", not disk(project, gone).exists())
+
+    # R16: an orphaned sidecar at the destination is not adopted by the moved file.
+    plain, adopted = f"{d}/plain.tres", f"{d}/adopted.tres"
+    call(host, "resource-create", {"resourcePath": plain, "typeClassName": "Resource"})
+    disk(project, adopted + ".uid").write_text("uid://bogus_orphan\n", encoding="utf-8")
+    call(host, "resource-move", {"sourcePath": plain, "destinationPath": adopted})
+    check("R16 orphaned destination sidecar removed", not disk(project, adopted + ".uid").exists())
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0

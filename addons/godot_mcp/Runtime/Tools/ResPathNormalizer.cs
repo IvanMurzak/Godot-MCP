@@ -80,6 +80,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => !string.IsNullOrEmpty(path) && path!.StartsWith(ResScheme, StringComparison.Ordinal);
 
         /// <summary>
+        /// True when <paramref name="path"/> names a Godot scene file (<c>.tscn</c> text or <c>.scn</c> binary).
+        /// </summary>
+        public static bool IsScenePath(string? path)
+            => path != null
+            && (path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".scn", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
         /// Derive the parent directory (trailing-slash form) of a <c>res://</c> file path. For
         /// <c>res://scenes/level.tscn</c> this returns <c>res://scenes/</c>; for a file directly under the
         /// project root (<c>res://thing.tres</c>) it returns the bare scheme <c>res://</c>. Pure string logic

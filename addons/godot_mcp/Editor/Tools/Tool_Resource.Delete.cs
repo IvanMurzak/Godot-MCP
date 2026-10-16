@@ -32,7 +32,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "confirmation. The resource file is removed with DirAccess, along with its '.import' / '.uid' " +
             "sidecars when present, then the editor filesystem is rescanned. WARNING: other resources holding " +
             "a hard reference to this file will break — verify with '" + ResourceFindToolId + "' first. A " +
-            "loaded copy is detached from the path, so an open scene still using it embeds it on its next save.")]
+            "loaded copy is detached from the path, so an open scene still using it embeds it on its next save; a " +
+            "deleted scene that is the edited scene is closed (Godot 4.4+), so a later save cannot recreate it.")]
         public ResourceInfo Delete
         (
             [Description("res:// path of the resource file to delete.")]
@@ -63,6 +64,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 try
                 {
                     EditorToolGuards.RebindCachedResource(resPath, newPath: null);
+                    if (ResPathNormalizer.IsScenePath(resPath))
+                        EditorToolGuards.CloseDeletedScene(resPath);
 
                     // Remove the '.import' / '.uid' sidecars too, so no orphaned metadata is left behind.
                     foreach (var sidecar in EditorToolGuards.Sidecars)

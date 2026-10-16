@@ -48,8 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 if (!resourcePath.StartsWith("res://", StringComparison.Ordinal))
                     throw new ArgumentException($"resourcePath must be a 'res://' path; got '{resourcePath}'.", nameof(resourcePath));
-                if (!resourcePath.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase)
-                    && !resourcePath.EndsWith(".scn", StringComparison.OrdinalIgnoreCase))
+                if (!ResPathNormalizer.IsScenePath(resourcePath))
                     throw new ArgumentException($"resourcePath must end with '.tscn' or '.scn'; got '{resourcePath}'.", nameof(resourcePath));
 
                 var className = string.IsNullOrEmpty(rootTypeClassName) ? "Node" : rootTypeClassName!;

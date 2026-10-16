@@ -155,6 +155,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// </summary>
         internal static void RetargetOpenScenes(string oldPath, string newPath)
         {
+            // scene_file_path is stored simplified; a caller path like 'res://a/./b.tscn' must still match.
+            oldPath = oldPath.SimplifyPath();
+            newPath = newPath.SimplifyPath();
             var editor = EditorInterface.Singleton;
             var pending = new Stack<Node>();
             // get_open_scene_roots (Godot 4.4+, which includes the edited scene) is called by name because the
@@ -180,6 +183,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 foreach (var child in node.GetChildren())
                     pending.Push(child);
             }
+        }
+
+        /// <summary>
+        /// Close the edited scene when its file was just deleted, so the next save cannot recreate it (the editor
+        /// keeps the open scene's path). Uses <c>close_scene</c> (Godot 4.4+, called by name: the addon compiles
+        /// against 4.3); on 4.3, and for scenes open in background tabs, nothing can be done from a tool.
+        /// </summary>
+        internal static void CloseDeletedScene(string deletedPath)
+        {
+            var editor = EditorInterface.Singleton;
+            if (editor.GetEditedSceneRoot()?.SceneFilePath == deletedPath.SimplifyPath() && editor.HasMethod("close_scene"))
+                editor.Call("close_scene");
         }
 
         /// <summary>
