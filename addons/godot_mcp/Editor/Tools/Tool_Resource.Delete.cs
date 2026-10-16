@@ -56,8 +56,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (rmErr != Error.Ok)
                     throw new Exception($"Failed to delete '{resPath}': {rmErr}.");
 
-                // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import
-                // sidecar): if the sidecar removal throws below, the resource itself is still deleted. Rescan
+                // From here the resource file is already gone. This is a MULTI-FILE op (resource + .import/.uid
+                // sidecars): if the sidecar removal throws below, the resource itself is still deleted. Rescan
                 // in a 'finally' regardless so the editor index drops the removed entry even on partial
                 // failure — never leave a stale index pointing at a file that no longer exists.
                 try

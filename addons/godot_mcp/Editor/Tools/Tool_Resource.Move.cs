@@ -32,8 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'destinationPath' must be res:// file paths. The resource file is moved with DirAccess; its " +
             "'.import' and '.uid' sidecars (when present) move with it, so import settings and the UID stay " +
             "intact, and an open scene being moved keeps saving to its new path. The editor filesystem is then " +
-            "rescanned so the new location is indexed. Returns the " +
-            "moved resource's identity at its new path. NOTE: hard-coded res:// path references in OTHER " +
+            "rescanned so the new location is indexed. Returns the moved resource's identity at its new path. NOTE: hard-coded res:// path references in OTHER " +
             "resources are not rewritten — prefer addressing assets by uid where stable references matter.")]
         public ResourceInfo Move
         (
@@ -76,26 +75,26 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     throw new Exception($"Failed to move '{src}' to '{dst}': {moveErr}.");
 
                 // From here the resource file is already at 'dst'. This is a MULTI-FILE op (resource +
-                // .import sidecar): if the sidecar rename throws below, the filesystem is left half-moved.
+                // .import/.uid sidecars): if a sidecar rename throws below, the filesystem is left half-moved.
                 // Rescan in a 'finally' regardless so the editor index reflects on-disk reality (resource at
                 // dst) even on a partial failure — never leave a stale index pointing at the old location.
                 try
                 {
                     EditorToolGuards.RebindCachedResource(src, dst);
-                    EditorToolGuards.RetargetOpenScenes(src, dst);
+                    if (dst.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase) || dst.EndsWith(".scn", StringComparison.OrdinalIgnoreCase))
+                        EditorToolGuards.RetargetOpenScenes(src, dst);
 
-                    // Move the sidecars with it: '.import' (import settings + uid mapping of imported assets)
-                    // and '.uid' (Godot 4.4+, next to scripts/shaders: without it the moved file gets a new UID
-                    // and every uid:// reference to it breaks).
+                    // Carry the sidecars, so import settings and the UID (uid:// references) survive the move.
                     foreach (var sidecar in EditorToolGuards.Sidecars)
                     {
-                        if (!FileAccess.FileExists(src + sidecar))
+                        string from = src + sidecar, to = dst + sidecar;
+                        if (!FileAccess.FileExists(from))
                             continue;
-                        var sidecarErr = DirAccess.RenameAbsolute(src + sidecar, dst + sidecar);
+                        var sidecarErr = DirAccess.RenameAbsolute(from, to);
                         if (sidecarErr != Error.Ok)
                             throw new Exception(
                                 $"Inconsistent state: resource moved to '{dst}' but its '{sidecar}' sidecar " +
-                                $"failed to move ('{src}{sidecar}' -> '{dst}{sidecar}': {sidecarErr}). Move it manually " +
+                                $"failed to move ('{from}' -> '{to}': {sidecarErr}). Move it manually " +
                                 "(or reimport the resource) to repair its metadata.");
                     }
                 }

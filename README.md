@@ -140,7 +140,7 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
 | **node** | `node-find`, `node-create`, `node-modify`, `node-set-parent`, `node-reorder`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. Child order — which is layout order in a `VBoxContainer`/`HBoxContainer` — is settable both on creation (`node-create`'s `index`) and afterwards (`node-reorder`). |
 | **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
-| **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` sidecars consistent. |
+| **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` / `.uid` sidecars consistent. |
 | **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node and validating GDScript. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
@@ -181,8 +181,8 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 - `resource-get-data` — Read a resource's serialized fields and properties.
 - `resource-modify` — Modify a resource's properties.
 - `resource-create` — Create a new resource asset.
-- `resource-move` — Move / rename a resource, keeping `.import` sidecars consistent.
-- `resource-delete` — Delete a resource from the project.
+- `resource-move` — Move / rename a resource, keeping `.import` / `.uid` sidecars consistent.
+- `resource-delete` — Delete a resource from the project, along with its `.import` / `.uid` sidecars.
 
 **filesystem**
 

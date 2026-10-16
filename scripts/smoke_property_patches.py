@@ -74,8 +74,12 @@ def expect_logs(name: str, logs: list, errors: bool, saved_marker: str | None) -
         check(f"{name}: reported saved", saved, json.dumps(types)[:600])
 
 
+def disk(project: pathlib.Path, res_path: str) -> pathlib.Path:
+    return project / res_path.replace("res://", "")
+
+
 def file_has(project: pathlib.Path, res_path: str, pattern: str) -> bool:
-    text = (project / res_path.replace("res://", "")).read_text(encoding="utf-8")
+    text = disk(project, res_path).read_text(encoding="utf-8")
     return re.search(pattern, text, re.MULTILINE) is not None
 
 
@@ -232,7 +236,7 @@ def main() -> int:
 
     # R12: moving a resource also moves its built-in sub-resources ('<path>::<id>') in the cache.
     with_sub, moved_sub = f"{d}/with_sub.tres", f"{d}/moved_sub.tres"
-    (project / with_sub.replace("res://", "")).write_text(
+    disk(project, with_sub).write_text(
         '[gd_resource type="StandardMaterial3D" load_steps=2 format=3]\n\n'
         '[sub_resource type="GradientTexture2D" id="GradientTexture2D_sub"]\n\n'
         '[resource]\nalbedo_texture = SubResource("GradientTexture2D_sub")\n', encoding="utf-8")
@@ -257,7 +261,7 @@ def main() -> int:
     # R13: resource-move / resource-delete carry the '.uid' sidecar (Godot 4.4+) with the file.
     mover, moved_script = f"{d}/mover.gd", f"{d}/mover_moved.gd"
     call(host, "script-create", {"scriptPath": mover, "content": "extends Node\n"})
-    uid_file = project / (mover.replace("res://", "") + ".uid")
+    uid_file = disk(project, mover + ".uid")
     for _ in range(20):  # the editor writes the sidecar on its filesystem scan
         if uid_file.exists():
             break
@@ -265,7 +269,7 @@ def main() -> int:
     if uid_file.exists():
         uid = uid_file.read_text(encoding="utf-8").strip()
         call(host, "resource-move", {"sourcePath": mover, "destinationPath": moved_script})
-        moved_uid = project / (moved_script.replace("res://", "") + ".uid")
+        moved_uid = disk(project, moved_script + ".uid")
         check("R13 .uid moved with the script", moved_uid.exists() and moved_uid.read_text(encoding="utf-8").strip() == uid)
         check("R13 no orphaned .uid at the old path", not uid_file.exists())
         call(host, "resource-delete", {"resourcePath": moved_script})
@@ -279,8 +283,8 @@ def main() -> int:
     call(host, "scene-open", {"resourcePath": tab})
     call(host, "resource-move", {"sourcePath": tab, "destinationPath": tab_moved})
     call(host, "scene-save", {})
-    check("R14 saving does not recreate the old scene file", not (project / tab.replace("res://", "")).exists())
-    check("R14 the scene is at its new path", (project / tab_moved.replace("res://", "")).exists())
+    check("R14 saving does not recreate the old scene file", not disk(project, tab).exists())
+    check("R14 the scene is at its new path", disk(project, tab_moved).exists())
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
