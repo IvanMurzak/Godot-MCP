@@ -86,7 +86,7 @@ def main() -> int:
     ap.add_argument("--dir", default="res://smoke_property_patches", help="res:// folder; each run uses a fresh subfolder")
     a = ap.parse_args()
     host, project = a.host.rstrip("/"), a.project
-    # A fresh folder per run: right after resource-delete, resource-create can still see the cached resource.
+    # A fresh folder per run keeps the runs independent of each other.
     d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}"
 
     mat, tex, scene = f"{d}/mat.tres", f"{d}/tex.tres", f"{d}/scene.tscn"
@@ -212,6 +212,55 @@ def main() -> int:
     check("N5 omni_range = 9", file_has(project, scene, r"^omni_range = 9\.0$"))
     check("N2 shadow_enabled = true", file_has(project, scene, r"^shadow_enabled = true$"))
     check("N4 light_cull_mask = 4294967294", file_has(project, scene, r"^light_cull_mask = 4294967294$"))
+
+    # R10: delete / move keep the resource cache in step with the files.
+    cached = f"{d}/cached.tres"
+    call(host, "resource-create", {"resourcePath": cached, "typeClassName": "StandardMaterial3D"})
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": cached}, "pathPatches": [
+        {"path": "metallic", "value": {"typeName": "Godot.Variant", "value": 0.25}}]})  # loads + caches it
+    call(host, "resource-delete", {"resourcePath": cached})
+    try:
+        call(host, "resource-create", {"resourcePath": cached, "typeClassName": "StandardMaterial3D"})
+        check("R10 create after delete", True)
+    except RuntimeError as e:
+        check("R10 create after delete", False, str(e))
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": cached}, "pathPatches": [
+        {"path": "metallic", "value": {"typeName": "Godot.Variant", "value": 0.5}}]})
+    moved = f"{d}/moved.tres"
+    call(host, "resource-move", {"sourcePath": cached, "destinationPath": moved})
+    try:  # the cached instance left the old path, so it is free again
+        call(host, "resource-create", {"resourcePath": cached, "typeClassName": "StandardMaterial3D"})
+        check("R10 create at the old path after move", True)
+    except RuntimeError as e:
+        check("R10 create at the old path after move", False, str(e))
+    call(host, "resource-modify", {"resourceRef": {"resourcePath": moved}, "pathPatches": [
+        {"path": "roughness", "value": {"typeName": "Godot.Variant", "value": 0.75}}]})
+    check("R10 moved resource keeps its pre-move change", file_has(project, moved, r"^metallic = 0\.5$"))
+    check("R10 moved resource takes the new change", file_has(project, moved, r"^roughness = 0\.75$"))
+
+    # R12: moving a resource also moves its built-in sub-resources ('<path>::<id>') in the cache.
+    with_sub, moved_sub = f"{d}/with_sub.tres", f"{d}/moved_sub.tres"
+    (project / with_sub.replace("res://", "")).write_text(
+        '[gd_resource type="StandardMaterial3D" load_steps=2 format=3]\n\n'
+        '[sub_resource type="GradientTexture2D" id="GradientTexture2D_sub"]\n\n'
+        '[resource]\nalbedo_texture = SubResource("GradientTexture2D_sub")\n', encoding="utf-8")
+    call(host, "resource-get-data", {"resourceRef": {"resourcePath": with_sub}})  # loads + caches it
+    call(host, "resource-move", {"sourcePath": with_sub, "destinationPath": moved_sub})
+    sub_props = {p["name"]: p for p in call(host, "resource-get-data", {"resourceRef": {"resourcePath": moved_sub}}).get("props") or []}
+    check("R12 sub-resource moved with its owner", f"{moved_sub}::GradientTexture2D_sub" in json.dumps(sub_props.get("albedo_texture", {})),
+          json.dumps(sub_props.get("albedo_texture", {}))[:300])
+
+    # R11: a deleted script is not served from the cache anymore.
+    script = f"{d}/lamp.gd"
+    call(host, "script-create", {"scriptPath": script, "content": "extends OmniLight3D\n"})
+    call(host, "script-attach-to-node", {**node, "scriptPath": script})  # loads + caches it
+    call(host, "script-attach-to-node", {**node, "scriptPath": ""})
+    call(host, "script-delete", {"scriptPath": script})
+    try:
+        call(host, "script-attach-to-node", {**node, "scriptPath": script})
+        check("R11 deleted script cannot be attached", False, "attach succeeded")
+    except RuntimeError:
+        check("R11 deleted script cannot be attached", True)
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
