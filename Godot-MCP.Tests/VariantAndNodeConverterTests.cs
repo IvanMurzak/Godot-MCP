@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Linq;
 using System.Text.Json;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
@@ -330,15 +331,119 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Theory]
-        [InlineData("Object")]
-        [InlineData("Dictionary")]
-        [InlineData("Array")]
-        [InlineData("PackedStringArray")]
         [InlineData("Callable")]
+        [InlineData("Signal")]
+        [InlineData("Rid")]
         public void Parse_TypesWithNoJsonForm_AreRejectedExplicitly(string typeName)
         {
             var ex = Assert.Throws<ArgumentException>(() => Parse($"{{\"variantType\":\"{typeName}\",\"value\":1}}"));
             Assert.Contains("cannot be built from JSON", ex.Message);
+        }
+
+        // ---- Collections and objects -----------------------------------------------------------------
+
+        [Fact]
+        public void Parse_Array_ReadsEachElementAsAVariant()
+        {
+            var p = Parse("{\"variantType\":\"Array\",\"value\":[1,\"a\",true,null,{\"variantType\":\"Float\",\"value\":1},{\"variantType\":\"Vector2\",\"value\":[1,2]}]}");
+
+            Assert.Equal(VariantType.Array, p.Kind);
+            Assert.Equal(new[] { VariantType.Int, VariantType.String, VariantType.Bool, VariantType.Nil, VariantType.Float, VariantType.Vector2 },
+                p.Items.Select(i => i.Kind));
+            Assert.Equal(1.0, p.Items[4].FloatValue);
+        }
+
+        [Fact]
+        public void Parse_ArrayWithABadElement_NamesTheElement()
+        {
+            var ex = Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Array\",\"value\":[1,[2,3]]}"));
+            Assert.Contains("element [1]", ex.Message);
+        }
+
+        [Fact]
+        public void Parse_DictionaryObjectForm_HasStringKeys()
+        {
+            var p = Parse("{\"variantType\":\"Dictionary\",\"value\":{\"hp\":10,\"name\":\"orc\"}}");
+
+            Assert.Equal(2, p.Entries.Count);
+            Assert.All(p.Entries, e => Assert.Equal(VariantType.String, e.Key.Kind));
+            Assert.Equal(10, p.Entries[0].Value.IntValue);
+        }
+
+        [Fact]
+        public void Parse_DictionaryPairForm_AcceptsAnyKey()
+        {
+            var p = Parse("{\"variantType\":\"Dictionary\",\"value\":[{\"key\":1,\"value\":\"one\"},{\"key\":{\"variantType\":\"StringName\",\"value\":\"k\"},\"value\":null}]}");
+
+            Assert.Equal(VariantType.Int, p.Entries[0].Key.Kind);
+            Assert.Equal(VariantType.StringName, p.Entries[1].Key.Kind);
+            Assert.Equal(VariantType.Nil, p.Entries[1].Value.Kind);
+        }
+
+        [Theory]
+        [InlineData("PackedByteArray", "[0,255]", 2)]
+        [InlineData("PackedInt32Array", "[-1,2147483647]", 2)]
+        [InlineData("PackedInt64Array", "[9007199254740993]", 1)]
+        [InlineData("PackedFloat32Array", "[0.5,1]", 2)]
+        [InlineData("PackedStringArray", "[\"a\",\"b\",\"c\"]", 3)]
+        [InlineData("PackedVector3Array", "[[1,2,3],{\"x\":4,\"y\":5,\"z\":6}]", 2)]
+        [InlineData("PackedColorArray", "[[1,0,0]]", 1)]
+        public void Parse_PackedArrays(string kind, string json, int count)
+        {
+            var p = Parse($"{{\"variantType\":\"{kind}\",\"value\":{json}}}");
+            Assert.Equal(count, p.Items.Count);
+            Assert.All(p.Items, i => Assert.Equal(GodotVariantPayload.PackedElementKind(p.Kind), i.Kind));
+        }
+
+        [Fact]
+        public void Parse_PackedInt64_KeepsFullPrecision()
+        {
+            Assert.Equal(9007199254740993L, Parse("{\"variantType\":\"PackedInt64Array\",\"value\":[9007199254740993]}").Items[0].IntValue);
+        }
+
+        [Theory]
+        [InlineData("PackedByteArray", "[256]")]
+        [InlineData("PackedInt32Array", "[2147483648]")]
+        [InlineData("PackedFloat32Array", "[1e300]")]
+        [InlineData("PackedVector2Array", "[[1]]")]
+        [InlineData("PackedStringArray", "[1]")]
+        [InlineData("PackedInt32Array", "{\"a\":1}")]
+        public void Parse_PackedArrays_RejectBadElements(string kind, string json)
+        {
+            Assert.Throws<ArgumentException>(() => Parse($"{{\"variantType\":\"{kind}\",\"value\":{json}}}"));
+        }
+
+        [Fact]
+        public void Parse_Object_ByPathOrIdOrNull()
+        {
+            Assert.Equal("res://a.tres", Parse("{\"variantType\":\"Object\",\"value\":{\"resourcePath\":\"res://a.tres\"}}").ResourcePath);
+            Assert.Equal(42UL, Parse("{\"variantType\":\"Object\",\"value\":{\"instanceId\":42}}").InstanceId);
+            Assert.True(Parse("{\"variantType\":\"Object\",\"value\":null}").IsNullObject);
+            Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Object\",\"value\":{}}"));
+            Assert.Throws<ArgumentException>(() => Parse("{\"variantType\":\"Object\",\"value\":5}"));
+        }
+
+        // ---- IsEquivalentTo ---------------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("1", "{\"variantType\":\"Float\",\"value\":1}", false, true)]
+        [InlineData("4294967295", "4294967294", true, false)]
+        [InlineData("0.33", "0.33000001311302185", true, true)]
+        [InlineData("0.33", "0.33000001311302185", false, false)]
+        [InlineData("\"a\"", "{\"variantType\":\"StringName\",\"value\":\"a\"}", false, true)]
+        [InlineData("{\"variantType\":\"Vector3I\",\"value\":[1,2,3]}", "{\"variantType\":\"Vector3\",\"value\":[1,2,3]}", false, true)]
+        [InlineData("{\"variantType\":\"Vector2\",\"value\":[1,2]}", "{\"variantType\":\"Vector3\",\"value\":[1,2,0]}", false, false)]
+        [InlineData("{\"variantType\":\"Array\",\"value\":[1,2]}", "{\"variantType\":\"PackedInt32Array\",\"value\":[1,2]}", false, true)]
+        [InlineData("{\"variantType\":\"Array\",\"value\":[1,2]}", "{\"variantType\":\"Array\",\"value\":[2,1]}", false, false)]
+        [InlineData("{\"variantType\":\"Dictionary\",\"value\":{\"a\":1,\"b\":2}}", "{\"variantType\":\"Dictionary\",\"value\":{\"b\":2,\"a\":1}}", false, true)]
+        [InlineData("{\"variantType\":\"Dictionary\",\"value\":{\"a\":1}}", "{\"variantType\":\"Dictionary\",\"value\":{\"a\":2}}", false, false)]
+        [InlineData("null", "{\"variantType\":\"Object\",\"value\":null}", false, true)]
+        [InlineData("null", "0", false, false)]
+        [InlineData("{\"variantType\":\"Object\",\"value\":{\"resourcePath\":\"res://a.tres\"}}", "{\"variantType\":\"Object\",\"value\":{\"resourcePath\":\"res://b.tres\"}}", false, false)]
+        public void IsEquivalentTo(string a, string b, bool allowFloatRounding, bool expected)
+        {
+            Assert.Equal(expected, Parse(a).IsEquivalentTo(Parse(b), allowFloatRounding));
+            Assert.Equal(expected, Parse(b).IsEquivalentTo(Parse(a), allowFloatRounding));
         }
 
         [Fact]

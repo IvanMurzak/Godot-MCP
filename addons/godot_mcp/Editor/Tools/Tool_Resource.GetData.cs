@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
@@ -101,8 +102,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     }
                     catch (Exception ex)
                     {
+                        // Keep the property in the reply so the caller can tell the data is partial.
+                        member.AddProperty(SerializedMember.FromJson(typeof(Variant), new JsonObject
+                        {
+                            [Godot_Variant_ReflectionConverter.VariantTypeKey] = value.VariantType.ToString(),
+                            [Godot_Variant_ReflectionConverter.NoteKey] = $"Could not be serialized: {ex.Message}",
+                        }.ToJsonString(), propName.AsString()));
                         GodotMcpLog.Warning($"[Godot-MCP] {ResourceGetDataToolId}: property '{propName}' " +
-                            $"of '{name}' could not be serialized and was omitted: {ex.Message}");
+                            $"of '{name}' could not be serialized: {ex.Message}");
                     }
                 }
 

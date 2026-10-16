@@ -232,6 +232,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
 
             var before = target.Get(name);
+            if (!TryKeepCollectionTyping(ref intended, before))
+            {
+                logs.Error($"{label}: not every element fits the typed collection '{name}' ({Describe(before)}); nothing changed.");
+                return false;
+            }
             target.Set(name, intended);
             if (name == "script")
                 godotProperties = null; // A new script brings its own properties; re-list them on next use.
@@ -291,46 +296,59 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         };
 
         /// <summary>
-        /// True when <paramref name="actual"/> holds <paramref name="expected"/> as Godot stores it: numbers
-        /// compare across Bool/Int/Float (a requested double also matches its 32-bit <c>float</c> rounding),
-        /// text across String/StringName/NodePath, objects by instance id; anything else by type and text form.
+        /// A replacement for a typed <c>Array</c>/<c>Dictionary</c> (e.g. <c>Array[Material]</c>) must keep the
+        /// property's typing, or Godot rejects it: rebuild the new elements inside an emptied copy of the
+        /// current collection, which carries that typing (and none for an untyped one). Returns <c>false</c> when
+        /// the typed copy refused an element (Godot drops it with an error), which would otherwise silently shrink
+        /// the collection.
         /// </summary>
-        static bool Matches(Variant expected, Variant actual) => Compare(expected, actual, allowFloatRounding: true);
-
-        /// <summary>
-        /// True when two values read back from Godot are the same: <see cref="Matches"/> without the
-        /// <c>float</c>-rounding tolerance, so a real one-ulp change is still a change.
-        /// </summary>
-        static bool Same(Variant before, Variant after) => Compare(before, after, allowFloatRounding: false);
-
-        static bool Compare(Variant expected, Variant actual, bool allowFloatRounding)
+        static bool TryKeepCollectionTyping(ref Variant intended, Variant current)
         {
-            var e = expected.VariantType;
-            var a = actual.VariantType;
-            if (IsNumeric(e) && IsNumeric(a))
+            if (intended.VariantType == Variant.Type.Array && current.VariantType == Variant.Type.Array)
             {
-                if (e != Variant.Type.Float && a != Variant.Type.Float)
-                    return ToInt64(expected) == ToInt64(actual);
-                double x = ToDouble(expected), y = ToDouble(actual);
-                return x == y || (allowFloatRounding && (float)x == (float)y);
+                var source = intended.AsGodotArray();
+                var typed = current.AsGodotArray().Duplicate();
+                typed.Clear();
+                foreach (var item in source)
+                    typed.Add(item);
+                intended = typed;
+                return typed.Count == source.Count;
             }
-            if (IsText(e) && IsText(a))
-                return expected.AsString() == actual.AsString();
-            if (e is Variant.Type.Object or Variant.Type.Nil && a is Variant.Type.Object or Variant.Type.Nil)
-                return InstanceId(expected) == InstanceId(actual);
-            return e == a && GD.VarToStr(expected) == GD.VarToStr(actual);
+            if (intended.VariantType == Variant.Type.Dictionary && current.VariantType == Variant.Type.Dictionary)
+            {
+                var source = intended.AsGodotDictionary();
+                var typed = current.AsGodotDictionary().Duplicate();
+                typed.Clear();
+                foreach (var entry in source)
+                    typed[entry.Key] = entry.Value;
+                intended = typed;
+                return typed.Count == source.Count;
+            }
+            return true;
         }
 
-        static bool IsNumeric(Variant.Type type) => type is Variant.Type.Bool or Variant.Type.Int or Variant.Type.Float;
+        /// <summary>
+        /// True when <paramref name="actual"/> holds <paramref name="expected"/> as Godot stores it (a requested
+        /// double also matches its 32-bit float rounding). See <see cref="GodotVariantPayload.IsEquivalentTo"/>.
+        /// </summary>
+        static bool Matches(Variant expected, Variant actual) => Equivalent(expected, actual, allowFloatRounding: true);
 
-        static bool IsText(Variant.Type type) => type is Variant.Type.String or Variant.Type.StringName or Variant.Type.NodePath;
+        /// <summary>True when two values read back from Godot are the same, without the float-rounding tolerance.</summary>
+        static bool Same(Variant before, Variant after) => Equivalent(before, after, allowFloatRounding: false);
 
-        static double ToDouble(Variant v) => v.VariantType == Variant.Type.Float ? v.AsDouble() : ToInt64(v);
-
-        static long ToInt64(Variant v) => v.VariantType == Variant.Type.Bool ? (v.AsBool() ? 1 : 0) : v.AsInt64();
-
-        static ulong InstanceId(Variant v)
-            => v.VariantType == Variant.Type.Object ? v.AsGodotObject()?.GetInstanceId() ?? 0 : 0;
+        static bool Equivalent(Variant a, Variant b, bool allowFloatRounding)
+        {
+            try
+            {
+                return Godot_Variant_ReflectionConverter.ToPayload(a)
+                    .IsEquivalentTo(Godot_Variant_ReflectionConverter.ToPayload(b), allowFloatRounding);
+            }
+            catch (NotSupportedException)
+            {
+                // Rid / Callable / Signal have no payload form; they are small, so their text form is cheap.
+                return a.VariantType == b.VariantType && GD.VarToStr(a) == GD.VarToStr(b);
+            }
+        }
 
         static string Describe(Variant v)
         {
@@ -344,9 +362,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                         var obj => $"{obj.GetClass()}#{obj.GetInstanceId()}",
                     };
                 case Variant.Type.Array:
+                    return $"Array({v.AsGodotArray().Count})"; // Never serialize a whole collection into a log line.
                 case Variant.Type.Dictionary:
+                    return $"Dictionary({v.AsGodotDictionary().Count})";
                 case >= Variant.Type.PackedByteArray and < Variant.Type.Max:
-                    return v.VariantType.ToString(); // Never serialize a whole collection into a log line.
+                    return $"{v.VariantType}({v.AsGodotArray().Count})";
                 default:
                     var text = GD.VarToStr(v);
                     return text.Length > 120 ? text.Substring(0, 120) + "…" : text;
