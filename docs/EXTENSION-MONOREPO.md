@@ -36,6 +36,11 @@ project and must fail in the Animation-only project. This catches the undeclared
 that a combined editor alone could conceal. Live assertions, success envelopes and response
 expectations are retained. Script and assembly errors also fail the suite; the observed native
 GridMap gizmo diagnostic under the headless dummy renderer is narrowly matched and reported.
+Godot 4.4's [upstream cold-import progress-dialog diagnostic](https://github.com/godotengine/godot/issues/103398)
+is also matched by exact native frames, only in the log captured before the first tool call,
+and reported separately. It remains fatal during tool calls or on other engine versions.
+Dialogic fixtures use alpha-19 on 4.4 and alpha-20 on 4.5+, since alpha-20 contains the
+upstream Godot 4.7 parser fix and requires Godot 4.5. These are test fixtures, not bundled addons.
 
 ## Releases and installation
 

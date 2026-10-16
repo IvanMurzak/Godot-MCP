@@ -68,12 +68,17 @@ def released_server(output):
     return str(matches[0])
 
 
-def install_test_addons(selected, project, output):
+def install_test_addons(selected, project, output, sdk):
     receipts = []
     for module in selected:
         addon = module.get('testAddon')
         if not addon:
             continue
+        addon = dict(addon)
+        for minimum, tag in sorted(addon.get('tagFromSdk', {}).items(),
+                                   key=lambda item: tuple(map(int, item[0].split('.')))):
+            if tuple(map(int, sdk.split('.'))) >= tuple(map(int, minimum.split('.'))):
+                addon['tag'] = tag
         name = module['name']
         if addon['kind'] == 'gdextension':
             # The source archive cannot contain the platform's native library.
@@ -120,12 +125,16 @@ def stop(process):
     print('Stopped owned process tree PID', process.pid, flush=True)
 
 
-def check_editor_log(text):
+def check_editor_log(text, sdk=None, *, startup_lines=0):
     if re.search(r'SCRIPT ERROR:|FileNotFoundException|Failed to load script|Unable to load addon|'
                  r'Cannot resolve relative SkillsPath|Unhandled exception', text, re.I):
         raise ValueError('Script/assembly failure in combined editor log; see editor.log')
     lines = text.splitlines()
-    diagnostics = 0
+    diagnostics = {'headlessGridMapGizmo': 0, 'godot44ColdImportProgress': 0}
+    progress_messages = {
+        'ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!',
+        'ERROR: Condition "!tasks.has(p_task)" is true. Returning: canceled',
+        'ERROR: Condition "!tasks.has(p_task)" is true.'}
     for index, line in enumerate(lines):
         if not line.startswith('ERROR:'):
             continue
@@ -135,7 +144,15 @@ def check_editor_log(text):
         # or another renderer/tool error under the same generic message.
         if (line == 'ERROR: Parameter "instance" is null.'
                 and 'instance_geometry_set_transparency' in context and 'Tool_GridMap' in context):
-            diagnostics += 1
+            diagnostics['headlessGridMapGizmo'] += 1
+            continue
+        # Upstream godotengine/godot#103398: native cold-import progress UI
+        # diagnostics in 4.4. Match only the exact native frames during startup;
+        # the same messages during tool calls or script failures remain fatal.
+        if (sdk == '4.4.0' and index < startup_lines
+                and line in progress_messages and index + 1 < len(lines)
+                and re.fullmatch(r'\s+at: (add_task|task_step|end_task) \(editor/progress_dialog.cpp:\d+\)', lines[index + 1])):
+            diagnostics['godot44ColdImportProgress'] += 1
             continue
         raise ValueError('Unexpected engine error in combined editor log:\n' + context)
     return diagnostics
@@ -144,7 +161,7 @@ def check_editor_log(text):
 def live(plan, godot, server, output):
     project = Path(plan['project']).parent
     selected = [m for m in modules() if m['name'] in plan['modules']]
-    install_test_addons(selected, project, output)
+    install_test_addons(selected, project, output, plan['sdk'])
     # Reuse the original assertion driver, not a weaker replacement of its checks.
     driver_path = ROOT / 'extensions/Godot-AI-Particles/tests/e2e/run_tool_e2e.py'
     spec = importlib.util.spec_from_file_location('extension_e2e_driver', driver_path)
@@ -210,7 +227,8 @@ def live(plan, godot, server, output):
             actual.append('0')
         if '.'.join(actual) != plan['sdk'] or '[Godot-MCP] plugin loaded' not in text:
             raise ValueError('Editor identity or addon-load proof missing: ' + text[-6000:])
-        check_editor_log(text)
+        startup_lines = len(text.splitlines())
+        check_editor_log(text, plan['sdk'], startup_lines=startup_lines)
         total = 0
         for module in selected:
             manifest = json.loads((ROOT / 'extensions' / module['name'] / 'tests/e2e/e2e-tools.json').read_text())
@@ -221,13 +239,14 @@ def live(plan, godot, server, output):
                 total += len(calls)
             if editor.poll() is not None:
                 raise RuntimeError('Combined editor exited during module assertions')
-        diagnostics = check_editor_log((output / 'editor.log').read_text(encoding='utf-8', errors='replace'))
+        diagnostics = check_editor_log((output / 'editor.log').read_text(encoding='utf-8', errors='replace'),
+                                       plan['sdk'], startup_lines=startup_lines)
         (output / 'live-result.json').write_text(json.dumps({
             'sdk': plan['sdk'], 'editorLaunches': 1, 'editorPid': editor.pid,
             'modules': plan['modules'], 'assertions': total, 'success': True,
-            'headlessGridMapGizmoDiagnostics': diagnostics}, indent=2) + '\n')
-        if diagnostics:
-            print(f'NOTE: {diagnostics} native GridMap gizmo diagnostic(s) from the headless renderer', flush=True)
+            'nativeDiagnostics': diagnostics}, indent=2) + '\n')
+        if any(diagnostics.values()):
+            print(f'NOTE: explicitly reported native headless diagnostics: {diagnostics}', flush=True)
         print(f'PASS: {len(selected)} modules, {total} live calls, ONE editor PID {editor.pid}', flush=True)
     finally:
         failures = []

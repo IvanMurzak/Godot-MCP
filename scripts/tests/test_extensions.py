@@ -88,7 +88,17 @@ class SuiteGuards(unittest.TestCase):
 
     def test_observed_headless_diagnostic_is_counted(self):
         self.assertEqual(1, extension_live.check_editor_log(
-            'ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\nTool_GridMap'))
+            'ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\nTool_GridMap')['headlessGridMapGizmo'])
+
+    def test_godot44_native_cold_import_is_reported_only_during_startup(self):
+        error = ('ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!\n'
+                 '   at: add_task (editor/progress_dialog.cpp:183)\n')
+        boot = '[Godot-MCP] plugin loaded\n'
+        self.assertEqual(1, extension_live.check_editor_log(error + boot, '4.4.0', startup_lines=3)['godot44ColdImportProgress'])
+        with self.assertRaisesRegex(ValueError, 'Unexpected'):
+            extension_live.check_editor_log(error + boot, '4.5.1', startup_lines=3)
+        with self.assertRaisesRegex(ValueError, 'Unexpected'):
+            extension_live.check_editor_log(boot + 'running tools\n' * 20 + error, '4.4.0', startup_lines=1)
 
     def test_archive_traversal_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
