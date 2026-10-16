@@ -324,12 +324,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // either — the only way to observe the drain thread's id is the inline run #179 forbids.
             var drainThreadId = Thread.CurrentThread.ManagedThreadId;
             var continuationThreadId = 0;
-            var ranOnDrainThread = false;
             var continuationRan = new ManualResetEventSlim(false);
             var cont = task.ContinueWith(_ =>
                 {
                     continuationThreadId = Thread.CurrentThread.ManagedThreadId;
-                    Volatile.Write(ref ranOnDrainThread, continuationThreadId == drainThreadId);
                     continuationRan.Set();
                 },
                 CancellationToken.None,
@@ -342,8 +340,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             // The continuation still runs — asynchronously, on a thread that is NOT the drain thread.
             Assert.True(continuationRan.Wait(TimeSpan.FromSeconds(5)), "continuation never ran");
-            Assert.False(Volatile.Read(ref ranOnDrainThread), "continuation ran inline on the drain thread");
-            Assert.NotEqual(drainThreadId, continuationThreadId);
+            Assert.True(continuationThreadId != drainThreadId, "continuation ran inline on the drain thread");
             Assert.Equal(7, await task);
             await cont;
         }
