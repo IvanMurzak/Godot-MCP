@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using com.IvanMurzak.Godot.MCP.Data;
 using VariantType = global::Godot.Variant.Type;
 
 namespace com.IvanMurzak.Godot.MCP.Reflection
@@ -56,6 +57,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// </summary>
         public static readonly string[] ValueKeys = { "value", "obj" };
 
+        /// <summary>
+        /// Wire key of the explanatory note on a value that was reported but not carried (see
+        /// <c>Godot_Variant_ReflectionConverter.ToWireNode</c>). An envelope with a note is never read back as a value.
+        /// </summary>
+        public const string NoteKey = "note";
+
         /// <summary>Human-readable description of the accepted wire shapes — reused in tool descriptions AND in every parse error.</summary>
         public const string WireFormatHelp =
             "A Godot.Variant is written either as a bare JSON scalar (null => Nil, true/false => Bool, " +
@@ -69,6 +76,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             "Aabb [x,y,z,width,height,depth]; Transform2D [xx,xy,yx,yy,ox,oy]; " +
             "Basis [xx,yx,zx,xy,yy,zy,xz,yz,zz]; Transform3D = Basis then [ox,oy,oz]; " +
             "Projection = four Vector4 columns flattened (16). String/StringName/NodePath take a string. " +
+            "Array takes a JSON array of variants (each a bare scalar or an envelope); Dictionary takes a JSON " +
+            "object of String keys or an array of {\"key\":<variant>,\"value\":<variant>}; Packed*Array takes a " +
+            "flat array of its element values (numbers, strings, or component arrays for the vector/color " +
+            "kinds); Object takes {\"resourcePath\":\"res://...\"} or {\"instanceId\":N} (null clears it). " +
             "Note: a parameter DECLARED as a concrete type (e.g. 'Godot.Vector3') keeps its own " +
             "member-wise shape ({\"x\":1,\"y\":2,\"z\":3}); only a 'Godot.Variant' parameter uses this " +
             "envelope — and its named-component object form matches that member-wise shape, so the same " +
@@ -79,6 +90,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             Kind = kind;
             TextValue = string.Empty;
             Components = Array.Empty<double>();
+            Items = Array.Empty<GodotVariantPayload>();
+            Entries = Array.Empty<KeyValuePair<GodotVariantPayload, GodotVariantPayload>>();
         }
 
         /// <summary>The Godot variant type this payload materializes into.</summary>
@@ -98,6 +111,18 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         /// <summary>Flat numeric components, in Godot constructor order, for the composite value types.</summary>
         public IReadOnlyList<double> Components { get; init; }
+
+        /// <summary>The elements of an <c>Array</c> or a <c>Packed*Array</c> (each of the packed element kind).</summary>
+        public IReadOnlyList<GodotVariantPayload> Items { get; init; }
+
+        /// <summary>The key/value pairs of a <c>Dictionary</c>, in insertion order.</summary>
+        public IReadOnlyList<KeyValuePair<GodotVariantPayload, GodotVariantPayload>> Entries { get; init; }
+
+        /// <summary>For <c>Object</c>: the <c>res://</c> path of a saved resource, else <c>null</c>.</summary>
+        public string? ResourcePath { get; init; }
+
+        /// <summary>For <c>Object</c>: the instance id, or 0 (with no <see cref="ResourcePath"/>) for <c>null</c>.</summary>
+        public ulong InstanceId { get; init; }
 
         /// <summary>Convenience accessor for a component as <see cref="float"/>.</summary>
         public float Component(int index) => (float)Components[index];
@@ -123,6 +148,126 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         public static GodotVariantPayload FromComponents(VariantType kind, IReadOnlyList<double> components)
             => new GodotVariantPayload(kind) { Components = components };
 
+        public static GodotVariantPayload FromItems(VariantType kind, IReadOnlyList<GodotVariantPayload> items)
+            => new GodotVariantPayload(kind) { Items = items };
+
+        public static GodotVariantPayload FromEntries(IReadOnlyList<KeyValuePair<GodotVariantPayload, GodotVariantPayload>> entries)
+            => new GodotVariantPayload(VariantType.Dictionary) { Entries = entries };
+
+        public static GodotVariantPayload FromObject(string? resourcePath, ulong instanceId)
+            => new GodotVariantPayload(VariantType.Object) { ResourcePath = string.IsNullOrEmpty(resourcePath) ? null : resourcePath, InstanceId = instanceId };
+
+        /// <summary>True for an <c>Object</c> payload that refers to nothing (a cleared reference).</summary>
+        public bool IsNullObject => Kind == VariantType.Object && ResourcePath == null && InstanceId == 0;
+
+        /// <summary>The element kind of a <c>Packed*Array</c>, or <c>null</c> for any other kind.</summary>
+        public static VariantType? PackedElementKind(VariantType kind) => kind switch
+        {
+            VariantType.PackedByteArray or VariantType.PackedInt32Array or VariantType.PackedInt64Array => VariantType.Int,
+            VariantType.PackedFloat32Array or VariantType.PackedFloat64Array => VariantType.Float,
+            VariantType.PackedStringArray => VariantType.String,
+            VariantType.PackedVector2Array => VariantType.Vector2,
+            VariantType.PackedVector3Array => VariantType.Vector3,
+            VariantType.PackedVector4Array => VariantType.Vector4,
+            VariantType.PackedColorArray => VariantType.Color,
+            _ => null,
+        };
+
+        /// <summary>
+        /// Whether two payloads describe the same Godot value: numbers compare across Bool/Int/Float (two
+        /// integers exactly; with <paramref name="allowFloatRounding"/> a double also matches its 32-bit float
+        /// rounding, the precision Godot stores most float properties in), text across
+        /// String/StringName/NodePath, composites and their integer twins (Vector3 / Vector3I) by component,
+        /// collections element by element (a Dictionary regardless of order), objects by instance id or path.
+        /// </summary>
+        public bool IsEquivalentTo(GodotVariantPayload other, bool allowFloatRounding)
+        {
+            if (IsNumeric(Kind) && IsNumeric(other.Kind))
+            {
+                if (Kind != VariantType.Float && other.Kind != VariantType.Float)
+                    return AsLong() == other.AsLong();
+                return SameNumber(AsDouble(), other.AsDouble(), allowFloatRounding);
+            }
+            if (IsText(Kind) && IsText(other.Kind))
+                return TextValue == other.TextValue;
+            if (Kind == VariantType.Nil || other.Kind == VariantType.Nil)
+                return (Kind == VariantType.Nil || IsNullObject) && (other.Kind == VariantType.Nil || other.IsNullObject);
+            if (Kind == VariantType.Object && other.Kind == VariantType.Object)
+                return InstanceId != 0 && other.InstanceId != 0 ? InstanceId == other.InstanceId : ResourcePath == other.ResourcePath;
+            if (Kind == VariantType.Dictionary && other.Kind == VariantType.Dictionary)
+                return EntriesEquivalent(other, allowFloatRounding);
+            if (Kind != other.Kind && (Family(Kind) is not { } family || family != Family(other.Kind)))
+                return false;
+            if (Family(Kind) == ListFamily)
+                return Items.Count == other.Items.Count
+                    && Items.Zip(other.Items, (a, b) => a.IsEquivalentTo(b, allowFloatRounding)).All(same => same);
+            return Components.Count == other.Components.Count
+                && Components.Zip(other.Components, (a, b) => SameNumber(a, b, allowFloatRounding)).All(same => same);
+        }
+
+        bool EntriesEquivalent(GodotVariantPayload other, bool allowFloatRounding)
+        {
+            if (Entries.Count != other.Entries.Count)
+                return false;
+            // The common all-String-keyed case is a lookup; mixed keys fall back to a pairwise scan.
+            if (Entries.All(e => e.Key.Kind == VariantType.String) && other.Entries.All(e => e.Key.Kind == VariantType.String))
+            {
+                var byKey = other.Entries.ToDictionary(e => e.Key.TextValue, e => e.Value, StringComparer.Ordinal);
+                return Entries.All(e => byKey.TryGetValue(e.Key.TextValue, out var v) && e.Value.IsEquivalentTo(v, allowFloatRounding));
+            }
+            // Godot keys are distinct by type too (1 and 1.0 are two keys), so match each entry to its own
+            // unused counterpart with a same-kind key.
+            var used = new bool[other.Entries.Count];
+            foreach (var e in Entries)
+            {
+                var match = -1;
+                for (var i = 0; i < used.Length && match < 0; i++)
+                {
+                    var o = other.Entries[i];
+                    if (!used[i] && o.Key.Kind == e.Key.Kind && e.Key.IsEquivalentTo(o.Key, allowFloatRounding: false)
+                        && e.Value.IsEquivalentTo(o.Value, allowFloatRounding))
+                        match = i;
+                }
+                if (match < 0)
+                    return false;
+                used[match] = true;
+            }
+            return true;
+        }
+
+        const int ListFamily = 7;
+
+        /// <summary>Number of elements of an Array / Packed*Array, or entries of a Dictionary; <c>null</c> otherwise.</summary>
+        public int? CollectionCount => Kind == VariantType.Dictionary ? Entries.Count : Family(Kind) == ListFamily ? Items.Count : null;
+
+        /// <summary>
+        /// Kinds Godot converts into one another without inventing data: numbers (Bool/Int/Float), text
+        /// (String/StringName/NodePath), each vector/rect and its integer twin, and Array with every Packed*Array.
+        /// <c>null</c> for a kind that only matches itself.
+        /// </summary>
+        public static int? Family(VariantType kind) => kind switch
+        {
+            VariantType.Bool or VariantType.Int or VariantType.Float => 1,
+            VariantType.String or VariantType.StringName or VariantType.NodePath => 2,
+            VariantType.Vector2 or VariantType.Vector2I => 3,
+            VariantType.Vector3 or VariantType.Vector3I => 4,
+            VariantType.Vector4 or VariantType.Vector4I => 5,
+            VariantType.Rect2 or VariantType.Rect2I => 6,
+            _ when kind == VariantType.Array || PackedElementKind(kind) != null => ListFamily,
+            _ => null,
+        };
+
+        static bool SameNumber(double a, double b, bool allowFloatRounding)
+            => a.Equals(b) || (allowFloatRounding && ((float)a).Equals((float)b));
+
+        long AsLong() => Kind == VariantType.Bool ? (BoolValue ? 1 : 0) : IntValue;
+
+        double AsDouble() => Kind == VariantType.Float ? FloatValue : AsLong();
+
+        static bool IsNumeric(VariantType kind) => Family(kind) == 1;
+
+        static bool IsText(VariantType kind) => Family(kind) == 2;
+
         public override string ToString() => Kind switch
         {
             VariantType.Nil => "Variant(Nil)",
@@ -130,6 +275,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             VariantType.Int => $"Variant(Int {IntValue})",
             VariantType.Float => $"Variant(Float {FloatValue.ToString(CultureInfo.InvariantCulture)})",
             VariantType.String or VariantType.StringName or VariantType.NodePath => $"Variant({Kind} '{TextValue}')",
+            VariantType.Object => IsNullObject ? "Variant(Object null)" : $"Variant(Object {ResourcePath ?? "#" + InstanceId.ToString(CultureInfo.InvariantCulture)})",
+            VariantType.Dictionary => $"Variant(Dictionary {Entries.Count} entries)",
+            _ when Family(Kind) == ListFamily => $"Variant({Kind} {Items.Count} items)",
             _ => $"Variant({Kind} [{string.Join(", ", Components.Select(c => c.ToString(CultureInfo.InvariantCulture)))}])",
         };
 
@@ -198,7 +346,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         {
             VariantType.Nil, VariantType.Bool, VariantType.Int, VariantType.Float,
             VariantType.String, VariantType.StringName, VariantType.NodePath,
-        }.Concat(Layouts.Keys).ToArray();
+            VariantType.Object, VariantType.Array, VariantType.Dictionary,
+        }.Concat(Layouts.Keys)
+         .Concat(((VariantType[])Enum.GetValues(typeof(VariantType))).Where(k => PackedElementKind(k) != null))
+         .ToArray();
 
         /// <summary>Every <see cref="VariantType"/> this payload can represent, for error messages.</summary>
         public static IEnumerable<VariantType> SupportedTypes => SupportedTypeList;
@@ -265,6 +416,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             var typeName = typeElement.GetString() ?? string.Empty;
             var kind = ParseVariantType(typeName);
 
+            // A get-data entry that could not be written out carries a note instead of the value; reading it back
+            // must not succeed (an Object one would otherwise read as null and clear the property).
+            if (TryFindProperty(json, NoteKey, out _, out _))
+                throw Bad($"this '{kind}' entry carries a '{NoteKey}' instead of a value (it was reported, not " +
+                    "written out), so it cannot be sent back — supply the value explicitly");
+
             TryFindProperty(json, ValueKeys, out var valueElement, out _);
             var hasValue = valueElement.ValueKind != JsonValueKind.Undefined && valueElement.ValueKind != JsonValueKind.Null;
 
@@ -275,6 +432,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 return Nil();
             }
 
+            if (!hasValue && kind == VariantType.Object)
+                return FromObject(null, 0);
             if (!hasValue)
                 throw Bad(
                     $"'{TypeKeys[0]}' is '{kind}' but no value was supplied under '{ValueKeys[0]}' " +
@@ -343,9 +502,104 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                         throw Bad($"'{kind}' expects a JSON string; got {Describe(value)}");
                     return FromText(kind, value.GetString() ?? string.Empty);
 
+                case VariantType.Object:
+                    return ReadObject(value);
+
+                case VariantType.Array:
+                    return FromItems(kind, ReadArray(kind, value).Select((item, i) => ParseElement(kind, i, item)).ToArray());
+
+                case VariantType.Dictionary:
+                    return FromEntries(ReadDictionary(value));
+
+                case var _ when PackedElementKind(kind) is { } elementKind:
+                    return FromItems(kind, ReadArray(kind, value).Select((item, i) => BuildPackedElement(kind, elementKind, i, item)).ToArray());
+
                 default:
                     return FromComponents(kind, ReadComponents(kind, value));
             }
+        }
+
+        static JsonElement[] ReadArray(VariantType kind, JsonElement value)
+            => value.ValueKind == JsonValueKind.Array
+                ? value.EnumerateArray().ToArray()
+                : throw Bad($"'{kind}' expects a JSON array; got {Describe(value)}");
+
+        static GodotVariantPayload ParseElement(VariantType kind, int index, JsonElement item)
+            => Element(kind, index, () => Parse(item));
+
+        /// <summary>Run <paramref name="read"/> and prefix any rejection with the collection element it is about.</summary>
+        static GodotVariantPayload Element(VariantType kind, int index, Func<GodotVariantPayload> read)
+        {
+            try
+            {
+                return read();
+            }
+            catch (ArgumentException ex) when (ex.Data[ReasonKey] is string reason)
+            {
+                throw Bad($"'{kind}' element [{index}]: {reason}");
+            }
+        }
+
+        static GodotVariantPayload BuildPackedElement(VariantType kind, VariantType elementKind, int index, JsonElement item)
+        {
+            var element = Element(kind, index, () => Build(elementKind, item));
+
+            (long Min, long Max)? range = kind switch
+            {
+                VariantType.PackedByteArray => (byte.MinValue, byte.MaxValue),
+                VariantType.PackedInt32Array => (int.MinValue, int.MaxValue),
+                _ => null,
+            };
+            if (range is { } r && (element.IntValue < r.Min || element.IntValue > r.Max))
+                throw Bad($"'{kind}' element [{index}] must be in [{r.Min}, {r.Max}]; got {element.IntValue}");
+            if (kind == VariantType.PackedFloat32Array && !IsFiniteAsSingle(element.FloatValue))
+                throw Bad($"'{kind}' element [{index}] must be a finite 32-bit float; got {Number(element.FloatValue)}");
+            return element;
+        }
+
+        static IReadOnlyList<KeyValuePair<GodotVariantPayload, GodotVariantPayload>> ReadDictionary(JsonElement value)
+        {
+            var entries = new List<KeyValuePair<GodotVariantPayload, GodotVariantPayload>>();
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in value.EnumerateObject())
+                    entries.Add(new KeyValuePair<GodotVariantPayload, GodotVariantPayload>(
+                        FromText(VariantType.String, property.Name), ParseElement(VariantType.Dictionary, entries.Count, property.Value)));
+                return entries;
+            }
+
+            foreach (var pair in ReadArray(VariantType.Dictionary, value))
+            {
+                if (pair.ValueKind != JsonValueKind.Object || !TryFindProperty(pair, "key", out var key, out _))
+                    throw Bad($"'Dictionary' entry [{entries.Count}] must be {{\"key\": <variant>, \"value\": <variant>}}; got {Describe(pair)}");
+                TryFindProperty(pair, "value", out var entryValue, out _);
+                entries.Add(new KeyValuePair<GodotVariantPayload, GodotVariantPayload>(
+                    ParseElement(VariantType.Dictionary, entries.Count, key), ParseElement(VariantType.Dictionary, entries.Count, entryValue)));
+            }
+            return entries;
+        }
+
+        static GodotVariantPayload ReadObject(JsonElement value)
+        {
+            if (value.ValueKind != JsonValueKind.Object)
+                throw Bad($"'Object' expects {{\"resourcePath\": \"res://...\"}} or {{\"instanceId\": N}}; got {Describe(value)}");
+
+            string? path = null;
+            if (TryFindProperty(value, ResourceRef.ResourceRefProperty.ResourcePath, out var pathElement, out _) && pathElement.ValueKind != JsonValueKind.Null)
+            {
+                if (pathElement.ValueKind != JsonValueKind.String)
+                    throw Bad($"'Object' resourcePath must be a string; got {Describe(pathElement)}");
+                path = pathElement.GetString();
+            }
+
+            ulong id = 0;
+            if (TryFindProperty(value, ResourceRef.ResourceRefProperty.InstanceId, out var idElement, out _) && idElement.ValueKind != JsonValueKind.Null
+                && !idElement.TryGetUInt64(out id))
+                throw Bad($"'Object' instanceId must be a non-negative integer; got {Describe(idElement)}");
+
+            if (string.IsNullOrEmpty(path) && id == 0)
+                throw Bad($"'Object' needs a non-empty 'resourcePath' or a non-zero 'instanceId' (use null to clear it); got {Describe(value)}");
+            return FromObject(path, id);
         }
 
         static double[] ReadComponents(VariantType kind, JsonElement value)
@@ -507,7 +761,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         static string DescribeSupported() => SupportedTypeNames;
 
+        /// <summary><see cref="Exception.Data"/> key holding a rejection's bare reason, for nested element errors.</summary>
+        const string ReasonKey = "reason";
+
         static ArgumentException Bad(string reason)
-            => new ArgumentException($"Cannot read a Godot.Variant: {reason}. {WireFormatHelp}");
+            => new ArgumentException($"Cannot read a Godot.Variant: {reason}. {WireFormatHelp}") { Data = { [ReasonKey] = reason } };
     }
 }
