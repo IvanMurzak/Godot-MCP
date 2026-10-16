@@ -190,7 +190,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             // A top-level C# member backed by a Godot property is read back like the native route.
             var readBack = segment == null ? null : PropertyPatchPath.GodotBackingProperty(target.GetType(), resolved.Path, GodotProperties.Keys);
-            var before = readBack == null ? default : target.Get(readBack);
+            var before = readBack == null ? default : Snapshot.Of(target.Get(readBack));
 
             // ReflectorNet 5.4 sends a failed member setter only to its ILogger and still returns true.
             var logger = new ErrorCapturingLogger();
@@ -207,7 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
             RecordDivergence(label);
 
-            if (readBack != null && Same(before, target.Get(readBack)))
+            if (readBack != null && before.IsSameAs(Snapshot.Of(target.Get(readBack))))
             {
                 logs.Warning($"{label} read back unchanged (it already had this value); not counted as a change.");
                 return false;
@@ -231,34 +231,36 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 return false;
             }
 
-            var before = target.Get(name);
-            if (!TryKeepCollectionTyping(ref intended, before))
+            var current = target.Get(name);
+            if (!TryKeepCollectionTyping(ref intended, current))
             {
-                logs.Error($"{label}: not every element fits the typed collection '{name}' ({Describe(before)}); nothing changed.");
+                logs.Error($"{label}: not every element fits the typed collection '{name}'; nothing changed.");
                 return false;
             }
+            var before = Snapshot.Of(current);
+            var requested = Snapshot.Of(intended);
             target.Set(name, intended);
             if (name == "script")
                 godotProperties = null; // A new script brings its own properties; re-list them on next use.
-            var after = target.Get(name);
-            var unchanged = Same(before, after);
+            var after = Snapshot.Of(target.Get(name));
+            var unchanged = before.IsSameAs(after);
 
-            if (Matches(intended, after))
+            if (requested.IsHeldBy(after))
             {
                 if (unchanged)
                 {
-                    logs.Warning($"{label}: '{name}' already holds {Describe(after)}; not counted as a change.");
+                    logs.Warning($"{label}: '{name}' already holds {after}; not counted as a change.");
                     return false;
                 }
-                logs.Success($"{label}: '{name}' set from {Describe(before)} to {Describe(after)}.");
+                logs.Success($"{label}: '{name}' set from {before} to {after}.");
                 return true;
             }
             if (unchanged)
             {
-                logs.Error($"{label}: Godot did not apply the value to '{name}' (it may be read-only) — still {Describe(after)}.");
+                logs.Error($"{label}: Godot did not apply the value to '{name}' (it may be read-only) — still {after}.");
                 return false;
             }
-            logs.Success($"{label}: '{name}' set from {Describe(before)} to {Describe(after)} (Godot adjusted the requested {Describe(intended)}).");
+            logs.Success($"{label}: '{name}' set from {before} to {after} (Godot adjusted the requested {requested}).");
             return true;
         }
 
@@ -328,48 +330,60 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         }
 
         /// <summary>
-        /// True when <paramref name="actual"/> holds <paramref name="expected"/> as Godot stores it (a requested
-        /// double also matches its 32-bit float rounding). See <see cref="GodotVariantPayload.IsEquivalentTo"/>.
+        /// A value read from (or about to be written to) Godot, converted to its payload once so the read-back
+        /// comparisons and log lines do not each walk a large collection again.
         /// </summary>
-        static bool Matches(Variant expected, Variant actual) => Equivalent(expected, actual, allowFloatRounding: true);
-
-        /// <summary>True when two values read back from Godot are the same, without the float-rounding tolerance.</summary>
-        static bool Same(Variant before, Variant after) => Equivalent(before, after, allowFloatRounding: false);
-
-        static bool Equivalent(Variant a, Variant b, bool allowFloatRounding)
+        readonly struct Snapshot
         {
-            try
-            {
-                return Godot_Variant_ReflectionConverter.ToPayload(a)
-                    .IsEquivalentTo(Godot_Variant_ReflectionConverter.ToPayload(b), allowFloatRounding);
-            }
-            catch (NotSupportedException)
-            {
-                // Rid / Callable / Signal have no payload form; they are small, so their text form is cheap.
-                return a.VariantType == b.VariantType && GD.VarToStr(a) == GD.VarToStr(b);
-            }
-        }
+            readonly Variant value;
+            readonly GodotVariantPayload? payload; // null for Rid / Callable / Signal, which have no payload form
 
-        static string Describe(Variant v)
-        {
-            switch (v.VariantType)
+            Snapshot(Variant value, GodotVariantPayload? payload)
             {
-                case Variant.Type.Object:
-                    return v.AsGodotObject() switch
+                this.value = value;
+                this.payload = payload;
+            }
+
+            public static Snapshot Of(Variant value)
+            {
+                try
+                {
+                    return new Snapshot(value, Godot_Variant_ReflectionConverter.ToPayload(value));
+                }
+                catch (NotSupportedException)
+                {
+                    return new Snapshot(value, null);
+                }
+            }
+
+            /// <summary>True when <paramref name="stored"/> holds this requested value as Godot stores it (float32 rounding allowed).</summary>
+            public bool IsHeldBy(Snapshot stored) => Equivalent(stored, allowFloatRounding: true);
+
+            /// <summary>True when two values read back from Godot are the same (no rounding tolerance).</summary>
+            public bool IsSameAs(Snapshot other) => Equivalent(other, allowFloatRounding: false);
+
+            bool Equivalent(Snapshot other, bool allowFloatRounding)
+                => payload != null && other.payload != null
+                    ? payload.IsEquivalentTo(other.payload, allowFloatRounding)
+                    // Rid / Callable / Signal are small, so their text form is cheap.
+                    : value.VariantType == other.value.VariantType && GD.VarToStr(value) == GD.VarToStr(other.value);
+
+            public override string ToString()
+            {
+                if (value.VariantType == Variant.Type.Object)
+                {
+                    return value.AsGodotObject() switch
                     {
                         null => "null",
                         Resource { ResourcePath: { Length: > 0 } path } => $"'{path}'",
                         var obj => $"{obj.GetClass()}#{obj.GetInstanceId()}",
                     };
-                case Variant.Type.Array:
-                    return $"Array({v.AsGodotArray().Count})"; // Never serialize a whole collection into a log line.
-                case Variant.Type.Dictionary:
-                    return $"Dictionary({v.AsGodotDictionary().Count})";
-                case >= Variant.Type.PackedByteArray and < Variant.Type.Max:
-                    return $"{v.VariantType}({v.AsGodotArray().Count})";
-                default:
-                    var text = GD.VarToStr(v);
-                    return text.Length > 120 ? text.Substring(0, 120) + "…" : text;
+                }
+                // Never serialize a whole collection into a log line.
+                if (payload?.CollectionCount is { } count)
+                    return $"{payload.Kind}({count})";
+                var text = GD.VarToStr(value);
+                return text.Length > 120 ? text.Substring(0, 120) + "…" : text;
             }
         }
 

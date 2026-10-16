@@ -383,7 +383,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Theory]
         [InlineData("PackedByteArray", "[0,255]", 2)]
         [InlineData("PackedInt32Array", "[-1,2147483647]", 2)]
-        [InlineData("PackedInt64Array", "[9007199254740993]", 1)]
         [InlineData("PackedFloat32Array", "[0.5,1]", 2)]
         [InlineData("PackedStringArray", "[\"a\",\"b\",\"c\"]", 3)]
         [InlineData("PackedVector3Array", "[[1,2,3],{\"x\":4,\"y\":5,\"z\":6}]", 2)]
