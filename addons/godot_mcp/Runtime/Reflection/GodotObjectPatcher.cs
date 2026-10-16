@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -35,8 +36,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             "Godot's own setter, and its value may be copied verbatim from a get-data result (a bare scalar, a " +
             "{\"variantType\",\"value\"} envelope, a typed value, or a resource reference); or a C# member path: " +
             "'FieldName', 'nested/field' (snake_case segments map to C# names), 'arrayField/[i]', 'dictField/[key]'. " +
-            "jsonPatch top-level keys follow the same rules. A write counts as a change only when reading it back " +
-            "shows it landed.";
+            "jsonPatch keys follow the same rules at every depth, and a JSON object given for a non-object property " +
+            "merges into it ({\"position\":{\"x\":1}}); each key is applied on its own. A write counts as a change only " +
+            "when reading it back shows it landed.";
 
         readonly Reflector reflector;
         readonly GodotObject target;
@@ -116,42 +118,57 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
             catch (JsonException)
             {
-                return ApplyReflectorJson(json); // TryPatch reports the parse error itself.
+                return ApplyReflectorJson(json, "jsonPatch"); // TryPatch reports the parse error itself.
             }
 
             using (document)
             {
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object || root.TryGetProperty("$type", out _))
-                    return ApplyReflectorJson(json);
+                    return ApplyReflectorJson(json, "jsonPatch");
 
                 var changed = false;
                 var residual = new JsonObject();
                 foreach (var entry in root.EnumerateObject())
                 {
-                    var godotName = PropertyPatchPath.GodotPropertyFor(target.GetType(), entry.Name,
-                        GodotVariantPayload.IsEnvelope(entry.Value), GodotProperties.Keys);
-                    if (godotName == null)
+                    var isEnvelope = GodotVariantPayload.IsEnvelope(entry.Value);
+                    var godotName = PropertyPatchPath.GodotPropertyFor(target.GetType(), entry.Name, isEnvelope, GodotProperties.Keys);
+                    // A plain JSON object for a non-object property is a merge into its value ({"position":{"x":1}}),
+                    // which only the ReflectorNet route can do — and only for a property with a C# member (a
+                    // script-only one stays native, which explains the envelope it needs); an object property's
+                    // JSON object is a reference.
+                    var isMerge = entry.Value.ValueKind == JsonValueKind.Object && !isEnvelope;
+                    if (godotName == null || !GodotProperties.TryGetValue(godotName, out var property)
+                        || (isMerge && property.Type != Variant.Type.Object && PropertyPatchPath.FindMember(target.GetType(), entry.Name) != null))
                     {
                         residual[entry.Name] = JsonNode.Parse(entry.Value.GetRawText());
                         continue;
                     }
-                    var property = GodotProperties[godotName];
                     changed |= ApplyGodotProperty(godotName, property, SerializedMember.FromJson(property.ValueType, entry.Value), $"jsonPatch '{entry.Name}'");
                 }
 
-                if (residual.Count > 0)
-                    changed |= ApplyReflectorJson(residual.ToJsonString());
+                PropertyPatchPath.CanonicalizeMergePatch(reflector, current, (current ?? target).GetType(), residual);
+                // One TryPatch per key: TryPatch reports false when ANY key fails, even though the others were
+                // already applied, which would hide those applied changes from the caller.
+                var keys = residual.ToList();
+                residual.Clear(); // detaches the nodes so each can move into its own single-key patch
+                foreach (var (key, node) in keys)
+                    changed |= ApplyReflectorJson(new JsonObject { [key] = node }.ToJsonString(), $"jsonPatch '{key}'");
                 return changed;
             }
         }
 
-        bool ApplyReflectorJson(string json)
+        bool ApplyReflectorJson(string json, string label)
         {
-            if (!reflector.TryPatch(ref current, json, logs: logs))
+            // ReflectorNet 5.4 sends a failed member setter only to its ILogger (its Logs still say "Set value").
+            var logger = new ErrorCapturingLogger();
+            var applied = reflector.TryPatch(ref current, json, logs: logs, logger: logger);
+            foreach (var error in logger.Errors)
+                logs.Error($"{label}: {error} — the value was NOT applied.");
+            if (!applied)
                 return false;
-            RecordDivergence("jsonPatch");
-            return true;
+            RecordDivergence(label);
+            return logger.Errors.Count == 0;
         }
 
         bool ApplyPathPatch(NodePropertyPatch patch, string label)
@@ -183,9 +200,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                         $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
                     return false;
                 }
-                var sentTypeName = value.typeName;
-                if (PropertyPatchPath.AlignPrimitiveTypeName(value, resolved.MemberType))
-                    logs.Info($"{label}: value typeName '{sentTypeName}' aligned to '{value.typeName}'.");
+                if (PropertyPatchPath.WithAlignedPrimitiveTypeName(value, resolved.MemberType) is { } aligned)
+                {
+                    logs.Info($"{label}: value typeName '{value.typeName}' aligned to '{aligned.typeName}'.");
+                    value = aligned;
+                }
             }
 
             // A top-level C# member backed by a Godot property is read back like the native route.

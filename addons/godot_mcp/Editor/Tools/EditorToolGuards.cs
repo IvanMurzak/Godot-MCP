@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -79,6 +80,66 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return ClassDB.Instantiate(className).As<T>()
                 ?? throw new ArgumentException($"Godot class '{className}' did not instantiate to a {typeof(T).Name}.", paramName);
+        }
+
+        /// <summary>
+        /// Keep Godot's resource cache in step with a file that was moved (<paramref name="newPath"/>) or deleted
+        /// (<c>null</c>); otherwise a loaded instance stays bound to the old path. Main-thread only.
+        /// </summary>
+        internal static void RebindCachedResource(string oldPath, string? newPath)
+        {
+            // CacheMode.Reuse returns the cached instance without touching the (moved or deleted) file.
+            if (!ResourceLoader.HasCached(oldPath)
+                || ResourceLoader.Load(oldPath, cacheMode: ResourceLoader.CacheMode.Reuse) is not { } cached)
+                return;
+            Rebind(cached, newPath);
+
+            // Built-in sub-resources are cached as '<old>::<id>' too; carry them along (or unbind them).
+            var prefix = oldPath + "::";
+            var seen = new HashSet<ulong>();
+            var pending = new Stack<Resource>();
+            pending.Push(cached);
+            while (pending.Count > 0)
+            {
+                var owner = pending.Pop();
+                if (!seen.Add(owner.GetInstanceId()))
+                    continue;
+                foreach (var info in owner.GetPropertyList())
+                {
+                    if ((info["usage"].As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) != 0)
+                        CollectSubResources(owner.Get(info["name"].AsStringName()), prefix, newPath, pending);
+                }
+            }
+        }
+
+        static void Rebind(Resource resource, string? newPath)
+        {
+            if (newPath == null)
+                resource.ResourcePath = string.Empty;
+            else
+                resource.TakeOverPath(newPath);
+        }
+
+        static void CollectSubResources(Variant value, string oldPrefix, string? newPath, Stack<Resource> pending)
+        {
+            switch (value.VariantType)
+            {
+                case Variant.Type.Object when value.AsGodotObject() is Resource sub && sub.ResourcePath.StartsWith(oldPrefix, StringComparison.Ordinal):
+                    Rebind(sub, newPath == null ? null : newPath + "::" + sub.ResourcePath.Substring(oldPrefix.Length));
+                    pending.Push(sub);
+                    break;
+                case Variant.Type.Array:
+                    foreach (var item in value.AsGodotArray())
+                        CollectSubResources(item, oldPrefix, newPath, pending);
+                    break;
+                case Variant.Type.Dictionary:
+                    foreach (var entry in value.AsGodotDictionary())
+                    {
+                        CollectSubResources(entry.Key, oldPrefix, newPath, pending);
+                        CollectSubResources(entry.Value, oldPrefix, newPath, pending);
+                    }
+                    break;
+            }
         }
 
         /// <summary>
