@@ -19,50 +19,60 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <summary>
     /// The read side of the property tools: a resource or node is serialized as a reference only (by its
     /// converter), so its data is added from Godot's own property list — every PROPERTY_USAGE_STORAGE entry,
-    /// exactly what ResourceSaver / the scene saver writes. Each entry's name and value can be sent back to
-    /// <c>resource-modify</c> / <c>node-modify</c> unchanged.
+    /// exactly what ResourceSaver / the scene saver writes.
     /// </summary>
     public static class GodotStoredProperties
     {
+        static readonly Variant UsageKey = "usage";
+        static readonly Variant NameKey = "name";
+
         /// <summary>Add every stored property of <paramref name="owner"/> to <paramref name="member"/>. Main thread only.</summary>
-        public static void AddTo(SerializedMember member, Reflector reflector, GodotObject owner, string ownerName, string toolId)
+        public static void AddTo(SerializedMember member, Reflector reflector, GodotObject owner)
         {
-            foreach (var prop in owner.GetPropertyList())
+            var properties = owner.GetPropertyList();
+            foreach (var prop in properties)
             {
-                if (!prop.TryGetValue("usage", out var usage) ||
-                    (usage.As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) == 0 ||
-                    !prop.TryGetValue("name", out var propName))
-                    continue;
-
-                // Skip unset values (Nil, or an Object-typed Variant holding null): they only add noise.
-                var value = owner.Get(propName.AsStringName());
-                if (value.VariantType == Variant.Type.Nil)
-                    continue;
-                object boxed = value;
-                if (value.VariantType == Variant.Type.Object)
+                using (prop)
                 {
-                    var godotObject = value.AsGodotObject();
-                    if (godotObject == null)
+                    if (!prop.TryGetValue(UsageKey, out var usage) ||
+                        (usage.As<PropertyUsageFlags>() & PropertyUsageFlags.Storage) == 0 ||
+                        !prop.TryGetValue(NameKey, out var nameVariant))
                         continue;
-                    // A resource or node goes through its own converter, so the caller gets a resolvable
-                    // ResourceRef / NodeRef typed as the object's class.
-                    if (godotObject is Resource or Node)
-                        boxed = godotObject;
+                    AddProperty(member, reflector, owner, nameVariant.AsString());
                 }
+            }
+        }
 
-                // One property the reflector cannot serialize must not take down the whole read.
-                try
-                {
-                    member.AddProperty(reflector.Serialize(obj: boxed, name: propName.AsString(), recursive: true));
-                }
-                catch (Exception ex)
-                {
-                    // Keep the property in the reply so the caller can tell the data is partial.
-                    member.AddProperty(SerializedMember.FromJson(typeof(Variant),
-                        Godot_Variant_ReflectionConverter.NoteNode(value.VariantType, $"Could not be serialized: {ex.Message}").ToJsonString(),
-                        propName.AsString()));
-                    GodotMcpLog.Warning($"[Godot-MCP] {toolId}: property '{propName}' of '{ownerName}' could not be serialized: {ex.Message}");
-                }
+        static void AddProperty(SerializedMember member, Reflector reflector, GodotObject owner, string name)
+        {
+            // Skip unset values (Nil, or an Object-typed Variant holding null): they only add noise.
+            var value = owner.Get(name);
+            if (value.VariantType == Variant.Type.Nil)
+                return;
+            object boxed = value;
+            if (value.VariantType == Variant.Type.Object)
+            {
+                var godotObject = value.AsGodotObject();
+                if (godotObject == null)
+                    return;
+                // A resource or node goes through its own converter, so the caller gets a resolvable
+                // ResourceRef / NodeRef typed as the object's class.
+                if (godotObject is Resource or Node)
+                    boxed = godotObject;
+            }
+
+            // One property the reflector cannot serialize must not take down the whole read.
+            try
+            {
+                member.AddProperty(reflector.Serialize(obj: boxed, name: name, recursive: true));
+            }
+            catch (Exception ex)
+            {
+                // Keep the property in the reply so the caller can tell the data is partial.
+                member.AddProperty(SerializedMember.FromJson(typeof(Variant),
+                    Godot_Variant_ReflectionConverter.NoteNode(value.VariantType, $"Could not be serialized: {ex.Message}").ToJsonString(),
+                    name));
+                GodotMcpLog.Warning($"[Godot-MCP] property '{name}' of '{member.name}' could not be serialized: {ex.Message}");
             }
         }
     }

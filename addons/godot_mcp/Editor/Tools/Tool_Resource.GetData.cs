@@ -11,13 +11,11 @@
 #nullable enable
 using System;
 using System.ComponentModel;
-using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
-using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -66,7 +64,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     name: name,
                     recursive: true);
 
-                GodotStoredProperties.AddTo(member, reflector, resource, name, ResourceGetDataToolId);
+                GodotStoredProperties.AddTo(member, reflector, resource);
                 return member;
             });
         }

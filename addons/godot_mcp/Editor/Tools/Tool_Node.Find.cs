@@ -30,7 +30,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             OpenWorldHint = false
         )]
         [Description("Find a Node in the currently edited Godot scene by instance id or scene-tree path " +
-            "and return its structured data (instanceId, name, path, type, attached script, child count). " +
+            "and return its structured data (instanceId, name, path, type, attached script, child count); use '" +
+            NodeGetDataToolId + "' for its property values. " +
             "Provide a 'nodeRef' identifying the Node (instanceId is preferred; a path like " +
             "'/root/Main/Player' or 'Main/Player' is resolved relative to the edited scene root). " +
             "Set 'hierarchyDepth' > 0 to include children: 1 = direct children, 2 = grandchildren, etc. " +

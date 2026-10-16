@@ -50,9 +50,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     throw new Exception(error ?? $"Node by {nodeRef} not found.");
 
                 var reflector = GodotMcpReflector.GetOrCreate();
-                var name = node.Name.ToString();
-                var member = reflector.Serialize(obj: node, name: name, recursive: true);
-                GodotStoredProperties.AddTo(member, reflector, node, name, NodeGetDataToolId);
+                var member = reflector.Serialize(obj: node, name: node.Name.ToString(), recursive: true);
+                GodotStoredProperties.AddTo(member, reflector, node);
                 return member;
             });
         }

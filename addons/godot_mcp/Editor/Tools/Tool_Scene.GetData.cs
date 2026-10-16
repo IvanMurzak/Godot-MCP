@@ -33,7 +33,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Get the scene-tree of the currently edited Godot scene as a structured Node hierarchy " +
             "rooted at the scene's root Node. 'hierarchyDepth' bounds how deep the tree is walked: 0 = the " +
             "root only, 1 = root + direct children, etc.; -1 walks the entire tree. Each entry carries the " +
-            "Node's instanceId, name, path, type, attached script, and child count.")]
+            "Node's instanceId, name, path, type, attached script, and child count; use '" + Tool_Node.NodeGetDataToolId +
+            "' for a node's property values.")]
         public NodeData GetData
         (
             [Description("Depth of the scene tree to include. 0 = root only; N > 0 = N layers of children; " +

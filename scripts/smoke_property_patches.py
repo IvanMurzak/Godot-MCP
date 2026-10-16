@@ -202,9 +202,8 @@ def main() -> int:
     check("N7 node-get-data lists light_energy", "light_energy" in nprops, ", ".join(list(nprops)[:12]))
     logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "light_energy", "value": nprops.get("light_energy", {})}]})
     check("N7 an unchanged entry is not a change", any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
-    entry = dict(nprops.get("light_specular", {}))
-    entry["value"] = {"variantType": "Float", "value": 0.125}
-    logs = call(host, "node-modify", {**node, "pathPatches": [{"path": entry.get("name", "light_specular"), "value": entry}]})
+    entry = {**nprops.get("light_specular", {}), "value": {"variantType": "Float", "value": 0.125}}
+    logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "light_specular", "value": entry}]})
     expect_logs("N7 edited entry", logs, errors=False, saved_marker=None)
 
     call(host, "scene-save", {})

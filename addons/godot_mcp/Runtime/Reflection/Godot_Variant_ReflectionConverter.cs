@@ -488,7 +488,15 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
             catch (BudgetExceededException)
             {
-                reason = $"it holds more than the {MaxInlineNodes} values inlined in a reply";
+                // Summarize instead of rendering a (possibly multi-MB) collection to text just to cut it.
+                node[ValueKey] = variant.VariantType switch
+                {
+                    VariantType.Array => $"{variant.VariantType}({variant.AsGodotArray().Count})",
+                    VariantType.Dictionary => $"{variant.VariantType}({variant.AsGodotDictionary().Count})",
+                    _ => variant.VariantType.ToString(),
+                };
+                node[NoteKey] = $"Not inlined because it holds more than the {MaxInlineNodes} values inlined in a reply.";
+                return node;
             }
 
             if (reason != null)
