@@ -31,9 +31,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             IdempotentHint = true,
             OpenWorldHint = false
         )]
-        [Description("Get the properties of a Node in the currently edited Godot scene — every property the " +
-            "scene file stores for it (Godot names such as 'position', 'light_energy', GDScript/C# script " +
-            "properties). Each property's name and value can be sent back to '" + NodeModifyToolId + "' unchanged. " +
+        [Description("Get the properties of a Node in the currently edited Godot scene — every storable property " +
+            "(what the scene file can save for it, current values including defaults; Godot names such as " +
+            "'position', 'light_energy', GDScript/C# script properties). Each property's name and value can be sent back to '" + NodeModifyToolId + "' unchanged. " +
             "Identify the Node with 'nodeRef' (instanceId preferred, else scene-tree path); use '" + NodeFindToolId +
             "' to locate it first. Returns a ReflectorNet SerializedMember whose value is the node reference and " +
             "whose props are the properties.")]

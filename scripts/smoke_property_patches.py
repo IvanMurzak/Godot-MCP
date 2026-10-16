@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Read-back smoke for the property-patch tools (`resource-modify`, `node-modify`, `resource-get-data`).
+Read-back smoke for the property-patch tools (`resource-modify`, `node-modify`, `resource-get-data`,
+`node-get-data`).
 
 Every case calls a tool and then verifies the result where it cannot lie: the `.tres` / `.tscn` text
 that Godot itself wrote to disk. It guards three regressions (issues #370 and the follow-up):

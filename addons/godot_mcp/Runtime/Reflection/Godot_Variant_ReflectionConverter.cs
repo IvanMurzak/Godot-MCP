@@ -466,8 +466,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// Build the wire JSON for a live variant. Three kinds of variant are not written out in full: types
         /// with no JSON form (Rid / Callable / Signal), a variant holding a non-finite float (JSON has no literal
         /// for NaN/±Infinity), and a collection of more than <see cref="MaxInlineNodes"/> values. Each is reported
-        /// honestly, as the declared <c>variantType</c> plus a (truncated) Godot string rendering and a note,
-        /// rather than as something that would not round-trip or as an opaque serialization failure.
+        /// honestly, as the declared <c>variantType</c> plus a note and either a (truncated) Godot string rendering
+        /// or, for an over-budget collection, its <see cref="CollectionSummary"/> — rather than as something that
+        /// would not round-trip or as an opaque serialization failure.
         /// </summary>
         internal static JsonObject ToWireNode(global::Godot.Variant variant)
         {
@@ -489,19 +490,19 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             catch (BudgetExceededException)
             {
                 // Summarize instead of rendering a (possibly multi-MB) collection to text just to cut it.
-                node[ValueKey] = variant.VariantType switch
-                {
-                    VariantType.Array => $"{variant.VariantType}({variant.AsGodotArray().Count})",
-                    VariantType.Dictionary => $"{variant.VariantType}({variant.AsGodotDictionary().Count})",
-                    _ => variant.VariantType.ToString(),
-                };
-                node[NoteKey] = $"Not inlined because it holds more than the {MaxInlineNodes} values inlined in a reply.";
+                node[ValueKey] = CollectionSummary(variant);
+                node[NoteKey] =
+                    $"Not inlined because it holds more than the {MaxInlineNodes} values inlined in a reply; it cannot " +
+                    "be sent back as a Godot.Variant argument. " + GodotVariantPayload.WireFormatHelp;
                 return node;
             }
 
             if (reason != null)
             {
-                var text = variant.ToString();
+                // A collection is summarized: rendering it whole could build a multi-MB string to keep 256 chars.
+                var isCollection = variant.VariantType is VariantType.Array or VariantType.Dictionary
+                    || GodotVariantPayload.PackedElementKind(variant.VariantType) != null;
+                var text = isCollection ? CollectionSummary(variant) : variant.ToString();
                 node[ValueKey] = text.Length > MaxRenderedChars ? text.Substring(0, MaxRenderedChars) + "…" : text;
                 node[NoteKey] =
                     $"Rendered as Godot's own string form because {reason}; it cannot be sent back as a " +
@@ -512,6 +513,18 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             node[ValueKey] = ToWireValue(payload!);
             return node;
         }
+
+        /// <summary>
+        /// A collection's kind plus, for an Array/Dictionary, its element count (<c>"Array(5000)"</c>) — never its
+        /// contents, so it stays cheap for a multi-MB collection. A packed array gives its kind only: reading its
+        /// length copies the whole array out of native storage.
+        /// </summary>
+        internal static string CollectionSummary(global::Godot.Variant variant) => variant.VariantType switch
+        {
+            VariantType.Array => $"{variant.VariantType}({variant.AsGodotArray().Count})",
+            VariantType.Dictionary => $"{variant.VariantType}({variant.AsGodotDictionary().Count})",
+            _ => variant.VariantType.ToString(),
+        };
 
         /// <summary>Largest collection (in nested values) written out in full; bigger ones get a note instead.</summary>
         const int MaxInlineNodes = 4096;
