@@ -89,9 +89,17 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         /// wins, so a <c>new</c>-hidden member never throws <see cref="AmbiguousMatchException"/>.
         /// </summary>
         public static MemberInfo? FindMember(Type type, string name)
-            => MemberCache.GetOrAdd((type, name), key => FindMemberUncached(key.Type, key.Name));
+        {
+            if (MemberCache.TryGetValue((type, name), out var cached))
+                return cached;
+            var member = FindMemberUncached(type, name);
+            // Only hits are cached: misses are caller-supplied names and would grow the cache without bound.
+            if (member != null)
+                MemberCache[(type, name)] = member;
+            return member;
+        }
 
-        static readonly ConcurrentDictionary<(Type Type, string Name), MemberInfo?> MemberCache = new();
+        static readonly ConcurrentDictionary<(Type Type, string Name), MemberInfo> MemberCache = new();
 
         static MemberInfo? FindMemberUncached(Type type, string name)
         {
@@ -200,19 +208,31 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         public static void CanonicalizeMergePatch(Reflector reflector, object? target, Type type, JsonObject patch)
         {
             var entries = patch.ToList();
+            var sent = new HashSet<string>(entries.Select(e => e.Key), StringComparer.Ordinal);
             patch.Clear(); // detaches the nodes so they can be re-added under their canonical names
+            // Only a bracket segment addresses a collection's element; a bare key is never one of its own
+            // members (Count, Keys, …), so it is left for ReflectorNet to report as it was sent.
+            var isCollection = ElementType(type) != null;
             foreach (var (key, node) in entries)
             {
                 var name = key;
-                if (key != "$type" && TryStep(type, null, key, needValue: false, out var canonical, out var childType, out _))
+                if (key != "$type" && (!isCollection || IsBracket(key))
+                    && TryStep(type, null, key, needValue: false, out var canonical, out var childType, out _))
                 {
-                    if (canonical != key && !entries.Any(e => e.Key == canonical))
+                    // Never fold two sent keys into one: the later would silently overwrite the earlier.
+                    if (canonical != key && !sent.Contains(canonical) && !patch.ContainsKey(canonical))
                         name = canonical;
                     if (node is JsonObject inner && childType != null && IsMergeTarget(reflector, childType))
                     {
-                        // Only now read the live value: its runtime type may expose members the declared one lacks.
-                        TryStep(type, target, key, needValue: true, out _, out _, out var child);
-                        var nested = child?.GetType() ?? childType;
+                        // A nested "$type" replaces the value, so its keys name members of that type; otherwise
+                        // read the live value only now: its runtime type may expose members the declared one lacks.
+                        var replaced = inner["$type"] is JsonValue typeNode && typeNode.TryGetValue<string>(out var typeName)
+                            ? TypeUtils.GetType(typeName)
+                            : null;
+                        object? child = null;
+                        if (replaced == null)
+                            TryStep(type, target, key, needValue: true, out _, out _, out child);
+                        var nested = replaced ?? child?.GetType() ?? childType;
                         if (IsMergeTarget(reflector, nested))
                             CanonicalizeMergePatch(reflector, child, nested, inner);
                     }

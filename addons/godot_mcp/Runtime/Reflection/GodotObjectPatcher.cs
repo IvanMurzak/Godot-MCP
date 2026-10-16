@@ -134,10 +134,12 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     var isEnvelope = GodotVariantPayload.IsEnvelope(entry.Value);
                     var godotName = PropertyPatchPath.GodotPropertyFor(target.GetType(), entry.Name, isEnvelope, GodotProperties.Keys);
                     // A plain JSON object for a non-object property is a merge into its value ({"position":{"x":1}}),
-                    // which only the ReflectorNet route can do; an object property's JSON object is a reference.
+                    // which only the ReflectorNet route can do — and only for a property with a C# member (a
+                    // script-only one stays native, which explains the envelope it needs); an object property's
+                    // JSON object is a reference.
                     var isMerge = entry.Value.ValueKind == JsonValueKind.Object && !isEnvelope;
                     if (godotName == null || !GodotProperties.TryGetValue(godotName, out var property)
-                        || (isMerge && property.Type != Variant.Type.Object))
+                        || (isMerge && property.Type != Variant.Type.Object && PropertyPatchPath.FindMember(target.GetType(), entry.Name) != null))
                     {
                         residual[entry.Name] = JsonNode.Parse(entry.Value.GetRawText());
                         continue;
@@ -158,10 +160,15 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         bool ApplyReflectorJson(string json, string label)
         {
-            if (!reflector.TryPatch(ref current, json, logs: logs))
+            // ReflectorNet 5.4 sends a failed member setter only to its ILogger (its Logs still say "Set value").
+            var logger = new ErrorCapturingLogger();
+            var applied = reflector.TryPatch(ref current, json, logs: logs, logger: logger);
+            foreach (var error in logger.Errors)
+                logs.Error($"{label}: {error} — the value was NOT applied.");
+            if (!applied)
                 return false;
             RecordDivergence(label);
-            return true;
+            return logger.Errors.Count == 0;
         }
 
         bool ApplyPathPatch(NodePropertyPatch patch, string label)
