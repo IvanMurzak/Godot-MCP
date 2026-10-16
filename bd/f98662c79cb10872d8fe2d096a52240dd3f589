@@ -1,0 +1,28 @@
+addons/godot_mcp/Tools/ScreenshotMath.cs
+  s_e36a2a3c4d1c6f::t_29223ba6a9a3e5 186-223
+addons/godot_mcp/Tools/Tool_Screenshot.Camera.cs
+  s_e36a2a3c4d1c6f::t_2358fa525f228a 90,92-107,109-111
+  s_e36a2a3c4d1c6f::t_723882385699b3 87-89,108
+  s_e36a2a3c4d1c6f::t_ebab0487765237 131-154
+  s_e36a2a3c4d1c6f::t_388478fe091bcb 158-161,166,192,197-207
+addons/godot_mcp/Tools/Tool_Screenshot.Isolated.cs
+  s_e36a2a3c4d1c6f::t_880fbb78a394fd 120-124,126-172,174-175
+Godot-MCP.Tests/ScreenshotMathTests.cs
+  s_e36a2a3c4d1c6f::t_a2ad50a6ac10d5 166-207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "bdf98662c79cb10872d8fe2d096a52240dd3f589",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

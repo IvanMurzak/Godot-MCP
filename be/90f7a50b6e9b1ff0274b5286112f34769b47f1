@@ -1,0 +1,25 @@
+docs/assetlib/SUBMISSION.md
+  s_88692866f8a457::t_2d1bf34367ab8b 28,32
+cli/package.json
+  s_88692866f8a457::t_2d1bf34367ab8b 3
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_88692866f8a457::t_2d1bf34367ab8b 63
+addons/godot_mcp/plugin.cfg
+  s_88692866f8a457::t_2d1bf34367ab8b 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "be90f7a50b6e9b1ff0274b5286112f34769b47f1",
+  "prompts": {},
+  "sessions": {
+    "s_88692866f8a457": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2977a50-af66-49ec-9bc3-af770d89759d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

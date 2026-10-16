@@ -1,0 +1,47 @@
+Godot-MCP.Tests/GodotMcpServerPathOverrideTests.cs
+  s_d3cd27dd45e300::t_7c49db25a1f292 170-183
+  s_d3cd27dd45e300::t_f03d1ba2053ac5 153-157
+  s_d3cd27dd45e300::t_c9afe1483dfb1e 235-290
+  s_d3cd27dd45e300::t_6046af369ffe97 307-310
+  s_d3cd27dd45e300::t_a55a3ecc4c75f9 88,90-94,96
+  s_d3cd27dd45e300::t_45e5ebbba8c2e8 334-341
+  s_d3cd27dd45e300::t_62d69a5ff65caf 184
+  s_d3cd27dd45e300::t_abadfbfebf28f4 68,80,99,122
+README.md
+  s_d3cd27dd45e300::t_890d64e487c676 843-845,848-850
+addons/godot_mcp/Editor/Connection/GodotMcpServerPathOverride.cs
+  s_d3cd27dd45e300::t_8f6097d0c4d8e9 148-160,169,177-186
+  s_d3cd27dd45e300::t_6db628b8c4ec21 119-126
+  s_d3cd27dd45e300::t_2d6cc47b2e3785 161-168,170-176
+  s_d3cd27dd45e300::t_2f00d4dbf6dc59 133-143
+  s_d3cd27dd45e300::t_e88f9c312cee52 35-39
+  s_d3cd27dd45e300::t_fc444b6d91a4c6 60-61,65-69
+  s_d3cd27dd45e300::t_d6c6fd911cb5be 70-71,200-207
+addons/godot_mcp/Editor/Connection/GodotMcpServerManager.cs
+  s_d3cd27dd45e300::t_1e372671dc76f1 131,172-174,177,264-265
+  s_d3cd27dd45e300::t_9f30650900e426 245-246,255-263
+  s_d3cd27dd45e300::t_4de07c3dc16f6a 213-217
+  s_d3cd27dd45e300::t_f943d739c08b12 779-782
+  s_d3cd27dd45e300::t_5a8d89a00368fe 139-145,148,155,160-166,168-171,175-176,178-180,190-192
+  s_d3cd27dd45e300::t_f9f85177066b3d 575-576
+  s_d3cd27dd45e300::t_781e6616c92658 236
+  s_d3cd27dd45e300::t_ab0898ee2f4997 234-235
+  s_d3cd27dd45e300::t_3457c65a0f5959 375-379
+  s_d3cd27dd45e300::t_d286ec266df5ff 768-770,772
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0a58c264d039b6a893d6fe314cf9b1bb907f226b",
+  "prompts": {},
+  "sessions": {
+    "s_d3cd27dd45e300": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "761519e4-ddc0-4406-bb0a-a2e5515622e0",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+cli/src/utils/ui.ts
+  s_5b742bf37a2587::t_5c99feeb05c831 270-284
+cli/tests/credentials.test.ts
+  s_5b742bf37a2587::t_56e02e26aad5a3 5,7-19,37-38,43,50,63-65
+cli/package.json
+  s_5b742bf37a2587::t_5d8ec14494a596 65
+cli/src/commands/run-tool-builder.ts
+  s_5b742bf37a2587::t_943df50bb8b4a0 72
+cli/README.md
+  s_5b742bf37a2587::t_2665fe5ec99960 92
+  s_5b742bf37a2587::t_fbe0f3e38a7931 176-177,183-191,193-195,198-200
+  s_5b742bf37a2587::t_a354faef3054f7 154-155
+cli/src/utils/machine-store.ts
+  s_5b742bf37a2587::t_2addbd96fd94b3 1-147
+cli/src/utils/credentials.ts
+  s_5b742bf37a2587::t_fdb617867e5578 5-6,8-15,31,49,51
+cli/tests/machine-store.test.ts
+  s_5b742bf37a2587::t_9fd7fb300a0c6e 1-84
+cli/tests/enroll-plugin.test.ts
+  s_5b742bf37a2587::t_1688d1ea55146c 6
+  s_5b742bf37a2587::t_f582fbb9948fb2 63-72
+  s_5b742bf37a2587::t_a43262a309d86e 125
+cli/src/commands/status.ts
+  s_5b742bf37a2587::t_dbead3c95ab9e7 24
+cli/src/utils/cloud-login.ts
+  s_5b742bf37a2587::t_056b78b8bd6a90 3-7,12-16,19,22-23,32-35,48-64,71-73,82-83,85-95,97-100,106-107,115-116,123-124,142-145,148-149,162-163,165-187,189-214,216-224,227-245,247-279,281-287
+cli/tests/connection.test.ts
+  s_5b742bf37a2587::t_ef656fa18b1d53 5,16-17,21-36,56,58,62,64,68,72,74,77,79,84-85,90,92,94,104-105,112-114,122,125,127,133,173-174,179,181,187,189,193,197-198,204,207,211,213,215,223-225,234,237,239,242-259,262-263,265-281,283,289,291,299-301,310,313-314,317,319,322-323,326,328,331-332,362-363,365,368-370,372,375-392,395-526
+cli/tests/cloud-login.test.ts
+  s_5b742bf37a2587::t_9cb4df542d4b91 6-14,26-35,49-57,59,65-95,98,101,105-107,112-113,115,118,120-157,165-255,262,266,270,277-279,283-284,286,290-331,334-335,339-341,344,348-395
+cli/src/commands/wait-for-ready.ts
+  s_5b742bf37a2587::t_672e13dc8f60c1 27
+cli/src/utils/connection.ts
+  s_5b742bf37a2587::t_805e3b55fbb1ac 5-13,323-324
+  s_5b742bf37a2587::t_6f7b5915f63fda 335,338,348
+  s_5b742bf37a2587::t_d85fe4b76a04dd 202-211,213,216,225,231-302,308-322
+  s_5b742bf37a2587::t_875f60e69512c7 303-307
+cli/CHANGELOG.md
+  s_5b742bf37a2587::t_d08d59e834f8b5 7-32
+cli/package-lock.json
+  s_5b742bf37a2587::t_bc44b34705b21c 12,81-83
+cli/src/commands/login.ts
+  s_5b742bf37a2587::t_7b998762f7a39a 7-13,15,22-23,31,34,38-44,51-53,62-64,67-72,74,83-85,100,108-111,113
+cli/src/commands/open.ts
+  s_5b742bf37a2587::t_9a06be7aae88c5 109,111
+cli/src/lib/enroll.ts
+  s_ed1b4ae4e5d986::t_8cc08e37db491d 3,6,57-62,67-70,75-77,79-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "04de1d5d05fb65892948c20d8c1e92e3ba911136",
+  "prompts": {},
+  "sessions": {
+    "s_5b742bf37a2587": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba723765-770d-456d-823d-c53d8073ed95",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_ed1b4ae4e5d986": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d065bda2-94f7-45db-b8f4-2da50c81020b",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
