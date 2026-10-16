@@ -42,6 +42,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             public Dictionary<string, int> Map { get; set; } = new Dictionary<string, int>();
             public global::Godot.Variant Any { get; set; }
             public float this[int index] => index;
+#pragma warning disable CS0169 // Only reached by reflection.
+            float _omni_range;
+#pragma warning restore CS0169
         }
 
         class Derived : Sample
@@ -140,6 +143,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void GodotPropertyFor_ChoosesRoute(string segment, bool valueIsVariant, string? expected)
         {
             Assert.Equal(expected, PropertyPatchPath.GodotPropertyFor(typeof(Sample), segment, valueIsVariant, GodotNames));
+        }
+
+        [Theory]
+        // An exact Godot name, or a public C# property's snake_case spelling, is read back...
+        [InlineData("light_energy", "light_energy")]
+        [InlineData("LightEnergy", "light_energy")]
+        [InlineData("Count", "count")]
+        // ...but a private field never borrows an unrelated Godot property's read-back.
+        [InlineData("_omni_range", null)]
+        [InlineData("Title", null)]
+        public void GodotBackingProperty(string clrName, string? expected)
+        {
+            Assert.Equal(expected, PropertyPatchPath.GodotBackingProperty(typeof(Sample), clrName, GodotNames));
         }
 
         [Theory]

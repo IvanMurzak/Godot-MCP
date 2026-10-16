@@ -135,6 +135,22 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             => godotProperties.Contains(name) ? name : godotProperties.FirstOrDefault(p => SameName(p, name));
 
         /// <summary>
+        /// The Godot property backing the top-level C# member <paramref name="clrName"/> of
+        /// <paramref name="targetType"/>, used to read a ReflectorNet write back: the exact Godot name, else the
+        /// snake_case spelling of a public C# property (<c>LightEnergy</c> → <c>light_energy</c>). A field or
+        /// non-public member never matches loosely, so a script's <c>_name</c> backing field is not read back
+        /// through the unrelated <c>name</c> property.
+        /// </summary>
+        public static string? GodotBackingProperty(Type targetType, string clrName, IReadOnlyCollection<string> godotProperties)
+        {
+            if (godotProperties.Contains(clrName))
+                return clrName;
+            return FindMember(targetType, clrName) is PropertyInfo { GetMethod.IsPublic: true }
+                ? MatchGodotProperty(clrName, godotProperties)
+                : null;
+        }
+
+        /// <summary>
         /// The Godot property a top-level segment must be applied to natively, or <c>null</c> to leave it on
         /// the ReflectorNet route: a Godot property name (as get-data returns it, or a GDScript property) that
         /// is not also an exact C# member, or any member named with a <c>Godot.Variant</c> value that is not

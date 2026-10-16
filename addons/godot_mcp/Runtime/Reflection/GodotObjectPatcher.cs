@@ -70,6 +70,13 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             for (var i = 0; i < (pathPatches?.Count ?? 0); i++)
             {
+                // Once a surface replaced the target, the caller discards the whole call; a native write
+                // after that would still land on the live object behind a "left unchanged" report.
+                if (DivergedSurface != null)
+                {
+                    logs.Error($"pathPatches[{i}..] skipped: {DivergedSurface} already replaced the target instance.");
+                    break;
+                }
                 var patch = pathPatches![i];
                 if (patch == null || string.IsNullOrEmpty(patch.Path))
                 {
@@ -182,7 +189,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
 
             // A top-level C# member backed by a Godot property is read back like the native route.
-            var readBack = segment == null ? null : PropertyPatchPath.MatchGodotProperty(resolved.Path, GodotProperties.Keys);
+            var readBack = segment == null ? null : PropertyPatchPath.GodotBackingProperty(target.GetType(), resolved.Path, GodotProperties.Keys);
             var before = readBack == null ? default : target.Get(readBack);
 
             // ReflectorNet 5.4 sends a failed member setter only to its ILogger and still returns true.
@@ -200,7 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
             RecordDivergence(label);
 
-            if (readBack != null && Matches(before, target.Get(readBack)))
+            if (readBack != null && Same(before, target.Get(readBack)))
             {
                 logs.Warning($"{label} read back unchanged (it already had this value); not counted as a change.");
                 return false;
@@ -226,8 +233,10 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
             var before = target.Get(name);
             target.Set(name, intended);
+            if (name == "script")
+                godotProperties = null; // A new script brings its own properties; re-list them on next use.
             var after = target.Get(name);
-            var unchanged = Matches(before, after);
+            var unchanged = Same(before, after);
 
             if (Matches(intended, after))
             {
@@ -283,21 +292,31 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         /// <summary>
         /// True when <paramref name="actual"/> holds <paramref name="expected"/> as Godot stores it: numbers
-        /// compare across Bool/Int/Float within <c>float</c> precision, text across String/StringName/NodePath,
-        /// objects by instance id; anything else by type and text form.
+        /// compare across Bool/Int/Float (a requested double also matches its 32-bit <c>float</c> rounding),
+        /// text across String/StringName/NodePath, objects by instance id; anything else by type and text form.
         /// </summary>
-        static bool Matches(Variant expected, Variant actual)
+        static bool Matches(Variant expected, Variant actual) => Compare(expected, actual, allowFloatRounding: true);
+
+        /// <summary>
+        /// True when two values read back from Godot are the same: <see cref="Matches"/> without the
+        /// <c>float</c>-rounding tolerance, so a real one-ulp change is still a change.
+        /// </summary>
+        static bool Same(Variant before, Variant after) => Compare(before, after, allowFloatRounding: false);
+
+        static bool Compare(Variant expected, Variant actual, bool allowFloatRounding)
         {
             var e = expected.VariantType;
             var a = actual.VariantType;
             if (IsNumeric(e) && IsNumeric(a))
             {
+                if (e != Variant.Type.Float && a != Variant.Type.Float)
+                    return ToInt64(expected) == ToInt64(actual);
                 double x = ToDouble(expected), y = ToDouble(actual);
-                return Math.Abs(x - y) <= 1e-6 * Math.Max(1.0, Math.Abs(x));
+                return x == y || (allowFloatRounding && (float)x == (float)y);
             }
             if (IsText(e) && IsText(a))
                 return expected.AsString() == actual.AsString();
-            if (e is Variant.Type.Object or Variant.Type.Nil || a is Variant.Type.Object or Variant.Type.Nil)
+            if (e is Variant.Type.Object or Variant.Type.Nil && a is Variant.Type.Object or Variant.Type.Nil)
                 return InstanceId(expected) == InstanceId(actual);
             return e == a && GD.VarToStr(expected) == GD.VarToStr(actual);
         }
@@ -306,12 +325,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         static bool IsText(Variant.Type type) => type is Variant.Type.String or Variant.Type.StringName or Variant.Type.NodePath;
 
-        static double ToDouble(Variant v) => v.VariantType switch
-        {
-            Variant.Type.Bool => v.AsBool() ? 1 : 0,
-            Variant.Type.Int => v.AsInt64(),
-            _ => v.AsDouble(),
-        };
+        static double ToDouble(Variant v) => v.VariantType == Variant.Type.Float ? v.AsDouble() : ToInt64(v);
+
+        static long ToInt64(Variant v) => v.VariantType == Variant.Type.Bool ? (v.AsBool() ? 1 : 0) : v.AsInt64();
 
         static ulong InstanceId(Variant v)
             => v.VariantType == Variant.Type.Object ? v.AsGodotObject()?.GetInstanceId() ?? 0 : 0;

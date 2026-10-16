@@ -153,12 +153,18 @@ def main() -> int:
     logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "omni_range", "value": {"typeName": "Godot.Variant", "value": [1, 2]}}]})
     expect_logs("N3 array into float", logs, errors=True, saved_marker=None)
 
+    # A one-off change of a large integer is still a change (no float tolerance between ints).
+    logs = call(host, "node-modify", {**node, "pathPatches": [{"path": "light_cull_mask", "value": {"typeName": "Godot.Variant", "value": 4294967294}}]})
+    expect_logs("N4 large int change", logs, errors=False, saved_marker=None)
+    check("N4 counted as a change", not any("No modifications" in m for m in log_types(logs).get("Warning", [])), json.dumps(logs)[:400])
+
     call(host, "scene-save", {})
     check("N1 light_energy = 3.5", file_has(project, scene, r"^light_energy = 3\.5$"))
     check("N1 position.x = 4", file_has(project, scene, r"^transform = Transform3D\(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0\)$"))
     check("N1 light_color", file_has(project, scene, r"^light_color = Color\(1, 0\.5, 0, 1\)$"))
     check("N2 omni_range = 7", file_has(project, scene, r"^omni_range = 7\.0$"))
     check("N2 shadow_enabled = true", file_has(project, scene, r"^shadow_enabled = true$"))
+    check("N4 light_cull_mask = 4294967294", file_has(project, scene, r"^light_cull_mask = 4294967294$"))
 
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""))
     return 1 if FAILURES else 0
