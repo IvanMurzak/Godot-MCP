@@ -5,7 +5,20 @@ AI MCP tools for the Godot Beehave addon (behaviour-tree AI): scaffold a tree ro
 Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Beehave` (0.1.2).
 Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
 
-Also install the third-party **Beehave** addon. It is not bundled with this package.
+## Required prerequisite — install the Beehave addon yourself
+
+This extension drives the **Beehave** addon but does **not** ship it. Before the editor tools can do
+anything, install Beehave into your own project:
+
+- Install **Beehave** from the **Godot Asset Library**, or download the pinned release `v2.9.2` from the
+  upstream repo [`bitbrain/beehave`](https://github.com/bitbrain/beehave/releases/tag/v2.9.2) and unzip it
+  so the addon lives at `addons/beehave/`.
+- **Enable it** under **Project Settings → Plugins**. Beehave registers GDScript `class_name` types
+  (e.g. `BeehaveTree`) in the global script-class list; the tools detect that to gate themselves.
+
+> **Attribution & disclaimer.** Beehave is © its authors under the **MIT** license; this extension is
+> **not affiliated** with or endorsed by it. The addon is your project's own runtime dependency — this
+> package never vendors, downloads, or redistributes it.
 
 ## Install
 

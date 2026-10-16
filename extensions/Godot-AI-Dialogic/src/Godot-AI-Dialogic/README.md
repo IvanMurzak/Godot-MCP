@@ -5,7 +5,21 @@ AI MCP tools for the Godot Dialogic addon (dialogue / visual novels): create tim
 Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Dialogic` (0.1.2).
 Requires a Godot C# project (4.4.0+) with the core `godot_mcp` addon installed.
 
-Also install the third-party **Dialogic** addon. It is not bundled with this package.
+## Required prerequisite — Dialogic (install it yourself)
+
+This extension **does NOT include** the Dialogic addon and does not download or vendor it. You must
+install Dialogic into your own Godot project separately:
+
+- Install **Dialogic** from the **Godot Asset Library**, or from
+  **https://github.com/dialogic-godot/dialogic** (tested against **2.0-alpha-18 on Godot 4.4** and **2.0-alpha-20 on Godot 4.5+**).
+- Enable it under **Project Settings → Plugins** (this also registers the `Dialogic` autoload).
+
+Without Dialogic installed and enabled, the editor tools below report `installed: false` and take no
+action (by design).
+
+> Dialogic is © Emilio Coppola and contributors, distributed under the **MIT License**. This extension is
+> **not affiliated with, endorsed by, or sponsored by** the Dialogic project — it merely provides AI tools
+> that author its resources. See the addon's own repository for its licence and terms.
 
 ## Install
 

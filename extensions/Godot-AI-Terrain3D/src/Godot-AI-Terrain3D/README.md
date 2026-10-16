@@ -5,7 +5,23 @@ AI MCP tools for the Godot Terrain3D addon (TokisanGames heightmap terrain): cre
 Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (0.1.2).
 Requires a Godot C# project (4.4.0+) with the core `godot_mcp` addon installed.
 
-Also install the third-party **Terrain3D** addon. It is not bundled with this package.
+## Required prerequisite — Terrain3D (install it yourself)
+
+This extension **does NOT include** the Terrain3D addon and does not download or vendor it. You must
+install Terrain3D into your own Godot project separately:
+
+- Install **Terrain3D** from the **Godot Asset Library** (search "Terrain3D"), or from
+  **https://github.com/TokisanGames/Terrain3D** (tested against **v1.0.2-stable**). Terrain3D ships
+  **precompiled binaries** in its release — no C++ build is required.
+- Unzip it into **`addons/terrain_3d/`**, **restart Godot** (a GDExtension only loads on editor
+  startup), then enable it under **Project Settings → Plugins**.
+
+Without Terrain3D installed and enabled, the editor tools below report `installed: false` and take no
+action (by design).
+
+> Terrain3D is © its authors and distributed under the **MIT License**. This extension is
+> **not affiliated with, endorsed by, or sponsored by** the Terrain3D project — it merely provides AI
+> tools that drive it. See the addon's own repository for its licence and terms.
 
 ## Install
 

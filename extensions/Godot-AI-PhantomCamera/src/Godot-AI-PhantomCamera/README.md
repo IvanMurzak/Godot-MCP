@@ -5,7 +5,21 @@ AI MCP tools for the Godot Phantom Camera addon (Cinemachine-style virtual camer
 Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.PhantomCamera` (0.1.2).
 Requires a Godot C# project (4.4.0+) with the core `godot_mcp` addon installed.
 
-Also install the third-party **Phantom Camera** addon. It is not bundled with this package.
+## Required prerequisite — Phantom Camera (install it yourself)
+
+This extension **does NOT include** the Phantom Camera addon and does not download or vendor it. You must
+install Phantom Camera into your own Godot project separately:
+
+- Install **Phantom Camera** from the **Godot Asset Library**, or from
+  **https://github.com/ramokz/phantom-camera** (tested against **v0.11.0.2**).
+- Enable it under **Project Settings → Plugins**.
+
+Without Phantom Camera installed and enabled, the editor tools below report `installed: false` and take no
+action (by design).
+
+> Phantom Camera is © its authors and distributed under the **MIT License**. This extension is **not
+> affiliated with, endorsed by, or sponsored by** the Phantom Camera project — it merely provides AI tools
+> that drive it. See the addon's own repository for its licence and terms.
 
 ## Install
 
