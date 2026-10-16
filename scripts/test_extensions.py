@@ -21,6 +21,12 @@ def compatible(module, sdk):
 
 def unit_tests(output):
     run(['dotnet', 'build', 'Godot-MCP.sln', '-c', 'Debug'], log=output / 'core-build.log')
+    # Preserve the legacy authoring gate too: Release packing excludes #if TOOLS,
+    # while xUnit links only pure-managed files. Build every complete module in
+    # Debug against its declared dependency floors before testing consumers.
+    for module in modules():
+        run(['dotnet', 'build', module['project'], '-c', 'Debug'],
+            log=output / (module['name'] + '-authoring-build.log'))
     projects = ['Godot-MCP.Tests/Godot-MCP.Tests.csproj'] + [m['tests'] for m in modules()]
     for index, project in enumerate(projects):
         text = run(['dotnet', 'test', project, '-c', 'Debug', '--logger', 'trx',

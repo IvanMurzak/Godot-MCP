@@ -19,7 +19,8 @@ Godot-MCP/
 ```
 
 Run `python scripts/test_extensions.py --sdk 4.5.1 --godot <Godot-mono-executable> --prove-isolation`.
-The command runs all original unit tests, packs actual source-only packages into a private feed,
+The command builds each authoring project in Debug (including `#if TOOLS`) against its declared
+dependency floors, runs all original unit tests, packs actual source-only packages into a private feed,
 compiles independent consumers, then runs every compatible module's live manifest through one
 editor and one local MCP server. It downloads the core's pinned server and test-only third-party
 addons. Use `--server` to supply that server locally. Owned processes are stopped on success or failure.
