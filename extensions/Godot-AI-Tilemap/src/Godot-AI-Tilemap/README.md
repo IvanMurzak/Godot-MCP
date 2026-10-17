@@ -1,9 +1,10 @@
 # Tilemap Tools
 
-AI MCP tools for Godot TileMapLayer (4.3+): create layers, assign tilesets, set/erase cells, and inspect used cells.
+RQL module for Godot TileMapLayer (4.3+): used-cell rows and SetCell / EraseCell / Clear for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Tilemap` (0.1.2).
-Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Tilemap` (1.0.0).
+Requires a Godot C# project (4.3.0+) with a core `godot_mcp` addon that has the RQL tools
+(`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
 ## Install
 
@@ -13,18 +14,43 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Tilemap /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.2` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.0.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
-## Tools
+## RQL
 
-- `tilemap-create` — Create a TileMapLayer node in the currently edited Godot scene.
-- `tilemap-set-tileset` — Assign a TileSet resource to an existing TileMapLayer.
-- `tilemap-set-cell` — Set a single cell on a TileMapLayer (by map + atlas coords).
-- `tilemap-erase-cell` — Erase a single cell on a TileMapLayer (set it back to empty).
-- `tilemap-get-used-cells` — List the used (non-empty) cells of a TileMapLayer (read-only).
-- `tilemap-clear` — Clear all cells on a TileMapLayer (the assigned TileSet is kept).
+Since 1.0.0 the extension is an **RQL module**: it adds no MCP tools. Agents create TileMapLayers, assign their
+TileSet and paint cells with the core `rql-query` / `rql-mutate` / `rql-schema` tools, and the module's guide is
+part of the core `godot-rql` skill. The module adds, on `TileMapLayer`:
+
+- **Cells**: read-only `usedCells` rows (`x y sourceId atlasX atlasY alternative`) and `usedCellCount`.
+- **Calls**: `SetCell(x, y, sourceId, atlasX, atlasY, alternative = 0)` (source id, atlas coordinates and
+  alternative validated: 0 or more), `EraseCell(x, y)` and `Clear()`. A rejected value changes nothing.
+
+```
+root | call AddChild("TileMapLayer", "Layer")
+nodes | where name == "Layer" | set TileSet = "res://e2e-tileset.tres"
+nodes | where name == "Layer" | call SetCell(0, 0, 0, 0, 0)
+nodes | where name == "Layer" | call SetCell(1, 0, 0, 2, 1, 1)
+nodes | where name == "Layer" | get usedCells | select x y sourceId atlasX atlasY alternative
+nodes | where name == "Layer" | call EraseCell(0, 0)
+nodes | where $ is TileMapLayer | select name usedCellCount TileSet
+nodes | where name == "Layer" | call Clear()
+```
+
+Every write is one undoable action and marks the scene unsaved (`editor | call SaveScene()` writes it).
+
+### Migrating from 0.x
+
+| 0.x tool | RQL |
+| --- | --- |
+| `tilemap-create` | `rql-mutate` `root \| call AddChild("TileMapLayer", "Layer")` |
+| `tilemap-set-tileset` | `rql-mutate` `nodes \| where name == "Layer" \| set TileSet = "res://tiles.tres"` |
+| `tilemap-set-cell` | `rql-mutate` `… \| call SetCell(0, 0, 0, 0, 0)` (x, y, sourceId, atlasX, atlasY[, alternative]) |
+| `tilemap-erase-cell` | `rql-mutate` `… \| call EraseCell(0, 0)` |
+| `tilemap-get-used-cells` | `rql-query` `… \| get usedCells \| select x y sourceId atlasX atlasY`; `… \| select usedCellCount TileSet` |
+| `tilemap-clear` | `rql-mutate` `… \| call Clear()` |
 
 ## Development and releases
 

@@ -1,25 +1,29 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Update the core MCP/reflection pins (com.IvanMurzak.McpPlugin / com.IvanMurzak.ReflectorNet) in
-    lockstep across the package, tests, and testbed csproj files.
+    Update the core MCP / reflection / query pins (com.IvanMurzak.McpPlugin / com.IvanMurzak.ReflectorNet /
+    com.IvanMurzak.Rql) in lockstep across the package, tests, and testbed csproj files.
 
 .DESCRIPTION
-    These pins MUST match the core Godot-MCP addon (Godot-MCP/Godot-MCP.csproj). When the addon advances
-    its pins, run this so the extension declares compatible MIN-versions everywhere. Pass either or both.
+    The package declares MIN-versions (floors) the core Godot-MCP addon (Godot-MCP/Godot-MCP.csproj) satisfies;
+    com.IvanMurzak.Rql is the RQL module API. When the floors must advance, run this so the extension declares
+    them everywhere. Pass any of the three.
 
 .EXAMPLE
     ./commands/update-core.ps1 -McpPlugin "6.11.0"
 .EXAMPLE
     ./commands/update-core.ps1 -McpPlugin "6.11.0" -ReflectorNet "5.4.0" -WhatIf
+.EXAMPLE
+    ./commands/update-core.ps1 -Rql "0.2.0"
 #>
 param(
     [string]$McpPlugin,
     [string]$ReflectorNet,
+    [string]$Rql,
     [switch]$WhatIf
 )
 $ErrorActionPreference = "Stop"
-if (-not $McpPlugin -and -not $ReflectorNet) { throw "Pass -McpPlugin and/or -ReflectorNet." }
+if (-not $McpPlugin -and -not $ReflectorNet -and -not $Rql) { throw "Pass -McpPlugin, -ReflectorNet and/or -Rql." }
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $targets = @('src', 'tests', 'testbed') | ForEach-Object {
@@ -30,6 +34,7 @@ $targets = @('src', 'tests', 'testbed') | ForEach-Object {
 $pins = @{}
 if ($McpPlugin)    { $pins['com.IvanMurzak.McpPlugin']  = $McpPlugin }
 if ($ReflectorNet) { $pins['com.IvanMurzak.ReflectorNet'] = $ReflectorNet }
+if ($Rql)          { $pins['com.IvanMurzak.Rql']          = $Rql }
 
 foreach ($csproj in $targets) {
     $content = Get-Content $csproj.FullName -Raw
