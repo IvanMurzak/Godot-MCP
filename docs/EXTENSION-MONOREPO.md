@@ -35,8 +35,7 @@ Isolation is a required compile gate. The core consumer sees no module sources; 
 consumer sees only its NuGet sources. A deliberate reference to Beehave passes in the combined
 project and must fail in the Animation-only project. This catches the undeclared dependency
 that a combined editor alone could conceal. Live assertions, success envelopes and response
-expectations are retained. Script and assembly errors also fail the suite; the observed native
-GridMap gizmo diagnostic under the headless dummy renderer is narrowly matched and reported.
+expectations are retained. Script and assembly errors, and any other engine error, also fail the suite.
 Godot 4.4's [upstream cold-import progress-dialog diagnostic](https://github.com/godotengine/godot/issues/103398)
 is also matched by exact native frames, only in the log captured before the first tool call,
 and reported separately. It remains fatal during tool calls or on other engine versions.
@@ -103,7 +102,13 @@ Third-party addon fixtures are never included in extension packages.
 ## Add a module
 
 Run `python scripts/new_extension.py MyFeature` from this repository. It copies the scaffold
-into `extensions/Godot-AI-MyFeature/`, registers metadata and both shared catalog mirrors, and
-does not create a repository or separate workflows. Implement tools and their unit/live tests,
-then run the same central suite. Packaging constraints are documented in each module's
+into `extensions/Godot-AI-MyFeature/`, registers metadata and both shared catalog mirrors (with an
+empty `tools` list), and does not create a repository or separate workflows. An extension is an
+**RQL module** ([docs/rql.md](rql.md#extensions-are-rql-modules)): implement its adapters, sources and
+guide under `Editor/Rql/`, the xUnit tests, and the live manifest that runs every guide example, then
+run the same central suite. Packaging constraints are documented in each module's
 `docs/source-only-nuget-recipe.md`.
+
+The live manifests call the core `rql-query` / `rql-mutate` / `rql-schema` tools and match the default
+compact text results. A call marked `expectFailure` must fail with its `expect` substrings (a value the
+module rejects); the suite tolerates exactly that many error responses in the editor log.

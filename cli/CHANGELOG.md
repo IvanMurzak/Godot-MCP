@@ -4,6 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Extension catalog: the extensions are RQL modules.** The `EXTENSIONS_CATALOG` mirror follows the shared
+  `extensions.catalog.json`: every Godot-AI-* extension (1.0.0) contributes no MCP tools any more (`tools: []`) and
+  its description names the RQL surface it adds to `rql-query` / `rql-mutate` instead.
+
 - **`install-plugin` pins the NuGet packages of the addon it installs.** The consumer `.csproj`'s
   `PackageReference` versions now come from the installed addon — `addons/godot_mcp/nuget-deps.json`,
   which the release workflow generates from `Godot-MCP.csproj` into the addon zip — instead of the

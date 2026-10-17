@@ -37,7 +37,7 @@ The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/u
 
 - :white_check_mark: **Open & Connect** — build the project's C# assembly and launch the Godot editor with `GODOT_MCP_*` connection env vars
 - :white_check_mark: **Install plugin** — install the `godot_mcp` addon end-to-end (download release, add NuGet pins + catalog, enable)
-- :white_check_mark: **Install extensions** — add optional Godot-MCP AI tool-family packages to a project
+- :white_check_mark: **Install extensions** — add optional Godot-MCP extension packages (RQL modules) to a project
 - :white_check_mark: **Remove plugin** — disable the `godot_mcp` addon in `project.godot`
 - :white_check_mark: **Configure** — enable/disable MCP tools, prompts, and resources
 - :white_check_mark: **Status check** — detect a running Godot editor and probe MCP-server health
@@ -95,7 +95,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
-| `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional AI-tool-family package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
+| `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
 | `update` | Check npm for a newer `godot-cli` and install it. |
 

@@ -86,5 +86,20 @@ the reload still unloads.
   headless editor: read-back of every change from the `.tscn` / `.tres` Godot wrote (the former
   `smoke_property_patches.py` cases), `AddChild` + `SaveScene` round-trip, resource move / delete with sidecars, and
   every example of the guide (`Godot-Tests/rql-guide-examples.json`) in order.
-- The extension suite (`test_extensions.yml`) runs its editor with `GODOT_MCP_TOOL_FORMAT=Json` until the extensions
-  migrate to RQL modules; its scene setup uses `rql-mutate` (`editor | call NewScene(…)`).
+- The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
+  the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
+
+## Extensions are RQL modules
+
+The `extensions/Godot-AI-*` packages add no MCP tools. Each ships an `IRqlModule` (`Editor/Rql/<Feature>Module.cs`,
+Order 100) that compiles into the consumer project assembly, where the core discovers it: adapters for the Godot types
+it covers (validated members that replace C# properties, virtual members, methods), sources for state no node owns,
+and a guide (`ctx.AddGuide`) that the `godot-rql` skill renders. A module uses only Godot, `com.IvanMurzak.Rql` and
+the BCL — never core-addon types — so the package still builds on its own; undo, dirty marking and saving come from the
+core's mutation hooks, which record the Godot object a `set` writes or a `call` targets. Extensions that wrap a
+GDScript or GDExtension addon (Beehave, Dialogic, PhantomCamera, Terrain3D) cannot target its classes with an adapter
+(they have no C# type), so they expose a source (`beehave`, `dialogic`, `phantomcamera`, `terrain3d`) with rows and
+validated calls where the addon needs them, and otherwise write through `props["…"]` and the core node calls. Every guide
+example is unit-tested to parse and runs live in the extension suite (`tests/e2e/e2e-tools.json`). The scaffold is
+`templates/extension/` (`python scripts/new_extension.py <Feature>`); the Unity-MCP counterparts are its extensions'
+`Editor/Scripts/Rql/*Module.cs`.

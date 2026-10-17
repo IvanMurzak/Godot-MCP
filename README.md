@@ -953,4 +953,6 @@ commercial products, except to provide a product that competes with the licensor
 
 ## Extension modules
 
-Extensions live in `extensions/` with independent NuGet versions and releases. See the [monorepo guide](docs/EXTENSION-MONOREPO.md) for one-editor live tests, isolated consumers, releases and adding a module.
+Extensions live in `extensions/` with independent NuGet versions and releases. Each one is an RQL module: it adds
+no MCP tools, but adapters, sources and an agent guide to the `rql-query` / `rql-mutate` / `rql-schema` tools and the
+`godot-rql` skill (see [docs/rql.md](docs/rql.md#extensions-are-rql-modules)). See the [monorepo guide](docs/EXTENSION-MONOREPO.md) for one-editor live tests, isolated consumers, releases and adding a module.
