@@ -12,7 +12,7 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
 {
     /// <summary>
     /// Pure-managed (CI-unit-testable) helper for Dialogic's <b>plain-text timeline format</b> — the
-    /// version-stable surface the editor tools author. A Dialogic <c>.dtl</c> file IS its timeline text (the
+    /// version-stable surface the module writes. A Dialogic <c>.dtl</c> file IS its timeline text (the
     /// addon's loader does <c>from_text(file.get_as_text())</c>), so building one line of text is the whole job
     /// and it can be verified with no Godot binary.
     ///

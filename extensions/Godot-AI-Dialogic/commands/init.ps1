@@ -13,7 +13,7 @@
       Package id  : com.IvanMurzak.Godot.MCP.<Feature>     (the NuGet <PackageId>)
       Repo        : IvanMurzak/Godot-AI-<Feature>          (-GitHubRepository)
       Display name: "<Feature> Tools"                       (-DisplayName)
-      Description : "AI MCP tools for Godot <Feature>."      (-Description)
+      Description : "RQL module for Godot <Feature>."      (-Description)
       Tool prefix : <feature-lowercased>                     (-ToolPrefix; tool ids "<prefix>-*")
 
 .EXAMPLE
@@ -37,7 +37,7 @@ if ($Feature -notmatch '^[A-Za-z][A-Za-z0-9]*$') {
 }
 
 if ([string]::IsNullOrWhiteSpace($DisplayName))      { $DisplayName = "$Feature Tools" }
-if ([string]::IsNullOrWhiteSpace($Description))       { $Description = "AI MCP tools for Godot $Feature." }
+if ([string]::IsNullOrWhiteSpace($Description))       { $Description = "RQL module for Godot $Feature." }
 if ([string]::IsNullOrWhiteSpace($GitHubRepository))  { $GitHubRepository = "IvanMurzak/Godot-AI-$Feature" }
 if ([string]::IsNullOrWhiteSpace($ToolPrefix))        { $ToolPrefix = $Feature.ToLower() }
 
@@ -117,5 +117,5 @@ Write-Host "Done. Next:" -ForegroundColor Green
 Write-Host "  1. Review the changes, then build + test:"
 Write-Host "       dotnet build src/Godot-AI-$Feature/Godot-AI-$Feature.csproj"
 Write-Host "       dotnet test  tests/Godot-AI-$Feature.Tests/Godot-AI-$Feature.Tests.csproj"
-Write-Host "  2. Write your tools under src/Godot-AI-$Feature/Runtime/Tools (pure-managed) and Editor/Tools (#if TOOLS)."
+Write-Host "  2. Write the RQL module under src/Godot-AI-$Feature/Editor/Rql (adapters, sources, guide; see AGENTS.md)."
 Write-Host "  3. Configure the NUGET_API_KEY secret, then push to main with a bumped <Version> to release."

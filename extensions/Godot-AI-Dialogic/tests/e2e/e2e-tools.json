@@ -1,32 +1,18 @@
 {
-  "description": "Live run-tool E2E tool list for the Dialogic Tools extension (CLASS-B: wraps the third-party dialogic-godot/dialogic addon, installed into testbed/addons/dialogic by CI). Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "No 'setup' scene is needed: every Dialogic tool authors/reads res:// RESOURCES (.dtl/.dch) by path, not scene nodes, so none resolves against EditorInterface.GetEditedSceneRoot(). The tools are ordered so add-text/get operate on resources the create tools just wrote. Because the addon IS installed in the testbed, the editor tools assert the Class-B happy path '\"Installed\":true'. 'expect' substrings are matched against godot-cli's compact --raw JSON (ReflectorNet serializes PascalCase property names, so the casing here is PascalCase).",
+  "description": "Live E2E for the Dialogic RQL module. Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor (with the pinned third-party Dialogic addon installed from extension.json testAddon and its Dialogic autoload registered) and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (source, rows, creation calls, guide) turns the suite red.",
+  "notes": "No 'setup' scene: Dialogic works on res:// resource files (.dtl timelines, .dch characters), not scene nodes. rql-schema proves the module was discovered (its source). The 'tools' then run every DialogicGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise) on the former paths res://e2e_intro.dtl and res://e2e_hero.dch, followed by read-backs (the character through a fresh godot.resource load too) and rejected calls. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated.",
   "setup": [],
   "tools": [
-    {
-      "tool": "dialogic-timeline-create",
-      "input": { "resourcePath": "res://e2e_intro", "text": "Hello from CI", "speaker": "Narrator" },
-      "expect": ["\"Installed\":true", "\"ResourceKind\":\"timeline\"", "\"ResourcePath\":\"res://e2e_intro.dtl\"", "\"EventCount\":1"]
-    },
-    {
-      "tool": "dialogic-character-create",
-      "input": { "resourcePath": "res://e2e_hero", "displayName": "Hero", "color": "#e91e63", "description": "The brave protagonist." },
-      "expect": ["\"Installed\":true", "\"ResourceKind\":\"character\"", "\"ResourcePath\":\"res://e2e_hero.dch\"", "\"DisplayName\":\"Hero\"", "\"Color\":\"#e91e63\""]
-    },
-    {
-      "tool": "dialogic-timeline-add-text",
-      "input": { "resourcePath": "res://e2e_intro.dtl", "text": "A second line", "speaker": "Hero" },
-      "expect": ["\"Installed\":true", "\"ResourceKind\":\"timeline\"", "\"EventCount\":2"]
-    },
-    {
-      "tool": "dialogic-get",
-      "input": { "resourcePath": "res://e2e_hero.dch" },
-      "expect": ["\"Installed\":true", "\"ResourceKind\":\"character\"", "\"DisplayName\":\"Hero\"", "\"Color\":\"#e91e63\""]
-    },
-    {
-      "tool": "dialogic-defaults",
-      "input": {},
-      "expect": ["\"ResourceKind\":\"defaults\"", "\"DisplayName\":\"Narrator\""]
-    }
+    { "tool": "rql-schema", "input": {}, "expect": ["dialogic", "Dialogic dialogue files"] },
+    { "tool": "rql-query", "input": { "query": "dialogic | select installed hint" }, "expect": ["installed|hint", "true|"] },
+    { "tool": "rql-mutate", "input": { "query": "dialogic | call CreateTimeline(\"res://e2e_intro.dtl\", \"Hello from CI\", \"Narrator\")" }, "expect": ["CreateTimeline(", "|res://e2e_intro.dtl"] },
+    { "tool": "rql-mutate", "input": { "query": "dialogic | call CreateCharacter(\"res://e2e_hero.dch\", \"Hero\", \"#e91e63\", \"The brave protagonist.\")" }, "expect": ["CreateCharacter(", "|res://e2e_hero.dch"] },
+    { "tool": "rql-mutate", "input": { "query": "dialogic.timelines | where name == \"e2e_intro\" | call AddText(\"A second line\", \"Hero\")" }, "expect": ["AddText(", "|2"] },
+    { "tool": "rql-mutate", "input": { "query": "dialogic.characters | where name == \"e2e_hero\" | get resource | set props[\"description\"] = \"The bravest hero.\"" }, "expect": ["props[\\\"description\\\"]|The brave protagonist.|The bravest hero."] },
+    { "tool": "rql-query", "input": { "query": "dialogic.timelines | select path eventCount text" }, "expect": ["res://e2e_intro.dtl|2|", "Narrator: Hello from CI", "Hero: A second line"] },
+    { "tool": "rql-query", "input": { "query": "dialogic.characters | select path displayName color description" }, "expect": ["res://e2e_hero.dch|Hero|#e91e63|The bravest hero."] },
+    { "tool": "rql-mutate", "input": { "query": "dialogic | call CreateCharacter(\"res://e2e_villain\", \"Villain\", \"crimson\")" }, "expect": ["color must be a hex color"], "expectFailure": true },
+    { "tool": "rql-mutate", "input": { "query": "dialogic | call CreateTimeline(\"res://e2e_intro\")" }, "expect": ["already exists"], "expectFailure": true },
+    { "tool": "rql-query", "input": { "query": "dialogic.characters | where name == \"e2e_villain\" | select path" }, "expect": ["0 results"] }
   ]
 }
