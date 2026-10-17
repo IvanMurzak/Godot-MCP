@@ -8,7 +8,8 @@
 // checkout's `Godot-MCP.csproj` for `--source`). These constants are used only for
 // addon zips that predate that manifest. They mirror the addon's own reused pins in
 // `Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`) at
-// this CLI's version — the SAME values, never a bump of those pins. A parity test
+// this CLI's version — the SAME values, never a bump of those pins. `com.IvanMurzak.Rql` (the RQL data layer of
+// the editor tools, PolyForm Shield 1.0.0) is a direct dependency of the addon sources since 1.0. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
 // never silently install a mismatched version.
@@ -40,11 +41,12 @@ export interface AddonEmbeddedResource {
 /**
  * The NuGet `PackageReference`s the addon of THIS CLI's version needs (fallback when
  * the installed addon carries no `nuget-deps.json`), mirroring `Godot-MCP.csproj`.
- * Order matches the addon csproj (ReflectorNet first, then McpPlugin).
+ * Order matches the addon csproj (ReflectorNet, McpPlugin, then Rql).
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.3' },
-  { id: 'com.IvanMurzak.McpPlugin', version: '8.7.1' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '8.8.1' },
+  { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
 ] as const;
 
 /**

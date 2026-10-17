@@ -32,7 +32,7 @@ export interface SkillFamily {
 }
 
 /**
- * The Godot-MCP tool-family catalog. Mirrors the 12 families documented in
+ * The Godot-MCP tool-family catalog. Mirrors the 8 families documented in
  * the README "Tools Reference" and the `[AiToolType]` classes under
  * `addons/godot_mcp/Runtime/Tools/` and `addons/godot_mcp/Editor/Tools/`. Tool names are the `[AiTool("<name>")]` identifiers
  * an MCP client invokes.
@@ -46,60 +46,26 @@ export interface SkillFamily {
  */
 export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
-    id: 'node',
-    title: 'Node',
-    summary: 'Find, read, create, modify, reparent, reorder, duplicate, and delete nodes in the open scene tree.',
+    id: 'rql',
+    title: 'Rql',
+    summary:
+      'Read and change anything in the Godot editor with RQL (Reflection Query Language): scene nodes and their Godot properties (GDScript variables included), resources, files, open scenes, classes, the editor log and editor state — one query instead of one tool per operation. Replaces the former node-*, scene-*, resource-*, filesystem-* and editor-* tools.',
     tools: [
-      { name: 'node-find', description: 'Find nodes in the open scene by path, name, or type.' },
-      { name: 'node-get-data', description: 'Read the stored properties of a node (send them back to node-modify unchanged).' },
       {
-        name: 'node-create',
+        name: 'rql-query',
         description:
-          'Create a new node (optionally instancing a sub-scene) under a parent, optionally at a specific sibling index.',
+          'Run a read-only RQL query (e.g. `nodes | where class == "OmniLight3D" | select name props["light_energy"]`) and get compact rows back.',
       },
-      { name: 'node-modify', description: 'Set properties on an existing node.' },
-      { name: 'node-set-parent', description: 'Reparent a node to a new parent in the scene tree.' },
       {
-        name: 'node-reorder',
+        name: 'rql-mutate',
         description:
-          'Move a node to a different position among its siblings (child order is layout order in a container).',
+          'Change the editor with an RQL `set` / `call` query: edit node and resource properties, AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free nodes, NewScene / OpenScene / SaveScene, CreateResource / MoveResource / DeleteResource, Reimport. All-or-nothing, undoable, `dry_run` previews.',
       },
-      { name: 'node-duplicate', description: 'Duplicate an existing node.' },
-      { name: 'node-delete', description: 'Delete a node from the scene tree.' },
-    ],
-  },
-  {
-    id: 'scene',
-    title: 'Scene',
-    summary: 'Open, save, create, list, and inspect Godot scenes (`.tscn`).',
-    tools: [
-      { name: 'scene-open', description: 'Open a scene file in the editor.' },
-      { name: 'scene-save', description: 'Save the current (or a specified) scene.' },
-      { name: 'scene-create', description: 'Create a new scene with a given root node.' },
-      { name: 'scene-list-opened', description: 'List the scenes currently open in the editor.' },
-      { name: 'scene-get-data', description: 'Read the structured node tree / data of a scene.' },
-    ],
-  },
-  {
-    id: 'resource',
-    title: 'Resource',
-    summary: 'Find, read, modify, create, move, and delete Godot resources (`.tres`/`.res` and assets).',
-    tools: [
-      { name: 'resource-find', description: 'Find resource files under `res://` by path or type.' },
-      { name: 'resource-get-data', description: 'Read the structured data of a resource.' },
-      { name: 'resource-modify', description: 'Set properties on an existing resource.' },
-      { name: 'resource-create', description: 'Create a new resource of a given type.' },
-      { name: 'resource-move', description: 'Move/rename a resource within the project.' },
-      { name: 'resource-delete', description: 'Delete a resource file from the project.' },
-    ],
-  },
-  {
-    id: 'filesystem',
-    title: 'FileSystem',
-    summary: 'List and reimport project files through the Godot editor filesystem.',
-    tools: [
-      { name: 'filesystem-list', description: 'List files/folders under a `res://` path.' },
-      { name: 'filesystem-reimport', description: 'Trigger a reimport of project assets.' },
+      {
+        name: 'rql-schema',
+        description:
+          'List the RQL sources and the node classes in the edited scene; with a type name, its members, methods and Godot properties.',
+      },
     ],
   },
   {
@@ -126,20 +92,10 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
     ],
   },
   {
-    id: 'editor',
-    title: 'Editor',
-    summary: 'Read/modify editor application state and the current node selection.',
-    tools: [
-      { name: 'editor-application-get-state', description: 'Read editor application state (play mode, focus, etc.).' },
-      { name: 'editor-application-set-state', description: 'Change editor application state.' },
-      { name: 'editor-selection-get', description: 'Read the current editor node selection.' },
-      { name: 'editor-selection-set', description: 'Set the current editor node selection.' },
-    ],
-  },
-  {
     id: 'console',
     title: 'Console',
-    summary: 'Read and clear the editor/runtime log buffer.',
+    summary:
+      'Read and clear the log buffer of a RUNNING game (in-game runtime, `GodotMcpRuntime`). In the editor the RQL `console` source replaces these tools.',
     tools: [
       { name: 'console-get-logs', description: 'Read collected editor/runtime log entries.' },
       { name: 'console-clear-logs', description: 'Clear the collected log buffer.' },
@@ -148,7 +104,8 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
     id: 'reflection',
     title: 'Reflection',
-    summary: 'Discover and invoke engine methods reflectively via ReflectorNet.',
+    summary:
+      'Discover and invoke engine methods reflectively via ReflectorNet inside a RUNNING game (in-game runtime). In the editor RQL `call` / `CallMethod` and `rql-schema` replace these tools.',
     tools: [
       { name: 'reflection-method-find', description: 'Find methods on an engine type by name/signature.' },
       { name: 'reflection-method-call', description: 'Invoke a method reflectively with serialized arguments.' },
@@ -240,7 +197,7 @@ function buildRootSkill(): SkillFile {
   lines.push('# Godot-MCP');
   lines.push('');
   lines.push(
-    'Godot-MCP exposes the Godot editor to an MCP client via the `godot_mcp` addon. The addon connects to an MCP server (cloud `ai-game.dev` by default, or a custom local server) and surfaces the tool families below. Invoke tools by their MCP names (e.g. `node-create`, `scene-open`).',
+    'Godot-MCP exposes the Godot editor to an MCP client via the `godot_mcp` addon. The addon connects to an MCP server (cloud `ai-game.dev` by default, or a custom local server) and surfaces the tool families below. Invoke tools by their MCP names (e.g. `rql-query`, `rql-mutate`).',
   );
   lines.push('');
   lines.push('## When to use');

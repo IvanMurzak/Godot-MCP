@@ -65,6 +65,15 @@ describe('addon-deps parity with Godot-MCP.csproj', () => {
     }
   });
 
+  it('the CLI writes every PackageReference the addon csproj declares (same set, same order)', () => {
+    const csprojPins = [...parsePins(fs.readFileSync(ADDON_CSPROJ, 'utf-8')).keys()];
+    expect(
+      ADDON_PACKAGE_REFERENCES.map((r) => r.id),
+      'Godot-MCP.csproj declares a PackageReference that ADDON_PACKAGE_REFERENCES (cli/src/utils/addon-deps.ts) lacks: ' +
+        'a consumer installed from an older zip would not compile the addon sources.',
+    ).toEqual(csprojPins);
+  });
+
   it('every CLI-written EmbeddedResource matches the addon csproj Include + LogicalName exactly', () => {
     const text = fs.readFileSync(ADDON_CSPROJ, 'utf-8');
     const csprojEmbeds = parseEmbeds(text);

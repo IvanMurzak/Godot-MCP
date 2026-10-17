@@ -66,9 +66,9 @@ describe('skill content (Godot tool families)', () => {
   it('describes Godot tool families, not Unity tool names', () => {
     const all = buildSkillFiles().map((f) => f.content).join('\n');
     // Godot tool families / tool names must be present
-    expect(all).toContain('node-create');
-    expect(all).toContain('scene-open');
-    expect(all).toContain('resource-find');
+    expect(all).toContain('rql-query');
+    expect(all).toContain('rql-mutate');
+    expect(all).toContain('rql-schema');
     expect(all).toContain('screenshot-viewport');
     expect(all).toContain('reflection-method-call');
     expect(all).toContain('godot_mcp');

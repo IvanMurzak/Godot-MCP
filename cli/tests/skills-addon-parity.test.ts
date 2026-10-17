@@ -52,18 +52,13 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
     expect(addonFamilies).toContain('RuntimeErrors');
   });
 
-  it('attributes the compound Tool_Editor_Selection sub-tool class to the Editor family (not dropped)', () => {
-    // The addon ships `[AiToolType] partial class Tool_Editor_Selection` — a compound
-    // sub-tool class whose `editor-selection-*` tools belong to the `editor` family.
-    // A discovery regex that stopped capturing at the first `_` would SILENTLY DROP it
-    // (parity then passes 11==11 only by accident). It must instead resolve to the
-    // first-segment family `Editor`, where it dedups against the base `Tool_Editor`.
+  it('discovers exactly the catalog families (8 since RQL replaced the node/scene/resource/filesystem/editor families)', () => {
+    // Compound `Tool_<Seg1>_<Seg2>` classes resolve to their first segment (covered by the synthetic tests
+    // below); the shipped addon has none since the RQL migration removed `Tool_Editor_Selection`.
     const addonFamilies = discoverAddonToolFamilies(REPO_ROOT);
-    expect(addonFamilies).toContain('Editor');
-    // Discovery still equals the catalog at exactly 12 families — the compound class
-    // collapses INTO `Editor` rather than adding a phantom 13th family.
+    expect(addonFamilies).toContain('Rql');
     expect(addonFamilies).toEqual(catalogToolFamilyClassSuffixes());
-    expect(addonFamilies).toHaveLength(12);
+    expect(addonFamilies).toHaveLength(8);
   });
 
   describe('discovery robustness against compound + misattributed [AiToolType] classes', () => {
@@ -219,14 +214,14 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
     expect(addonIds).toContain('script-validate');
   });
 
-  it('discovers exactly 43 addon tool ids', () => {
+  it('discovers exactly 21 addon tool ids', () => {
     // Anchors the ground-truth count so an addon tool added/removed without a
     // catalog update is caught here too (not only by the set-equality assert).
-    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(43);
+    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(21);
   });
 
-  it('the CLI catalog advertises exactly 43 tools', () => {
-    expect(catalogToolIds()).toHaveLength(43);
+  it('the CLI catalog advertises exactly 21 tools', () => {
+    expect(catalogToolIds()).toHaveLength(21);
   });
 
   it('catalog tool ids exactly match the addon `*ToolId` constants (no per-tool drift)', () => {
@@ -272,7 +267,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
 
   // Tolerances baked into the regexes (verified against the real files):
   // - `N built-in Tools` is CASE-INSENSITIVE — README:46 capitalizes "Tools".
-  // - `N families` is bold/word-boundary tolerant — README:118 wraps "**12 families**".
+  // - `N families` is bold/word-boundary tolerant — README wraps "**8 families**".
   function toolCountRe(): RegExp {
     return new RegExp(`${expectedToolCount} built-in tools`, 'i');
   }
@@ -281,8 +276,8 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   }
 
   it('expected counts derive non-vacuously from the addon source', () => {
-    expect(expectedToolCount).toBe(43);
-    expect(expectedFamilyCount).toBe(12);
+    expect(expectedToolCount).toBe(21);
+    expect(expectedFamilyCount).toBe(8);
   });
 
   const countDocs = [
@@ -319,7 +314,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
     const pinMatch = csproj.match(/McpPlugin"\s+Version="([^"]+)"/);
     expect(pinMatch, 'Godot-MCP.csproj must declare a com.IvanMurzak.McpPlugin PackageReference').not.toBeNull();
     const expectedMcpPlugin = pinMatch![1];
-    expect(expectedMcpPlugin).toBe('8.7.1');
+    expect(expectedMcpPlugin).toBe('8.8.1');
 
     // edit.hbs renders `com.IvanMurzak.McpPlugin     version 7.1.1` — tolerate the
     // literal lowercase word `version` and runs of spaces between name and version.
@@ -353,7 +348,7 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   // `'ReflectorNet, Version=5.3.1.0'` exception text.
   // The agent index (AGENTS.md) is deliberately NOT gated: it must not restate pins at all.
   const PIN_DOCS = ['README.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
-  const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin'];
+  const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.Rql'];
 
   /** Escape a literal package id so it cannot act as a regex pattern (`.` above all). */
   function reEscape(literal: string): string {
