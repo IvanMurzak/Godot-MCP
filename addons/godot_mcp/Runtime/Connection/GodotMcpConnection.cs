@@ -385,9 +385,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // zero-button rule). In Cloud mode, when the machine store holds a credential, present its
             // (proactively-refreshed) JWT; otherwise fall back to the config's own token resolution
             // (CloudToken in Cloud mode / CustomToken in Custom mode, env-overridable) so a signed-out machine
-            // and every Custom-mode connection behave exactly as before. Set here (not wrapped) so a Reconnect's
-            // repeat Start() re-assigns the SAME composite rather than nesting delegates.
+            // and every Custom-mode connection behave exactly as before. Re-assigned (not wrapped) on every Start(), so
+            // each connection gets a provider bound to the mode + host it dials.
             _config.CredentialProvider = _account.CreateConnectionCredentialProvider(_config);
+
+            // Logged by McpPlugin after each SignalR connection error: where in the dock the user stops retrying.
+            _config.ConnectionErrorHint = ConnectionPanelView.ConnectionErrorHint;
 
             // Instance-metadata handshake (design 04 — mcp-authorize e1, PR 3). Identify THIS editor
             // session to the server so it can route/dedup by account + project + instance instead of by

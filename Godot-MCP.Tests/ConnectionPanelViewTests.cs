@@ -439,5 +439,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 try { Directory.Delete(dir, recursive: true); } catch { /* best-effort */ }
             }
         }
+
+        [Fact]
+        public void ConnectionErrorHint_NamesTheDockStopButton_PlainText_RuntimeLeavesItUnset()
+        {
+            Assert.Contains("\"" + ConnectionPanelView.ButtonTextStop + "\"", ConnectionPanelView.ConnectionErrorHint);
+            Assert.Contains("AI Game Developer", ConnectionPanelView.ConnectionErrorHint);
+            Assert.DoesNotContain("<", ConnectionPanelView.ConnectionErrorHint); // Godot's Output shows markup raw
+            Assert.Null(new GodotMcpConfig().ConnectionErrorHint);
+        }
     }
 }

@@ -14,6 +14,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Xunit;
 using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
@@ -22,11 +23,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// Custom + oauth: the ai-game.dev account token reaches a loopback host only; any other host gets
-    /// <c>GODOT_MCP_TOKEN</c> or the connection's credential provider fails. Mutates process env, hence the
-    /// <c>env</c> collection.
+    /// <c>GODOT_MCP_TOKEN</c> or the connection's credential provider fails (McpPlugin's shared
+    /// <see cref="CustomOAuthCredentialPolicy"/> / <see cref="HostScope"/>). Each provider is bound to the host it was
+    /// handed to the connection with. Mutates process env, hence the <c>env</c> collection.
     /// </summary>
     [Collection("env")]
-    public class LoopbackTokenScopeTests
+    public class CustomOAuthCredentialScopeTests
     {
         [Theory]
         [InlineData("http://localhost")]
@@ -37,7 +39,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("http://[::1]")]
         [InlineData("http://[::1]:8080")]
         [InlineData("http://[::ffff:127.0.0.1]:8080")]
-        public void IsLoopback_True(string url) => Assert.True(LoopbackTokenScope.IsLoopback(url));
+        public void IsLoopback_True(string url) => Assert.True(HostScope.IsLoopback(url));
 
         [Theory]
         [InlineData(null)]
@@ -56,7 +58,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("http://192.168.1.10:8080")]
         [InlineData("http://[::2]")]
         [InlineData("ftp://localhost")]
-        public void IsLoopback_False(string? url) => Assert.False(LoopbackTokenScope.IsLoopback(url));
+        public void IsLoopback_False(string? url) => Assert.False(HostScope.IsLoopback(url));
 
         const string Remote = "https://my-server.example.com";
 
@@ -125,18 +127,83 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             using var _ = EnvScope.Set(null);
             using var tmp = new TempDir();
-            new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
+            using var account = SignedInAccount(tmp);
             var config = CustomOAuth(Remote);
             config.CloudToken = null;
             config.CustomToken = null;
-            using var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
-            Assert.True(account.IsSignedIn);
 
             var provider = account.CreateConnectionCredentialProvider(config);
             await Assert.ThrowsAsync<CredentialScopeException>(() => provider());
 
             config.CustomHost = "http://[::1]:5000";
             Assert.Equal("machine-jwt", await account.CreateConnectionCredentialProvider(config)());
+        }
+
+        // --- Host capture: a provider never resolves for a host other than the one it was handed over with. ---
+
+        [Theory]
+        [InlineData(Remote, "http://localhost:5000", false)] // the account token must not reach the old remote link
+        [InlineData("http://localhost:5000", Remote, false)]
+        [InlineData(Remote, null, true)]                     // Custom(remote) -> Cloud: never the cloud token
+        public async Task RuntimeProvider_TargetChangedAfterHandOff_ReturnsNull(string boundHost, string? newHost, bool toCloud)
+        {
+            using var _ = EnvScope.Set(null);
+            var config = CustomOAuth(boundHost);
+            config.CustomToken = null;
+            var handedOver = config.CredentialProvider!; // McpPlugin reads it once per HubConnection build
+
+            // A SignalR reconnect of the existing link calls the provider after the target changed.
+            if (newHost != null)
+                config.CustomHost = newHost;
+            if (toCloud)
+                config.ConnectionMode = GodotMcpConnectionMode.Cloud;
+            Assert.Null(await handedOver());
+        }
+
+        [Fact]
+        public async Task RuntimeProvider_NewHubConnectionAfterHostChange_IsBoundToTheNewHost()
+        {
+            using var _ = EnvScope.Set(null);
+            var config = CustomOAuth(Remote);
+            config.CustomToken = null;
+            config.CustomHost = "http://localhost:5000";
+            Assert.Equal("account-jwt", await config.CredentialProvider!());
+        }
+
+        [Fact]
+        public void RuntimeProvider_ExplicitAssignment_IsKept()
+        {
+            Func<Task<string?>> custom = () => Task.FromResult<string?>("game-supplied");
+            var config = new GodotMcpConfig { CredentialProvider = custom };
+            Assert.Same(custom, config.CredentialProvider);
+        }
+
+        [Fact]
+        public void RuntimeProvider_ExplicitNull_StaysAnonymous()
+        {
+            var config = new GodotMcpConfig { CredentialProvider = null };
+            Assert.Null(config.CredentialProvider);
+        }
+
+        [Fact]
+        public async Task EditorProvider_HostChangedToLoopbackAfterHandOff_NeverSendsAccountToken()
+        {
+            using var _ = EnvScope.Set(null);
+            using var tmp = new TempDir();
+            using var account = SignedInAccount(tmp);
+            var config = CustomOAuth(Remote);
+
+            var provider = account.CreateConnectionCredentialProvider(config);
+            config.CustomHost = "http://127.0.0.1:5000";
+            Assert.Null(await provider());
+        }
+
+        static GodotAccountAuth SignedInAccount(TempDir tmp)
+        {
+            new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
+            var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
+            Assert.True(account.IsSignedIn);
+            return account;
         }
 
         sealed class EnvScope : IDisposable
