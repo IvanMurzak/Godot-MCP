@@ -1,64 +1,58 @@
 # AGENTS.md — Godot-AI-Navigation
 
-A **Godot-MCP extension**: MCP tools for Godot's built-in navigation — regions (`NavigationRegion2D`/`3D` +
-their `NavigationPolygon`/`NavigationMesh`), agents (`NavigationAgent2D`/`3D`) and links
-(`NavigationLink2D`/`3D`). Shipped as a **source-only NuGet package** (`com.IvanMurzak.Godot.MCP.Navigation`)
-that compiles inside the consumer's Godot project against the consumer's own GodotSharp. Created from
-[`Godot-AI-Tools-Template`](https://github.com/IvanMurzak/Godot-MCP/tree/main/templates/extension). The packaging recipe is
-the load-bearing detail — read `docs/source-only-nuget-recipe.md`.
+A **Godot-MCP extension** for Godot's built-in navigation nodes (2D and 3D: `NavigationRegion*`, `NavigationAgent*`,
+`NavigationLink*`), shipped as an **RQL module**: it adds no MCP tools, only what the core `rql-query` /
+`rql-mutate` / `rql-schema` tools need (validated members, region `Bake()` / `polygonCount`, NavigationPolygon
+outline calls, an agent guide rendered into the core `godot-rql` skill). A **source-only NuGet package**
+(`com.IvanMurzak.Godot.MCP.Navigation`) compiled inside the consumer's Godot project against the consumer's own
+GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
 
 ## Layout
 
-- `src/Godot-AI-Navigation/` — the source-only package (`Godot.NET.Sdk`):
-  - `Runtime/Tools/` — `Tool_Navigation.cs` (the `[AiToolType]` partial class), `Tool_Navigation.Ids.cs` (all
-    tool-id consts, pinned by tests), and the pure-managed `Tool_Navigation.Defaults.cs`.
-  - `Runtime/Navigation/` — pure-managed support types (`NavigationDimension` 2D/3D, `NavigationNodeInfo`,
-    `NavigationDefaults` with the agent-config clamp/validation rules), all unit-tested.
-  - `Editor/Tools/` — one file per editor tool (`Tool_Navigation.<Name>.cs`) + shared helpers in
-    `Tool_Navigation.Editor.cs`; all behind `#if TOOLS`.
-  - `build/com.IvanMurzak.Godot.MCP.Navigation.props` — source-injection props, auto-imported by NuGet in the
-    consumer; MUST stay named `<PackageId>.props`.
-- `tests/Godot-AI-Navigation.Tests/` — xUnit specs for the pure-managed sources only (no Godot binary).
-- `tests/e2e/` — live `run-tool` E2E: the tool list `e2e-tools.json`, driven by `run_tool_e2e.py`.
-- `testbed/Navigation-Testbed.csproj` — consumer `Godot.NET.Sdk` project restoring the local-packed package;
-  its `dotnet build` is the source-injection proof.
+- `src/Godot-AI-Navigation/Editor/Rql/` — the module:
+  - `NavigationModule.cs` — the `IRqlModule` (Order 100, `#if TOOLS`): the adapters and the guide.
+  - `Godot_Navigation{Region,Agent,Link}{3D,2D}_Adapter.cs`, `Godot_NavigationPolygon_Adapter.cs` — one adapter per
+    type (`#if TOOLS`); the shared validated-member helpers live in `NavigationMembers.cs`.
+  - `NavigationRules.cs` (validation, bake preconditions) and `NavigationGuide.cs` (the guide) — pure-managed, NOT
+    behind `#if TOOLS`.
+- `src/Godot-AI-Navigation/build/com.IvanMurzak.Godot.MCP.Navigation.props` — source-injection props, auto-imported
+  by NuGet in the consumer; MUST stay named `<PackageId>.props`.
+- `tests/Godot-AI-Navigation.Tests/` — xUnit (no Godot binary): rules, guide examples parse, the module's member
+  tables (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`, including a real 3D and 2D bake), driven by
+  `run_tool_e2e.py` from the monorepo suite.
+- `testbed/Navigation-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
-- `docs/` — `source-only-nuget-recipe.md` (the packaging recipe + consumer story); `ci.md` (workflows, version
-  gate, multi-Godot matrix, NuGet publishing setup).
+## Critical invariants
 
-## Tools
-
-Ids live in `Runtime/Tools/Tool_Navigation.Ids.cs` (the source of truth). Current tools: `navigation-defaults`
-(pure-managed), `navigation-region-create`, `navigation-region-set-mesh`, `navigation-agent-create`,
-`navigation-agent-configure`, `navigation-link-create`, `navigation-get`.
+- **RQL surface.** Everything is registered by `NavigationModule` and documented in `NavigationGuide` (topic
+  "Navigation"). Every guide example runs, in order, in `tests/e2e/e2e-tools.json` (xUnit-asserted).
+- **Validated members replace the C# properties** of the same name and type (float). Only what Godot rejects
+  (logs an error for) or what 0.x enforced is validated; a rejected value fails the whole mutation — never clamp.
+- `Bake()` bakes synchronously on the main thread (`onThread: false`) and refuses a region without its resource
+  or one already baking (Godot would log an error). Baked polygons are not undoable; say so in docs.
+- Methods go on the object they change: `AddOutline` is on NavigationPolygon (undoable), not on the region.
+  Do not `Expose` CLR methods whose overloads change across GodotSharp versions (`AddOutline` takes `Vector2[]` in
+  4.3 and `ReadOnlySpan<Vector2>` later): add a typed `Method` instead.
+- The module uses only Godot, `com.IvanMurzak.Rql` and the BCL, never core-addon types (the authoring build has
+  no core). Undo, dirty marking and saving come from the core's mutation hooks.
 
 ## Build / test (no Godot binary)
 
 ```bash
-dotnet build src/Godot-AI-Navigation/Godot-AI-Navigation.csproj  # source-only package compiles tools
+dotnet build src/Godot-AI-Navigation/Godot-AI-Navigation.csproj -c Debug   # the module (#if TOOLS included)
 dotnet test  tests/Godot-AI-Navigation.Tests/Godot-AI-Navigation.Tests.csproj
-dotnet pack  src/Godot-AI-Navigation/Godot-AI-Navigation.csproj -p:Version=0.0.0-ci -o local-nuget
-dotnet build testbed/Navigation-Testbed.csproj                   # consumes the local package (injection proof)
 ```
 
-`Godot.NET.Sdk` supplies GodotSharp from NuGet, so build/test/pack and the source-injection proof need no
-Godot install (the testbed build is a faithful proxy for `godot --build-solutions`). CI proves the recipe
-across Godot 4.3 / 4.4 / 4.5 (the central monorepo SDK matrix). `dotnet pack` reuses the **global NuGet
-cache** for an already-cached version: when re-packing the same `Version`, clear
-`~/.nuget/packages/com.ivanmurzak.godot.mcp.navigation/<ver>` (or pack a unique version) before re-restoring
-the testbed, or you silently build the stale cached source.
+The live suite (one headless editor for every module) is `python scripts/test_extensions.py` from the monorepo
+root. `dotnet pack` reuses the **global NuGet cache** for an already-cached version: when re-packing the same
+`Version`, clear `~/.nuget/packages/com.ivanmurzak.godot.mcp.navigation/<ver>` (or pack a unique version).
 
 ## Conventions
 
-- Root namespace `com.IvanMurzak.Godot.MCP.Navigation`. Every `.cs` starts with the Apache-2.0 header.
-- Pure-managed code (no Godot native API) → `Runtime/` (outside `#if TOOLS`, unit-testable); editor-driving
-  tools → `Editor/` (behind `#if TOOLS`, every Godot call via `MainThread.Instance.Run(...)`, E2E-verified).
-- Godot types that wrap a native object (`Node`, `Resource`, `NodePath`, `SceneTree`) P/Invoke on
-  construction, so they must never be touched from the no-Godot xUnit host — keep them out of `Runtime/`.
-- The package declares ONLY the `com.IvanMurzak.McpPlugin` / `com.IvanMurzak.ReflectorNet` min-version deps;
-  **GodotSharp must never become a package dependency** (CI asserts the nuspec). Keep the MCP pins in lockstep
-  with the core Godot-MCP addon; bump with `commands/update-core.ps1`.
-- One `[AiToolType] partial class Tool_Navigation`; one `[AiTool]` method per partial-class file. Add every
-  new pure-managed source to the test csproj `<Compile Include>` list so it is unit-tested.
+- Root namespace `com.IvanMurzak.Godot.MCP.Navigation`. Every `.cs` starts with the Apache-2.0 header and
+  `#nullable enable`.
+- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` floors; **GodotSharp must
+  never become a package dependency** (CI asserts the nuspec). Bump floors with `commands/update-core.ps1`.
