@@ -39,6 +39,9 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Forces the plugin's log-verbosity threshold.</summary>
         public const string LogLevel = "GODOT_MCP_LOG_LEVEL";
 
+        /// <summary>Forces the editor tools' data layer (<c>Rql</c> / <c>Json</c>).</summary>
+        public const string ToolFormat = "GODOT_MCP_TOOL_FORMAT";
+
         // --- Local server binary (resolved in GodotMcpServerManager; editor-only). ---
 
         /// <summary>

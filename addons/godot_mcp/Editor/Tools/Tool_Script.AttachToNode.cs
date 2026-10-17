@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'nodeRef' (instanceId preferred, else scene-tree path) and the script with 'scriptPath' (a " +
             "res:// script file that must exist). Pass an empty/whitespace/null 'scriptPath' to DETACH (clear) " +
             "the node's script. The script resource is loaded and set via Node.SetScript; the scene is marked " +
-            "unsaved (persist with '" + Tool_Scene.SceneSaveToolId + "'). Returns the script's structured " +
+            "unsaved (persist with rql-mutate 'editor | call SaveScene()'). Returns the script's structured " +
             "ScriptInfo on attach, or an identity record with a 'detached' status on clear.")]
         public ScriptInfo AttachToNode
         (

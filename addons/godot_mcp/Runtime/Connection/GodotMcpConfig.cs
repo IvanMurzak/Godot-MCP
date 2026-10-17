@@ -31,6 +31,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     }
 
     /// <summary>
+    /// The data layer of the editor's tools (mirrors Unity-MCP's <c>ToolPresentationFormat</c>): the agent-facing
+    /// parameter schemas, argument conversion and results. See <see cref="GodotMcpConfig.ToolFormat"/>.
+    /// </summary>
+    public enum ToolPresentationFormat
+    {
+        /// <summary>ReflectorNet: JSON schemas, JSON arguments and structured JSON results.</summary>
+        Json,
+
+        /// <summary>RQL is the data layer of every tool (schemas, arguments, results) in place of ReflectorNet.</summary>
+        Rql
+    }
+
+    /// <summary>
     /// Connection configuration for the Godot-MCP plugin. The Godot analog of Unity-MCP's
     /// <c>UnityMcpPlugin.UnityConnectionConfig</c> — it extends the reused
     /// <see cref="ConnectionConfig"/> from <c>com.IvanMurzak.McpPlugin</c> (so the SignalR client
@@ -75,6 +88,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// driven at <c>Trace</c> without touching the persisted config.
         /// </summary>
         public const string EnvLogLevel = GodotMcpEnv.LogLevel;
+
+        /// <summary>
+        /// Forces the editor tools' data layer (<c>Rql</c> / <c>Json</c>, case-insensitive) without touching the persisted
+        /// config — see <see cref="ToolFormat"/>. Honored by <see cref="ActiveToolFormat"/>.
+        /// </summary>
+        public const string EnvToolFormat = GodotMcpEnv.ToolFormat;
 
         // --- Defaults. ---
 
@@ -183,6 +202,24 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         [JsonPropertyName("selectedAgentId")]
         public string SelectedAgentId { get; set; } = "claude-code";
+
+        /// <summary>
+        /// The editor tools' data layer: <see cref="ToolPresentationFormat.Rql"/> (default) = RQL builds the agent-facing
+        /// parameter schemas, evaluates arguments (RQL literals, <c>ref("Node3D#12")</c>, <c>godot.find("Name")</c>) and
+        /// renders results as compact text; <see cref="ToolPresentationFormat.Json"/> = ReflectorNet's JSON schemas and
+        /// structured JSON results. Hosts (e.g. the AI Game Dev app) may write it; <see cref="EnvToolFormat"/> overrides it.
+        /// Applied when the plugin is built (a change takes effect on the next connect).
+        /// </summary>
+        [JsonPropertyName("toolFormat")]
+        public ToolPresentationFormat ToolFormat { get; set; } = ToolPresentationFormat.Rql;
+
+        /// <summary>How quoted text in RQL tool results is escaped (Minimal keeps non-ASCII text as it is).</summary>
+        [JsonPropertyName("toolTextEscaping")]
+        public ToolTextEscaping ToolTextEscaping { get; set; } = ToolTextEscaping.Minimal;
+
+        /// <summary>The effective tool data layer after applying the <see cref="EnvToolFormat"/> override.</summary>
+        [JsonIgnore]
+        public ToolPresentationFormat ActiveToolFormat => ResolveActiveToolFormat(ToolFormat);
 
         /// <summary>
         /// The effective connection mode after applying the <see cref="EnvConnectionMode"/> override.
@@ -492,6 +529,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 return configured;
 
             if (Enum.TryParse<GodotMcpLogLevel>(normalized, ignoreCase: true, out var parsed) &&
+                !int.TryParse(normalized, out _))
+                return parsed;
+
+            return configured;
+        }
+
+        /// <summary>
+        /// Resolve the tools' data layer, letting <see cref="EnvToolFormat"/> override the configured value. An
+        /// unrecognized, empty or numeric env value falls through to <paramref name="configured"/>.
+        /// </summary>
+        public static ToolPresentationFormat ResolveActiveToolFormat(ToolPresentationFormat configured)
+        {
+            var normalized = NormalizeEnv(ReadEnv(EnvToolFormat));
+            if (string.IsNullOrEmpty(normalized))
+                return configured;
+
+            if (Enum.TryParse<ToolPresentationFormat>(normalized, ignoreCase: true, out var parsed) &&
                 !int.TryParse(normalized, out _))
                 return parsed;
 

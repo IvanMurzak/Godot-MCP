@@ -17,7 +17,7 @@ using Xunit;
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// Coverage for <c>filesystem-reimport</c>'s routing:
+    /// Coverage for <c>editor | call Reimport(files)</c> routing:
     /// <list type="bullet">
     /// <item>issue #310 — native <c>.tscn</c> scenes were queued for import while the editor logged
     /// <c>ERROR: BUG: File queued for import, but can't be imported, importer for type '' not found.</c>;</item>

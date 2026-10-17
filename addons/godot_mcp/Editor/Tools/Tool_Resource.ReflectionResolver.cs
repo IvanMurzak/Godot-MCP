@@ -16,7 +16,7 @@ using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
-    public partial class Tool_Resource
+    public static partial class Tool_Resource
     {
         /// <summary>
         /// Wire the editor-side resource resolution into <see cref="Godot_Resource_ReflectionConverter{T}"/>

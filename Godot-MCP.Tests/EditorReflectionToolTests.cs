@@ -20,12 +20,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// <summary>
     /// Pure-managed coverage for the editor-introspection tool family (issue #16): the in-memory
     /// <see cref="GodotLogCollector"/> (the only piece with non-trivial logic — bounded FIFO ring buffer,
-    /// newest-first query, severity / time-window filtering, stack-trace strip) and the result models
-    /// (<see cref="LogEntry"/>, <see cref="EditorStateData"/>, <see cref="SelectionData"/>). None of these
-    /// touch a live Godot editor, so they run in the plain xUnit host with no Godot binary. The
-    /// editor-driving handlers themselves — <c>Tool_Editor.*.cs</c> (play state), <c>Tool_Editor.Selection.*.cs</c>
-    /// (selection), and the editor effect of <c>Tool_Console.*</c> / <c>Tool_Reflection.*</c> — are verified
-    /// by the headless Godot smoke (test.md Suite 3).
+    /// newest-first query, severity / time-window filtering, stack-trace strip; it backs the runtime console-* tools
+    /// and the editor's RQL <c>console</c> source) and the <see cref="LogEntry"/> model. None of these touch a live
+    /// Godot editor, so they run in the plain xUnit host with no Godot binary. The editor state / selection the
+    /// replaced Tool_Editor family exposed is now the RQL <c>editor</c> source, verified by the live CI smoke.
     /// </summary>
     public class EditorReflectionToolTests
     {
@@ -231,66 +229,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("\"stackTrace\"", json);
         }
 
-        [Fact]
-        public void EditorStateData_RoundTripsJson()
-        {
-            var data = new EditorStateData
-            {
-                IsPlaying = true,
-                PlayingScene = "res://main.tscn",
-                EditorVersion = "4.5.1.stable.mono",
-            };
-
-            var json = JsonSerializer.Serialize(data);
-            var back = JsonSerializer.Deserialize<EditorStateData>(json);
-
-            Assert.NotNull(back);
-            Assert.True(back!.IsPlaying);
-            Assert.Equal("res://main.tscn", back.PlayingScene);
-            Assert.Equal("4.5.1.stable.mono", back.EditorVersion);
-            Assert.Contains("\"isPlaying\"", json);
-            Assert.Contains("\"playingScene\"", json);
-            Assert.Contains("\"editorVersion\"", json);
-        }
-
-        [Fact]
-        public void SelectionData_RoundTripsJson_WithNodes()
-        {
-            var data = new SelectionData
-            {
-                Nodes =
-                {
-                    new NodeData { InstanceId = 10, Name = "A", Path = "/root/A", Type = "Node2D" },
-                    new NodeData { InstanceId = 20, Name = "B", Path = "/root/B", Type = "Sprite2D" },
-                },
-            };
-            data.Count = data.Nodes.Count;
-            data.ActiveNode = data.Nodes.Last();
-
-            var json = JsonSerializer.Serialize(data);
-            var back = JsonSerializer.Deserialize<SelectionData>(json);
-
-            Assert.NotNull(back);
-            Assert.Equal(2, back!.Count);
-            Assert.Equal(2, back.Nodes.Count);
-            Assert.Equal("A", back.Nodes[0].Name);
-            Assert.NotNull(back.ActiveNode);
-            Assert.Equal("B", back.ActiveNode!.Name);
-            Assert.Contains("\"activeNode\"", json);
-        }
-
-        [Fact]
-        public void SelectionData_Empty_HasNullActiveAndZeroCount()
-        {
-            var data = new SelectionData();
-            var json = JsonSerializer.Serialize(data);
-            var back = JsonSerializer.Deserialize<SelectionData>(json);
-
-            Assert.NotNull(back);
-            Assert.Empty(back!.Nodes);
-            Assert.Null(back.ActiveNode);
-            Assert.Equal(0, back.Count);
-        }
     }
 
     /// <summary>

@@ -262,6 +262,11 @@ namespace com.IvanMurzak.Godot.MCP
         [MethodImpl(MethodImplOptions.NoInlining)]
         void BootMcp()
         {
+            // RQL data layer: the editor configures every plugin the connection builds (tool surface + RQL binding)
+            // through GodotMcpConnection.PluginBuilt, so it must be installed before Start(). See RqlInstaller.
+            try { Editor.Rql.RqlInstaller.Install(() => GodotObject.IsInstanceValid(this) ? GetUndoRedo() : null); }
+            catch (System.Exception ex) { LogError($"[Godot-MCP] failed to install the RQL data layer: {ex.Message}"); }
+
             try
             {
                 _connection = new GodotMcpConnection();
@@ -534,6 +539,10 @@ namespace com.IvanMurzak.Godot.MCP
             // (step 2); a straggler thread from a timed-out drain can still re-populate the caches afterwards.
             try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
+            // Drop the RQL engine and release RQL's process-wide Type-keyed caches (RQL lives in the Default ALC, like
+            // ReflectorNet below): after a query touched an addon type they would pin this collectible assembly.
+            try { UninstallRql(); } catch (System.Exception ex) { TryLogTeardownError("rql reset", ex); }
+
             // Drop ReflectorNet's process-wide static reflection caches. They live in the NON-collectible Default
             // ALC (the resolver loads ReflectorNet there) but, during tool registration / parameter-schema build /
             // serialization, get populated with entries that reference THIS collectible addon assembly's types:
@@ -644,6 +653,9 @@ namespace com.IvanMurzak.Godot.MCP
         /// version. A null or already-disposed node just clears the reference (nothing to free). Defensive
         /// throughout — re-boot runs deferred, possibly racing a partial teardown, and must not fault.
         /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void UninstallRql() => Editor.Rql.RqlInstaller.Uninstall();
+
         static void FreeStaleNode<T>(ref T? node) where T : global::Godot.Node
         {
             try

@@ -123,12 +123,23 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Count DECLARATION SITES, not the files holding them: a single file may legitimately carry
             // two `[AiSkillBody]` methods, and comparing a file count against a method count would then
             // fail on a perfectly correct addition while still not proving reachability.
-            var declarationSites = Directory
+            var allSites = Directory
                 .EnumerateFiles(addonRoot!, "*.cs", SearchOption.AllDirectories)
-                .Select(f => (File: f, Count: CountOccurrences(File.ReadAllText(f), "[AiSkillBody(")))
+                .Select(f => (File: f, Text: File.ReadAllText(f)))
+                .Select(x => (x.File, x.Text, Count: CountOccurrences(x.Text, "[AiSkillBody(")))
                 .Where(x => x.Count > 0)
                 .OrderBy(x => x.File, StringComparer.Ordinal)
                 .ToList();
+
+            // Editor-only tools (a whole file behind #if TOOLS, e.g. the rql-* tools) compile to nothing in this host,
+            // so reflection cannot reach them. Their bodies are checked here instead: they must carry no C# sample
+            // (a sample there would be unchecked) — the rql-* bodies are RqlGuide texts, which RqlGuideTests covers.
+            var gated = allSites.Where(x => IsWholeFileEditorOnly(x.Text)).ToList();
+            foreach (var site in gated)
+                Assert.False(Regex.IsMatch(site.Text, @"```(?:csharp|cs|c\#)"),
+                    $"{Path.GetFileName(site.File)} is editor-only (#if TOOLS) and its [AiSkillBody] carries a C# sample this " +
+                    "suite cannot reach; move the sample to a file Godot-MCP.Tests compiles.");
+            var declarationSites = allSites.Except(gated).Select(x => (x.File, x.Count)).ToList();
 
             var declaredCount = declarationSites.Sum(x => x.Count);
             var reflectedCount = SkillBodies().Count;
@@ -139,6 +150,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 $"{reflectedCount} — some skill body is not compiled into Godot-MCP.Tests, so its sample " +
                 "is UNCHECKED. Add the file to Godot-MCP.Tests.csproj's <Compile Include> list:\n  " +
                 string.Join("\n  ", declarationSites.Select(x => $"{Path.GetFileName(x.File)} (x{x.Count})")));
+        }
+
+        // The file's code (after the license header and blank lines) starts with `#if TOOLS` and ends with `#endif`.
+        static bool IsWholeFileEditorOnly(string text)
+        {
+            var body = Regex.Replace(text, @"^\s*/\*.*?\*/", "", RegexOptions.Singleline).Trim();
+            return body.StartsWith("#if TOOLS", StringComparison.Ordinal) && body.EndsWith("#endif", StringComparison.Ordinal);
         }
 
         [Fact]

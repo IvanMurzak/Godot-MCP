@@ -15,7 +15,7 @@ using com.IvanMurzak.ReflectorNet.Utils;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
-    public partial class Tool_Node
+    public static partial class Tool_Node
     {
         /// <summary>
         /// Wire the editor-side scene-tree resolution into <see cref="Godot_Node_ReflectionConverter{T}"/>

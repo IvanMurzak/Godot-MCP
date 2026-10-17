@@ -47,8 +47,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  - Godot 4.5+: 'Precise' — exact line + message captured via the engine Logger hook.\n" +
             "  - Godot < 4.5: 'Coarse' — per-file pass/fail with the engine error code (no line/message text).\n" +
             "C# ('.cs') files are NOT validated here (Godot has no in-editor C# compiler to reach cheaply); " +
-            "their compile errors surface through the project build. Pair with 'console-get-logs', which on " +
-            "Godot 4.5+ now also captures engine GDScript parse errors passively.")]
+            "their compile errors surface through the project build. Pair with the RQL 'console' source " +
+            "(rql-query 'console | where logType == \"Error\"'), which on Godot 4.5+ also captures engine GDScript parse errors passively.")]
         public ScriptDiagnosticsResult Validate
         (
             [Description("Optional single res:// '.gd' script path to validate, e.g. 'res://scripts/player.gd'. " +

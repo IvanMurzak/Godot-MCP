@@ -148,6 +148,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             target.SelectedAgentId = string.IsNullOrEmpty(persisted.SelectedAgentId)
                 ? target.SelectedAgentId
                 : persisted.SelectedAgentId;
+            // The editor tools' data layer (RQL / ReflectorNet JSON). A missing key in an older config file
+            // deserializes to the property default (Rql).
+            target.ToolFormat = persisted.ToolFormat;
+            target.ToolTextEscaping = persisted.ToolTextEscaping;
 
             return target;
         }
