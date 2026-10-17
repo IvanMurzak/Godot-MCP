@@ -136,10 +136,18 @@ def core_pin_drift(root=ROOT):
     to core and extensions alike.
     """
     core = package_pins(root / 'Godot-MCP.csproj', CORE_DEPENDENCIES)
-    folders = [*(root / 'extensions').glob('Godot-AI-*'), root / 'templates/extension']
-    return [f'{csproj.relative_to(root).as_posix()}: {package} {pin} != core {core[package]}'
-            for csproj in sorted(path for folder in folders for path in folder.rglob('*.csproj'))
-            for package, pin in package_pins(csproj, core).items() if pin != core[package]]
+    if set(core) != set(CORE_DEPENDENCIES):
+        raise ValueError(f'Godot-MCP.csproj must pin {CORE_DEPENDENCIES}; found {sorted(core)}')
+    drift = []
+    # Fail closed: a moved or empty module folder must not turn the scan into a silent pass.
+    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
+        csprojs = sorted(folder.rglob('*.csproj'))
+        if not csprojs:
+            drift.append(f'{folder.relative_to(root).as_posix()}: no csproj found')
+        drift += [f'{csproj.relative_to(root).as_posix()}: {package} {pin} != core {core[package]}'
+                  for csproj in csprojs for package, pin in package_pins(csproj, core).items()
+                  if pin != core[package]]
+    return drift
 
 
 def chain_active():

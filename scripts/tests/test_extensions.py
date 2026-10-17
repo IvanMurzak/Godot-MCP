@@ -295,8 +295,12 @@ class CorePinParity(unittest.TestCase):
 <PackageReference Include="xunit" Version="2.9.2"/>
 </ItemGroup></Project>''')
             self.assertEqual(['extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
-                              'com.IvanMurzak.ReflectorNet 5.4.1 != core 5.4.3'],
+                              'com.IvanMurzak.ReflectorNet 5.4.1 != core 5.4.3',
+                              'templates/extension: no csproj found'],
                              extensions.core_pin_drift(root))
+            (root / 'Godot-MCP.csproj').write_text('<Project/>')
+            with self.assertRaisesRegex(ValueError, 'must pin'):
+                extensions.core_pin_drift(root)
 
 
 if __name__ == '__main__':
