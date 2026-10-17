@@ -1,6 +1,6 @@
 {
-  "description": "Live run-tool E2E tool list for the GridMap Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "The six editor tools (create/set-mesh-library/set-cell/clear-cell/clear/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). They run in order and share state: create makes the 'Grid' node, then later tools address it by node path 'Grid'. gridmap-set-mesh-library loads the committed res://e2e-meshlib.tres MeshLibrary from the testbed. gridmap-defaults is pure-managed and needs no scene. Assertions pin extension-PRODUCED fields (Kind, CellSizeX, CellCount, MeshLibraryPath, Item) rather than the engine class name (Node.GetClass() casing can differ from the C# binding). The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "description": "Live E2E for the GridMap RQL module. Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapter, validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every GridMapGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and two rejected values (a dry-run set, and a call that must fail before it changes anything). res://e2e-meshlib.tres is the testbed's empty MeshLibrary fixture (GridMap does not check item ids against the library). 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated.",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -13,40 +13,18 @@
     }
   ],
   "tools": [
-    {
-      "tool": "gridmap-defaults",
-      "input": {},
-      "expect": ["\"Kind\":\"GridMap\"", "\"CellSizeX\":1"]
-    },
-    {
-      "tool": "gridmap-create",
-      "input": { "name": "Grid", "cellSizeX": 3, "cellSizeY": 3, "cellSizeZ": 3 },
-      "expect": ["\"Kind\":\"GridMap\"", "\"CellSizeX\":3", "\"CellCount\":0"]
-    },
-    {
-      "tool": "gridmap-set-mesh-library",
-      "input": { "nodePath": "Grid", "resourcePath": "res://e2e-meshlib.tres" },
-      "expect": ["\"MeshLibraryPath\":\"res://e2e-meshlib.tres\""]
-    },
-    {
-      "tool": "gridmap-set-cell",
-      "input": { "nodePath": "Grid", "cellX": 1, "cellY": 0, "cellZ": 1, "item": 0 },
-      "expect": ["\"Item\":0", "\"CellX\":1", "\"CellZ\":1"]
-    },
-    {
-      "tool": "gridmap-get",
-      "input": { "nodePath": "Grid" },
-      "expect": ["\"CellCount\":1", "\"MeshLibraryPath\":\"res://e2e-meshlib.tres\""]
-    },
-    {
-      "tool": "gridmap-clear-cell",
-      "input": { "nodePath": "Grid", "cellX": 1, "cellY": 0, "cellZ": 1 },
-      "expect": ["\"Item\":-1", "\"CellX\":1"]
-    },
-    {
-      "tool": "gridmap-clear",
-      "input": { "nodePath": "Grid" },
-      "expect": ["\"CellCount\":0"]
-    }
+    {"tool": "rql-schema", "input": {"type": "GridMap"}, "expect": ["(GridMap extension)", "SetCell"]},
+    {"tool": "rql-mutate", "input": {"query": "root | call AddChild(\"GridMap\", \"Grid\")"}, "expect": ["GridMap#", "(Grid)"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | set MeshLibrary = \"res://e2e-meshlib.tres\", CellSize = \"(1, 1, 1)\""}, "expect": ["MeshLibrary|null|", "res://e2e-meshlib.tres", "CellSize|(2, 2, 2)|(1, 1, 1)"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | call SetCell(1, 0, 1, 0)"}, "expect": ["SetCell("]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | call SetCell(2, 0, 1, 0, 10)"}, "expect": ["SetCell("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Grid\" | get cells | select x y z item orientation"}, "expect": ["x|y|z|item|orientation", "1|0|1|0|0", "2|0|1|0|10"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | call ClearCell(1, 0, 1)"}, "expect": ["ClearCell("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where $ is GridMap | select name cellCount MeshLibrary"}, "expect": ["Grid|1|", "e2e-meshlib.tres"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | call Clear()"}, "expect": ["Clear("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Grid\" | select cellCount CellSize.x CellOctantSize"}, "expect": ["0|1|8"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | set CellSize = \"(0, 1, 1)\"", "dry_run": true}, "expect": ["CellSize must be at least 0.001 on every axis"], "expectFailure": true},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Grid\" | call SetCell(0, 0, 0, 0, 24)"}, "expect": ["orientation must be an orthogonal orientation index from 0 to 23"], "expectFailure": true},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Grid\" | select cellCount"}, "expect": ["cellCount\\n0"]}
   ]
 }

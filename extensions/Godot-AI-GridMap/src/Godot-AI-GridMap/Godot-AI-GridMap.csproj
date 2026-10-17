@@ -4,7 +4,8 @@
   │  Full rationale + the consumer story: docs/source-only-nuget-recipe.md.                        │
   └──────────────────────────────────────────────────────────────────────────────────────────────┘
 
-  Why source-only? An extension's tools call Godot's C# API (Node, EditorInterface, …). Shipping a
+  Why source-only? An extension's RQL module (adapters, sources, methods) calls Godot's C# API (Node,
+  Resource, EditorInterface, …). Shipping a
   pre-compiled DLL would LOCK the package to one GodotSharp version. Instead we ship the .cs SOURCE and
   let it compile INSIDE the consumer's Godot project, against the CONSUMER's own GodotSharp (supplied by
   their `Godot.NET.Sdk`). No bundled Godot, no version lock.
@@ -14,11 +15,11 @@
     2. The .cs are packed under `src/` (plain files) and injected as <Compile> items in the consumer by
        `build/<PackageId>.props` (auto-imported by NuGet). See that props file.
     3. NO GodotSharp dependency is declared (DisableImplicitGodotSharpReferences + PrivateAssets=all below)
-       — the consumer provides it. Only the MCP/reflection stack is declared as a (min-version) dependency,
+       — the consumer provides it. Only the MCP / reflection / query stack is declared as a (min-version) dependency,
        which the consumer already has via the core Godot-MCP addon.
 
-  This project ALSO uses `Godot.NET.Sdk` for AUTHORING only: so the editor-only sample (#if TOOLS,
-  touches `Godot.EditorInterface`) compiles + the `Godot` namespace resolves when you build/test locally.
+  This project ALSO uses `Godot.NET.Sdk` for AUTHORING only: so the editor-only module (#if TOOLS) compiles
+  + the `Godot` namespace resolves when you build/test locally.
   No Godot binary is needed — `Godot.NET.Sdk` pulls `GodotSharp` from NuGet at compile time.
 -->
 <Project Sdk="Godot.NET.Sdk/4.3.0">
@@ -33,10 +34,10 @@
     <!-- ===== Package identity (bump-version.ps1 / get-version.ps1 own the Version element) ===== -->
     <IsPackable>true</IsPackable>
     <PackageId>com.IvanMurzak.Godot.MCP.GridMap</PackageId>
-    <Version>0.1.2</Version>
+    <Version>1.0.0</Version>
     <Title>GridMap Tools</Title>
     <Authors>Ivan Murzak</Authors>
-    <Description>AI MCP tools for Godot GridMap.</Description>
+    <Description>RQL module for Godot GridMap.</Description>
     <PackageTags>godot;mcp;ai;tools;godot-mcp;ai-game-developer</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -59,14 +60,16 @@
   </PropertyGroup>
 
   <!--
-    Package DEPENDENCIES: only the engine-agnostic MCP/reflection stack, as MIN-versions (a NuGet
+    Package DEPENDENCIES: only the engine-agnostic MCP / reflection / query stack, as MIN-versions (a NuGet
     Version="x" is a ">= x" floor). The consumer already references these via the core Godot-MCP addon,
-    so they resolve to the consumer's pins. `update-core.ps1` keeps these in lockstep with the addon.
-    Keep these aligned with Godot-MCP/Godot-MCP.csproj.
+    so they resolve to the consumer's pins. The RQL module needs com.IvanMurzak.Rql >= 0.1.1 (IRqlModule,
+    type adapters) and an RQL core: McpPlugin >= 8.8.0, which itself requires ReflectorNet >= 5.4.2.
+    `update-core.ps1` / `update-core.py` keep these floors in lockstep across package, tests and testbed.
   -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.0" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
   <!--

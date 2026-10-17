@@ -1,9 +1,10 @@
 # GridMap Tools
 
-AI MCP tools for Godot GridMap (3D tile-based maps): create, set/clear cells, assign a MeshLibrary, and inspect.
+RQL module for Godot GridMap (3D tile maps): validated settings, cell rows and SetCell / ClearCell / Clear for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.GridMap` (0.1.2).
-Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.GridMap` (1.0.0).
+Requires a Godot C# project (4.3.0+) with a core `godot_mcp` addon that has the RQL tools
+(`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
 ## Install
 
@@ -13,19 +14,46 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.GridMap /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.2` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.0.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
-## Tools
+## RQL
 
-- `gridmap-defaults` — Return the recommended starter configuration for a new GridMap node.
-- `gridmap-create` — Create a GridMap node in the currently edited Godot scene.
-- `gridmap-set-mesh-library` — Assign a MeshLibrary resource to an existing GridMap node.
-- `gridmap-set-cell` — Set a single cell of a GridMap to a MeshLibrary item.
-- `gridmap-clear-cell` — Clear a single cell of a GridMap.
-- `gridmap-clear` — Clear all cells of a GridMap.
-- `gridmap-get` — Read a GridMap's scalar config (read-only).
+Since 1.0.0 the extension is an **RQL module**: it adds no MCP tools. Agents create GridMaps, assign their
+MeshLibrary and paint cells with the core `rql-query` / `rql-mutate` / `rql-schema` tools, and the module's guide
+is part of the core `godot-rql` skill. The module adds, on `GridMap`:
+
+- **Validated settings**: `CellSize` (at least 0.001 on every axis) and `CellOctantSize` (at least 1). An invalid
+  value fails the whole mutation and changes nothing (0.x clamped it).
+- **Cells**: read-only `cells` rows (`x y z item itemName orientation`) and `cellCount`; calls
+  `SetCell(x, y, z, item, orientation = 0)` (item 0 or more, orientation 0 to 23), `ClearCell(x, y, z)` and
+  `Clear()`.
+
+```
+root | call AddChild("GridMap", "Grid")
+nodes | where name == "Grid" | set MeshLibrary = "res://e2e-meshlib.tres", CellSize = "(1, 1, 1)"
+nodes | where name == "Grid" | call SetCell(1, 0, 1, 0)
+nodes | where name == "Grid" | call SetCell(2, 0, 1, 0, 10)
+nodes | where name == "Grid" | get cells | select x y z item orientation
+nodes | where name == "Grid" | call ClearCell(1, 0, 1)
+nodes | where $ is GridMap | select name cellCount MeshLibrary
+nodes | where name == "Grid" | call Clear()
+```
+
+Every write is one undoable action and marks the scene unsaved (`editor | call SaveScene()` writes it).
+
+### Migrating from 0.x
+
+| 0.x tool | RQL |
+| --- | --- |
+| `gridmap-defaults` | removed: a new GridMap starts with Godot's defaults; the guide lists typical values |
+| `gridmap-create` | `rql-mutate` `root \| call AddChild("GridMap", "Grid")`, then `… \| set CellSize = "(1, 1, 1)"` |
+| `gridmap-set-mesh-library` | `rql-mutate` `nodes \| where name == "Grid" \| set MeshLibrary = "res://tiles.tres"` |
+| `gridmap-set-cell` | `rql-mutate` `… \| call SetCell(1, 0, 1, 0)` (orientation as a fifth argument) |
+| `gridmap-clear-cell` | `rql-mutate` `… \| call ClearCell(1, 0, 1)` |
+| `gridmap-clear` | `rql-mutate` `… \| call Clear()` |
+| `gridmap-get` | `rql-query` `nodes \| where $ is GridMap \| select name CellSize CellScale CellOctantSize MeshLibrary cellCount`; `… \| get cells` |
 
 ## Development and releases
 
