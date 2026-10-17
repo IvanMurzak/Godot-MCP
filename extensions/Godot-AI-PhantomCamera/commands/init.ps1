@@ -14,7 +14,7 @@
       Repo        : IvanMurzak/Godot-AI-<Feature>          (-GitHubRepository)
       Display name: "<Feature> Tools"                       (-DisplayName)
       Description : "RQL module for Godot <Feature>."      (-Description)
-      Tool prefix : <feature-lowercased>                     (-ToolPrefix; tool ids "<prefix>-*")
+      RQL source  : <feature-lowercased>                     (-SourceName; the module's RQL source name)
 
 .EXAMPLE
     ./commands/init.ps1 -Feature "Particles"
@@ -27,7 +27,7 @@ param(
     [Parameter(Mandatory = $false)][string]$DisplayName,
     [Parameter(Mandatory = $false)][string]$Description,
     [Parameter(Mandatory = $false)][string]$GitHubRepository,
-    [Parameter(Mandatory = $false)][string]$ToolPrefix
+    [Parameter(Mandatory = $false)][string]$SourceName
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +39,7 @@ if ($Feature -notmatch '^[A-Za-z][A-Za-z0-9]*$') {
 if ([string]::IsNullOrWhiteSpace($DisplayName))      { $DisplayName = "$Feature Tools" }
 if ([string]::IsNullOrWhiteSpace($Description))       { $Description = "RQL module for Godot $Feature." }
 if ([string]::IsNullOrWhiteSpace($GitHubRepository))  { $GitHubRepository = "IvanMurzak/Godot-AI-$Feature" }
-if ([string]::IsNullOrWhiteSpace($ToolPrefix))        { $ToolPrefix = $Feature.ToLower() }
+if ([string]::IsNullOrWhiteSpace($SourceName))        { $SourceName = $Feature.ToLower() }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot  = Split-Path -Parent $ScriptDir
@@ -49,7 +49,7 @@ $Replacements = [ordered]@{
     "YOUR_GITHUB_USERNAME_REPOSITORY" = $GitHubRepository
     "YOUR_DISPLAY_NAME"               = $DisplayName
     "YOUR_DESCRIPTION"                = $Description
-    "YOUR_TOOL_PREFIX"                = $ToolPrefix
+    "YOUR_SOURCE"                     = $SourceName
     "YOUR_FEATURE"                    = $Feature
 }
 
@@ -58,7 +58,7 @@ Write-Host "  Feature      : $Feature"
 Write-Host "  Package id   : com.IvanMurzak.Godot.MCP.$Feature"
 Write-Host "  Repository   : $GitHubRepository"
 Write-Host "  Display name : $DisplayName"
-Write-Host "  Tool prefix  : $ToolPrefix-*"
+Write-Host "  RQL source   : $SourceName"
 Write-Host ""
 
 $ExcludeDirs = @('.git', 'bin', 'obj', '.godot', 'local-nuget', '.vs')

@@ -31,7 +31,7 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE
         public int Order => 100;
 
         public void Configure(RqlModuleContext ctx) =>
-            ctx.AddSource("YOUR_TOOL_PREFIX", () => YOUR_FEATUREApi.Instance,
+            ctx.AddSource("YOUR_SOURCE", () => YOUR_FEATUREApi.Instance,
                     "YOUR_DISPLAY_NAME: godotVersion, editorScale; call Echo(message)")
                .AddGuide(YOUR_FEATUREGuide.Topic, YOUR_FEATUREGuide.Markdown);
     }

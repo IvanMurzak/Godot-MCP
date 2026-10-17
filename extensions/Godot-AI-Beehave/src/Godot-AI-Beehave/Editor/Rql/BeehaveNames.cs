@@ -18,8 +18,6 @@ namespace com.IvanMurzak.Godot.MCP.Beehave
     /// </summary>
     public static class BeehaveNames
     {
-        public const string AddonName = "Beehave";
-
         /// <summary>The class whose presence in the global script-class list means "Beehave is installed".</summary>
         public const string TreeClass = "BeehaveTree";
 

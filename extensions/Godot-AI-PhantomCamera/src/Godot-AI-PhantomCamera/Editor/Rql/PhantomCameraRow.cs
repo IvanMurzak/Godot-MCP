@@ -25,11 +25,13 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
     public sealed class PhantomCameraRow
     {
         private readonly bool _is2D;
+        private readonly Node _root;
 
-        internal PhantomCameraRow(Node node, string path, string scriptClass, bool is2D)
+        internal PhantomCameraRow(Node node, Node root, string scriptClass, bool is2D)
         {
             this.node = node;
-            this.path = path;
+            _root = root;
+            path = root.GetPathTo(node).ToString();
             this.scriptClass = scriptClass;
             _is2D = is2D;
         }
@@ -47,16 +49,16 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
         public int priority => node.Get(PhantomCameraNames.Priority).AsInt32();
 
         [RqlDescription("None, Glued, Simple, Group, Path, Framed or ThirdPerson (3D only); set it with SetFollow")]
-        public string followMode => PhantomCameraModes.FollowLabel(node.Get(PhantomCameraNames.FollowMode).AsInt32());
+        public string followMode => PhantomCameraModes.Label<PhantomFollowMode>(node.Get(PhantomCameraNames.FollowMode).AsInt32());
 
         [RqlDescription("path of the followed node (props[\"follow_target\"]), or null")]
-        public string? followTarget => PhantomCameraApi.PathInScene(node.Get(PhantomCameraNames.FollowTarget).As<Node>());
+        public string? followTarget => PhantomCameraApi.PathInScene(_root, node.Get(PhantomCameraNames.FollowTarget).As<Node>());
 
         [RqlDescription("None, Mimic, Simple or Group (null for a PhantomCamera2D); set it with SetLookAt")]
-        public string? lookAtMode => _is2D ? null : PhantomCameraModes.LookAtLabel(node.Get(PhantomCameraNames.LookAtMode).AsInt32());
+        public string? lookAtMode => _is2D ? null : PhantomCameraModes.Label<PhantomLookAtMode>(node.Get(PhantomCameraNames.LookAtMode).AsInt32());
 
         [RqlDescription("path of the looked-at node (props[\"look_at_target\"]), or null")]
-        public string? lookAtTarget => _is2D ? null : PhantomCameraApi.PathInScene(node.Get(PhantomCameraNames.LookAtTarget).As<Node>());
+        public string? lookAtTarget => _is2D ? null : PhantomCameraApi.PathInScene(_root, node.Get(PhantomCameraNames.LookAtTarget).As<Node>());
 
         [RqlDescription("whether following is damped (props[\"follow_damping\"])")]
         public bool followDamping => node.Get(PhantomCameraNames.FollowDamping).AsBool();
@@ -71,14 +73,7 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
         public string SetFollow(string mode, Node? target = null)
         {
             Check(PhantomCameraRules.FollowMode(mode, _is2D, out var followMode));
-            if (target != null)
-            {
-                Check(PhantomCameraRules.FollowTarget(followMode));
-                CheckTarget(target);
-            }
-            node.Set(PhantomCameraNames.FollowMode, (int)followMode);
-            if (target != null) SetTarget(PhantomCameraNames.FollowTarget, target);
-            EditorInterface.Singleton.MarkSceneAsUnsaved();
+            Apply(PhantomCameraNames.FollowMode, (int)followMode, PhantomCameraNames.FollowTarget, target, () => PhantomCameraRules.FollowTarget(followMode));
             return followMode.ToString();
         }
 
@@ -86,15 +81,21 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
         public string SetLookAt(string mode, Node? target = null)
         {
             Check(PhantomCameraRules.LookAtMode(mode, _is2D, out var lookAtMode));
+            Apply(PhantomCameraNames.LookAtMode, (int)lookAtMode, PhantomCameraNames.LookAtTarget, target, () => PhantomCameraRules.LookAtTarget(lookAtMode));
+            return lookAtMode.ToString();
+        }
+
+        // Validate the target first, then write the mode and the target in the order the addon requires.
+        private void Apply(string modeProperty, int mode, string targetProperty, Node? target, Func<string?> targetRule)
+        {
             if (target != null)
             {
-                Check(PhantomCameraRules.LookAtTarget(lookAtMode));
+                Check(targetRule());
                 CheckTarget(target);
             }
-            node.Set(PhantomCameraNames.LookAtMode, (int)lookAtMode);
-            if (target != null) SetTarget(PhantomCameraNames.LookAtTarget, target);
+            node.Set(modeProperty, mode);
+            if (target != null) SetTarget(targetProperty, target);
             EditorInterface.Singleton.MarkSceneAsUnsaved();
-            return lookAtMode.ToString();
         }
 
         private void CheckTarget(Node target) =>

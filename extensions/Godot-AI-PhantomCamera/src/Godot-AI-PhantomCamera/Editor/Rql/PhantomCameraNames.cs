@@ -17,8 +17,6 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
     /// </summary>
     public static class PhantomCameraNames
     {
-        public const string AddonName = "Phantom Camera";
-
         public const string PhantomCamera3D = "PhantomCamera3D";
         public const string PhantomCamera2D = "PhantomCamera2D";
         public const string PhantomCameraHost = "PhantomCameraHost";

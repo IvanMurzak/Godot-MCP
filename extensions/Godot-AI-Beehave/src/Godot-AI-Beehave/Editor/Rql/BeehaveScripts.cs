@@ -8,44 +8,47 @@
 */
 #if TOOLS
 #nullable enable
+using System;
 using System.Collections.Generic;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Beehave
 {
     /// <summary>
-    /// The GDScript global classes (<c>class_name</c>s) of the project, read once per query from
-    /// <c>ProjectSettings.GetGlobalClassList()</c>. A GDScript node reports its native base from <c>GetClass()</c>
-    /// ("Node"), so its Beehave class comes from its script and the script's base scripts.
+    /// The project's GDScript global classes (<c>class_name</c> to script path), read from
+    /// <c>ProjectSettings.GetGlobalClassList()</c> once per source access (the source creates one per query). A GDScript
+    /// node or resource reports its native base from <c>GetClass()</c>, so its Beehave class comes from its script chain
+    /// (<see cref="Chain"/>). The Beehave, Dialogic and PhantomCamera extensions each carry this same class: a shared source
+    /// would define the type twice in a consumer that installs two of them.
     /// </summary>
     internal sealed class BeehaveScripts
     {
-        private readonly Dictionary<string, string> _classByPath = new Dictionary<string, string>();
-        private readonly HashSet<string> _classes = new HashSet<string>();
+        private readonly Dictionary<string, string> _pathByClass = new Dictionary<string, string>(StringComparer.Ordinal);
 
         public BeehaveScripts()
         {
             foreach (global::Godot.Collections.Dictionary entry in ProjectSettings.GetGlobalClassList())
-            {
-                if (!entry.TryGetValue("class", out var cls)) continue;
-                var name = cls.AsString();
-                _classes.Add(name);
-                if (entry.TryGetValue("path", out var path)) _classByPath[path.AsString()] = name;
-            }
+                if (entry.TryGetValue("class", out var name) && entry.TryGetValue("path", out var path))
+                    _pathByClass[name.AsString()] = path.AsString();
         }
 
         /// <summary>True when the global class is registered (the addon is installed and its scripts parsed).</summary>
-        public bool Has(string className) => _classes.Contains(className);
+        public bool Has(string className) => _pathByClass.ContainsKey(className);
 
-        /// <summary>The global classes of the object's script and its base scripts, nearest first (empty without a script).</summary>
-        public List<string> Chain(GodotObject o)
+        /// <summary>The script path of a global class, or null.</summary>
+        public string? PathOf(string className) => _pathByClass.TryGetValue(className, out var path) ? path : null;
+
+        /// <summary>
+        /// The global class names of the object's script and its base scripts, nearest first; null when it has none
+        /// (a plain node allocates nothing).
+        /// </summary>
+        public static List<string>? Chain(GodotObject o)
         {
-            var chain = new List<string>();
-            var script = o.GetScript().As<Script>();
-            while (script != null)
+            List<string>? chain = null;
+            for (var script = o.GetScript().As<Script>(); script != null; script = script.GetBaseScript())
             {
-                if (_classByPath.TryGetValue(script.ResourcePath, out var cls)) chain.Add(cls);
-                script = script.GetBaseScript();
+                var name = script.GetGlobalName().ToString();
+                if (name.Length > 0) (chain ??= new List<string>()).Add(name);
             }
             return chain;
         }

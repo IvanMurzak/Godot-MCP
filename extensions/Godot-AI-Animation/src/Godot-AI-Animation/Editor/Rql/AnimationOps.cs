@@ -40,18 +40,21 @@ namespace com.IvanMurzak.Godot.MCP.Animation
         {
             Require(AnimationRules.LibraryName(library));
             var mode = CheckNew(name, length, loopMode);
-            if (mixer.HasAnimationLibrary(library))
-                return CreateAnimation(mixer.GetAnimationLibrary(library), name, length, loopMode);
-            var created = AddLibrary(mixer, library);
-            return Add(created, name, length, mode);
+            var existing = mixer.HasAnimationLibrary(library) ? mixer.GetAnimationLibrary(library) : null;
+            if (existing != null) RequireFree(existing, name);
+            return Add(existing ?? AddLibrary(mixer, library), name, length, mode);
         }
 
         public static GodotAnimation CreateAnimation(AnimationLibrary library, string name, double length, string? loopMode)
         {
             var mode = CheckNew(name, length, loopMode);
-            if (library.HasAnimation(name))
-                throw new ArgumentException($"the library already has an animation named '{name}'");
+            RequireFree(library, name);
             return Add(library, name, length, mode);
+        }
+
+        private static void RequireFree(AnimationLibrary library, string name)
+        {
+            if (library.HasAnimation(name)) throw new ArgumentException($"the library already has an animation named '{name}'");
         }
 
         public static int AddTrack(GodotAnimation animation, string kindLabel, string path)
@@ -67,7 +70,7 @@ namespace com.IvanMurzak.Godot.MCP.Animation
         {
             var kind = CheckKey(animation, track, time);
             if (kind != GodotAnimation.TrackType.Value)
-                throw new ArgumentException(kind is GodotAnimation.TrackType.Position3D or GodotAnimation.TrackType.Rotation3D or GodotAnimation.TrackType.Scale3D
+                throw new ArgumentException(IsTransform(kind)
                     ? $"track {track} is a {Label(kind)} track: key it with InsertTransformKey(track, time, \"(x, y, z)\")"
                     : $"track {track} is a {Label(kind)} track; InsertKey keys value tracks only");
             return animation.TrackInsertKey(track, time, value);
@@ -105,6 +108,9 @@ namespace com.IvanMurzak.Godot.MCP.Animation
         public static IEnumerable<string> AnimationNames(AnimationMixer mixer) => mixer.GetAnimationList().Select(n => n.ToString());
 
         public static IEnumerable<string> AnimationNames(AnimationLibrary library) => library.GetAnimationList().Select(n => n.ToString());
+
+        private static bool IsTransform(GodotAnimation.TrackType kind) =>
+            kind is GodotAnimation.TrackType.Position3D or GodotAnimation.TrackType.Rotation3D or GodotAnimation.TrackType.Scale3D;
 
         private static string Label(GodotAnimation.TrackType type) =>
             AnimationTrackKinds.FromGodotTrackType((int)type)?.ToLabel() ?? type.ToString();

@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE
 {
@@ -24,17 +22,13 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE
 
         /// <summary>One example per line: the query, three or more spaces, a note.</summary>
         public const string Examples =
-            "YOUR_TOOL_PREFIX | select godotVersion editorScale   the editor's version and UI scale\n" +
-            "YOUR_TOOL_PREFIX | call Echo(\"ci-roundtrip\")   a callable method: returns its argument";
+            "YOUR_SOURCE | select godotVersion editorScale   the editor's version and UI scale\n" +
+            "YOUR_SOURCE | call Echo(\"ci-roundtrip\")   a callable method: returns its argument";
 
         public const string Markdown =
-            "The `YOUR_TOOL_PREFIX` source is this module's entry point: read its members with `rql-query`, call its methods with " +
+            "The `YOUR_SOURCE` source is this module's entry point: read its members with `rql-query`, call its methods with " +
             "`rql-mutate`:\n\n```\n" + Examples + "\n```\n\n" +
             "Replace this sample with what the extension adds: adapters for the Godot types it covers (validated members, " +
             "methods), sources for state that no node owns, and runnable examples.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

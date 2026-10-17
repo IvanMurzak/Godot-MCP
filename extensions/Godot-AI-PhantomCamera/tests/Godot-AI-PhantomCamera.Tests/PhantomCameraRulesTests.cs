@@ -90,13 +90,13 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera.Tests
         [InlineData(2, "Simple")]
         [InlineData(6, "ThirdPerson")]
         [InlineData(9, "9")]
-        public void FollowLabels(int value, string label) => Assert.Equal(label, PhantomCameraModes.FollowLabel(value));
+        public void FollowLabels(int value, string label) => Assert.Equal(label, PhantomCameraModes.Label<PhantomFollowMode>(value));
 
         [Theory]
         [InlineData(1, "Mimic")]
         [InlineData(3, "Group")]
         [InlineData(-1, "-1")]
-        public void LookAtLabels(int value, string label) => Assert.Equal(label, PhantomCameraModes.LookAtLabel(value));
+        public void LookAtLabels(int value, string label) => Assert.Equal(label, PhantomCameraModes.Label<PhantomLookAtMode>(value));
 
         [Fact]
         public void TheInstallHintNamesTheAddonAndItsAutoload()

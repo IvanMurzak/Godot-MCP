@@ -42,7 +42,7 @@ class ArchiveDistribution(unittest.TestCase):
             self.assertTrue(all('/addons/godot_mcp_extensions/Example/' in name for name in bundle.namelist()))
         target = self.root / 'consumer'
         assetlib.extract_archive(archive, target)
-        self.assertEqual(b'class Example {}', (target / 'addons/godot_mcp_extensions/Example/Runtime/Test.cs').read_bytes())
+        self.assertEqual(b'class Example {}', (target / 'addons/godot_mcp_extensions/Example/Editor/Test.cs').read_bytes())
         self.assertFalse(list(target.rglob('*.props')))
         self.assertFalse(list(target.rglob('*.csproj')))
         assetlib.verify_archive(module, package, archive, root=self.root)

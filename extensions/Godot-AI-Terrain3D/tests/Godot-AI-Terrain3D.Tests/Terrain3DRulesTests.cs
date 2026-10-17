@@ -50,7 +50,6 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D.Tests
             Assert.Equal("data_directory", Terrain3DNames.DataDirectoryProperty);
             Assert.Equal("change_region_size", Terrain3DNames.ChangeRegionSizeMethod);
             Assert.Equal("get_region_count", Terrain3DNames.GetRegionCountMethod);
-            Assert.Contains(Terrain3DNames.DefaultRegionSize, Terrain3DNames.RegionSizes);
         }
     }
 }

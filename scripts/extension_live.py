@@ -1,8 +1,8 @@
 """Run all compatible module manifests against ONE owned Godot editor process."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,6 +17,7 @@ import time
 import urllib.request
 import zipfile
 
+import extension_e2e
 from extensions import ROOT, modules, run
 
 
@@ -125,13 +126,16 @@ def stop(process):
     print('Stopped owned process tree PID', process.pid, flush=True)
 
 
-def check_editor_log(text, sdk=None, *, startup_lines=0, expected_tool_errors=0):
+def check_editor_log(text, sdk=None, *, startup_lines=0, failure_windows=()):
+    """Fail on script / assembly / engine errors. `failure_windows` are the [start, end) line ranges of the
+    manifest's expectFailure calls: each must hold exactly one McpPlugin error response (the rejected value);
+    an error response anywhere else is fatal."""
     if re.search(r'SCRIPT ERROR:|FileNotFoundException|Failed to load script|Unable to load addon|'
                  r'Cannot resolve relative SkillsPath|Unhandled exception', text, re.I):
         raise ValueError('Script/assembly failure in combined editor log; see editor.log')
     lines = text.splitlines()
     diagnostics = {'godot44ColdImportProgress': 0}
-    tool_errors = 0
+    window_hits = [0] * len(failure_windows)
     progress_messages = {
         'ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!',
         'ERROR: Condition "!tasks.has(p_task)" is true. Returning: canceled',
@@ -141,12 +145,13 @@ def check_editor_log(text, sdk=None, *, startup_lines=0, expected_tool_errors=0)
             continue
         context = '\n'.join(lines[index:index + 20])
         # A manifest call marked expectFailure (a value the module must reject) is logged by McpPlugin as an
-        # error response carrying the RQL error text. Only that many such responses are tolerated.
+        # error response carrying the RQL error text; it is tolerated only inside that call's own log window.
         if (line == 'ERROR: [McpPlugin] McpToolManager: Error Response to AI:'
                 and index + 1 < len(lines) and lines[index + 1].startswith('error ')):
-            tool_errors += 1
-            if tool_errors > expected_tool_errors:
+            window = next((i for i, (start, end) in enumerate(failure_windows) if start <= index < end), None)
+            if window is None or window_hits[window]:
                 raise ValueError('Unexpected tool error response in combined editor log:\n' + context)
+            window_hits[window] += 1
             continue
         # Upstream godotengine/godot#103398: native cold-import progress UI
         # diagnostics in 4.4. Match only the exact native frames during startup;
@@ -157,20 +162,23 @@ def check_editor_log(text, sdk=None, *, startup_lines=0, expected_tool_errors=0)
             diagnostics['godot44ColdImportProgress'] += 1
             continue
         raise ValueError('Unexpected engine error in combined editor log:\n' + context)
-    if tool_errors != expected_tool_errors:
-        raise ValueError(f'Expected {expected_tool_errors} rejected tool call(s) in the editor log, found {tool_errors}')
+    if not all(window_hits):
+        raise ValueError(f'{window_hits.count(0)} expectFailure call(s) left no error response in the editor log')
     return diagnostics
+
+
+def read_log(path):
+    return path.read_text(encoding='utf-8', errors='replace')
+
+
+def log_lines(path):
+    return len(read_log(path).splitlines())
 
 
 def live(plan, godot, server, output):
     project = Path(plan['project']).parent
     selected = [m for m in modules() if m['name'] in plan['modules']]
     install_test_addons(selected, project, output, plan['sdk'])
-    # Reuse the original assertion driver, not a weaker replacement of its checks.
-    driver_path = ROOT / 'extensions/Godot-AI-Particles/tests/e2e/run_tool_e2e.py'
-    spec = importlib.util.spec_from_file_location('extension_e2e_driver', driver_path)
-    driver = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(driver)
     cli = ['node', str(ROOT / 'cli/bin/godot-cli.js')]
     if not (ROOT / 'cli/dist/index.js').is_file():
         raise ValueError('Build the candidate CLI first: cd cli && npm ci && npm run build')
@@ -233,23 +241,40 @@ def live(plan, godot, server, output):
             raise ValueError('Editor identity or addon-load proof missing: ' + text[-6000:])
         startup_lines = len(text.splitlines())
         check_editor_log(text, plan['sdk'], startup_lines=startup_lines)
-        total = expected_failures = 0
+        log_path = output / 'editor.log'
+        windows = []
+
+        @contextlib.contextmanager
+        def failure_window(call):
+            # Record the editor-log lines an expectFailure call's error response may occupy.
+            if not call.get('expectFailure'):
+                yield
+                return
+            start = log_lines(log_path)
+            yield
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if 'Error Response to AI:' in '\n'.join(read_log(log_path).splitlines()[start:]):
+                    break
+                time.sleep(.2)
+            windows.append((start, log_lines(log_path)))
+
+        total = 0
         for module in selected:
             manifest = json.loads((ROOT / 'extensions' / module['name'] / 'tests/e2e/e2e-tools.json').read_text())
             for phase in ('setup', 'tools'):
                 calls = manifest.get(phase, [])
-                expected_failures += sum(1 for call in calls if call.get('expectFailure'))
-                if not driver.run_phase(module['name'] + '/' + phase, calls, cli, url, 60, env=env):
+                if not extension_e2e.run_phase(module['name'] + '/' + phase, calls, cli, url, 60, env=env,
+                                               around=failure_window):
                     raise RuntimeError('Live tool assertions failed: ' + module['name'])
                 total += len(calls)
             if editor.poll() is not None:
                 raise RuntimeError('Combined editor exited during module assertions')
-        diagnostics = check_editor_log((output / 'editor.log').read_text(encoding='utf-8', errors='replace'),
-                                       plan['sdk'], startup_lines=startup_lines,
-                                       expected_tool_errors=expected_failures)
+        diagnostics = check_editor_log(read_log(log_path), plan['sdk'], startup_lines=startup_lines,
+                                       failure_windows=windows)
         (output / 'live-result.json').write_text(json.dumps({
             'sdk': plan['sdk'], 'editorLaunches': 1, 'editorPid': editor.pid,
-            'modules': plan['modules'], 'assertions': total, 'expectedFailures': expected_failures, 'success': True,
+            'modules': plan['modules'], 'assertions': total, 'expectedFailures': len(windows), 'success': True,
             'nativeDiagnostics': diagnostics}, indent=2) + '\n')
         if any(diagnostics.values()):
             print(f'NOTE: explicitly reported native headless diagnostics: {diagnostics}', flush=True)

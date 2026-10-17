@@ -19,7 +19,7 @@ against the consumer's own GodotSharp; the packaging recipe is in `docs/source-o
   NuGet in the consumer; MUST stay named `<PackageId>.props`.
 - `tests/Godot-AI-Terrain3D.Tests/` — xUnit (no Godot binary, no addon): rules, names, guide examples parse, the
   module's registrations and view type, and the e2e manifest runs every guide example.
-- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `run_tool_e2e.py` from the monorepo suite with
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite with
   the pinned addon installed (`extension.json` `testAddon`: `TokisanGames/Terrain3D` @ `v1.0.2-stable`).
 - `testbed/Terrain3D-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.

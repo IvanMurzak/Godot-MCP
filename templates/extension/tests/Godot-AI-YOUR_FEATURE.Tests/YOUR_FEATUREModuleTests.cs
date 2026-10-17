@@ -32,7 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE.Tests
         public void ModuleRegistersItsSourceAndGuide()
         {
             var engine = Engine();
-            Assert.True(engine.Sources.ContainsKey("YOUR_TOOL_PREFIX"));
+            Assert.True(engine.Sources.ContainsKey("YOUR_SOURCE"));
             var guide = Assert.Single(engine.Guides, g => g.Key == YOUR_FEATUREGuide.Topic);
             Assert.Equal(YOUR_FEATUREGuide.Markdown, guide.Value);
         }
@@ -47,8 +47,8 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE.Tests
         }
 
         [Theory]
-        [InlineData(null, "YOUR_TOOL_PREFIX-ready")]
-        [InlineData("", "YOUR_TOOL_PREFIX-ready")]
+        [InlineData(null, "YOUR_SOURCE-ready")]
+        [InlineData("", "YOUR_SOURCE-ready")]
         [InlineData("ci-roundtrip", "ci-roundtrip")]
         public void EchoReturnsTheMessageOrTheReadyText(string? message, string expected) =>
             Assert.Equal(expected, YOUR_FEATUREApi.EchoText(message));

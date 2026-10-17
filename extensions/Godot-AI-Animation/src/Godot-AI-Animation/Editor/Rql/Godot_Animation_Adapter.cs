@@ -28,17 +28,16 @@ namespace com.IvanMurzak.Godot.MCP.Animation
 
         protected override void Members(MemberTable<GodotAnimation> m)
         {
-            // By Godot property name: the C# Length is a float up to Godot 4.6 and a double from 4.7.
-            m.Add<double>("Length", a => a.Get("length").AsDouble(), (a, v) => a.Set("length", v),
+            // The C# Length is a float up to Godot 4.6 and a double from 4.7: the casts compile against both.
+            m.Add<double>("Length", a => (double)a.Length, (a, v) => a.Length = (float)v,
                     validate: (a, v) => AnimationRules.Length(v), description: "length in seconds (at least 0.001)")
              .Add<List<AnimationTrackRow>>("tracks", AnimationOps.Tracks, description: "the tracks (read-only rows: index kind path keyCount)")
              .Add<int>("trackCount", a => a.GetTrackCount(), description: "number of tracks");
 
+            m.Function<string, string, int>("AddTrack", AnimationOps.AddTrack, "kind", "path",
+                "add a track and return its index: kind value (path \"Node:property\", e.g. \"Mover:position:x\"), position-3d, rotation-3d " +
+                "or scale-3d (path \"Node\"); node paths are relative to the player's root node (its parent by default; \".\" = that node)");
             m.Untyped
-                .AddMethod("AddTrack", new[] { new CallableParameter("kind", typeof(string)), new CallableParameter("path", typeof(string)) },
-                    typeof(int), (o, a) => AnimationOps.AddTrack((GodotAnimation)o, (string)a[0]!, (string)a[1]!),
-                    "add a track and return its index: kind value (path \"Node:property\", e.g. \"Mover:position:x\"), position-3d, rotation-3d " +
-                    "or scale-3d (path \"Node\"); node paths are relative to the player's root node (its parent by default; \".\" = that node)")
                 .AddMethod("InsertKey", new[] { new CallableParameter("track", typeof(int)), new CallableParameter("time", typeof(double)), new CallableParameter("value", typeof(Variant)) },
                     typeof(int), (o, a) => AnimationOps.InsertKey((GodotAnimation)o, (int)a[0]!, (double)a[1]!, (Variant)a[2]!),
                     "key a value track at a time (seconds) with a value (number, bool, text, resource …); returns the key index")

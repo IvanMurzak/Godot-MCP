@@ -21,7 +21,7 @@ GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
   NuGet in the consumer; MUST stay named `<PackageId>.props`.
 - `tests/Godot-AI-Dialogic.Tests/` — xUnit (no Godot binary): rules, timeline text, guide examples parse, the
   module's view types (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
-- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `run_tool_e2e.py` from the monorepo suite, which
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite, which
   installs the pinned addon (`extension.json` `testAddon`, a newer tag from Godot 4.5) and registers its `Dialogic`
   autoload.
 - `testbed/Dialogic-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).

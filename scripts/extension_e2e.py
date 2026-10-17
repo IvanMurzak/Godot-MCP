@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Live `run-tool` E2E driver for a Godot-MCP extension (generic; data-driven).
+"""Live E2E driver for the Godot-MCP extensions (generic; data-driven).
 
-This is the engine of the `e2e-godot` CI leg's tool-level gate. It does NOT boot anything: the
-caller (the workflow) must already have
+scripts/extension_live.py runs it once per module manifest (`extensions/Godot-AI-*/tests/e2e/e2e-tools.json`)
+against ONE headless Godot editor connected to a local gamedev-mcp-server (Authorization=none); it can also be
+run by hand against such an editor. It boots nothing itself.
 
-  1. a local MCP server running (the shared `gamedev-mcp-server`, Authorization=none), and
-  2. a HEADLESS Godot editor booted in `Custom` connection mode and CONNECTED to that server
-     (so the editor's `[AiTool]` handlers — including the `#if TOOLS` editor tools — can run).
-
-Given a `--url` (the server base) and a `--manifest` (a per-extension JSON tool list), it calls each
-tool via `godot-cli run-tool` / `run-system-tool` and asserts success. Every assertion is REAL: a tool
-that throws comes back HTTP 500 → `godot-cli` exits non-zero → this driver fails the build. There is no
-`continue-on-error` anywhere; a regression in any tool turns the leg red.
+Extensions are RQL modules, so every call is a core tool (`rql-query`, `rql-mutate`, `rql-schema`) invoked through
+`godot-cli run-tool … --raw`. Results are the default compact RQL text (rows `a|b|c`, objects `Class#id(name)`)
+inside godot-cli's raw JSON envelope.
 
 Manifest schema (JSON object):
 
@@ -19,30 +15,26 @@ Manifest schema (JSON object):
       "description": "free text (ignored)",
       "notes":       "free text (ignored)",
       "setup":  [ <call>, ... ],   # optional: run first, in order, each must succeed
-      "tools":  [ <call>, ... ]    # the per-tool assertions (the gate)
+      "tools":  [ <call>, ... ]    # the assertions (the gate)
     }
 
     <call> = {
       "tool":   "rql-query",              # required: the tool id
-      "system": false,                    # optional: true => run-system-tool (/api/system-tools)
       "input":  { ... },                  # optional: tool arguments (default {})
       "expect": [ "FX|32", ... ],         # optional: substrings that MUST appear in the raw response
-      "expectFailure": false              # optional: true => the call MUST fail (a rejected value, an error)
+      "expectFailure": false              # optional: true => the call MUST fail (a rejected value)
     }
 
-The driver gates each call on THREE things: `godot-cli` exit code 0, the literal `"status":"success"`
-in the raw response, and every `expect` substring present. Any miss fails the whole run. A call marked
-`expectFailure` is inverted: it passes only when the tool fails AND every `expect` substring appears in its
-output (so a validation rule is proven live, not just that something failed).
-
-Extensions are RQL modules: their calls are the core `rql-query` / `rql-mutate` / `rql-schema` tools, whose
-default results are compact text (rows `a|b|c`, objects `Class#id(name)`), embedded in godot-cli's --raw JSON.
-`setup` exists for calls that need an edited scene: `root` / `nodes` are empty on a freshly-booted headless
-editor, so a setup call opens one with `rql-mutate` `editor | call NewScene("res://e2e.tscn", "Node3D", "Root")`.
+A call passes on THREE things: `godot-cli` exit code 0, the literal `"status":"success"` in the raw response,
+and every `expect` substring present. A call marked `expectFailure` is inverted: it passes only when the tool
+fails AND every `expect` substring appears in its output (a validation rule proven live, not just any failure).
+`setup` opens the edited scene the calls need (`root` / `nodes` are empty on a freshly booted editor):
+`rql-mutate` `editor | call NewScene("res://e2e.tscn", "Node3D", "Root")`.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import shlex
 import shutil
@@ -87,17 +79,16 @@ def run_call(cli_cmd: list[str], url: str, call: dict[str, Any], timeout_s: int,
     if not tool or not isinstance(tool, str):
         return False, "manifest entry is missing a string 'tool' id"
 
-    subcmd = "run-system-tool" if call.get("system") else "run-tool"
     input_obj = call.get("input", {})
     input_json = json.dumps(input_obj, separators=(",", ":"))
     expects = call.get("expect", []) or []
 
-    cmd = [*cli_cmd, subcmd, tool, "--url", url, "--input", input_json, "--raw", "--timeout", str(timeout_s * 1000)]
+    cmd = [*cli_cmd, "run-tool", tool, "--url", url, "--input", input_json, "--raw", "--timeout", str(timeout_s * 1000)]
 
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s + 30, env=env)
     except subprocess.TimeoutExpired:
-        return False, f"godot-cli timed out after {timeout_s + 30}s invoking {subcmd} {tool}"
+        return False, f"godot-cli timed out after {timeout_s + 30}s invoking run-tool {tool}"
     except FileNotFoundError as e:
         return False, f"could not launch godot-cli ({cmd[0]!r}): {e}"
 
@@ -125,24 +116,28 @@ def run_call(cli_cmd: list[str], url: str, call: dict[str, Any], timeout_s: int,
     return True, detail
 
 
-def run_phase(name: str, calls: list[dict[str, Any]], cli_cmd: list[str], url: str, timeout_s: int, *, env=None) -> bool:
+def run_phase(name: str, calls: list[dict[str, Any]], cli_cmd: list[str], url: str, timeout_s: int, *, env=None,
+              around=None) -> bool:
+    """Run the calls in order; `around(call)` may return a context manager wrapped around one call (the suite uses it
+    to record where an expectFailure call's error response lands in the editor log)."""
     ok = True
     for idx, call in enumerate(calls, 1):
         tool = call.get("tool", "<no-tool>")
-        passed, detail = run_call(cli_cmd, url, call, timeout_s, env=env)
+        with (around(call) if around else contextlib.nullcontext()):
+            passed, detail = run_call(cli_cmd, url, call, timeout_s, env=env)
         status = "PASS" if passed else "FAIL"
         print(f"[{status}] {name} {idx}/{len(calls)}: {tool}")
         print("    " + detail.replace("\n", "\n    "))
         if not passed:
-            print(f"::error::run-tool E2E {name} assertion failed for tool '{tool}' (see detail above).")
+            print(f"::error::E2E {name} assertion failed for tool '{tool}' (see detail above).")
             ok = False
     return ok
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Live run-tool E2E driver for a Godot-MCP extension.")
+    ap = argparse.ArgumentParser(description="Live E2E driver for a Godot-MCP extension manifest.")
     ap.add_argument("--url", required=True, help="MCP server base URL (e.g. http://localhost:5300).")
-    ap.add_argument("--manifest", required=True, help="Path to the per-extension JSON tool list.")
+    ap.add_argument("--manifest", required=True, help="Path to a module's tests/e2e/e2e-tools.json.")
     ap.add_argument(
         "--cli-cmd",
         default="godot-cli",
@@ -170,19 +165,19 @@ def main() -> int:
         print(f"::error::manifest '{manifest_path}' has an empty 'tools' list — nothing to assert.", file=sys.stderr)
         return 2
 
-    print(f"Run-tool E2E: {len(setup)} setup call(s), {len(tools)} tool assertion(s) against {args.url}")
+    print(f"E2E: {len(setup)} setup call(s), {len(tools)} tool assertion(s) against {args.url}")
     print(f"  godot-cli command: {cli_cmd}")
 
     setup_ok = run_phase("setup", setup, cli_cmd, args.url, args.timeout)
     if not setup_ok:
-        print("::error::run-tool E2E setup phase failed — aborting before the tool assertions.")
+        print("::error::E2E setup phase failed — aborting before the tool assertions.")
         return 1
 
     tools_ok = run_phase("tool", tools, cli_cmd, args.url, args.timeout)
     if not tools_ok:
         return 1
 
-    print(f"\nAll {len(tools)} run-tool assertion(s) passed.")
+    print(f"\nAll {len(tools)} assertion(s) passed.")
     return 0
 
 

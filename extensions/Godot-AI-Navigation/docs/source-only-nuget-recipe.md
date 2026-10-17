@@ -44,7 +44,6 @@ and our source compiles against *that* exact version.
 
   <!-- (2) Pack the .cs as plain files under src/ + the injection props under build/. -->
   <ItemGroup>
-    <None Include="Runtime/**/*.cs" Pack="true" PackagePath="src/Runtime/" />
     <None Include="Editor/**/*.cs"  Pack="true" PackagePath="src/Editor/" />
     <None Include="build/<PackageId>.props" Pack="true" PackagePath="build/" />
     <None Include="README.md" Pack="true" PackagePath="" />

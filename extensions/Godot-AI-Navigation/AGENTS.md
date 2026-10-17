@@ -20,7 +20,7 @@ GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
 - `tests/Godot-AI-Navigation.Tests/` — xUnit (no Godot binary): rules, guide examples parse, the module's member
   tables (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
 - `tests/e2e/e2e-tools.json` — the live calls (`rql-*`, including a real 3D and 2D bake), driven by
-  `run_tool_e2e.py` from the monorepo suite.
+  `scripts/extension_e2e.py` from the monorepo suite.
 - `testbed/Navigation-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.

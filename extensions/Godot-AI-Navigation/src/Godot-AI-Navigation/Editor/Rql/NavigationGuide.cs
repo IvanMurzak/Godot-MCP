@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Navigation
 {
@@ -50,9 +48,5 @@ namespace com.IvanMurzak.Godot.MCP.Navigation
             "\"(400, 0)\", \"(400, 300)\", \"(0, 300)\"])`. Godot's agent defaults: 3D radius 0.5 m, desired distances 1 m, max speed " +
             "10 m/s; 2D radius 10 px, path distance 20 px, target distance 10 px, max speed 100 px/s. `rql-schema \"NavigationAgent3D\"` " +
             "lists every member.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

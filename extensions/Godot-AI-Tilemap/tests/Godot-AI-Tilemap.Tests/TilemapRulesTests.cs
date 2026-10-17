@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Tilemap.Tests
         public void SourceIdsOfZeroOrMoreAreValid(int sourceId) => Assert.Null(TilemapRules.SourceId(sourceId));
 
         [Theory]
-        [InlineData(TilemapRules.NoSourceId)]
+        [InlineData(-1)] // TileSet.INVALID_SOURCE
         [InlineData(-5)]
         public void NegativeSourceIdsAreRejectedPointingToEraseCell(int sourceId)
         {

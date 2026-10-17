@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Dialogic
 {
@@ -46,9 +44,5 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
             "`description`, `nicknames`, `default_portrait`, `portraits`, `scale`, `offset`, `mirror`. Typical start: a " +
             "\"Narrator\" character and a two-line timeline (`CreateTimeline(path)` without text writes one). Without the addon " +
             "`dialogic | select installed hint` says so, the lists are empty and the calls fail with the install hint.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

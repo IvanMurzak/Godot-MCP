@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Terrain3D
 {
@@ -44,9 +42,5 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
             "writable res:// folder before sculpting: Terrain3D saves its regions there when the scene is saved (`editor | call " +
             "SaveScene()`). Typical values: region size 256 (small) to 1024 (large worlds), `mesh_lods` 7, `mesh_size` 48, " +
             "`vertex_spacing` 1. Without the addon, `terrain3d` is empty and `terrain3d.addon` says how to install it.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

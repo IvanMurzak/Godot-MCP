@@ -7,55 +7,14 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using Rql;
-using Xunit;
+using com.IvanMurzak.Godot.MCP.Extensions.Tests;
 
 namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE.Tests
 {
-    /// <summary>
-    /// The agent guide: every example parses, and the live e2e manifest runs exactly the guide examples, in order, each with
-    /// the tool its last stage needs (rql-mutate for set / call, rql-query otherwise).
-    /// </summary>
-    public class YOUR_FEATUREGuideTests
+    /// <summary>The shared guide checks (extensions/Shared/Tests/GuideExampleTests.cs) for YOUR_FEATUREGuide.</summary>
+    public sealed class YOUR_FEATUREGuideTests : GuideExampleTests
     {
-        public static IEnumerable<object[]> Examples() => YOUR_FEATUREGuide.Queries.Select(q => new object[] { q });
-
-        [Theory]
-        [MemberData(nameof(Examples))]
-        public void ExampleParses(string query) =>
-            Assert.True(RqlParser.TryParse(query, out _, out var error), $"'{query}': {error?.Message}");
-
-        [Fact]
-        public void GuideCarriesItsExamples()
-        {
-            Assert.NotEmpty(YOUR_FEATUREGuide.Queries);
-            Assert.Contains(YOUR_FEATUREGuide.Examples, YOUR_FEATUREGuide.Markdown);
-            Assert.All(YOUR_FEATUREGuide.Queries, q => Assert.DoesNotContain("   ", q));
-        }
-
-        [Fact]
-        public void TheLiveE2eRunsEveryGuideExampleInOrder()
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "e2e-tools.json")));
-            var calls = doc.RootElement.GetProperty("tools").EnumerateArray()
-                .Where(c => c.TryGetProperty("input", out var input) && input.TryGetProperty("query", out _))
-                .Select(c => (tool: c.GetProperty("tool").GetString()!, query: c.GetProperty("input").GetProperty("query").GetString()!))
-                .ToList();
-            var next = 0;
-            foreach (var example in YOUR_FEATUREGuide.Queries)
-            {
-                while (next < calls.Count && calls[next].query != example) next++;
-                Assert.True(next < calls.Count, $"tests/e2e/e2e-tools.json does not run the guide example (in order): {example}");
-                var last = example.Split('|').Last().TrimStart();
-                var mutates = last.StartsWith("set ", StringComparison.Ordinal) || last.StartsWith("call ", StringComparison.Ordinal);
-                Assert.Equal(mutates ? "rql-mutate" : "rql-query", calls[next].tool);
-                next++;
-            }
-        }
+        protected override string Examples => YOUR_FEATUREGuide.Examples;
+        protected override string Markdown => YOUR_FEATUREGuide.Markdown;
     }
 }

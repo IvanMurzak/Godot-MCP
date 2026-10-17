@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Tilemap
 {
@@ -40,9 +38,5 @@ namespace com.IvanMurzak.Godot.MCP.Tilemap
             "alternatives are validated (0 or more; erase with `EraseCell`): a rejected value changes nothing. Other settings " +
             "are C# members (`Enabled`, `YSortEnabled`, `CollisionEnabled`, `NavigationEnabled` …) or `props[\"…\"]`; " +
             "`rql-schema \"TileMapLayer\"` lists them.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

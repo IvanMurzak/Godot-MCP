@@ -8,6 +8,7 @@
 */
 #if TOOLS
 #nullable enable
+using System;
 using Godot;
 using Rql;
 
@@ -21,7 +22,13 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
     [RqlDescription("Dialogic character (read-only row): path name displayName color description resource; write through resource")]
     public sealed class DialogicCharacterRow
     {
-        internal DialogicCharacterRow(string path) { this.path = path; }
+        private readonly Lazy<Resource?> _resource;
+
+        internal DialogicCharacterRow(string path)
+        {
+            this.path = path;
+            _resource = new Lazy<Resource?>(() => ResourceLoader.Load(path));
+        }
 
         [RqlDescription("res:// path of the .dch file")]
         public string path { get; }
@@ -39,7 +46,7 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
         public string? description => resource?.Get(DialogicNames.Description).AsString();
 
         [RqlReference, RqlDescription("the DialogicCharacter resource: write through it (get resource | set props[\"description\"] = \"…\"), the .dch is saved")]
-        public Resource? resource => ResourceLoader.Load(path);
+        public Resource? resource => _resource.Value;
     }
 }
 #endif

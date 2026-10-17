@@ -20,8 +20,11 @@ namespace com.IvanMurzak.Godot.MCP.Beehave
     [RqlDescription("BeehaveTree (read-only row): name path scriptClass enabled tickRate processThread actor childCount nodeCount node; write through node")]
     public sealed class BeehaveTreeRow
     {
-        internal BeehaveTreeRow(Node node, string path, string scriptClass, int nodeCount)
+        private readonly Node _root;
+
+        internal BeehaveTreeRow(Node node, string path, string scriptClass, int nodeCount, Node root)
         {
+            _root = root;
             this.node = node;
             this.path = path;
             this.scriptClass = scriptClass;
@@ -52,9 +55,8 @@ namespace com.IvanMurzak.Godot.MCP.Beehave
             get
             {
                 var actorNode = node.Get(BeehaveNames.ActorProperty).As<Node>();
-                var root = EditorInterface.Singleton.GetEditedSceneRoot();
-                return actorNode == null || root == null || !GodotObject.IsInstanceValid(actorNode) || !(actorNode == root || root.IsAncestorOf(actorNode))
-                    ? null : root.GetPathTo(actorNode).ToString();
+                return actorNode == null || !GodotObject.IsInstanceValid(actorNode) || !(actorNode == _root || _root.IsAncestorOf(actorNode))
+                    ? null : _root.GetPathTo(actorNode).ToString();
             }
         }
 

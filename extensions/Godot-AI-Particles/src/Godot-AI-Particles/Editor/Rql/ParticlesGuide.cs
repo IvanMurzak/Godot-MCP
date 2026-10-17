@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Particles
 {
@@ -39,9 +37,5 @@ namespace com.IvanMurzak.Godot.MCP.Particles
             "(`SpeedScale`, `Preprocess`, `LocalCoords`, `DrawPass1` …) or by its snake_case name in `props[\"…\"]`; " +
             "`rql-schema \"GPUParticles3D\"` lists them. `ProcessMaterial.props[\"…\"]` reaches the ParticleProcessMaterial's " +
             "properties (direction, spread, gravity, color …).";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

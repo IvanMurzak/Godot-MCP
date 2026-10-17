@@ -144,7 +144,7 @@ class PackageVerification(unittest.TestCase):
 <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2"/>
 <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
-        self.files = {'src/Runtime/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
+        self.files = {'src/Editor/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
                       'README.md': b'Package readme'}
         for name, value in self.files.items():
             path = self.source / name.removeprefix('src/')
@@ -167,12 +167,12 @@ class PackageVerification(unittest.TestCase):
         self.assertTrue(self.verify())
 
     def test_modified_source_is_rejected(self):
-        self.files['src/Runtime/Test.cs'] += b'// modified'
+        self.files['src/Editor/Test.cs'] += b'// modified'
         with self.assertRaisesRegex(ValueError, 'bytes differ'):
             self.verify()
 
     def test_sibling_source_is_rejected(self):
-        self.files['src/Runtime/Sibling.cs'] = b'class Sibling {}'
+        self.files['src/Editor/Sibling.cs'] = b'class Sibling {}'
         with self.assertRaisesRegex(ValueError, 'unexpected sources'):
             self.verify()
 
@@ -228,16 +228,19 @@ class SuiteGuards(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unexpected engine error'):
             extension_live.check_editor_log('ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency')
 
-    def test_expected_tool_error_responses_are_counted_exactly(self):
+    def test_expected_tool_error_is_allowed_only_in_its_own_call_window(self):
         rejected = ('ERROR: [McpPlugin] McpToolManager: Error Response to AI:\n'
                     'error coercion-failed: Amount must be at least 1 (got 0)\n')
-        self.assertEqual({}, {k: v for k, v in extension_live.check_editor_log(rejected, expected_tool_errors=1).items() if v})
+        log = 'boot\n' + rejected + 'later call\n'
+        self.assertFalse(any(extension_live.check_editor_log(log, failure_windows=[(1, 3)]).values()))
         with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
-            extension_live.check_editor_log(rejected * 2, expected_tool_errors=1)
-        with self.assertRaisesRegex(ValueError, 'Expected 1 rejected'):
-            extension_live.check_editor_log('[Godot-MCP] plugin loaded\n', expected_tool_errors=1)
+            extension_live.check_editor_log(log, failure_windows=[(3, 4)])  # outside its window
         with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
-            extension_live.check_editor_log(rejected)
+            extension_live.check_editor_log('boot\n' + rejected * 2, failure_windows=[(1, 5)])  # two in one window
+        with self.assertRaisesRegex(ValueError, 'left no error response'):
+            extension_live.check_editor_log('boot\n', failure_windows=[(0, 1)])
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log(log)
 
     def test_godot44_native_cold_import_is_reported_only_during_startup(self):
         error = ('ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!\n'

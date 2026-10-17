@@ -2,7 +2,7 @@
 
 YOUR_DESCRIPTION
 
-A **source-only** MCP tool extension for [Godot-MCP / AI Game Developer](https://github.com/IvanMurzak/Godot-MCP).
+A **source-only** RQL-module extension for [Godot-MCP / AI Game Developer](https://github.com/IvanMurzak/Godot-MCP).
 The package ships C# source (no compiled DLL, no bundled Godot) that compiles inside your Godot project
 against your own GodotSharp, so it never locks you to a Godot version.
 
@@ -20,13 +20,15 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.YOUR_FEATURE
 
 …or pick it from the **Extensions** dock inside the Godot editor.
 
-After a rebuild, the extension's `[AiToolType]` tool families are auto-discovered — no registry edit.
+After a rebuild, the core discovers the extension's RQL module (`IRqlModule`) in the project assembly — no
+registry edit. The extension adds no MCP tools: agents use it through the core `rql-query` / `rql-mutate` /
+`rql-schema` tools, and its guide is part of the core `godot-rql` skill.
 
-## Tools
+## RQL
 
-| Tool | Description |
-| --- | --- |
-| `YOUR_TOOL_PREFIX-echo` | Pure-managed readiness probe — echoes a message. |
-| `YOUR_TOOL_PREFIX-editor-info` | Editor-only — returns the running Godot editor version + UI scale. |
+```
+YOUR_SOURCE | select godotVersion editorScale
+YOUR_SOURCE | call Echo("ci-roundtrip")
+```
 
 License: Apache-2.0.

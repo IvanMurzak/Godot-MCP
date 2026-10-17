@@ -29,7 +29,7 @@ def create(feature, root=ROOT):
     replacements = {'YOUR_GITHUB_USERNAME_REPOSITORY': 'IvanMurzak/Godot-MCP',
                     'YOUR_DISPLAY_NAME': feature + ' Tools',
                     'YOUR_DESCRIPTION': 'RQL module for Godot ' + feature + '.',
-                    'YOUR_TOOL_PREFIX': feature.lower(), 'YOUR_FEATURE': feature}
+                    'YOUR_SOURCE': feature.lower(), 'YOUR_FEATURE': feature}
     def replace(text):
         for token, value in replacements.items():
             text = text.replace(token, value)

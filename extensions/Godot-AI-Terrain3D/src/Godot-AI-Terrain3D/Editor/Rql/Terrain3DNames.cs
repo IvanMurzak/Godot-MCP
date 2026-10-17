@@ -45,9 +45,6 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
         /// <summary>The region sizes Terrain3D accepts (its RegionSize enum: the value is the edge length), ascending.</summary>
         public static readonly int[] RegionSizes = { 64, 128, 256, 512, 1024, 2048 };
 
-        /// <summary>Terrain3D's default region size.</summary>
-        public const int DefaultRegionSize = 256;
-
         /// <summary>What to do when the addon is missing.</summary>
         public const string InstallHint =
             "Install the 'Terrain3D' GDExtension addon (TokisanGames/Terrain3D, tested against v1.0.2-stable) into addons/terrain_3d/, " +

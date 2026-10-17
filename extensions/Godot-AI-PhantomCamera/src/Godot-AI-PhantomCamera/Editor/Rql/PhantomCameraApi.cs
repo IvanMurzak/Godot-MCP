@@ -24,10 +24,16 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
     [RqlDescription("Phantom Camera: installed, hint, cameras, hosts")]
     public sealed class PhantomCameraApi
     {
-        public static readonly PhantomCameraApi Instance = new PhantomCameraApi();
+        // The source creates one instance per query: the class table and one scene walk (cameras and hosts together) are
+        // read once and shared by installed / hint / cameras / hosts.
+        private PhantomCameraScripts? _scripts;
+        private List<PhantomCameraRow>? _cameras;
+        private List<PhantomCameraHostRow>? _hosts;
+
+        private PhantomCameraScripts Scripts => _scripts ??= new PhantomCameraScripts();
 
         [RqlDescription("whether the Phantom Camera addon is installed (its PhantomCamera3D class is registered)")]
-        public bool installed => new PhantomCameraScripts().Has(PhantomCameraNames.PhantomCamera3D);
+        public bool installed => Scripts.Has(PhantomCameraNames.PhantomCamera3D);
 
         [RqlDescription("how to install the addon when it is missing, else null")]
         public string? hint => installed ? null : PhantomCameraNames.InstallHint;
@@ -35,56 +41,44 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
         [RqlDescription("every PhantomCamera3D / PhantomCamera2D of the edited scene, depth-first: name path scriptClass priority followMode followTarget lookAtMode lookAtTarget followDamping lookAtDamping node; calls SetFollow, SetLookAt")]
         public List<PhantomCameraRow> cameras
         {
-            get
-            {
-                var list = new List<PhantomCameraRow>();
-                Walk((node, root, chain) =>
-                {
-                    var is3D = chain.Contains(PhantomCameraNames.PhantomCamera3D);
-                    if (is3D || chain.Contains(PhantomCameraNames.PhantomCamera2D))
-                        list.Add(new PhantomCameraRow(node, root.GetPathTo(node).ToString(), chain[0], !is3D));
-                });
-                return list;
-            }
+            get { Walk(); return _cameras!; }
         }
 
         [RqlDescription("every PhantomCameraHost of the edited scene: name path camera (the Camera3D / Camera2D it drives) node")]
         public List<PhantomCameraHostRow> hosts
         {
-            get
-            {
-                var list = new List<PhantomCameraHostRow>();
-                Walk((node, root, chain) =>
-                {
-                    if (chain.Contains(PhantomCameraNames.PhantomCameraHost))
-                        list.Add(new PhantomCameraHostRow(node, root.GetPathTo(node).ToString(), chain[0]));
-                });
-                return list;
-            }
+            get { Walk(); return _hosts!; }
         }
 
-        private static void Walk(System.Action<Node, Node, List<string>> visit)
+        private void Walk()
         {
+            if (_cameras != null) return;
+            _cameras = new List<PhantomCameraRow>();
+            _hosts = new List<PhantomCameraHostRow>();
             var root = EditorInterface.Singleton.GetEditedSceneRoot();
-            var scripts = new PhantomCameraScripts();
-            if (root == null || !scripts.Has(PhantomCameraNames.PhantomCamera3D)) return;
+            if (root == null || !installed) return;
             var stack = new Stack<Node>();
             stack.Push(root);
             while (stack.Count > 0)
             {
                 var node = stack.Pop();
-                var chain = scripts.Chain(node);
-                if (chain.Count > 0) visit(node, root, chain);
+                if (PhantomCameraScripts.Chain(node) is { } chain)
+                {
+                    var is3D = chain.Contains(PhantomCameraNames.PhantomCamera3D);
+                    if (is3D || chain.Contains(PhantomCameraNames.PhantomCamera2D))
+                        _cameras.Add(new PhantomCameraRow(node, root, chain[0], !is3D));
+                    else if (chain.Contains(PhantomCameraNames.PhantomCameraHost))
+                        _hosts.Add(new PhantomCameraHostRow(node, root, chain[0]));
+                }
                 var children = node.GetChildren();
                 for (int i = children.Count - 1; i >= 0; i--) stack.Push(children[i]);
             }
         }
 
-        /// <summary>The path of a node below the edited scene root, or null when it is not in the edited scene.</summary>
-        internal static string? PathInScene(Node? node)
+        /// <summary>The path of a node below the edited scene root, or null when it is not in that scene.</summary>
+        internal static string? PathInScene(Node root, Node? node)
         {
-            var root = EditorInterface.Singleton.GetEditedSceneRoot();
-            if (node == null || root == null || !GodotObject.IsInstanceValid(node)) return null;
+            if (node == null || !GodotObject.IsInstanceValid(node)) return null;
             return node == root || root.IsAncestorOf(node) ? root.GetPathTo(node).ToString() : null;
         }
     }

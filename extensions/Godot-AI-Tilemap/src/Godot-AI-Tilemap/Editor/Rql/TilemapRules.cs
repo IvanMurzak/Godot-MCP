@@ -17,9 +17,6 @@ namespace com.IvanMurzak.Godot.MCP.Tilemap
     /// </summary>
     public static class TilemapRules
     {
-        /// <summary>Godot's "no tile" source id (<c>TileSet.INVALID_SOURCE</c>).</summary>
-        public const int NoSourceId = -1;
-
         public static string? SourceId(int sourceId) =>
             sourceId >= 0
                 ? null

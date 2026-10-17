@@ -22,7 +22,11 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
     /// </summary>
     public sealed class Terrain3DView
     {
-        internal Terrain3DView(Node3D node) { this.node = node; }
+        internal Terrain3DView(Node3D node, string path)
+        {
+            this.node = node;
+            this.path = path;
+        }
 
         [RqlId]
         [RqlDescription("the node's Godot instance id")]
@@ -37,7 +41,7 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
         public string name => node.Name.ToString();
 
         [RqlDescription("path below the edited scene root")]
-        public string path => Terrain3DApi.PathOf(node);
+        public string path { get; }
 
         [RqlDescription("region edge length (64 … 2048); change it with call ChangeRegionSize(size)")]
         public int regionSize => node.Get(Terrain3DNames.RegionSizeProperty).AsInt32();

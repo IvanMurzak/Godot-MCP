@@ -17,10 +17,13 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
     [RqlDescription("PhantomCameraHost (read-only row): name path scriptClass camera node")]
     public sealed class PhantomCameraHostRow
     {
-        internal PhantomCameraHostRow(Node node, string path, string scriptClass)
+        private readonly Node _root;
+
+        internal PhantomCameraHostRow(Node node, Node root, string scriptClass)
         {
             this.node = node;
-            this.path = path;
+            _root = root;
+            path = root.GetPathTo(node).ToString();
             this.scriptClass = scriptClass;
         }
 
@@ -39,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
             get
             {
                 var parent = node.GetParent();
-                return parent is Camera3D || parent is Camera2D ? PhantomCameraApi.PathInScene(parent) : null;
+                return parent is Camera3D || parent is Camera2D ? PhantomCameraApi.PathInScene(_root, parent) : null;
             }
         }
 

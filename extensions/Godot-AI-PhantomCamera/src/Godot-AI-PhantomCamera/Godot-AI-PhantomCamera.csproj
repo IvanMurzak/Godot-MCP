@@ -64,7 +64,7 @@
     Version="x" is a ">= x" floor). The consumer already references these via the core Godot-MCP addon,
     so they resolve to the consumer's pins. The RQL module needs com.IvanMurzak.Rql >= 0.1.1 (IRqlModule,
     type adapters) and an RQL core: McpPlugin >= 8.8.0, which itself requires ReflectorNet >= 5.4.2.
-    `update-core.ps1` / `update-core.py` keep these floors in lockstep across package, tests and testbed.
+    `update-core.ps1` / `update-core.py` update these floors in the package and test csprojs.
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
@@ -95,7 +95,6 @@
     unit-test locally; adding them to <None Pack="true"> just also bundles them into the package.
   -->
   <ItemGroup>
-    <None Include="Runtime/**/*.cs" Pack="true" PackagePath="src/Runtime/" />
     <None Include="Editor/**/*.cs" Pack="true" PackagePath="src/Editor/" />
     <None Include="build/com.IvanMurzak.Godot.MCP.PhantomCamera.props" Pack="true" PackagePath="build/" />
     <None Include="README.md" Pack="true" PackagePath="" />

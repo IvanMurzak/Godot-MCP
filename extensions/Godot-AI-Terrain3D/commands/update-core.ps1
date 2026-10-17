@@ -1,13 +1,14 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Update the core MCP / reflection / query pins (com.IvanMurzak.McpPlugin / com.IvanMurzak.ReflectorNet /
-    com.IvanMurzak.Rql) in lockstep across the package, tests, and testbed csproj files.
+    Update the package's MCP / reflection / query floors (com.IvanMurzak.McpPlugin / com.IvanMurzak.ReflectorNet /
+    com.IvanMurzak.Rql) in its package and test csproj files.
 
 .DESCRIPTION
     The package declares MIN-versions (floors) the core Godot-MCP addon (Godot-MCP/Godot-MCP.csproj) satisfies;
     com.IvanMurzak.Rql is the RQL module API. When the floors must advance, run this so the extension declares
-    them everywhere. Pass any of the three.
+    them in both. The testbed is a consumer that pins the core addon's exact versions; it is not edited here.
+    Pass any of the three.
 
 .EXAMPLE
     ./commands/update-core.ps1 -McpPlugin "6.11.0"
@@ -26,7 +27,7 @@ $ErrorActionPreference = "Stop"
 if (-not $McpPlugin -and -not $ReflectorNet -and -not $Rql) { throw "Pass -McpPlugin, -ReflectorNet and/or -Rql." }
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$targets = @('src', 'tests', 'testbed') | ForEach-Object {
+$targets = @('src', 'tests') | ForEach-Object {
     $p = Join-Path $RepoRoot $_
     if (Test-Path $p) { Get-ChildItem -Path $p -Recurse -Filter *.csproj }
 }

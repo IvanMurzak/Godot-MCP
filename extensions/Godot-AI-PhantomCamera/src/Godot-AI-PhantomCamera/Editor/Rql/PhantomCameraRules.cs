@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
     {
         public static string? FollowMode(string? name, bool is2D, out PhantomFollowMode mode)
         {
-            if (!PhantomCameraModes.TryParseFollow(name, out mode))
+            if (!PhantomCameraModes.TryParse(name, out mode))
                 return $"unknown follow mode '{name}': use None, Glued, Simple, Group, Path, Framed{(is2D ? "" : " or ThirdPerson")}";
             if (is2D && mode == PhantomFollowMode.ThirdPerson)
                 return "ThirdPerson is a PhantomCamera3D follow mode; a PhantomCamera2D has None, Glued, Simple, Group, Path, Framed";
@@ -31,7 +31,7 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
         {
             mode = PhantomLookAtMode.None;
             if (is2D) return "a PhantomCamera2D has no look-at mode (only a PhantomCamera3D does)";
-            return PhantomCameraModes.TryParseLookAt(name, out mode)
+            return PhantomCameraModes.TryParse(name, out mode)
                 ? null
                 : $"unknown look-at mode '{name}': use None, Mimic, Simple or Group";
         }

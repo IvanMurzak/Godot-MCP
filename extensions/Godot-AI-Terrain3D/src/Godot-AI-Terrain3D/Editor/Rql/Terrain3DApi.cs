@@ -29,14 +29,15 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
         public static List<Terrain3DView> Terrains()
         {
             var views = new List<Terrain3DView>();
-            if (Installed && EditorInterface.Singleton.GetEditedSceneRoot() is { } root) Collect(root, views);
+            if (Installed && EditorInterface.Singleton.GetEditedSceneRoot() is { } root) Collect(root, root, views);
             return views;
         }
 
-        private static void Collect(Node node, List<Terrain3DView> views)
+        private static void Collect(Node node, Node root, List<Terrain3DView> views)
         {
-            if (node is Node3D node3D && node.IsClass(Terrain3DNames.TerrainClass)) views.Add(new Terrain3DView(node3D));
-            foreach (var child in node.GetChildren(includeInternal: false)) Collect(child, views);
+            if (node is Node3D node3D && node.IsClass(Terrain3DNames.TerrainClass))
+                views.Add(new Terrain3DView(node3D, root.GetPathTo(node).ToString()));
+            foreach (var child in node.GetChildren(includeInternal: false)) Collect(child, root, views);
         }
 
         /// <summary><c>terrain3d.newMaterial()</c>: a new Terrain3DMaterial to assign to a terrain's <c>material</c>.</summary>
@@ -46,12 +47,6 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
             if (Terrain3DRules.Installed(ClassDB.ClassExists(Terrain3DNames.MaterialClass)) is { } reason) throw new InvalidOperationException(reason);
             return ClassDB.Instantiate(Terrain3DNames.MaterialClass).AsGodotObject() as Resource
                    ?? throw new InvalidOperationException($"could not create a {Terrain3DNames.MaterialClass}");
-        }
-
-        internal static string PathOf(Node node)
-        {
-            var root = EditorInterface.Singleton.GetEditedSceneRoot();
-            return root == null ? node.Name.ToString() : root.GetPathTo(node).ToString();
         }
 
         public static readonly Terrain3DAddon Addon = new Terrain3DAddon();

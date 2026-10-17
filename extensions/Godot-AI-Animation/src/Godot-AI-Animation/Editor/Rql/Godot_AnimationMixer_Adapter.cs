@@ -33,10 +33,9 @@ namespace com.IvanMurzak.Godot.MCP.Animation
                     has: (p, k) => p.HasAnimation(k),
                     description: "every animation by qualified name (\"Idle\" in the global library, \"Extra/Walk\" in library Extra); read-only");
 
+            m.Function<string, AnimationLibrary>("AddLibrary", AnimationOps.AddLibrary, "name",
+                "add an empty animation library (\"\" = the global library) and return it (undoable)");
             m.Untyped
-                .AddMethod("AddLibrary", new[] { new CallableParameter("name", typeof(string)) }, typeof(AnimationLibrary),
-                    (o, a) => AnimationOps.AddLibrary((AnimationMixer)o, (string)a[0]!),
-                    "add an empty animation library (\"\" = the global library) and return it (undoable)")
                 .AddMethod("CreateAnimation", new[]
                     {
                         new CallableParameter("name", typeof(string)),

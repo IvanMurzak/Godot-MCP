@@ -11,7 +11,7 @@ propagates to future extensions — keep placeholder tokens consistent.
 | Token | Example value | Used in |
 | --- | --- | --- |
 | `YOUR_FEATURE` | `Particles` | namespaces, `<Feature>Module` / `Guide` / `Api`, folder/file names, the package id suffix |
-| `YOUR_TOOL_PREFIX` | `particles` | the RQL source name of the sample, sample texts |
+| `YOUR_SOURCE` | `particles` | the RQL source name of the sample module (`--source-name` / `-SourceName`) |
 | `YOUR_DISPLAY_NAME` | `Particles Tools` | package `Title`, the guide topic, docs |
 | `YOUR_DESCRIPTION` | `RQL module for Godot Particles.` | package `Description` |
 | `YOUR_GITHUB_USERNAME_REPOSITORY` | `IvanMurzak/Godot-AI-Particles` | repo URLs |
@@ -24,11 +24,12 @@ The package id is always `com.IvanMurzak.Godot.MCP.<Feature>`, written literally
 
 - `src/Godot-AI-YOUR_FEATURE/` — the source-only package (`Godot.NET.Sdk`).
   - `Editor/Rql/YOUR_FEATUREModule.cs` — the `IRqlModule` (behind `#if TOOLS`): adapters, sources, guide.
-  - `Editor/Rql/YOUR_FEATUREApi.cs` — the sample `YOUR_TOOL_PREFIX` source (a view object, `#if TOOLS`).
+  - `Editor/Rql/YOUR_FEATUREApi.cs` — the sample `YOUR_SOURCE` source (a view object, `#if TOOLS`).
   - `Editor/Rql/YOUR_FEATUREGuide.cs` — the agent guide; pure strings, NOT behind `#if TOOLS` (unit-tested).
   - `build/com.IvanMurzak.Godot.MCP.YOUR_FEATURE.props` — source-injection props (must stay `<PackageId>.props`).
-- `tests/Godot-AI-YOUR_FEATURE.Tests/` — xUnit over the module sources (`TOOLS` defined, GodotSharp metadata only).
-- `tests/e2e/` — live driver (`run_tool_e2e.py`) + the call list (`e2e-tools.json`) that runs every guide example.
+- `tests/Godot-AI-YOUR_FEATURE.Tests/` — xUnit over the module sources (`TOOLS` defined, GodotSharp metadata only); the
+  guide checks come from `extensions/Shared/Tests/GuideExampleTests.cs`, linked by the test csproj.
+- `tests/e2e/e2e-tools.json` — the live calls that run every guide example (driver: `scripts/extension_e2e.py`).
 - `testbed/` — consumer `Godot.NET.Sdk` project restoring the local-packed package (injection proof).
 - `commands/` — `init`, `bump-version`, `update-core` (`.ps1` + `.py`), `get-version.ps1`.
 - `.github/workflows/*.yml-sample` — CI, inert until `init`. Never commit live `.github/workflows/*.yml` here.

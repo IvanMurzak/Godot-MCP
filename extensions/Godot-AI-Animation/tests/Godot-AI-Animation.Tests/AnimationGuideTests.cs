@@ -7,55 +7,14 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using Rql;
-using Xunit;
+using com.IvanMurzak.Godot.MCP.Extensions.Tests;
 
 namespace com.IvanMurzak.Godot.MCP.Animation.Tests
 {
-    /// <summary>
-    /// The agent guide: every example parses, and the live e2e manifest runs exactly the guide examples, in order, each with
-    /// the tool its last stage needs (rql-mutate for set / call, rql-query otherwise).
-    /// </summary>
-    public class AnimationGuideTests
+    /// <summary>The shared guide checks (extensions/Shared/Tests/GuideExampleTests.cs) for AnimationGuide.</summary>
+    public sealed class AnimationGuideTests : GuideExampleTests
     {
-        public static IEnumerable<object[]> Examples() => AnimationGuide.Queries.Select(q => new object[] { q });
-
-        [Theory]
-        [MemberData(nameof(Examples))]
-        public void ExampleParses(string query) =>
-            Assert.True(RqlParser.TryParse(query, out _, out var error), $"'{query}': {error?.Message}");
-
-        [Fact]
-        public void GuideCarriesItsExamples()
-        {
-            Assert.NotEmpty(AnimationGuide.Queries);
-            Assert.Contains(AnimationGuide.Examples, AnimationGuide.Markdown);
-            Assert.All(AnimationGuide.Queries, q => Assert.DoesNotContain("   ", q));
-        }
-
-        [Fact]
-        public void TheLiveE2eRunsEveryGuideExampleInOrder()
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "e2e-tools.json")));
-            var calls = doc.RootElement.GetProperty("tools").EnumerateArray()
-                .Where(c => c.TryGetProperty("input", out var input) && input.TryGetProperty("query", out _))
-                .Select(c => (tool: c.GetProperty("tool").GetString()!, query: c.GetProperty("input").GetProperty("query").GetString()!))
-                .ToList();
-            var next = 0;
-            foreach (var example in AnimationGuide.Queries)
-            {
-                while (next < calls.Count && calls[next].query != example) next++;
-                Assert.True(next < calls.Count, $"tests/e2e/e2e-tools.json does not run the guide example (in order): {example}");
-                var last = example.Split('|').Last().TrimStart();
-                var mutates = last.StartsWith("set ", StringComparison.Ordinal) || last.StartsWith("call ", StringComparison.Ordinal);
-                Assert.Equal(mutates ? "rql-mutate" : "rql-query", calls[next].tool);
-                next++;
-            }
-        }
+        protected override string Examples => AnimationGuide.Examples;
+        protected override string Markdown => AnimationGuide.Markdown;
     }
 }

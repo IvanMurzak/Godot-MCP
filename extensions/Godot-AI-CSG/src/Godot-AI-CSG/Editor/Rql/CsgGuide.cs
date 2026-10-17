@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.CSG
 {
@@ -42,9 +40,5 @@ namespace com.IvanMurzak.Godot.MCP.CSG
             "(above 0), `Sides` (at least 3), CSGTorus3D `Sides` and `RingSides` (at least 3). Godot's defaults: box 1×1×1, sphere " +
             "radius 0.5 with 12 segments and 6 rings, cylinder radius 0.5, height 2, 8 sides. Every other property is a C# member " +
             "(`Material`, `UseCollision`, `Cone`, `SmoothFaces` …) or a `props[\"snake_name\"]`; `rql-schema \"CSGSphere3D\"` lists them.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

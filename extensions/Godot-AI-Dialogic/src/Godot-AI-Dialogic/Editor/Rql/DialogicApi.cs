@@ -27,43 +27,30 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
     [RqlDescription("Dialogic: installed, hint, timelines, characters; calls CreateTimeline, CreateCharacter")]
     public sealed class DialogicApi
     {
-        public static readonly DialogicApi Instance = new DialogicApi();
+        // The source creates one instance per query: the class table and one walk of the editor filesystem (both file
+        // kinds) are read once and shared by installed / hint / timelines / characters and the calls.
+        private DialogicScripts? _scripts;
+        private Dictionary<string, List<string>>? _files;
+
+        internal DialogicScripts Scripts => _scripts ??= new DialogicScripts();
 
         [RqlDescription("whether the Dialogic addon is installed (its DialogicTimeline class is registered)")]
-        public bool installed => DialogicScripts.Has(DialogicNames.TimelineClass);
+        public bool installed => Scripts.Has(DialogicNames.TimelineClass);
 
         [RqlDescription("how to install the addon when it is missing, else null")]
         public string? hint => installed ? null : DialogicNames.InstallHint;
 
-        [RqlDescription("every .dtl timeline of the project (res://, addons/ and hidden folders skipped): path name eventCount text resource; call AddText")]
-        public List<DialogicTimelineRow> timelines
-        {
-            get
-            {
-                var list = new List<DialogicTimelineRow>();
-                if (installed)
-                    foreach (var path in Files(DialogicNames.TimelineExtension)) list.Add(new DialogicTimelineRow(path));
-                return list;
-            }
-        }
+        [RqlDescription("every .dtl timeline of the project (res://addons skipped): path name eventCount text resource; call AddText")]
+        public List<DialogicTimelineRow> timelines => Rows(DialogicNames.TimelineExtension, path => new DialogicTimelineRow(path, this));
 
-        [RqlDescription("every .dch character of the project (res://, addons/ and hidden folders skipped): path name displayName color description resource")]
-        public List<DialogicCharacterRow> characters
-        {
-            get
-            {
-                var list = new List<DialogicCharacterRow>();
-                if (installed)
-                    foreach (var path in Files(DialogicNames.CharacterExtension)) list.Add(new DialogicCharacterRow(path));
-                return list;
-            }
-        }
+        [RqlDescription("every .dch character of the project (res://addons skipped): path name displayName color description resource")]
+        public List<DialogicCharacterRow> characters => Rows(DialogicNames.CharacterExtension, path => new DialogicCharacterRow(path));
 
         [RqlCallable("create a timeline file (res://….dtl; .dtl is appended when missing) with one text line (speaker optional; no text: a two-line starter); fails if the file exists; not undoable; returns its path")]
         public string CreateTimeline(string path, string? text = null, string? speaker = null)
         {
             RequireInstalled();
-            var resPath = NewFilePath(path, DialogicNames.TimelineExtension);
+            var resPath = NewFilePath(path, DialogicNames.TimelineExtension, "timelines");
             SaveTimeline(resPath, string.IsNullOrWhiteSpace(text) ? DialogicNames.StarterTimelineText() : DialogicTimelineText.BuildTextLine(speaker, text));
             return resPath;
         }
@@ -74,8 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
             RequireInstalled();
             Check(DialogicRules.DisplayName(displayName));
             Check(DialogicRules.Color(color, out var hex));
-            var resPath = NewFilePath(path, DialogicNames.CharacterExtension);
-            var character = DialogicScripts.New(DialogicNames.CharacterClass);
+            var resPath = NewFilePath(path, DialogicNames.CharacterExtension, "characters");
+            var character = Scripts.New(DialogicNames.CharacterClass);
             character.Set(DialogicNames.DisplayName, displayName.Trim());
             character.Set(DialogicNames.Color, global::Godot.Color.FromHtml(hex));
             character.Set(DialogicNames.Description, description ?? string.Empty);
@@ -84,17 +71,25 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
         }
 
         /// <summary>Write a timeline's text to its file through Dialogic's saver and make the saved resource the cached one.</summary>
-        internal static void SaveTimeline(string resPath, string text)
+        internal void SaveTimeline(string resPath, string text)
         {
-            var timeline = DialogicScripts.New(DialogicNames.TimelineClass);
+            var timeline = Scripts.New(DialogicNames.TimelineClass);
             timeline.Call(DialogicNames.FromTextMethod, text);
             timeline.SetMeta(DialogicNames.NotSavedMeta, true);
             Save(timeline, resPath);
         }
 
-        internal static void RequireInstalled()
+        internal void RequireInstalled()
         {
-            if (!DialogicScripts.Has(DialogicNames.TimelineClass)) throw new InvalidOperationException(DialogicNames.InstallHint);
+            if (!installed) throw new InvalidOperationException(DialogicNames.InstallHint);
+        }
+
+        private List<T> Rows<T>(string extension, Func<string, T> make)
+        {
+            var list = new List<T>();
+            if (installed)
+                foreach (var path in Files(extension)) list.Add(make(path));
+            return list;
         }
 
         private static void Save(Resource resource, string resPath)
@@ -111,11 +106,10 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
             EditorInterface.Singleton.GetResourceFilesystem()?.UpdateFile(resPath);
         }
 
-        private static string NewFilePath(string path, string extension)
+        private static string NewFilePath(string path, string extension, string list)
         {
             Check(DialogicRules.ResourcePath(path, extension, out var resPath));
-            if (FileAccess.FileExists(resPath))
-                throw new ArgumentException($"'{resPath}' already exists (read it from dialogic.{(extension == DialogicNames.TimelineExtension ? "timelines" : "characters")})");
+            if (FileAccess.FileExists(resPath)) throw new ArgumentException($"'{resPath}' already exists (read it from dialogic.{list})");
             return resPath;
         }
 
@@ -124,23 +118,37 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
             if (reason != null) throw new ArgumentException(reason);
         }
 
-        /// <summary>The res:// files with the extension, sorted, skipping hidden folders and res://addons.</summary>
-        private static List<string> Files(string extension)
+        /// <summary>
+        /// The res:// files with the extension, sorted, from the editor filesystem index (one walk for both extensions per
+        /// query; res://addons skipped).
+        /// </summary>
+        private List<string> Files(string extension)
         {
-            var found = new List<string>();
-            var pending = new Stack<string>();
-            pending.Push("res://");
-            while (pending.Count > 0)
+            if (_files == null)
             {
-                var dir = pending.Pop();
-                var prefix = dir.EndsWith("/", StringComparison.Ordinal) ? dir : dir + "/";
-                foreach (var file in DirAccess.GetFilesAt(dir))
-                    if (file.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase)) found.Add(prefix + file);
-                foreach (var sub in DirAccess.GetDirectoriesAt(dir))
-                    if (!sub.StartsWith(".", StringComparison.Ordinal) && !(dir == "res://" && sub == "addons")) pending.Push(prefix + sub);
+                _files = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [DialogicNames.TimelineExtension] = new List<string>(),
+                    [DialogicNames.CharacterExtension] = new List<string>(),
+                };
+                if (EditorInterface.Singleton.GetResourceFilesystem()?.GetFilesystem() is { } root) Collect(root, _files, isRoot: true);
+                foreach (var found in _files.Values) found.Sort(StringComparer.Ordinal);
             }
-            found.Sort(StringComparer.Ordinal);
-            return found;
+            return _files[extension];
+        }
+
+        private static void Collect(EditorFileSystemDirectory dir, Dictionary<string, List<string>> files, bool isRoot)
+        {
+            var fileCount = dir.GetFileCount();
+            for (int i = 0; i < fileCount; i++)
+            {
+                var path = dir.GetFilePath(i);
+                var dot = path.LastIndexOf('.');
+                if (dot >= 0 && files.TryGetValue(path.Substring(dot + 1), out var list)) list.Add(path);
+            }
+            var subCount = dir.GetSubdirCount();
+            for (int i = 0; i < subCount; i++)
+                if (dir.GetSubdir(i) is { } sub && !(isRoot && sub.GetName() == "addons")) Collect(sub, files, isRoot: false);
         }
     }
 }

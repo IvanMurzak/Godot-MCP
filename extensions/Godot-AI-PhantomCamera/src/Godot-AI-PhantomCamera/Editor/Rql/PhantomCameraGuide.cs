@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.PhantomCamera
 {
@@ -52,9 +50,5 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
             "damping on (props[\"follow_damping\"], props[\"look_at_damping\"]). Other settings are Godot properties of the " +
             "camera node (`props[\"follow_offset\"]`, `props[\"tween_resource\"]` …). " +
             "Without the addon `phantomcamera | select installed hint` says so and the lists are empty.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

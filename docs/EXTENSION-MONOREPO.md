@@ -110,5 +110,6 @@ run the same central suite. Packaging constraints are documented in each module'
 `docs/source-only-nuget-recipe.md`.
 
 The live manifests call the core `rql-query` / `rql-mutate` / `rql-schema` tools and match the default
-compact text results. A call marked `expectFailure` must fail with its `expect` substrings (a value the
-module rejects); the suite tolerates exactly that many error responses in the editor log.
+compact text results; `scripts/extension_e2e.py` drives them. A call marked `expectFailure` must fail with
+its `expect` substrings (a value the module rejects); its error response is tolerated only in the editor-log
+lines written during that call. Every test project links the shared guide checks in `extensions/Shared/Tests/`.

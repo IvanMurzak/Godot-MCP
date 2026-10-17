@@ -20,7 +20,7 @@ GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
   auto-imported by NuGet in the consumer; MUST stay named `<PackageId>.props`.
 - `tests/Godot-AI-PhantomCamera.Tests/` — xUnit (no Godot binary): rules and mode names, guide examples parse, the
   module's view types (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
-- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `run_tool_e2e.py` from the monorepo suite, which
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite, which
   installs the pinned addon (`extension.json` `testAddon`) and registers its `PhantomCameraManager` autoload.
 - `testbed/PhantomCamera-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.

@@ -19,7 +19,7 @@ consumer's Godot project against the consumer's own GodotSharp; the packaging re
   NuGet in the consumer; MUST stay named `<PackageId>.props`.
 - `tests/Godot-AI-GridMap.Tests/` — xUnit (no Godot binary): rules, guide examples parse, the module's member
   table (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
-- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `run_tool_e2e.py` from the monorepo suite.
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite.
 - `testbed/` — consumer project restoring the local-packed package (injection proof) and `e2e-meshlib.tres`, the
   empty MeshLibrary fixture the e2e assigns (copied to the live project root).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.

@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.GridMap
 {
@@ -41,9 +39,5 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
             "`CellOctantSize` (1 or more, default 8) and the cell arguments are validated: a rejected value changes nothing. " +
             "Other settings are C# members (`CellScale`, `CellCenterX` …, `CollisionLayer`) or `props[\"…\"]`; " +
             "`rql-schema \"GridMap\"` lists them.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

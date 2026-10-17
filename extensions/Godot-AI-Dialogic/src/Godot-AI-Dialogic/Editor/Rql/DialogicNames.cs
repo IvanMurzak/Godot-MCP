@@ -17,8 +17,6 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
     /// </summary>
     public static class DialogicNames
     {
-        public const string AddonName = "Dialogic";
-
         public const string TimelineClass = "DialogicTimeline";
         public const string CharacterClass = "DialogicCharacter";
 

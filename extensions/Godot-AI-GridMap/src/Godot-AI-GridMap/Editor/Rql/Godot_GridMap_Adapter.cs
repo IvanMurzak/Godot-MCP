@@ -68,13 +68,16 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
 
         private static List<GridMapCellRow> Cells(GdGridMap grid)
         {
+            // One name lookup per item id of the library (cells reuse a few items many times).
             var library = grid.MeshLibrary;
-            var items = library != null ? new HashSet<int>(library.GetItemList().Select(i => (int)i)) : new HashSet<int>();
+            var names = new Dictionary<int, string?>();
+            if (library != null)
+                foreach (var id in library.GetItemList()) names[id] = library.GetItemName(id);
             return grid.GetUsedCells()
                 .Select(c =>
                 {
                     var item = grid.GetCellItem(c);
-                    return new GridMapCellRow(c.X, c.Y, c.Z, item, items.Contains(item) ? library!.GetItemName(item) : null, grid.GetCellItemOrientation(c));
+                    return new GridMapCellRow(c.X, c.Y, c.Z, item, names.TryGetValue(item, out var name) ? name : null, grid.GetCellItemOrientation(c));
                 })
                 .ToList();
         }

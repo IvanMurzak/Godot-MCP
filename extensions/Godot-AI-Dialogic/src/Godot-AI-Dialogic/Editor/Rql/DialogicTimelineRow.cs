@@ -20,7 +20,14 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
     [RqlDescription("Dialogic timeline (read-only row): path name eventCount text resource; call AddText(text, speaker?)")]
     public sealed class DialogicTimelineRow
     {
-        internal DialogicTimelineRow(string path) { this.path = path; }
+        private readonly DialogicApi _api;
+        private string? _text;
+
+        internal DialogicTimelineRow(string path, DialogicApi api)
+        {
+            this.path = path;
+            _api = api;
+        }
 
         [RqlDescription("res:// path of the .dtl file")]
         public string path { get; }
@@ -29,7 +36,7 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
         public string name => path.Substring(path.LastIndexOf('/') + 1).GetBaseName();
 
         [RqlDescription("the timeline text (Dialogic's .dtl format: one event per line, \"Speaker: text\" for a text event)")]
-        public string text => FileAccess.GetFileAsString(path);
+        public string text => _text ??= FileAccess.GetFileAsString(path);
 
         [RqlDescription("number of non-empty lines (events) in the text")]
         public int eventCount => DialogicTimelineText.CountEvents(text);
@@ -40,9 +47,10 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
         [RqlCallable("append a text event (\"Speaker: text\"; speaker optional, colons escaped) to the timeline file; not undoable; returns the new event count")]
         public int AddText(string text, string? speaker = null)
         {
-            DialogicApi.RequireInstalled();
+            _api.RequireInstalled();
             var combined = DialogicTimelineText.Append(FileAccess.GetFileAsString(path), DialogicTimelineText.BuildTextLine(speaker, text));
-            DialogicApi.SaveTimeline(path, combined);
+            _api.SaveTimeline(path, combined);
+            _text = combined;
             return DialogicTimelineText.CountEvents(combined);
         }
     }

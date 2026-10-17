@@ -31,6 +31,8 @@
 
   <ItemGroup>
     <Compile Include="..\..\src\Godot-AI-Animation\Editor\Rql\*.cs" Link="Source\%(Filename)%(Extension)" />
+    <!-- The guide checks every extension shares (one copy per test assembly). -->
+    <Compile Include="..\..\..\Shared\Tests\*.cs" Link="Shared\%(Filename)%(Extension)" />
     <None Include="..\e2e\e2e-tools.json" Link="e2e-tools.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

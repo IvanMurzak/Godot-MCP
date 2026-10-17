@@ -40,10 +40,8 @@ namespace com.IvanMurzak.Godot.MCP.Tilemap
                         new CallableParameter("alternative", typeof(int), hasDefault: true, defaultValue: 0),
                     }, typeof(void),
                     (o, a) => { SetCell((TileMapLayer)o, (int)a[0]!, (int)a[1]!, (int)a[2]!, (int)a[3]!, (int)a[4]!, (int)a[5]!); return null; },
-                    "paint cell (x, y) with the tile at atlas (atlasX, atlasY) of TileSet source sourceId (alternative tile, default 0)")
-                .AddMethod("EraseCell", new[] { new CallableParameter("x", typeof(int)), new CallableParameter("y", typeof(int)) },
-                    typeof(void), (o, a) => { ((TileMapLayer)o).EraseCell(new Vector2I((int)a[0]!, (int)a[1]!)); return null; },
-                    "empty the cell (x, y)");
+                    "paint cell (x, y) with the tile at atlas (atlasX, atlasY) of TileSet source sourceId (alternative tile, default 0)");
+            m.Method<int, int>("EraseCell", (l, x, y) => l.EraseCell(new Vector2I(x, y)), "x", "y", "empty the cell (x, y)");
             m.Expose("Clear", "erase every cell (the TileSet stays)");
         }
 

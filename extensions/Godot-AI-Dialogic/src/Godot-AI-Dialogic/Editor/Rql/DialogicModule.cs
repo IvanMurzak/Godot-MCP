@@ -24,7 +24,7 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
         public int Order => 100;
 
         public void Configure(RqlModuleContext ctx) =>
-            ctx.AddSource("dialogic", () => DialogicApi.Instance,
+            ctx.AddSource("dialogic", () => new DialogicApi(),
                     "Dialogic dialogue files of the project: installed, hint, timelines (path name eventCount text; call AddText), " +
                     "characters (path name displayName color description resource; write through resource); calls CreateTimeline, " +
                     "CreateCharacter. Needs the Dialogic addon (dialogic-godot/dialogic 2.0, res://addons/dialogic) enabled; without " +

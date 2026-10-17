@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Animation
 {
@@ -49,9 +47,5 @@ namespace com.IvanMurzak.Godot.MCP.Animation
             "`Length` (at least 0.001 s), key times (0 or more), track indexes and names (no '/', ':', ',' or '[') are validated: a " +
             "rejected value changes nothing. Other settings are C# members (`LoopMode`, `Step` …) or " +
             "`props[\"…\"]`; `rql-schema \"Animation\"` lists them.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }

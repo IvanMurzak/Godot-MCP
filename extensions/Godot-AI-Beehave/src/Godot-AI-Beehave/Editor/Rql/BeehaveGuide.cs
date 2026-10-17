@@ -7,8 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Beehave
 {
@@ -50,9 +48,5 @@ namespace com.IvanMurzak.Godot.MCP.Beehave
             "least 1; 0 divides by zero at run time), `process_thread` (0 Idle, 1 Physics = default, 2 Manual), `actor` (a node " +
             "path; defaults to the parent), `blackboard`. `kind` of a row is tree, composite, decorator, action, condition, leaf " +
             "or node. Without the addon `beehave | select installed hint` says so and the lists are empty.";
-
-        /// <summary>The queries of <see cref="Examples"/>, in order.</summary>
-        public static string[] Queries =>
-            Examples.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
     }
 }
