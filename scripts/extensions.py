@@ -94,9 +94,7 @@ def verify_package(archive, module, root=ROOT, version=None):
         expected = set(CORE_DEPENDENCIES)
         if deps != expected:
             raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
-        authoring = ET.parse(root / module['project'])
-        floors = {node.attrib['Include']: node.attrib['Version'] for node in
-                  authoring.findall('.//PackageReference') if node.attrib.get('Include') in expected}
+        floors = package_pins(root / module['project'], expected)
         floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
         for node in spec.iter():
             if node.tag.rsplit('}', 1)[-1] == 'dependency':
@@ -117,9 +115,14 @@ def verify_package(archive, module, root=ROOT, version=None):
     return True
 
 
+def package_pins(csproj, only=None):
+    """`Include` -> `Version` of a csproj's PackageReferences, optionally limited to `only`."""
+    return {node.attrib['Include']: node.attrib['Version'] for node in ET.parse(csproj).findall('.//PackageReference')
+            if 'Include' in node.attrib and (only is None or node.attrib['Include'] in only)}
+
+
 def core_pins(root=ROOT):
-    pins = {node.attrib['Include']: node.attrib['Version'] for node in
-            ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')}
+    pins = package_pins(root / 'Godot-MCP.csproj')
     pins.update({package: pin.strip('[]') for package, pin in chain_pins(root).items() if package in pins})
     return pins
 
@@ -132,19 +135,11 @@ def core_pin_drift(root=ROOT):
     Reads the committed files only: a chain run's Directory.Build.targets override applies
     to core and extensions alike.
     """
-    core = {node.attrib['Include']: node.attrib['Version'] for node in
-            ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')
-            if node.attrib.get('Include') in CORE_DEPENDENCIES}
-    drift = []
-    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
-        for sub in ('src', 'tests', 'testbed'):
-            for csproj in sorted((folder / sub).rglob('*.csproj')):
-                for node in ET.parse(csproj).findall('.//PackageReference'):
-                    package = node.attrib.get('Include')
-                    if package in core and node.attrib.get('Version') != core[package]:
-                        drift.append(f"{csproj.relative_to(root).as_posix()}: {package} "
-                                     f"{node.attrib.get('Version')} != core {core[package]}")
-    return drift
+    core = package_pins(root / 'Godot-MCP.csproj', CORE_DEPENDENCIES)
+    folders = [*(root / 'extensions').glob('Godot-AI-*'), root / 'templates/extension']
+    return [f'{csproj.relative_to(root).as_posix()}: {package} {pin} != core {core[package]}'
+            for csproj in sorted(path for folder in folders for path in folder.rglob('*.csproj'))
+            for package, pin in package_pins(csproj, core).items() if pin != core[package]]
 
 
 def chain_active():
