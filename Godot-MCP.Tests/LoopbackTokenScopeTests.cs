@@ -83,7 +83,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             using var _ = EnvScope.Set(null);
             var config = CustomOAuth(Remote);
-            Assert.Null(config.ResolveCustomToken()); // never the account token, never the local secret
+            config.CustomToken = null;
+            Assert.Null(config.ResolveCustomToken()); // never the account token
             var ex = await Assert.ThrowsAsync<CredentialScopeException>(() => config.CredentialProvider!());
             Assert.Equal("Refusing to send your ai-game.dev account token to my-server.example.com; " +
                          "set GODOT_MCP_TOKEN or use a localhost server.", ex.Message);
@@ -99,6 +100,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var config = CustomOAuth(host);
             Assert.Equal("explicit-token", config.ResolveCustomToken());
             Assert.Equal("explicit-token", await config.CredentialProvider!());
+        }
+
+        [Fact]
+        public async Task Config_Remote_UsesConfiguredCustomToken()
+        {
+            using var _ = EnvScope.Set(null);
+            var config = CustomOAuth(Remote); // CustomToken also carries a project .env GODOT_MCP_TOKEN
+            Assert.Equal("local-secret", config.ResolveCustomToken());
+            Assert.Equal("local-secret", await config.CredentialProvider!());
         }
 
         [Fact]
@@ -118,6 +128,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
             var config = CustomOAuth(Remote);
             config.CloudToken = null;
+            config.CustomToken = null;
             using var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
             Assert.True(account.IsSignedIn);
 
@@ -131,7 +142,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         sealed class EnvScope : IDisposable
         {
             static readonly string[] Names =
-                { GodotMcpConfig.EnvToken, GodotMcpConfig.EnvAuthOption, GodotMcpConfig.EnvConnectionMode, GodotMcpConfig.EnvHost };
+            {
+                GodotMcpConfig.EnvToken, GodotMcpConfig.EnvAuthOption, GodotMcpConfig.EnvConnectionMode,
+                GodotMcpConfig.EnvHost, GodotMcpConfig.EnvCloudUrl,
+            };
             readonly string?[] _prior = Array.ConvertAll(Names, Environment.GetEnvironmentVariable);
 
             /// <summary>Clears the connection env and sets <c>GODOT_MCP_TOKEN</c> to <paramref name="token"/>.</summary>
