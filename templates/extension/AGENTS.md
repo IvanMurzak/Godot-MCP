@@ -53,5 +53,5 @@ dotnet build testbed/YOUR_FEATURE-Testbed.csproj                      # consumes
   properties, so put a method on the object it changes. Validate values in adapters (`validate:`) instead of
   clamping them: a rejected value fails the whole mutation.
 - Every guide example runs in `tests/e2e/e2e-tools.json` (xUnit-asserted, in order); keep them runnable.
-- Core pins (`McpPlugin`, `ReflectorNet`, `Rql`) are floors the core addon satisfies; bump with
+- Core pins (`McpPlugin`, `ReflectorNet`, `Rql`) equal the core addon's (`core_pin_drift` fails CI otherwise); bump with
   `commands/update-core.ps1`. GodotSharp must never become a package dep (see the recipe; CI asserts it).

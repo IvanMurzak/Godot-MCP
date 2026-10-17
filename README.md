@@ -375,6 +375,10 @@ instance, etc.).
 | `GODOT_MCP_HOST` | The custom server URL. Must be an absolute http(s) URL or it falls back to the default. | `http://localhost:8080` |
 | `GODOT_MCP_TOKEN` | Bearer token (only needed if the server requires authorization). | (none) |
 
+With authorization `oauth`, your signed-in ai-game.dev account token is sent **only to a localhost server**
+(`localhost`, `127.0.0.0/8`, `::1`). For any other host set `GODOT_MCP_TOKEN`; without it the connection fails with
+`Refusing to send your ai-game.dev account token to <host>; set GODOT_MCP_TOKEN or use a localhost server`.
+
 Example — boot the editor pointed at a local server:
 
 ```bash

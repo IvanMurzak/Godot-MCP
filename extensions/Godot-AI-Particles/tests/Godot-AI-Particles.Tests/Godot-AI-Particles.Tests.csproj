@@ -23,7 +23,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <!-- The package's RQL floor (IRqlModule, adapters, the parser for the guide examples) and the Godot API it
+    <!-- The package's RQL pin (IRqlModule, adapters, the parser for the guide examples) and the Godot API it
          compiles against (metadata only here). -->
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
     <PackageReference Include="GodotSharp" Version="4.3.0" />

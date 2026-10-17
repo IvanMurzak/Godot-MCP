@@ -47,5 +47,5 @@ root. `dotnet pack` reuses the **global NuGet cache** for an already-cached vers
 
 - Root namespace `com.IvanMurzak.Godot.MCP.Particles`. Every `.cs` starts with the Apache-2.0 header and
   `#nullable enable`.
-- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` floors; **GodotSharp must
-  never become a package dependency** (CI asserts the nuspec). Bump floors with `commands/update-core.ps1`.
+- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp must
+  never become a package dependency** (CI asserts the nuspec). Bump them with `commands/update-core.ps1`.

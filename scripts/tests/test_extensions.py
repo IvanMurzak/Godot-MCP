@@ -140,8 +140,8 @@ class PackageVerification(unittest.TestCase):
         self.source.mkdir()
         self.module = {'project': 'module/package.csproj', 'packageId': 'example', 'version': '1.2.3'}
         (self.source / 'package.csproj').write_text('''<Project><ItemGroup>
-<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.0"/>
-<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
 <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
         self.files = {'src/Editor/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
@@ -151,8 +151,8 @@ class PackageVerification(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(value)
         self.files['example.nuspec'] = b'''<package><metadata><id>example</id><version>1.2.3</version>
-<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.8.0"/>
-<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.2"/>
+<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.8.1"/>
+<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.3"/>
 <dependency id="com.IvanMurzak.Rql" version="0.1.1"/></dependencies></metadata></package>'''
 
     def verify(self):
@@ -187,7 +187,7 @@ class PackageVerification(unittest.TestCase):
             self.verify()
 
     def test_changed_dependency_floor_is_rejected(self):
-        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.0', b'9.0.0')
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.1', b'9.0.0')
         with self.assertRaisesRegex(ValueError, 'dependency floor'):
             self.verify()
 
@@ -204,13 +204,13 @@ class PackageVerification(unittest.TestCase):
         with patch.dict(os.environ, {'CHAIN_ACTIVE': '1'}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.0', b'[8.7.1-ws.ga1b2c3d4]')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.1', b'[8.7.1-ws.ga1b2c3d4]')
             self.assertTrue(self.verify())
         # No applied override (CHAIN_LOCK alone is the raw dispatch input): the source floors rule.
         with patch.dict(os.environ, {'CHAIN_LOCK': 'candidate lock', 'CHAIN_ACTIVE': ''}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.8.0')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.8.1')
             self.assertTrue(self.verify())
 
 
@@ -293,6 +293,39 @@ class SuiteGuards(unittest.TestCase):
             subprocess.run([sys.executable, str(folder / 'commands/bump-version.py'), '0.1.1'],
                            check=True, capture_output=True)
             self.assertEqual('0.1.1', extensions.modules(root)[-1]['version'])
+
+
+class CorePinParity(unittest.TestCase):
+    def test_extensions_and_template_pin_the_core_versions(self):
+        # Drift here broke a release-train leg with NU1605 (an extension's ReflectorNet pin was
+        # below what a newer McpPlugin requires). Fix: commands/update-core.py in each module.
+        self.assertEqual([], extensions.core_pin_drift())
+
+    def test_pin_differing_from_core_is_reported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'Godot-MCP.csproj').write_text('''<Project><ItemGroup>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
+</ItemGroup></Project>''')
+            tests = root / 'extensions/Godot-AI-Example/tests/Example.Tests'
+            tests.mkdir(parents=True)
+            (tests / 'Example.Tests.csproj').write_text('''<Project><ItemGroup>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.0"/>
+<PackageReference Include="xunit" Version="2.9.2"/>
+</ItemGroup></Project>''')
+            self.assertEqual(['extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
+                              'com.IvanMurzak.ReflectorNet 5.4.1 != core 5.4.3',
+                              'extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
+                              'com.IvanMurzak.Rql 0.1.0 != core 0.1.1',
+                              'templates/extension: no csproj found'],
+                             extensions.core_pin_drift(root))
+            (root / 'Godot-MCP.csproj').write_text('<Project/>')
+            with self.assertRaisesRegex(ValueError, 'must pin'):
+                extensions.core_pin_drift(root)
 
 
 if __name__ == '__main__':

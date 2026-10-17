@@ -16,6 +16,7 @@ using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Microsoft.Extensions.Logging;
 using R3;
+using McpServerConsts = com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
@@ -286,6 +287,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 if (!Matches())
                     return null;
+                if (mode == GodotMcpConnectionMode.Custom && config.ActiveAuthOption == McpServerConsts.AuthOption.oauth)
+                {
+                    // The account token reaches a loopback host only; any other host gets the explicit token or
+                    // the provider throws (LoopbackTokenScope), failing the connection attempt.
+                    var bearer = await config.ResolveCustomOAuthBearerAsync(host, async () =>
+                    {
+                        var account = IsSignedIn ? await GetAccessTokenForOriginAsync(origin).ConfigureAwait(false) : null;
+                        return string.IsNullOrEmpty(account) ? config.ResolveStoredAccountToken() : account;
+                    }).ConfigureAwait(false);
+                    return Matches() ? bearer : null;
+                }
                 if (mode == GodotMcpConnectionMode.Cloud && IsSignedIn)
                 {
                     var token = await GetAccessTokenForOriginAsync(origin).ConfigureAwait(false);

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Update the package's MCP / reflection / query floors in its package and test csprojs. Mirror of update-core.ps1.
+"""Update the core MCP / reflection / query pins in lockstep across package/tests/testbed. Mirror of update-core.ps1.
 
-The package declares MIN-versions (floors) of the core Godot-MCP addon's stack (Godot-MCP/Godot-MCP.csproj):
-com.IvanMurzak.McpPlugin, com.IvanMurzak.ReflectorNet and com.IvanMurzak.Rql (the RQL module API). The testbed
-is a consumer: it pins the core addon's exact versions instead and is updated with the core, not here.
+The pins (com.IvanMurzak.McpPlugin, com.IvanMurzak.ReflectorNet, com.IvanMurzak.Rql = the RQL module API) must
+EQUAL the core Godot-MCP addon's (Godot-MCP/Godot-MCP.csproj); scripts/extensions.py core_pin_drift fails CI otherwise.
 
 Usage:
   python commands/update-core.py --mcp-plugin 6.11.0
@@ -36,7 +35,7 @@ def main() -> int:
 
     root = Path(__file__).resolve().parent.parent
     csprojs = []
-    for sub in ("src", "tests"):
+    for sub in ("src", "tests", "testbed"):
         d = root / sub
         if d.is_dir():
             csprojs += list(d.rglob("*.csproj"))

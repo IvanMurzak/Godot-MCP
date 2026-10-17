@@ -60,15 +60,15 @@
   </PropertyGroup>
 
   <!--
-    Package DEPENDENCIES: only the engine-agnostic MCP / reflection / query stack, as MIN-versions (a NuGet
-    Version="x" is a ">= x" floor). The consumer already references these via the core Godot-MCP addon,
-    so they resolve to the consumer's pins. The RQL module needs com.IvanMurzak.Rql >= 0.1.1 (IRqlModule,
-    type adapters) and an RQL core: McpPlugin >= 8.8.0, which itself requires ReflectorNet >= 5.4.2.
-    `update-core.ps1` / `update-core.py` update these floors in the package and test csprojs.
+    Package DEPENDENCIES: only the engine-agnostic MCP / reflection / query stack (com.IvanMurzak.Rql is the RQL
+    module API: IRqlModule, type adapters). A NuGet Version="x" is a ">= x" floor; the pins EQUAL the core
+    Godot-MCP addon's (Godot-MCP.csproj; scripts/extensions.py core_pin_drift fails CI otherwise): a lower
+    ReflectorNet than the McpPlugin requires is a NU1605 downgrade, a higher pin cannot restore in a consumer
+    pinned to the core. `update-core.ps1` / `update-core.py` keep package, tests and testbed in lockstep.
   -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 

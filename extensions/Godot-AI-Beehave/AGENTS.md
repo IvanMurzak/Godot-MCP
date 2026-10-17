@@ -55,6 +55,6 @@ already-cached version: when re-packing the same `Version`, clear
 
 - Root namespace `com.IvanMurzak.Godot.MCP.Beehave`. Every `.cs` starts with the Apache-2.0 header and
   `#nullable enable`.
-- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` floors; **GodotSharp and the
-  Beehave addon must never become package dependencies** (CI asserts the nuspec). Bump floors with
+- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp and the
+  Beehave addon must never become package dependencies** (CI asserts the nuspec). Bump them with
   `commands/update-core.ps1`.

@@ -312,7 +312,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // McpPlugin 7.0 reads the bearer from CredentialProvider (an async Func<Task<string?>>) rather than a
             // Token property. Resolve it LIVE off Token on each connect so the active-mode + env overrides still
             // apply — behavior-preserving vs the 6.x virtual Token the client used to read.
-            CredentialProvider = () => Task.FromResult(Token);
+            // Custom + oauth goes through the loopback scope so a remote host without an explicit token fails the
+            // connection instead of dialing anonymously (the editor composes its own provider, same rule).
+            CredentialProvider = () =>
+                ActiveMode == GodotMcpConnectionMode.Custom && ActiveAuthOption == McpServerConsts.AuthOption.oauth
+                    ? ResolveCustomOAuthBearerAsync(ResolveCustomHost(), () => Task.FromResult(ResolveStoredAccountToken()))
+                    : Task.FromResult(Token);
 
             // Auto-generate skills is ON by default (owner-approved v1 default): on a fresh install the addon
             // regenerates the skills-capable agent's SKILL.md files on boot via GenerateSkillFilesIfNeeded(), so the
@@ -425,7 +430,27 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             var envToken = NormalizeEnv(ReadEnv(EnvToken));
             if (!string.IsNullOrEmpty(envToken))
                 return envToken; // Explicit process override belongs to the configured connection.
-            return SameServerOrigin(CloudTokenServerTarget, ResolveCloudBaseUrl(CloudBaseUrl)) ? CloudToken : null;
+            return ResolveStoredAccountToken();
+        }
+
+        /// <summary>The persisted account token, only when it was issued for the configured cloud origin.</summary>
+        public string? ResolveStoredAccountToken()
+            => SameServerOrigin(CloudTokenServerTarget, ResolveCloudBaseUrl(CloudBaseUrl)) ? CloudToken : null;
+
+        /// <summary>
+        /// The Custom + <c>oauth</c> bearer for <paramref name="host"/> (<see cref="LoopbackTokenScope"/>): the account
+        /// token from <paramref name="accountToken"/> only for a loopback host; any other host gets the configured
+        /// Custom token (<see cref="ResolveConfiguredCustomToken"/>), or this throws <see cref="CredentialScopeException"/>
+        /// so the connection fails.
+        /// </summary>
+        public Task<string?> ResolveCustomOAuthBearerAsync(string host, Func<Task<string?>>? accountToken)
+            => LoopbackTokenScope.ResolveAsync(host, accountToken, ResolveConfiguredCustomToken(), EnvToken);
+
+        /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else <see cref="CustomToken"/> (which a project <c>.env</c> also sets).</summary>
+        public string? ResolveConfiguredCustomToken()
+        {
+            var envToken = NormalizeEnv(ReadEnv(EnvToken));
+            return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
         }
 
         /// <summary>Compare credential origins without allowing malformed URLs to inherit a trusted default.</summary>
@@ -450,10 +475,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///   <item><see cref="McpServerConsts.AuthOption.token"/> — the offline static secret
         ///   (<see cref="CustomToken"/>); the <see cref="EnvToken"/> override wins over the persisted value,
         ///   mirroring the other resolvers.</item>
-        ///   <item><see cref="McpServerConsts.AuthOption.oauth"/> — the signed-in ACCOUNT JWT
-        ///   (<see cref="ResolveCloudToken"/>): oauth-local validates the loopback-audience account token
-        ///   against ai-game.dev's JWKS (design Part A), so the same credential the Cloud path presents flows
-        ///   to a local oauth server too.</item>
+        ///   <item><see cref="McpServerConsts.AuthOption.oauth"/> — for a loopback host the signed-in ACCOUNT JWT
+        ///   (<see cref="ResolveStoredAccountToken"/>, else <see cref="ResolveConfiguredCustomToken"/>): oauth-local
+        ///   validates the loopback-audience account token against ai-game.dev's JWKS (design Part A). For any
+        ///   other host only <see cref="ResolveConfiguredCustomToken"/>, never the account token
+        ///   (<see cref="LoopbackTokenScope"/>; the connection's credential provider fails instead).</item>
         /// </list>
         /// </summary>
         public string? ResolveCustomToken()
@@ -461,11 +487,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             switch (ActiveAuthOption)
             {
                 case McpServerConsts.AuthOption.token:
-                    var envToken = NormalizeEnv(ReadEnv(EnvToken));
-                    return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
+                    return ResolveConfiguredCustomToken();
 
                 case McpServerConsts.AuthOption.oauth:
-                    return ResolveCloudToken();
+                    // Non-throwing view of ResolveCustomOAuthBearerAsync (the provider refuses instead of null).
+                    var account = LoopbackTokenScope.IsLoopback(ResolveCustomHost()) ? ResolveStoredAccountToken() : null;
+                    return !string.IsNullOrEmpty(account) ? account : ResolveConfiguredCustomToken();
 
                 default: // none
                     return null;
