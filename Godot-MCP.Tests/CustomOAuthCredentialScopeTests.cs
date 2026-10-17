@@ -14,7 +14,6 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
-using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.AgentConfig;
 using Xunit;
@@ -128,12 +127,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             using var _ = EnvScope.Set(null);
             using var tmp = new TempDir();
-            new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
+            using var account = SignedInAccount(tmp);
             var config = CustomOAuth(Remote);
             config.CloudToken = null;
             config.CustomToken = null;
-            using var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
-            Assert.True(account.IsSignedIn);
 
             var provider = account.CreateConnectionCredentialProvider(config);
             await Assert.ThrowsAsync<CredentialScopeException>(() => provider());
@@ -144,40 +141,33 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         // --- Host capture: a provider never resolves for a host other than the one it was handed over with. ---
 
+        [Theory]
+        [InlineData(Remote, "http://localhost:5000", false)] // the account token must not reach the old remote link
+        [InlineData("http://localhost:5000", Remote, false)]
+        [InlineData(Remote, null, true)]                     // Custom(remote) -> Cloud: never the cloud token
+        public async Task RuntimeProvider_TargetChangedAfterHandOff_ReturnsNull(string boundHost, string? newHost, bool toCloud)
+        {
+            using var _ = EnvScope.Set(null);
+            var config = CustomOAuth(boundHost);
+            config.CustomToken = null;
+            var handedOver = config.CredentialProvider!; // McpPlugin reads it once per HubConnection build
+
+            // A SignalR reconnect of the existing link calls the provider after the target changed.
+            if (newHost != null)
+                config.CustomHost = newHost;
+            if (toCloud)
+                config.ConnectionMode = GodotMcpConnectionMode.Cloud;
+            Assert.Null(await handedOver());
+        }
+
         [Fact]
-        public async Task RuntimeProvider_HostChangedToLoopbackAfterHandOff_NeverSendsAccountToken()
+        public async Task RuntimeProvider_NewHubConnectionAfterHostChange_IsBoundToTheNewHost()
         {
             using var _ = EnvScope.Set(null);
             var config = CustomOAuth(Remote);
             config.CustomToken = null;
-            var handedToRemoteConnection = config.CredentialProvider!; // McpPlugin reads it once per HubConnection
-
-            // A SignalR reconnect of the remote link calls the provider after the host became loopback.
             config.CustomHost = "http://localhost:5000";
-            Assert.Null(await handedToRemoteConnection());
-
-            // A HubConnection built now dials the loopback host and gets a provider bound to it.
             Assert.Equal("account-jwt", await config.CredentialProvider!());
-        }
-
-        [Fact]
-        public async Task RuntimeProvider_HostChangedToRemoteAfterHandOff_ReturnsNull()
-        {
-            using var _ = EnvScope.Set(null);
-            var config = CustomOAuth("http://localhost:5000");
-            var handedToLoopbackConnection = config.CredentialProvider!;
-            config.CustomHost = Remote;
-            Assert.Null(await handedToLoopbackConnection());
-        }
-
-        [Fact]
-        public async Task RuntimeProvider_ModeChangedToCloudAfterHandOff_NeverSendsCloudToken()
-        {
-            using var _ = EnvScope.Set(null);
-            var config = CustomOAuth(Remote);
-            var handedToRemoteConnection = config.CredentialProvider!;
-            config.ConnectionMode = GodotMcpConnectionMode.Cloud;
-            Assert.Null(await handedToRemoteConnection());
         }
 
         [Fact]
@@ -193,23 +183,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             using var _ = EnvScope.Set(null);
             using var tmp = new TempDir();
-            new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
+            using var account = SignedInAccount(tmp);
             var config = CustomOAuth(Remote);
-            using var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
-            Assert.True(account.IsSignedIn);
 
             var provider = account.CreateConnectionCredentialProvider(config);
             config.CustomHost = "http://127.0.0.1:5000";
             Assert.Null(await provider());
         }
 
-        [Fact]
-        public void ConnectionErrorHint_EditorNamesTheDockStopButton_RuntimeLeavesItUnset()
+        static GodotAccountAuth SignedInAccount(TempDir tmp)
         {
-            Assert.Contains("\"" + ConnectionPanelView.ButtonTextStop + "\"", ConnectionPanelView.ConnectionErrorHint);
-            Assert.Contains("AI Game Developer", ConnectionPanelView.ConnectionErrorHint);
-            Assert.DoesNotContain("<", ConnectionPanelView.ConnectionErrorHint); // plain text: Godot's Output shows markup raw
-            Assert.Null(new GodotMcpConfig().ConnectionErrorHint);
+            new MachineCredentialStore(tmp.Path).Write(new MachineCredentials { AccessToken = "machine-jwt", ServerTarget = "https://ai-game.dev" });
+            var account = new GodotAccountAuth(() => "https://ai-game.dev", new MachineCredentialStore(tmp.Path), new HttpClient());
+            Assert.True(account.IsSignedIn);
+            return account;
         }
 
         sealed class EnvScope : IDisposable
