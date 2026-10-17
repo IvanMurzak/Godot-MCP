@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Unit-test project for the Beehave Tools extension. A PLAIN xUnit assembly (Microsoft.NET.Sdk),
-    NOT a Godot game project — so it builds + runs in CI with no Godot binary.
+    Unit-test project for the Beehave RQL module. A PLAIN xUnit assembly (Microsoft.NET.Sdk), NOT a Godot game
+    project — so it builds + runs in CI with no Godot binary.
 
-    It compiles ONLY the PURE-MANAGED extension sources (the tools that live OUTSIDE #if TOOLS and touch
-    no Godot native types). Editor-only tools (#if TOOLS, touching EditorInterface / live Node) are NOT
-    compiled here — a plain xUnit host has no live Godot main loop, so calling them would fault. Those
-    are verified by the headless-Godot E2E instead (see .github/workflows/test.yml-sample).
-
-    This mirrors the core addon's Godot-MCP.Tests pattern: selectively <Compile Include> the
-    CI-friendly subset rather than ProjectReference the Godot.NET.Sdk project.
+    It compiles the module sources directly (no ProjectReference to the Godot.NET.Sdk package project), with TOOLS
+    defined so the #if TOOLS module and its views compile too. Only managed metadata is exercised: the RQL engine
+    configures the module and builds the member tables of its view types by reflection; no Godot object is ever
+    created (native-backed objects crash a plain test host). Live Beehave nodes are verified by the headless-Godot
+    E2E (tests/e2e/e2e-tools.json), which runs every guide example.
   -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -18,31 +16,23 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Beehave.Tests</RootNamespace>
     <AssemblyName>com.IvanMurzak.Godot.MCP.Beehave.Tests</AssemblyName>
-    <!-- No GodotSharp here: only pure-managed sources are compiled, and they reference no Godot type. -->
+    <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <!-- Same MCP/reflection pins as the package; needed because the tools use [AiTool]/[AiToolType]. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+    <!-- The package's RQL floor (IRqlModule, adapters, the parser for the guide examples) and the Godot API it
+         compiles against (metadata only here). -->
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
+    <PackageReference Include="GodotSharp" Version="4.3.0" />
+    <PackageReference Include="GodotSharpEditor" Version="4.3.0" />
   </ItemGroup>
 
-  <!--
-    Compile the PURE-MANAGED extension sources under test. Add one <Compile Include> line per
-    pure-managed source file you want to unit-test. Do NOT add files guarded by #if TOOLS here.
-  -->
   <ItemGroup>
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Tools\Tool_Beehave.cs" Link="Source\Tool_Beehave.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Tools\Tool_Beehave.Ids.cs" Link="Source\Tool_Beehave.Ids.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Tools\Tool_Beehave.Defaults.cs" Link="Source\Tool_Beehave.Defaults.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Beehave\BeehaveEnums.cs" Link="Source\BeehaveEnums.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Beehave\BeehaveNodeKinds.cs" Link="Source\BeehaveNodeKinds.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Beehave\BeehaveNodeInfo.cs" Link="Source\BeehaveNodeInfo.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Beehave\BeehaveDefaults.cs" Link="Source\BeehaveDefaults.cs" />
-    <Compile Include="..\..\src\Godot-AI-Beehave\Runtime\Interop\AddonGate.cs" Link="Source\AddonGate.cs" />
+    <Compile Include="..\..\src\Godot-AI-Beehave\Editor\Rql\*.cs" Link="Source\%(Filename)%(Extension)" />
+    <None Include="..\e2e\e2e-tools.json" Link="e2e-tools.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

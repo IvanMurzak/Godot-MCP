@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-Beehave",
   "packageId": "com.IvanMurzak.Godot.MCP.Beehave",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "project": "extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj",
   "tests": "extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Godot-AI-Beehave.Tests.csproj",
   "minGodotVersion": "4.3.0",

@@ -11,7 +11,7 @@ source compiles clean against the consumer's GodotSharp.
 
 ## Why not a normal (DLL) package?
 
-The tools call Godot's C# API (`Node`, `EditorInterface`, `GPUParticles3D`, …) which lives in
+The RQL module calls Godot's C# API (`Node`, `Resource`, `EditorInterface`, …) which lives in
 **GodotSharp**. A pre-compiled DLL is built against **one** GodotSharp version and is therefore locked to
 it — a consumer on a different Godot version gets binary-incompatibility. Shipping **source** sidesteps
 this: the consumer is itself a `Godot.NET.Sdk` project, so its build supplies GodotSharp at compile time
@@ -28,10 +28,11 @@ and our source compiles against *that* exact version.
     <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
   </PropertyGroup>
 
-  <!-- Only the MCP/reflection stack is a package dependency (the consumer already has it). -->
+  <!-- Only the MCP / reflection / query stack is a package dependency (the consumer already has it). -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.8.0" />
+    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
   </ItemGroup>
 
   <!-- (3) GodotSharp is needed to COMPILE locally but must NOT be a package dependency. -->
@@ -86,8 +87,8 @@ SDK adds GodotSharp *after* the body is evaluated, so there is nothing to update
    harmless `NU1504`, suppressed via `NoWarn`).
 
 Verify it worked by inspecting the generated `.nuspec` — its `<dependencies>` must list **only**
-`com.IvanMurzak.McpPlugin` and `com.IvanMurzak.ReflectorNet`, with **no** `GodotSharp` /
-`Godot.SourceGenerators`. CI asserts exactly this (see `test.yml`).
+`com.IvanMurzak.McpPlugin`, `com.IvanMurzak.ReflectorNet` and `com.IvanMurzak.Rql`, with **no** `GodotSharp` /
+`Godot.SourceGenerators`. CI asserts exactly this (`scripts/extensions.py` `verify_package`).
 
 ## Why `build/*.props` injection, not `contentFiles`?
 
@@ -108,24 +109,25 @@ dependency list.
 
 ## Editor-only API: `#if TOOLS`
 
-Tools that touch the Godot **editor** API (`EditorInterface`, live `Node`/`Resource`) sit behind
-`#if TOOLS`. Godot defines `TOOLS` for the editor/Debug build and **not** for an exported game build, so
-editor tools compile in the editor and are excluded from shipped games — exactly as in the core addon.
-Pure-managed tools (no Godot native API) stay outside the guard so they also compile in game builds and
-are CI-unit-testable. All editor API access marshals onto the editor main thread via
-`MainThread.Instance.Run(...)`.
+The RQL module, its adapters and sources sit behind `#if TOOLS`: RQL is the editor's data layer, so they
+compile in the editor and are excluded from shipped games — exactly as in the core addon (Godot defines
+`TOOLS` for the editor/Debug build and **not** for an exported game build). The agent guide and other
+pure-managed helpers (validation rules, label maps) stay outside the guard so they are CI-unit-testable.
+The core runs every RQL query on the editor main thread, so module code may touch `Node` / `Resource` /
+`EditorInterface` directly.
 
 ## The consumer story
 
 1. The consumer is a Godot **C#** project with the core `godot_mcp` addon enabled (which already
-   references `com.IvanMurzak.McpPlugin` + `com.IvanMurzak.ReflectorNet`).
+   references `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.ReflectorNet` and `com.IvanMurzak.Rql`).
 2. Installing the extension adds one line to the consumer's `.csproj`:
    `<PackageReference Include="com.IvanMurzak.Godot.MCP.<Feature>" Version="x.y.z" />`
    (done by the **Extensions dock**, `godot-cli install-extension`, or by hand).
 3. Rebuild. NuGet imports `build/<PackageId>.props` → the extension's `.cs` compile into the consumer's
    single project assembly against the consumer's GodotSharp.
-4. McpPlugin's assembly scanner auto-discovers the `[AiToolType]` families — **no registry edit**. The
-   tools run inside the user's real Godot editor.
+4. The core's RQL engine discovers the module (`IRqlModule`) in the project assembly — **no registry edit**.
+   Its adapters, sources and guide appear in `rql-query` / `rql-mutate` / `rql-schema` and the `godot-rql`
+   skill, inside the user's real Godot editor.
 
 ## Publishing & the shared catalog
 
@@ -133,5 +135,5 @@ are CI-unit-testable. All editor API access marshals onto the editor main thread
 Release. To make the extension appear in the in-editor **Extensions** dock and `godot-cli
 install-extension`, append one entry to the shared catalog `addons/godot_mcp/extensions.catalog.json` in
 **Godot-MCP** (schema in `extensions.catalog.md`): `name`, `description`, `packageId`
-(`com.IvanMurzak.Godot.MCP.<Feature>`), optional `version`, `gitUrl`, and the contributed `tools`. That
+(`com.IvanMurzak.Godot.MCP.<Feature>`), optional `version`, `gitUrl`, and `tools` (empty for an RQL module). That
 single source of truth is consumed by the dock, the CLI, and the app.
