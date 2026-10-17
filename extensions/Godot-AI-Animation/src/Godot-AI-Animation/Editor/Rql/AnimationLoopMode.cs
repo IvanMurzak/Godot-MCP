@@ -95,7 +95,7 @@ namespace com.IvanMurzak.Godot.MCP.Animation
 
         /// <summary>
         /// Parse a loop-mode string, throwing <see cref="ArgumentException"/> on an unrecognized value. Used
-        /// by tools that require an explicit, valid loop mode.
+        /// by the module (the loopMode argument of CreateAnimation).
         /// </summary>
         public static AnimationLoopMode Parse(string? value)
         {

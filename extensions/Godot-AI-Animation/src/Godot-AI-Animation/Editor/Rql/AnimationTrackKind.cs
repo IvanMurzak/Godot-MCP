@@ -12,8 +12,8 @@ using System;
 namespace com.IvanMurzak.Godot.MCP.Animation
 {
     /// <summary>
-    /// The kind of track an <c>animation-add-track</c> call creates, mapping onto the subset of Godot's
-    /// <c>Animation.TrackType</c> these tools support: a generic <c>Value</c> track (<c>"node:property"</c>)
+    /// The kind of track <c>Animation.AddTrack(kind, path)</c> creates, mapping onto the subset of Godot's
+    /// <c>Animation.TrackType</c> the module supports: a generic <c>Value</c> track (<c>"node:property"</c>)
     /// plus the three dedicated 3D transform tracks (<c>Position3D</c> / <c>Rotation3D</c> / <c>Scale3D</c>).
     /// Pure-managed (no Godot native types) so the parse/map logic is CI-unit-testable.
     /// </summary>
@@ -47,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.Animation
 
         /// <summary>
         /// Map a Godot <c>Animation.TrackType</c> integer back to <see cref="AnimationTrackKind"/>, or
-        /// <c>null</c> for track types these tools do not model (method/bezier/audio/blend-shape/animation).
+        /// <c>null</c> for track types the module does not model (method/bezier/audio/blend-shape/animation).
         /// </summary>
         public static AnimationTrackKind? FromGodotTrackType(int trackType) => trackType switch
         {
@@ -116,7 +116,7 @@ namespace com.IvanMurzak.Godot.MCP.Animation
 
         /// <summary>
         /// Parse a track-kind string, throwing <see cref="ArgumentException"/> on an unrecognized value. Used
-        /// by tools that require an explicit, valid track kind.
+        /// by the module (the kind argument of AddTrack).
         /// </summary>
         public static AnimationTrackKind Parse(string? value)
         {
