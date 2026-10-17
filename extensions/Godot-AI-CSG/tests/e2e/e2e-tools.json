@@ -1,6 +1,6 @@
 {
-  "description": "Live run-tool E2E tool list for the CSG Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "The six editor tools (box/sphere/cylinder/combiner create, set-operation, get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). csg-defaults is pure-managed and needs no scene. Assertions target the extension-PRODUCED structured fields (Kind, Operation, clamped scalars) NOT TypeName, because Node.GetClass() returns Godot's upper-case engine name (CSGBox3D) which differs from the C# binding casing. The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "description": "Live E2E for the CSG RQL module. Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapters, validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every CsgGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and rejected writes. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated. The C# type names in refs are CsgBox3D etc.; class is Godot's CSGBox3D.",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -14,39 +14,175 @@
   ],
   "tools": [
     {
-      "tool": "csg-defaults",
-      "input": { "kind": "box" },
-      "expect": ["\"Kind\":\"Box\"", "\"SizeX\":2", "\"Operation\":\"Union\""]
+      "tool": "rql-schema",
+      "input": {
+        "type": "CSGSphere3D"
+      },
+      "expect": [
+        "(CSG extension)",
+        "RadialSegments",
+        "rootShape"
+      ]
     },
     {
-      "tool": "csg-box-create",
-      "input": { "name": "Box", "sizeX": 3, "sizeY": 3, "sizeZ": 3 },
-      "expect": ["\"Kind\":\"Box\"", "\"SizeX\":3"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "root | call AddChild(\"CSGCombiner3D\", \"Combo\")"
+      },
+      "expect": [
+        "CsgCombiner3D#",
+        "(Combo)"
+      ]
     },
     {
-      "tool": "csg-sphere-create",
-      "input": { "name": "Ball", "radius": 1.5, "radialSegments": 0 },
-      "expect": ["\"Kind\":\"Sphere\"", "\"Radius\":1.5", "\"RadialSegments\":4"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGBox3D\", \"Box\")"
+      },
+      "expect": [
+        "CsgBox3D#",
+        "(Box)"
+      ]
     },
     {
-      "tool": "csg-cylinder-create",
-      "input": { "name": "Pipe", "radius": 1, "height": 4 },
-      "expect": ["\"Kind\":\"Cylinder\"", "\"Height\":4"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Box\" | set Size = \"(3, 3, 3)\""
+      },
+      "expect": [
+        "Size|"
+      ]
     },
     {
-      "tool": "csg-combiner-create",
-      "input": { "name": "Combo", "operation": "Subtraction" },
-      "expect": ["\"Kind\":\"Combiner\"", "\"Operation\":\"Subtraction\""]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGSphere3D\", \"Ball\")"
+      },
+      "expect": [
+        "CsgSphere3D#",
+        "(Ball)"
+      ]
     },
     {
-      "tool": "csg-set-operation",
-      "input": { "nodePath": "Ball", "operation": "subtraction" },
-      "expect": ["\"Operation\":\"Subtraction\""]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Ball\" | set Radius = 1.8, RadialSegments = 16, Rings = 8, Operation = \"Subtraction\""
+      },
+      "expect": [
+        "RadialSegments|",
+        "Operation|"
+      ]
     },
     {
-      "tool": "csg-get",
-      "input": { "nodePath": "Ball" },
-      "expect": ["\"Kind\":\"Sphere\"", "\"Operation\":\"Subtraction\"", "\"RadialSegments\":4"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGCylinder3D\", \"Pipe\")"
+      },
+      "expect": [
+        "CsgCylinder3D#",
+        "(Pipe)"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Pipe\" | set Radius = 0.5, Height = 4, Sides = 12, Operation = \"Union\""
+      },
+      "expect": [
+        "Sides|"
+      ]
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "nodes | where $ is CSGShape3D | select name class Operation rootShape"
+      },
+      "expect": [
+        "Combo|CSGCombiner3D|Union|true",
+        "Ball|CSGSphere3D|Subtraction|false",
+        "Pipe|CSGCylinder3D|Union|false"
+      ]
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "nodes | where name == \"Ball\" | select Radius RadialSegments Rings"
+      },
+      "expect": [
+        "1.8|16|8"
+      ]
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "nodes | where name == \"Box\" | select Size.X Size.Y Size.Z"
+      },
+      "expect": [
+        "3|3|3"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Ball\" | set RadialSegments = 2",
+        "dry_run": true
+      },
+      "expect": [
+        "RadialSegments must be at least 4 (got 2)"
+      ],
+      "expectFailure": true
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Box\" | set Size = \"(3, 0, 3)\"",
+        "dry_run": true
+      },
+      "expect": [
+        "Size must be above 0 on every axis"
+      ],
+      "expectFailure": true
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Pipe\" | set Height = 0",
+        "dry_run": true
+      },
+      "expect": [
+        "Height must be above 0"
+      ],
+      "expectFailure": true
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "root | call AddChild(\"CSGTorus3D\", \"Ring\")"
+      },
+      "expect": [
+        "CsgTorus3D#",
+        "(Ring)"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "nodes | where name == \"Ring\" | set Sides = 2",
+        "dry_run": true
+      },
+      "expect": [
+        "Sides must be at least 3 (got 2)"
+      ],
+      "expectFailure": true
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "nodes | where name == \"Pipe\" | select Height Sides"
+      },
+      "expect": [
+        "4|12"
+      ]
     }
   ]
 }
