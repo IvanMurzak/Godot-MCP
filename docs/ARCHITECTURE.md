@@ -63,9 +63,10 @@ addons/godot_mcp/
     ├── Connection/                   # editor server lifecycle (GodotMcpServerManager), device-auth
     │   └── DevControl/               #   the dev-only HttpListener control bridge
     ├── Extensions/                   # ConsumerProjectFile (editor file IO)
-    ├── Tools/                        # the 7 EDITOR tool families:
-    │                                 #   Tool_Node*, Tool_Scene*, Tool_Resource*, Tool_FileSystem*,
-    │                                 #   Tool_Script*, Tool_Screenshot*, Tool_Editor*
+    ├── Rql/                          # the RQL data layer (docs/rql.md): engine (RqlGodot), editor source,
+    │                                 #   adapters, modules, schema, guide, tool binding (ToolFormat/)
+    ├── Tools/                        # the 3 EDITOR tool families: Tool_Rql* (rql-query / -mutate / -schema),
+    │                                 #   Tool_Script*, Tool_Screenshot* (+ scene-tree / resource helpers)
     └── UI/                           # the entire dock UI (panels, rows, windows, view-models)
 ```
 
@@ -97,11 +98,13 @@ A plugin author installs `addons/godot_mcp/`, enables it in
 (`Editor/GodotMcpPlugin.cs`, `#if TOOLS`) boots on editor load: it installs the assembly
 resolver + main-thread dispatcher, builds a `Reflector` with Godot type converters, shows the
 "AI Game Developer" dock, and connects to an MCP server (cloud `ai-game.dev` by default, or a
-custom local server). The full editor tool families (`node-*`, `scene-*`, `resource-*`,
-`filesystem-*`, `script-*`, `screenshot-*`, `editor-*`) drive the live editor.
+custom local server). The editor tool families (`rql-*` — RQL over scene nodes, resources, files, scenes and
+editor state —, `script-*`, `screenshot-*`) drive the live editor. In the editor, the runtime-safe `console-*` /
+`reflection-*` tools are replaced by RQL (the `console` source, `call` / `CallMethod`, `rql-schema`): the editor
+removes them from the plugin it builds (`RqlInstaller`), the in-game runtime keeps them.
 
 When the developer **exports their game**, `TOOLS` is undefined, so the `EditorPlugin`, the
-dock, the device-auth flow, and all 7 editor tool families are **stripped** — none of it
+dock, the device-auth flow, the RQL engine and the editor tool families are **stripped** — none of it
 ships, and **no MCP server connection is started in the game**. This is the zero-config path:
 do nothing special and the editor tooling simply isn't in your build.
 
@@ -139,7 +142,7 @@ by `#if TOOLS` — because `OS.AddLogger` / `Godot.Logger` are **engine (runtime
 editor APIs. That is what lets the *same* bridge serve two callers:
 
 - the **editor** (`Editor/GodotMcpPlugin.cs`) installs it to capture engine script errors
-  raised in-editor (feeding `console-get-logs` / `script-validate`), and
+  raised in-editor (feeding the RQL `console` source / `script-validate`), and
 - the **in-game runtime** (`Runtime/RuntimeErrorCapture.cs`, opt-in via
   `GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture())`) installs it to capture
   errors raised in the **running game** — GDScript runtime errors, `push_error`/`push_warning`,
@@ -170,6 +173,12 @@ game build. The addon uses exactly one such shim today —
 `Tool_Resource.InstallReflectionResolver()` call behind `#if TOOLS` so the runtime-agnostic
 connection compiles with `TOOLS` undefined while still wiring the editor resolver when run in
 the editor. The CI guard reports this shim as a *warning*, not a failure.
+
+Editor code that must shape what the connection builds uses a **hook** instead of a shim:
+`GodotMcpConnection.PluginBuilt` is a static `Action<IMcpPlugin, GodotMcpConfig>` the connection invokes right
+after building the plugin. `GodotMcpPlugin` assigns it at boot (`Editor/Rql/RqlInstaller.cs`: install the RQL
+tool data layer, remove the editor-replaced runtime tools) and clears it on teardown, so `Runtime/` never names an
+editor type.
 
 ### CI boundary guard
 
@@ -211,13 +220,14 @@ condition in their **own game `.csproj`** (not the addon's):
 ```
 
 If you also want to drop the reused NuGet payload (`com.IvanMurzak.McpPlugin` /
-`com.IvanMurzak.ReflectorNet`) from the published game, guard those `<PackageReference>`s the
+`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql`) from the published game, guard those `<PackageReference>`s the
 same way:
 
 ```xml
 <ItemGroup Condition="'$(Configuration)' != 'ExportRelease'">
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.1" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.8.1" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
 </ItemGroup>
 ```
 

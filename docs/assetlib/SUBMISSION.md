@@ -57,17 +57,18 @@ Tools and connects them to an MCP server through the hosted cloud backend at ai-
 self-hosted server. The MCP / reflection stack is shared with Unity-MCP and consumed from nuget.org as
 NuGet package references (not forked).
 
-43 built-in tools across 12 families: ping, node, scene, resource, filesystem, script, screenshot,
-editor, console, reflection, runtime-errors, and skills. Tool names mirror Unity-MCP where sensible (scene-*, node-*, ...).
+21 built-in tools across 8 families: ping, rql, script, screenshot, console, reflection, runtime-errors, and skills.
+The editor is driven with RQL (rql-query / rql-mutate / rql-schema): one query language for scene nodes, resources, scenes and editor state.
 
 Requirements:
 - Godot 4.3+ — the C#/.NET (mono) edition. The standard GDScript-only build cannot compile the addon.
 - .NET 8 SDK.
 
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
-project's .csproj must declare the two NuGet package references the addon depends on:
+project's .csproj must declare the three NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet  version 5.4.3
-  com.IvanMurzak.McpPlugin     version 8.7.1
+  com.IvanMurzak.McpPlugin     version 8.8.1
+  com.IvanMurzak.Rql          version 0.1.1
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
 global-packages folder.
@@ -75,7 +76,7 @@ global-packages folder.
 Full documentation, the complete tool list, and connection setup:
 https://github.com/IvanMurzak/Godot-MCP
 
-License: Apache-2.0.
+License: Apache-2.0 (the com.IvanMurzak.Rql dependency: PolyForm Shield 1.0.0).
 ```
 
 ## Preview images (optional — up to 3 images / YouTube videos)

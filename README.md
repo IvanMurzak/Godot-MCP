@@ -43,11 +43,11 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **43 built-in Tools** — A wide range of [MCP Tools](#tools-reference) across 12 families for operating the Godot Editor
+- ✔️ **21 built-in Tools** — [MCP Tools](#tools-reference) across 8 families for operating the Godot Editor, led by [RQL](docs/rql.md): one query language for the whole editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
-- ✔️ **Scene & Node control** — Build and edit the scene tree, open/save `.tscn` scenes, mutate `.tres`/`.res` resources
+- ✔️ **Scene & Node control** — Query and edit the scene tree, Godot properties (GDScript variables included), `.tscn` scenes and `.tres`/`.res` resources with RQL — bulk, all-or-nothing, undoable
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
-- ✔️ **Reflection escape hatch** — Find and call any C# method across loaded assemblies via [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)
+- ✔️ **Call anything** — `call CallMethod("name", [args])` reaches any Godot method (GDScript ones too); in a running game, find and call C# methods via [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)
 - ✔️ **Cloud or self-hosted** — Connect to `ai-game.dev` out of the box, or point at your own server
 - ✔️ **Natural conversation** — Chat with AI like you would with a human
 
@@ -128,25 +128,25 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **43 built-in tools** grouped into **12 families**. Tool names mirror Unity-MCP where
-sensible (`scene-*`, `node-*`, …). Every tool returns a structured, [ReflectorNet](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet)-serialized
-result (or a PNG image for screenshots). All editor tools are available immediately after the addon is
-enabled — no extra configuration required. The **runtime-errors** family is the exception: it surfaces
-errors from the *running game* and is **OFF by default** — opt in with `builder.WithRuntimeErrorCapture()`
-(see [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)).
+Godot-MCP ships **21 built-in tools** grouped into **8 families**. The editor's data layer is
+[RQL](docs/rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` and `rql-schema` read and change scene
+nodes, Godot properties, resources, files, scenes and editor state in one query instead of one tool per operation
+(they replace the former `node-*`, `scene-*`, `resource-*`, `filesystem-*` and `editor-*` tools; in the editor also
+`console-*` and `reflection-*`, which stay available in a running game). With the default `toolFormat` (`Rql`) the
+other tools take RQL values as arguments and return compact text; `Json` keeps ReflectorNet's JSON schemas and results.
+Screenshots return a PNG image. All editor tools are available immediately after the addon is enabled — no extra
+configuration required. The **runtime-errors**, **console** and **reflection** families serve the *running game*
+(the in-game runtime, see [Runtime usage](#runtime-usage-in-game)); runtime-errors is **OFF by default** — opt in with
+`builder.WithRuntimeErrorCapture()` (see [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)).
 
 | Family | Tools | What it does |
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
-| **node** | `node-find`, `node-get-data`, `node-create`, `node-modify`, `node-set-parent`, `node-reorder`, `node-duplicate`, `node-delete` | Inspect and edit the active scene tree (the Godot analog of Unity GameObjects), driving `EditorInterface` on the main thread. Child order — which is layout order in a `VBoxContainer`/`HBoxContainer` — is settable both on creation (`node-create`'s `index`) and afterwards (`node-reorder`). |
-| **scene** | `scene-open`, `scene-save`, `scene-create`, `scene-list-opened`, `scene-get-data` | Open, save, create, and inspect Godot scenes (`res://*.tscn` PackedScenes) in the editor. |
-| **resource** | `resource-find`, `resource-get-data`, `resource-modify`, `resource-create`, `resource-move`, `resource-delete` | Find and mutate Godot resources (`.tres`/`.res`) through `ResourceLoader`/`ResourceSaver`/`EditorFileSystem`, keeping `.import` / `.uid` sidecars consistent. |
-| **filesystem** | `filesystem-list`, `filesystem-reimport` | Browse and reimport the project's `res://` tree via the editor `EditorFileSystem` index (file types + uids without loading resources). |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `classes`, `console`, `editor` sources; `godot.find` / `godot.resources` / `godot.resource`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node and validating GDScript. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
-| **editor** | `editor-application-get-state`, `editor-application-set-state`, `editor-selection-get`, `editor-selection-set` | Read/drive the editor run-and-play lifecycle (Godot launches the game in a separate process) and the current selection. |
-| **console** | `console-get-logs`, `console-clear-logs` | Read and clear the plugin's editor log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | Find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet — the engine-agnostic escape hatch. |
+| **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). In the editor, the RQL `console` source. |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet. In the editor, RQL `call` / `CallMethod` and `rql-schema`. |
 | **skills** | `godot-skill-create`, `godot-skill-generate` | Author a new MCP tool as a C# file in the project, and regenerate the `SKILL.md` files from the tools the editor currently has registered. **System tools** — reachable over the server's `/api/system-tools/` HTTP surface (like `ping`), not advertised to AI agents in `tools/list`. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | Poll errors raised inside the **running game** (NOT the editor) — GDScript runtime errors, `push_error`/`push_warning`, shader errors, and C# unhandled / unobserved-`Task` exceptions, with multi-frame GDScript backtraces on Godot 4.5+. **OFF by default** — opt in with `builder.WithRuntimeErrorCapture()`. |
 
@@ -155,42 +155,14 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 - `ping` — Lightweight readiness probe; echoes a message back, or returns `pong`. A **System tool**: call it
   over `/api/system-tools/ping` (or `godot-cli run-system-tool ping`); it is not listed in `tools/list`.
 
-**node**
+**rql** (editor)
 
-- `node-find` — Find nodes in the active scene tree by path, type, or name.
-- `node-get-data` — Read a node's stored properties (what the scene saves for it); each entry can be sent
-  back to `node-modify` unchanged.
-- `node-create` — Create a new node under a parent (optionally instancing a `.tscn` sub-scene), optionally
-  at a specific sibling `index` (negative counts from the end).
-- `node-modify` — Set fields/properties on one or more nodes.
-- `node-set-parent` — Reparent nodes within the scene tree.
-- `node-reorder` — Move an existing node to a different position among its siblings (`Node.MoveChild`) —
-  the only way to rearrange an existing scene short of delete-and-recreate.
-- `node-duplicate` — Duplicate nodes together with their subtrees.
-- `node-delete` — Delete nodes from the active scene.
-
-**scene**
-
-- `scene-open` — Open a `res://*.tscn` PackedScene in the editor.
-- `scene-save` — Save an open scene back to its `.tscn` file.
-- `scene-create` — Create a new scene asset in the project.
-- `scene-list-opened` — List the scenes currently open in the editor.
-- `scene-get-data` — Retrieve the root nodes / structure of a scene.
-
-**resource**
-
-- `resource-find` — Search the project for resources (`.tres`/`.res`).
-- `resource-get-data` — Read a resource's serialized fields and properties; each entry can be sent back to
-  `resource-modify` unchanged.
-- `resource-modify` — Modify a resource's properties.
-- `resource-create` — Create a new resource asset.
-- `resource-move` — Move / rename a resource, keeping `.import` / `.uid` sidecars consistent.
-- `resource-delete` — Delete a resource from the project, along with its `.import` / `.uid` sidecars.
-
-**filesystem**
-
-- `filesystem-list` — Browse the `res://` tree (file types + uids) via the editor file index.
-- `filesystem-reimport` — Reimport files in the project.
+- `rql-query` — Read-only RQL query, compact rows: `nodes | where class == "OmniLight3D" | select name props["light_energy"]`.
+- `rql-mutate` — RQL query ending with `set` / `call`: `nodes | where name starts-with "Enemy" | set Visible = false`,
+  `root | call AddChild("Node3D", "Props")`, `editor | call SaveScene()`. All-or-nothing, undoable (Ctrl+Z),
+  `dry_run` previews; scene edits mark the scene unsaved, edited resource files are saved.
+- `rql-schema` — The sources, functions and node classes in the edited scene; with a type name its members,
+  methods and Godot properties.
 
 **script**
 
@@ -207,22 +179,15 @@ errors from the *running game* and is **OFF by default** — opt in with `builde
 - `screenshot-camera` — Capture from a specific camera.
 - `screenshot-isolated` — Render a node in isolation from a chosen angle.
 
-**editor**
+**console** (in-game runtime; in the editor use the RQL `console` source)
 
-- `editor-application-get-state` — Read the editor application/run state.
-- `editor-application-set-state` — Start / stop the running game.
-- `editor-selection-get` — Get the current editor selection.
-- `editor-selection-set` — Set the current editor selection.
-
-**console**
-
-- `console-get-logs` — Read the plugin's collected editor logs (with filtering). This includes the
+- `console-get-logs` — Read the plugin's collected logs (with filtering). This includes the
   plugin's connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load,
   skill-gen, dev-control, dispatcher, and runtime-capture warnings), which route through the same
   capture sink as its framework logs.
 - `console-clear-logs` — Clear the collected log cache.
 
-**reflection**
+**reflection** (in-game runtime; in the editor use RQL `call` / `CallMethod` and `rql-schema`)
 
 - `reflection-method-find` — Find C# methods (including private) across every loaded assembly.
 - `reflection-method-call` — Call any C# method with input parameters and get the result.
@@ -314,13 +279,14 @@ On a successful load the editor Output panel prints:
 
 ## Step 2: Add the NuGet packages + the extension catalog embed
 
-Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
+Add the three `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
 `.csproj` (use these exact pinned versions — they must match the addon's `Godot-MCP.csproj`):
 
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.1" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.8.1" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
 </ItemGroup>
 
 <!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
@@ -332,7 +298,8 @@ Add both `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` 
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.3` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.7.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.8.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.1.1` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
 registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem
@@ -978,6 +945,11 @@ Contributions are highly appreciated. **Please give this project a star 🌟 if 
 # License
 
 [Apache-2.0](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) © Ivan Murzak
+
+The addon depends on the NuGet package [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql)
+(RQL), which is licensed separately under the
+[PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) — free to use, including in
+commercial products, except to provide a product that competes with the licensor's products.
 
 ## Extension modules
 
