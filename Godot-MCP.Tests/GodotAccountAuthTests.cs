@@ -38,8 +38,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     ///   <item>the F6 machine-wide sign-out (revoke every family with its stored id, delete the store);</item>
     ///   <item>the O8/F11.2 legacy <c>user://</c> cloudToken migration (the G-SEC-1 plant-2 target).</item>
     /// </list>
-    /// No token is ever asserted into a log surface.
+    /// No token is ever asserted into a log surface. Reads the token env overrides through
+    /// <see cref="GodotMcpConfig.Token"/>, so it joins the <c>env</c> collection.
     /// </summary>
+    [Collection("env")]
     public class GodotAccountAuthTests
     {
         const string AsBaseUrl = "https://ai-game.dev";
