@@ -27,7 +27,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// properties (storage usage) of every changed object are snapshotted before the write and the differences become
     /// do/undo properties. Structural calls (AddChild, InstantiateScene, Duplicate, Free, Reparent, MoveChild) apply their
     /// change immediately and register do/undo methods through <see cref="RecordUndo"/>. Actions are committed with
-    /// <c>execute: false</c> because the change is already applied.</item>
+    /// <c>execute: false</c> because the change is already applied. The steps' do parts are registered in the order the
+    /// changes happened and their undo parts in reverse, so undoing a mutation of several dependent steps (two MoveChild
+    /// calls, several siblings freed) restores the original state.</item>
     /// <item><b>Saving</b> — the same policy as the replaced <c>node-modify</c> / <c>resource-modify</c> tools: a change to a
     /// node of the edited scene marks the scene unsaved (it is written by <c>editor | call SaveScene()</c>, like Ctrl+S); a
     /// change to a resource stored in its own file (<c>res://….tres</c>) is saved to that file after the mutation; a built-in
@@ -39,12 +41,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     {
         private static int _mutating;
 
-        // Per running Mutate: Godot property snapshots taken before the writes, the undo operations collected so far (scene
-        // history / other history), and the file resources to save afterwards.
+        /// <summary>One undoable step: the operations that redo it and the ones that undo it (either may be null).</summary>
+        private readonly struct UndoStep
+        {
+            public UndoStep(Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo) { Redo = redo; Undo = undo; }
+            public Action<EditorUndoRedoManager>? Redo { get; }
+            public Action<EditorUndoRedoManager>? Undo { get; }
+        }
+
+        // Per running Mutate: Godot property snapshots taken before the writes, the undo steps collected so far (scene
+        // history / other history), the file resources to save afterwards and the nodes removed (kept alive by the undo
+        // history; freed when there is none).
         private static readonly Dictionary<GodotObject, Dictionary<string, Variant>> _snapshots = new Dictionary<GodotObject, Dictionary<string, Variant>>();
-        private static readonly List<Action<EditorUndoRedoManager>> _sceneUndo = new List<Action<EditorUndoRedoManager>>();
-        private static readonly List<Action<EditorUndoRedoManager>> _otherUndo = new List<Action<EditorUndoRedoManager>>();
+        private static readonly List<UndoStep> _sceneUndo = new List<UndoStep>();
+        private static readonly List<UndoStep> _otherUndo = new List<UndoStep>();
         private static readonly List<Resource> _toSave = new List<Resource>();
+        private static readonly HashSet<Resource> _toSaveSet = new HashSet<Resource>();
+        private static readonly HashSet<Node> _removed = new HashSet<Node>();
 
         private static void ResetState()
         {
@@ -53,6 +66,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _sceneUndo.Clear();
             _otherUndo.Clear();
             _toSave.Clear();
+            _toSaveSet.Clear();
+            _removed.Clear();
         }
 
         /// <summary>
@@ -84,10 +99,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>
-        /// Register the do/undo operations of a structural scene change a call already applied; they join the running
-        /// mutation's scene-history action (committed with <c>execute: false</c>). Calls only run inside rql-mutate.
+        /// Register the do and the undo operations of a structural scene change a call already applied; they join the
+        /// running mutation's scene-history action (committed with <c>execute: false</c>; undo parts of later steps run
+        /// first). Calls only run inside rql-mutate.
         /// </summary>
-        internal static void RecordUndo(Action<EditorUndoRedoManager> operations) => _sceneUndo.Add(operations);
+        internal static void RecordUndo(Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo) =>
+            _sceneUndo.Add(new UndoStep(redo, undo));
 
         /// <summary>Mark the edited scene as having unsaved changes.</summary>
         internal static void MarkSceneUnsaved()
@@ -126,14 +143,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     {
                         propertiesChanged = true;
                         var target = owner;
-                        (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(ur =>
-                        {
-                            foreach (var c in changed)
-                            {
-                                ur.AddDoProperty(target, c.name, c.after);
-                                ur.AddUndoProperty(target, c.name, c.before);
-                            }
-                        });
+                        (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(
+                            ur => { foreach (var c in changed) ur.AddDoProperty(target, c.name, c.after); },
+                            ur => { foreach (var c in changed) ur.AddUndoProperty(target, c.name, c.before); }));
                     }
                 }
 
@@ -145,7 +157,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     case Resource resource when IsFileResource(resource):
                         // Saved only when a Godot property actually changed: writing the same value again does not
                         // rewrite the file (the replaced resource-modify's "no modifications, not re-saved" rule).
-                        if (propertiesChanged && !_toSave.Contains(resource)) _toSave.Add(resource);
+                        if (propertiesChanged && _toSaveSet.Add(resource)) _toSave.Add(resource);
                         break;
                     case Resource _ when propertiesChanged:
                         sceneChanged = true; // built-in (scene-embedded) resource
@@ -160,22 +172,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static List<GodotObject> MutatedObjects(IReadOnlyList<MutationRecord> records)
         {
             var owners = new List<GodotObject>();
+            var seen = new HashSet<GodotObject>();
             foreach (var r in records)
                 foreach (var candidate in r.Owners)
                     if (candidate is GodotObject o)
                     {
-                        if (GodotObject.IsInstanceValid(o) && !owners.Contains(o)) owners.Add(o);
+                        if (GodotObject.IsInstanceValid(o) && seen.Add(o)) owners.Add(o);
                         break;
                     }
             return owners;
         }
 
-        /// <summary>The values of every stored Godot property (storage usage) of <paramref name="o"/>, by name.</summary>
+        /// <summary>
+        /// The values of every stored Godot property (storage usage) of <paramref name="o"/>, by name, plus a node's
+        /// <c>name</c> (its property has no storage usage: the .tscn writes it in the node header), so a rename is undoable.
+        /// </summary>
         internal static Dictionary<string, Variant> StoredProperties(GodotObject o)
         {
             var values = new Dictionary<string, Variant>(StringComparer.Ordinal);
             foreach (var name in GodotVariants.PropertyNames(o, storageOnly: true))
                 values[name] = o.Get(name);
+            if (o is Node node) values["name"] = node.Name;
             return values;
         }
 
@@ -239,29 +256,39 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 _sceneUndo.Clear();
                 _otherUndo.Clear();
+                // No undo history keeps the removed nodes alive: free them instead of leaking them as orphans.
+                foreach (var node in _removed)
+                    if (GodotObject.IsInstanceValid(node) && !node.IsInsideTree()) node.Free();
             }
             else
             {
                 Commit(undo, _sceneUndo, EditedRoot());
                 Commit(undo, _otherUndo, null);
             }
+            _removed.Clear();
             _snapshots.Clear();
         }
 
-        private static void Commit(EditorUndoRedoManager undo, List<Action<EditorUndoRedoManager>> operations, GodotObject? context)
+        private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
         {
-            if (operations.Count == 0) return;
+            if (steps.Count == 0) return;
             try
             {
                 undo.CreateAction("RQL mutation", global::Godot.UndoRedo.MergeMode.Disable, context);
-                foreach (var op in operations)
-                {
-                    try { op(undo); }
-                    catch (Exception ex) { GodotMcpLog.Warning($"[Godot-MCP] RQL undo step skipped: {ex.Message}"); }
-                }
+                // Undo operations run in the order they are registered: the do parts go in the order the changes
+                // happened, the undo parts in reverse, so the last change is undone first.
+                foreach (var step in steps) Register(undo, step.Redo);
+                for (int i = steps.Count - 1; i >= 0; i--) Register(undo, steps[i].Undo);
                 undo.CommitAction(execute: false);
             }
-            finally { operations.Clear(); }
+            finally { steps.Clear(); }
+        }
+
+        private static void Register(EditorUndoRedoManager undo, Action<EditorUndoRedoManager>? operations)
+        {
+            if (operations == null) return;
+            try { operations(undo); }
+            catch (Exception ex) { GodotMcpLog.Warning($"[Godot-MCP] RQL undo step skipped: {ex.Message}"); }
         }
 
         /// <summary>Save every file resource the mutation changed; returns what could not be saved.</summary>

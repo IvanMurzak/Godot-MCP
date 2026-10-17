@@ -290,7 +290,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                 // Not an expression (e.g. "Root/Lamp" reads as a division): the text itself is the value.
                 || (value.ValueKind == JsonValueKind.String && Engine.TryEvaluateValue(JsonSerializer.Serialize(text), target, out result, out _)));
             if (!ok)
-                throw new ArgumentException($"'{parameter.Name}': {error}. Expected {TypeText(target)}");
+                throw new ArgumentException($"'{parameter.Name}': {error}. Expected {OnMain(() => TypeText(target))}");
             converted = result;
             return true;
         }

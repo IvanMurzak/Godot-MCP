@@ -67,14 +67,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Attach(parent, copy, root);
             var index = node.GetIndex(includeInternal: false) + 1;
             parent.MoveChild(copy, index);
-            RecordUndo(ur => ur.AddDoMethod(parent, Node.MethodName.MoveChild, copy, index));
+            RecordUndo(ur => ur.AddDoMethod(parent, Node.MethodName.MoveChild, copy, index), null);
             return copy;
         }
 
-        /// <summary>Remove <paramref name="node"/> from the scene, undoably (the node stays alive in the undo history).</summary>
+        /// <summary>
+        /// Remove <paramref name="node"/> from the scene, undoably (the node stays alive in the undo history). A node whose
+        /// ancestor this mutation already removed went with it: a no-op, so <c>… | call Free()</c> over a node and its
+        /// descendants does not fail half-way.
+        /// </summary>
         public static void Remove(Node node)
         {
             var root = RequireEditedRoot();
+            if (WasRemoved(node)) return;
             RequireInEditedScene(node, "node");
             if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
             var parent = node.GetParent()!;
@@ -82,16 +87,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var owners = new List<(Node node, Node? owner)>();
             SubtreeOwners(node, owners);
             parent.RemoveChild(node);
-            RecordUndo(ur =>
-            {
-                ur.AddDoMethod(parent, Node.MethodName.RemoveChild, node);
-                ur.AddUndoMethod(parent, Node.MethodName.AddChild, node, true);
-                ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, index);
-                foreach (var (n, owner) in owners)
-                    if (owner != null) ur.AddUndoMethod(n, Node.MethodName.SetOwner, owner);
-                ur.AddUndoReference(node);
-            });
+            _removed.Add(node);
+            RecordUndo(
+                ur => ur.AddDoMethod(parent, Node.MethodName.RemoveChild, node),
+                ur =>
+                {
+                    ur.AddUndoMethod(parent, Node.MethodName.AddChild, node, true);
+                    ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, index);
+                    foreach (var (n, owner) in owners)
+                        if (owner != null) ur.AddUndoMethod(n, Node.MethodName.SetOwner, owner);
+                    ur.AddUndoReference(node);
+                });
             MarkSceneUnsaved();
+        }
+
+        // The node, or one of its ancestors, was removed by the running mutation (its subtree left the scene with it).
+        private static bool WasRemoved(Node node)
+        {
+            if (_removed.Count == 0) return false;
+            for (Node? n = node; n != null; n = n.GetParent())
+                if (_removed.Contains(n)) return true;
+            return false;
         }
 
         /// <summary>Move <paramref name="node"/> under <paramref name="newParent"/> (keeping its global transform by default).</summary>
@@ -109,12 +125,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             node.Reparent(newParent, keepGlobalTransform);
             if (node.Owner == null) node.Owner = root;
             Tool_Node.SetOwnerRecursive(node, root);
-            RecordUndo(ur =>
-            {
-                ur.AddDoMethod(node, Node.MethodName.Reparent, newParent, keepGlobalTransform);
-                ur.AddUndoMethod(node, Node.MethodName.Reparent, oldParent, keepGlobalTransform);
-                ur.AddUndoMethod(oldParent, Node.MethodName.MoveChild, node, oldIndex);
-            });
+            RecordUndo(
+                ur => ur.AddDoMethod(node, Node.MethodName.Reparent, newParent, keepGlobalTransform),
+                ur =>
+                {
+                    ur.AddUndoMethod(node, Node.MethodName.Reparent, oldParent, keepGlobalTransform);
+                    ur.AddUndoMethod(oldParent, Node.MethodName.MoveChild, node, oldIndex);
+                });
             MarkSceneUnsaved();
         }
 
@@ -127,11 +144,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var oldIndex = node.GetIndex(includeInternal: false);
             var target = NodeIndexResolver.Resolve(index, parent.GetChildCount(includeInternal: false));
             parent.MoveChild(node, target);
-            RecordUndo(ur =>
-            {
-                ur.AddDoMethod(parent, Node.MethodName.MoveChild, node, target);
-                ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, oldIndex);
-            });
+            RecordUndo(
+                ur => ur.AddDoMethod(parent, Node.MethodName.MoveChild, node, target),
+                ur => ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, oldIndex));
             MarkSceneUnsaved();
             return node.GetIndex(includeInternal: false);
         }
@@ -144,14 +159,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Tool_Node.SetOwnerRecursive(node, root);
             var owners = new List<(Node node, Node? owner)>();
             SubtreeOwners(node, owners);
-            RecordUndo(ur =>
-            {
-                ur.AddDoMethod(parent, Node.MethodName.AddChild, node, true);
-                foreach (var (n, owner) in owners)
-                    if (owner != null) ur.AddDoMethod(n, Node.MethodName.SetOwner, owner);
-                ur.AddDoReference(node);
-                ur.AddUndoMethod(parent, Node.MethodName.RemoveChild, node);
-            });
+            RecordUndo(
+                ur =>
+                {
+                    ur.AddDoMethod(parent, Node.MethodName.AddChild, node, true);
+                    foreach (var (n, owner) in owners)
+                        if (owner != null) ur.AddDoMethod(n, Node.MethodName.SetOwner, owner);
+                    ur.AddDoReference(node);
+                },
+                ur => ur.AddUndoMethod(parent, Node.MethodName.RemoveChild, node));
             MarkSceneUnsaved();
             return node;
         }
