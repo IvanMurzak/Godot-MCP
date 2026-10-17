@@ -89,7 +89,7 @@ def verify_package(archive, module, root=ROOT, version=None):
         if metadata.get('id') != module['packageId'] or metadata.get('version') != (version or module['version']):
             raise ValueError('Packaged identity/version differs from requested module: ' + str(archive))
         deps = {node.attrib['id'] for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'}
-        expected = {'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet'}
+        expected = {'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql'}
         if deps != expected:
             raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
         authoring = ET.parse(root / module['project'])

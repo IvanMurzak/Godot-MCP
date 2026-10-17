@@ -125,12 +125,13 @@ def stop(process):
     print('Stopped owned process tree PID', process.pid, flush=True)
 
 
-def check_editor_log(text, sdk=None, *, startup_lines=0):
+def check_editor_log(text, sdk=None, *, startup_lines=0, expected_tool_errors=0):
     if re.search(r'SCRIPT ERROR:|FileNotFoundException|Failed to load script|Unable to load addon|'
                  r'Cannot resolve relative SkillsPath|Unhandled exception', text, re.I):
         raise ValueError('Script/assembly failure in combined editor log; see editor.log')
     lines = text.splitlines()
-    diagnostics = {'headlessGridMapGizmo': 0, 'godot44ColdImportProgress': 0}
+    diagnostics = {'godot44ColdImportProgress': 0}
+    tool_errors = 0
     progress_messages = {
         'ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!',
         'ERROR: Condition "!tasks.has(p_task)" is true. Returning: canceled',
@@ -139,12 +140,13 @@ def check_editor_log(text, sdk=None, *, startup_lines=0):
         if not line.startswith('ERROR:'):
             continue
         context = '\n'.join(lines[index:index + 20])
-        # Godot's dummy renderer has no geometry RID for GridMap's editor gizmo.
-        # Report this measured native diagnostic; never suppress script failures
-        # or another renderer/tool error under the same generic message.
-        if (line == 'ERROR: Parameter "instance" is null.'
-                and 'instance_geometry_set_transparency' in context and 'Tool_GridMap' in context):
-            diagnostics['headlessGridMapGizmo'] += 1
+        # A manifest call marked expectFailure (a value the module must reject) is logged by McpPlugin as an
+        # error response carrying the RQL error text. Only that many such responses are tolerated.
+        if (line == 'ERROR: [McpPlugin] McpToolManager: Error Response to AI:'
+                and index + 1 < len(lines) and lines[index + 1].startswith('error ')):
+            tool_errors += 1
+            if tool_errors > expected_tool_errors:
+                raise ValueError('Unexpected tool error response in combined editor log:\n' + context)
             continue
         # Upstream godotengine/godot#103398: native cold-import progress UI
         # diagnostics in 4.4. Match only the exact native frames during startup;
@@ -155,6 +157,8 @@ def check_editor_log(text, sdk=None, *, startup_lines=0):
             diagnostics['godot44ColdImportProgress'] += 1
             continue
         raise ValueError('Unexpected engine error in combined editor log:\n' + context)
+    if tool_errors != expected_tool_errors:
+        raise ValueError(f'Expected {expected_tool_errors} rejected tool call(s) in the editor log, found {tool_errors}')
     return diagnostics
 
 
@@ -185,10 +189,7 @@ def live(plan, godot, server, output):
         folder.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, **{key: str(value) for key, value in folders.items()},
            'NUGET_PACKAGES': plan['nugetCache'], 'GODOT_MCP_CONNECTION_MODE': 'Custom',
-           'GODOT_MCP_HOST': url, 'GODOT_MCP_AUTH_OPTION': 'None', 'ASPNETCORE_URLS': url,
-           # The extension tools' e2e assertions match ReflectorNet's structured JSON results. Core 1.0 defaults the
-           # tools' data layer to RQL (compact text); keep JSON for the extensions until they migrate to RQL modules.
-           'GODOT_MCP_TOOL_FORMAT': 'Json'}
+           'GODOT_MCP_HOST': url, 'GODOT_MCP_AUTH_OPTION': 'None', 'ASPNETCORE_URLS': url}
     env.pop('GODOT_MCP_TOKEN', None)
     processes, handles, identities = [], [], []
     def launch(name, args):
@@ -232,21 +233,23 @@ def live(plan, godot, server, output):
             raise ValueError('Editor identity or addon-load proof missing: ' + text[-6000:])
         startup_lines = len(text.splitlines())
         check_editor_log(text, plan['sdk'], startup_lines=startup_lines)
-        total = 0
+        total = expected_failures = 0
         for module in selected:
             manifest = json.loads((ROOT / 'extensions' / module['name'] / 'tests/e2e/e2e-tools.json').read_text())
             for phase in ('setup', 'tools'):
                 calls = manifest.get(phase, [])
+                expected_failures += sum(1 for call in calls if call.get('expectFailure'))
                 if not driver.run_phase(module['name'] + '/' + phase, calls, cli, url, 60, env=env):
                     raise RuntimeError('Live tool assertions failed: ' + module['name'])
                 total += len(calls)
             if editor.poll() is not None:
                 raise RuntimeError('Combined editor exited during module assertions')
         diagnostics = check_editor_log((output / 'editor.log').read_text(encoding='utf-8', errors='replace'),
-                                       plan['sdk'], startup_lines=startup_lines)
+                                       plan['sdk'], startup_lines=startup_lines,
+                                       expected_tool_errors=expected_failures)
         (output / 'live-result.json').write_text(json.dumps({
             'sdk': plan['sdk'], 'editorLaunches': 1, 'editorPid': editor.pid,
-            'modules': plan['modules'], 'assertions': total, 'success': True,
+            'modules': plan['modules'], 'assertions': total, 'expectedFailures': expected_failures, 'success': True,
             'nativeDiagnostics': diagnostics}, indent=2) + '\n')
         if any(diagnostics.values()):
             print(f'NOTE: explicitly reported native headless diagnostics: {diagnostics}', flush=True)

@@ -140,8 +140,9 @@ class PackageVerification(unittest.TestCase):
         self.source.mkdir()
         self.module = {'project': 'module/package.csproj', 'packageId': 'example', 'version': '1.2.3'}
         (self.source / 'package.csproj').write_text('''<Project><ItemGroup>
-<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0"/>
-<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.0"/>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
         self.files = {'src/Runtime/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
                       'README.md': b'Package readme'}
@@ -150,8 +151,9 @@ class PackageVerification(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(value)
         self.files['example.nuspec'] = b'''<package><metadata><id>example</id><version>1.2.3</version>
-<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.7.0"/>
-<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.1"/></dependencies></metadata></package>'''
+<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.8.0"/>
+<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.2"/>
+<dependency id="com.IvanMurzak.Rql" version="0.1.1"/></dependencies></metadata></package>'''
 
     def verify(self):
         archive = self.root / 'example.nupkg'
@@ -185,8 +187,14 @@ class PackageVerification(unittest.TestCase):
             self.verify()
 
     def test_changed_dependency_floor_is_rejected(self):
-        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'9.0.0')
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.0', b'9.0.0')
         with self.assertRaisesRegex(ValueError, 'dependency floor'):
+            self.verify()
+
+    def test_missing_rql_dependency_is_rejected(self):
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(
+            b'\n<dependency id="com.IvanMurzak.Rql" version="0.1.1"/>', b'')
+        with self.assertRaisesRegex(ValueError, 'Unexpected package dependencies'):
             self.verify()
 
     def test_train_package_requires_exact_candidate_dependency(self):
@@ -196,30 +204,40 @@ class PackageVerification(unittest.TestCase):
         with patch.dict(os.environ, {'CHAIN_ACTIVE': '1'}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'[8.7.1-ws.ga1b2c3d4]')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.0', b'[8.7.1-ws.ga1b2c3d4]')
             self.assertTrue(self.verify())
         # No applied override (CHAIN_LOCK alone is the raw dispatch input): the source floors rule.
         with patch.dict(os.environ, {'CHAIN_LOCK': 'candidate lock', 'CHAIN_ACTIVE': ''}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.7.0')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.8.0')
             self.assertTrue(self.verify())
 
 
 class SuiteGuards(unittest.TestCase):
-    def test_script_failure_is_never_hidden_by_gridmap_diagnostic(self):
-        text = ('ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\n'
-                'Tool_GridMap\nSCRIPT ERROR: Missing autoload')
+    def test_script_failure_is_fatal(self):
         with self.assertRaisesRegex(ValueError, 'Script/assembly'):
-            extension_live.check_editor_log(text)
+            extension_live.check_editor_log('ERROR: Parameter "instance" is null.\nSCRIPT ERROR: Missing autoload')
 
     def test_unrelated_native_error_is_fatal(self):
         with self.assertRaisesRegex(ValueError, 'Unexpected engine error'):
             extension_live.check_editor_log('ERROR: Parameter "instance" is null.\nAnotherTool')
 
-    def test_observed_headless_diagnostic_is_counted(self):
-        self.assertEqual(1, extension_live.check_editor_log(
-            'ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\nTool_GridMap')['headlessGridMapGizmo'])
+    def test_former_gridmap_gizmo_error_is_fatal(self):
+        # The old gridmap-create tool's EditNode produced it; the RQL module never selects nodes.
+        with self.assertRaisesRegex(ValueError, 'Unexpected engine error'):
+            extension_live.check_editor_log('ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency')
+
+    def test_expected_tool_error_responses_are_counted_exactly(self):
+        rejected = ('ERROR: [McpPlugin] McpToolManager: Error Response to AI:\n'
+                    'error coercion-failed: Amount must be at least 1 (got 0)\n')
+        self.assertEqual({}, {k: v for k, v in extension_live.check_editor_log(rejected, expected_tool_errors=1).items() if v})
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log(rejected * 2, expected_tool_errors=1)
+        with self.assertRaisesRegex(ValueError, 'Expected 1 rejected'):
+            extension_live.check_editor_log('[Godot-MCP] plugin loaded\n', expected_tool_errors=1)
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log(rejected)
 
     def test_godot44_native_cold_import_is_reported_only_during_startup(self):
         error = ('ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!\n'

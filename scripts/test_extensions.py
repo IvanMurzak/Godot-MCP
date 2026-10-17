@@ -126,7 +126,7 @@ def compile_consumer(project, selected, version, cache, log):
 
 def isolation_canary(isolated, combined, cache, output):
     text = ('public static class IsolationCanary { public static System.Type Sibling => '
-            'typeof(com.IvanMurzak.Godot.MCP.Beehave.Tool_Beehave); }\n')
+            'typeof(com.IvanMurzak.Godot.MCP.Beehave.BeehaveModule); }\n')
     paths = [project.parent / 'IsolationCanary.cs' for project in (isolated, combined)]
     for path in paths:
         if path.exists():
