@@ -41,25 +41,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             m.Add<ulong>("id", o => o.GetInstanceId(), description: "Godot instance id (the number in $ref)")
              .Add<string>("class", o => o.GetClass(), description: "Godot class name, e.g. \"OmniLight3D\" (GDExtension classes too)");
             m.Untyped.AddMixedMap("props",
-                o => GodotVariants.Properties((GodotObject)o).Select(p => p["name"].AsString()).ToList(),
-                (o, key) => EntryType((GodotObject)o, key),
+                o => GodotVariants.Properties((GodotObject)o).Keys,
+                (o, key) => GodotVariants.Properties((GodotObject)o).TryGetValue(key, out var info) ? info.ClrType : typeof(object),
                 (o, key) => GodotVariants.ToClr(((GodotObject)o).Get(key)),
                 (o, key, value) => Set((GodotObject)o, key, value),
-                (o, key, value) => GodotVariants.Property((GodotObject)o, key) == null ? $"{((GodotObject)o).GetClass()} has no property '{key}'" : null,
+                (o, key, value) => GodotVariants.Properties((GodotObject)o).ContainsKey(key) ? null : $"{((GodotObject)o).GetClass()} has no property '{key}'",
                 "every Godot property by its snake_case name (GDScript script variables and GDExtension properties included)",
-                has: (o, key) => GodotVariants.Property((GodotObject)o, key) != null);
+                has: (o, key) => GodotVariants.Properties((GodotObject)o).ContainsKey(key));
             m.Untyped.AddMethod("CallMethod",
                 new[] { new CallableParameter("method", typeof(string)), new CallableParameter("args", typeof(List<object?>), hasDefault: true, defaultValue: null) },
                 typeof(object),
                 (o, a) => CallMethod((GodotObject)o, (string)a[0]!, a[1] as List<object?>),
                 "call any Godot method (GDScript ones too) by name with a list of arguments; returns its result");
-        }
-
-        private static Type EntryType(GodotObject o, string key)
-        {
-            var info = GodotVariants.Property(o, key);
-            if (info == null) return typeof(object);
-            return GodotVariants.ClrType((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
         }
 
         private static void Set(GodotObject o, string key, object? value)

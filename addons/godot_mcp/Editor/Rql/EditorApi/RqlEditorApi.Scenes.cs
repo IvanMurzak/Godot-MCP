@@ -22,7 +22,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlCallable("create a scene file (res://….tscn) with a root node of a Godot class, save it and open it; returns the new root node")]
         public Node NewScene(string path, string rootClass = "Node", string? rootName = null)
         {
-            RequireScenePath(path);
+            path = RequireScenePath(path);
             if (FileAccess.FileExists(path)) throw new ArgumentException($"a file already exists at '{path}' (open it with OpenScene)");
             var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(string.IsNullOrWhiteSpace(rootClass) ? "Node" : rootClass, "rootClass");
             if (!string.IsNullOrEmpty(rootName)) root.Name = rootName;
@@ -43,8 +43,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlCallable("open a scene file (res://….tscn) and make it the edited scene; returns its root node")]
         public Node OpenScene(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("res://", StringComparison.Ordinal)) throw new ArgumentException($"'{path}' is not a res:// scene path");
-            if (!ResourceLoader.Exists(path)) throw new ArgumentException($"no scene at '{path}'");
+            path = RequireScenePath(path);
+            EditorToolGuards.RequireResourceExists(path, nameof(path), $"no scene at '{path}'");
             Ei.OpenSceneFromPath(path);
             return RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
         }
@@ -55,7 +55,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException("no scene is being edited; nothing to save");
             if (!string.IsNullOrWhiteSpace(path))
             {
-                RequireScenePath(path!);
+                path = RequireScenePath(path!);
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
                 Ei.SaveSceneAs(path);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;
@@ -64,6 +64,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             var existing = root.SceneFilePath;
             if (string.IsNullOrEmpty(existing)) throw new InvalidOperationException("the edited scene was never saved; pass a res:// path: SaveScene(\"res://scenes/x.tscn\")");
+            // Saving back would silently recreate a scene file someone deleted (the editor keeps it open before Godot 4.5).
+            if (!FileAccess.FileExists(existing))
+                throw new InvalidOperationException($"the scene file '{existing}' was deleted; pass a path to save as: SaveScene(\"res://scenes/x.tscn\")");
             var error = Ei.SaveScene();
             if (error != Error.Ok) throw new InvalidOperationException($"could not save '{existing}': {error}");
             return existing;
@@ -83,10 +86,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return list;
         }
 
-        private static void RequireScenePath(string path)
+        /// <summary>The trimmed path when it names a res:// scene file (.tscn / .scn); throws otherwise.</summary>
+        private static string RequireScenePath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("res://", StringComparison.Ordinal) || !ResPathNormalizer.IsScenePath(path))
-                throw new ArgumentException($"'{path}' is not a res:// scene path ending in .tscn or .scn");
+            var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            if (!ResPathNormalizer.IsScenePath(p)) throw new ArgumentException($"'{path}' is not a scene path ending in .tscn or .scn");
+            return p;
         }
     }
 

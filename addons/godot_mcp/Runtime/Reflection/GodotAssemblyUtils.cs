@@ -62,5 +62,31 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             AppDomain.CurrentDomain.GetAssemblies()
                 .Where(assembly => !assembly.IsDynamic)
                 .ToArray();
+
+        /// <summary>
+        /// Name prefixes of the assemblies no discovery pass type-enumerates: the BCL, the Godot engine assemblies, the
+        /// reused McpPlugin / ReflectorNet / R3 / SignalR / RQL stack and the test assemblies. The connection passes them to
+        /// <c>McpPluginBuilder.IgnoreAssemblies</c>; the editor's RQL module / type discovery skips them too.
+        /// </summary>
+        public static readonly string[] NonScannedAssemblyPrefixes =
+        {
+            "mscorlib", "netstandard", "System", "Microsoft", "GodotSharp", "GodotSharpEditor", "GodotPlugins",
+            "Godot.SourceGenerators", "R3", "ObservableCollections", "McpPlugin", "ReflectorNet", "Rql.", "xunit",
+            "Godot-MCP.Tests",
+        };
+
+        /// <summary>
+        /// Whether <paramref name="assembly"/> is skipped by discovery: a <see cref="NonScannedAssemblyPrefixes"/> name, or a
+        /// collectible assembly of a load context other than <paramref name="owner"/>'s — the previous, unloading copy of the
+        /// project assembly a C# hot reload may still list, which discovery must not touch (and pin).
+        /// </summary>
+        public static bool IsSkippedForDiscovery(Assembly assembly, Assembly owner)
+        {
+            var name = assembly.GetName().Name ?? "";
+            foreach (var prefix in NonScannedAssemblyPrefixes)
+                if (name.StartsWith(prefix, StringComparison.Ordinal)) return true;
+            var context = AssemblyLoadContext.GetLoadContext(assembly);
+            return context != null && context.IsCollectible && !ReferenceEquals(context, AssemblyLoadContext.GetLoadContext(owner));
+        }
     }
 }

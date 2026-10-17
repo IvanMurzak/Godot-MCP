@@ -267,13 +267,8 @@ def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:
     check("R14 saving does not recreate the old scene file", not disk(project, tab).exists())
     check("R14 the scene is at its new path", disk(project, tab_moved).exists())
 
-    # R15: deleting the open scene does not let the next save recreate it. Needs EditorInterface.close_scene
-    # (measured: closes the deleted scene on Godot 4.5+); before that the deleted scene stays open, so a save writes it
-    # again — the behaviour of the replaced resource-delete tool, unchanged.
-    if godot_minor(host) < 5:
-        print("[SKIP] R15 (needs Godot 4.5+: earlier editors keep a deleted scene open)", flush=True)
-    else:
-        deleted_open_scene(host, project, d)
+    # R15: deleting the open scene does not let the next save recreate it (SaveScene refuses: the file is gone).
+    deleted_open_scene(host, project, d)
 
     # R16: an orphaned sidecar at the destination is not adopted by the moved file.
     plain, adopted = f"{d}/plain.tres", f"{d}/adopted.tres"
@@ -283,17 +278,13 @@ def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:
     check("R16 orphaned destination sidecar removed", not disk(project, adopted + ".uid").exists())
 
 
-def godot_minor(host: str) -> int:
-    _, text = query(host, "editor | select godotVersion")
-    m = re.search(r"\b4\.(\d+)", text)
-    return int(m.group(1)) if m else 99
-
-
 def deleted_open_scene(host: str, project: pathlib.Path, d: str) -> None:
     gone = f"{d}/gone.tscn"
     must("R15 NewScene", mutate(host, f'editor | call NewScene({q(gone)}, "Node3D", "Gone")'))
     must("R15 delete the open scene", mutate(host, f"editor | call DeleteResource({q(gone)})"))
-    mutate(host, "editor | call SaveScene()")  # failing because no scene is left to save is fine too
+    # Godot 4.5+ closes the deleted scene (SaveScene then saves whichever scene is edited); before that it stays open and
+    # SaveScene refuses because its file is gone. Either way the deleted file must not come back.
+    mutate(host, "editor | call SaveScene()")
     check("R15 saving does not recreate a deleted open scene", not disk(project, gone).exists())
 
 

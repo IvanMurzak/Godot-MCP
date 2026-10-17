@@ -523,33 +523,28 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <see cref="ResolveActiveAuthOption"/>.
         /// </summary>
         public static GodotMcpLogLevel ResolveActiveLogLevel(GodotMcpLogLevel configured)
-        {
-            var normalized = NormalizeEnv(ReadEnv(EnvLogLevel));
-            if (string.IsNullOrEmpty(normalized))
-                return configured;
-
-            if (Enum.TryParse<GodotMcpLogLevel>(normalized, ignoreCase: true, out var parsed) &&
-                !int.TryParse(normalized, out _))
-                return parsed;
-
-            return configured;
-        }
+            => ResolveEnumEnv(EnvLogLevel, configured);
 
         /// <summary>
         /// Resolve the tools' data layer, letting <see cref="EnvToolFormat"/> override the configured value. An
         /// unrecognized, empty or numeric env value falls through to <paramref name="configured"/>.
         /// </summary>
         public static ToolPresentationFormat ResolveActiveToolFormat(ToolPresentationFormat configured)
+            => ResolveEnumEnv(EnvToolFormat, configured);
+
+        /// <summary>
+        /// The named value of <typeparamref name="T"/> the env variable <paramref name="name"/> holds (case-insensitive),
+        /// else <paramref name="configured"/>: an empty, unknown or numeric value ("1", which Enum.TryParse would map to an
+        /// arbitrary member) falls through.
+        /// </summary>
+        static T ResolveEnumEnv<T>(string name, T configured) where T : struct, Enum
         {
-            var normalized = NormalizeEnv(ReadEnv(EnvToolFormat));
+            var normalized = NormalizeEnv(ReadEnv(name));
             if (string.IsNullOrEmpty(normalized))
                 return configured;
-
-            if (Enum.TryParse<ToolPresentationFormat>(normalized, ignoreCase: true, out var parsed) &&
-                !int.TryParse(normalized, out _))
-                return parsed;
-
-            return configured;
+            return Enum.TryParse<T>(normalized, ignoreCase: true, out var parsed) && !int.TryParse(normalized, out _)
+                ? parsed
+                : configured;
         }
 
         static string? ReadEnv(string name) => Environment.GetEnvironmentVariable(name);

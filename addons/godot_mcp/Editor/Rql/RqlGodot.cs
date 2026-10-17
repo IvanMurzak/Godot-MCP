@@ -13,8 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Loader;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat;
 using com.IvanMurzak.Godot.MCP.Reflection;
@@ -46,14 +44,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static RqlEngine Engine => _engine ??= Create();
 
         /// <summary>
-        /// Drop the engine and everything cached from it (tool signatures), and release RQL's process-wide caches that may
-        /// hold types of this collectible assembly (see <see cref="RqlStaticCaches"/>). Called on plugin teardown.
+        /// Drop the engine and everything cached from it (tool signatures, mutation state). Returns whether an engine had
+        /// been created since the last reset — only then can RQL's process-wide caches hold types of this collectible
+        /// assembly (see <see cref="RqlStaticCaches"/>). Called on plugin teardown.
         /// </summary>
-        public static void Reset()
+        public static bool Reset()
         {
+            var used = _engine != null;
             _engine = null;
             RqlToolBinding.Instance.Reset();
             ResetState();
+            return used;
         }
 
         public static RqlEngine Create()
@@ -68,41 +69,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             engine.Mutations.BeforeWrite = BeforeWrite;
             engine.Mutations.Committed = Committed;
 
-            var reports = engine.AddModules(ModuleTypes());
+            // Every module in the loaded assemblies (an extension's module compiled into the consumer project assembly
+            // included); RQL reports a module or assembly that fails to load instead of skipping it silently.
+            var reports = engine.AddModulesFrom(GodotAssemblyUtils.AllAssemblies,
+                assembly => GodotAssemblyUtils.IsSkippedForDiscovery(assembly, typeof(RqlGodot).Assembly));
             foreach (var failed in reports.Where(r => !r.Ok))
                 GodotMcpLog.Warning($"[Godot-MCP] RQL module skipped: {failed}");
             return engine;
-        }
-
-        // Assemblies that never contain an RQL module (BCL, engine, the reused MCP stack, RQL itself).
-        private static readonly string[] SkippedAssemblyPrefixes =
-        {
-            "System", "Microsoft", "mscorlib", "netstandard", "GodotSharp", "GodotSharpEditor", "GodotPlugins", "Godot.SourceGenerators",
-            "R3", "ObservableCollections", "McpPlugin", "com.IvanMurzak.McpPlugin", "ReflectorNet", "com.IvanMurzak.ReflectorNet", "Rql.",
-            "xunit", "Godot-MCP.Tests",
-        };
-
-        /// <summary>
-        /// Every public, concrete <see cref="IRqlModule"/> in the loaded assemblies (<see cref="GodotAssemblyUtils.AllAssemblies"/>,
-        /// so a module compiled into the consumer project assembly — the addon's own, or an extension's — is found). After a
-        /// C# hot reload the process may still list the previous, unloading copy of the project assembly: collectible
-        /// assemblies of a load context other than this addon's are skipped so the engine never configures (and pins) them.
-        /// </summary>
-        internal static IEnumerable<Type> ModuleTypes()
-        {
-            var own = AssemblyLoadContext.GetLoadContext(typeof(RqlGodot).Assembly);
-            foreach (var assembly in GodotAssemblyUtils.AllAssemblies)
-            {
-                var name = assembly.GetName().Name ?? "";
-                if (SkippedAssemblyPrefixes.Any(p => name.StartsWith(p, StringComparison.Ordinal)))
-                    continue;
-                var context = AssemblyLoadContext.GetLoadContext(assembly);
-                if (context != null && context.IsCollectible && !ReferenceEquals(context, own))
-                    continue;
-                foreach (var type in TypeModel.LoadableTypes(assembly))
-                    if (typeof(IRqlModule).IsAssignableFrom(type) && type.IsClass && !type.IsAbstract && type.IsPublic)
-                        yield return type;
-            }
         }
 
         /// <summary><c>Type#id</c> where id is the Godot instance id; the engine checks the type.</summary>
@@ -174,21 +147,33 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 error = ("not-found", "no scene is being edited; open one with editor | call OpenScene(\"res://…\")");
                 return false;
             }
-            var path = Tool_Node.NormalizePathToEditedRoot(key, root);
-            if (string.IsNullOrEmpty(path) || path == ".") { node = root; return true; }
-            if (root.GetNodeOrNull(path) is { } byPath) { node = byPath; return true; }
+            if (Tool_Node.FindByPath(root, key) is { } byPath) { node = byPath; return true; }
             if (key.IndexOf('/') < 0)
             {
-                var hits = AllNodes().Where(n => n.Name.ToString() == key).ToList();
-                if (hits.Count == 1) { node = hits[0]; return true; }
-                if (hits.Count > 1)
+                // A unique name anywhere in the scene: stop at the second match.
+                Node? first = null, second = null;
+                FindNamed(root, key, ref first, ref second);
+                if (first != null && second == null) { node = first; return true; }
+                if (second != null)
                 {
-                    error = ("ambiguous", $"{hits.Count} nodes are named '{key}': use the path below the scene root, e.g. \"{PathOf(hits[0])}\", or a ref");
+                    error = ("ambiguous", $"several nodes are named '{key}': use the path below the scene root, e.g. \"{PathOf(first!)}\" or \"{PathOf(second)}\", or a ref");
                     return false;
                 }
             }
             error = ("not-found", $"no node at '{key}' in the edited scene '{root.Name}'");
             return false;
+        }
+
+        private static void FindNamed(Node node, string name, ref Node? first, ref Node? second)
+        {
+            if (node.Name.ToString() == name)
+            {
+                if (first == null) first = node;
+                else { second = node; return; }
+            }
+            var count = node.GetChildCount(includeInternal: false);
+            for (int i = 0; i < count && second == null; i++)
+                if (node.GetChild(i, includeInternal: false) is { } child) FindNamed(child, name, ref first, ref second);
         }
 
         /// <summary>
@@ -201,8 +186,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (args.Length < 1 || args.Length > 2 || !(args[0] is string type) || (args.Length == 2 && !(args[1] is string)))
                 return new RqlError("type-mismatch", "godot.resources(type, folder?) expects a Godot class such as \"StandardMaterial3D\" and an optional res:// folder");
             var folder = args.Length == 2 ? (string)args[1]! : null;
-            var efs = EditorInterface.Singleton.GetResourceFilesystem();
-            if (efs == null) return new RqlError("not-found", "the editor filesystem is not available");
+            var efs = EditorToolGuards.GetResourceFileSystemOrThrow();
             string scope;
             try { scope = ResPathNormalizer.NormalizeDir(folder); }
             catch (ArgumentException ex) { return new RqlError("type-mismatch", ex.Message); }
@@ -218,27 +202,38 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (ResourceLoader.Load(path) is { } resource) yield return resource;
         }
 
+        // The files of the requested type: the type check runs once per distinct file type (ClassDB lookups), not per file.
         private static IEnumerable<string> ResourceFiles(EditorFileSystemDirectory dir, string type)
+        {
+            var matches = new Dictionary<string, bool>(StringComparer.Ordinal);
+            var typeIsClass = type.Length > 0 && ClassDB.ClassExists(type);
+            foreach (var (path, fileType) in WalkFiles(dir))
+            {
+                if (!matches.TryGetValue(fileType, out var match))
+                    matches[fileType] = match = TypeMatches(fileType, type, typeIsClass);
+                if (match) yield return path;
+            }
+        }
+
+        /// <summary>Every file below <paramref name="dir"/> with its importer-assigned type, depth-first, lazily.</summary>
+        internal static IEnumerable<(string path, string type)> WalkFiles(EditorFileSystemDirectory dir)
         {
             var fileCount = dir.GetFileCount();
             for (int i = 0; i < fileCount; i++)
-            {
-                var fileType = dir.GetFileType(i).ToString();
-                if (TypeMatches(fileType, type)) yield return dir.GetFilePath(i);
-            }
+                yield return (dir.GetFilePath(i), dir.GetFileType(i).ToString());
             var subCount = dir.GetSubdirCount();
             for (int i = 0; i < subCount; i++)
                 if (dir.GetSubdir(i) is { } sub)
-                    foreach (var path in ResourceFiles(sub, type)) yield return path;
+                    foreach (var file in WalkFiles(sub)) yield return file;
         }
 
         /// <summary>A file's importer-assigned type equals or derives from <paramref name="type"/> (empty = any resource).</summary>
-        internal static bool TypeMatches(string fileType, string type)
+        private static bool TypeMatches(string fileType, string type, bool typeIsClass)
         {
             if (string.IsNullOrEmpty(fileType)) return false;
-            if (string.IsNullOrEmpty(type)) return ClassDB.ClassExists(fileType) && ClassDB.IsParentClass(fileType, "Resource");
+            if (type.Length == 0) return ClassDB.ClassExists(fileType) && ClassDB.IsParentClass(fileType, "Resource");
             if (string.Equals(fileType, type, StringComparison.OrdinalIgnoreCase)) return true;
-            return ClassDB.ClassExists(fileType) && ClassDB.ClassExists(type) && ClassDB.IsParentClass(fileType, type);
+            return typeIsClass && ClassDB.ClassExists(fileType) && ClassDB.IsParentClass(fileType, type);
         }
 
         /// <summary><c>godot.resource("res://materials/red.tres")</c> (or a <c>uid://</c>): the resource at a path, or null.</summary>
@@ -259,13 +254,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 reason = $"'{path}' is not a res:// or uid:// path";
                 return false;
             }
-            if (!ResourceLoader.Exists(path))
-            {
-                reason = $"no resource at '{path}'";
-                return false;
-            }
-            resource = ResourceLoader.Load(path);
-            if (resource == null) reason = $"the resource at '{path}' failed to load";
+            resource = Tool_Resource.LoadByPath(path, out reason);
             return resource != null;
         }
     }

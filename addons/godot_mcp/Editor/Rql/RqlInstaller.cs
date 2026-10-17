@@ -20,7 +20,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     /// <summary>
     /// Wires RQL into the editor connection (the Godot counterpart of Unity-MCP's <c>ApplyToolFormat</c>). Installed by
-    /// <c>GodotMcpPlugin</c> at boot through <see cref="GodotMcpConnection.PluginBuilt"/>, so the runtime-agnostic connection
+    /// <c>GodotMcpPlugin</c> at boot, which hands <see cref="Configure"/> to the <see cref="GodotMcpConnection"/> it
+    /// creates (its <c>configurePlugin</c> parameter), so the runtime-agnostic connection
     /// never references editor code. For every plugin the connection builds it:
     /// <list type="bullet">
     /// <item>shapes the EDITOR tool surface: removes the runtime-safe data tools RQL replaces in the editor
@@ -42,26 +43,28 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Tool_Reflection.ReflectionMethodCallToolId,
         };
 
-        public static void Install(Func<global::Godot.EditorUndoRedoManager?> undoRedo)
+        /// <summary>Wire the engine and the binding to the editor; returns the plugin configuration for the connection.</summary>
+        public static Action<IMcpPlugin, GodotMcpConfig> Install(Func<global::Godot.EditorUndoRedoManager?> undoRedo)
         {
             RqlGodot.UndoRedo = undoRedo;
             RqlToolBinding.EngineProvider = () => RqlGodot.Engine;
             RqlToolBinding.MainThreadRunner = f => MainThread.Instance.Run(f);
-            GodotMcpConnection.PluginBuilt = Configure;
+            return Configure;
         }
 
         public static void Uninstall()
         {
-            GodotMcpConnection.PluginBuilt = null;
             RqlToolBinding.EngineProvider = null;
             RqlToolBinding.MainThreadRunner = null;
             RqlGodot.UndoRedo = null;
-            RqlGodot.Reset();
+            var used = RqlGodot.Reset();
             GodotTypes.Reset();
+            if (!used) return; // no engine was ever built: RQL's process-wide caches hold nothing of this assembly
             var cleared = RqlStaticCaches.Clear();
             GodotMcpLog.Info($"[Godot-MCP] RQL reset ({cleared} RQL caches cleared).");
         }
 
+        /// <summary>The plugin configuration: editor tool surface, then the tool data layer.</summary>
         private static void Configure(IMcpPlugin plugin, GodotMcpConfig config)
         {
             var tools = plugin.McpManager?.ToolManager;

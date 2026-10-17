@@ -43,10 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var cleared = 0;
             foreach (var assembly in new[] { typeof(TypeModel).Assembly, typeof(global::Rql.RqlParser).Assembly })
             {
-                Type[] types;
-                try { types = assembly.GetTypes(); }
-                catch (ReflectionTypeLoadException ex) { types = Array.FindAll(ex.Types, t => t != null)!; }
-                foreach (var type in types)
+                foreach (var type in TypeModel.LoadableTypes(assembly))
                 {
                     if (type.ContainsGenericParameters) continue;
                     foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))

@@ -39,10 +39,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <b>Scope of the behaviour change.</b> This is applied at the <c>reflection-method-call</c> argument
     /// site only. Converters that record a <see cref="LogType.Error"/> and return <c>null</c> — notably
     /// <see cref="Godot_Resource_ReflectionConverter{T}"/>'s "could not resolve this res:// path" — will now
-    /// FAIL such a call instead of passing <c>null</c> into the method. Other tools that pass their own
-    /// <see cref="Logs"/> (<c>node-modify</c>, <c>resource-modify</c>) are untouched and still degrade to
-    /// null with a logged error, which is the right behaviour for a merge-patch that reports per-member
-    /// outcomes.
+    /// FAIL such a call instead of passing <c>null</c> into the method. Other callers that pass their own
+    /// <see cref="Logs"/> (e.g. a ReflectorNet merge patch) are untouched and still degrade to null with a logged
+    /// error, the right behaviour for a patch that reports per-member outcomes.
     /// </para>
     ///
     /// Pure-managed (it only reads a <see cref="Logs"/> list), so it is unit-tested in the plain xUnit host.

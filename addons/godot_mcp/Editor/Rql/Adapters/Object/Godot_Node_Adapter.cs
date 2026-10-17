@@ -40,7 +40,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
              .Add<int>("index", n => Math.Max(0, n.GetIndex(includeInternal: false)), description: "position among its siblings (reorder with call MoveChild(i))")
              .Add<string?>("script", n => ScriptPath(n), description: "res:// path of the attached script, or null");
             m.Reference("parent", "Owner");
-            m.Untyped.HideExisting("Multiplayer");
+            m.Hide("Multiplayer");
             m.Display("name");
 
             m.Untyped

@@ -137,25 +137,73 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _ => typeof(object), // Nil (a Variant property), Callable, Signal, Packed types newer than 4.3
         };
 
-        /// <summary>The Godot properties of an object that the <c>props</c> map exposes: stored or shown in the inspector.</summary>
-        public static IEnumerable<global::Godot.Collections.Dictionary> Properties(GodotObject o)
+        /// <summary>
+        /// The one property-usage rule: a real property (not a category / group / subgroup header) that is stored — or,
+        /// unless <paramref name="storageOnly"/>, at least shown in the inspector.
+        /// </summary>
+        public static bool IsExposed(PropertyUsageFlags usage, bool storageOnly)
+        {
+            if ((usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0) return false;
+            return (usage & (storageOnly ? PropertyUsageFlags.Storage : PropertyUsageFlags.Storage | PropertyUsageFlags.Editor)) != 0;
+        }
+
+        /// <summary>One Godot property of an object: its Variant type and hint.</summary>
+        public readonly struct GodotProperty
+        {
+            public GodotProperty(Variant.Type type, PropertyHint hint, string hintString) { Type = type; Hint = hint; HintString = hintString; }
+            public Variant.Type Type { get; }
+            public PropertyHint Hint { get; }
+            public string HintString { get; }
+            public Type ClrType => ClrType(Type, Hint, HintString);
+        }
+
+        /// <summary>The names of the properties <see cref="IsExposed"/> accepts, in the object's order.</summary>
+        public static IEnumerable<string> PropertyNames(GodotObject o, bool storageOnly)
         {
             foreach (var info in o.GetPropertyList())
+                if (IsExposed((PropertyUsageFlags)info["usage"].AsInt64(), storageOnly) && info["name"].AsString() is { Length: > 0 } name)
+                    yield return name;
+        }
+
+        // The props table of each object (instance id -> name -> info), cached while a query scope is open: a query asks
+        // for the keys, the entry type, "has" and the validation of the same object many times. Outside a scope nothing is
+        // cached (a property list can change with the object's state, e.g. a ShaderMaterial's shader parameters).
+        private static Dictionary<ulong, Dictionary<string, GodotProperty>>? _tables;
+        private static int _scopes;
+
+        /// <summary>Cache property tables until the returned scope is disposed (one RQL query / mutation).</summary>
+        public static IDisposable QueryScope()
+        {
+            if (_scopes++ == 0) _tables = new Dictionary<ulong, Dictionary<string, GodotProperty>>();
+            return new Scope();
+        }
+
+        private sealed class Scope : IDisposable
+        {
+            private bool _done;
+            public void Dispose()
             {
-                var usage = (PropertyUsageFlags)info["usage"].AsInt64();
-                if ((usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0) continue;
-                if ((usage & (PropertyUsageFlags.Storage | PropertyUsageFlags.Editor)) == 0) continue;
-                if (info["name"].AsString().Length == 0) continue;
-                yield return info;
+                if (_done) return;
+                _done = true;
+                if (--_scopes == 0) _tables = null;
             }
         }
 
-        /// <summary>The property description of <paramref name="name"/> on <paramref name="o"/>, or null.</summary>
-        public static global::Godot.Collections.Dictionary? Property(GodotObject o, string name)
+        /// <summary>The exposed (stored or inspector) properties of <paramref name="o"/>, by name, in the object's order.</summary>
+        public static Dictionary<string, GodotProperty> Properties(GodotObject o)
         {
-            foreach (var info in Properties(o))
-                if (info["name"].AsString() == name) return info;
-            return null;
+            var id = o.GetInstanceId();
+            if (_tables != null && _tables.TryGetValue(id, out var cached)) return cached;
+            var table = new Dictionary<string, GodotProperty>(StringComparer.Ordinal);
+            foreach (var info in o.GetPropertyList())
+            {
+                if (!IsExposed((PropertyUsageFlags)info["usage"].AsInt64(), storageOnly: false)) continue;
+                var name = info["name"].AsString();
+                if (name.Length == 0 || table.ContainsKey(name)) continue;
+                table[name] = new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
+            }
+            if (_tables != null) _tables[id] = table;
+            return table;
         }
     }
 }

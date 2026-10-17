@@ -174,11 +174,10 @@ game build. The addon uses exactly one such shim today —
 connection compiles with `TOOLS` undefined while still wiring the editor resolver when run in
 the editor. The CI guard reports this shim as a *warning*, not a failure.
 
-Editor code that must shape what the connection builds uses a **hook** instead of a shim:
-`GodotMcpConnection.PluginBuilt` is a static `Action<IMcpPlugin, GodotMcpConfig>` the connection invokes right
-after building the plugin. `GodotMcpPlugin` assigns it at boot (`Editor/Rql/RqlInstaller.cs`: install the RQL
-tool data layer, remove the editor-replaced runtime tools) and clears it on teardown, so `Runtime/` never names an
-editor type.
+Editor code that must shape what the connection builds passes a **callback** instead of a shim: the
+`GodotMcpConnection` constructor takes `configurePlugin` (`Action<IMcpPlugin, GodotMcpConfig>`), invoked right after
+each plugin is built. `GodotMcpPlugin` passes the one `Editor/Rql/RqlInstaller.Install` returns (install the RQL tool
+data layer, remove the editor-replaced runtime tools), so `Runtime/` never names an editor type.
 
 ### CI boundary guard
 

@@ -18,14 +18,10 @@ using Xunit;
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// Pure-managed coverage for the resource/filesystem tool family: the structured result models
-    /// (<see cref="FileSystemEntry"/>, <see cref="FileSystemListing"/>, <see cref="ResourceInfo"/>,
-    /// <see cref="ResourceFindResult"/>) and the res:// path normalizer (<see cref="ResPathNormalizer"/>).
-    /// None of these touch a live Godot filesystem, so they run in the plain xUnit host with no Godot
-    /// binary. The editor-driving handlers themselves (<c>#if TOOLS</c>) are verified by the headless
-    /// Godot smoke (test.md Suite 3).
+    /// The res:// path normalizer (<see cref="ResPathNormalizer"/>) RQL's editor source reuses (files, resources, scenes).
+    /// Pure string logic, so it runs in the plain xUnit host with no Godot binary.
     /// </summary>
-    public class ResourceFsToolTests
+    public class ResPathNormalizerTests
     {
         // ---- ResPathNormalizer.NormalizeDir ------------------------------------------------------
 

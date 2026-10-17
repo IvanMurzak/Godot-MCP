@@ -413,7 +413,6 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStaticCaches.cs" Link="Source\Rql\RqlStaticCaches.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Base\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />
   </ItemGroup>

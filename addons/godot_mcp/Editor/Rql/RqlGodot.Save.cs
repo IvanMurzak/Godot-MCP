@@ -41,13 +41,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         // Per running Mutate: Godot property snapshots taken before the writes, the undo operations collected so far (scene
         // history / other history), and the file resources to save afterwards.
-        private static readonly List<(GodotObject owner, Dictionary<string, Variant> before)> _snapshots = new List<(GodotObject, Dictionary<string, Variant>)>();
+        private static readonly Dictionary<GodotObject, Dictionary<string, Variant>> _snapshots = new Dictionary<GodotObject, Dictionary<string, Variant>>();
         private static readonly List<Action<EditorUndoRedoManager>> _sceneUndo = new List<Action<EditorUndoRedoManager>>();
         private static readonly List<Action<EditorUndoRedoManager>> _otherUndo = new List<Action<EditorUndoRedoManager>>();
         private static readonly List<Resource> _toSave = new List<Resource>();
-
-        /// <summary>True while <see cref="Mutate"/> runs a query.</summary>
-        public static bool InMutation => _mutating > 0;
 
         private static void ResetState()
         {
@@ -87,15 +84,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>
-        /// Register the do/undo operations of a structural change a call already applied (the action is committed with
-        /// <c>execute: false</c>). <paramref name="sceneHistory"/> = the operations touch scene nodes. Outside a mutation
-        /// (never in practice: calls only run in rql-mutate) the operations form their own action at once.
+        /// Register the do/undo operations of a structural scene change a call already applied; they join the running
+        /// mutation's scene-history action (committed with <c>execute: false</c>). Calls only run inside rql-mutate.
         /// </summary>
-        internal static void RecordUndo(Action<EditorUndoRedoManager> operations, bool sceneHistory = true)
-        {
-            (sceneHistory ? _sceneUndo : _otherUndo).Add(operations);
-            if (!InMutation) CommitUndo();
-        }
+        internal static void RecordUndo(Action<EditorUndoRedoManager> operations) => _sceneUndo.Add(operations);
 
         /// <summary>Mark the edited scene as having unsaved changes.</summary>
         internal static void MarkSceneUnsaved()
@@ -107,9 +99,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static void BeforeWrite(IReadOnlyList<MutationRecord> records)
         {
-            foreach (var owner in Owners(records))
-                if (!_snapshots.Any(s => s.owner == owner))
-                    _snapshots.Add((owner, StoredProperties(owner)));
+            foreach (var owner in MutatedObjects(records))
+                if (!_snapshots.ContainsKey(owner))
+                    _snapshots[owner] = StoredProperties(owner);
         }
 
         // Committed gets exactly the applied records (every set after all writes succeeded, the completed calls when a later
@@ -117,17 +109,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static void Committed(IReadOnlyList<MutationRecord> records)
         {
             var sceneChanged = false;
-            foreach (var owner in Owners(records))
+            foreach (var owner in MutatedObjects(records))
             {
-                if (!GodotObject.IsInstanceValid(owner)) continue;
-                var snapshot = _snapshots.FirstOrDefault(s => s.owner == owner).before;
-                var propertiesChanged = snapshot == null; // no snapshot (a call's owner): assume it changed
-                if (snapshot != null)
+                var hasSnapshot = _snapshots.TryGetValue(owner, out var snapshot);
+                var propertiesChanged = !hasSnapshot; // no snapshot (never in practice): assume it changed
+                if (hasSnapshot)
                 {
                     var after = StoredProperties(owner);
-                    var changed = after.Where(kv => !snapshot.TryGetValue(kv.Key, out var old) || !Same(old, kv.Value))
-                        .Select(kv => (name: kv.Key, before: snapshot.TryGetValue(kv.Key, out var old) ? old : default, after: kv.Value))
-                        .ToList();
+                    var changed = new List<(string name, Variant before, Variant after)>();
+                    foreach (var kv in after)
+                    {
+                        var known = snapshot!.TryGetValue(kv.Key, out var old);
+                        if (!known || !Same(old, kv.Value)) changed.Add((kv.Key, known ? old : default, kv.Value));
+                    }
                     if (changed.Count > 0)
                     {
                         propertiesChanged = true;
@@ -163,7 +157,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         // The nearest Godot object enclosing each change (a write into a struct member is recorded on the node / resource
         // that holds it); view objects such as the editor source are not Godot objects and need no undo.
-        private static List<GodotObject> Owners(IReadOnlyList<MutationRecord> records)
+        private static List<GodotObject> MutatedObjects(IReadOnlyList<MutationRecord> records)
         {
             var owners = new List<GodotObject>();
             foreach (var r in records)
@@ -180,20 +174,39 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         internal static Dictionary<string, Variant> StoredProperties(GodotObject o)
         {
             var values = new Dictionary<string, Variant>(StringComparer.Ordinal);
-            foreach (var info in o.GetPropertyList())
-            {
-                var usage = (PropertyUsageFlags)info["usage"].AsInt64();
-                if ((usage & PropertyUsageFlags.Storage) == 0) continue;
-                if ((usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0) continue;
-                var name = info["name"].AsString();
-                if (name.Length > 0) values[name] = o.Get(name);
-            }
+            foreach (var name in GodotVariants.PropertyNames(o, storageOnly: true))
+                values[name] = o.Get(name);
             return values;
         }
 
-        // Variant has no value equality: compare the text form (the same text Godot writes to .tscn / .tres).
-        private static bool Same(Variant a, Variant b) =>
-            a.VariantType == b.VariantType && GD.VarToStr(a) == GD.VarToStr(b);
+        /// <summary>
+        /// Whether two property values are equal. Variant has no value equality: objects compare by identity, packed arrays
+        /// element-wise, Godot arrays / dictionaries recursively, scalars and structs by value — no text conversion of
+        /// large values; only the remaining kinds (Callable, Signal …) fall back to the text Godot writes to .tscn / .tres.
+        /// </summary>
+        private static bool Same(Variant a, Variant b)
+        {
+            if (a.VariantType != b.VariantType) return false;
+            switch (a.VariantType)
+            {
+                case Variant.Type.Nil: return true;
+                case Variant.Type.Object: return ReferenceEquals(a.AsGodotObject(), b.AsGodotObject());
+                case Variant.Type.Array: return a.AsGodotArray().RecursiveEqual(b.AsGodotArray());
+                case Variant.Type.Dictionary: return a.AsGodotDictionary().RecursiveEqual(b.AsGodotDictionary());
+                case Variant.Type.StringName:
+                case Variant.Type.NodePath:
+                    return a.Obj?.ToString() == b.Obj?.ToString();
+                case Variant.Type.Callable:
+                case Variant.Type.Signal:
+                case Variant.Type.Rid:
+                    return GD.VarToStr(a) == GD.VarToStr(b);
+            }
+            var x = a.Obj;
+            var y = b.Obj;
+            return x is System.Array xa && y is System.Array ya
+                ? System.Collections.StructuralComparisons.StructuralEqualityComparer.Equals(xa, ya)
+                : Equals(x, y);
+        }
 
         private static bool IsSceneObject(GodotObject o) => o is Node || (o is Resource r && !IsFileResource(r));
 
@@ -255,17 +268,28 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static List<string> SaveResources()
         {
             var problems = new List<string>();
-            var efs = EditorInterface.Singleton.GetResourceFilesystem();
             foreach (var resource in _toSave)
-            {
-                if (!GodotObject.IsInstanceValid(resource) || !IsFileResource(resource)) continue;
-                var path = resource.ResourcePath;
-                var error = ResourceSaver.Save(resource, path);
-                if (error != Error.Ok) problems.Add($"resource '{path}' could not be saved: {error}");
-                else efs?.UpdateFile(path);
-            }
+                if (GodotObject.IsInstanceValid(resource) && IsFileResource(resource) && SaveFile(resource) is { } problem)
+                    problems.Add(problem);
             _toSave.Clear();
             return problems;
+        }
+
+        /// <summary>Write a file resource to its res:// file and refresh the editor filesystem; the problem, or null when saved.</summary>
+        internal static string? SaveFile(Resource resource)
+        {
+            var path = resource.ResourcePath;
+            var error = ResourceSaver.Save(resource, path);
+            if (error != Error.Ok) return $"resource '{path}' could not be saved: {error}";
+            EditorInterface.Singleton.GetResourceFilesystem()?.UpdateFile(path);
+            return null;
+        }
+
+        /// <summary>The uid:// text of the file at <paramref name="path"/>, or null when it has none.</summary>
+        internal static string? UidOf(string path)
+        {
+            var id = ResourceLoader.GetResourceUid(path);
+            return id == ResourceUid.InvalidId ? null : ResourceUid.IdToText(id);
         }
     }
 }

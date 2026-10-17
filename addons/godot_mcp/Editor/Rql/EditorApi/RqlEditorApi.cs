@@ -71,7 +71,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             else
             {
-                if (!ResourceLoader.Exists(path)) throw new ArgumentException($"no scene at '{path}'");
+                Tools.EditorToolGuards.RequireResourceExists(path!, nameof(path), $"no scene at '{path}'");
                 Ei.PlayCustomScene(path);
             }
             return playingScene;

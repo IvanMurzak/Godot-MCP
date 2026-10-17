@@ -59,18 +59,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             }
 
-            var path = NormalizePathToEditedRoot(nodeRef.Path!, root);
-
-            if (string.IsNullOrEmpty(path) || path == ".")
-                return root;
-
-            var node = root.GetNodeOrNull(path);
+            var node = FindByPath(root, nodeRef.Path!);
             if (node == null)
             {
                 error = $"Node not found at path '{nodeRef.Path}' (resolved relative to edited scene root '{root.Name}').";
                 return null;
             }
             return node;
+        }
+
+        /// <summary>
+        /// The node of <paramref name="editedRoot"/>'s scene at a user-supplied path (absolute, root-prefixed or relative;
+        /// empty or "." = the root), or null. Shared by NodeRef resolution and RQL's <c>godot.find</c>.
+        /// </summary>
+        internal static Node? FindByPath(Node editedRoot, string rawPath)
+        {
+            var path = NormalizePathToEditedRoot(rawPath, editedRoot);
+            return string.IsNullOrEmpty(path) || path == "." ? editedRoot : editedRoot.GetNodeOrNull(path);
         }
 
         /// <summary>
@@ -82,11 +87,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         internal static string NormalizePathToEditedRoot(string rawPath, Node editedRoot)
             => NodePathNormalizer.Normalize(rawPath, editedRoot.Name.ToString());
 
-        /// <summary>
-        /// Build a structured <see cref="NodeData"/> from a live node. When <paramref name="hierarchyDepth"/>
-        /// is &gt; 0, recursively populates <see cref="NodeData.Children"/> up to that depth (0 = the node
-        /// only, children null). Must be called on the main thread.
-        /// </summary>
         /// <summary>
         /// Give every descendant of <paramref name="node"/> without an owner the <paramref name="owner"/> (the edited scene
         /// root) so it is saved with the scene; nodes owned by an instanced sub-scene keep their owner.

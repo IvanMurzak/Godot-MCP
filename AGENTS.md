@@ -97,8 +97,8 @@ editors keep answering tool calls with an old build).
   `Godot-Tests/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
   runnable top to bottom against its fixture scene.
 - **RQL and hot reload.** RQL lives in the default load context; its Type-keyed caches are cleared on teardown
-  (`RqlStaticCaches`). The editor tool surface is shaped through `GodotMcpConnection.PluginBuilt` (Runtime/ never
-  names editor types); console-* / reflection-* stay in the in-game runtime only.
+  (`RqlStaticCaches`). The editor tool surface is shaped by the `configurePlugin` callback the editor passes to the
+  `GodotMcpConnection` constructor (Runtime/ never names editor types); console-* / reflection-* stay in the in-game runtime only.
 
 ## Conventions
 

@@ -26,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     public static partial class RqlGodot
     {
         private static Node RequireEditedRoot() =>
-            EditedRoot() ?? throw new InvalidOperationException("no scene is being edited; open one with editor | call OpenScene(\"res://…\")");
+            EditorToolGuards.GetEditedSceneRootOrThrow("no scene is being edited; open one with editor | call OpenScene(\"res://…\")");
 
         private static void RequireInEditedScene(Node node, string what)
         {
@@ -80,7 +80,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var parent = node.GetParent()!;
             var index = node.GetIndex(includeInternal: false);
             var owners = new List<(Node node, Node? owner)>();
-            Owners(node, owners);
+            SubtreeOwners(node, owners);
             parent.RemoveChild(node);
             RecordUndo(ur =>
             {
@@ -122,8 +122,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static int MoveChild(Node node, int index)
         {
             RequireInEditedScene(node, "node");
-            var parent = node.GetParent() ?? throw new InvalidOperationException("the scene root has no siblings to reorder among");
-            if (node == EditedRoot()) throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            if (node == EditedRoot() || !(node.GetParent() is { } parent))
+                throw new InvalidOperationException("the scene root has no siblings to reorder among");
             var oldIndex = node.GetIndex(includeInternal: false);
             var target = NodeIndexResolver.Resolve(index, parent.GetChildCount(includeInternal: false));
             parent.MoveChild(node, target);
@@ -143,7 +143,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             node.Owner = root;
             Tool_Node.SetOwnerRecursive(node, root);
             var owners = new List<(Node node, Node? owner)>();
-            Owners(node, owners);
+            SubtreeOwners(node, owners);
             RecordUndo(ur =>
             {
                 ur.AddDoMethod(parent, Node.MethodName.AddChild, node, true);
@@ -156,10 +156,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return node;
         }
 
-        private static void Owners(Node node, List<(Node, Node?)> sink)
+        private static void SubtreeOwners(Node node, List<(Node, Node?)> sink)
         {
             sink.Add((node, node.Owner));
-            foreach (var child in node.GetChildren(includeInternal: false)) Owners(child, sink);
+            foreach (var child in node.GetChildren(includeInternal: false)) SubtreeOwners(child, sink);
         }
 
         /// <summary>

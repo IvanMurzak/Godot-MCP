@@ -69,7 +69,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
             return sb.ToString();
         }
 
-        /// <summary>A CLR type in the same form ReflectorNet uses for $defs keys: "Ns.Outer+Inner", generics "Ns.Box(Ns.Item)".</summary>
+        /// <summary>
+        /// The full name <see cref="Display"/> shortens: "Ns.Outer+Inner", generics "Ns.Box(Ns.Item)" (ReflectorNet's
+        /// generic notation). Only feeds the binding's display names; nothing looks a type up by it, so it need not equal
+        /// ReflectorNet's <c>TypeUtils.GetTypeId</c> (which also sanitizes and rewrites nested generic names).
+        /// </summary>
         public static string FullName(System.Type type)
         {
             if (type.IsArray) return FullName(type.GetElementType()!) + "[]";

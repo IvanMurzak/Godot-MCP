@@ -329,9 +329,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             GodotMcpDrainDiagnostics.Warn = GodotMcpLog.Warning;
         }
 
-        public GodotMcpConnection(GodotMcpConfig? config = null, GodotAccountAuth? account = null)
+        /// <param name="config">The connection config (default: a fresh one).</param>
+        /// <param name="account">The account coordinator (default: one over the machine credential store).</param>
+        /// <param name="configurePlugin">
+        /// Editor hook invoked by <see cref="Start"/> right after each plugin is built (before the feature-state reapply,
+        /// the skills generation and the connect). The editor passes RQL's installer (tool data layer + editor tool
+        /// surface); a parameter rather than a direct call keeps this runtime-agnostic file free of editor-only types (the
+        /// Runtime -> Editor dependency rule). Null leaves the plugin as built.
+        /// </param>
+        public GodotMcpConnection(GodotMcpConfig? config = null, GodotAccountAuth? account = null,
+            Action<IMcpPlugin, GodotMcpConfig>? configurePlugin = null)
         {
             _config = config ?? new GodotMcpConfig();
+            _configurePlugin = configurePlugin;
 
             // Construct the account coordinator once (auto-adopts from the machine store at boot — the
             // zero-button rule). The AS base URL is read LIVE off the config so a `.env`/env cloud-URL override
@@ -340,19 +350,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 store: new MachineCredentialStore(GodotMcpEnvFile.ResolveCredentialsDirectory(ResolveProjectRootPath())));
         }
 
+        readonly Action<IMcpPlugin, GodotMcpConfig>? _configurePlugin;
+
         /// <summary>
         /// Build the plugin (reflector + tool scan + config) and initiate the connection. Idempotent:
         /// a second call while a plugin already exists is a no-op. The connect itself is fire-and-forget
         /// from the editor's perspective — the McpPlugin client manages (re)connection in the background.
         /// </summary>
-        /// <summary>
-        /// Editor hook invoked by <see cref="Start"/> right after the plugin is built (before the feature-state reapply,
-        /// the skills generation and the connect). The editor uses it to install the RQL tool data layer and shape the
-        /// editor tool surface; null (a game build, tests) leaves the plugin as built. Static so the editor can assign it
-        /// before the connection exists; cleared on plugin teardown.
-        /// </summary>
-        public static Action<IMcpPlugin, GodotMcpConfig>? PluginBuilt { get; set; }
-
         public void Start()
         {
             if (_disposed)
@@ -417,8 +421,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
 
             // Wire the editor-side ResourceLoader.Load resolution into the (pure-managed) Resource
-            // reflection converter so node-modify can assign a Resource-typed property by ref (res:// path /
-            // instance id). The converter lives outside #if TOOLS; this installs the native resolver.
+            // reflection converter so a ReflectorNet tool argument (the Json tool format, reflection-method-call)
+            // can name a Resource by ref (res:// path / instance id). The converter lives outside #if TOOLS; this installs the native resolver.
             //
             // EDITOR-ONLY COUPLING (the single one in the connect path): Tool_Resource — and the editor
             // ResourceLoader/EditorInterface wiring it depends on — is itself gated by #if TOOLS, so it does
@@ -432,7 +436,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             Tools.Tool_Node.InstallReflectionResolver();
 #endif
 
-            // Publish the connection's reflector as the ambient one so tool handlers (e.g. node-modify)
+            // Publish the connection's reflector as the ambient one so tool handlers and the dock
             // share the exact converter set registered here instead of building their own.
             GodotMcpReflector.Current = reflector;
             _publishedReflector = reflector;
@@ -492,21 +496,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 // stack, the Godot engine assemblies, and this repo's own test assembly). This MUST come
                 // before .WithReflectorModulesFromAssembly(...) — discovery honors the prune, so an ignored
                 // hosting assembly is never walked for modules.
-                .IgnoreAssemblies(
-                    "mscorlib",
-                    "netstandard",
-                    "System",
-                    "Microsoft",
-                    "GodotSharp",
-                    "GodotSharpEditor",
-                    "Godot.SourceGenerators",
-                    "R3",
-                    "ObservableCollections",
-                    "McpPlugin",
-                    "ReflectorNet",
-                    // RQL (com.IvanMurzak.Rql: Rql.Execution / Rql.Parser / Rql.Contracts) declares no tools.
-                    "Rql.",
-                    "Godot-MCP.Tests")
+                .IgnoreAssemblies(GodotAssemblyUtils.NonScannedAssemblyPrefixes)
                 .WithToolsFromAssembly(assemblies)
                 .WithPromptsFromAssembly(assemblies)
                 .WithResourcesFromAssembly(assemblies)
@@ -525,13 +515,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             _plugin = builder.Build(reflector);
 
-            // Editor-assigned configuration of the built plugin (the RQL tool data layer, the editor tool surface),
-            // run BEFORE the feature states are reapplied and the skills generated so both see the final tool list.
-            // A hook rather than a direct call keeps this runtime-agnostic file free of editor-only types (the
-            // Runtime -> Editor dependency rule); GodotMcpPlugin assigns it at boot and clears it on teardown.
-            if (PluginBuilt is { } pluginBuilt)
+            // The editor's configuration of the built plugin (the RQL tool data layer, the editor tool surface), run
+            // BEFORE the feature states are reapplied and the skills generated so both see the final tool list.
+            if (_configurePlugin is { } configurePlugin)
             {
-                try { pluginBuilt(_plugin, _config); }
+                try { configurePlugin(_plugin, _config); }
                 catch (Exception ex) { GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed: {ex.Message}"); }
             }
 

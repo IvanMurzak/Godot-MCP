@@ -65,8 +65,8 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   - `RqlGodotSchema.cs`, `GodotTypes.cs`, `RqlGuide.cs` (agent texts; every example runs in CI), `Skill_Rql.cs`
     (`godot-rql`), `ToolFormat/` (`RqlToolBinding`, McpPlugin `IToolBinding`), `RqlInstaller.cs`, `RqlReimport.cs`.
 - `addons/godot_mcp/Editor/Tools/Tool_Rql*.cs` — the three tools.
-- Installation: `GodotMcpPlugin` calls `RqlInstaller.Install` before the connection starts; the connection (Runtime/)
-  invokes the editor-assigned `GodotMcpConnection.PluginBuilt` hook after building each plugin.
+- Installation: `GodotMcpPlugin` calls `RqlInstaller.Install` and hands the configuration it returns to the
+  `GodotMcpConnection` constructor (`configurePlugin`), which invokes it after building each plugin.
 
 ## Hot reload
 

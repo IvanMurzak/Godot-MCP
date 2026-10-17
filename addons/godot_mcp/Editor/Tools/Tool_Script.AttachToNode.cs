@@ -79,7 +79,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 // Mark unsaved so the script assignment persists when the scene is saved (the assignment is
                 // serialized into the .tscn). We do NOT save here — saving is an explicit, separate step
-                // (Tool_Scene.Save) so the caller controls when the scene is written.
+                // (rql-mutate 'editor | call SaveScene()') so the caller controls when the scene is written.
                 EditorInterface.Singleton.MarkSceneAsUnsaved();
 
                 return ToScriptInfo(resPath, lang, $"Script attached to node '{node.Name}'.");

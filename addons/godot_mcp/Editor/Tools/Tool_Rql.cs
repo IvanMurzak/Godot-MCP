@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using com.IvanMurzak.Godot.MCP.Editor.Rql;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.Common.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -27,14 +28,35 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     [AiToolType]
     public partial class Tool_Rql
     {
-        private static ResponseCallTool Run(Func<QueryResult> execute) => MainThread.Instance.Run(() =>
+        /// <summary>A query or mutation: executed on the main thread, its (already encoded) result rendered after the hop.</summary>
+        private static ResponseCallTool Run(Func<QueryResult> execute) => Run(execute, result =>
         {
-            QueryResult result;
-            try { result = execute(); }
-            catch (Exception ex) { return ResponseCallTool.Error($"error internal-error: {ex.GetType().Name}: {ex.Message}"); }
             var text = AgentFormat.Render(result, OutputFormat.Table);
             return result.Ok ? ResponseCallTool.Success(text) : ResponseCallTool.Error(text);
         });
+
+        /// <summary>
+        /// Run <paramref name="execute"/> on the editor main thread inside one property-table cache scope (a query asks for
+        /// the same object's Godot properties many times), then build the response off it; an exception is an
+        /// <c>internal-error</c> response.
+        /// </summary>
+        private static ResponseCallTool Run<T>(Func<T> execute, Func<T, ResponseCallTool> respond)
+        {
+            T result;
+            try
+            {
+                result = MainThread.Instance.Run(() =>
+                {
+                    using (GodotVariants.QueryScope()) return execute();
+                });
+            }
+            catch (Exception ex)
+            {
+                var cause = ex is AggregateException { InnerException: { } inner } ? inner : ex;
+                return ResponseCallTool.Error($"error internal-error: {cause.GetType().Name}: {cause.Message}");
+            }
+            return respond(result);
+        }
     }
 }
 #endif

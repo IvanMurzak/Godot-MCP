@@ -35,19 +35,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 "write this resource to its res:// file; returns the path");
         }
 
-        private static string? Uid(Resource r)
-        {
-            if (string.IsNullOrEmpty(r.ResourcePath) || !RqlGodot.IsFileResource(r)) return null;
-            var id = ResourceLoader.GetResourceUid(r.ResourcePath);
-            return id == ResourceUid.InvalidId ? null : ResourceUid.IdToText(id);
-        }
+        private static string? Uid(Resource r) => RqlGodot.IsFileResource(r) ? RqlGodot.UidOf(r.ResourcePath) : null;
 
         private static string Save(Resource r)
         {
             if (!RqlGodot.IsFileResource(r)) throw new InvalidOperationException("this resource has no file of its own (it is built into a scene or another resource)");
-            var error = ResourceSaver.Save(r, r.ResourcePath);
-            if (error != Error.Ok) throw new InvalidOperationException($"could not save '{r.ResourcePath}': {error}");
-            EditorInterface.Singleton.GetResourceFilesystem()?.UpdateFile(r.ResourcePath);
+            if (RqlGodot.SaveFile(r) is { } problem) throw new InvalidOperationException(problem);
             return r.ResourcePath;
         }
     }

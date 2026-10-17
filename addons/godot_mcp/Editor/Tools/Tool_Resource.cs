@@ -23,6 +23,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static partial class Tool_Resource
     {
+        /// <summary>
+        /// The resource at a res:// / uid:// path, or null with the reason. Shared by ResourceRef resolution and RQL's
+        /// <c>godot.resource</c> / res:// coercion.
+        /// </summary>
+        internal static Resource? LoadByPath(string resPath, out string? error)
+        {
+            error = null;
+            if (!ResourceLoader.Exists(resPath))
+            {
+                error = $"No resource exists at '{resPath}'.";
+                return null;
+            }
+            var loaded = ResourceLoader.Load(resPath);
+            if (loaded == null)
+                error = $"Resource at '{resPath}' failed to load.";
+            return loaded;
+        }
+
         internal static Resource? ResolveResource(Data.ResourceRef? resourceRef, out string? path, out string? error)
         {
             error = null;
@@ -40,20 +58,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (!string.IsNullOrEmpty(resourceRef.ResourcePath))
             {
                 var resPath = resourceRef.ResourcePath!;
-                if (!ResourceLoader.Exists(resPath))
-                {
-                    error = $"No resource exists at '{resPath}'.";
-                    return null;
-                }
-
-                var loaded = ResourceLoader.Load(resPath);
-                if (loaded == null)
-                {
-                    error = $"Resource at '{resPath}' failed to load.";
-                    return null;
-                }
-
-                path = resPath;
+                var loaded = LoadByPath(resPath, out error);
+                if (loaded != null)
+                    path = resPath;
                 return loaded;
             }
 

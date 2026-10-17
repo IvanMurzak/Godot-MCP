@@ -52,8 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
             foreach (var sidecar in EditorToolGuards.Sidecars)
                 if (FileAccess.FileExists(dst + sidecar)) DirAccess.RemoveAbsolute(dst + sidecar);
-            var dstDir = dst.Substring(0, dst.LastIndexOf('/') + 1);
-            EditorToolGuards.EnsureDirectoryExists(dstDir);
+            EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(dst));
 
             var moveError = DirAccess.RenameAbsolute(src, dst);
             if (moveError != Error.Ok) throw new InvalidOperationException($"could not move '{src}' to '{dst}': {moveError}");

@@ -35,7 +35,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// <para>
     /// Compile/reload discipline: a freshly-written or deleted <c>.cs</c> only takes effect after the project
     /// assembly is rebuilt — so the C# write/delete handlers reimport through the editor filesystem and
-    /// BOUNDED-settle (mirroring <see cref="Tool_FileSystem"/>'s reimport settle loop) before returning, so a
+    /// BOUNDED-settle (mirroring the reimport settle loop of <c>editor | call Reimport()</c>, RqlReimport) before returning, so a
     /// follow-up tool sees a consistent state. A <c>.gd</c> file is interpreted and re-parsed on load, so it
     /// needs only a filesystem update, not a build.
     /// </para>
@@ -48,7 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     [AiToolType]
     public partial class Tool_Script
     {
-        // Shared bounded-settle tunables for a C# rebuild, mirroring Tool_FileSystem.Reimport. The
+        // Shared bounded-settle tunables for a C# rebuild, mirroring RqlReimport (editor | call Reimport). The
         // MainThread dispatcher already runs us on the editor main thread, so a short Thread.Sleep yields
         // without re-entrancy issues.
         const int SettleSleepMs = 25;

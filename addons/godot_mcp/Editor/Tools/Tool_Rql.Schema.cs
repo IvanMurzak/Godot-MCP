@@ -9,12 +9,10 @@
 */
 #if TOOLS
 #nullable enable
-using System;
 using System.ComponentModel;
 using com.IvanMurzak.Godot.MCP.Editor.Rql;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.Common.Model;
-using com.IvanMurzak.ReflectorNet.Utils;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -32,11 +30,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string? type = null
         )
         {
-            return MainThread.Instance.Run(() =>
-            {
-                try { return ResponseCallTool.Success(RqlGodotSchema.Render(RqlGodot.Engine, string.IsNullOrWhiteSpace(type) ? null : type!.Trim())); }
-                catch (Exception ex) { return ResponseCallTool.Error($"error internal-error: {ex.GetType().Name}: {ex.Message}"); }
-            });
+            return Run(() => RqlGodotSchema.Render(RqlGodot.Engine, string.IsNullOrWhiteSpace(type) ? null : type!.Trim()),
+                ResponseCallTool.Success);
         }
     }
 }

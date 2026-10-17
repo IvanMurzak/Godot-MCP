@@ -25,7 +25,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// plain xUnit host with no Godot binary. The node editing itself (RQL's Node adapter, <c>#if TOOLS</c>) is
     /// verified by the live CI smoke (scripts/smoke_rql.py).
     /// </summary>
-    public class SceneNodeToolTests
+    public class NodePathNormalizerTests
     {
         // ---- NodePathNormalizer ------------------------------------------------------------------
 
@@ -115,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// <summary>
     /// The two <see cref="GodotMcpReflector.GetOrCreate"/> facts that mutate the process-wide
     /// <see cref="GodotMcpReflector.Current"/> static — extracted out of the otherwise-parallel
-    /// <see cref="SceneNodeToolTests"/> so they join the serial <see cref="GodotMcpReflectorCurrentCollection"/>
+    /// <see cref="NodePathNormalizerTests"/> so they join the serial <see cref="GodotMcpReflectorCurrentCollection"/>
     /// and can never race another class that touches that static (issue #195: currently unraced, but the same
     /// bare-mutator antipattern as the other three statics, so it is guarded pre-emptively and enforced by the
     /// drift-guard). Snapshots/restores <c>Current</c> in the ctor/Dispose so the suite is non-destructive.
@@ -156,7 +156,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
     /// <summary>
     /// Dedicated serial collection for writers of the process-wide <see cref="GodotMcpReflector.Current"/>
-    /// static (issue #195), keeping the rest of <see cref="SceneNodeToolTests"/> parallel.
+    /// static (issue #195), keeping the rest of <see cref="NodePathNormalizerTests"/> parallel.
     /// </summary>
     [CollectionDefinition(Name, DisableParallelization = true)]
     public sealed class GodotMcpReflectorCurrentCollection

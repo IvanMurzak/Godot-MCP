@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Loader;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using Godot;
 using Rql.Execution;
@@ -30,8 +29,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     {
         private static Dictionary<string, Type[]>? _index;
 
-        /// <summary>Drop the index (plugin teardown: it holds types of the collectible project assembly).</summary>
-        public static void Reset() => _index = null;
+        private static string[]? _classes;
+
+        /// <summary>Drop the index and the class list (plugin teardown: the index holds types of the collectible project assembly).</summary>
+        public static void Reset()
+        {
+            _index = null;
+            _classes = null;
+        }
+
+        /// <summary>Every Godot class (ClassDB), sorted ordinally; read once per editor session.</summary>
+        public static string[] GodotClasses() =>
+            _classes ??= ClassDB.GetClassList().OrderBy(c => c, StringComparer.Ordinal).ToArray();
 
         /// <summary>Candidate types for a name, best first.</summary>
         public static IReadOnlyList<Type> Candidates(string name) =>
@@ -61,17 +70,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             foreach (var t in TypeModel.LoadableTypes(typeof(EditorInterface).Assembly))
                 if (t.Namespace == "Godot" && typeof(GodotObject).IsAssignableFrom(t)) Add(t);
             // The project assembly (this addon, the user's scripts, extensions compiled into it) and default-context
-            // libraries: their Godot objects, structs and enums. The previous copy of the project assembly that a hot
-            // reload may still list is skipped (see RqlGodot.ModuleTypes).
-            var own = AssemblyLoadContext.GetLoadContext(typeof(GodotTypes).Assembly);
+            // libraries: their Godot objects, plus this assembly's public structs and enums.
             foreach (var assembly in GodotAssemblyUtils.AllAssemblies)
             {
-                if (assembly == typeof(GodotObject).Assembly || assembly == typeof(EditorInterface).Assembly) continue;
-                var name = assembly.GetName().Name ?? "";
-                if (name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft", StringComparison.Ordinal)
-                    || name == "mscorlib" || name == "netstandard") continue;
-                var context = AssemblyLoadContext.GetLoadContext(assembly);
-                if (context != null && context.IsCollectible && !ReferenceEquals(context, own)) continue;
+                if (GodotAssemblyUtils.IsSkippedForDiscovery(assembly, typeof(GodotTypes).Assembly)) continue;
                 foreach (var t in TypeModel.LoadableTypes(assembly))
                     if (typeof(GodotObject).IsAssignableFrom(t) || (t.IsValueType && t.IsPublic && assembly == typeof(GodotTypes).Assembly)) Add(t);
             }

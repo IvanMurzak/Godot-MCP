@@ -26,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// Clamping rather than rejecting is deliberate: an out-of-range index handed straight to Godot's
     /// <c>Node.MoveChild</c> makes the engine log an error and leave the child where it was — a silent
     /// no-op from the caller's point of view. Clamping always produces the nearest legal position, and the
-    /// tools report the RESULTING index back in <c>NodeData.index</c> so the caller can verify what actually
+    /// RQL's <c>MoveChild</c> call returns the RESULTING index (and <c>index</c> reads it) so the caller can verify what actually
     /// happened rather than trusting a bare "ok".
     /// </para>
     /// </summary>

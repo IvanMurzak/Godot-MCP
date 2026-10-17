@@ -67,8 +67,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
         }
 
-        // A source's item type: learned by calling its getter once, then cached per engine and source; a source that
-        // returned nothing is asked again next time. Known statically for the list sources of the core module.
+        // A source's item type: from the getter's declared return type (method-group sources such as RqlGodot.AllNodes),
+        // otherwise learned by calling the getter once; cached per engine and source (a source that returned nothing is
+        // asked again next time).
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<RqlEngine, Dictionary<string, Type>> ItemTypes =
             new System.Runtime.CompilerServices.ConditionalWeakTable<RqlEngine, Dictionary<string, Type>>();
 
@@ -76,8 +77,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var cache = ItemTypes.GetOrCreateValue(engine);
             if (cache.TryGetValue(source.Name, out var known)) return known;
-            Type? t;
-            try { t = source.Getter()?.GetType(); } catch { return null; }
+            Type? t = source.Getter.Method.ReturnType;
+            if (t == typeof(object) || t == typeof(void))
+            {
+                try { t = source.Getter()?.GetType(); } catch { return null; }
+            }
             if (t == null) return null;
             var info = engine.Types.Info(t);
             if ((info.IsList || info.IsMap) && info.ElementType != null) t = info.ElementType;
@@ -123,14 +127,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static string? GodotClassName(string typeName, IReadOnlyList<Type> candidates)
         {
             if (ClassDB.ClassExists(typeName)) return typeName;
+            var classes = GodotTypes.GodotClasses();
+            string? Match(string name) => classes.FirstOrDefault(c => string.Equals(c, name, StringComparison.OrdinalIgnoreCase));
             foreach (var t in candidates)
-            {
-                if (!typeof(GodotObject).IsAssignableFrom(t)) continue;
-                if (ClassDB.ClassExists(t.Name)) return t.Name;
-                var match = ClassDB.GetClassList().FirstOrDefault(c => string.Equals(c, t.Name, StringComparison.OrdinalIgnoreCase));
-                if (match != null) return match;
-            }
-            return ClassDB.GetClassList().FirstOrDefault(c => string.Equals(c, typeName, StringComparison.OrdinalIgnoreCase));
+                if (typeof(GodotObject).IsAssignableFrom(t) && Match(t.Name) is { } match) return match;
+            return Match(typeName);
         }
 
         /// <summary>The class's own Godot properties (props["…"] keys) with their types, then its parent chain.</summary>
@@ -143,9 +144,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var any = false;
             foreach (var info in ClassDB.ClassGetPropertyList(godotClass, noInheritance: true))
             {
-                var usage = (PropertyUsageFlags)info["usage"].AsInt64();
-                if ((usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0) continue;
-                if ((usage & (PropertyUsageFlags.Storage | PropertyUsageFlags.Editor)) == 0) continue;
+                if (!GodotVariants.IsExposed((PropertyUsageFlags)info["usage"].AsInt64(), storageOnly: false)) continue;
                 var type = (Variant.Type)info["type"].AsInt64();
                 var hint = info["hint_string"].AsString();
                 sb.Append("\n  ").Append(info["name"].AsString()).Append(' ').Append(TypeText(type, (PropertyHint)info["hint"].AsInt64(), hint));

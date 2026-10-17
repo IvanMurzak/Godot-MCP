@@ -11,10 +11,8 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
@@ -28,79 +26,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     internal static class RqlReimport
     {
-        /// <summary>Reimport <paramref name="files"/> (res:// paths), or scan the whole filesystem when null / empty.</summary>
+        /// <summary>Reimport <paramref name="files"/> (res:// paths), or scan the whole filesystem when null / empty. Main thread.</summary>
         public static string Run(IReadOnlyList<string>? files) =>
-            files != null && files.Count > 0 ? ReimportFiles(files.ToList()) : MainThread.Instance.Run(FullScan);
+            files != null && files.Count > 0 ? ReimportFiles(files) : FullScan();
 
-        // Bounded settle tunables. A short Thread.Sleep on the editor main thread yields without re-entrancy
-        // issues; a wait that needs the editor to run FRAMES (a scan's results are applied on the main loop)
-        // sleeps on the caller's thread instead, between main-thread probes.
+        // Bounded settle tunables: a short Thread.Sleep on the editor main thread yields without re-entrancy issues.
         const int ReimportSleepMs = 25;
         const int ReimportMaxWaits = 200;          // 200 * 25ms = 5s settle ceiling
         const int ReimportPrimeWaits = 40;         // 40 * 25ms = 1s ceiling to observe the scan START
-        const int RegisterPollMs = 50;
-        const int RegisterTimeoutMs = 10_000;      // ceiling for a new file to become known to the editor
 
-        /// <summary>The targeted (<c>files</c>) form. Runs on the caller's thread, hopping to the main thread per step.</summary>
-        static string ReimportFiles(List<string> files)
-        {
-            // When we are already ON the main thread no frame can run until we return, so a scan started now
-            // could never be applied within this call; only wait for registration when we can yield frames.
-            var canWaitForFrames = !MainThread.Instance.IsMainThread;
-
-            // Step 1 (main thread): validate, classify, refresh the native files, and register the files routed
-            // to the importer with the editor filesystem.
-            var (plan, startedUnix, needsRegistration) =
-                MainThread.Instance.Run(() => StartTargetedReimport(files, canWaitForFrames));
-
-            // Step 2: a file is only importable once EditorFileSystem knows it. UpdateFile registers it when its
-            // folder is already known; a file in a folder the editor has never scanned needs a Scan(), whose
-            // result is applied on a later main-loop FRAME — so wait OFF the main thread, probing on it, so the
-            // editor can run those frames.
-            if (needsRegistration && canWaitForFrames)
-            {
-                var rescanned = false;
-                var clock = Stopwatch.StartNew();
-                while (clock.ElapsedMilliseconds < RegisterTimeoutMs)
-                {
-                    var pending = MainThread.Instance.Run(() =>
-                    {
-                        var efs = Tools.EditorToolGuards.GetResourceFileSystemOrThrow();
-                        if (efs.IsScanning())
-                            return true;
-
-                        // UpdateFile is a no-op while a scan runs, and a scan that walked the folder before the
-                        // file was written misses it — so retry the registration once the editor is idle, and
-                        // fall back to one more scan of our own.
-                        RegisterRoutedFiles(efs, plan);
-                        if (!AnyUnregistered(efs, plan) || rescanned)
-                            return false;
-                        efs.Scan();
-                        rescanned = true;
-                        return true;
-                    });
-                    if (!pending)
-                        break;
-                    Thread.Sleep(RegisterPollMs);
-                }
-            }
-
-            // Step 3 (main thread): import, verify every routed file, then drain any tail scan.
-            return MainThread.Instance.Run(() => FinishTargetedReimport(plan, startedUnix));
-        }
-
-        static (Tools.ReimportPlan Plan, ulong StartedUnix, bool NeedsRegistration) StartTargetedReimport(
-            List<string> files, bool canWaitForFrames)
+        /// <summary>
+        /// The targeted (<c>files</c>) form, on the main thread: validate, classify, refresh the native files, register
+        /// the importer-routed ones, then import and verify. No editor frame runs during the call, so a file in a folder
+        /// the editor never scanned stays unregistered and is reported as NOT imported.
+        /// </summary>
+        static string ReimportFiles(IReadOnlyList<string> files)
         {
             var efs = Tools.EditorToolGuards.GetResourceFileSystemOrThrow();
 
             // Every import this request claims must have rewritten its sidecar at or after this instant.
             var startedUnix = (ulong)Math.Floor(Time.GetUnixTimeFromSystem());
 
-            // Validate every path up front so a single bad entry is a clean error, not a partial refresh.
-            // Collect the normalized/trimmed paths and act on THOSE — passing the raw 'files' (which may carry
-            // surrounding whitespace) would not match a known res:// file and both ReimportFiles and UpdateFile
-            // would silently no-op.
+            // Validate every path up front so a single bad entry is a clean error, not a partial refresh, and act on the
+            // normalized paths (a raw path with surrounding whitespace would match no known file and silently no-op).
             var normalized = new List<string>(files.Count);
             foreach (var f in files)
             {
@@ -110,11 +58,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 normalized.Add(p);
             }
 
-            // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import (issue #310), and never route a
-            // brand-new importable file (no sidecar yet) to UpdateFile alone — that registers it but does not
-            // import it (D32). GetRecognizedExtensionsForType("") lists every loader's extensions, the
-            // importer's included; ResourceLoader.Exists filters the ones a native loader handles directly
-            // (a sidecar-less .png has no loader until it is imported, a .tscn always has one).
+            // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import (issue #310), and never route a brand-new
+            // importable file (no sidecar yet) to UpdateFile alone — that registers it but does not import it (D32).
+            // GetRecognizedExtensionsForType("") lists every loader's extensions, the importer's included;
+            // ResourceLoader.Exists filters the ones a native loader handles directly.
             var plan = Tools.ReimportClassifier.Plan(
                 normalized,
                 FileAccess.FileExists,
@@ -123,21 +70,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
             foreach (var path in plan.Native)
                 efs.UpdateFile(path);
+            foreach (var path in RoutedToImporter(plan))
+                if (!IsKnownToFileSystem(efs, path))
+                    efs.UpdateFile(path);
 
-            RegisterRoutedFiles(efs, plan);
-
-            // A file whose folder the editor has never scanned stays unknown after UpdateFile — only a scan
-            // registers the folder.
-            var needsRegistration = AnyUnregistered(efs, plan);
-            if (needsRegistration && canWaitForFrames && !efs.IsScanning())
-                efs.Scan();
-
-            return (plan, startedUnix, needsRegistration);
+            return FinishTargetedReimport(efs, plan, startedUnix);
         }
 
-        static string FinishTargetedReimport(Tools.ReimportPlan plan, ulong startedUnix)
+        static string FinishTargetedReimport(EditorFileSystem efs, Tools.ReimportPlan plan, ulong startedUnix)
         {
-            var efs = Tools.EditorToolGuards.GetResourceFileSystemOrThrow();
             var outcomes = new Dictionary<string, Tools.ImportOutcome>(StringComparer.Ordinal);
             var newFiles = new HashSet<string>(plan.NewImportable, StringComparer.Ordinal);
 
@@ -211,20 +152,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>The plan's files that go to the importer: the already-imported ones and the new ones.</summary>
         static IEnumerable<string> RoutedToImporter(Tools.ReimportPlan plan) => plan.Importable.Concat(plan.NewImportable);
-
-        /// <summary>UpdateFile every importer-routed file the editor does not know yet. Main-thread only.</summary>
-        static void RegisterRoutedFiles(EditorFileSystem efs, Tools.ReimportPlan plan)
-        {
-            foreach (var path in RoutedToImporter(plan))
-            {
-                if (!IsKnownToFileSystem(efs, path))
-                    efs.UpdateFile(path);
-            }
-        }
-
-        /// <summary>Whether any importer-routed file is still unknown to <c>EditorFileSystem</c>. Main-thread only.</summary>
-        static bool AnyUnregistered(EditorFileSystem efs, Tools.ReimportPlan plan)
-            => RoutedToImporter(plan).Any(p => !IsKnownToFileSystem(efs, p));
 
         /// <summary>Whether <c>EditorFileSystem</c> has an entry for <paramref name="resPath"/>. Main-thread only.</summary>
         static bool IsKnownToFileSystem(EditorFileSystem efs, string resPath)

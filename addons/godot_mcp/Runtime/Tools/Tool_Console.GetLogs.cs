@@ -26,20 +26,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             IdempotentHint = true,
             OpenWorldHint = false
         )]
-        [Description("Retrieve captured Godot-MCP editor log lines: newest-first by default, oldest-first when " +
+        [Description("Retrieve the Godot-MCP log lines captured in this process — the running game, where the " +
+            "in-game runtime (GodotMcpRuntime) registers this tool: newest-first by default, oldest-first when " +
             "polling with 'sinceSequence'. To fetch only new lines, pass the highest 'sequence' you have received " +
-            "as 'sinceSequence'. The Godot analog of Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log hook, so this returns " +
-            "the plugin's own captured editor activity (not the entire Godot editor console) — including its " +
-            "connection lifecycle diagnostics (connect/disconnect, drain-timeout, config save/load, skill-gen, " +
-            "dev-control, dispatcher, and runtime-capture warnings).\n" +
-            "SCOPE WARNING: this is the EDITOR process only. Godot runs a play-session started with " +
-            "'editor-application-set-state' as a SEPARATE OS process, and no editor API exposes that " +
-            "child's stdout or the editor Output panel to a plugin — so the running game's GD.Print output " +
-            "will NEVER appear here, and an empty result is NOT evidence that the game printed nothing. " +
-            "A running game's print output is not readable through ANY tool today. The closest available " +
-            "channel covers ERRORS only: have the game initialize the in-game runtime " +
-            "(GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture()).Build() + Connect()) and read " +
-            "'runtime-errors-get'.\n" +
+            "as 'sinceSequence'. The Godot analog of Unity's 'console-get-logs'. NOTE: Godot's C# API exposes no global log " +
+            "hook, so this returns what the plugin captured (its own GD.* routing, connection lifecycle diagnostics, and " +
+            "on Godot 4.5+ engine errors), not every line the game printed — an empty result is NOT evidence that the game " +
+            "printed nothing. For the game's errors (GDScript runtime errors, push_error, C# exceptions) prefer " +
+            "'runtime-errors-get' (enable it with GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture())).\n" +
             "Inputs:\n" +
             "  - 'sinceSequence' (default 0, min 0): polling cursor. 0 = newest-first. > 0 = only lines with a " +
             "higher sequence, oldest-first, so the next poll (with the highest sequence returned) continues where " +

@@ -8,22 +8,24 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System.Linq;
-using Rql.Execution;
+using System;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
-    /// <summary>
-    /// For members that exist only in some Godot versions (the addon supports Godot 4.3+ and compiles against the 4.3 C#
-    /// API, while the editor running it may be newer). Members present in every supported version use the strict
-    /// MemberTable calls, which reject unknown names so typos fail loudly.
-    /// </summary>
-    public static class MemberTableExtensions
+    /// <summary>The whole-number rule of the integer struct adapters (Vector2I / Vector3I / Vector4I / Rect2I).</summary>
+    internal static class WholeNumbers
     {
-        public static MemberTable HideExisting(this MemberTable table, params string[] names) =>
-            table.Hide(names.Where(table.Contains).ToArray());
-
-        public static MemberTable ReferenceExisting(this MemberTable table, params string[] names) =>
-            table.Reference(names.Where(table.Contains).ToArray());
+        /// <summary>The components as ints when there are exactly <paramref name="width"/> whole numbers; null otherwise.</summary>
+        public static int[]? Of(float[] parts, int width)
+        {
+            if (parts.Length != width) return null;
+            var ints = new int[width];
+            for (int k = 0; k < width; k++)
+            {
+                if (Math.Abs(parts[k] - Math.Round(parts[k])) > 1e-6) return null;
+                ints[k] = (int)Math.Round(parts[k]);
+            }
+            return ints;
+        }
     }
 }

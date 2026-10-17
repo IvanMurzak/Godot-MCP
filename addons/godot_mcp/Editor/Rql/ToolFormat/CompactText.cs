@@ -97,7 +97,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                     return "[" + string.Join(", ", a.Select(Inline)) + "]";
                 case JsonValue v when v.GetValueKind() == JsonValueKind.String:
                     var s = v.GetValue<string>();
-                    return NeedsQuotes(s) ? ToolText.Quote(s, _escaping) : s;
+                    var quoted = ToolText.Quote(s, _escaping);
+                    return NeedsQuotes(s, quoted) ? quoted : s;
                 default:
                     return node.ToJsonString();
             }
@@ -105,10 +106,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
 
         // Bare text unless it could be misread (empty, separators, a number / keyword look-alike, surrounding spaces) or the
         // configured escaping has to escape something in it.
-        private bool NeedsQuotes(string s) =>
+        private static bool NeedsQuotes(string s, string quoted) =>
             s.Length == 0 || s.Trim() != s || s.IndexOfAny(Separators) >= 0 ||
             s == "null" || s == "true" || s == "false" || double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _) ||
-            ToolText.Quote(s, _escaping).Length != s.Length + 2;
+            quoted.Length != s.Length + 2;
 
         private string Key(string key) =>
             key.Length > 0 && (char.IsLetter(key[0]) || key[0] == '_' || key[0] == '$') && key.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$')

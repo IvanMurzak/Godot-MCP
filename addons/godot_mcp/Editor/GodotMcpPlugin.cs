@@ -262,14 +262,15 @@ namespace com.IvanMurzak.Godot.MCP
         [MethodImpl(MethodImplOptions.NoInlining)]
         void BootMcp()
         {
-            // RQL data layer: the editor configures every plugin the connection builds (tool surface + RQL binding)
-            // through GodotMcpConnection.PluginBuilt, so it must be installed before Start(). See RqlInstaller.
-            try { Editor.Rql.RqlInstaller.Install(() => GodotObject.IsInstanceValid(this) ? GetUndoRedo() : null); }
+            // RQL data layer: the connection hands every plugin it builds to RqlInstaller's configuration (tool surface +
+            // RQL binding). See RqlInstaller.
+            System.Action<com.IvanMurzak.McpPlugin.IMcpPlugin, GodotMcpConfig>? configurePlugin = null;
+            try { configurePlugin = Editor.Rql.RqlInstaller.Install(() => GodotObject.IsInstanceValid(this) ? GetUndoRedo() : null); }
             catch (System.Exception ex) { LogError($"[Godot-MCP] failed to install the RQL data layer: {ex.Message}"); }
 
             try
             {
-                _connection = new GodotMcpConnection();
+                _connection = new GodotMcpConnection(configurePlugin: configurePlugin);
 
                 // Resolve the persisted + .env config layers BEFORE building the dock UI. The connection /
                 // AI-agent panels read the config at construction time, so the saved connection mode, cloud/
@@ -647,15 +648,19 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>
+        /// Drop the RQL engine and RQL's Type-keyed caches. Its own non-inlined method so the JIT resolves the RQL
+        /// (NuGet-dependency) types only when teardown runs, never while JIT-compiling Teardown itself.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void UninstallRql() => Editor.Rql.RqlInstaller.Uninstall();
+
+        /// <summary>
         /// Free a still-live Node referenced by <paramref name="node"/> and null the reference, so the
         /// hot-reload re-boot (<see cref="BootAfterReload"/>) can re-create dock/dispatcher idempotently
         /// even if <see cref="Teardown"/> has not yet freed the prior instance's nodes on this Godot
         /// version. A null or already-disposed node just clears the reference (nothing to free). Defensive
         /// throughout — re-boot runs deferred, possibly racing a partial teardown, and must not fault.
         /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        static void UninstallRql() => Editor.Rql.RqlInstaller.Uninstall();
-
         static void FreeStaleNode<T>(ref T? node) where T : global::Godot.Node
         {
             try

@@ -18,8 +18,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <c>UnityMcpPluginEditor.Instance.Reflector</c>.
     ///
     /// <para>
-    /// Tool handlers that need a reflector at call time — e.g. <c>node-modify</c>, which routes through
-    /// <c>Reflector.TryModify</c>/<c>TryModifyAt</c>/<c>TryPatch</c> — read <see cref="Current"/> rather
+    /// Tool handlers that need a reflector at call time — e.g. the dock's serialization check, or a tool that routes
+    /// through <c>Reflector.TryModify</c>/<c>TryPatch</c> — read <see cref="Current"/> rather
     /// than constructing a fresh reflector, so they share the exact converter set the connection
     /// registered. <see cref="GodotMcpConnection.Start"/> assigns <see cref="Current"/> when it builds
     /// the plugin reflector; if a handler runs before a connection exists (e.g. a direct unit call),

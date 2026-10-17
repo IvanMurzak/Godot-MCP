@@ -8,7 +8,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using System;
 using Godot;
 using Rql.Execution;
 
@@ -23,16 +22,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override float Part(Vector2I v, int index) => index switch { 0 => v.X, _ => v.Y };
         protected override float Tolerance => 0;
 
-        protected override Vector2I? Make(float[] f)
-        {
-            if (f.Length != 2) return null;
-            var i = new int[2];
-            for (int k = 0; k < 2; k++)
-            {
-                if (Math.Abs(f[k] - Math.Round(f[k])) > 1e-6) return null;
-                i[k] = (int)Math.Round(f[k]);
-            }
-            return new Vector2I(i[0], i[1]);
-        }
+        protected override Vector2I? Make(float[] f) => WholeNumbers.Of(f, 2) is { } i ? new Vector2I(i[0], i[1]) : (Vector2I?)null;
     }
 }
