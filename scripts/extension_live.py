@@ -185,7 +185,10 @@ def live(plan, godot, server, output):
         folder.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, **{key: str(value) for key, value in folders.items()},
            'NUGET_PACKAGES': plan['nugetCache'], 'GODOT_MCP_CONNECTION_MODE': 'Custom',
-           'GODOT_MCP_HOST': url, 'GODOT_MCP_AUTH_OPTION': 'None', 'ASPNETCORE_URLS': url}
+           'GODOT_MCP_HOST': url, 'GODOT_MCP_AUTH_OPTION': 'None', 'ASPNETCORE_URLS': url,
+           # The extension tools' e2e assertions match ReflectorNet's structured JSON results. Core 1.0 defaults the
+           # tools' data layer to RQL (compact text); keep JSON for the extensions until they migrate to RQL modules.
+           'GODOT_MCP_TOOL_FORMAT': 'Json'}
     env.pop('GODOT_MCP_TOKEN', None)
     processes, handles, identities = [], [], []
     def launch(name, args):

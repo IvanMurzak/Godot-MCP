@@ -1,11 +1,15 @@
 {
   "description": "Live run-tool E2E tool list for the GridMap Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "The six editor tools (create/set-mesh-library/set-cell/clear-cell/clear/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'scene-create' tool. They run in order and share state: create makes the 'Grid' node, then later tools address it by node path 'Grid'. gridmap-set-mesh-library loads the committed res://e2e-meshlib.tres MeshLibrary from the testbed. gridmap-defaults is pure-managed and needs no scene. Assertions pin extension-PRODUCED fields (Kind, CellSizeX, CellCount, MeshLibraryPath, Item) rather than the engine class name (Node.GetClass() casing can differ from the C# binding). The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "notes": "The six editor tools (create/set-mesh-library/set-cell/clear-cell/clear/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). They run in order and share state: create makes the 'Grid' node, then later tools address it by node path 'Grid'. gridmap-set-mesh-library loads the committed res://e2e-meshlib.tres MeshLibrary from the testbed. gridmap-defaults is pure-managed and needs no scene. Assertions pin extension-PRODUCED fields (Kind, CellSizeX, CellCount, MeshLibraryPath, Item) rather than the engine class name (Node.GetClass() casing can differ from the C# binding). The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
   "setup": [
     {
-      "tool": "scene-create",
-      "input": { "resourcePath": "res://e2e.tscn", "rootTypeClassName": "Node3D", "rootName": "Root" },
-      "expect": ["\"isActive\":true"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "editor | call NewScene(\"res://e2e_gridmap.tscn\", \"Node3D\", \"Root\")"
+      },
+      "expect": [
+        "NewScene"
+      ]
     }
   ],
   "tools": [
