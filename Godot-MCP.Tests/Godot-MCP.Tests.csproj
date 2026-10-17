@@ -87,6 +87,7 @@
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Connection\LoopbackTokenScope.cs" Link="Source\LoopbackTokenScope.cs" />
     <!-- Project-identity wiring (mcp-authorize e1, PR 3): the instance-metadata handshake builder,
          ProjectIdentity (pin + derived port) resolution, and the marker serverTarget → connection-mode
          mapping. Pure-managed adapter over McpPlugin 7.0's ConnectionInstanceMetadata / ProjectIdentity /
