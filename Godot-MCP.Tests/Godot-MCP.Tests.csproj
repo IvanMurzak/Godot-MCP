@@ -43,7 +43,7 @@
     <!-- Same pins as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline).
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.2" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.1" />
   </ItemGroup>
 
@@ -82,7 +82,6 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ReflectionArgumentGuard.cs" Link="Source\ReflectionArgumentGuard.cs" />
     <!-- Pure-managed property-patch rules (GodotObjectPatcher.cs itself is native; see scripts/smoke_property_patches.py). -->
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\PropertyPatchPath.cs" Link="Source\PropertyPatchPath.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ErrorCapturingLogger.cs" Link="Source\ErrorCapturingLogger.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->

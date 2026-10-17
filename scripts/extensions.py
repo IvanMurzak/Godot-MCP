@@ -122,10 +122,15 @@ def core_pins(root=ROOT):
     return pins
 
 
+def chain_active():
+    # chain_feed exports CHAIN_ACTIVE once an override is applied, whatever the lock source.
+    return os.environ.get('CHAIN_ACTIVE') == '1'
+
+
 def chain_pins(root):
     overrides = root / 'Directory.Build.targets'
     pins = {}
-    if os.environ.get('CHAIN_LOCK') and overrides.is_file():
+    if chain_active() and overrides.is_file():
         for entry in ET.parse(overrides).findall('.//PackageReference'):
             if entry.attrib.get('Update'):
                 pins[entry.attrib['Update']] = entry.attrib['Version']

@@ -24,9 +24,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 {
     /// <summary>
     /// The pure-managed rules behind <see cref="GodotObjectPatcher"/>: how a patch path is resolved against
-    /// a live object, which route (native Godot property vs. ReflectorNet CLR member) a top-level segment
-    /// takes, and how a mismatched primitive <c>typeName</c> is aligned. No Godot native call, so every rule
-    /// is unit-tested with plain CLR objects.
+    /// a live object and which route (native Godot property vs. ReflectorNet CLR member) a top-level segment
+    /// takes. No Godot native call, so every rule is unit-tested with plain CLR objects.
     /// </summary>
     public static class PropertyPatchPath
     {
@@ -168,37 +167,6 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         }
 
         /// <summary>
-        /// A copy of <paramref name="value"/> typed as the declared primitive/enum type of the target when the
-        /// caller sent a different numeric one (e.g. <c>System.Double</c> for a <c>float</c>), else <c>null</c>.
-        /// ReflectorNet picks its converter from <c>typeName</c>; a mismatch deserializes to the wrong CLR type
-        /// and the setter rejects it. Non-numeric type names are never touched, and the caller's patch is left
-        /// as it was sent.
-        /// </summary>
-        public static SerializedMember? WithAlignedPrimitiveTypeName(SerializedMember value, Type declaredType)
-        {
-            var target = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
-            if (!IsNumericLike(target))
-                return null;
-
-            var expected = target.GetTypeId();
-            if (value.typeName == expected)
-                return null;
-
-            var given = TypeUtils.GetType(value.typeName);
-            if (given == null || !IsNumericLike(Nullable.GetUnderlyingType(given) ?? given))
-                return null;
-
-            return new SerializedMember
-            {
-                name = value.name,
-                typeName = expected,
-                valueJsonElement = value.valueJsonElement,
-                fields = value.fields,
-                props = value.props,
-            };
-        }
-
-        /// <summary>
         /// Rewrite the keys of a JSON Merge Patch to the C# members they name on the live <paramref name="target"/>
         /// (snake_case → PascalCase, e.g. <c>{"position":{"x":1}}</c> → <c>{"Position":{"X":1}}</c>), at every
         /// depth, following runtime values. It descends only where the reflector merges a JSON object into the
@@ -332,16 +300,43 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
         static bool SameName(string a, string b)
             => string.Equals(a.Replace("_", string.Empty), b.Replace("_", string.Empty), StringComparison.OrdinalIgnoreCase);
 
-        static bool IsBracket(string segment) => segment.Length > 2 && segment[0] == '[' && segment[segment.Length - 1] == ']';
+        // Mirrors ReflectorNet's Reflector.TryParseBracketSegment (5.4.3): '[]' is a valid (empty) key.
+        static bool IsBracket(string segment) => segment.Length >= 2 && segment[0] == '[' && segment[segment.Length - 1] == ']';
 
-        // Mirrors ReflectorNet's private Reflector.ParsePath / TryParseBracketSegment (Reflector.ModifyAt.cs).
+        // Mirrors ReflectorNet's private Reflector.ParsePath (5.4.3, Reflector.ModifyAt.cs): a '/' inside a bracket
+        // segment ('[a/b]') belongs to the key, and '\]' / '\\' escapes stay intact until the key is decoded.
         static string[] Split(string path)
         {
             if (path.StartsWith("#/", StringComparison.Ordinal))
                 path = path.Substring(2);
             else if (path.StartsWith("#", StringComparison.Ordinal))
                 path = path.Substring(1);
-            return path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            var segments = new List<string>();
+            var start = 0;
+            var bracketed = false;
+            for (var i = 0; i < path.Length; i++)
+            {
+                var c = path[i];
+                if (bracketed && c == '\\' && i + 1 < path.Length && (path[i + 1] == ']' || path[i + 1] == '\\'))
+                {
+                    i++;
+                    continue;
+                }
+                if (i == start && c == '[')
+                    bracketed = true;
+                else if (bracketed && c == ']')
+                    bracketed = false;
+                else if (!bracketed && c == '/')
+                {
+                    if (i > start)
+                        segments.Add(path.Substring(start, i - start));
+                    start = i + 1;
+                }
+            }
+            if (start < path.Length)
+                segments.Add(path.Substring(start));
+            return segments.ToArray();
         }
     }
 }

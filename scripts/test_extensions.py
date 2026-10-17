@@ -12,7 +12,7 @@ import sys
 import uuid
 import xml.etree.ElementTree as ET
 
-from extensions import ROOT, core_pins, modules, read_json, run, verify_package
+from extensions import ROOT, chain_active, core_pins, modules, read_json, run, verify_package
 
 
 def compatible(module, sdk):
@@ -62,7 +62,7 @@ def consumer(folder, sdk, selected, version, feed, cache):
     # Train supplies private candidate packages through its generated root
     # config. Keep that feed visible after adding the extension's local feed.
     chain_config = ROOT / 'nuget.config'
-    if os.environ.get('CHAIN_LOCK') and chain_config.is_file():
+    if chain_active() and chain_config.is_file():
         for entry in ET.parse(chain_config).findall('.//packageSources/add'):
             if entry.attrib.get('value') not in {node.attrib.get('value') for node in sources}:
                 ET.SubElement(sources, 'add', **entry.attrib)

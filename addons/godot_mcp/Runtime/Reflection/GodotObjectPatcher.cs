@@ -160,15 +160,15 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         bool ApplyReflectorJson(string json, string label)
         {
-            // ReflectorNet 5.4 sends a failed member setter only to its ILogger (its Logs still say "Set value").
-            var logger = new ErrorCapturingLogger();
-            var applied = reflector.TryPatch(ref current, json, logs: logs, logger: logger);
-            foreach (var error in logger.Errors)
-                logs.Error($"{label}: {error} — the value was NOT applied.");
-            if (!applied)
+            // ReflectorNet reports a failure (a throwing setter included) to Logs and returns false; its message
+            // names the member, not the patch entry, so say which entry it belongs to.
+            if (!reflector.TryPatch(ref current, json, logs: logs))
+            {
+                logs.Error($"{label} was NOT applied.");
                 return false;
+            }
             RecordDivergence(label);
-            return logger.Errors.Count == 0;
+            return true;
         }
 
         bool ApplyPathPatch(NodePropertyPatch patch, string label)
@@ -192,38 +192,35 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
 
             var resolved = PropertyPatchPath.Resolve(current ?? target, patch.Path);
-            if (resolved.MemberType != null)
+            if (valueIsVariant && resolved.MemberType != null && resolved.MemberType != typeof(Variant))
             {
-                if (valueIsVariant && resolved.MemberType != typeof(Variant))
-                {
-                    logs.Error($"{label}: a 'Godot.Variant' value can only be applied to a top-level Godot property; " +
-                        $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
-                    return false;
-                }
-                if (PropertyPatchPath.WithAlignedPrimitiveTypeName(value, resolved.MemberType) is { } aligned)
-                {
-                    logs.Info($"{label}: value typeName '{value.typeName}' aligned to '{aligned.typeName}'.");
-                    value = aligned;
-                }
+                logs.Error($"{label}: a 'Godot.Variant' value can only be applied to a top-level Godot property; " +
+                    $"'{resolved.Path}' is a '{resolved.MemberType.GetTypeId()}' member — send the value with that typeName.");
+                return false;
             }
 
             // A top-level C# member backed by a Godot property is read back like the native route.
             var readBack = segment == null ? null : PropertyPatchPath.GodotBackingProperty(target.GetType(), resolved.Path, GodotProperties.Keys);
             var before = readBack == null ? default : Snapshot.Of(target.Get(readBack));
 
-            // ReflectorNet 5.4 sends a failed member setter only to its ILogger and still returns true.
-            var logger = new ErrorCapturingLogger();
-            if (!reflector.TryModifyAt(ref current, resolved.Path, value, logs: logs, logger: logger))
+            // ReflectorNet (5.4.3+) reports a failed write to Logs with a false result; only a false without a
+            // logged reason is a silent no-op. Its message names the member, not the patch entry.
+            var local = new Logs();
+            var modified = reflector.TryModifyAt(ref current, resolved.Path, value, logs: local);
+            foreach (var entry in local)
+                logs.AddLast(entry);
+            if (!modified)
             {
-                logs.Warning($"{label} did not modify the target (no-op).");
+                if (ReflectionArgumentGuard.Failures(local).Count == 0)
+                    logs.Warning($"{label} did not modify the target (no-op).");
+                else
+                    logs.Error($"{label}: the value was NOT applied.");
                 return false;
             }
-            if (logger.Errors.Count > 0)
-            {
-                foreach (var error in logger.Errors)
-                    logs.Error($"{label}: {error} — the value was NOT applied.");
-                return false;
-            }
+            // Applied, but a converter reported a problem on the way (e.g. an unresolved reference written as
+            // null): the member did change, so it counts, and the entry is named so the error is not lost.
+            if (ReflectionArgumentGuard.Failures(local).Count > 0)
+                logs.Error($"{label}: applied, but with the error(s) above — check the value that was written.");
             RecordDivergence(label);
 
             if (readBack != null && before.IsSameAs(Snapshot.Of(target.Get(readBack))))
