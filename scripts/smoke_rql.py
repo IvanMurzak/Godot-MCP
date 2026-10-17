@@ -92,6 +92,16 @@ def file_text(project: pathlib.Path, res_path: str) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else "<missing>"
 
 
+def node_line(name: str, parent: str, type_: str | None = None, instance: bool = False) -> str:
+    """Regex of a `[node ...]` header; tolerant of attribute order and of Godot 4.6+'s `unique_id=`."""
+    head = rf'^\[node name="{re.escape(name)}"(?=[^\]\n]*\bparent="{re.escape(parent)}")'
+    if type_ is not None:
+        head += rf'(?=[^\]\n]*\btype="{re.escape(type_)}")'
+    if instance:
+        head += r'(?=[^\]\n]*\binstance=ExtResource\("[^"]+"\))'
+    return head + r'[^\]\n]*\]$'
+
+
 def q(text: str) -> str:
     """An RQL string literal."""
     return json.dumps(text)
@@ -187,7 +197,7 @@ def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:
     check("N7 read back the values", "3.5" in text and "0.125" in text and "(7, 0, 0)" in text, text)
     must("N8 SaveScene", mutate(host, "editor | call SaveScene()"))
     for name, pattern in (
-        ("N0 node saved", r'^\[node name="Lamp" type="OmniLight3D" parent="\."\]$'),
+        ("N0 node saved", node_line("Lamp", ".", "OmniLight3D")),
         ("N1 light_energy = 3.5", r"^light_energy = 3\.5$"),
         ("N6 light_indirect_energy = 2.25", r"^light_indirect_energy = 2\.25$"),
         ("N5 position.x = 7", r"^transform = Transform3D\(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 0\)$"),
@@ -258,9 +268,10 @@ def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:
     check("R14 the scene is at its new path", disk(project, tab_moved).exists())
 
     # R15: deleting the open scene does not let the next save recreate it. Needs EditorInterface.close_scene
-    # (Godot 4.4+); on 4.3 the deleted scene stays open, so a save writes it again by design.
-    if godot_minor(host) < 4:
-        print("[SKIP] R15 (Godot 4.3 has no EditorInterface.close_scene)", flush=True)
+    # (measured: closes the deleted scene on Godot 4.5+); before that the deleted scene stays open, so a save writes it
+    # again — the behaviour of the replaced resource-delete tool, unchanged.
+    if godot_minor(host) < 5:
+        print("[SKIP] R15 (needs Godot 4.5+: earlier editors keep a deleted scene open)", flush=True)
     else:
         deleted_open_scene(host, project, d)
 
@@ -312,16 +323,17 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
         ("G enemies hidden", r"^visible = false$"),
         ("G lamp energy doubled", r"^light_energy = 2\.0$"),
         ("G lamp color", r"^light_color = Color\(1, 0\.8, 0\.53"),
-        ("G Props added", r'^\[node name="Props" type="Node3D" parent="\."\]$'),
-        ("G enemy instanced under Props", r'^\[node name="Enemy" parent="Props" instance=ExtResource\("[^"]+"\)\]$'),
-        ("G Crate reparented under Props", r'^\[node name="Crate" type="Node3D" parent="Props"\]$'),
-        ("G duplicate kept next to the original", r'^\[node name="Crate2" type="Node3D" parent="\."\]$'),
+        ("G Props added", node_line("Props", ".", "Node3D")),
+        ("G enemy instanced under Props", node_line("Enemy", "Props", instance=True)),
+        ("G Crate reparented under Props", node_line("Crate", "Props", "Node3D")),
+        ("G duplicate kept next to the original", node_line("Crate2", ".", "Node3D")),
     ):
         check(name, file_has(project, level, pattern), file_text(project, level))
     check("G Old removed", '[node name="Old"' not in file_text(project, level), file_text(project, level))
-    check("G Crate is the first child of Props (MoveChild(0))",
-          re.search(r'\[node name="Crate"[^\n]*parent="Props"\][\s\S]*\[node name="Enemy" parent="Props"', file_text(project, level)) is not None,
-          file_text(project, level))
+    level_text = file_text(project, level)
+    crate = re.search(node_line("Crate", "Props"), level_text, re.MULTILINE)
+    enemy = re.search(node_line("Enemy", "Props"), level_text, re.MULTILINE)
+    check("G Crate is the first child of Props (MoveChild(0))", bool(crate and enemy and crate.start() < enemy.start()), level_text)
     check("G red material saved", file_has(project, "res://materials/red.tres", r"^albedo_color = Color\(1, 0, 0, 1\)$"),
           file_text(project, "res://materials/red.tres"))
     check("G blue material deleted", not disk(project, "res://materials/old/blue.tres").exists()
