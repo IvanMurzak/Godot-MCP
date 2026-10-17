@@ -1,0 +1,28 @@
+Godot-MCP.Tests/MainThreadDispatcherTests.cs
+  s_061d04fe51d036::t_793eac713e4734 1-200,202-228,230-232
+  s_061d04fe51d036::t_704a095d9a25f5 229
+  s_061d04fe51d036::t_48124b828bed4a 201
+addons/godot_mcp/Runtime/MainThread/MainThreadDispatcher.cs
+  s_061d04fe51d036::t_b0718650c66326 217-239,242-274
+  s_061d04fe51d036::t_19cade0360762e 240-241
+  s_061d04fe51d036::t_8d31311f6a3463 146
+  s_061d04fe51d036::t_e2a82f10ad0efb 49,66-76
+  s_061d04fe51d036::t_156eab52b81bcc 50-65
+  s_061d04fe51d036::t_2038e95cb09854 122-136,142-145,149-150,159-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "2b3d57828f7392730558babd9dcd87aff11ec9c6",
+  "prompts": {},
+  "sessions": {
+    "s_061d04fe51d036": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e91881c-94d8-4d41-b0b1-fe8f4a058c7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

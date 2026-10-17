@@ -1,0 +1,1023 @@
+extensions/Godot-AI-Particles/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_6b7d3a7d8fc765 1-179
+scripts/extension_live.py
+  s_eb8bcde0be96a2::t_ae676f3591f3d9 1-8,10-44,69-122,144-152,155-162,173-212,214-218,220-223,225-226,231-242
+  s_eb8bcde0be96a2::t_d89d42ef8aa802 9,45-68
+  s_eb8bcde0be96a2::t_b77aca333a739b 153-154
+  s_eb8bcde0be96a2::t_70be4277d7bc7c 123-143,213,224,227-230
+  s_eb8bcde0be96a2::t_6b7d3a7d8fc765 219
+  s_eb8bcde0be96a2::t_cde9cd2183e172 163-172
+.github/workflows/release.yml
+  s_eb8bcde0be96a2::t_074211673f0805 189-193,392-396,966-993
+  s_eb8bcde0be96a2::t_84048522fb71d4 994-995
+Godot-MCP.csproj
+  s_eb8bcde0be96a2::t_e81f59fcb16510 39-40
+scripts/extensions.py
+  s_eb8bcde0be96a2::t_8b7547ea0552d1 5,95-101,107-109,118,120-125
+  s_eb8bcde0be96a2::t_9136a9a2beccfa 103
+  s_eb8bcde0be96a2::t_70be4277d7bc7c 76,87-90
+  s_eb8bcde0be96a2::t_9bbbb508299a8b 1-4,6-75,77-86,91-94,102,104-106,110-117,119
+extensions/Godot-AI-Animation/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_8af42eb234f25b 1-48
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_8c2af6a9a40fa6 1-132
+extensions/Godot-AI-Tilemap/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_8af42eb234f25b 1-43
+  s_eb8bcde0be96a2::t_3fca00f9dc48e0 44-83
+extensions/AGENTS.md
+  s_eb8bcde0be96a2::t_e81f59fcb16510 1-18
+scripts/new_extension.py
+  s_eb8bcde0be96a2::t_a7a2a1295da38a 1-71
+templates/AGENTS.md
+  s_eb8bcde0be96a2::t_e81f59fcb16510 1-6
+extensions/Godot-AI-Tilemap/testbed/e2e-tileset.tres
+  s_eb8bcde0be96a2::t_8af42eb234f25b 1-3
+docs/EXTENSION-MONOREPO.md
+  s_eb8bcde0be96a2::t_a7a2a1295da38a 1-73
+AGENTS.md
+  s_eb8bcde0be96a2::t_e81f59fcb16510 30-31
+scripts/extension_release.py
+  s_eb8bcde0be96a2::t_6b7d3a7d8fc765 202-203
+  s_eb8bcde0be96a2::t_68549c206cca82 10,115-119,121-122,124,128,131-136,139-140,145-152,154,156-161,173
+  s_eb8bcde0be96a2::t_59f3886376a76d 12,71-108,162-172,196,201,211-214
+  s_eb8bcde0be96a2::t_9280ed8bf5debb 1-6,8-9,11,13-70,109-114,120,123,125,141-144,174-195,197-200,204-210,215-234
+  s_eb8bcde0be96a2::t_906eb3ddf869e4 7,126-127,129-130,137-138,153,155
+.github/workflows/test_extensions.yml
+  s_eb8bcde0be96a2::t_5b7b20dfcbc60a 1-47,53-54,56-101
+  s_eb8bcde0be96a2::t_7567f814a92015 48-52,55
+.github/workflows/release_extensions.yml
+  s_eb8bcde0be96a2::t_59f3886376a76d 1-118
+scripts/test_extensions.py
+  s_eb8bcde0be96a2::t_7c232941283691 76-83,87-93
+  s_eb8bcde0be96a2::t_d89d42ef8aa802 182-183,192-194
+  s_eb8bcde0be96a2::t_b2e5b84bd137eb 56-62,104-108
+  s_eb8bcde0be96a2::t_bc2e66c5b614bd 1-6,8-55,63-75,94-103,109-156,158-181,184-191,195-206
+  s_eb8bcde0be96a2::t_8b7547ea0552d1 7,84-86
+  s_eb8bcde0be96a2::t_70be4277d7bc7c 157
+.github/scripts/chain_feed.py
+  s_95bcf3f96c9aab::t_9add20d4a34982 5,27,77-79,121-124,165-182,325-341,785-788,803-804,837,1018-1037,1738-1746,1749,1752,1787-1793,2826-2828,2881,3068-3094,3099-3100,3109-3118,3120-3122,3124-3128,3140-3142,3248-3251,3263-3290,3327-3331,3333-3334
+.github/workflows/test_pull_request.yml
+  s_eb8bcde0be96a2::t_118879319d92e0 145-149,386-425
+README.md
+  s_eb8bcde0be96a2::t_94b927e17b2779 978-981
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_eb8bcde0be96a2::t_15ea85d01a4d02 70
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_eb8bcde0be96a2::t_4cb25fd8025d04 286
+addons/godot_mcp/extensions.catalog.json
+  s_eb8bcde0be96a2::t_5515fb24f0cd51 9,23,38,54,70,86,102,124,145,164
+addons/godot_mcp/extensions.catalog.md
+  s_eb8bcde0be96a2::t_01f1790ede6cb5 60
+addons/godot_mcp/plugin.cfg
+  s_eb8bcde0be96a2::t_b1a08082a132b2 6
+cli/package-lock.json
+  s_eb8bcde0be96a2::t_a65955e1282cf1 3,9
+cli/package.json
+  s_eb8bcde0be96a2::t_7660821ac77199 3
+cli/src/utils/extensions-catalog.ts
+  s_eb8bcde0be96a2::t_428b4302bab235 70,85,101,118,135,152,169,192,214,235
+docs/assetlib/SUBMISSION.md
+  s_eb8bcde0be96a2::t_b195c90a9ab7f4 28,32
+extensions/Godot-AI-Animation/.editorconfig
+  s_eb8bcde0be96a2::t_7c96744ff6fa5c 1-20
+extensions/Godot-AI-Animation/.gitignore
+  s_eb8bcde0be96a2::t_8b11b2ff3a8cb4 1-33
+extensions/Godot-AI-Animation/AGENTS.md
+  s_eb8bcde0be96a2::t_a1a2ccbc4d9955 1-65
+extensions/Godot-AI-Animation/LICENSE
+  s_eb8bcde0be96a2::t_18702f2aaf0540 1-201
+extensions/Godot-AI-Animation/README.md
+  s_eb8bcde0be96a2::t_72f790becba9c6 1-34
+extensions/Godot-AI-Animation/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_64ff8037d223fd 1-40
+extensions/Godot-AI-Animation/commands/bump-version.py
+  s_eb8bcde0be96a2::t_d8d3770c9ce1c1 1-60
+extensions/Godot-AI-Animation/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_1f965cc6c35c53 1-9
+extensions/Godot-AI-Animation/commands/init.ps1
+  s_eb8bcde0be96a2::t_21d7a2b21dda21 1-121
+extensions/Godot-AI-Animation/commands/init.py
+  s_eb8bcde0be96a2::t_38b01b8cbce0e7 1-123
+extensions/Godot-AI-Animation/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_de29792cc4a1f7 1-48
+extensions/Godot-AI-Animation/commands/update-core.py
+  s_eb8bcde0be96a2::t_5f7774109153a2 1-57
+extensions/Godot-AI-Animation/docs/ci.md
+  s_eb8bcde0be96a2::t_965d5a0e583432 1-6
+extensions/Godot-AI-Animation/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_9b911d5aaf4e9d 1-137
+extensions/Godot-AI-Animation/extension.json
+  s_eb8bcde0be96a2::t_962abde051907a 1-12
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.AddTrack.cs
+  s_eb8bcde0be96a2::t_e1b85150307ef6 1-84
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.Create.cs
+  s_eb8bcde0be96a2::t_d5567d79468332 1-90
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.Editor.cs
+  s_eb8bcde0be96a2::t_a7d5a561733981 1-172
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.Get.cs
+  s_eb8bcde0be96a2::t_7a9c7123a812a4 1-61
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.InsertKey.cs
+  s_eb8bcde0be96a2::t_d8d84783be2d92 1-96
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.LibraryAdd.cs
+  s_eb8bcde0be96a2::t_423d023c69c249 1-67
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Tools/Tool_Animation.PlayerCreate.cs
+  s_eb8bcde0be96a2::t_9ab0bb2836230d 1-69
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj
+  s_eb8bcde0be96a2::t_c263d6fa1acf5a 1-101
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/README.md
+  s_eb8bcde0be96a2::t_bda199f8f74906 1-34
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationClipInfo.cs
+  s_eb8bcde0be96a2::t_af48ee6fe11a5f 1-48
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationDefaults.cs
+  s_eb8bcde0be96a2::t_1f9bc0cbddf1c9 1-66
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationLoopMode.cs
+  s_eb8bcde0be96a2::t_e5e512ef7e4243 1-108
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationPlayerInfo.cs
+  s_eb8bcde0be96a2::t_d861e048138701 1-46
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationTrackInfo.cs
+  s_eb8bcde0be96a2::t_c3f3744078f817 1-34
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Animation/AnimationTrackKind.cs
+  s_eb8bcde0be96a2::t_23e6a28af58925 1-130
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Tools/Tool_Animation.Defaults.cs
+  s_eb8bcde0be96a2::t_a671f4f2abdd72 1-47
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Tools/Tool_Animation.Ids.cs
+  s_eb8bcde0be96a2::t_269a4937cc862f 1-40
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Runtime/Tools/Tool_Animation.cs
+  s_eb8bcde0be96a2::t_da4112ef93810c 1-43
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/build/com.IvanMurzak.Godot.MCP.Animation.props
+  s_eb8bcde0be96a2::t_76367c10877e57 1-28
+extensions/Godot-AI-Animation/testbed/.gitignore
+  s_eb8bcde0be96a2::t_547836ea2d94ed 1-9
+extensions/Godot-AI-Animation/testbed/Animation-Testbed.csproj
+  s_eb8bcde0be96a2::t_ee18e4d203e946 1-32
+extensions/Godot-AI-Animation/testbed/nuget.config
+  s_eb8bcde0be96a2::t_dd2323fd550ebe 1-12
+extensions/Godot-AI-Animation/testbed/project.godot
+  s_eb8bcde0be96a2::t_51958b4418272b 1-21
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/AnimationDefaultsTests.cs
+  s_eb8bcde0be96a2::t_8c50b8683a7724 1-75
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/AnimationInfoTests.cs
+  s_eb8bcde0be96a2::t_93a4ee241e30ae 1-71
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/AnimationLoopModeTests.cs
+  s_eb8bcde0be96a2::t_0514cc560b5be5 1-76
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/AnimationTrackKindTests.cs
+  s_eb8bcde0be96a2::t_41443bd7c506ec 1-96
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/Godot-AI-Animation.Tests.csproj
+  s_eb8bcde0be96a2::t_5bc48d5aa041e8 1-49
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/Tool_Animation_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_063e790cb50559 1-64
+extensions/Godot-AI-Animation/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_fae7d56a0cf571 1-179
+extensions/Godot-AI-Beehave/.editorconfig
+  s_eb8bcde0be96a2::t_bf855c3a3936f9 1-20
+extensions/Godot-AI-Beehave/.gitignore
+  s_eb8bcde0be96a2::t_b0ab8b43f5807e 1-33
+extensions/Godot-AI-Beehave/AGENTS.md
+  s_eb8bcde0be96a2::t_e070889221af15 1-91
+extensions/Godot-AI-Beehave/LICENSE
+  s_eb8bcde0be96a2::t_c2e9dd0105d22f 1-201
+extensions/Godot-AI-Beehave/README.md
+  s_eb8bcde0be96a2::t_f39a4150d75b70 1-35
+extensions/Godot-AI-Beehave/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_ca65acc28fecde 1-40
+extensions/Godot-AI-Beehave/commands/bump-version.py
+  s_eb8bcde0be96a2::t_a3f78492f64de6 1-60
+extensions/Godot-AI-Beehave/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_e871f6bbe60b6b 1-9
+extensions/Godot-AI-Beehave/commands/init.ps1
+  s_eb8bcde0be96a2::t_df3600aed2e073 1-121
+extensions/Godot-AI-Beehave/commands/init.py
+  s_eb8bcde0be96a2::t_a548ad64a49bbd 1-123
+extensions/Godot-AI-Beehave/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_e248b7e0dd97e0 1-48
+extensions/Godot-AI-Beehave/commands/update-core.py
+  s_eb8bcde0be96a2::t_a0afbdc0008e53 1-57
+extensions/Godot-AI-Beehave/docs/ci.md
+  s_eb8bcde0be96a2::t_04460f46bac7a2 1-6
+extensions/Godot-AI-Beehave/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_a25e0fb486f609 1-137
+extensions/Godot-AI-Beehave/extension.json
+  s_eb8bcde0be96a2::t_644b202a86530f 1-18
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.AddComposite.cs
+  s_eb8bcde0be96a2::t_cb80230976a9cc 1-57
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.AddDecorator.cs
+  s_eb8bcde0be96a2::t_cb2e8fcaa3181d 1-59
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.AddLeaf.cs
+  s_eb8bcde0be96a2::t_2b3fa8b1dd2fb8 1-60
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.Editor.cs
+  s_eb8bcde0be96a2::t_a41195ce0fd3a3 1-114
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.Get.cs
+  s_eb8bcde0be96a2::t_6a0c376baf6631 1-68
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Editor/Tools/Tool_Beehave.TreeCreate.cs
+  s_eb8bcde0be96a2::t_e7552884c4841c 1-71
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj
+  s_eb8bcde0be96a2::t_cf8ea14e3de1a8 1-101
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/README.md
+  s_eb8bcde0be96a2::t_17e4fb92650ca1 1-35
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Beehave/BeehaveDefaults.cs
+  s_eb8bcde0be96a2::t_5f9f31ff77dd96 1-78
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Beehave/BeehaveEnums.cs
+  s_eb8bcde0be96a2::t_d59348d1a26eb7 1-80
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Beehave/BeehaveNodeInfo.cs
+  s_eb8bcde0be96a2::t_fde3d437a4639e 1-103
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Beehave/BeehaveNodeKinds.cs
+  s_eb8bcde0be96a2::t_8c8aa54256b4fa 1-95
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Interop/AddonGate.cs
+  s_eb8bcde0be96a2::t_e59a1aae13b1f7 1-43
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Interop/AddonInterop.cs
+  s_eb8bcde0be96a2::t_fac78ebf0cea5c 1-78
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Tools/Tool_Beehave.Defaults.cs
+  s_eb8bcde0be96a2::t_dd43a43c91572b 1-49
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Tools/Tool_Beehave.Ids.cs
+  s_eb8bcde0be96a2::t_b3e335e205f45c 1-37
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Runtime/Tools/Tool_Beehave.cs
+  s_eb8bcde0be96a2::t_e14d1b4a9f6605 1-52
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/build/com.IvanMurzak.Godot.MCP.Beehave.props
+  s_eb8bcde0be96a2::t_8b049041f7019d 1-28
+extensions/Godot-AI-Beehave/testbed/.gitignore
+  s_eb8bcde0be96a2::t_743cf06b4838d5 1-9
+extensions/Godot-AI-Beehave/testbed/Beehave-Testbed.csproj
+  s_eb8bcde0be96a2::t_b4456dcb43c0af 1-32
+extensions/Godot-AI-Beehave/testbed/nuget.config
+  s_eb8bcde0be96a2::t_99afeb534056e5 1-12
+extensions/Godot-AI-Beehave/testbed/project.godot
+  s_eb8bcde0be96a2::t_299099dad994dd 1-30
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/AddonGateTests.cs
+  s_eb8bcde0be96a2::t_a83d88cb569068 1-57
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/BeehaveEnumsTests.cs
+  s_eb8bcde0be96a2::t_5524594d24d34c 1-56
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/BeehaveNodeKindsTests.cs
+  s_eb8bcde0be96a2::t_6d3d99b7c4bfc9 1-79
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Godot-AI-Beehave.Tests.csproj
+  s_eb8bcde0be96a2::t_00720a1a4e70e8 1-48
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Tool_Beehave_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_74b6109f351141 1-59
+extensions/Godot-AI-Beehave/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_6c35a5532a937d 1-43
+extensions/Godot-AI-Beehave/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_1cdc0b8a74ada9 1-179
+extensions/Godot-AI-CSG/.editorconfig
+  s_eb8bcde0be96a2::t_81abc48e6e3fb4 1-20
+extensions/Godot-AI-CSG/.gitignore
+  s_eb8bcde0be96a2::t_0d9cb5c822df17 1-33
+extensions/Godot-AI-CSG/AGENTS.md
+  s_eb8bcde0be96a2::t_50693083ccf553 1-64
+extensions/Godot-AI-CSG/LICENSE
+  s_eb8bcde0be96a2::t_94be140234be97 1-201
+extensions/Godot-AI-CSG/README.md
+  s_eb8bcde0be96a2::t_9fb277cad07ca8 1-34
+extensions/Godot-AI-CSG/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_58b5c8a90d699a 1-40
+extensions/Godot-AI-CSG/commands/bump-version.py
+  s_eb8bcde0be96a2::t_12a8b13c677cb9 1-60
+extensions/Godot-AI-CSG/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_658e9565f2e0b7 1-9
+extensions/Godot-AI-CSG/commands/init.ps1
+  s_eb8bcde0be96a2::t_f945b580182e8c 1-121
+extensions/Godot-AI-CSG/commands/init.py
+  s_eb8bcde0be96a2::t_3c62b10733795c 1-123
+extensions/Godot-AI-CSG/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_9c0fe72cad79ea 1-48
+extensions/Godot-AI-CSG/commands/update-core.py
+  s_eb8bcde0be96a2::t_05b98fa35e1b5b 1-57
+extensions/Godot-AI-CSG/docs/ci.md
+  s_eb8bcde0be96a2::t_63c336f8191259 1-6
+extensions/Godot-AI-CSG/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_28dae76e06298e 1-137
+extensions/Godot-AI-CSG/extension.json
+  s_eb8bcde0be96a2::t_e075855625752a 1-12
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.BoxCreate.cs
+  s_eb8bcde0be96a2::t_d120da6b5fcd40 1-65
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.CombinerCreate.cs
+  s_eb8bcde0be96a2::t_47e73e6791f900 1-65
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.CylinderCreate.cs
+  s_eb8bcde0be96a2::t_3161b23fbd1310 1-62
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.Editor.cs
+  s_eb8bcde0be96a2::t_394876682690cf 1-134
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.Get.cs
+  s_eb8bcde0be96a2::t_e350b656f7e56f 1-44
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.SetOperation.cs
+  s_eb8bcde0be96a2::t_f585333a3c29e5 1-55
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Editor/Tools/Tool_CSG.SphereCreate.cs
+  s_eb8bcde0be96a2::t_1b1aa7b6cc7b59 1-62
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj
+  s_eb8bcde0be96a2::t_3135f4cecad6ca 1-101
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/README.md
+  s_eb8bcde0be96a2::t_372ddb10fb3272 1-34
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/CSG/CsgDefaults.cs
+  s_eb8bcde0be96a2::t_a3bb1b9665a78c 1-102
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/CSG/CsgOperation.cs
+  s_eb8bcde0be96a2::t_42cda5595ca907 1-95
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/CSG/CsgPrimitiveKind.cs
+  s_eb8bcde0be96a2::t_823681aa9a28d1 1-104
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/CSG/CsgShapeInfo.cs
+  s_eb8bcde0be96a2::t_56cd3bb5ec108c 1-62
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/Tools/Tool_CSG.Defaults.cs
+  s_eb8bcde0be96a2::t_305e67d8d6b376 1-49
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/Tools/Tool_CSG.Ids.cs
+  s_eb8bcde0be96a2::t_810e10493fee98 1-40
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Runtime/Tools/Tool_CSG.cs
+  s_eb8bcde0be96a2::t_7c7237bde4aa6a 1-45
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/build/com.IvanMurzak.Godot.MCP.CSG.props
+  s_eb8bcde0be96a2::t_34a5a3c3dddef4 1-28
+extensions/Godot-AI-CSG/testbed/.gitignore
+  s_eb8bcde0be96a2::t_58fdef63a411e3 1-9
+extensions/Godot-AI-CSG/testbed/CSG-Testbed.csproj
+  s_eb8bcde0be96a2::t_ebda5423db6a3a 1-32
+extensions/Godot-AI-CSG/testbed/nuget.config
+  s_eb8bcde0be96a2::t_3535fcae7e6fde 1-12
+extensions/Godot-AI-CSG/testbed/project.godot
+  s_eb8bcde0be96a2::t_be059f99d94c32 1-21
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/CsgDefaultsTests.cs
+  s_eb8bcde0be96a2::t_cff8803e8ad322 1-121
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/CsgOperationTests.cs
+  s_eb8bcde0be96a2::t_8ba098fd926b53 1-73
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/CsgPrimitiveKindTests.cs
+  s_eb8bcde0be96a2::t_f7c2db80b62d77 1-67
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/Godot-AI-CSG.Tests.csproj
+  s_eb8bcde0be96a2::t_0238566b2bc0a0 1-47
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/Tool_CSG_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_7834861a618ca6 1-64
+extensions/Godot-AI-CSG/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_1c6063043e0310 1-48
+extensions/Godot-AI-CSG/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_42d32d5ab43b9c 1-179
+extensions/Godot-AI-Dialogic/.editorconfig
+  s_eb8bcde0be96a2::t_974d731f4d5490 1-20
+extensions/Godot-AI-Dialogic/.gitignore
+  s_eb8bcde0be96a2::t_a5fb8e1e9f168c 1-33
+extensions/Godot-AI-Dialogic/AGENTS.md
+  s_eb8bcde0be96a2::t_44fed569c7d37d 1-92
+extensions/Godot-AI-Dialogic/LICENSE
+  s_eb8bcde0be96a2::t_0ff441c9f94e79 1-201
+extensions/Godot-AI-Dialogic/README.md
+  s_eb8bcde0be96a2::t_e8172232bb2d36 1-34
+extensions/Godot-AI-Dialogic/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_10aa1982a565e9 1-40
+extensions/Godot-AI-Dialogic/commands/bump-version.py
+  s_eb8bcde0be96a2::t_a8ec5189f9c7fc 1-60
+extensions/Godot-AI-Dialogic/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_2c6b8609428231 1-9
+extensions/Godot-AI-Dialogic/commands/init.ps1
+  s_eb8bcde0be96a2::t_79737796c33d9a 1-121
+extensions/Godot-AI-Dialogic/commands/init.py
+  s_eb8bcde0be96a2::t_4fd86d5fdeb3eb 1-123
+extensions/Godot-AI-Dialogic/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_73a49a1bb7f837 1-48
+extensions/Godot-AI-Dialogic/commands/update-core.py
+  s_eb8bcde0be96a2::t_975f61ecb0d11f 1-57
+extensions/Godot-AI-Dialogic/docs/ci.md
+  s_eb8bcde0be96a2::t_6f0597e95d8fdd 1-6
+extensions/Godot-AI-Dialogic/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_292600b734e91d 1-137
+extensions/Godot-AI-Dialogic/extension.json
+  s_eb8bcde0be96a2::t_ccb4315315a3a2 1-18
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Editor/Tools/Tool_Dialogic.CharacterCreate.cs
+  s_eb8bcde0be96a2::t_0f1eed3a9087f9 1-82
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Editor/Tools/Tool_Dialogic.Editor.cs
+  s_eb8bcde0be96a2::t_1cf7c7655aa115 1-107
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Editor/Tools/Tool_Dialogic.Get.cs
+  s_eb8bcde0be96a2::t_6605064224c479 1-88
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Editor/Tools/Tool_Dialogic.TimelineAddText.cs
+  s_eb8bcde0be96a2::t_fbb73d12b4d54e 1-66
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Editor/Tools/Tool_Dialogic.TimelineCreate.cs
+  s_eb8bcde0be96a2::t_fbb8eedd924f8e 1-59
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj
+  s_eb8bcde0be96a2::t_7fe375711d2ed1 1-101
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/README.md
+  s_eb8bcde0be96a2::t_648c80c1c29ccc 1-34
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/AddonGateResult.cs
+  s_eb8bcde0be96a2::t_75c1bc548b4348 1-31
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicAddon.cs
+  s_eb8bcde0be96a2::t_84ea4d08476a2c 1-83
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicColor.cs
+  s_eb8bcde0be96a2::t_b98722230b186f 1-56
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicDefaults.cs
+  s_eb8bcde0be96a2::t_8162d4f3f25707 1-64
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicResourceInfo.cs
+  s_eb8bcde0be96a2::t_86f367af508a30 1-70
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicResourceKind.cs
+  s_eb8bcde0be96a2::t_36773cc23073c8 1-59
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Dialogic/DialogicTimelineText.cs
+  s_eb8bcde0be96a2::t_445a52a66b5f84 1-74
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Interop/AddonInterop.cs
+  s_eb8bcde0be96a2::t_19743394901eae 1-64
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Tools/Tool_Dialogic.Defaults.cs
+  s_eb8bcde0be96a2::t_121a5aea1fe28a 1-46
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Tools/Tool_Dialogic.Ids.cs
+  s_eb8bcde0be96a2::t_05e7610d1c6715 1-34
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Runtime/Tools/Tool_Dialogic.cs
+  s_eb8bcde0be96a2::t_958cb64793a885 1-48
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/build/com.IvanMurzak.Godot.MCP.Dialogic.props
+  s_eb8bcde0be96a2::t_6eab21dd92b813 1-28
+extensions/Godot-AI-Dialogic/testbed/.gitignore
+  s_eb8bcde0be96a2::t_211d1ab226d7ac 1-9
+extensions/Godot-AI-Dialogic/testbed/Dialogic-Testbed.csproj
+  s_eb8bcde0be96a2::t_1429e85f0026f9 1-32
+extensions/Godot-AI-Dialogic/testbed/nuget.config
+  s_eb8bcde0be96a2::t_f55bec47dbe233 1-12
+extensions/Godot-AI-Dialogic/testbed/project.godot
+  s_eb8bcde0be96a2::t_0f863a5db38c23 1-21
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/DialogicColorTests.cs
+  s_eb8bcde0be96a2::t_9f1cbd805ecdd1 1-47
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/DialogicGateTests.cs
+  s_eb8bcde0be96a2::t_af1622a34f1a21 1-71
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/DialogicResourceKindTests.cs
+  s_eb8bcde0be96a2::t_844f6c14a0974b 1-48
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/DialogicTimelineTextTests.cs
+  s_eb8bcde0be96a2::t_8ce6418dd5dfbd 1-77
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/Godot-AI-Dialogic.Tests.csproj
+  s_eb8bcde0be96a2::t_946ffc629e9816 1-50
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/Tool_Dialogic_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_aff2a8072620bd 1-66
+extensions/Godot-AI-Dialogic/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_6a0ac17e695dc6 1-32
+extensions/Godot-AI-Dialogic/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_bc046f9c0c53a7 1-179
+extensions/Godot-AI-GridMap/.editorconfig
+  s_eb8bcde0be96a2::t_6f1076d41659f0 1-20
+extensions/Godot-AI-GridMap/.gitignore
+  s_eb8bcde0be96a2::t_97a86ee47a9849 1-33
+extensions/Godot-AI-GridMap/AGENTS.md
+  s_eb8bcde0be96a2::t_9c3c3571897fb6 1-65
+extensions/Godot-AI-GridMap/LICENSE
+  s_eb8bcde0be96a2::t_0ee46fa19aa9d9 1-201
+extensions/Godot-AI-GridMap/README.md
+  s_eb8bcde0be96a2::t_8c942d84640927 1-34
+extensions/Godot-AI-GridMap/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_819336e04e1cc0 1-40
+extensions/Godot-AI-GridMap/commands/bump-version.py
+  s_eb8bcde0be96a2::t_02a28e9637abdc 1-60
+extensions/Godot-AI-GridMap/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_a7e126c00f953a 1-9
+extensions/Godot-AI-GridMap/commands/init.ps1
+  s_eb8bcde0be96a2::t_5a7af48e336fb7 1-121
+extensions/Godot-AI-GridMap/commands/init.py
+  s_eb8bcde0be96a2::t_d2aee38de95f32 1-123
+extensions/Godot-AI-GridMap/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_f1c2a37edecb7f 1-48
+extensions/Godot-AI-GridMap/commands/update-core.py
+  s_eb8bcde0be96a2::t_78518529e06895 1-57
+extensions/Godot-AI-GridMap/docs/ci.md
+  s_eb8bcde0be96a2::t_0d17ed6f2f9210 1-6
+extensions/Godot-AI-GridMap/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_e5d8b53d37dadb 1-137
+extensions/Godot-AI-GridMap/extension.json
+  s_eb8bcde0be96a2::t_edb68126c928bb 1-12
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.Clear.cs
+  s_eb8bcde0be96a2::t_e5305c466ef47b 1-49
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.ClearCell.cs
+  s_eb8bcde0be96a2::t_1fc1c932b148bb 1-55
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.Create.cs
+  s_eb8bcde0be96a2::t_e7771b7a5917c2 1-85
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.Editor.cs
+  s_eb8bcde0be96a2::t_9f3bc00f8c9ddb 1-104
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.Get.cs
+  s_eb8bcde0be96a2::t_99c9d4d9e3d845 1-44
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.SetCell.cs
+  s_eb8bcde0be96a2::t_42848f7b979f26 1-64
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Tools/Tool_GridMap.SetMeshLibrary.cs
+  s_eb8bcde0be96a2::t_eaa14b12f5e331 1-65
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj
+  s_eb8bcde0be96a2::t_80b004a5c981be 1-101
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/README.md
+  s_eb8bcde0be96a2::t_991fc2f2794a17 1-34
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/GridMap/GridMapCellInfo.cs
+  s_eb8bcde0be96a2::t_a6f75e4c421ed7 1-58
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/GridMap/GridMapDefaults.cs
+  s_eb8bcde0be96a2::t_9fd4ffd94fad00 1-89
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/GridMap/GridMapNodeInfo.cs
+  s_eb8bcde0be96a2::t_59463595c76461 1-69
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/Tools/Tool_GridMap.Defaults.cs
+  s_eb8bcde0be96a2::t_8b40b5a9006ea1 1-53
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/Tools/Tool_GridMap.Ids.cs
+  s_eb8bcde0be96a2::t_5624e7007d1a05 1-40
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Runtime/Tools/Tool_GridMap.cs
+  s_eb8bcde0be96a2::t_b76ea26da94e7d 1-49
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/build/com.IvanMurzak.Godot.MCP.GridMap.props
+  s_eb8bcde0be96a2::t_36c8b268fed782 1-28
+extensions/Godot-AI-GridMap/testbed/.gitignore
+  s_eb8bcde0be96a2::t_14c2b9c670bea4 1-9
+extensions/Godot-AI-GridMap/testbed/GridMap-Testbed.csproj
+  s_eb8bcde0be96a2::t_476ea53270b314 1-32
+extensions/Godot-AI-GridMap/testbed/e2e-meshlib.tres
+  s_eb8bcde0be96a2::t_30039930afbc44 1-8
+extensions/Godot-AI-GridMap/testbed/nuget.config
+  s_eb8bcde0be96a2::t_bfe35cbccecfca 1-12
+extensions/Godot-AI-GridMap/testbed/project.godot
+  s_eb8bcde0be96a2::t_97bbbeb1e007a7 1-21
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Godot-AI-GridMap.Tests.csproj
+  s_eb8bcde0be96a2::t_df35f6246211a3 1-46
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/GridMapCellInfoTests.cs
+  s_eb8bcde0be96a2::t_b202469a7d2161 1-48
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/GridMapDefaultsTests.cs
+  s_eb8bcde0be96a2::t_7d755c6bc47108 1-72
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Tool_GridMap_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_99bf017141ff0c 1-64
+extensions/Godot-AI-GridMap/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_75b67eab2cb6ff 1-48
+extensions/Godot-AI-GridMap/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_04c8bc423afc93 1-179
+extensions/Godot-AI-Navigation/.editorconfig
+  s_eb8bcde0be96a2::t_17f367ab53e252 1-20
+extensions/Godot-AI-Navigation/.gitignore
+  s_eb8bcde0be96a2::t_d3f12a02317f61 1-33
+extensions/Godot-AI-Navigation/AGENTS.md
+  s_eb8bcde0be96a2::t_4e3120306bec62 1-64
+extensions/Godot-AI-Navigation/LICENSE
+  s_eb8bcde0be96a2::t_64749b14776034 1-201
+extensions/Godot-AI-Navigation/README.md
+  s_eb8bcde0be96a2::t_9215143e77f764 1-34
+extensions/Godot-AI-Navigation/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_e7529a397426fb 1-40
+extensions/Godot-AI-Navigation/commands/bump-version.py
+  s_eb8bcde0be96a2::t_3499700f1f2bd9 1-60
+extensions/Godot-AI-Navigation/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_9a4edfd99de7d4 1-9
+extensions/Godot-AI-Navigation/commands/init.ps1
+  s_eb8bcde0be96a2::t_df30996e6b6856 1-121
+extensions/Godot-AI-Navigation/commands/init.py
+  s_eb8bcde0be96a2::t_3221c024705f2d 1-123
+extensions/Godot-AI-Navigation/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_55fec22eb93211 1-48
+extensions/Godot-AI-Navigation/commands/update-core.py
+  s_eb8bcde0be96a2::t_aae04caa0d8a42 1-57
+extensions/Godot-AI-Navigation/docs/ci.md
+  s_eb8bcde0be96a2::t_bc228d02e2b265 1-6
+extensions/Godot-AI-Navigation/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_6755c88bb9a546 1-137
+extensions/Godot-AI-Navigation/extension.json
+  s_eb8bcde0be96a2::t_a886fb059572cc 1-12
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.AgentConfigure.cs
+  s_eb8bcde0be96a2::t_e1b8b83c1861dc 1-61
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.AgentCreate.cs
+  s_eb8bcde0be96a2::t_7b0f1902252fc8 1-66
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.Editor.cs
+  s_eb8bcde0be96a2::t_1a75c2f2537746 1-223
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.Get.cs
+  s_eb8bcde0be96a2::t_06e59bd8584c99 1-48
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.LinkCreate.cs
+  s_eb8bcde0be96a2::t_b5a2975d79f275 1-93
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.RegionCreate.cs
+  s_eb8bcde0be96a2::t_7e76cc46f92a3b 1-66
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Editor/Tools/Tool_Navigation.RegionSetMesh.cs
+  s_eb8bcde0be96a2::t_19e1b0f05772e6 1-83
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj
+  s_eb8bcde0be96a2::t_7239560988783d 1-101
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/README.md
+  s_eb8bcde0be96a2::t_ad023919e1bb42 1-34
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Navigation/NavigationDefaults.cs
+  s_eb8bcde0be96a2::t_56b168e40fb02f 1-93
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Navigation/NavigationDimension.cs
+  s_eb8bcde0be96a2::t_3b3fec07bf3f99 1-124
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Navigation/NavigationNodeInfo.cs
+  s_eb8bcde0be96a2::t_a5aba015f432ec 1-97
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Tools/Tool_Navigation.Defaults.cs
+  s_eb8bcde0be96a2::t_c97c546fb82018 1-50
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Tools/Tool_Navigation.Ids.cs
+  s_eb8bcde0be96a2::t_cd6043ce8b4df0 1-40
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Runtime/Tools/Tool_Navigation.cs
+  s_eb8bcde0be96a2::t_4f529169944d7c 1-45
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/build/com.IvanMurzak.Godot.MCP.Navigation.props
+  s_eb8bcde0be96a2::t_a8235a8b2d5c37 1-28
+extensions/Godot-AI-Navigation/testbed/.gitignore
+  s_eb8bcde0be96a2::t_7381590aaca37f 1-9
+extensions/Godot-AI-Navigation/testbed/Navigation-Testbed.csproj
+  s_eb8bcde0be96a2::t_10115bb4db57e2 1-32
+extensions/Godot-AI-Navigation/testbed/nuget.config
+  s_eb8bcde0be96a2::t_293b519341a9e8 1-12
+extensions/Godot-AI-Navigation/testbed/project.godot
+  s_eb8bcde0be96a2::t_2616afdef24b5e 1-21
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/Godot-AI-Navigation.Tests.csproj
+  s_eb8bcde0be96a2::t_9a4d74c0b7d402 1-46
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/NavigationDefaultsTests.cs
+  s_eb8bcde0be96a2::t_a1c45377e1cfec 1-90
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/NavigationDimensionTests.cs
+  s_eb8bcde0be96a2::t_8d16a9b4328e5d 1-82
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/Tool_Navigation_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_cebf9b10a7d940 1-64
+extensions/Godot-AI-Navigation/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_c04b166a7b2e5e 1-48
+extensions/Godot-AI-Navigation/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_ecff1960aa9e4c 1-179
+extensions/Godot-AI-Particles/.editorconfig
+  s_eb8bcde0be96a2::t_1e4ef290d2fd13 1-20
+extensions/Godot-AI-Particles/.gitignore
+  s_eb8bcde0be96a2::t_9f708748074eb2 1-33
+extensions/Godot-AI-Particles/AGENTS.md
+  s_eb8bcde0be96a2::t_3bfc3645636430 1-60
+extensions/Godot-AI-Particles/LICENSE
+  s_eb8bcde0be96a2::t_5f12bffefe7e47 1-201
+extensions/Godot-AI-Particles/README.md
+  s_eb8bcde0be96a2::t_b21aaecbb365f5 1-32
+extensions/Godot-AI-Particles/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_bf459419004c1b 1-40
+extensions/Godot-AI-Particles/commands/bump-version.py
+  s_eb8bcde0be96a2::t_758e25e1143bce 1-60
+extensions/Godot-AI-Particles/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_c517cbd9e0e34f 1-9
+extensions/Godot-AI-Particles/commands/init.ps1
+  s_eb8bcde0be96a2::t_a26b645cc156b3 1-121
+extensions/Godot-AI-Particles/commands/init.py
+  s_eb8bcde0be96a2::t_0dc74e5a0f7471 1-123
+extensions/Godot-AI-Particles/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_1ee0adb49c33f5 1-48
+extensions/Godot-AI-Particles/commands/update-core.py
+  s_eb8bcde0be96a2::t_4eec87e789f607 1-57
+extensions/Godot-AI-Particles/docs/ci.md
+  s_eb8bcde0be96a2::t_cad6a1e04b03e1 1-6
+extensions/Godot-AI-Particles/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_7ac51a677a2cec 1-137
+extensions/Godot-AI-Particles/extension.json
+  s_eb8bcde0be96a2::t_c213406f3ddfec 1-12
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Editor/Tools/Tool_Particles.Configure.cs
+  s_eb8bcde0be96a2::t_9721e51e51c55d 1-68
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Editor/Tools/Tool_Particles.Create.cs
+  s_eb8bcde0be96a2::t_26f5258db45114 1-86
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Editor/Tools/Tool_Particles.Editor.cs
+  s_eb8bcde0be96a2::t_b51739b0428078 1-153
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Editor/Tools/Tool_Particles.Get.cs
+  s_eb8bcde0be96a2::t_4646cd9d7ef292 1-44
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Editor/Tools/Tool_Particles.SetEmitting.cs
+  s_eb8bcde0be96a2::t_eaaf610e24a7b8 1-54
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj
+  s_eb8bcde0be96a2::t_0565fa1e1fd837 1-101
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/README.md
+  s_eb8bcde0be96a2::t_d30383f6a6cfc6 1-32
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Particles/ParticlesDefaults.cs
+  s_eb8bcde0be96a2::t_3dd2190938bc00 1-85
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Particles/ParticlesDimension.cs
+  s_eb8bcde0be96a2::t_9d2f3892aff43a 1-79
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Particles/ParticlesNodeInfo.cs
+  s_eb8bcde0be96a2::t_043c902a0be1e9 1-63
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Tools/Tool_Particles.Defaults.cs
+  s_eb8bcde0be96a2::t_36db1e10a840ac 1-47
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Tools/Tool_Particles.Ids.cs
+  s_eb8bcde0be96a2::t_6475b8cbd853b2 1-34
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Runtime/Tools/Tool_Particles.cs
+  s_eb8bcde0be96a2::t_c78efbcd9b00ca 1-43
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/build/com.IvanMurzak.Godot.MCP.Particles.props
+  s_eb8bcde0be96a2::t_af371cc09357aa 1-28
+extensions/Godot-AI-Particles/testbed/.gitignore
+  s_eb8bcde0be96a2::t_1178f6c10e2243 1-9
+extensions/Godot-AI-Particles/testbed/Particles-Testbed.csproj
+  s_eb8bcde0be96a2::t_d11249449e02d2 1-32
+extensions/Godot-AI-Particles/testbed/nuget.config
+  s_eb8bcde0be96a2::t_9c7f4a7329c02a 1-12
+extensions/Godot-AI-Particles/testbed/project.godot
+  s_eb8bcde0be96a2::t_9358819e839f1b 1-21
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/Godot-AI-Particles.Tests.csproj
+  s_eb8bcde0be96a2::t_cdaeb260578ed2 1-46
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/ParticlesDefaultsTests.cs
+  s_eb8bcde0be96a2::t_5bdea88473555a 1-95
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/ParticlesDimensionTests.cs
+  s_eb8bcde0be96a2::t_183868cfb86c3a 1-63
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/Tool_Particles_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_0ce856ea1d4077 1-61
+extensions/Godot-AI-Particles/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_b6752c8f35fa43 1-38
+extensions/Godot-AI-PhantomCamera/.editorconfig
+  s_eb8bcde0be96a2::t_88ed764d3828f5 1-20
+extensions/Godot-AI-PhantomCamera/.gitignore
+  s_eb8bcde0be96a2::t_7a94326c2ad0d7 1-33
+extensions/Godot-AI-PhantomCamera/AGENTS.md
+  s_eb8bcde0be96a2::t_18b1b751b769ae 1-90
+extensions/Godot-AI-PhantomCamera/LICENSE
+  s_eb8bcde0be96a2::t_cffb7b39fe4aec 1-201
+extensions/Godot-AI-PhantomCamera/README.md
+  s_eb8bcde0be96a2::t_854cdb92046096 1-36
+extensions/Godot-AI-PhantomCamera/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_66070ecc053b2b 1-40
+extensions/Godot-AI-PhantomCamera/commands/bump-version.py
+  s_eb8bcde0be96a2::t_191dd57ab49bdd 1-60
+extensions/Godot-AI-PhantomCamera/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_bb5c26fdf178e4 1-9
+extensions/Godot-AI-PhantomCamera/commands/init.ps1
+  s_eb8bcde0be96a2::t_fa2525cc65eb33 1-121
+extensions/Godot-AI-PhantomCamera/commands/init.py
+  s_eb8bcde0be96a2::t_828359a1fa922f 1-123
+extensions/Godot-AI-PhantomCamera/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_dd2278f4fa4d12 1-48
+extensions/Godot-AI-PhantomCamera/commands/update-core.py
+  s_eb8bcde0be96a2::t_cba9166b161845 1-57
+extensions/Godot-AI-PhantomCamera/docs/ci.md
+  s_eb8bcde0be96a2::t_7ae6959ce3d72b 1-6
+extensions/Godot-AI-PhantomCamera/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_2ee893b4b16578 1-137
+extensions/Godot-AI-PhantomCamera/extension.json
+  s_eb8bcde0be96a2::t_2a6e8e108a97a4 1-21
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.Create.cs
+  s_eb8bcde0be96a2::t_cd7c2b0fa28aca 1-87
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.Editor.cs
+  s_eb8bcde0be96a2::t_6270879fb89945 1-119
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.Get.cs
+  s_eb8bcde0be96a2::t_43c578dfbbc060 1-54
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.HostCreate.cs
+  s_eb8bcde0be96a2::t_a38aa1e7a3e6f1 1-103
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.SetFollow.cs
+  s_eb8bcde0be96a2::t_acaa718141ace3 1-74
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.SetLookAt.cs
+  s_eb8bcde0be96a2::t_fa8cc461566cb2 1-74
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Editor/Tools/Tool_PhantomCamera.SetPriority.cs
+  s_eb8bcde0be96a2::t_537983bfe93f8c 1-58
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj
+  s_eb8bcde0be96a2::t_639d594eb5b211 1-101
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/README.md
+  s_eb8bcde0be96a2::t_7c9a638aa279e3 1-36
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/Interop/AddonGate.cs
+  s_eb8bcde0be96a2::t_a2d78b1f00b9ef 1-51
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/Interop/AddonInterop.cs
+  s_eb8bcde0be96a2::t_a28533ff1c3bff 1-86
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/PhantomCamera/PhantomCameraDefaults.cs
+  s_eb8bcde0be96a2::t_d7ab61603cb82c 1-65
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/PhantomCamera/PhantomCameraEnums.cs
+  s_eb8bcde0be96a2::t_c0f8067a5c0339 1-178
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/PhantomCamera/PhantomCameraInfo.cs
+  s_eb8bcde0be96a2::t_a91c2433f8ccb7 1-86
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/Tools/Tool_PhantomCamera.Defaults.cs
+  s_eb8bcde0be96a2::t_cbfe20b346816e 1-48
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/Tools/Tool_PhantomCamera.Ids.cs
+  s_eb8bcde0be96a2::t_4eab6229e46622 1-40
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Runtime/Tools/Tool_PhantomCamera.cs
+  s_eb8bcde0be96a2::t_257c6fe026df4a 1-52
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/build/com.IvanMurzak.Godot.MCP.PhantomCamera.props
+  s_eb8bcde0be96a2::t_6dff283cb1ed18 1-28
+extensions/Godot-AI-PhantomCamera/testbed/.gitignore
+  s_eb8bcde0be96a2::t_9d5621d5cc23d8 1-9
+extensions/Godot-AI-PhantomCamera/testbed/PhantomCamera-Testbed.csproj
+  s_eb8bcde0be96a2::t_7f9bf3ae5cb2d3 1-32
+extensions/Godot-AI-PhantomCamera/testbed/nuget.config
+  s_eb8bcde0be96a2::t_047cc06fabbedc 1-12
+extensions/Godot-AI-PhantomCamera/testbed/project.godot
+  s_eb8bcde0be96a2::t_cbc91e4329b7da 1-35
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/AddonGateTests.cs
+  s_eb8bcde0be96a2::t_13c1097166c999 1-70
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Godot-AI-PhantomCamera.Tests.csproj
+  s_eb8bcde0be96a2::t_fc62e3d2bcc7da 1-47
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/PhantomCameraDefaultsTests.cs
+  s_eb8bcde0be96a2::t_47547c5bca9e5f 1-56
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/PhantomCameraEnumsTests.cs
+  s_eb8bcde0be96a2::t_f1ecc2615f9806 1-109
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Tool_PhantomCamera_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_7c7c6d70404d1a 1-58
+extensions/Godot-AI-PhantomCamera/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_ff69ef5f0bedf5 1-48
+extensions/Godot-AI-PhantomCamera/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_444ca7a5784902 1-179
+extensions/Godot-AI-Terrain3D/.editorconfig
+  s_eb8bcde0be96a2::t_b39a62d20f3853 1-20
+extensions/Godot-AI-Terrain3D/.gitignore
+  s_eb8bcde0be96a2::t_35974313e70eac 1-33
+extensions/Godot-AI-Terrain3D/AGENTS.md
+  s_eb8bcde0be96a2::t_4bc913c47f4831 1-92
+extensions/Godot-AI-Terrain3D/LICENSE
+  s_eb8bcde0be96a2::t_7483e74adbbd10 1-201
+extensions/Godot-AI-Terrain3D/README.md
+  s_eb8bcde0be96a2::t_e7a39e4ba9fc58 1-35
+extensions/Godot-AI-Terrain3D/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_657f63b89b0e32 1-40
+extensions/Godot-AI-Terrain3D/commands/bump-version.py
+  s_eb8bcde0be96a2::t_75c3ee7fb1ef44 1-60
+extensions/Godot-AI-Terrain3D/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_53ec66ec4666f6 1-9
+extensions/Godot-AI-Terrain3D/commands/init.ps1
+  s_eb8bcde0be96a2::t_3c24de8205af73 1-121
+extensions/Godot-AI-Terrain3D/commands/init.py
+  s_eb8bcde0be96a2::t_1edf019c203ed7 1-123
+extensions/Godot-AI-Terrain3D/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_714e0f0c97c639 1-48
+extensions/Godot-AI-Terrain3D/commands/update-core.py
+  s_eb8bcde0be96a2::t_5386e47c87fa4a 1-57
+extensions/Godot-AI-Terrain3D/docs/ci.md
+  s_eb8bcde0be96a2::t_44fb8cc46cee63 1-6
+extensions/Godot-AI-Terrain3D/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_d2befdd52de11b 1-137
+extensions/Godot-AI-Terrain3D/extension.json
+  s_eb8bcde0be96a2::t_82382508cf1f81 1-21
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.Create.cs
+  s_eb8bcde0be96a2::t_964b02483789a1 1-90
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.Editor.cs
+  s_eb8bcde0be96a2::t_796294efd8501d 1-88
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.Get.cs
+  s_eb8bcde0be96a2::t_d086953952395d 1-52
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.SetDataDirectory.cs
+  s_eb8bcde0be96a2::t_818d1466143e3f 1-61
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.SetMaterial.cs
+  s_eb8bcde0be96a2::t_377fff90fa21ca 1-68
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Editor/Tools/Tool_Terrain3D.SetRegionSize.cs
+  s_eb8bcde0be96a2::t_0da8eda0f3b110 1-60
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj
+  s_eb8bcde0be96a2::t_d37e03c5509202 1-101
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/README.md
+  s_eb8bcde0be96a2::t_6c3e800bd35bdc 1-35
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Interop/AddonGate.cs
+  s_eb8bcde0be96a2::t_73baf502902529 1-54
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Interop/AddonInterop.cs
+  s_eb8bcde0be96a2::t_21dc32fcae7199 1-53
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Terrain3D/Terrain3DConfig.cs
+  s_eb8bcde0be96a2::t_1ed2a08d1dfcab 1-42
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Terrain3D/Terrain3DDefaults.cs
+  s_eb8bcde0be96a2::t_f2ccf79f0c207b 1-85
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Terrain3D/Terrain3DNames.cs
+  s_eb8bcde0be96a2::t_6d961aa876dc57 1-135
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Terrain3D/Terrain3DNodeInfo.cs
+  s_eb8bcde0be96a2::t_84f403bb77840d 1-76
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Tools/Tool_Terrain3D.Defaults.cs
+  s_eb8bcde0be96a2::t_27e3baa012125e 1-48
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Tools/Tool_Terrain3D.Ids.cs
+  s_eb8bcde0be96a2::t_bd5099992bc76a 1-37
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Runtime/Tools/Tool_Terrain3D.cs
+  s_eb8bcde0be96a2::t_ed264e6194fc41 1-48
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/build/com.IvanMurzak.Godot.MCP.Terrain3D.props
+  s_eb8bcde0be96a2::t_20c4b83190cf55 1-28
+extensions/Godot-AI-Terrain3D/testbed/.gitignore
+  s_eb8bcde0be96a2::t_c90905b9fb4e3b 1-9
+extensions/Godot-AI-Terrain3D/testbed/Terrain3D-Testbed.csproj
+  s_eb8bcde0be96a2::t_a5931ab832db01 1-32
+extensions/Godot-AI-Terrain3D/testbed/nuget.config
+  s_eb8bcde0be96a2::t_448670e011201e 1-12
+extensions/Godot-AI-Terrain3D/testbed/project.godot
+  s_eb8bcde0be96a2::t_385c67fa51a6ac 1-21
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/AddonGateTests.cs
+  s_eb8bcde0be96a2::t_f288c84250439b 1-73
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj
+  s_eb8bcde0be96a2::t_fd221b5a4f3906 1-48
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Terrain3DDefaultsTests.cs
+  s_eb8bcde0be96a2::t_81c43c40b6ee93 1-90
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Tool_Terrain3D_DefaultsTests.cs
+  s_eb8bcde0be96a2::t_b796ef60770219 1-61
+extensions/Godot-AI-Terrain3D/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_bfd829587c3c53 1-43
+extensions/Godot-AI-Terrain3D/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_6b58dcb31477ec 1-179
+extensions/Godot-AI-Tilemap/.editorconfig
+  s_eb8bcde0be96a2::t_a860793410f5da 1-20
+extensions/Godot-AI-Tilemap/.gitignore
+  s_eb8bcde0be96a2::t_40e5161e043bd4 1-33
+extensions/Godot-AI-Tilemap/AGENTS.md
+  s_eb8bcde0be96a2::t_aa34f47d0ca61a 1-63
+extensions/Godot-AI-Tilemap/LICENSE
+  s_eb8bcde0be96a2::t_c1b222902fb2ab 1-201
+extensions/Godot-AI-Tilemap/README.md
+  s_eb8bcde0be96a2::t_73a184c32eed34 1-33
+extensions/Godot-AI-Tilemap/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_855e368cc2f242 1-40
+extensions/Godot-AI-Tilemap/commands/bump-version.py
+  s_eb8bcde0be96a2::t_ecbcdb81ad04b9 1-60
+extensions/Godot-AI-Tilemap/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_c780f2ac452e35 1-9
+extensions/Godot-AI-Tilemap/commands/init.ps1
+  s_eb8bcde0be96a2::t_c5224327c00877 1-121
+extensions/Godot-AI-Tilemap/commands/init.py
+  s_eb8bcde0be96a2::t_9a74091256fdea 1-123
+extensions/Godot-AI-Tilemap/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_720ec31796fba8 1-48
+extensions/Godot-AI-Tilemap/commands/update-core.py
+  s_eb8bcde0be96a2::t_60d63a321b2f29 1-57
+extensions/Godot-AI-Tilemap/docs/ci.md
+  s_eb8bcde0be96a2::t_2e728dabe1c3b9 1-6
+extensions/Godot-AI-Tilemap/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_d113259518f6fd 1-137
+extensions/Godot-AI-Tilemap/extension.json
+  s_eb8bcde0be96a2::t_021b0c5ba82b71 1-12
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.Clear.cs
+  s_eb8bcde0be96a2::t_e53961deb749ab 1-59
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.Create.cs
+  s_eb8bcde0be96a2::t_8953f93816a461 1-82
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.Editor.cs
+  s_eb8bcde0be96a2::t_f2e6690f32162a 1-91
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.EraseCell.cs
+  s_eb8bcde0be96a2::t_a0d3c6cecd0700 1-63
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.GetUsedCells.cs
+  s_eb8bcde0be96a2::t_16720c5a3f2e6b 1-53
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.SetCell.cs
+  s_eb8bcde0be96a2::t_2384a260c94e1e 1-76
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Tools/Tool_Tilemap.SetTileSet.cs
+  s_eb8bcde0be96a2::t_221caee00822f7 1-70
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj
+  s_eb8bcde0be96a2::t_f160865e8b6271 1-101
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/README.md
+  s_eb8bcde0be96a2::t_257a6eff079ae2 1-33
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Runtime/Tilemap/TileCell.cs
+  s_eb8bcde0be96a2::t_0a85e0cdded9de 1-60
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Runtime/Tilemap/TileMapLayerInfo.cs
+  s_eb8bcde0be96a2::t_35b75ffb31c7a4 1-38
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Runtime/Tilemap/TilemapValidation.cs
+  s_eb8bcde0be96a2::t_0b32983bff6d68 1-69
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Runtime/Tools/Tool_Tilemap.Ids.cs
+  s_eb8bcde0be96a2::t_8f06a2adcc8913 1-37
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Runtime/Tools/Tool_Tilemap.cs
+  s_eb8bcde0be96a2::t_9a1230a963abf0 1-42
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/build/com.IvanMurzak.Godot.MCP.Tilemap.props
+  s_eb8bcde0be96a2::t_49d5ffd05eefa2 1-28
+extensions/Godot-AI-Tilemap/testbed/.gitignore
+  s_eb8bcde0be96a2::t_bf65f1b23a7797 1-9
+extensions/Godot-AI-Tilemap/testbed/Tilemap-Testbed.csproj
+  s_eb8bcde0be96a2::t_b8976606a285a7 1-32
+extensions/Godot-AI-Tilemap/testbed/nuget.config
+  s_eb8bcde0be96a2::t_c68ed07389db61 1-12
+extensions/Godot-AI-Tilemap/testbed/project.godot
+  s_eb8bcde0be96a2::t_fd5f9afd6412c6 1-21
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/Godot-AI-Tilemap.Tests.csproj
+  s_eb8bcde0be96a2::t_04b74e5b969121 1-45
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/TileCellTests.cs
+  s_eb8bcde0be96a2::t_183807dcc34c9c 1-51
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/TileMapLayerInfoTests.cs
+  s_eb8bcde0be96a2::t_4d1de50631f5f7 1-50
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/TilemapValidationTests.cs
+  s_eb8bcde0be96a2::t_aa207bc0df388b 1-85
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/Tool_TilemapTests.cs
+  s_eb8bcde0be96a2::t_97f1c0fb117a88 1-40
+extensions/Godot-AI-Tilemap/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_87a0fda4157722 1-179
+extensions/manifest.json
+  s_eb8bcde0be96a2::t_f3a9b941789636 1-15
+templates/extension/.editorconfig
+  s_eb8bcde0be96a2::t_a7c71ca6df9de5 1-20
+templates/extension/.github/workflows/bump_version.yml-sample
+  s_eb8bcde0be96a2::t_5c73c89b3eee59 1-199
+templates/extension/.github/workflows/release.yml-sample
+  s_eb8bcde0be96a2::t_c5b70767193a66 1-174
+templates/extension/.github/workflows/test-pull-request.yml-sample
+  s_eb8bcde0be96a2::t_a3a0758af8f3b5 1-28
+templates/extension/.github/workflows/test.yml-sample
+  s_eb8bcde0be96a2::t_065aa172f69f42 1-380
+templates/extension/.gitignore
+  s_eb8bcde0be96a2::t_c96780a7aa4260 1-33
+templates/extension/AGENTS.md
+  s_eb8bcde0be96a2::t_bbd79cb02a63f7 1-55
+templates/extension/LICENSE
+  s_eb8bcde0be96a2::t_02b3232d6aec71 1-201
+templates/extension/README.md
+  s_eb8bcde0be96a2::t_0678ff54da7210 1-18
+templates/extension/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_5ffdec7855b24c 1-40
+templates/extension/commands/bump-version.py
+  s_eb8bcde0be96a2::t_17768b300c74ff 1-60
+templates/extension/commands/get-version.ps1
+  s_eb8bcde0be96a2::t_3d3037797a237e 1-9
+templates/extension/commands/init.ps1
+  s_eb8bcde0be96a2::t_4853e975bfa607 1-121
+templates/extension/commands/init.py
+  s_eb8bcde0be96a2::t_1c2dbe9b4058db 1-123
+templates/extension/commands/update-core.ps1
+  s_eb8bcde0be96a2::t_5e7c6a5d5ca3cf 1-48
+templates/extension/commands/update-core.py
+  s_eb8bcde0be96a2::t_d2638a753283f9 1-57
+templates/extension/docs/ci.md
+  s_eb8bcde0be96a2::t_1076db6813a307 1-3
+templates/extension/docs/source-only-nuget-recipe.md
+  s_eb8bcde0be96a2::t_2173f403743013 1-137
+templates/extension/src/Godot-AI-YOUR_FEATURE/Editor/Tools/Tool_YOUR_FEATURE.EditorInfo.cs
+  s_eb8bcde0be96a2::t_73aeb5e2f8705f 1-61
+templates/extension/src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj
+  s_eb8bcde0be96a2::t_5558557b3bfa0d 1-101
+templates/extension/src/Godot-AI-YOUR_FEATURE/README.md
+  s_eb8bcde0be96a2::t_e416ddd58f978c 1-32
+templates/extension/src/Godot-AI-YOUR_FEATURE/Runtime/Tools/Tool_YOUR_FEATURE.Echo.cs
+  s_eb8bcde0be96a2::t_0dbbddedd07ac8 1-47
+templates/extension/src/Godot-AI-YOUR_FEATURE/Runtime/Tools/Tool_YOUR_FEATURE.cs
+  s_eb8bcde0be96a2::t_ec3f8cced30974 1-43
+templates/extension/src/Godot-AI-YOUR_FEATURE/build/com.IvanMurzak.Godot.MCP.YOUR_FEATURE.props
+  s_eb8bcde0be96a2::t_19c9316eefcb55 1-28
+templates/extension/testbed/.gitignore
+  s_eb8bcde0be96a2::t_c6b0d99eb9b84d 1-9
+templates/extension/testbed/YOUR_FEATURE-Testbed.csproj
+  s_eb8bcde0be96a2::t_6d2ce6b5533c11 1-32
+templates/extension/testbed/nuget.config
+  s_eb8bcde0be96a2::t_3fbae397f6b917 1-12
+templates/extension/testbed/project.godot
+  s_eb8bcde0be96a2::t_dc479a7195102c 1-21
+templates/extension/tests/Godot-AI-YOUR_FEATURE.Tests/Godot-AI-YOUR_FEATURE.Tests.csproj
+  s_eb8bcde0be96a2::t_a593840497fdb4 1-42
+templates/extension/tests/Godot-AI-YOUR_FEATURE.Tests/Tool_YOUR_FEATURE_EchoTests.cs
+  s_eb8bcde0be96a2::t_5a86e38757c6cb 1-46
+templates/extension/tests/e2e/e2e-tools.json
+  s_eb8bcde0be96a2::t_cb8e491afad8e5 1-17
+templates/extension/tests/e2e/run_tool_e2e.py
+  s_eb8bcde0be96a2::t_9e1fd15dca1572 1-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70d05ed20cca8669a603b80f394d65bcb54d16eb",
+  "prompts": {},
+  "sessions": {
+    "s_95bcf3f96c9aab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "39a3ce47-a17e-49b0-b22d-3d8bdcffc779",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

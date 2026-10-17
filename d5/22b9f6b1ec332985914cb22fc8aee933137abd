@@ -1,0 +1,65 @@
+CLAUDE.md
+  s_9284ad4c8de2f4::t_58345fc41b904d 17,168
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_a1c4a96cac24ea::t_780c62a0f52230 41
+Godot-MCP.csproj
+  s_a1c4a96cac24ea::t_d94677966b6425 20
+Godot-Tests/Godot-Tests.csproj
+  s_a1c4a96cac24ea::t_26240110da4c6e 15,37
+Godot-Tests/README.md
+  s_9284ad4c8de2f4::t_61e887280270ab 15
+cli/src/utils/addon-deps.ts
+  s_a1c4a96cac24ea::t_f6d39d93717664 46
+docs/ARCHITECTURE.md
+  s_9284ad4c8de2f4::t_32bca8ec16c64a 216
+docs/RELEASING.md
+  s_9284ad4c8de2f4::t_76a3e30356f007 248
+.github/assetlib/edit.hbs
+  s_ef2676f77c7aab::t_a13d3120535e58 3
+README.md
+  s_feb50cd98af192::t_3adc2198d5d20f 305,317
+cli/tests/skills-addon-parity.test.ts
+  s_feb50cd98af192::t_17b8cfd83fccc4 241,246,248
+docs/assetlib/SUBMISSION.md
+  s_feb50cd98af192::t_d503dcb55ba45d 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d522b9f6b1ec332985914cb22fc8aee933137abd",
+  "prompts": {},
+  "sessions": {
+    "s_9284ad4c8de2f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "64f4c13c-1681-4443-9cc9-81bbde69cd56",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_a1c4a96cac24ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5e9cca27-a0f3-433c-be2f-3208b1ae4505",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_ef2676f77c7aab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a2d536bce340c7afb",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_feb50cd98af192": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a24aa8d811f223163",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

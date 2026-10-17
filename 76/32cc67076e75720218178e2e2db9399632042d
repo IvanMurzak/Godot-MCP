@@ -1,0 +1,22 @@
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_88692866f8a457::t_e7b787b6bf4a5b 316-327
+  s_88692866f8a457::t_d3168213a4e417 338-351
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_88692866f8a457::t_5cbb6bc024d381 1109-1116,1121-1147,1150-1154,1160-1164,1180-1195,1204-1240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7632cc67076e75720218178e2e2db9399632042d",
+  "prompts": {},
+  "sessions": {
+    "s_88692866f8a457": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2977a50-af66-49ec-9bc3-af770d89759d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

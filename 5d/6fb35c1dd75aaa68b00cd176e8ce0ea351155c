@@ -1,0 +1,54 @@
+Godot-MCP.Tests/AgentConfiguratorCredentialPolicyTests.cs
+  s_09c7ff34dcd224::t_1b8feb74bd9a1f 127,129-132,134-145
+  s_09c7ff34dcd224::t_007d4b9669c788 1-3,5-40,43-47,49,51-126,128,133,146-177
+  s_09c7ff34dcd224::t_4e1c2abd2cf7d2 4
+  s_09c7ff34dcd224::t_07cfb37155560b 41-42,48,50
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorsPanel.cs
+  s_09c7ff34dcd224::t_b274e08dc2bb78 77-82
+  s_09c7ff34dcd224::t_4afbea77204302 83
+  s_ee7aa66068fb53::t_6fdd6dd17f2533 198,260-264,416,472-530,540,550,642-648
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorCredentialPolicy.cs
+  s_09c7ff34dcd224::t_fc7c917c92a46b 1-91
+Godot-MCP.Tests/ConnectionPanelViewTests.cs
+  s_8a747e02814811::t_c05a3781bca34e 268-320
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_ee7aa66068fb53::t_e4da0fa8e6b621 275-281
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorSettingsFactory.cs
+  s_ee7aa66068fb53::t_fe0a27091a7005 44-53,55-57,59-60,70
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_ee7aa66068fb53::t_65fcb2ac2d83d8 111-114,116-119,125-128,505-559,571,583-595,999-1012,1014-1016
+addons/godot_mcp/Editor/UI/ConnectionPanelView.cs
+  s_ee7aa66068fb53::t_fe0525c004d313 164-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "5d6fb35c1dd75aaa68b00cd176e8ce0ea351155c",
+  "prompts": {},
+  "sessions": {
+    "s_09c7ff34dcd224": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f5aff01-99e0-4c4c-a518-08ebc0648b62",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_8a747e02814811": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "462df022-3b99-49da-b589-76d81b150110",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_ee7aa66068fb53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ac5182df728fa09a4",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
