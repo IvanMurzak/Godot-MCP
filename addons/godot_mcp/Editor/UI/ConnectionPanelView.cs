@@ -70,6 +70,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public const string ButtonTextStop = "Stop";
 
         /// <summary>
+        /// McpPlugin's <c>ConnectionConfig.ConnectionErrorHint</c> for the editor connection: logged after each
+        /// SignalR connection error, it names the dock control that stops the retry loop. Plain text (the Godot
+        /// Output panel does not render markup). The in-game runtime has no such UI and leaves the hint unset.
+        /// </summary>
+        public const string ConnectionErrorHint =
+            "To stop connecting to the MCP server, click \"" + ButtonTextStop + "\" in the Connection section of the AI Game Developer dock.";
+
+        /// <summary>
         /// Reduce SignalR's four-state <see cref="HubConnectionState"/> plus the client's
         /// <paramref name="keepConnected"/> intent into the three buckets the dock renders. Mirrors the
         /// Unity reference's <c>GetConnectionStatusClass</c>: <see cref="ConnectionStatus.Connected"/> only

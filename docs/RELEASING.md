@@ -265,7 +265,7 @@ in this repo):
 | Package | Version | Role |
 | --- | --- | --- |
 | `com.IvanMurzak.ReflectorNet` | `5.4.3` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `8.8.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.McpPlugin` | `8.9.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 | `com.IvanMurzak.Rql` | `0.1.1` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield) |
 
 The addon **source folder** — distributed via the GitHub Release zip and the Godot Asset Library

@@ -389,6 +389,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // repeat Start() re-assigns the SAME composite rather than nesting delegates.
             _config.CredentialProvider = _account.CreateConnectionCredentialProvider(_config);
 
+            // Logged by McpPlugin after each SignalR connection error: where in the dock the user stops retrying.
+            _config.ConnectionErrorHint = ConnectionPanelView.ConnectionErrorHint;
+
             // Instance-metadata handshake (design 04 — mcp-authorize e1, PR 3). Identify THIS editor
             // session to the server so it can route/dedup by account + project + instance instead of by
             // token-string equality. Set on the config the SignalR client reads at connect — the client

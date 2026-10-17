@@ -44,7 +44,7 @@
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
@@ -86,7 +86,6 @@
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\GodotMcpEnv.cs" Link="Source\GodotMcpEnv.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Connection\GodotMcpConfig.cs" Link="Source\GodotMcpConfig.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Connection\LoopbackTokenScope.cs" Link="Source\LoopbackTokenScope.cs" />
     <!-- Project-identity wiring (mcp-authorize e1, PR 3): the instance-metadata handshake builder,
          ProjectIdentity (pin + derived port) resolution, and the marker serverTarget → connection-mode
          mapping. Pure-managed adapter over McpPlugin 7.0's ConnectionInstanceMetadata / ProjectIdentity /

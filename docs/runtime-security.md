@@ -59,6 +59,9 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
 - **Do not expose an unauthenticated MCP surface on a public interface in a release build** unless you
   have explicitly designed and secured that surface. Treat any non-loopback host as a deliberate,
   reviewed decision.
+- **Change the host or mode only while disconnected.** Unless you assign your own `CredentialProvider`, each
+  connection's bearer is bound to the mode and host it dials: after a change, a reconnect of the existing link
+  is sent no token, so call `handle.Disconnect()` and `handle.Connect()` to switch servers.
 - **Do not embed long-lived secrets in the shipped binary.** Prefer `GODOT_MCP_TOKEN` from the
   environment over a hard-coded `config.Token` so the token is not extractable from the build.
 - **Enable runtime-error capture only on a trusted connection.** `builder.WithRuntimeErrorCapture()` is

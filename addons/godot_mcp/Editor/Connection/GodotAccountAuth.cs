@@ -279,35 +279,27 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>Bind all credential paths to the connection host captured when the transport is built.</summary>
         public Func<Task<string?>> CreateConnectionCredentialProvider(GodotMcpConfig config)
         {
-            var mode = config.ActiveMode;
-            var host = config.Host;
             var origin = GodotMcpConfig.ResolveCloudBaseUrl(config.CloudBaseUrl);
-            bool Matches() => config.ActiveMode == mode && string.Equals(config.Host, host, StringComparison.Ordinal);
-            return async () =>
+            return config.BindToConnection(async (mode, host) =>
             {
-                if (!Matches())
-                    return null;
                 if (mode == GodotMcpConnectionMode.Custom && config.ActiveAuthOption == McpServerConsts.AuthOption.oauth)
                 {
                     // The account token reaches a loopback host only; any other host gets the explicit token or
-                    // the provider throws (LoopbackTokenScope), failing the connection attempt.
-                    var bearer = await config.ResolveCustomOAuthBearerAsync(host, async () =>
+                    // the provider throws (CustomOAuthCredentialPolicy), failing the connection attempt.
+                    return await config.ResolveCustomOAuthBearerAsync(host, async () =>
                     {
                         var account = IsSignedIn ? await GetAccessTokenForOriginAsync(origin).ConfigureAwait(false) : null;
                         return string.IsNullOrEmpty(account) ? config.ResolveStoredAccountToken() : account;
                     }).ConfigureAwait(false);
-                    return Matches() ? bearer : null;
                 }
                 if (mode == GodotMcpConnectionMode.Cloud && IsSignedIn)
                 {
                     var token = await GetAccessTokenForOriginAsync(origin).ConfigureAwait(false);
-                    if (!Matches())
-                        return null;
                     if (!string.IsNullOrEmpty(token))
                         return token;
                 }
-                return Matches() ? config.Token : null;
-            };
+                return config.Token;
+            });
         }
 
         public async Task<string?> GetAccessTokenForOriginAsync(string origin)

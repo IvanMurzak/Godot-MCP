@@ -288,18 +288,55 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Never serialized. McpPlugin 7.0's base <see cref="ConnectionConfig.CredentialProvider"/> is a
-        /// non-serializable delegate (<c>Func&lt;Task&lt;string?&gt;&gt;</c>) with no <c>[JsonIgnore]</c> of its
-        /// own, so a straight serialization of this persisted config throws <c>NotSupportedException</c>. This
-        /// override adds nothing but the <see cref="JsonIgnoreAttribute"/> — it forwards get/set to the base so
-        /// the constructor's wiring and the SignalR client's per-connect read are unchanged, while the config
-        /// store (<see cref="GodotMcpConfigStore"/>) round-trips only the serializable state as before.
+        /// Never serialized: the base <see cref="ConnectionConfig.CredentialProvider"/> is a non-serializable
+        /// delegate without <c>[JsonIgnore]</c> of its own, so the config store
+        /// (<see cref="GodotMcpConfigStore"/>) would throw <c>NotSupportedException</c> on it.
+        /// <para>
+        /// When nothing assigned a provider (the in-game runtime, <c>GodotMcpRuntime.Build</c>), the getter returns
+        /// a fresh <see cref="CreateConnectionCredentialProvider"/>. McpPlugin reads this property once per
+        /// HubConnection build, right next to <see cref="Host"/>, so each HubConnection gets a provider bound to
+        /// the host it dials. A live-reading provider would let a SignalR reconnect of an older remote link see a
+        /// newer loopback host and send it the account token. The editor assigns its own bound provider
+        /// (<c>GodotAccountAuth.CreateConnectionCredentialProvider</c>) on every connection start.
+        /// </para>
         /// </summary>
         [JsonIgnore]
         public override Func<Task<string?>>? CredentialProvider
         {
-            get => base.CredentialProvider;
+            get => base.CredentialProvider ?? CreateConnectionCredentialProvider();
             set => base.CredentialProvider = value;
+        }
+
+        /// <summary>
+        /// The config's own bearer resolution bound to the CURRENT mode and host (<see cref="BindToConnection"/>):
+        /// Custom + <c>oauth</c> goes through <see cref="ResolveCustomOAuthBearerAsync"/> for the captured host, so
+        /// a remote host without an explicit token fails the connection instead of receiving the account token;
+        /// every other mode presents <see cref="Token"/>.
+        /// </summary>
+        public Func<Task<string?>> CreateConnectionCredentialProvider()
+            => BindToConnection((mode, host) =>
+                mode == GodotMcpConnectionMode.Custom && ActiveAuthOption == McpServerConsts.AuthOption.oauth
+                    ? ResolveCustomOAuthBearerAsync(host, () => Task.FromResult(ResolveStoredAccountToken()))
+                    : Task.FromResult(Token));
+
+        /// <summary>
+        /// Capture <see cref="ActiveMode"/> and <see cref="Host"/> now (when the provider is handed to a connection)
+        /// and wrap <paramref name="resolve"/> so it only ever resolves a bearer for that captured target: while the
+        /// live mode or host differs (before or after <paramref name="resolve"/> runs) the provider returns
+        /// <c>null</c> (anonymous) rather than a credential meant for a different server.
+        /// </summary>
+        public Func<Task<string?>> BindToConnection(Func<GodotMcpConnectionMode, string, Task<string?>> resolve)
+        {
+            var mode = ActiveMode;
+            var host = Host;
+            bool Bound() => ActiveMode == mode && string.Equals(Host, host, StringComparison.Ordinal);
+            return async () =>
+            {
+                if (!Bound())
+                    return null;
+                var bearer = await resolve(mode, host).ConfigureAwait(false);
+                return Bound() ? bearer : null;
+            };
         }
 
         public GodotMcpConfig()
@@ -309,15 +346,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // We do not reimplement transport — we just opt into staying connected.
             KeepConnected = true;
 
-            // McpPlugin 7.0 reads the bearer from CredentialProvider (an async Func<Task<string?>>) rather than a
-            // Token property. Resolve it LIVE off Token on each connect so the active-mode + env overrides still
-            // apply — behavior-preserving vs the 6.x virtual Token the client used to read.
-            // Custom + oauth goes through the loopback scope so a remote host without an explicit token fails the
-            // connection instead of dialing anonymously (the editor composes its own provider, same rule).
-            CredentialProvider = () =>
-                ActiveMode == GodotMcpConnectionMode.Custom && ActiveAuthOption == McpServerConsts.AuthOption.oauth
-                    ? ResolveCustomOAuthBearerAsync(ResolveCustomHost(), () => Task.FromResult(ResolveStoredAccountToken()))
-                    : Task.FromResult(Token);
+            // No CredentialProvider assignment here: the getter binds one per HubConnection (see CredentialProvider).
 
             // Auto-generate skills is ON by default (owner-approved v1 default): on a fresh install the addon
             // regenerates the skills-capable agent's SKILL.md files on boot via GenerateSkillFilesIfNeeded(), so the
@@ -438,13 +467,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             => SameServerOrigin(CloudTokenServerTarget, ResolveCloudBaseUrl(CloudBaseUrl)) ? CloudToken : null;
 
         /// <summary>
-        /// The Custom + <c>oauth</c> bearer for <paramref name="host"/> (<see cref="LoopbackTokenScope"/>): the account
+        /// The Custom + <c>oauth</c> bearer for <paramref name="host"/> (<see cref="CustomOAuthCredentialPolicy"/>): the account
         /// token from <paramref name="accountToken"/> only for a loopback host; any other host gets the configured
         /// Custom token (<see cref="ResolveConfiguredCustomToken"/>), or this throws <see cref="CredentialScopeException"/>
         /// so the connection fails.
         /// </summary>
         public Task<string?> ResolveCustomOAuthBearerAsync(string host, Func<Task<string?>>? accountToken)
-            => LoopbackTokenScope.ResolveAsync(host, accountToken, ResolveConfiguredCustomToken(), EnvToken);
+            => CustomOAuthCredentialPolicy.ResolveAsync(host, accountToken, ResolveConfiguredCustomToken(), EnvToken);
 
         /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else <see cref="CustomToken"/> (which a project <c>.env</c> also sets).</summary>
         public string? ResolveConfiguredCustomToken()
@@ -479,7 +508,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///   (<see cref="ResolveStoredAccountToken"/>, else <see cref="ResolveConfiguredCustomToken"/>): oauth-local
         ///   validates the loopback-audience account token against ai-game.dev's JWKS (design Part A). For any
         ///   other host only <see cref="ResolveConfiguredCustomToken"/>, never the account token
-        ///   (<see cref="LoopbackTokenScope"/>; the connection's credential provider fails instead).</item>
+        ///   (<see cref="CustomOAuthCredentialPolicy"/>; the connection's credential provider fails instead).</item>
         /// </list>
         /// </summary>
         public string? ResolveCustomToken()
@@ -491,7 +520,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
                 case McpServerConsts.AuthOption.oauth:
                     // Non-throwing view of ResolveCustomOAuthBearerAsync (the provider refuses instead of null).
-                    var account = LoopbackTokenScope.IsLoopback(ResolveCustomHost()) ? ResolveStoredAccountToken() : null;
+                    var account = HostScope.IsLoopback(ResolveCustomHost()) ? ResolveStoredAccountToken() : null;
                     return !string.IsNullOrEmpty(account) ? account : ResolveConfiguredCustomToken();
 
                 default: // none
