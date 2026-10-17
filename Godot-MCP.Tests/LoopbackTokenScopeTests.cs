@@ -130,10 +130,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         sealed class EnvScope : IDisposable
         {
-            readonly string? _prior = Environment.GetEnvironmentVariable(GodotMcpConfig.EnvToken);
-            readonly string?[] _others = Array.ConvertAll(Names, Environment.GetEnvironmentVariable);
-            static readonly string[] Names = { GodotMcpConfig.EnvAuthOption, GodotMcpConfig.EnvConnectionMode, GodotMcpConfig.EnvHost };
+            static readonly string[] Names =
+                { GodotMcpConfig.EnvToken, GodotMcpConfig.EnvAuthOption, GodotMcpConfig.EnvConnectionMode, GodotMcpConfig.EnvHost };
+            readonly string?[] _prior = Array.ConvertAll(Names, Environment.GetEnvironmentVariable);
 
+            /// <summary>Clears the connection env and sets <c>GODOT_MCP_TOKEN</c> to <paramref name="token"/>.</summary>
             public static EnvScope Set(string? token)
             {
                 var scope = new EnvScope();
@@ -145,9 +146,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             public void Dispose()
             {
-                Environment.SetEnvironmentVariable(GodotMcpConfig.EnvToken, _prior);
                 for (var i = 0; i < Names.Length; i++)
-                    Environment.SetEnvironmentVariable(Names[i], _others[i]);
+                    Environment.SetEnvironmentVariable(Names[i], _prior[i]);
             }
         }
 

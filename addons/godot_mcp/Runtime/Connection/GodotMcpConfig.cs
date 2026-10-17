@@ -446,10 +446,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
 
                 case McpServerConsts.AuthOption.oauth:
-                    var explicitToken = NormalizeEnv(ReadEnv(EnvToken));
+                    // Non-throwing view of ResolveCustomOAuthBearerAsync (the provider refuses instead of null).
                     var account = LoopbackTokenScope.IsLoopback(ResolveCustomHost()) ? ResolveStoredAccountToken() : null;
-                    return !string.IsNullOrEmpty(account) ? account
-                        : string.IsNullOrEmpty(explicitToken) ? null : explicitToken;
+                    return !string.IsNullOrEmpty(account) ? account : NormalizeEnv(ReadEnv(EnvToken));
 
                 default: // none
                     return null;
