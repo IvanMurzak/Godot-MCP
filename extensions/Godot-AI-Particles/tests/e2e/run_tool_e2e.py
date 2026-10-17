@@ -23,19 +23,22 @@ Manifest schema (JSON object):
     }
 
     <call> = {
-      "tool":   "particles-create",      # required: the tool id
+      "tool":   "rql-query",              # required: the tool id
       "system": false,                    # optional: true => run-system-tool (/api/system-tools)
       "input":  { ... },                  # optional: tool arguments (default {})
-      "expect": [ "\"Amount\":32", ... ]  # optional: substrings that MUST appear in the raw response
+      "expect": [ "FX|32", ... ],         # optional: substrings that MUST appear in the raw response
+      "expectFailure": false              # optional: true => the call MUST fail (a rejected value, an error)
     }
 
 The driver gates each call on THREE things: `godot-cli` exit code 0, the literal `"status":"success"`
-in the raw response, and every `expect` substring present. Any miss fails the whole run.
+in the raw response, and every `expect` substring present. Any miss fails the whole run. A call marked
+`expectFailure` is inverted: it passes only when the tool fails AND every `expect` substring appears in its
+output (so a validation rule is proven live, not just that something failed).
 
-`setup` exists for tools that need an edited scene root: most editor tools resolve nodes relative to
-`EditorInterface.GetEditedSceneRoot()`, which is null on a freshly-booted headless editor. A
-`scene-create` setup call (a core godot_mcp tool) opens a scene so the extension's editor tools have a
-root to operate on. Pure-managed and version/UI-info tools need no setup.
+Extensions are RQL modules: their calls are the core `rql-query` / `rql-mutate` / `rql-schema` tools, whose
+default results are compact text (rows `a|b|c`, objects `Class#id(name)`), embedded in godot-cli's --raw JSON.
+`setup` exists for calls that need an edited scene: `root` / `nodes` are empty on a freshly-booted headless
+editor, so a setup call opens one with `rql-mutate` `editor | call NewScene("res://e2e.tscn", "Node3D", "Root")`.
 """
 from __future__ import annotations
 
@@ -103,6 +106,14 @@ def run_call(cli_cmd: list[str], url: str, call: dict[str, Any], timeout_s: int,
     detail = f"exit={proc.returncode}\n    input:  {input_json}\n    stdout: {stdout or '<empty>'}"
     if stderr:
         detail += f"\n    stderr: {stderr}"
+
+    if call.get("expectFailure"):
+        if proc.returncode == 0 and '"status":"success"' in stdout:
+            return False, detail + "\n    -> expected the call to FAIL, but it succeeded"
+        missing = [e for e in expects if e not in stdout + "\n" + stderr]
+        if missing:
+            return False, detail + f"\n    -> the call failed, but without the expected substrings: {missing}"
+        return True, detail
 
     if proc.returncode != 0:
         return False, detail

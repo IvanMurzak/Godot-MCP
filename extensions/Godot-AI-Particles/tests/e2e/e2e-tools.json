@@ -1,42 +1,19 @@
 {
-  "description": "Live run-tool E2E tool list for the Particles extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "The four editor tools (create/get/configure/set-emitting) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). particles-defaults is pure-managed and needs no scene. The 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "description": "Live E2E for the Particles RQL module. Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapters, validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every ParticlesGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-back queries. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated, so 'FX|32' is the name and Amount columns of one row.",
   "setup": [
-    {
-      "tool": "rql-mutate",
-      "input": {
-        "query": "editor | call NewScene(\"res://e2e_particles.tscn\", \"Node3D\", \"Root\")"
-      },
-      "expect": [
-        "NewScene"
-      ]
-    }
+    { "tool": "rql-mutate", "input": { "query": "editor | call NewScene(\"res://e2e_particles.tscn\", \"Node3D\", \"Root\")" }, "expect": ["NewScene"] }
   ],
   "tools": [
-    {
-      "tool": "particles-defaults",
-      "input": { "dimension": "3D" },
-      "expect": ["\"Amount\":16", "\"Dimension\":\"3D\""]
-    },
-    {
-      "tool": "particles-create",
-      "input": { "dimension": "3D", "name": "FX", "amount": 32, "lifetime": 2.0 },
-      "expect": ["\"TypeName\":\"GPUParticles3D\"", "\"Amount\":32", "\"Lifetime\":2"]
-    },
-    {
-      "tool": "particles-get",
-      "input": { "nodePath": "FX" },
-      "expect": ["\"Amount\":32", "\"Lifetime\":2"]
-    },
-    {
-      "tool": "particles-configure",
-      "input": { "nodePath": "FX", "amount": 0, "explosiveness": 2.0 },
-      "expect": ["\"Amount\":1", "\"Explosiveness\":1"]
-    },
-    {
-      "tool": "particles-set-emitting",
-      "input": { "nodePath": "FX", "emitting": false, "restart": true },
-      "expect": ["\"Emitting\":false"]
-    }
+    { "tool": "rql-schema", "input": { "type": "GPUParticles3D" }, "expect": ["(Particles extension)", "Restart"] },
+    { "tool": "rql-mutate", "input": { "query": "root | call AddChild(\"GPUParticles3D\", \"FX\")" }, "expect": ["GpuParticles3D#", "(FX)"] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | set Amount = 32, Lifetime = 2, Explosiveness = 0.5, Randomness = 0.25, OneShot = false" }, "expect": ["Amount|", "|32"] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | set ProcessMaterial = {\"$type\": \"ParticleProcessMaterial\"}" }, "expect": ["ParticleProcessMaterial#"] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | set ProcessMaterial.props[\"initial_velocity_min\"] = 2, ProcessMaterial.props[\"initial_velocity_max\"] = 4" }, "expect": ["initial_velocity_max"] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | call Restart()" }, "expect": ["Restart("] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | set Emitting = false" }, "expect": ["Emitting|"] },
+    { "tool": "rql-query", "input": { "query": "nodes | where $ is GPUParticles3D | select name Amount Lifetime Emitting Explosiveness ProcessMaterial" }, "expect": ["FX|32|2|false|0.5|ParticleProcessMaterial#"] },
+    { "tool": "rql-mutate", "input": { "query": "nodes | where name == \"FX\" | set Amount = 0", "dry_run": true }, "expect": ["Amount must be at least 1"], "expectFailure": true },
+    { "tool": "rql-query", "input": { "query": "nodes | where name == \"FX\" | select Amount ProcessMaterial.props[\"initial_velocity_max\"]" }, "expect": ["32|4"] }
   ]
 }

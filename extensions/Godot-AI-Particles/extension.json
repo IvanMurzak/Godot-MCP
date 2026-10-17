@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-Particles",
   "packageId": "com.IvanMurzak.Godot.MCP.Particles",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "project": "extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj",
   "tests": "extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/Godot-AI-Particles.Tests.csproj",
   "minGodotVersion": "4.3.0",
