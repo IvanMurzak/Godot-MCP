@@ -11,6 +11,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
+# The only package dependencies an extension may declare; their pins must equal the core's.
+CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet')
 
 
 def read_json(path):
@@ -89,12 +91,10 @@ def verify_package(archive, module, root=ROOT, version=None):
         if metadata.get('id') != module['packageId'] or metadata.get('version') != (version or module['version']):
             raise ValueError('Packaged identity/version differs from requested module: ' + str(archive))
         deps = {node.attrib['id'] for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'}
-        expected = {'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet'}
+        expected = set(CORE_DEPENDENCIES)
         if deps != expected:
             raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
-        authoring = ET.parse(root / module['project'])
-        floors = {node.attrib['Include']: node.attrib['Version'] for node in
-                  authoring.findall('.//PackageReference') if node.attrib.get('Include') in expected}
+        floors = package_pins(root / module['project'], expected)
         floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
         for node in spec.iter():
             if node.tag.rsplit('}', 1)[-1] == 'dependency':
@@ -115,11 +115,39 @@ def verify_package(archive, module, root=ROOT, version=None):
     return True
 
 
+def package_pins(csproj, only=None):
+    """`Include` -> `Version` of a csproj's PackageReferences, optionally limited to `only`."""
+    return {node.attrib['Include']: node.attrib['Version'] for node in ET.parse(csproj).findall('.//PackageReference')
+            if 'Include' in node.attrib and (only is None or node.attrib['Include'] in only)}
+
+
 def core_pins(root=ROOT):
-    pins = {node.attrib['Include']: node.attrib['Version'] for node in
-            ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')}
+    pins = package_pins(root / 'Godot-MCP.csproj')
     pins.update({package: pin.strip('[]') for package, pin in chain_pins(root).items() if package in pins})
     return pins
+
+
+def core_pin_drift(root=ROOT):
+    """Extension/template csproj pins of CORE_DEPENDENCIES that differ from Godot-MCP.csproj.
+
+    A lower ReflectorNet pin than the McpPlugin in use requires is a NU1605 downgrade error,
+    and a pin above the core's cannot restore in a consumer that pins the core versions.
+    Reads the committed files only: a chain run's Directory.Build.targets override applies
+    to core and extensions alike.
+    """
+    core = package_pins(root / 'Godot-MCP.csproj', CORE_DEPENDENCIES)
+    if set(core) != set(CORE_DEPENDENCIES):
+        raise ValueError(f'Godot-MCP.csproj must pin {CORE_DEPENDENCIES}; found {sorted(core)}')
+    drift = []
+    # Fail closed: a moved or empty module folder must not turn the scan into a silent pass.
+    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
+        csprojs = sorted(folder.rglob('*.csproj'))
+        if not csprojs:
+            drift.append(f'{folder.relative_to(root).as_posix()}: no csproj found')
+        drift += [f'{csproj.relative_to(root).as_posix()}: {package} {pin} != core {core[package]}'
+                  for csproj in csprojs for package, pin in package_pins(csproj, core).items()
+                  if pin != core[package]]
+    return drift
 
 
 def chain_active():

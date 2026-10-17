@@ -26,8 +26,8 @@
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <!-- Same MCP/reflection pins as the package; needed because the tools use [AiTool]/[AiToolType]. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
   </ItemGroup>
 
   <!--

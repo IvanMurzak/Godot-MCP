@@ -274,5 +274,34 @@ class SuiteGuards(unittest.TestCase):
             self.assertEqual('0.1.1', extensions.modules(root)[-1]['version'])
 
 
+class CorePinParity(unittest.TestCase):
+    def test_extensions_and_template_pin_the_core_versions(self):
+        # Drift here broke a release-train leg with NU1605 (an extension's ReflectorNet pin was
+        # below what a newer McpPlugin requires). Fix: commands/update-core.py in each module.
+        self.assertEqual([], extensions.core_pin_drift())
+
+    def test_pin_differing_from_core_is_reported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'Godot-MCP.csproj').write_text('''<Project><ItemGroup>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+</ItemGroup></Project>''')
+            tests = root / 'extensions/Godot-AI-Example/tests/Example.Tests'
+            tests.mkdir(parents=True)
+            (tests / 'Example.Tests.csproj').write_text('''<Project><ItemGroup>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="xunit" Version="2.9.2"/>
+</ItemGroup></Project>''')
+            self.assertEqual(['extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
+                              'com.IvanMurzak.ReflectorNet 5.4.1 != core 5.4.3',
+                              'templates/extension: no csproj found'],
+                             extensions.core_pin_drift(root))
+            (root / 'Godot-MCP.csproj').write_text('<Project/>')
+            with self.assertRaisesRegex(ValueError, 'must pin'):
+                extensions.core_pin_drift(root)
+
+
 if __name__ == '__main__':
     unittest.main()
