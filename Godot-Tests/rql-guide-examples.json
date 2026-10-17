@@ -1,0 +1,36 @@
+{
+  "description": "The RQL guide examples (addons/godot_mcp/Editor/Rql/RqlGuide.cs), run in order by scripts/smoke_rql.py against a live editor. Kept equal to the guide by Godot-MCP.Tests/RqlGuideTests.",
+  "query": [
+    "nodes | where name contains \"Enemy\" | select $ref name class path",
+    "nodes | where $ is Node3D and Position.Y > 0 | select name Position",
+    "nodes | where class == \"OmniLight3D\" | select name props[\"light_energy\"] props[\"light_color\"]",
+    "root | recurse children | where childCount == 0 | select path class",
+    "godot.resources(\"StandardMaterial3D\") | select path props[\"albedo_color\"]",
+    "files | where ext == \"tscn\" | select path",
+    "scenes | select name path active",
+    "classes | where parent == \"Light3D\" | select name",
+    "console | where logType == \"Error\" | sort sequence desc | first 5 | select message",
+    "editor | select isPlaying editedScene selection"
+  ],
+  "mutate": [
+    "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",
+    "nodes | where class == \"OmniLight3D\" | set props[\"light_energy\"] = props[\"light_energy\"] * 2, props[\"light_color\"] = \"#ffcc88\"",
+    "nodes | where name starts-with \"Enemy\" | set Visible = false",
+    "godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"",
+    "root | call AddChild(\"Node3D\", \"Props\")",
+    "nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")",
+    "nodes | where name == \"Crate\" | call Duplicate()",
+    "nodes | where name == \"Crate\" | call Reparent(godot.find(\"Props\"))",
+    "nodes | where name == \"Crate\" | call MoveChild(0)",
+    "nodes | where name == \"Old\" | call Free()",
+    "editor | set selection = [godot.find(\"Player\")]",
+    "editor | call SaveScene()",
+    "editor | call CreateResource(\"res://materials/blue.tres\", \"StandardMaterial3D\")",
+    "editor | call MoveResource(\"res://materials/blue.tres\", \"res://materials/old/blue.tres\")",
+    "editor | call DeleteResource(\"res://materials/old/blue.tres\")",
+    "editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")",
+    "editor | call OpenScene(\"res://scenes/level.tscn\")",
+    "editor | call Reimport([\"res://materials/red.tres\"])",
+    "editor | call ClearConsole()"
+  ]
+}

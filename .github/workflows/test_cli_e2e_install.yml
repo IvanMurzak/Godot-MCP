@@ -15,7 +15,7 @@
 #   3. `godot-cli install-plugin --source <repo>/addons/godot_mcp` — the offline /
 #      CI path (no GitHub release exists for un-merged code; the default download
 #      path is unit-tested with a mocked fetch in cli/tests). This materializes
-#      addons/godot_mcp/, adds the two NuGet PackageReferences to the generated
+#      addons/godot_mcp/, adds the addon's NuGet PackageReferences to the generated
 #      csproj, and enables the plugin in project.godot;
 #   4. import the project, then build the C# with the CLI's OWN build path
 #      (`godot-cli build` — the same build `godot-cli open` runs before launch),
@@ -276,9 +276,10 @@ jobs:
           # Addon files materialized.
           test -f "${WORK}/project/addons/godot_mcp/plugin.cfg"
           test -f "${WORK}/project/addons/godot_mcp/Editor/GodotMcpPlugin.cs"
-          # Both NuGet pins added to the generated consumer csproj.
+          # Every NuGet pin added to the generated consumer csproj.
           grep -q 'com.IvanMurzak.ReflectorNet' "${WORK}/project/${PROJECT_NAME}.csproj"
           grep -q 'com.IvanMurzak.McpPlugin' "${WORK}/project/${PROJECT_NAME}.csproj"
+          grep -q 'com.IvanMurzak.Rql' "${WORK}/project/${PROJECT_NAME}.csproj"
           # Plugin enabled in project.godot.
           grep -q 'res://addons/godot_mcp/plugin.cfg' "${WORK}/project/project.godot"
 

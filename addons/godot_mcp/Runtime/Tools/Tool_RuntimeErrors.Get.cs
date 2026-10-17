@@ -30,7 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Retrieve errors raised inside the RUNNING game — GDScript runtime errors, " +
             "push_error/push_warning, shader errors (Godot 4.5+ engine hook), and C# unhandled / unobserved-" +
             "Task exceptions (with full managed stack traces). This is the in-game counterpart to " +
-            "'console-get-logs' / 'script-validate' (which are editor-side): it lets an agent driving a live " +
+            "the editor's 'script-validate' and RQL 'console' source: it lets an agent driving a live " +
             "game detect real gameplay/runtime bugs instead of assuming the game is healthy because the editor " +
             "console is quiet.\n" +
             "Poll loop: pass the 'highestSequence' from the previous call as 'sinceSequence' to get ONLY newer " +

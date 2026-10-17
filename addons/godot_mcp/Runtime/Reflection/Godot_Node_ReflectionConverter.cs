@@ -45,9 +45,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
     /// <see cref="Godot_Resource_ReflectionConverter{T}"/> does. A converter cannot know what its caller
     /// wants done about a failure, so the CALL SITE sets policy:
     /// <c>reflection-method-call</c> refuses the invocation via <see cref="ReflectionArgumentGuard"/>
-    /// (which is what makes issue #292's silent success loud), while <c>node-modify</c>'s merge patch
-    /// reports the member and still applies the rest. An earlier revision threw from here instead; that made
-    /// ONE bad member abort an entire <c>node-modify</c> patch, which is a worse answer than the one the
+    /// (which is what makes issue #292's silent success loud), while a merge patch (the former
+    /// <c>node-modify</c>) reports the member and still applies the rest. An earlier revision threw from here
+    /// instead; that made ONE bad member abort an entire patch, which is a worse answer than the one the
     /// caller asked for. An explicit JSON <c>null</c> is untouched — clearing a <c>Node</c>-typed member
     /// stays legitimate.
     /// </para>

@@ -11,44 +11,18 @@
 #nullable enable
 using System;
 using com.IvanMurzak.Godot.MCP.Data;
-using com.IvanMurzak.McpPlugin;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Node tool family (<c>node-*</c>) — the Godot analog of Unity-MCP's <c>Tool_GameObject</c>. Each
-    /// tool method lives in its own partial-class file (Find / Create / Modify / SetParent / Reorder /
-    /// Duplicate / Delete) and drives the Godot editor scene tree via <see cref="EditorInterface"/> through
-    /// the main-thread dispatcher. <c>Tool_Node.ReflectionResolver.cs</c> carries no tool — it injects this
-    /// family's scene-tree lookup into the (pure-managed) Node reflection converter.
-    ///
-    /// <para>
-    /// Godot ↔ Unity mapping: <c>Node</c> ↔ <c>GameObject</c>; a node's class name + attached script
-    /// ↔ a GameObject's component set; <c>EditorInterface.GetEditedSceneRoot()</c> ↔ the active scene
-    /// root. Node identity is resolved from a <see cref="Data.NodeRef"/> (instance id preferred, then
-    /// scene-tree path) by <see cref="ResolveNode"/>.
-    /// </para>
-    ///
-    /// Editor-only (<c>#if TOOLS</c>): the handlers touch <see cref="EditorInterface"/> and live
-    /// <see cref="Node"/> objects, neither of which exists in a plain (non-editor) build. The pure-managed
-    /// pieces (the <see cref="NodeData"/>/<see cref="NodeRef"/> models, validation) live outside this
-    /// guard and are unit-tested.
+    /// Scene-tree helpers shared by the kept editor tools (<c>script-attach-to-node</c>, <c>screenshot-*</c>) and the
+    /// Node reflection converter. The <c>node-*</c> tool family was replaced by RQL (<c>rql-query</c> /
+    /// <c>rql-mutate</c> over the <c>nodes</c> source, see docs/rql.md); the class keeps its name so existing call sites
+    /// and the reflection-resolver wiring stay unchanged. It declares no tools.
     /// </summary>
-    [AiToolType]
-    public partial class Tool_Node
+    public static partial class Tool_Node
     {
-        /// <summary>
-        /// Resolve a <see cref="Data.NodeRef"/> to a live <see cref="Node"/> in the editor scene tree.
-        /// Must be called on the main thread. Returns null and sets <paramref name="error"/> on any
-        /// failure (invalid ref, no edited scene, instance id not a Node, path not found).
-        ///
-        /// Resolution order mirrors <see cref="Data.NodeRef"/>'s declared priority: instance id first
-        /// (stable identity), then scene-tree path (which can shift as the tree mutates). A path is
-        /// resolved relative to the edited-scene root; a leading '/root/' or '/' is tolerated by
-        /// stripping it down to the path under the edited root, and the special path "." (or the root's
-        /// own name) resolves to the root itself.
-        /// </summary>
         internal static Node? ResolveNode(Data.NodeRef? nodeRef, out string? error)
         {
             error = null;
@@ -85,18 +59,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             }
 
-            var path = NormalizePathToEditedRoot(nodeRef.Path!, root);
-
-            if (string.IsNullOrEmpty(path) || path == ".")
-                return root;
-
-            var node = root.GetNodeOrNull(path);
+            var node = FindByPath(root, nodeRef.Path!);
             if (node == null)
             {
                 error = $"Node not found at path '{nodeRef.Path}' (resolved relative to edited scene root '{root.Name}').";
                 return null;
             }
             return node;
+        }
+
+        /// <summary>
+        /// The node of <paramref name="editedRoot"/>'s scene at a user-supplied path (absolute, root-prefixed or relative;
+        /// empty or "." = the root), or null. Shared by NodeRef resolution and RQL's <c>godot.find</c>.
+        /// </summary>
+        internal static Node? FindByPath(Node editedRoot, string rawPath)
+        {
+            var path = NormalizePathToEditedRoot(rawPath, editedRoot);
+            return string.IsNullOrEmpty(path) || path == "." ? editedRoot : editedRoot.GetNodeOrNull(path);
         }
 
         /// <summary>
@@ -109,52 +88,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => NodePathNormalizer.Normalize(rawPath, editedRoot.Name.ToString());
 
         /// <summary>
-        /// Build a structured <see cref="NodeData"/> from a live node. When <paramref name="hierarchyDepth"/>
-        /// is &gt; 0, recursively populates <see cref="NodeData.Children"/> up to that depth (0 = the node
-        /// only, children null). Must be called on the main thread.
+        /// Give every descendant of <paramref name="node"/> without an owner the <paramref name="owner"/> (the edited scene
+        /// root) so it is saved with the scene; nodes owned by an instanced sub-scene keep their owner.
         /// </summary>
-        internal static NodeData ToNodeData(Node node, int hierarchyDepth = 0)
+        internal static void SetOwnerRecursive(Node node, Node owner)
         {
-            var data = new NodeData
+            var count = node.GetChildCount(includeInternal: false);
+            for (int i = 0; i < count; i++)
             {
-                InstanceId = node.GetInstanceId(),
-                Name = node.Name.ToString(),
-                Path = node.GetPath().ToString(),
-                Type = node.GetClass(),
-                ScriptResourcePath = GetAttachedScriptPath(node),
-                // GetIndex() reports -1 for a node with no parent, and can also go negative for an INTERNAL
-                // child when internal children are excluded (this family's convention everywhere). Neither
-                // has a meaningful sibling position, so both floor to 0 and NodeData.Index's "never
-                // negative" contract holds. Exposing the index makes node-create's 'index' and node-reorder
-                // self-verifying: the caller sees where the node actually landed (issue #294).
-                Index = Math.Max(0, node.GetIndex(includeInternal: false)),
-                ChildCount = node.GetChildCount(includeInternal: false),
-            };
-
-            if (hierarchyDepth > 0)
-            {
-                data.Children = new System.Collections.Generic.List<NodeData>(data.ChildCount);
-                for (int i = 0; i < data.ChildCount; i++)
+                var child = node.GetChild(i, includeInternal: false);
+                if (child == null)
+                    continue;
+                if (child.Owner == null)
                 {
-                    var child = node.GetChild(i, includeInternal: false);
-                    if (child != null)
-                        data.Children.Add(ToNodeData(child, hierarchyDepth - 1));
+                    child.Owner = owner;
+                    SetOwnerRecursive(child, owner);
                 }
             }
-
-            return data;
-        }
-
-        /// <summary>res:// path of the script attached to <paramref name="node"/>, or null when none.</summary>
-        static string? GetAttachedScriptPath(Node node)
-        {
-            var scriptVariant = node.GetScript();
-            if (scriptVariant.VariantType == Variant.Type.Nil)
-                return null;
-
-            var script = scriptVariant.As<Script>();
-            var resourcePath = script?.ResourcePath;
-            return string.IsNullOrEmpty(resourcePath) ? null : resourcePath;
         }
     }
 }

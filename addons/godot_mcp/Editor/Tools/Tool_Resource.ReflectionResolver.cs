@@ -16,20 +16,18 @@ using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
-    public partial class Tool_Resource
+    public static partial class Tool_Resource
     {
         /// <summary>
         /// Wire the editor-side resource resolution into <see cref="Godot_Resource_ReflectionConverter{T}"/>
         /// so that converter — which is pure-managed and lives outside <c>#if TOOLS</c> — can turn a
-        /// <see cref="ResourceRef"/> into a LIVE <see cref="Resource"/> when <c>node-modify</c> assigns a
-        /// <c>Resource</c>-typed property. The load itself (<see cref="ResolveResource"/> →
+        /// <see cref="ResourceRef"/> into a LIVE <see cref="Resource"/> when a ReflectorNet tool argument (the
+        /// <c>Json</c> tool format) or <c>reflection-method-call</c> names a <c>Resource</c>. The load itself (<see cref="ResolveResource"/> →
         /// <c>ResourceLoader.Load</c> / <c>InstanceFromId</c>) is a native Godot call, so the delegate
         /// marshals explicitly.
         ///
         /// <para>
-        /// That marshal is NOT redundant, despite what this comment used to claim: while <c>node-modify</c>
-        /// does invoke the converter from inside its own <c>MainThread.Instance.Run</c>,
-        /// <c>reflection-method-call</c> deserializes its arguments inside an action it may run OFF the main
+        /// That marshal is NOT redundant: <c>reflection-method-call</c> deserializes its arguments inside an action it may run OFF the main
         /// thread (<c>executeInMainThread: false</c>), so the converter is reachable from a worker.
         /// <c>MainThread.Instance.Run</c> executes inline when already on the main thread, so the common
         /// path pays nothing. Mirrors <c>Tool_Node.InstallReflectionResolver</c>.

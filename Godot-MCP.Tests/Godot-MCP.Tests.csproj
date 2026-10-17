@@ -44,7 +44,8 @@
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -80,8 +81,6 @@
          into a hard failure so a method is never invoked with a silently defaulted argument. Pure list
          inspection, no Godot API. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\ReflectionArgumentGuard.cs" Link="Source\ReflectionArgumentGuard.cs" />
-    <!-- Pure-managed property-patch rules (GodotObjectPatcher.cs itself is native; see scripts/smoke_property_patches.py). -->
-    <Compile Include="..\addons\godot_mcp\Runtime\Reflection\PropertyPatchPath.cs" Link="Source\PropertyPatchPath.cs" />
     <!-- Connection config + ping tool are pure-managed (no Godot native types / no #if TOOLS), so they
          compile and run in this plain-xUnit host. GodotMcpConnection.cs is editor-only (#if TOOLS) and
          instantiates the SignalR client; it is verified via the headless Godot smoke, not here. -->
@@ -182,28 +181,17 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.cs" Link="Source\Tool_Skills.Create.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.SkillBody.cs" Link="Source\Tool_Skills.Create.SkillBody.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Generate.cs" Link="Source\Tool_Skills.Generate.cs" />
-    <!-- Scene/Node tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
-         structured result models, the property-patch model, the path normalizer, and the ambient
-         reflector accessor. The editor-driving tool methods (Tool_Node.*.cs / Tool_Scene.*.cs) are
-         #if TOOLS and verified via the headless Godot smoke (test.md Suite 3), not here. -->
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\NodeData.cs" Link="Source\NodeData.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\SceneData.cs" Link="Source\SceneData.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\NodePropertyPatch.cs" Link="Source\NodePropertyPatch.cs" />
+    <!-- Scene-tree helpers RQL reuses — pure-managed (no Godot native types, no #if TOOLS): the path
+         normalizer behind godot.find / NodeRef resolution and the ambient reflector accessor. The node
+         editing itself (RQL's Node adapter, Editor/Rql) is #if TOOLS and verified by the live CI smoke. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\NodePathNormalizer.cs" Link="Source\NodePathNormalizer.cs" />
-    <!-- Sibling-index arithmetic behind node-create's 'index' and node-reorder (issue #294). Pure int
+    <!-- Sibling-index arithmetic behind RQL's MoveChild (formerly node-create's 'index' / node-reorder, issue #294). Pure int
          math extracted from the #if TOOLS handlers so the negative-from-end / clamping rules are gated. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\NodeIndexResolver.cs" Link="Source\NodeIndexResolver.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Reflection\GodotMcpReflector.cs" Link="Source\GodotMcpReflector.cs" />
-    <!-- Resource/FileSystem tool family — pure-managed pieces only (no Godot native types, no #if TOOLS):
-         the structured result models and the res:// path normalizer. The editor-driving handlers
-         (Tool_Resource.*.cs / Tool_FileSystem.*.cs) are #if TOOLS and verified via the headless Godot
-         smoke (test.md Suite 3), not here. -->
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\FileSystemEntry.cs" Link="Source\FileSystemEntry.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\FileSystemListing.cs" Link="Source\FileSystemListing.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceInfo.cs" Link="Source\ResourceInfo.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\ResourceFindResult.cs" Link="Source\ResourceFindResult.cs" />
+    <!-- res:// path normalizer reused by RQL's editor source (files, resources). -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ResPathNormalizer.cs" Link="Source\ResPathNormalizer.cs" />
-    <!-- filesystem-reimport importable/native partition (issue #310). The '.import' sidecar probe is
+    <!-- editor | call Reimport(files) importable/native partition (issue #310; formerly filesystem-reimport). The '.import' sidecar probe is
          injected as a delegate so the split is testable with no Godot filesystem. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ReimportClassifier.cs" Link="Source\ReimportClassifier.cs" />
     <!-- Script tool family — pure-managed pieces only (no Godot native types, no #if TOOLS): the
@@ -256,18 +244,14 @@
          handlers (Tool_Screenshot.*.cs) are #if TOOLS and encode a real Godot Image, so they are verified
          via the headless/windowed Godot smoke (test.md Suite 3), not here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScreenshotMath.cs" Link="Source\ScreenshotMath.cs" />
-    <!-- Editor introspection tool family (editor-state / console-logs / selection / reflection) —
-         pure-managed pieces only (no Godot native types, no #if TOOLS): the structured result models,
-         the log severity enum, and the in-memory log collector. The editor-driving handlers
-         (Tool_Editor.*.cs / Tool_Editor.Selection.*.cs) are #if TOOLS and verified via the headless
-         Godot smoke (test.md Suite 3). The console tool handlers (Tool_Console.*.cs) live OUTSIDE
+    <!-- Console tool family (runtime surface; in the editor RQL's console source replaces it) — pure-managed
+         pieces only (no Godot native types, no #if TOOLS): the log severity enum and the in-memory log
+         collector. The console tool handlers (Tool_Console.*.cs) live OUTSIDE
          #if TOOLS and only touch the pure-managed GodotLogCollector — they are a thin wrapper over the
          collector (maxEntries validation + Query/Clear delegation), so they are unit-tested here
          (ConsoleToolTests). The reflection tool handlers (Tool_Reflection.*.cs) drive the editor reflector
          and remain a Suite-3 concern. -->
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\EditorStateData.cs" Link="Source\EditorStateData.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
-    <Compile Include="..\addons\godot_mcp\Runtime\Data\SelectionData.cs" Link="Source\SelectionData.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.cs" Link="Source\Tool_Console.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.GetLogs.cs" Link="Source\Tool_Console.GetLogs.cs" />
@@ -416,6 +400,21 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="..\addons\godot_mcp\extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
+  </ItemGroup>
+
+  <!-- RQL data layer (Editor/Rql) — the pure-managed parts only: the agent guide (every example must parse),
+       the tool binding's compact-text / type-name formatting and argument binding (RqlToolBinding over a plain
+       RqlEngine), the numeric-struct adapters (Godot's Vector*/Color/Quaternion/Basis/Transform*/Rect2*/Aabb are
+       pure C# structs), the NodeRef tool-argument adapter, and the static-cache release used on hot reload. The
+       engine over the live editor (RqlGodot, the GodotObject / Node / Resource adapters, the editor source) is
+       #if TOOLS and native-backed; it is verified by the live CI smoke (scripts/smoke_rql.py). -->
+  <ItemGroup>
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlGuide.cs" Link="Source\Rql\RqlGuide.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStaticCaches.cs" Link="Source\Rql\RqlStaticCaches.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />
   </ItemGroup>
 
 </Project>

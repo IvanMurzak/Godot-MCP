@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'nodeRef' (instanceId preferred, else scene-tree path) and the script with 'scriptPath' (a " +
             "res:// script file that must exist). Pass an empty/whitespace/null 'scriptPath' to DETACH (clear) " +
             "the node's script. The script resource is loaded and set via Node.SetScript; the scene is marked " +
-            "unsaved (persist with '" + Tool_Scene.SceneSaveToolId + "'). Returns the script's structured " +
+            "unsaved (persist with rql-mutate 'editor | call SaveScene()'). Returns the script's structured " +
             "ScriptInfo on attach, or an identity record with a 'detached' status on clear.")]
         public ScriptInfo AttachToNode
         (
@@ -79,7 +79,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 // Mark unsaved so the script assignment persists when the scene is saved (the assignment is
                 // serialized into the .tscn). We do NOT save here — saving is an explicit, separate step
-                // (Tool_Scene.Save) so the caller controls when the scene is written.
+                // (rql-mutate 'editor | call SaveScene()') so the caller controls when the scene is written.
                 EditorInterface.Singleton.MarkSceneAsUnsaved();
 
                 return ToScriptInfo(resPath, lang, $"Script attached to node '{node.Name}'.");

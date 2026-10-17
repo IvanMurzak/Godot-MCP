@@ -11,51 +11,36 @@
 #nullable enable
 using System;
 using com.IvanMurzak.Godot.MCP.Data;
-using com.IvanMurzak.McpPlugin;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Resource tool family (<c>resource-*</c>) — the Godot analog of the resource-mutating half of
-    /// Unity-MCP's <c>Tool_Assets</c> (find / get-data / modify / create / move / delete). Each tool method
-    /// lives in its own partial-class file and drives the Godot editor's resource pipeline
-    /// (<see cref="ResourceLoader"/>/<see cref="ResourceSaver"/>/<see cref="EditorFileSystem"/>) through the
-    /// main-thread dispatcher.
-    ///
-    /// <para>
-    /// Godot ↔ Unity mapping: a Godot <see cref="Resource"/> on disk (<c>.tres</c>/<c>.res</c>) ↔ a Unity
-    /// asset; a <c>res://</c> path / <c>uid://</c> ↔ a Unity asset path / GUID; <see cref="ResourceSaver"/>
-    /// ↔ <c>AssetDatabase.CreateAsset</c>; <see cref="EditorFileSystem.Scan"/>/<c>ReimportFiles</c> ↔
-    /// <c>AssetDatabase.Refresh</c>/<c>ImportAsset</c>. A resource is identified by a
-    /// <see cref="Data.ResourceRef"/> (res:// path preferred, else a loaded instance id) and resolved on
-    /// the main thread by <see cref="ResolveResource"/>.
-    /// </para>
-    ///
-    /// <para>
-    /// Import-pipeline discipline: tools that write to disk go through <see cref="ResourceSaver"/> and the
-    /// editor filesystem (<see cref="EditorFileSystem.UpdateFile"/>), and moves/renames/deletes use
-    /// <see cref="EditorFileSystem"/>-aware operations so Godot's sidecar <c>.import</c> metadata stays
-    /// consistent. The family never hand-edits <c>.import</c> files.
-    /// </para>
-    ///
-    /// Editor-only (<c>#if TOOLS</c>): the handlers touch <see cref="EditorInterface"/> and live
-    /// <see cref="Resource"/> objects. The pure-managed result models
-    /// (<see cref="Data.ResourceInfo"/>/<see cref="Data.ResourceFindResult"/>) and the
-    /// <see cref="ResPathNormalizer"/> live outside this guard and are unit-tested.
+    /// Resource lookup shared by the Resource reflection converter (<c>Tool_Resource.ReflectionResolver.cs</c>). The
+    /// <c>resource-*</c> tool family was replaced by RQL (<c>godot.resource(path)</c> / <c>godot.resources(type)</c> and
+    /// the <c>editor</c> source's CreateResource / MoveResource / DeleteResource, see docs/rql.md); the class keeps its
+    /// name so the resolver wiring stays unchanged. It declares no tools.
     /// </summary>
-    [AiToolType]
-    public partial class Tool_Resource
+    public static partial class Tool_Resource
     {
         /// <summary>
-        /// Resolve a <see cref="Data.ResourceRef"/> to a loaded <see cref="Resource"/> and its
-        /// <c>res://</c> path. Must be called on the main thread. Returns null and sets
-        /// <paramref name="error"/> on any failure (invalid ref, instance id not a Resource, path with no
-        /// resource).
-        ///
-        /// Resolution order mirrors <see cref="Data.ResourceRef"/>'s declared priority: <c>ResourcePath</c>
-        /// first (the stable identity of an on-disk asset), then a loaded <c>InstanceId</c>.
+        /// The resource at a res:// / uid:// path, or null with the reason. Shared by ResourceRef resolution and RQL's
+        /// <c>godot.resource</c> / res:// coercion.
         /// </summary>
+        internal static Resource? LoadByPath(string resPath, out string? error)
+        {
+            error = null;
+            if (!ResourceLoader.Exists(resPath))
+            {
+                error = $"No resource exists at '{resPath}'.";
+                return null;
+            }
+            var loaded = ResourceLoader.Load(resPath);
+            if (loaded == null)
+                error = $"Resource at '{resPath}' failed to load.";
+            return loaded;
+        }
+
         internal static Resource? ResolveResource(Data.ResourceRef? resourceRef, out string? path, out string? error)
         {
             error = null;
@@ -73,20 +58,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (!string.IsNullOrEmpty(resourceRef.ResourcePath))
             {
                 var resPath = resourceRef.ResourcePath!;
-                if (!ResourceLoader.Exists(resPath))
-                {
-                    error = $"No resource exists at '{resPath}'.";
-                    return null;
-                }
-
-                var loaded = ResourceLoader.Load(resPath);
-                if (loaded == null)
-                {
-                    error = $"Resource at '{resPath}' failed to load.";
-                    return null;
-                }
-
-                path = resPath;
+                var loaded = LoadByPath(resPath, out error);
+                if (loaded != null)
+                    path = resPath;
                 return loaded;
             }
 
@@ -112,30 +86,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             error = "resourceRef has neither a resourcePath nor an instanceId.";
             return null;
-        }
-
-        /// <summary>
-        /// Build a <see cref="Data.ResourceInfo"/> from a resource path (and an optional already-loaded
-        /// resource for the type). Main-thread only (reads <see cref="ResourceLoader"/>/the resource).
-        /// </summary>
-        internal static ResourceInfo ToResourceInfo(string resPath, Resource? loaded = null)
-        {
-            var uidId = ResourceLoader.GetResourceUid(resPath);
-            var uid = uidId == ResourceUid.InvalidId ? null : ResourceUid.IdToText(uidId);
-
-            string? type = loaded?.GetClass();
-            if (string.IsNullOrEmpty(type))
-            {
-                var classFromFs = EditorInterface.Singleton.GetResourceFilesystem()?.GetFileType(resPath);
-                type = string.IsNullOrEmpty(classFromFs) ? null : classFromFs;
-            }
-
-            return new ResourceInfo
-            {
-                ResourcePath = resPath,
-                Uid = uid,
-                Type = type,
-            };
         }
     }
 }

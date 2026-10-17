@@ -32,8 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// The reflector is read from the ambient <see cref="GodotMcpReflector.GetOrCreate"/> (the same converter
     /// set the connection registered, with a default-built fallback when no connection is live), mirroring
     /// Unity's <c>UnityMcpPluginEditor.Instance.Reflector</c>. The <see cref="Reflector.Serialize"/> call
-    /// shape (<c>obj</c>, <c>name</c>, <c>recursive</c>) matches the existing Godot tool handlers
-    /// (e.g. <c>resource-get-data</c>).
+    /// shape (<c>obj</c>, <c>name</c>, <c>recursive</c>) is the one the former <c>resource-get-data</c> tool used.
     /// </para>
     ///
     /// <para>

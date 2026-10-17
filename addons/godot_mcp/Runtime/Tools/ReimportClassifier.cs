@@ -15,7 +15,7 @@ using System.Linq;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Splits a <c>filesystem-reimport</c> request into the files Godot already IMPORTS, the brand-new files
+    /// Splits an <c>editor | call Reimport(files)</c> request (RQL; formerly the filesystem-reimport tool) into the files Godot already IMPORTS, the brand-new files
     /// it COULD import but never has, and the NATIVE project files it cannot import at all.
     ///
     /// <para>
@@ -182,7 +182,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>Reason: the sidecar predates the request, so this request's import never ran.</summary>
         public const string StaleSidecarReason =
             "Godot did not rewrite the '.import' sidecar during this request, so the import did not run — " +
-            "the editor may have been busy importing or scanning, so retry or run filesystem-reimport without 'files'";
+            "the editor may have been busy importing or scanning, so retry or run editor | call Reimport() without files";
 
         /// <summary>Reason: the sidecar exists but could not be read.</summary>
         public const string UnreadableSidecarReason =

@@ -1,0 +1,159 @@
+/*
+┌──────────────────────────────────────────────────────────────────┐
+│  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+│  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+│  Copyright (c) 2026 Ivan Murzak                                  │
+│  Licensed under the Apache License, Version 2.0.                 │
+│  See the LICENSE file in the project root for more information.  │
+└──────────────────────────────────────────────────────────────────┘
+*/
+#nullable enable
+using System.Collections.Generic;
+using System.Linq;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
+using Godot;
+using Rql;
+using Rql.Execution;
+using Xunit;
+
+namespace com.IvanMurzak.Godot.MCP.Tests
+{
+    /// <summary>A plain object holding Godot structs (all pure C# in GodotSharp, so they run in this host).</summary>
+    public sealed class RqlStructHolder
+    {
+        public string name { get; set; } = "";
+        public Vector2 Offset { get; set; }
+        public Vector3 Position { get; set; }
+        public Vector3I Cell { get; set; }
+        public Vector4 Tint4 { get; set; }
+        public Color Tint { get; set; }
+        public Quaternion Rotation { get; set; } = Quaternion.Identity;
+        public Basis Basis { get; set; } = Basis.Identity;
+        public Transform3D Transform { get; set; } = Transform3D.Identity;
+        public Transform2D Transform2 { get; set; } = Transform2D.Identity;
+        public Rect2 Rect { get; set; }
+        public Rect2I RectI { get; set; }
+        public Aabb Bounds { get; set; }
+    }
+
+    /// <summary>
+    /// The numeric-struct adapters (Godot_*_Adapter): compact "(…)" output, text / list / object-literal input, whole-number
+    /// checks for the integer vectors, "#rrggbb" colors, approximate equality in where.
+    /// </summary>
+    public class RqlStructAdapterTests
+    {
+        private readonly List<RqlStructHolder> _items = new List<RqlStructHolder>
+        {
+            new RqlStructHolder { name = "a", Position = new Vector3(1, 2, 3), Cell = new Vector3I(1, 2, 3), Tint = new Color(1, 0, 0, 1) },
+            new RqlStructHolder { name = "b", Position = new Vector3(0, 0.5f, 0) },
+        };
+
+        private RqlEngine Engine()
+        {
+            var engine = new RqlEngine();
+            engine.Mutations.Enabled = true;
+            engine.AddSource("items", () => _items);
+            foreach (var adapter in new RqlTypeAdapter[]
+                     {
+                         new Godot_Vector2_Adapter(), new Godot_Vector2I_Adapter(), new Godot_Vector3_Adapter(), new Godot_Vector3I_Adapter(),
+                         new Godot_Vector4_Adapter(), new Godot_Vector4I_Adapter(), new Godot_Color_Adapter(), new Godot_Quaternion_Adapter(),
+                         new Godot_Basis_Adapter(), new Godot_Transform2D_Adapter(), new Godot_Transform3D_Adapter(),
+                         new Godot_Rect2_Adapter(), new Godot_Rect2I_Adapter(), new Godot_Aabb_Adapter(),
+                     })
+                engine.AddAdapter(adapter);
+            return engine;
+        }
+
+        private QueryResult Query(string q) => Engine().Execute(q);
+
+        private QueryResult Mutate(string q) => Engine().Execute(q, null, new QueryOptions { AllowMutation = true });
+
+        private static string Text(QueryResult r) => AgentFormat.Render(r, OutputFormat.Table);
+
+        [Fact]
+        public void StructsPrintAsCompactTuples()
+        {
+            var r = Query("items | where name == \"a\" | select Position Cell Tint Rotation");
+            Assert.True(r.Ok, Text(r));
+            var text = Text(r);
+            Assert.Contains("(1, 2, 3)", text);
+            Assert.Contains("(1, 0, 0, 1)", text);
+            Assert.Contains("(0, 0, 0, 1)", text);
+        }
+
+        [Theory]
+        [InlineData("set Position = \"(4, 5, 6)\"")]
+        [InlineData("set Position = [4, 5, 6]")]
+        [InlineData("set Position = {x: 4, y: 5, z: 6}")]
+        public void Vector3AcceptsTextListAndObjectLiterals(string set)
+        {
+            var r = Mutate("items | where name == \"a\" | " + set);
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal(new Vector3(4, 5, 6), _items[0].Position);
+        }
+
+        [Fact]
+        public void APathThroughAStructWritesBack()
+        {
+            var r = Mutate("items | where name == \"b\" | set Position.Y = Position.Y + 1");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal(1.5f, _items[1].Position.Y, 3);
+        }
+
+        [Fact]
+        public void IntegerVectorsRejectFractions()
+        {
+            var r = Mutate("items | where name == \"a\" | set Cell = \"(1.5, 2, 3)\"");
+            Assert.False(r.Ok);
+            Assert.Equal(new Vector3I(1, 2, 3), _items[0].Cell);
+            Assert.True(Mutate("items | where name == \"a\" | set Cell = [7, 8, 9]").Ok);
+            Assert.Equal(new Vector3I(7, 8, 9), _items[0].Cell);
+        }
+
+        [Fact]
+        public void ColorsAcceptHexAndTuples()
+        {
+            Assert.True(Mutate("items | where name == \"b\" | set Tint = \"#00ff00\"").Ok);
+            Assert.Equal(new Color(0, 1, 0, 1), _items[1].Tint);
+            Assert.True(Mutate("items | where name == \"b\" | set Tint = \"(0, 0, 1)\"").Ok);
+            Assert.Equal(new Color(0, 0, 1, 1), _items[1].Tint);
+        }
+
+        [Fact]
+        public void WhereComparesApproximatelyAgainstText()
+        {
+            var r = Query("items | where Position == \"(0, 0.5, 0)\" | select name");
+            Assert.True(r.Ok, Text(r));
+            Assert.Contains("b", Text(r));
+            Assert.DoesNotContain("a\n", Text(r) + "\n");
+        }
+
+        [Fact]
+        public void TransformsAndBoundsRoundTrip()
+        {
+            Assert.True(Mutate("items | where name == \"a\" | set Transform = \"(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 7)\"").Ok);
+            Assert.Equal(new Vector3(5, 6, 7), _items[0].Transform.Origin);
+            Assert.True(Mutate("items | where name == \"a\" | set Basis = \"(2, 0, 0, 0, 2, 0, 0, 0, 2)\"").Ok);
+            Assert.Equal(new Vector3(2, 0, 0), _items[0].Basis.X);
+            Assert.True(Mutate("items | where name == \"a\" | set Transform2 = \"(1, 0, 0, 1, 3, 4)\"").Ok);
+            Assert.Equal(new Vector2(3, 4), _items[0].Transform2.Origin);
+            Assert.True(Mutate("items | where name == \"a\" | set Rect = \"(1, 2, 3, 4)\", RectI = [1, 2, 3, 4], Bounds = \"(0, 0, 0, 1, 2, 3)\"").Ok);
+            Assert.Equal(new Rect2(1, 2, 3, 4), _items[0].Rect);
+            Assert.Equal(new Rect2I(1, 2, 3, 4), _items[0].RectI);
+            Assert.Equal(new Vector3(1, 2, 3), _items[0].Bounds.Size);
+            var r = Query("items | where name == \"a\" | select Transform Bounds");
+            Assert.Contains("(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 7)", Text(r));
+            Assert.Contains("(0, 0, 0, 1, 2, 3)", Text(r));
+        }
+
+        [Fact]
+        public void ABadTupleIsACoercionFailureThatChangesNothing()
+        {
+            var before = _items[0].Position;
+            var r = Mutate("items | where name == \"a\" | set Position = \"(1, 2)\"");
+            Assert.False(r.Ok);
+            Assert.Contains("(x, y, z)", Text(r));
+            Assert.Equal(before, _items[0].Position);
+        }
+    }
+}

@@ -3,14 +3,12 @@
   "notes": "One shared editor session; create a Node2D scene, assert cell operations and assign the real e2e-tileset.tres fixture.",
   "setup": [
     {
-      "tool": "scene-create",
+      "tool": "rql-mutate",
       "input": {
-        "resourcePath": "res://e2e.tscn",
-        "rootTypeClassName": "Node2D",
-        "rootName": "Root"
+        "query": "editor | call NewScene(\"res://e2e_tilemap.tscn\", \"Node2D\", \"Root\")"
       },
       "expect": [
-        "\"isActive\":true"
+        "NewScene"
       ]
     }
   ],

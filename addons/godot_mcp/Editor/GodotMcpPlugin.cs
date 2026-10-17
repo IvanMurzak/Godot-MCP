@@ -262,9 +262,15 @@ namespace com.IvanMurzak.Godot.MCP
         [MethodImpl(MethodImplOptions.NoInlining)]
         void BootMcp()
         {
+            // RQL data layer: the connection hands every plugin it builds to RqlInstaller's configuration (tool surface +
+            // RQL binding). See RqlInstaller.
+            System.Action<com.IvanMurzak.McpPlugin.IMcpPlugin, GodotMcpConfig>? configurePlugin = null;
+            try { configurePlugin = Editor.Rql.RqlInstaller.Install(() => GodotObject.IsInstanceValid(this) ? GetUndoRedo() : null); }
+            catch (System.Exception ex) { LogError($"[Godot-MCP] failed to install the RQL data layer: {ex.Message}"); }
+
             try
             {
-                _connection = new GodotMcpConnection();
+                _connection = new GodotMcpConnection(configurePlugin: configurePlugin);
 
                 // Resolve the persisted + .env config layers BEFORE building the dock UI. The connection /
                 // AI-agent panels read the config at construction time, so the saved connection mode, cloud/
@@ -534,6 +540,10 @@ namespace com.IvanMurzak.Godot.MCP
             // (step 2); a straggler thread from a timed-out drain can still re-populate the caches afterwards.
             try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
+            // Drop the RQL engine and release RQL's process-wide Type-keyed caches (RQL lives in the Default ALC, like
+            // ReflectorNet below): after a query touched an addon type they would pin this collectible assembly.
+            try { UninstallRql(); } catch (System.Exception ex) { TryLogTeardownError("rql reset", ex); }
+
             // Drop ReflectorNet's process-wide static reflection caches. They live in the NON-collectible Default
             // ALC (the resolver loads ReflectorNet there) but, during tool registration / parameter-schema build /
             // serialization, get populated with entries that reference THIS collectible addon assembly's types:
@@ -636,6 +646,13 @@ namespace com.IvanMurzak.Godot.MCP
             // unload as a leftover managed connection. The dock Free() above severs every native connection
             // deterministically as it tears the subtree down.
         }
+
+        /// <summary>
+        /// Drop the RQL engine and RQL's Type-keyed caches. Its own non-inlined method so the JIT resolves the RQL
+        /// (NuGet-dependency) types only when teardown runs, never while JIT-compiling Teardown itself.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void UninstallRql() => Editor.Rql.RqlInstaller.Uninstall();
 
         /// <summary>
         /// Free a still-live Node referenced by <paramref name="node"/> and null the reference, so the

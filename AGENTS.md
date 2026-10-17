@@ -7,11 +7,12 @@ server is NOT in this repo: the addon consumes the shared
 
 The addon is a `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) that installs the main-thread dispatcher,
 builds a `Reflector` with Godot type converters, and connects to an MCP server (cloud `ai-game.dev` by
-default, or a custom local one) through the McpPlugin SignalR client. The MCP/reflection stack
-(`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`) is **not forked**: it is consumed from
-nuget.org as `PackageReference`s whose pins are owned by the upstream release pipelines. **Never bump
-them here.** The current pins are in `Godot-MCP.csproj` (mirrored by `Godot-MCP.Tests/` and
-`Godot-Tests/`; keep them in lockstep) and restated in `README.md` / `docs/`.
+default, or a custom local one) through the McpPlugin SignalR client. The editor tools' data layer is
+[RQL](docs/rql.md) (`rql-query` / `rql-mutate` / `rql-schema`, `Editor/Rql/`). The MCP/reflection/query stack
+(`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql` — PolyForm Shield 1.0.0) is
+**not forked**: it is consumed from nuget.org as `PackageReference`s whose pins are owned by the upstream release
+pipelines. **Never bump them here.** The current pins are in `Godot-MCP.csproj` (mirrored by `Godot-MCP.Tests/`,
+`Godot-Tests/` and `cli/src/utils/addon-deps.ts`; keep them in lockstep) and restated in `README.md` / `docs/`.
 
 ## Layout
 
@@ -22,7 +23,8 @@ them here.** The current pins are in `Godot-MCP.csproj` (mirrored by `Godot-MCP.
 - `addons/godot_mcp/{Runtime,Editor}/Tools/` — runtime-safe / editor-driving tool families: one
   `[AiToolType] partial class Tool_<Family>` per family, one partial-class file per
   `[AiTool("<name>")]` + `[Description]` method. Names mirror Unity-MCP where sensible; full list in
-  README "Tools Reference".
+  README "Tools Reference". New editor data access goes into RQL (an adapter, source, function or
+  `editor` call under `Editor/Rql/`, see [`docs/rql.md`](docs/rql.md)), not a new tool.
 - `Godot-MCP.Tests/` — xUnit CI suite; one `<Subject>Tests.cs` per area.
 - `Godot-Tests/` — headless Godot CI testbed + runtime harness ([`Godot-Tests/README.md`](Godot-Tests/README.md)).
 - `cli/` — the `godot-cli` npm package; see [`cli/AGENTS.md`](cli/AGENTS.md).
@@ -62,8 +64,10 @@ Stale assembly → wipe `.godot/mono/temp/{obj,bin}` and rebuild. Live connect: 
 server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localhost:<port>` (plus `GODOT_MCP_TOKEN` if the server requires auth), boot with
 `--quit-after 600000`, then `curl -X POST <host>/api/system-tools/ping -d '{}'` → `pong`. `ping` is a
 **System** tool: `/api/system-tools/`, not `/api/tools/`. With that connection up,
-`python scripts/smoke_property_patches.py --host <host> --project <testbed>` checks `node-get-data` / `node-modify` /
-`resource-modify` / `resource-get-data` by reading back the `.tres`/`.tscn` Godot wrote. Two traps: build
+`python scripts/smoke_rql.py --host <host> --project <testbed>` checks `rql-query` / `rql-mutate` / `rql-schema` by
+reading back the `.tres`/`.tscn` Godot wrote and runs every agent-guide example (CI runs it in
+`test_godot_runtime_harness.yml`; it writes fixed `res://scenes/` / `res://materials/` paths, so use a disposable
+project). Two traps: build
 the testbed with the `Godot.NET.Sdk` version of the running editor (CI rewrites the `Sdk=` pin; a 4.3
 build on a 4.4+ editor throws `MissingMethodException` from changed APIs), and keep exactly ONE editor
 connected (a background launch must record Godot's own PID — `(cd tb && exec godot …) &` — or stale
@@ -89,6 +93,12 @@ editors keep answering tool calls with an old build).
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
   (`SKILL_FAMILIES`) and the README counts/table; `cli/tests/skills-addon-parity.test.ts` fails on drift.
+- **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by
+  `Godot-Tests/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
+  runnable top to bottom against its fixture scene.
+- **RQL and hot reload.** RQL lives in the default load context; its Type-keyed caches are cleared on teardown
+  (`RqlStaticCaches`). The editor tool surface is shaped by the `configurePlugin` callback the editor passes to the
+  `GodotMcpConnection` constructor (Runtime/ never names editor types); console-* / reflection-* stay in the in-game runtime only.
 
 ## Conventions
 

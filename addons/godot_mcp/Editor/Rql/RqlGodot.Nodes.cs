@@ -1,0 +1,211 @@
+/*
+┌──────────────────────────────────────────────────────────────────┐
+│  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+│  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+│  Copyright (c) 2026 Ivan Murzak                                  │
+│  Licensed under the Apache License, Version 2.0.                 │
+│  See the LICENSE file in the project root for more information.  │
+└──────────────────────────────────────────────────────────────────┘
+*/
+#if TOOLS
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using com.IvanMurzak.Godot.MCP.Tools;
+using Godot;
+
+namespace com.IvanMurzak.Godot.MCP.Editor.Rql
+{
+    /// <summary>
+    /// Structural scene edits behind the Node adapter's calls (the replaced <c>node-create</c> / <c>node-duplicate</c> /
+    /// <c>node-delete</c> / <c>node-set-parent</c> / <c>node-reorder</c> tools). Each applies the change at once, keeps the
+    /// node owned by the edited scene root (so it is saved with the scene), marks the scene unsaved and registers do/undo
+    /// methods with <see cref="RecordUndo"/> — the same operations Godot's Scene dock registers for these edits.
+    /// </summary>
+    public static partial class RqlGodot
+    {
+        private static Node RequireEditedRoot() =>
+            EditorToolGuards.GetEditedSceneRootOrThrow("no scene is being edited; open one with editor | call OpenScene(\"res://…\")");
+
+        private static void RequireInEditedScene(Node node, string what)
+        {
+            if (!IsInEditedScene(node))
+                throw new InvalidOperationException($"{what} '{node.Name}' is not part of the edited scene");
+        }
+
+        /// <summary>A new node of a Godot class (or a GDScript / C# global script class) as the last child of <paramref name="parent"/>.</summary>
+        public static Node AddChild(Node parent, string className, string? name)
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(parent, "parent");
+            var node = Instantiate(className);
+            if (!string.IsNullOrEmpty(name)) node.Name = name;
+            return Attach(parent, node, root);
+        }
+
+        /// <summary>A new instance of the PackedScene at <paramref name="path"/> as the last child of <paramref name="parent"/>.</summary>
+        public static Node InstantiateScene(Node parent, string path, string? name)
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(parent, "parent");
+            if (!TryLoadResource(path, out var resource, out var reason)) throw new ArgumentException(reason);
+            if (!(resource is PackedScene packed)) throw new ArgumentException($"'{path}' is a {resource!.GetClass()}, not a scene (PackedScene)");
+            var node = packed.Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
+            if (!string.IsNullOrEmpty(name)) node.Name = name;
+            return Attach(parent, node, root);
+        }
+
+        /// <summary>A copy of <paramref name="node"/> placed right after it.</summary>
+        public static Node Duplicate(Node node)
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(node, "node");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
+            var parent = node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
+            var copy = node.Duplicate() as Node ?? throw new InvalidOperationException($"could not duplicate '{node.Name}'");
+            Attach(parent, copy, root);
+            var index = node.GetIndex(includeInternal: false) + 1;
+            parent.MoveChild(copy, index);
+            RecordUndo(ur => ur.AddDoMethod(parent, Node.MethodName.MoveChild, copy, index), null);
+            return copy;
+        }
+
+        /// <summary>
+        /// Remove <paramref name="node"/> from the scene, undoably (the node stays alive in the undo history). A node whose
+        /// ancestor this mutation already removed went with it: a no-op, so <c>… | call Free()</c> over a node and its
+        /// descendants does not fail half-way.
+        /// </summary>
+        public static void Remove(Node node)
+        {
+            var root = RequireEditedRoot();
+            if (WasRemoved(node)) return;
+            RequireInEditedScene(node, "node");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
+            var parent = node.GetParent()!;
+            var index = node.GetIndex(includeInternal: false);
+            var owners = new List<(Node node, Node? owner)>();
+            SubtreeOwners(node, owners);
+            parent.RemoveChild(node);
+            _removed.Add(node);
+            RecordUndo(
+                ur => ur.AddDoMethod(parent, Node.MethodName.RemoveChild, node),
+                ur =>
+                {
+                    ur.AddUndoMethod(parent, Node.MethodName.AddChild, node, true);
+                    ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, index);
+                    foreach (var (n, owner) in owners)
+                        if (owner != null) ur.AddUndoMethod(n, Node.MethodName.SetOwner, owner);
+                    ur.AddUndoReference(node);
+                });
+            MarkSceneUnsaved();
+        }
+
+        // The node, or one of its ancestors, was removed by the running mutation (its subtree left the scene with it).
+        private static bool WasRemoved(Node node)
+        {
+            if (_removed.Count == 0) return false;
+            for (Node? n = node; n != null; n = n.GetParent())
+                if (_removed.Contains(n)) return true;
+            return false;
+        }
+
+        /// <summary>Move <paramref name="node"/> under <paramref name="newParent"/> (keeping its global transform by default).</summary>
+        public static void Reparent(Node node, Node newParent, bool keepGlobalTransform)
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(node, "node");
+            RequireInEditedScene(newParent, "new parent");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be reparented");
+            if (node == newParent || node.IsAncestorOf(newParent))
+                throw new InvalidOperationException($"'{node.Name}' cannot be moved under itself or one of its descendants");
+            var oldParent = node.GetParent()!;
+            var oldIndex = node.GetIndex(includeInternal: false);
+            if (oldParent == newParent) return;
+            node.Reparent(newParent, keepGlobalTransform);
+            if (node.Owner == null) node.Owner = root;
+            Tool_Node.SetOwnerRecursive(node, root);
+            RecordUndo(
+                ur => ur.AddDoMethod(node, Node.MethodName.Reparent, newParent, keepGlobalTransform),
+                ur =>
+                {
+                    ur.AddUndoMethod(node, Node.MethodName.Reparent, oldParent, keepGlobalTransform);
+                    ur.AddUndoMethod(oldParent, Node.MethodName.MoveChild, node, oldIndex);
+                });
+            MarkSceneUnsaved();
+        }
+
+        /// <summary>Move <paramref name="node"/> to <paramref name="index"/> among its siblings (negative counts from the end, clamped).</summary>
+        public static int MoveChild(Node node, int index)
+        {
+            RequireInEditedScene(node, "node");
+            if (node == EditedRoot() || !(node.GetParent() is { } parent))
+                throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            var oldIndex = node.GetIndex(includeInternal: false);
+            var target = NodeIndexResolver.Resolve(index, parent.GetChildCount(includeInternal: false));
+            parent.MoveChild(node, target);
+            RecordUndo(
+                ur => ur.AddDoMethod(parent, Node.MethodName.MoveChild, node, target),
+                ur => ur.AddUndoMethod(parent, Node.MethodName.MoveChild, node, oldIndex));
+            MarkSceneUnsaved();
+            return node.GetIndex(includeInternal: false);
+        }
+
+        // Add a new node (fresh, instanced or copied) to the scene: owned by the root so it is saved, selected in the editor.
+        private static Node Attach(Node parent, Node node, Node root)
+        {
+            parent.AddChild(node, forceReadableName: true);
+            node.Owner = root;
+            Tool_Node.SetOwnerRecursive(node, root);
+            var owners = new List<(Node node, Node? owner)>();
+            SubtreeOwners(node, owners);
+            RecordUndo(
+                ur =>
+                {
+                    ur.AddDoMethod(parent, Node.MethodName.AddChild, node, true);
+                    foreach (var (n, owner) in owners)
+                        if (owner != null) ur.AddDoMethod(n, Node.MethodName.SetOwner, owner);
+                    ur.AddDoReference(node);
+                },
+                ur => ur.AddUndoMethod(parent, Node.MethodName.RemoveChild, node));
+            MarkSceneUnsaved();
+            return node;
+        }
+
+        private static void SubtreeOwners(Node node, List<(Node, Node?)> sink)
+        {
+            sink.Add((node, node.Owner));
+            foreach (var child in node.GetChildren(includeInternal: false)) SubtreeOwners(child, sink);
+        }
+
+        /// <summary>
+        /// A new node of <paramref name="className"/>: a Godot class (ClassDB), or a global script class (GDScript
+        /// <c>class_name</c> / a C# [GlobalClass]) — its native base instantiated with the script attached.
+        /// </summary>
+        private static Node Instantiate(string className)
+        {
+            if (string.IsNullOrWhiteSpace(className)) throw new ArgumentException("a node class is required, e.g. \"Node3D\"");
+            if (ClassDB.ClassExists(className))
+            {
+                if (!ClassDB.IsParentClass(className, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
+                return EditorToolGuards.ValidateClassDbInstantiation<Node>(className, "class");
+            }
+            foreach (var entry in ProjectSettings.GetGlobalClassList())
+            {
+                if (entry["class"].AsString() != className) continue;
+                var script = ResourceLoader.Load<Script>(entry["path"].AsString())
+                             ?? throw new ArgumentException($"the script of '{className}' failed to load");
+                var native = script.GetInstanceBaseType().ToString();
+                if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
+                var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
+                var id = node.GetInstanceId();
+                node.SetScript(script);
+                // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
+                return GodotObject.InstanceFromId(id) as Node ?? node;
+            }
+            var similar = ClassDB.GetClassList().Where(c => c.Contains(className, StringComparison.OrdinalIgnoreCase) && ClassDB.IsParentClass(c, "Node")).Take(5).ToList();
+            throw new ArgumentException($"unknown node class '{className}'" + (similar.Count > 0 ? $" (similar: {string.Join(", ", similar)})" : ""));
+        }
+    }
+}
+#endif

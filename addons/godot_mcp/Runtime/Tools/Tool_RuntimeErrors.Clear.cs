@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "so a 'sinceSequence' poll from before the clear still behaves correctly (no old rows reappear). " +
             "A no-op when runtime error capture is not enabled in this game.")]
         // The unused 'nothing' parameter is the repo-wide idiom for a zero-input [AiTool] method (mirrors
-        // Tool_Console.ClearLogs / Tool_Editor.GetState / Tool_Scene.ListOpened): the tool-schema generator
+        // Tool_Console.ClearLogs): the tool-schema generator
         // expects at least one parameter, so an optional defaulted no-op stands in for "takes no input".
         public void Clear(string? nothing = null)
         {
