@@ -11,8 +11,9 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
-# The only package dependencies an extension may declare; their pins must equal the core's.
-CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet')
+# The only package dependencies an extension may declare (the MCP stack and the RQL module API); their pins must
+# equal the core's.
+CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql')
 
 
 def read_json(path):
@@ -102,7 +103,7 @@ def verify_package(archive, module, root=ROOT, version=None):
                     raise ValueError('Packaged dependency floor differs from source: ' + node.attrib['id'])
         required = {f'build/{module["packageId"]}.props', 'README.md'}
         required.update('src/' + path.relative_to(source).as_posix()
-                        for part in ('Runtime', 'Editor') for path in (source / part).rglob('*.cs'))
+                        for path in (source / 'Editor').rglob('*.cs'))
         if not required.issubset(names):
             raise ValueError('Package omits required files: ' + str(required - set(names)))
         if len(names) != len(set(names)) or {name for name in names if name.endswith('.cs')} != {

@@ -7,9 +7,14 @@ python scripts/new_extension.py MyFeature
 ```
 
 This creates `extensions/Godot-AI-MyFeature/` and registers the module and both catalog
-mirrors. Replace the sample tools and add matching unit tests and live manifest assertions.
+mirrors. The scaffold is an **RQL module** (`Editor/Rql/`): an `IRqlModule` that the core addon
+discovers in the consumer assembly, a sample `myfeature` source, and the agent guide that the core
+renders into its `godot-rql` skill. Agents use the extension through the core `rql-query` /
+`rql-mutate` / `rql-schema` tools; an extension adds no MCP tools. Replace the sample with adapters
+for the Godot types the feature covers (validated members, methods), sources and runnable guide
+examples, and keep `tests/e2e/e2e-tools.json` running every guide example (the xUnit suite checks it).
 Use the shared test suite and independent release workflow described in
-[the monorepo guide](../../docs/EXTENSION-MONOREPO.md).
+[the monorepo guide](../../docs/EXTENSION-MONOREPO.md) and the RQL design in [docs/rql.md](../../docs/rql.md).
 
 The package remains source-only: consumer projects supply their own Godot SDK.
 Keep `IncludeBuildOutput=false`, the package-named MSBuild props, and private GodotSharp

@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Unit-test project for the Animation Tools extension. A PLAIN xUnit assembly (Microsoft.NET.Sdk),
-    NOT a Godot game project — so it builds + runs in CI with no Godot binary.
+    Unit-test project for the Animation RQL module. A PLAIN xUnit assembly (Microsoft.NET.Sdk), NOT a Godot game
+    project — so it builds + runs in CI with no Godot binary.
 
-    It compiles ONLY the PURE-MANAGED extension sources (the tools that live OUTSIDE #if TOOLS and touch
-    no Godot native types). Editor-only tools (#if TOOLS, touching EditorInterface / live Node) are NOT
-    compiled here — a plain xUnit host has no live Godot main loop, so calling them would fault. Those
-    are verified by the headless-Godot E2E instead (see .github/workflows/test.yml-sample).
-
-    This mirrors the core addon's Godot-MCP.Tests pattern: selectively <Compile Include> the
-    CI-friendly subset rather than ProjectReference the Godot.NET.Sdk project.
+    It compiles the module sources directly (no ProjectReference to the Godot.NET.Sdk package project), with TOOLS
+    defined so the #if TOOLS module and adapters compile too. Only managed metadata is exercised: the RQL engine
+    configures the module and builds the member tables of the Godot types by reflection; no Godot object is ever
+    created (native-backed objects crash a plain test host). Writing to live animations is verified by the headless-Godot
+    E2E (tests/e2e/e2e-tools.json), which runs every guide example.
   -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -18,32 +16,24 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Animation.Tests</RootNamespace>
     <AssemblyName>com.IvanMurzak.Godot.MCP.Animation.Tests</AssemblyName>
-    <!-- No GodotSharp here: only pure-managed sources are compiled, and they reference no Godot type. -->
+    <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <!-- Same MCP/reflection pins as the package; needed because the tools use [AiTool]/[AiToolType]. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
+    <!-- The package's RQL pin (IRqlModule, adapters, the parser for the guide examples) and the Godot API it
+         compiles against (metadata only here). -->
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
+    <PackageReference Include="GodotSharp" Version="4.3.0" />
   </ItemGroup>
 
-  <!--
-    Compile the PURE-MANAGED extension sources under test. Add one <Compile Include> line per
-    pure-managed source file you want to unit-test. Do NOT add files guarded by #if TOOLS here.
-  -->
   <ItemGroup>
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Tools\Tool_Animation.cs" Link="Source\Tool_Animation.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Tools\Tool_Animation.Ids.cs" Link="Source\Tool_Animation.Ids.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Tools\Tool_Animation.Defaults.cs" Link="Source\Tool_Animation.Defaults.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationLoopMode.cs" Link="Source\AnimationLoopMode.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationTrackKind.cs" Link="Source\AnimationTrackKind.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationTrackInfo.cs" Link="Source\AnimationTrackInfo.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationClipInfo.cs" Link="Source\AnimationClipInfo.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationPlayerInfo.cs" Link="Source\AnimationPlayerInfo.cs" />
-    <Compile Include="..\..\src\Godot-AI-Animation\Runtime\Animation\AnimationDefaults.cs" Link="Source\AnimationDefaults.cs" />
+    <Compile Include="..\..\src\Godot-AI-Animation\Editor\Rql\*.cs" Link="Source\%(Filename)%(Extension)" />
+    <!-- The guide checks every extension shares (one copy per test assembly). -->
+    <Compile Include="..\..\..\Shared\Tests\*.cs" Link="Shared\%(Filename)%(Extension)" />
+    <None Include="..\e2e\e2e-tools.json" Link="e2e-tools.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

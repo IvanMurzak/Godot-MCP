@@ -1,6 +1,6 @@
 {
-  "description": "Live run-tool E2E tool list for the Tilemap Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "One shared editor session; create a Node2D scene, assert cell operations and assign the real e2e-tileset.tres fixture.",
+  "description": "Live E2E for the Tilemap RQL module. Driven by scripts/extension_e2e.py (via scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapter, validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node2D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every TilemapGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and a rejected call that must fail before it changes anything. res://e2e-tileset.tres is the testbed's empty TileSet fixture (a cell keeps its source / atlas ids even when the TileSet has no such source). 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated.",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -13,69 +13,17 @@
     }
   ],
   "tools": [
-    {
-      "tool": "tilemap-create",
-      "input": {
-        "name": "Layer"
-      },
-      "expect": [
-        "\"TypeName\":\"TileMapLayer\"",
-        "\"UsedCellCount\":0"
-      ]
-    },
-    {
-      "tool": "tilemap-set-cell",
-      "input": {
-        "nodePath": "Layer",
-        "x": 0,
-        "y": 0,
-        "sourceId": 0,
-        "atlasX": 0,
-        "atlasY": 0
-      },
-      "expect": [
-        "\"UsedCellCount\":1"
-      ]
-    },
-    {
-      "tool": "tilemap-get-used-cells",
-      "input": {
-        "nodePath": "Layer"
-      },
-      "expect": [
-        "\"UsedCellCount\":1",
-        "\"SourceId\":0"
-      ]
-    },
-    {
-      "tool": "tilemap-erase-cell",
-      "input": {
-        "nodePath": "Layer",
-        "x": 0,
-        "y": 0
-      },
-      "expect": [
-        "\"UsedCellCount\":0"
-      ]
-    },
-    {
-      "tool": "tilemap-set-tileset",
-      "input": {
-        "nodePath": "Layer",
-        "tileSetPath": "res://e2e-tileset.tres"
-      },
-      "expect": [
-        "\"TileSetPath\":\"res://e2e-tileset.tres\""
-      ]
-    },
-    {
-      "tool": "tilemap-clear",
-      "input": {
-        "nodePath": "Layer"
-      },
-      "expect": [
-        "\"UsedCellCount\":0"
-      ]
-    }
+    {"tool": "rql-schema", "input": {"type": "TileMapLayer"}, "expect": ["(Tilemap extension)", "SetCell"]},
+    {"tool": "rql-mutate", "input": {"query": "root | call AddChild(\"TileMapLayer\", \"Layer\")"}, "expect": ["TileMapLayer#", "(Layer)"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | set TileSet = \"res://e2e-tileset.tres\""}, "expect": ["TileSet|null|", "res://e2e-tileset.tres"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | call SetCell(0, 0, 0, 0, 0)"}, "expect": ["SetCell("]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | call SetCell(1, 0, 0, 2, 1, 1)"}, "expect": ["SetCell("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Layer\" | get usedCells | select x y sourceId atlasX atlasY alternative"}, "expect": ["x|y|sourceId|atlasX|atlasY|alternative", "0|0|0|0|0|0", "1|0|0|2|1|1"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | call EraseCell(0, 0)"}, "expect": ["EraseCell("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where $ is TileMapLayer | select name usedCellCount TileSet"}, "expect": ["Layer|1|", "e2e-tileset.tres"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | call Clear()"}, "expect": ["Clear("]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Layer\" | select usedCellCount TileSet"}, "expect": ["0|TileSet#", "e2e-tileset.tres"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Layer\" | call SetCell(0, 0, -1, 0, 0)"}, "expect": ["sourceId must be a TileSet source id of at least 0"], "expectFailure": true},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Layer\" | select usedCellCount"}, "expect": ["usedCellCount\\n0"]}
   ]
 }

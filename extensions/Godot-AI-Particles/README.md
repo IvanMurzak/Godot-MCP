@@ -1,9 +1,10 @@
 # Particles Tools
 
-AI MCP tools for Godot GpuParticles (2D & 3D): create, configure, start/stop, and inspect emitters.
+RQL module for Godot GPU particles (2D & 3D): validated emitter settings and Restart() for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Particles` (0.1.4).
-Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Particles` (1.0.0).
+Requires a Godot C# project (4.3.0+) with a core `godot_mcp` addon that has the RQL tools
+(`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
 ## Install
 
@@ -13,17 +14,42 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Particles /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.4` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.0.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
-## Tools
+## RQL
 
-- `particles-defaults` — Return the recommended starter config for a 2D/3D emitter.
-- `particles-create` — Create a GpuParticles2D/GpuParticles3D node in the edited scene.
-- `particles-configure` — Update an emitter's scalar properties (clamped to valid ranges).
-- `particles-set-emitting` — Start or stop emission, optionally restarting first.
-- `particles-get` — Read an emitter's scalar config (read-only).
+Since 1.0.0 the extension is an **RQL module**: it adds no MCP tools. Agents create, tune and read emitters
+with the core `rql-query` / `rql-mutate` / `rql-schema` tools, and the module's guide is part of the core
+`godot-rql` skill. The module adds:
+
+- **Validated emitter members** on `GPUParticles3D` and `GPUParticles2D`: `Amount` (at least 1), `Lifetime`
+  (seconds, above 0), `Explosiveness` and `Randomness` (0 to 1). An out-of-range value fails the whole mutation
+  and changes nothing (0.x clamped it).
+- **`Restart()`** as an RQL call.
+
+```
+root | call AddChild("GPUParticles3D", "FX")
+nodes | where name == "FX" | set Amount = 32, Lifetime = 2, Explosiveness = 0.5, Randomness = 0.25, OneShot = false
+nodes | where name == "FX" | set ProcessMaterial = {"$type": "ParticleProcessMaterial"}
+nodes | where name == "FX" | set ProcessMaterial.props["initial_velocity_min"] = 2, ProcessMaterial.props["initial_velocity_max"] = 4
+nodes | where name == "FX" | call Restart()
+nodes | where name == "FX" | set Emitting = false
+nodes | where $ is GPUParticles3D | select name Amount Lifetime Emitting Explosiveness ProcessMaterial
+```
+
+Every write is one undoable action and marks the scene unsaved (`editor | call SaveScene()` writes it).
+
+### Migrating from 0.x
+
+| 0.x tool | RQL |
+| --- | --- |
+| `particles-defaults` | removed: a new emitter starts with Godot's defaults; the guide lists typical values |
+| `particles-create` | `rql-mutate` `root \| call AddChild("GPUParticles3D", "FX")` (or `GPUParticles2D`), then `set …` |
+| `particles-configure` | `rql-mutate` `nodes \| where name == "FX" \| set Amount = 32, Lifetime = 2, …` |
+| `particles-set-emitting` | `rql-mutate` `… \| set Emitting = false`; `… \| call Restart()` |
+| `particles-get` | `rql-query` `nodes \| where $ is GPUParticles3D \| select name Amount Lifetime Emitting …` |
 
 ## Development and releases
 

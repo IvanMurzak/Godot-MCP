@@ -140,18 +140,20 @@ class PackageVerification(unittest.TestCase):
         self.source.mkdir()
         self.module = {'project': 'module/package.csproj', 'packageId': 'example', 'version': '1.2.3'}
         (self.source / 'package.csproj').write_text('''<Project><ItemGroup>
-<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.7.0"/>
-<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1"/>
+<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
-        self.files = {'src/Runtime/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
+        self.files = {'src/Editor/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
                       'README.md': b'Package readme'}
         for name, value in self.files.items():
             path = self.source / name.removeprefix('src/')
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(value)
         self.files['example.nuspec'] = b'''<package><metadata><id>example</id><version>1.2.3</version>
-<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.7.0"/>
-<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.1"/></dependencies></metadata></package>'''
+<dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.8.1"/>
+<dependency id="com.IvanMurzak.ReflectorNet" version="5.4.3"/>
+<dependency id="com.IvanMurzak.Rql" version="0.1.1"/></dependencies></metadata></package>'''
 
     def verify(self):
         archive = self.root / 'example.nupkg'
@@ -165,12 +167,12 @@ class PackageVerification(unittest.TestCase):
         self.assertTrue(self.verify())
 
     def test_modified_source_is_rejected(self):
-        self.files['src/Runtime/Test.cs'] += b'// modified'
+        self.files['src/Editor/Test.cs'] += b'// modified'
         with self.assertRaisesRegex(ValueError, 'bytes differ'):
             self.verify()
 
     def test_sibling_source_is_rejected(self):
-        self.files['src/Runtime/Sibling.cs'] = b'class Sibling {}'
+        self.files['src/Editor/Sibling.cs'] = b'class Sibling {}'
         with self.assertRaisesRegex(ValueError, 'unexpected sources'):
             self.verify()
 
@@ -185,8 +187,14 @@ class PackageVerification(unittest.TestCase):
             self.verify()
 
     def test_changed_dependency_floor_is_rejected(self):
-        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'9.0.0')
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.1', b'9.0.0')
         with self.assertRaisesRegex(ValueError, 'dependency floor'):
+            self.verify()
+
+    def test_missing_rql_dependency_is_rejected(self):
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(
+            b'\n<dependency id="com.IvanMurzak.Rql" version="0.1.1"/>', b'')
+        with self.assertRaisesRegex(ValueError, 'Unexpected package dependencies'):
             self.verify()
 
     def test_train_package_requires_exact_candidate_dependency(self):
@@ -196,30 +204,43 @@ class PackageVerification(unittest.TestCase):
         with patch.dict(os.environ, {'CHAIN_ACTIVE': '1'}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.7.0', b'[8.7.1-ws.ga1b2c3d4]')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'8.8.1', b'[8.7.1-ws.ga1b2c3d4]')
             self.assertTrue(self.verify())
         # No applied override (CHAIN_LOCK alone is the raw dispatch input): the source floors rule.
         with patch.dict(os.environ, {'CHAIN_LOCK': 'candidate lock', 'CHAIN_ACTIVE': ''}):
             with self.assertRaisesRegex(ValueError, 'dependency floor'):
                 self.verify()
-            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.7.0')
+            self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'[8.7.1-ws.ga1b2c3d4]', b'8.8.1')
             self.assertTrue(self.verify())
 
 
 class SuiteGuards(unittest.TestCase):
-    def test_script_failure_is_never_hidden_by_gridmap_diagnostic(self):
-        text = ('ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\n'
-                'Tool_GridMap\nSCRIPT ERROR: Missing autoload')
+    def test_script_failure_is_fatal(self):
         with self.assertRaisesRegex(ValueError, 'Script/assembly'):
-            extension_live.check_editor_log(text)
+            extension_live.check_editor_log('ERROR: Parameter "instance" is null.\nSCRIPT ERROR: Missing autoload')
 
     def test_unrelated_native_error_is_fatal(self):
         with self.assertRaisesRegex(ValueError, 'Unexpected engine error'):
             extension_live.check_editor_log('ERROR: Parameter "instance" is null.\nAnotherTool')
 
-    def test_observed_headless_diagnostic_is_counted(self):
-        self.assertEqual(1, extension_live.check_editor_log(
-            'ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency\nTool_GridMap')['headlessGridMapGizmo'])
+    def test_former_gridmap_gizmo_error_is_fatal(self):
+        # The old gridmap-create tool's EditNode produced it; the RQL module never selects nodes.
+        with self.assertRaisesRegex(ValueError, 'Unexpected engine error'):
+            extension_live.check_editor_log('ERROR: Parameter "instance" is null.\ninstance_geometry_set_transparency')
+
+    def test_expected_tool_error_is_allowed_only_in_its_own_call_window(self):
+        rejected = ('ERROR: [McpPlugin] McpToolManager: Error Response to AI:\n'
+                    'error coercion-failed: Amount must be at least 1 (got 0)\n')
+        log = 'boot\n' + rejected + 'later call\n'
+        self.assertFalse(any(extension_live.check_editor_log(log, failure_windows=[(1, 3)]).values()))
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log(log, failure_windows=[(3, 4)])  # outside its window
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log('boot\n' + rejected * 2, failure_windows=[(1, 5)])  # two in one window
+        with self.assertRaisesRegex(ValueError, 'left no error response'):
+            extension_live.check_editor_log('boot\n', failure_windows=[(0, 1)])
+        with self.assertRaisesRegex(ValueError, 'Unexpected tool error'):
+            extension_live.check_editor_log(log)
 
     def test_godot44_native_cold_import_is_reported_only_during_startup(self):
         error = ('ERROR: Do not use progress dialog (task) while flushing the message queue or using call_deferred()!\n'
@@ -286,16 +307,20 @@ class CorePinParity(unittest.TestCase):
             (root / 'Godot-MCP.csproj').write_text('''<Project><ItemGroup>
 <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
 <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
             tests = root / 'extensions/Godot-AI-Example/tests/Example.Tests'
             tests.mkdir(parents=True)
             (tests / 'Example.Tests.csproj').write_text('''<Project><ItemGroup>
 <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1"/>
 <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1"/>
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.0"/>
 <PackageReference Include="xunit" Version="2.9.2"/>
 </ItemGroup></Project>''')
             self.assertEqual(['extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
                               'com.IvanMurzak.ReflectorNet 5.4.1 != core 5.4.3',
+                              'extensions/Godot-AI-Example/tests/Example.Tests/Example.Tests.csproj: '
+                              'com.IvanMurzak.Rql 0.1.0 != core 0.1.1',
                               'templates/extension: no csproj found'],
                              extensions.core_pin_drift(root))
             (root / 'Godot-MCP.csproj').write_text('<Project/>')

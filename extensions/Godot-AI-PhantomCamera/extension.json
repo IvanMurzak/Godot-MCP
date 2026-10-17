@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-PhantomCamera",
   "packageId": "com.IvanMurzak.Godot.MCP.PhantomCamera",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "project": "extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj",
   "tests": "extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Godot-AI-PhantomCamera.Tests.csproj",
   "minGodotVersion": "4.4.0",

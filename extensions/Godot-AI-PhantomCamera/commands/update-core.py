@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Update the core MCP/reflection pins in lockstep across package/tests/testbed. Mirror of update-core.ps1.
+"""Update the core MCP / reflection / query pins in lockstep across package/tests/testbed. Mirror of update-core.ps1.
 
-Keep these MIN-versions matching the core Godot-MCP addon (Godot-MCP/Godot-MCP.csproj).
+The pins (com.IvanMurzak.McpPlugin, com.IvanMurzak.ReflectorNet, com.IvanMurzak.Rql = the RQL module API) must
+EQUAL the core Godot-MCP addon's (Godot-MCP/Godot-MCP.csproj); scripts/extensions.py core_pin_drift fails CI otherwise.
 
 Usage:
   python commands/update-core.py --mcp-plugin 6.11.0
   python commands/update-core.py --mcp-plugin 6.11.0 --reflector-net 5.4.0 --what-if
+  python commands/update-core.py --rql 0.2.0
 """
 from __future__ import annotations
 import argparse
@@ -17,16 +19,19 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mcp-plugin")
     ap.add_argument("--reflector-net")
+    ap.add_argument("--rql")
     ap.add_argument("--what-if", action="store_true")
     args = ap.parse_args()
-    if not args.mcp_plugin and not args.reflector_net:
-        raise SystemExit("error: pass --mcp-plugin and/or --reflector-net")
+    if not args.mcp_plugin and not args.reflector_net and not args.rql:
+        raise SystemExit("error: pass --mcp-plugin, --reflector-net and/or --rql")
 
     pins = {}
     if args.mcp_plugin:
         pins["com.IvanMurzak.McpPlugin"] = args.mcp_plugin
     if args.reflector_net:
         pins["com.IvanMurzak.ReflectorNet"] = args.reflector_net
+    if args.rql:
+        pins["com.IvanMurzak.Rql"] = args.rql
 
     root = Path(__file__).resolve().parent.parent
     csprojs = []

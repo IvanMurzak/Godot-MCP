@@ -1,9 +1,10 @@
 # Terrain3D Tools
 
-AI MCP tools for the Godot Terrain3D addon (TokisanGames heightmap terrain): create terrains, set the data directory, region size, and material, and inspect them.
+RQL module for the Terrain3D addon (TokisanGames heightmap terrain): terrain3d source with validated ChangeRegionSize, addon check and material creation for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (0.1.3).
-Requires a Godot C# project (4.4.0+) with the core `godot_mcp` addon installed.
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (1.0.0).
+Requires a Godot C# project (4.4.0+) with a core `godot_mcp` addon that has the RQL tools
+(`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
 ## Required prerequisite — Terrain3D (install it yourself)
 
@@ -16,8 +17,8 @@ install Terrain3D into your own Godot project separately:
 - Unzip it into **`addons/terrain_3d/`**, **restart Godot** (a GDExtension only loads on editor
   startup), then enable it under **Project Settings → Plugins**.
 
-Without Terrain3D installed and enabled, the editor tools below report `installed: false` and take no
-action (by design).
+Without Terrain3D installed and enabled, the `terrain3d` source is empty and `terrain3d.addon | select installed hint`
+says how to install it (by design).
 
 > Terrain3D is © its authors and distributed under the **MIT License**. This extension is
 > **not affiliated with, endorsed by, or sponsored by** the Terrain3D project — it merely provides AI
@@ -31,18 +32,48 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Terrain3D /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.3` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.0.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
-## Tools
+## RQL
 
-- `terrain3d-defaults` — Return the recommended starter config (region size, mesh LODs, mesh size, vertex spacing, data directory) for a Terrain3D node.
-- `terrain3d-create` — Create a Terrain3D node in the currently edited Godot scene (requires the Terrain3D addon).
-- `terrain3d-set-data-directory` — Set an existing Terrain3D node's res:// data directory (where region data persists).
-- `terrain3d-set-region-size` — Set an existing Terrain3D node's region size (snapped to a valid Terrain3D size).
-- `terrain3d-set-material` — Assign a Terrain3DMaterial to an existing Terrain3D node (created when missing).
-- `terrain3d-get` — Read a Terrain3D node's scalar config (read-only).
+Since 1.0.0 the extension is an **RQL module**: it adds no MCP tools. Agents create, configure and read terrains
+with the core `rql-query` / `rql-mutate` / `rql-schema` tools, and the module's guide is part of the core
+`godot-rql` skill. Terrain3D is a GDExtension class without a C# type (its nodes are `Node3D` in RQL, `class ==
+"Terrain3D"`), so the module adds sources and a function rather than adapters:
+
+- **`terrain3d`**: one row per Terrain3D node of the edited scene, with `node`, `name`, `path`, `regionSize`,
+  `dataDirectory`, `material`, `regionCount`, `meshLods`, `meshSize`, `vertexSpacing`, `version`, and
+  **`ChangeRegionSize(size)`** (64, 128, 256, 512, 1024 or 2048; any other size fails and changes nothing, 0.x
+  snapped it; not undoable, the size lives in the region data).
+- **`terrain3d.addon`**: `installed` / `hint`, whether the Terrain3D GDExtension is loaded.
+- **`terrain3d.newMaterial()`**: a new Terrain3DMaterial (made through ClassDB) to assign to a terrain.
+
+Write a terrain's properties on its node (`get node | set props["…"] = …`): those writes are undoable and mark
+the scene unsaved (`editor | call SaveScene()` writes it, and Terrain3D saves its regions to `data_directory`).
+
+```
+terrain3d.addon | select installed hint
+root | call AddChild("Terrain3D", "Terrain")
+terrain3d | select name regionSize dataDirectory meshLods meshSize vertexSpacing version
+terrain3d | where name == "Terrain" | call ChangeRegionSize(1024)
+terrain3d | where name == "Terrain" | get node | set props["data_directory"] = "res://terrain_data"
+terrain3d | where name == "Terrain" | get node | set props["material"] = terrain3d.newMaterial()
+terrain3d | where name == "Terrain" | get node | set props["mesh_lods"] = 8, props["vertex_spacing"] = 2
+terrain3d | select name regionSize dataDirectory material.class regionCount meshLods vertexSpacing
+```
+
+### Migrating from 0.x
+
+| 0.x tool | RQL |
+| --- | --- |
+| `terrain3d-defaults` | removed: typical values (region size 256 to 1024, `mesh_lods` 7, `mesh_size` 48, `vertex_spacing` 1, `res://terrain_data`) are in the guide |
+| `terrain3d-create` | `rql-mutate` `root \| call AddChild("Terrain3D", "Terrain")`, then `call ChangeRegionSize(…)` / `set props["data_directory"] = …` |
+| `terrain3d-set-data-directory` | `rql-mutate` `terrain3d \| where name == "Terrain" \| get node \| set props["data_directory"] = "res://terrain_data"` |
+| `terrain3d-set-region-size` | `rql-mutate` `terrain3d \| where name == "Terrain" \| call ChangeRegionSize(512)` (an exact size: no more snapping) |
+| `terrain3d-set-material` | `rql-mutate` `terrain3d \| where name == "Terrain" \| get node \| set props["material"] = terrain3d.newMaterial()` |
+| `terrain3d-get` | `rql-query` `terrain3d \| select name regionSize dataDirectory material.class regionCount version`; addon presence: `terrain3d.addon \| select installed hint` |
 
 ## Development and releases
 

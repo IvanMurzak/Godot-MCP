@@ -1,92 +1,61 @@
 # AGENTS.md — Godot-AI-Terrain3D
 
-A **Godot-MCP extension** wrapping the third-party [**Terrain3D**](https://github.com/TokisanGames/Terrain3D)
-addon (large-scale, editable clipmap terrain). Shipped as a **source-only NuGet package**
-(`com.IvanMurzak.Godot.MCP.Terrain3D`) that compiles inside the consumer's Godot project against the
-consumer's own GodotSharp. Created from
-[`Godot-AI-Tools-Template`](https://github.com/IvanMurzak/Godot-MCP/tree/main/templates/extension). The packaging recipe is
-the load-bearing detail — read `docs/source-only-nuget-recipe.md`.
-
-## Addon-dependent (Class B) — the load-bearing rules
-
-Terrain3D is a third-party precompiled C++ **GDExtension** whose classes are NOT in GodotSharp, and the
-package must not depend on it:
-
-- **No compile-time dependency.** Reference Terrain3D classes **by string name only**, resolved at runtime.
-  `dotnet build -c Debug` MUST exit 0 with the addon ABSENT (the no-dependency gate).
-- **Resolution:** a GDExtension registers its classes in `ClassDB` (not the GDScript global-class list):
-  resolve via `ClassDB.ClassExists` / `ClassDB.Instantiate`.
-- **Presence gate first.** Every editor tool's first action inside `MainThread.Instance.Run(...)` checks
-  `AddonInterop.NativeClassExists(AddonGate.PresenceClass)` (`Terrain3D`) and, when missing, returns the
-  structured `installed: false` result (`AddonGateResult`) with an install hint — never a raw throw (an opaque
-  HTTP 500 to the LLM).
-- **Names are the contract.** Drive addon objects via `GodotObject.Set/Get/Call` with GDScript **snake_case**
-  member names (not C# PascalCase); enums are plain ints. Keep these name constants centralized in
-  `Runtime/Terrain3D/Terrain3DNames.cs` and unit-tested — there are no compile-time types to lean on.
-- The addon is **never** vendored, submoduled, or downloaded by this repo; installing it is the consumer's
-  job. CI installs the pinned `TokisanGames/Terrain3D` @ `v1.0.2-stable` into `testbed/addons/terrain_3d/`
-  only for the e2e leg (`ADDON_*` in `.github/workflows/test.yml`).
-
-Terrain3D persists regions to a **writable data directory** (not just the scene): `terrain3d-create` /
-`terrain3d-set-data-directory` set a `res://` data dir, and the e2e fixture points at one.
+A **Godot-MCP extension** for the third-party [**Terrain3D**](https://github.com/TokisanGames/Terrain3D) GDExtension
+addon, shipped as an **RQL module**: it adds no MCP tools, only what the core `rql-query` / `rql-mutate` /
+`rql-schema` tools need to work with terrains (the `terrain3d` / `terrain3d.addon` sources, the
+`terrain3d.newMaterial()` function, `ChangeRegionSize`, an agent guide rendered into the core `godot-rql` skill). A
+**source-only NuGet package** (`com.IvanMurzak.Godot.MCP.Terrain3D`) compiled inside the consumer's Godot project
+against the consumer's own GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
 
 ## Layout
 
-- `src/Godot-AI-Terrain3D/` — the source-only package (`Godot.NET.Sdk`):
-  - `Runtime/Tools/` — `Tool_Terrain3D.cs` (the `[AiToolType]` partial class), `Tool_Terrain3D.Ids.cs` (all
-    tool-id consts, pinned by tests), and the pure-managed `Tool_Terrain3D.Defaults.cs`.
-  - `Runtime/Interop/` — `AddonInterop.cs` (name resolution + instantiation; entirely behind `#if TOOLS`,
-    E2E-verified, never unit-tested), `AddonGate.cs` (the `AddonGateResult` shape + `NotInstalled(...)`
-    factory; pure-managed, unit-tested).
-  - `Runtime/Terrain3D/` — `Terrain3DNames` (class/member snake_case names + `RegionSizes`),
-    `Terrain3DConfig`, `Terrain3DDefaults`, `Terrain3DNodeInfo`; all unit-tested.
-  - `Editor/Tools/` — one file per editor tool (`Tool_Terrain3D.<Name>.cs`) + shared helpers in
-    `Tool_Terrain3D.Editor.cs`; all behind `#if TOOLS`.
-  - `build/com.IvanMurzak.Godot.MCP.Terrain3D.props` — source-injection props, auto-imported by NuGet in the
-    consumer; MUST stay named `<PackageId>.props`.
-- `tests/Godot-AI-Terrain3D.Tests/` — xUnit specs for the pure-managed sources only (no Godot binary).
-- `tests/e2e/` — live `run-tool` E2E: the tool list `e2e-tools.json`, driven by `run_tool_e2e.py`.
-- `testbed/Terrain3D-Testbed.csproj` — consumer `Godot.NET.Sdk` project restoring the local-packed package;
-  its `dotnet build` is the source-injection proof.
+- `src/Godot-AI-Terrain3D/Editor/Rql/` — the module:
+  - `Terrain3DModule.cs` — the `IRqlModule` (Order 100, `#if TOOLS`): sources, function, guide.
+  - `Terrain3DApi.cs` (the sources and the function; `Terrain3DAddon`) and `Terrain3DView.cs` (one row per terrain:
+    read-only members, `node`, `ChangeRegionSize`) — `#if TOOLS`.
+  - `Terrain3DNames.cs` (the addon's class / snake_case names, region sizes, install hint), `Terrain3DRules.cs`
+    (validation) and `Terrain3DGuide.cs` (the guide) — pure-managed, NOT behind `#if TOOLS`.
+- `src/Godot-AI-Terrain3D/build/com.IvanMurzak.Godot.MCP.Terrain3D.props` — source-injection props, auto-imported by
+  NuGet in the consumer; MUST stay named `<PackageId>.props`.
+- `tests/Godot-AI-Terrain3D.Tests/` — xUnit (no Godot binary, no addon): rules, names, guide examples parse, the
+  module's registrations and view type, and the e2e manifest runs every guide example.
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite with
+  the pinned addon installed (`extension.json` `testAddon`: `TokisanGames/Terrain3D` @ `v1.0.2-stable`).
+- `testbed/Terrain3D-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
-- `docs/` — `source-only-nuget-recipe.md` (the packaging recipe + consumer story); `ci.md` (workflows, version
-  gate, multi-Godot matrix, NuGet publishing setup).
+## Critical invariants (addon-dependent)
 
-## Tools
-
-Ids live in `Runtime/Tools/Tool_Terrain3D.Ids.cs` (the source of truth). Current tools: `terrain3d-defaults`
-(pure-managed), `terrain3d-create`, `terrain3d-set-data-directory`, `terrain3d-set-region-size`,
-`terrain3d-set-material`, `terrain3d-get`.
+- **No compile-time dependency on the addon.** Terrain3D classes have no C# type (a Terrain3D node is a `Node3D`
+  wrapper, a Terrain3DMaterial a `Resource`), so adapters cannot target them: reach them by ClassDB name and
+  snake_case property / method names from `Terrain3DNames` only. `dotnet build` must pass with the addon absent.
+  The addon is never vendored or downloaded by this repo.
+- **One approach:** the `terrain3d` source yields read-only `Terrain3DView` rows; writes go to the node itself
+  (`get node | set props["…"]`), so they are undoable through the core hooks. Only `ChangeRegionSize` is a view
+  call: it validates the size (Terrain3D logs an error for any other value), is not undoable (the size is not a
+  stored scene property) and marks the scene unsaved itself.
+- **Missing addon:** `terrain3d` is empty, `terrain3d.addon` reports `installed: false` plus the install hint,
+  `terrain3d.newMaterial()` fails with that hint — never a crash.
+- Every guide example runs, in order, in `tests/e2e/e2e-tools.json` (xUnit-asserted). The module uses only Godot,
+  `com.IvanMurzak.Rql` and the BCL, never core-addon types.
 
 ## Build / test (no Godot binary, addon absent)
 
 ```bash
-dotnet build src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj  # source-only package compiles tools
+dotnet build src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj -c Debug   # the module (#if TOOLS included)
 dotnet test  tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj
-dotnet pack  src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj -p:Version=0.0.0-ci -o local-nuget
-dotnet build testbed/Terrain3D-Testbed.csproj                  # consumes the local package (injection proof)
 ```
 
-`Godot.NET.Sdk` supplies GodotSharp from NuGet, so build/test/pack and the source-injection proof need no
-Godot install (the testbed build is a faithful proxy for `godot --build-solutions`). CI proves the recipe
-across Godot 4.4 / 4.5 (the central monorepo SDK matrix). `dotnet pack` reuses the **global NuGet cache**
-for an already-cached version: when re-packing the same `Version`, clear
-`~/.nuget/packages/com.ivanmurzak.godot.mcp.terrain3d/<ver>` (or pack a unique version) before re-restoring
-the testbed, or you silently build the stale cached source.
+The live suite (one headless editor for every module) is `python scripts/test_extensions.py` from the monorepo
+root. `dotnet pack` reuses the **global NuGet cache** for an already-cached version: when re-packing the same
+`Version`, clear `~/.nuget/packages/com.ivanmurzak.godot.mcp.terrain3d/<ver>` (or pack a unique version).
 
 ## Conventions
 
-- Root namespace `com.IvanMurzak.Godot.MCP.Terrain3D`. Every `.cs` starts with the Apache-2.0 header.
-- Pure-managed code (tool ids, the `AddonGateResult` shape, name/enum-int constants, defaults) → `Runtime/`
-  (outside `#if TOOLS`, unit-testable); editor-driving tools + `AddonInterop` → `#if TOOLS` (every Godot call
-  via `MainThread.Instance.Run(...)`, E2E-verified).
-- **Namespace shadow:** the root namespace contains `com.IvanMurzak.Godot`, so an inline `Godot.`-qualified
-  type binds to that ancestor, not the engine — write `global::Godot.Collections.Dictionary` or import via
-  `using Godot.Collections;`. Plain `using Godot;` + unqualified `Node`/`ClassDB` are unaffected.
-- The package declares ONLY the `com.IvanMurzak.McpPlugin` / `com.IvanMurzak.ReflectorNet` min-version deps;
-  **GodotSharp and the Terrain3D addon must never become a package dependency** (CI asserts the nuspec). Keep
-  the MCP pins in lockstep with the core Godot-MCP addon; bump with `commands/update-core.ps1`.
-- One `[AiToolType] partial class Tool_Terrain3D`; one `[AiTool]` method per partial-class file. Add every new
-  pure-managed source to the test csproj `<Compile Include>` list so it is unit-tested.
+- Root namespace `com.IvanMurzak.Godot.MCP.Terrain3D`. It contains `com.IvanMurzak.Godot`, so an inline
+  `Godot.`-qualified type binds to that ancestor: write `global::Godot.…` or rely on `using Godot;`. Every `.cs`
+  starts with the Apache-2.0 header and `#nullable enable`.
+- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp and the
+  Terrain3D addon must never become package dependencies** (CI asserts the nuspec). Bump them with
+  `commands/update-core.ps1`.

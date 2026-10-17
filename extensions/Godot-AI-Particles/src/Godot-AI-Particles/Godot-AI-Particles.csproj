@@ -4,7 +4,8 @@
   │  Full rationale + the consumer story: docs/source-only-nuget-recipe.md.                        │
   └──────────────────────────────────────────────────────────────────────────────────────────────┘
 
-  Why source-only? An extension's tools call Godot's C# API (Node, EditorInterface, …). Shipping a
+  Why source-only? An extension's RQL module (adapters, sources, methods) calls Godot's C# API (Node,
+  Resource, EditorInterface, …). Shipping a
   pre-compiled DLL would LOCK the package to one GodotSharp version. Instead we ship the .cs SOURCE and
   let it compile INSIDE the consumer's Godot project, against the CONSUMER's own GodotSharp (supplied by
   their `Godot.NET.Sdk`). No bundled Godot, no version lock.
@@ -14,11 +15,11 @@
     2. The .cs are packed under `src/` (plain files) and injected as <Compile> items in the consumer by
        `build/<PackageId>.props` (auto-imported by NuGet). See that props file.
     3. NO GodotSharp dependency is declared (DisableImplicitGodotSharpReferences + PrivateAssets=all below)
-       — the consumer provides it. Only the MCP/reflection stack is declared as a (min-version) dependency,
+       — the consumer provides it. Only the MCP / reflection / query stack is declared as a (min-version) dependency,
        which the consumer already has via the core Godot-MCP addon.
 
-  This project ALSO uses `Godot.NET.Sdk` for AUTHORING only: so the editor-only sample (#if TOOLS,
-  touches `Godot.EditorInterface`) compiles + the `Godot` namespace resolves when you build/test locally.
+  This project ALSO uses `Godot.NET.Sdk` for AUTHORING only: so the editor-only module (#if TOOLS) compiles
+  + the `Godot` namespace resolves when you build/test locally.
   No Godot binary is needed — `Godot.NET.Sdk` pulls `GodotSharp` from NuGet at compile time.
 -->
 <Project Sdk="Godot.NET.Sdk/4.3.0">
@@ -33,10 +34,10 @@
     <!-- ===== Package identity (bump-version.ps1 / get-version.ps1 own the Version element) ===== -->
     <IsPackable>true</IsPackable>
     <PackageId>com.IvanMurzak.Godot.MCP.Particles</PackageId>
-    <Version>0.1.4</Version>
+    <Version>1.0.0</Version>
     <Title>Particles Tools</Title>
     <Authors>Ivan Murzak</Authors>
-    <Description>AI MCP tools for Godot Particles.</Description>
+    <Description>RQL module for Godot Particles.</Description>
     <PackageTags>godot;mcp;ai;tools;godot-mcp;ai-game-developer</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -59,14 +60,16 @@
   </PropertyGroup>
 
   <!--
-    Package DEPENDENCIES: only the engine-agnostic MCP/reflection stack, as MIN-versions (a NuGet
-    Version="x" is a ">= x" floor). The consumer already references these via the core Godot-MCP addon,
-    so they resolve to the consumer's pins. `update-core.ps1` keeps these in lockstep with the addon.
-    Keep these aligned with Godot-MCP/Godot-MCP.csproj.
+    Package DEPENDENCIES: only the engine-agnostic MCP / reflection / query stack (com.IvanMurzak.Rql is the RQL
+    module API: IRqlModule, type adapters). A NuGet Version="x" is a ">= x" floor; the pins EQUAL the core
+    Godot-MCP addon's (Godot-MCP.csproj; scripts/extensions.py core_pin_drift fails CI otherwise): a lower
+    ReflectorNet than the McpPlugin requires is a NU1605 downgrade, a higher pin cannot restore in a consumer
+    pinned to the core. `update-core.ps1` / `update-core.py` keep package, tests and testbed in lockstep.
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.8.1" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
   <!--
@@ -92,7 +95,6 @@
     unit-test locally; adding them to <None Pack="true"> just also bundles them into the package.
   -->
   <ItemGroup>
-    <None Include="Runtime/**/*.cs" Pack="true" PackagePath="src/Runtime/" />
     <None Include="Editor/**/*.cs" Pack="true" PackagePath="src/Editor/" />
     <None Include="build/com.IvanMurzak.Godot.MCP.Particles.props" Pack="true" PackagePath="build/" />
     <None Include="README.md" Pack="true" PackagePath="" />

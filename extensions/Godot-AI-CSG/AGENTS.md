@@ -1,64 +1,55 @@
 # AGENTS.md — Godot-AI-CSG
 
-A **Godot-MCP extension**: MCP tools for Godot's built-in **CSG** (Constructive Solid Geometry) 3D nodes — the
-`CSGShape3D` family (`CSGBox3D`, `CSGSphere3D`, `CSGCylinder3D`, `CSGCombiner3D`). Shipped as a **source-only
-NuGet package** (`com.IvanMurzak.Godot.MCP.CSG`) that compiles inside the consumer's Godot project against the
-consumer's own GodotSharp. Created from
-[`Godot-AI-Tools-Template`](https://github.com/IvanMurzak/Godot-MCP/tree/main/templates/extension). The packaging recipe is
-the load-bearing detail — read `docs/source-only-nuget-recipe.md`.
+A **Godot-MCP extension** for Godot's built-in CSG nodes (`CSGBox3D`, `CSGSphere3D`, `CSGCylinder3D`, `CSGTorus3D`,
+`CSGCombiner3D` …), shipped as an **RQL module**: it adds no MCP tools, only what the core `rql-query` /
+`rql-mutate` / `rql-schema` tools need to work with CSG shapes (validated dimensions, `rootShape`, an agent guide
+rendered into the core `godot-rql` skill). A **source-only NuGet package** (`com.IvanMurzak.Godot.MCP.CSG`)
+compiled inside the consumer's Godot project against the consumer's own GodotSharp; the packaging recipe is in
+`docs/source-only-nuget-recipe.md`.
 
 ## Layout
 
-- `src/Godot-AI-CSG/` — the source-only package (`Godot.NET.Sdk`):
-  - `Runtime/Tools/` — `Tool_CSG.cs` (the `[AiToolType]` partial class), `Tool_CSG.Ids.cs` (all tool-id
-    consts, pinned by tests), and the pure-managed `Tool_CSG.Defaults.cs`.
-  - `Runtime/CSG/` — pure-managed support types (`CsgOperation` parsing/mapping, `CsgPrimitiveKind`,
-    `CsgDefaults` value rules, `CsgShapeInfo`), all unit-tested.
-  - `Editor/Tools/` — one file per editor tool (`Tool_CSG.<Name>.cs`) + shared helpers in
-    `Tool_CSG.Editor.cs`; all behind `#if TOOLS`.
-  - `build/com.IvanMurzak.Godot.MCP.CSG.props` — source-injection props, auto-imported by NuGet in the
-    consumer; MUST stay named `<PackageId>.props`.
-- `tests/Godot-AI-CSG.Tests/` — xUnit specs for the pure-managed sources only (no Godot binary).
-- `tests/e2e/` — live `run-tool` E2E: the tool list `e2e-tools.json`, driven by `run_tool_e2e.py`.
-- `testbed/CSG-Testbed.csproj` — consumer `Godot.NET.Sdk` project restoring the local-packed package; its
-  `dotnet build` is the source-injection proof.
+- `src/Godot-AI-CSG/Editor/Rql/` — the module:
+  - `CsgModule.cs` — the `IRqlModule` (Order 100, `#if TOOLS`): the adapters and the guide.
+  - `Godot_CsgShape3D_Adapter.cs` (every CSG node: `rootShape`), `Godot_CsgBox3D_Adapter.cs`,
+    `Godot_CsgSphere3D_Adapter.cs`, `Godot_CsgCylinder3D_Adapter.cs`, `Godot_CsgTorus3D_Adapter.cs` — one adapter
+    per type (`#if TOOLS`).
+  - `CsgRules.cs` (validation) and `CsgGuide.cs` (the guide) — pure-managed, NOT behind `#if TOOLS`.
+- `src/Godot-AI-CSG/build/com.IvanMurzak.Godot.MCP.CSG.props` — source-injection props, auto-imported by NuGet in
+  the consumer; MUST stay named `<PackageId>.props`.
+- `tests/Godot-AI-CSG.Tests/` — xUnit (no Godot binary): rules, guide examples parse, the module's member tables
+  (GodotSharp metadata, `TOOLS` defined), and the e2e manifest runs every guide example.
+- `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite.
+- `testbed/CSG-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
 - `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
-- `docs/` — `source-only-nuget-recipe.md` (the packaging recipe + consumer story); `ci.md` (workflows, version
-  gate, multi-Godot matrix, NuGet publishing setup).
+## Critical invariants
 
-## Tools
-
-Ids live in `Runtime/Tools/Tool_CSG.Ids.cs` (the source of truth). Current tools: `csg-defaults`
-(pure-managed), `csg-box-create`, `csg-sphere-create`, `csg-cylinder-create`, `csg-combiner-create`,
-`csg-set-operation`, `csg-get`.
+- **RQL surface.** Everything is registered by `CsgModule` and documented in `CsgGuide` (topic "CSG"). Every
+  guide example runs, in order, in `tests/e2e/e2e-tools.json` (xUnit-asserted).
+- **Validated members replace the C# properties** of the same name and type (`Size`, `Radius`, `Height`,
+  `RadialSegments`, `Rings`, `Sides`, `RingSides`). Only what Godot rejects or silently changes, or what 0.x
+  enforced, is validated; a rejected value fails the whole mutation — never clamp silently. `Size` re-checks in
+  its setter because a write through one axis (`set Size.X = 0`) bypasses the member's validate.
+- Creation and the boolean `Operation` (enum by name) are core RQL; do not add create / set-operation helpers.
+- The module uses only Godot, `com.IvanMurzak.Rql` and the BCL, never core-addon types (the authoring build has
+  no core). Undo, dirty marking and saving come from the core's mutation hooks.
 
 ## Build / test (no Godot binary)
 
 ```bash
-dotnet build src/Godot-AI-CSG/Godot-AI-CSG.csproj  # source-only package compiles tools
+dotnet build src/Godot-AI-CSG/Godot-AI-CSG.csproj -c Debug   # the module (#if TOOLS included)
 dotnet test  tests/Godot-AI-CSG.Tests/Godot-AI-CSG.Tests.csproj
-dotnet pack  src/Godot-AI-CSG/Godot-AI-CSG.csproj -p:Version=0.0.0-ci -o local-nuget
-dotnet build testbed/CSG-Testbed.csproj            # consumes the local package (injection proof)
 ```
 
-`Godot.NET.Sdk` supplies GodotSharp from NuGet, so build/test/pack and the source-injection proof need no
-Godot install (the testbed build is a faithful proxy for `godot --build-solutions`). CI proves the recipe
-across Godot 4.3 / 4.4 / 4.5 (the central monorepo SDK matrix). `dotnet pack` reuses the **global NuGet
-cache** for an already-cached version: when re-packing the same `Version`, clear
-`~/.nuget/packages/com.ivanmurzak.godot.mcp.csg/<ver>` (or pack a unique version) before re-restoring the
-testbed, or you silently build the stale cached source.
+The live suite (one headless editor for every module) is `python scripts/test_extensions.py` from the monorepo
+root. `dotnet pack` reuses the **global NuGet cache** for an already-cached version: when re-packing the same
+`Version`, clear `~/.nuget/packages/com.ivanmurzak.godot.mcp.csg/<ver>` (or pack a unique version).
 
 ## Conventions
 
-- Root namespace `com.IvanMurzak.Godot.MCP.CSG`. Every `.cs` starts with the Apache-2.0 header.
-- Pure-managed code (no Godot native API) → `Runtime/` (outside `#if TOOLS`, unit-testable); editor-driving
-  tools → `Editor/` (behind `#if TOOLS`, every Godot call via `MainThread.Instance.Run(...)`, E2E-verified).
-- `CSG` is the feature name, not an engine type (the nodes are `CSGBox3D`, …), so the root namespace shadows
-  nothing and needs no per-file `Godot.*` alias (unlike Animation or GridMap).
-- The package declares ONLY the `com.IvanMurzak.McpPlugin` / `com.IvanMurzak.ReflectorNet` min-version deps;
-  **GodotSharp must never become a package dependency** (CI asserts the nuspec). Keep the MCP pins in lockstep
-  with the core Godot-MCP addon; bump with `commands/update-core.ps1`.
-- One `[AiToolType] partial class Tool_CSG`; one `[AiTool]` method per partial-class file. Add every new
-  pure-managed source to the test csproj `<Compile Include>` list so it is unit-tested.
+- Root namespace `com.IvanMurzak.Godot.MCP.CSG` (the feature name, not an engine type: it shadows nothing). Every
+  `.cs` starts with the Apache-2.0 header and `#nullable enable`.
+- The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp must
+  never become a package dependency** (CI asserts the nuspec). Bump them with `commands/update-core.ps1`.

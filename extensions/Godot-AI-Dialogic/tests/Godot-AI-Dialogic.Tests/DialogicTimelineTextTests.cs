@@ -7,7 +7,6 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using com.IvanMurzak.Godot.MCP.Dialogic;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Dialogic.Tests

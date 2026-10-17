@@ -1,9 +1,10 @@
 # Navigation Tools
 
-AI MCP tools for Godot navigation (2D & 3D): create regions, agents, and links, set region meshes, configure agents, and inspect navigation nodes.
+RQL module for Godot navigation (2D & 3D): validated agent, region and link settings, region Bake() and polygon outlines for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Navigation` (0.1.3).
-Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Navigation` (1.0.0).
+Requires a Godot C# project (4.3.0+) with a core `godot_mcp` addon that has the RQL tools
+(`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
 ## Install
 
@@ -13,19 +14,54 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Navigation /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.3` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.0.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
-## Tools
+## RQL
 
-- `navigation-defaults` — Return the recommended starter config (radius, distances, max speed) for a 2D/3D NavigationAgent.
-- `navigation-region-create` — Create a NavigationRegion2D/NavigationRegion3D node (a navigable area) in the edited scene.
-- `navigation-region-set-mesh` — Assign a region's navigation resource (NavigationPolygon in 2D, NavigationMesh in 3D).
-- `navigation-agent-create` — Create a NavigationAgent2D/NavigationAgent3D node (pathfinding + avoidance) in the edited scene.
-- `navigation-agent-configure` — Update a NavigationAgent's scalar properties (clamped to valid ranges).
-- `navigation-link-create` — Create a NavigationLink2D/NavigationLink3D node (an off-mesh connection between two points).
-- `navigation-get` — Read a navigation node's scalar config (read-only).
+Since 1.0.0 the extension is an **RQL module**: it adds no MCP tools. Agents create, configure, bake and read
+navigation nodes with the core `rql-query` / `rql-mutate` / `rql-schema` tools, and the module's guide is part of
+the core `godot-rql` skill. The module adds, for the 2D and 3D nodes:
+
+- **Validated members** on NavigationAgent2D/3D: `Radius` (above 0), `PathDesiredDistance`,
+  `TargetDesiredDistance`, `MaxSpeed`, `Height` (3D), `TimeHorizonAgents`, `TimeHorizonObstacles` (0 or more),
+  `AvoidancePriority` (0 to 1); on NavigationRegion2D/3D and NavigationLink2D/3D: `EnterCost` / `TravelCost`
+  (0 or more). An invalid value fails the whole mutation and changes nothing (0.x clamped it).
+- **`Bake()`** on the regions (a synchronous bake of the NavigationMesh / NavigationPolygon, returning the
+  polygon count) and **`polygonCount`**; **`AddOutline(points)`** / **`ClearOutlines()`** and `outlineCount` on
+  NavigationPolygon.
+
+```
+root | call AddChild("NavigationRegion3D", "NavRegion")
+nodes | where name == "NavRegion" | set NavigationMesh = {"$type": "NavigationMesh"}
+nodes | where name == "NavRegion" | set NavigationMesh.GeometryParsedGeometryType = "StaticColliders", NavigationMesh.AgentRadius = 0.5
+nodes | where name == "NavRegion" | call AddChild("StaticBody3D", "Floor")
+nodes | where name == "Floor" | call AddChild("CollisionShape3D", "FloorShape")
+nodes | where name == "FloorShape" | set Shape = {"$type": "BoxShape3D", "Size": "(10, 1, 10)"}
+nodes | where name == "NavRegion" | call Bake()
+nodes | where $ is NavigationRegion3D | select name Enabled polygonCount NavigationMesh
+root | call AddChild("NavigationAgent3D", "NavAgent")
+nodes | where name == "NavAgent" | set Radius = 0.75, MaxSpeed = 8, PathDesiredDistance = 1, TargetDesiredDistance = 1, AvoidanceEnabled = true
+root | call AddChild("NavigationLink3D", "NavLink")
+nodes | where name == "NavLink" | set StartPosition = "(0, 0, 0)", EndPosition = "(5, 0, 0)", Bidirectional = true
+nodes | where $ is NavigationAgent3D | select name Radius MaxSpeed PathDesiredDistance AvoidanceEnabled
+```
+
+Every write is one undoable action and marks the scene unsaved (`editor | call SaveScene()` writes it); the
+polygons a `Bake()` produces are not undoable (bake again).
+
+### Migrating from 0.x
+
+| 0.x tool | RQL |
+| --- | --- |
+| `navigation-defaults` | removed: a new agent starts with Godot's defaults (3D radius 0.5 m, max speed 10 m/s; 2D radius 10 px, max speed 100 px/s); the guide lists them |
+| `navigation-region-create` | `rql-mutate` `root \| call AddChild("NavigationRegion3D", "NavRegion")` (or `NavigationRegion2D`) |
+| `navigation-region-set-mesh` | `rql-mutate` `… \| set NavigationMesh = {"$type": "NavigationMesh"}` (2D: `NavigationPolygon = {"$type": "NavigationPolygon"}`), or a `"res://…"` path; new: `call Bake()` |
+| `navigation-agent-create` | `rql-mutate` `root \| call AddChild("NavigationAgent3D", "NavAgent")` (or `NavigationAgent2D`) |
+| `navigation-agent-configure` | `rql-mutate` `nodes \| where name == "NavAgent" \| set Radius = 0.75, MaxSpeed = 8, AvoidanceEnabled = true` |
+| `navigation-link-create` | `rql-mutate` `… \| call AddChild("NavigationLink3D", "NavLink")`, then `set StartPosition = "(0, 0, 0)", EndPosition = "(5, 0, 0)"` |
+| `navigation-get` | `rql-query` `nodes \| where $ is NavigationAgent3D \| select name Radius MaxSpeed …` (regions: `Enabled polygonCount NavigationMesh`; links: `StartPosition EndPosition Bidirectional`) |
 
 ## Development and releases
 

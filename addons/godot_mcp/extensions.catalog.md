@@ -39,8 +39,10 @@ It is consumed by all THREE install channels so they can never drift:
 - `packageId` is the **install identity**. Installing an extension adds a
   `<PackageReference Include="<packageId>" Version="<version>" />` to the consumer project's
   `.csproj` (Godot compiles every `.cs` under the project into one assembly, so the package's
-  `[AiToolType]` tool families compile into the consumer's project). Installed state is detected by
+  RQL module compiles into the consumer's project, where the core discovers it). Installed state is detected by
   matching this id against the consumer's existing package references.
+- `tools` is OPTIONAL. The Godot-AI-* extensions are RQL modules (see `docs/rql.md`) and contribute no MCP
+  tools, so their lists are empty; agents use them through `rql-query` / `rql-mutate` / `rql-schema`.
 - `version` is OPTIONAL. When present it pins the reference AND drives the up-to-date / update-available
   decision (numeric, component-wise compare — `1.10.0` > `1.2.0`). When absent the reference is added
   WITHOUT a `Version` attribute (floating / centrally-managed), and a present reference is never bumped.

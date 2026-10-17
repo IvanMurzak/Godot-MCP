@@ -1,6 +1,6 @@
 {
-  "description": "Live run-tool E2E tool list for the Animation Tools extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red.",
-  "notes": "The editor tools (player-create/library-add/create/add-track/insert-key/get) resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). animation-defaults is pure-managed and needs no scene. The entries are stateful and run in order against one live editor session: create the player, then a clip, then a track, then a key, then read it all back. The 'expect' substrings are matched against godot-cli's compact --raw JSON, and assert extension-PRODUCED structured fields (Length, LoopMode, QualifiedName, TrackCount, Kind, KeyCount, AnimationCount) rather than the node's GetClass() TypeName, whose casing can differ from the C# binding.",
+  "description": "Live E2E for the Animation RQL module. Driven by scripts/extension_e2e.py (via scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapters, validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter descriptions). The 'tools' then run every AnimationGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and two rejected values (a dry-run set, and a call that must fail before it changes anything). 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated, and a call receipt ends in '|<result>'.",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -13,40 +13,24 @@
     }
   ],
   "tools": [
-    {
-      "tool": "animation-defaults",
-      "input": { "loopMode": "linear" },
-      "expect": ["\"Length\":1", "\"LoopMode\":\"linear\""]
-    },
-    {
-      "tool": "animation-player-create",
-      "input": { "name": "Player" },
-      "expect": ["\"AnimationCount\":0", "\"LibraryCount\":0"]
-    },
-    {
-      "tool": "animation-library-add",
-      "input": { "nodePath": "Player", "libraryName": "Extra" },
-      "expect": ["\"LibraryCount\":1"]
-    },
-    {
-      "tool": "animation-create",
-      "input": { "nodePath": "Player", "name": "Idle", "length": 2.0 },
-      "expect": ["\"QualifiedName\":\"Idle\"", "\"Length\":2", "\"LoopMode\":\"none\""]
-    },
-    {
-      "tool": "animation-add-track",
-      "input": { "nodePath": "Player", "animationName": "Idle", "trackType": "value", "targetPath": "Root", "property": "position:x" },
-      "expect": ["\"TrackCount\":1", "\"Kind\":\"value\""]
-    },
-    {
-      "tool": "animation-insert-key",
-      "input": { "nodePath": "Player", "animationName": "Idle", "trackIndex": 0, "time": 0.5, "value": 1.0 },
-      "expect": ["\"KeyCount\":1"]
-    },
-    {
-      "tool": "animation-get",
-      "input": { "nodePath": "Player", "animationName": "Idle" },
-      "expect": ["\"AnimationCount\":1", "\"TrackCount\":1"]
-    }
+    {"tool": "rql-schema", "input": {"type": "Animation"}, "expect": ["(Animation extension)", "InsertTransformKey"]},
+    {"tool": "rql-schema", "input": {"type": "AnimationPlayer"}, "expect": ["(Animation extension)", "CreateAnimation"]},
+    {"tool": "rql-mutate", "input": {"query": "root | call AddChild(\"Node3D\", \"Mover\")"}, "expect": ["Node3D#", "(Mover)"]},
+    {"tool": "rql-mutate", "input": {"query": "root | call AddChild(\"AnimationPlayer\", \"Player\")"}, "expect": ["AnimationPlayer#", "(Player)"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | call AddLibrary(\"\")"}, "expect": ["AddLibrary(", "AnimationLibrary#"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get libraries[\"\"] | call CreateAnimation(\"Idle\", 2, \"linear\")"}, "expect": ["CreateAnimation(", "|Animation#"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | call CreateAnimation(\"Walk\", 1, \"none\", \"Extra\")"}, "expect": ["CreateAnimation(", "|Animation#"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | call AddTrack(\"value\", \"Mover:position:x\")"}, "expect": ["AddTrack(", ")|0"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | call InsertKey(0, 0.5, 1.5)"}, "expect": ["InsertKey(", ")|0"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | call AddTrack(\"rotation-3d\", \"Mover\")"}, "expect": ["AddTrack(", ")|1"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | call InsertTransformKey(1, 1, \"(0, 90, 0)\")"}, "expect": ["InsertTransformKey(", ")|0"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | set Length = 1.5, LoopMode = \"Pingpong\""}, "expect": ["Length|2|1.5", "LoopMode|Linear|Pingpong"]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"].tracks | select index kind path keyCount"}, "expect": ["0|value|Mover:position:x|1", "1|rotation-3d|Mover|1"]},
+    {"tool": "rql-query", "input": {"query": "nodes | where $ is AnimationPlayer | select name animations.keys() libraries.keys()"}, "expect": ["Player|", "Idle", "Extra/Walk"]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | select Length LoopMode trackCount"}, "expect": ["1.5|Pingpong|2"]},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Player\" | get libraries[\"Extra\"].animations[\"Walk\"] | select Length LoopMode trackCount"}, "expect": ["1|None|0"]},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | set Length = 0", "dry_run": true}, "expect": ["Length must be a number of seconds of at least 0.001"], "expectFailure": true},
+    {"tool": "rql-mutate", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | call InsertKey(5, 0, 1)"}, "expect": ["track 5 does not exist"], "expectFailure": true},
+    {"tool": "rql-query", "input": {"query": "nodes | where name == \"Player\" | get animations[\"Idle\"] | select trackCount tracks[0].keyCount"}, "expect": ["2|1"]}
   ]
 }
