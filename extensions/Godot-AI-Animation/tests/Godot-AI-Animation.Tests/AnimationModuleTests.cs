@@ -75,7 +75,7 @@ namespace com.IvanMurzak.Godot.MCP.Animation.Tests
             var info = Engine().Types.Info(typeof(GodotAnimation));
             var length = Assert.Single(info.Members, m => m.Name == "Length");
             Assert.Null(length.Member); // the adapter's validated member replaced the C# property
-            Assert.Equal(typeof(float), length.Type);
+            Assert.Equal(typeof(double), length.Type); // version-independent (float before Godot 4.7, double since)
             Assert.True(length.CanWrite);
             Assert.Contains(info.Members, m => m.Name == "tracks" && !m.CanWrite);
             Assert.Contains(info.Members, m => m.Name == "trackCount" && m.Type == typeof(int) && !m.CanWrite);

@@ -28,7 +28,8 @@ namespace com.IvanMurzak.Godot.MCP.Animation
 
         protected override void Members(MemberTable<GodotAnimation> m)
         {
-            m.Add<float>("Length", a => a.Length, (a, v) => a.Length = v,
+            // By Godot property name: the C# Length is a float up to Godot 4.6 and a double from 4.7.
+            m.Add<double>("Length", a => a.Get("length").AsDouble(), (a, v) => a.Set("length", v),
                     validate: (a, v) => AnimationRules.Length(v), description: "length in seconds (at least 0.001)")
              .Add<List<AnimationTrackRow>>("tracks", AnimationOps.Tracks, description: "the tracks (read-only rows: index kind path keyCount)")
              .Add<int>("trackCount", a => a.GetTrackCount(), description: "number of tracks");
