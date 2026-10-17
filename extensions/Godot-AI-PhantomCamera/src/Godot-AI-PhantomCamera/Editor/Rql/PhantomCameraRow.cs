@@ -85,7 +85,8 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
             return lookAtMode.ToString();
         }
 
-        // Validate the target first, then write the mode and the target in the order the addon requires.
+        // Validate the target first, then write the mode and the target in the order the addon requires. When the addon
+        // refuses the target, the previous mode and target are restored so a failed call changes nothing.
         private void Apply(string modeProperty, int mode, string targetProperty, Node? target, Func<string?> targetRule)
         {
             if (target != null)
@@ -93,8 +94,19 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
                 Check(targetRule());
                 CheckTarget(target);
             }
+            var previousMode = node.Get(modeProperty);
+            var previousTarget = node.Get(targetProperty);
             node.Set(modeProperty, mode);
-            if (target != null) SetTarget(targetProperty, target);
+            if (target != null)
+            {
+                try { SetTarget(targetProperty, target); }
+                catch
+                {
+                    node.Set(modeProperty, previousMode);
+                    node.Set(targetProperty, previousTarget);
+                    throw;
+                }
+            }
             EditorInterface.Singleton.MarkSceneAsUnsaved();
         }
 

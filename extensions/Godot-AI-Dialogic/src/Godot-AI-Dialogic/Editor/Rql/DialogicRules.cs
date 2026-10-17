@@ -23,7 +23,8 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
 
         /// <summary>
         /// A res:// file path for a Dialogic resource: backslashes become slashes, a missing <c>res://</c> is added and a
-        /// missing extension is appended (<c>res://intro</c> → <c>res://intro.dtl</c>); another extension is rejected.
+        /// missing extension is appended (<c>res://intro</c> → <c>res://intro.dtl</c>); another extension is rejected, and
+        /// so is a <c>..</c> segment (res:// is not sandboxed: it would write, and create folders, outside the project).
         /// </summary>
         public static string? ResourcePath(string? path, string extension, out string normalized)
         {
@@ -33,6 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
             if (p.StartsWith("user://", StringComparison.Ordinal) || p.Contains("://") && !p.StartsWith("res://", StringComparison.Ordinal))
                 return $"'{path}' is not a res:// path";
             if (!p.StartsWith("res://", StringComparison.Ordinal)) p = "res://" + p.TrimStart('/');
+            if (Array.IndexOf(p.Substring("res://".Length).Split('/'), "..") >= 0)
+                return $"'{path}' must not contain a '..' segment (it would leave the project folder)";
             var file = p.Substring(p.LastIndexOf('/') + 1);
             if (file.Length == 0) return $"'{path}' names a folder, not a .{extension} file";
             var dot = file.LastIndexOf('.');

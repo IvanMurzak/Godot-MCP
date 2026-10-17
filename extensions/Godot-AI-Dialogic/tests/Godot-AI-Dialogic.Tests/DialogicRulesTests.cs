@@ -31,6 +31,8 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic.Tests
         [InlineData("res://hero.dtl", "must be a .dch file")]
         [InlineData("res://characters/", "names a folder")]
         [InlineData("user://hero.dch", "not a res:// path")]
+        [InlineData("res://../outside/hero.dch", "'..' segment")]
+        [InlineData("characters/../../hero", "'..' segment")]
         public void BadCharacterPathsAreRejected(string? path, string reason) =>
             Assert.Contains(reason, DialogicRules.ResourcePath(path, "dch", out _));
 

@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
         public const string Markdown =
             "A GridMap places the items of a MeshLibrary on a 3D grid. Add one with `AddChild`, assign the library and paint " +
             "cells (undoable; the scene is marked unsaved):\n\n```\n" + Examples + "\n```\n\n" +
-            "Cells are integer grid coordinates (from -1048575 to 1048575); `item` is a MeshLibrary item id (0 or more; " +
+            "Cells are integer grid coordinates (from -32767 to 32767); `item` is a MeshLibrary item id (0 or more; " +
             "`MeshLibrary.props[\"item/0/name\"]` or the `itemName` column of `cells` names it), `orientation` an orthogonal " +
             "orientation index (0 = none). `CellSize` (at least 0.001 per axis, default \"(2, 2, 2)\"), " +
             "`CellOctantSize` (1 or more, default 8) and the cell arguments are validated: a rejected value changes nothing. " +

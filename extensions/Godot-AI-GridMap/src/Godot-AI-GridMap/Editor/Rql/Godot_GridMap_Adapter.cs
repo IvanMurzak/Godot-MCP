@@ -31,7 +31,9 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
 
         protected override void Members(MemberTable<GdGridMap> m)
         {
-            m.Add<Vector3>("CellSize", g => g.CellSize, (g, v) => g.CellSize = v,
+            // A write through one axis (set CellSize.X = 0) is assigned back through the setter without the member's
+            // validate, so the setter checks again: the write then fails and RQL rolls the mutation back.
+            m.Add<Vector3>("CellSize", g => g.CellSize, (g, v) => g.CellSize = CheckedCellSize(v),
                     validate: (g, v) => GridMapRules.CellSize(v.X, v.Y, v.Z), description: "cell edge lengths \"(x, y, z)\" (at least 0.001 each)")
              .Add<int>("CellOctantSize", g => g.CellOctantSize, (g, v) => g.CellOctantSize = v,
                     validate: (g, v) => GridMapRules.OctantSize(v), description: "cells per rendering octant edge (at least 1)")
@@ -80,6 +82,12 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
                     return new GridMapCellRow(c.X, c.Y, c.Z, item, names.TryGetValue(item, out var name) ? name : null, grid.GetCellItemOrientation(c));
                 })
                 .ToList();
+        }
+
+        private static Vector3 CheckedCellSize(Vector3 v)
+        {
+            Require(GridMapRules.CellSize(v.X, v.Y, v.Z));
+            return v;
         }
 
         private static void Require(string? reason)

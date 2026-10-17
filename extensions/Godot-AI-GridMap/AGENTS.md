@@ -30,7 +30,7 @@ consumer's Godot project against the consumer's own GodotSharp; the packaging re
 - **RQL surface.** Everything is registered by `GridMapModule` and documented in `GridMapGuide` (topic
   "GridMap"). Every guide example runs, in order, in `tests/e2e/e2e-tools.json` (xUnit-asserted).
 - **Validate, never clamp.** Members and calls reject what Godot refuses (cell size below 0.001, octant size 0,
-  coordinates beyond ±1048575, orientation outside 0..23) or 0.x refused (negative items: erase with `ClearCell`)
+  coordinates beyond ±32767, orientation outside 0..23) or 0.x refused (negative items: erase with `ClearCell`)
   before anything changes, so Godot never logs an error (the headless suite fails on any `ERROR:`).
 - Never select or edit nodes (`EditorInterface.EditNode`): the 0.x tool's selection raised a native GridMap gizmo
   error in the headless editor. The calls are on the GridMap itself, so the core undo snapshot covers its cells.

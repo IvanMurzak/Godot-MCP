@@ -23,8 +23,11 @@ namespace com.IvanMurzak.Godot.MCP.GridMap
         /// <summary>Godot's smallest cell edge (<c>set_cell_size</c> refuses less on any axis).</summary>
         public const float MinCellSize = 0.001f;
 
-        /// <summary>Cells are addressed within ±(2^20 - 1) on every axis (<c>set_cell_item</c> refuses the rest).</summary>
-        public const int MaxCoordinate = (1 << 20) - 1;
+        /// <summary>
+        /// Cells are addressed within ±32767 on every axis: GridMap stores a cell key as three int16 values, so a larger
+        /// coordinate that <c>set_cell_item</c> still accepts (it checks ±(2^20 - 1)) would wrap onto another cell.
+        /// </summary>
+        public const int MaxCoordinate = short.MaxValue;
 
         /// <summary>The number of orthogonal orientations (<c>get_orthogonal_index_from_basis</c>: 0 to 23).</summary>
         public const int OrientationCount = 24;

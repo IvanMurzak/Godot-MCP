@@ -39,12 +39,13 @@ namespace com.IvanMurzak.Godot.MCP.GridMap.Tests
 
         [Theory]
         [InlineData(0, 0, 0)]
-        [InlineData(-1048575, 1048575, 7)]
+        [InlineData(-32767, 32767, 7)]
         public void CellsInsideTheGridAreValid(int x, int y, int z) => Assert.Null(GridMapRules.Cell(x, y, z));
 
         [Theory]
-        [InlineData(1048576, 0, 0)]
-        [InlineData(0, -1048576, 0)]
+        [InlineData(32768, 0, 0)]
+        [InlineData(0, -32768, 0)]
+        [InlineData(1048575, 0, 0)]
         [InlineData(0, 0, int.MinValue)]
         public void CellsOutsideTheGridAreRejected(int x, int y, int z) => Assert.Contains("outside the grid", GridMapRules.Cell(x, y, z));
 
