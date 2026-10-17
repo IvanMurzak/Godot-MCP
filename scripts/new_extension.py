@@ -28,7 +28,7 @@ def create(feature, root=ROOT):
         raise ValueError('Expected one typed catalog boundary')
     replacements = {'YOUR_GITHUB_USERNAME_REPOSITORY': 'IvanMurzak/Godot-MCP',
                     'YOUR_DISPLAY_NAME': feature + ' Tools',
-                    'YOUR_DESCRIPTION': 'AI MCP tools for Godot ' + feature + '.',
+                    'YOUR_DESCRIPTION': 'RQL module for Godot ' + feature + '.',
                     'YOUR_TOOL_PREFIX': feature.lower(), 'YOUR_FEATURE': feature}
     def replace(text):
         for token, value in replacements.items():
@@ -54,8 +54,7 @@ def create(feature, root=ROOT):
     descriptor = {'name': feature + ' Tools', 'description': replacements['YOUR_DESCRIPTION'],
                   'packageId': package, 'version': None,
                   'gitUrl': f'https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/{name}/README.md',
-                  'tools': [{'name': feature.lower() + '-echo', 'description': 'Echo a message.'},
-                            {'name': feature.lower() + '-editor-info', 'description': 'Read editor information.'}]}
+                  'tools': []}
     inventory['extensions'].append(name)
     catalog['extensions'].append(descriptor)
     inventory_path.write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')

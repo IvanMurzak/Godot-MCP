@@ -1,17 +1,10 @@
 {
-  "description": "Live run-tool E2E tool list for the YOUR_DISPLAY_NAME extension. Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion: a regression in the tool turns the CI leg red. `init` substitutes YOUR_TOOL_PREFIX here; replace these sample entries with your real tools as you add them.",
-  "notes": "The two scaffold tools need no scene: YOUR_TOOL_PREFIX-echo is pure-managed and YOUR_TOOL_PREFIX-editor-info only reads editor info. When you add an editor tool that operates on nodes (it resolves them relative to EditorInterface.GetEditedSceneRoot(), which is null on a freshly-booted headless editor), add a 'setup' entry that opens a scene first, e.g.: {\"tool\":\"scene-create\",\"input\":{\"resourcePath\":\"res://e2e.tscn\",\"rootTypeClassName\":\"Node3D\",\"rootName\":\"Root\"},\"expect\":[\"\\\"isActive\\\":true\"]}. 'expect' substrings are matched against godot-cli's compact --raw JSON.",
+  "description": "Live E2E for the YOUR_DISPLAY_NAME RQL module. Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module turns the suite red.",
+  "notes": "rql-schema proves the module was discovered (its source is listed). The 'tools' then run every YOUR_FEATUREGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise). 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON (rows 'a|b|c', objects 'Class#id(name)'); 'expectFailure' inverts a call (it must fail with those substrings). When the module works on scene nodes, add a 'setup' call that opens a scene first: {\"tool\": \"rql-mutate\", \"input\": {\"query\": \"editor | call NewScene(\\\"res://e2e_YOUR_TOOL_PREFIX.tscn\\\", \\\"Node3D\\\", \\\"Root\\\")\"}, \"expect\": [\"NewScene\"]}.",
   "setup": [],
   "tools": [
-    {
-      "tool": "YOUR_TOOL_PREFIX-echo",
-      "input": { "message": "ci-roundtrip" },
-      "expect": ["\"result\":\"ci-roundtrip\""]
-    },
-    {
-      "tool": "YOUR_TOOL_PREFIX-editor-info",
-      "input": {},
-      "expect": ["Godot "]
-    }
+    { "tool": "rql-schema", "input": {}, "expect": ["YOUR_TOOL_PREFIX — YOUR_DISPLAY_NAME"] },
+    { "tool": "rql-query", "input": { "query": "YOUR_TOOL_PREFIX | select godotVersion editorScale" }, "expect": ["godotVersion|editorScale"] },
+    { "tool": "rql-mutate", "input": { "query": "YOUR_TOOL_PREFIX | call Echo(\"ci-roundtrip\")" }, "expect": ["|ci-roundtrip"] }
   ]
 }
