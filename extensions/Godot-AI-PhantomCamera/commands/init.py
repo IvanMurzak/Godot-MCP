@@ -8,7 +8,7 @@ Derived (override with the matching flag):
   package id   : com.IvanMurzak.Godot.MCP.<Feature>
   repo         : IvanMurzak/Godot-AI-<Feature>      (--github-repository)
   display name : "<Feature> Tools"                   (--display-name)
-  description  : "AI MCP tools for Godot <Feature>."  (--description)
+  description  : "RQL module for Godot <Feature>."  (--description)
   tool prefix  : <feature lowercased>                 (--tool-prefix)
 
 Usage:
@@ -57,7 +57,7 @@ def main() -> int:
         return 2
 
     display = args.display_name or f"{feature} Tools"
-    description = args.description or f"AI MCP tools for Godot {feature}."
+    description = args.description or f"RQL module for Godot {feature}."
     repo = args.github_repository or f"IvanMurzak/Godot-AI-{feature}"
     prefix = args.tool_prefix or feature.lower()
 
