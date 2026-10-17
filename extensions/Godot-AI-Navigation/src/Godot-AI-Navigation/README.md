@@ -2,7 +2,7 @@
 
 AI MCP tools for Godot navigation (2D & 3D): create regions, agents, and links, set region meshes, configure agents, and inspect navigation nodes.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Navigation` (0.1.2).
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Navigation` (0.1.3).
 Requires a Godot C# project (4.3.0+) with the core `godot_mcp` addon installed.
 
 ## Install
@@ -13,7 +13,7 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Navigation /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.2` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 0.1.3` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 

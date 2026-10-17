@@ -2,7 +2,7 @@
 
 AI MCP tools for the Godot Dialogic addon (dialogue / visual novels): create timeline and character resources, append text events, and inspect them.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Dialogic` (0.1.2).
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Dialogic` (0.1.3).
 Requires a Godot C# project (4.4.0+) with the core `godot_mcp` addon installed.
 
 ## Required prerequisite — Dialogic (install it yourself)
@@ -29,7 +29,7 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Dialogic /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 0.1.2` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 0.1.3` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 

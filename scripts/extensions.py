@@ -11,6 +11,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
+# The only package dependencies an extension may declare; their pins must equal the core's.
+CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet')
 
 
 def read_json(path):
@@ -89,7 +91,7 @@ def verify_package(archive, module, root=ROOT, version=None):
         if metadata.get('id') != module['packageId'] or metadata.get('version') != (version or module['version']):
             raise ValueError('Packaged identity/version differs from requested module: ' + str(archive))
         deps = {node.attrib['id'] for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'}
-        expected = {'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet'}
+        expected = set(CORE_DEPENDENCIES)
         if deps != expected:
             raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
         authoring = ET.parse(root / module['project'])
@@ -120,6 +122,29 @@ def core_pins(root=ROOT):
             ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')}
     pins.update({package: pin.strip('[]') for package, pin in chain_pins(root).items() if package in pins})
     return pins
+
+
+def core_pin_drift(root=ROOT):
+    """Extension/template csproj pins of CORE_DEPENDENCIES that differ from Godot-MCP.csproj.
+
+    A lower ReflectorNet pin than the McpPlugin in use requires is a NU1605 downgrade error,
+    and a pin above the core's cannot restore in a consumer that pins the core versions.
+    Reads the committed files only: a chain run's Directory.Build.targets override applies
+    to core and extensions alike.
+    """
+    core = {node.attrib['Include']: node.attrib['Version'] for node in
+            ET.parse(root / 'Godot-MCP.csproj').findall('.//PackageReference')
+            if node.attrib.get('Include') in CORE_DEPENDENCIES}
+    drift = []
+    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
+        for sub in ('src', 'tests', 'testbed'):
+            for csproj in sorted((folder / sub).rglob('*.csproj')):
+                for node in ET.parse(csproj).findall('.//PackageReference'):
+                    package = node.attrib.get('Include')
+                    if package in core and node.attrib.get('Version') != core[package]:
+                        drift.append(f"{csproj.relative_to(root).as_posix()}: {package} "
+                                     f"{node.attrib.get('Version')} != core {core[package]}")
+    return drift
 
 
 def chain_active():

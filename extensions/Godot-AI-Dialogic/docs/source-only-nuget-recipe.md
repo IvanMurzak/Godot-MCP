@@ -30,8 +30,8 @@ and our source compiles against *that* exact version.
 
   <!-- Only the MCP/reflection stack is a package dependency (the consumer already has it). -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.7.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.8.1" />
   </ItemGroup>
 
   <!-- (3) GodotSharp is needed to COMPILE locally but must NOT be a package dependency. -->
