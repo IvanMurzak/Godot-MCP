@@ -297,15 +297,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// HubConnection build, right next to <see cref="Host"/>, so each HubConnection gets a provider bound to
         /// the host it dials. A live-reading provider would let a SignalR reconnect of an older remote link see a
         /// newer loopback host and send it the account token. The editor assigns its own bound provider
-        /// (<c>GodotAccountAuth.CreateConnectionCredentialProvider</c>) on every connection start.
+        /// (<c>GodotAccountAuth.CreateConnectionCredentialProvider</c>) on every connection start. Any assignment,
+        /// including <c>null</c> (an anonymous connection), replaces the default.
         /// </para>
         /// </summary>
         [JsonIgnore]
         public override Func<Task<string?>>? CredentialProvider
         {
-            get => base.CredentialProvider ?? CreateConnectionCredentialProvider();
-            set => base.CredentialProvider = value;
+            get => _credentialProviderAssigned ? base.CredentialProvider : CreateConnectionCredentialProvider();
+            set
+            {
+                base.CredentialProvider = value;
+                _credentialProviderAssigned = true;
+            }
         }
+
+        bool _credentialProviderAssigned;
 
         /// <summary>
         /// The config's own bearer resolution bound to the CURRENT mode and host (<see cref="BindToConnection"/>):

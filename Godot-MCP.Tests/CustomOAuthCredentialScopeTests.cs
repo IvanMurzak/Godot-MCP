@@ -179,6 +179,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void RuntimeProvider_ExplicitNull_StaysAnonymous()
+        {
+            var config = new GodotMcpConfig { CredentialProvider = null };
+            Assert.Null(config.CredentialProvider);
+        }
+
+        [Fact]
         public async Task EditorProvider_HostChangedToLoopbackAfterHandOff_NeverSendsAccountToken()
         {
             using var _ = EnvScope.Set(null);
