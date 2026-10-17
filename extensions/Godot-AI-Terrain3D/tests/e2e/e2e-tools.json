@@ -1,6 +1,6 @@
 {
-  "description": "Live run-tool E2E tool list for the Terrain3D Tools extension (CLASS-B: wraps the Terrain3D GDExtension addon, installed into testbed/addons/terrain_3d/ by the e2e-godot job before --import). Driven by tests/e2e/run_tool_e2e.py from the e2e-godot CI leg against a connected headless editor + a local gamedev-mcp-server. Each entry is one real assertion; a regression turns the CI leg red.",
-  "notes": "The five editor tools resolve nodes relative to the edited scene root, so the 'setup' phase opens a scene first via the core godot_mcp 'rql-mutate' tool (editor | call NewScene). terrain3d-defaults is pure-managed (no scene, no addon) and runs first. 'expect' substrings are matched against godot-cli's compact --raw JSON, which uses ReflectorNet PascalCase property names — so the presence-gate field asserts as \"Installed\":true (NOT \"installed\":true). The happy-path editor entries assert \"Installed\":true plus extension-PRODUCED scalar fields (RegionSize/DataDirectory/HasMaterial) rather than TypeName (node.GetClass() casing is the engine's, not the C# binding's). terrain3d-set-region-size passes 500, which snaps to the nearest valid Terrain3D RegionSize (512).",
+  "description": "Live E2E for the Terrain3D RQL module (wraps the Terrain3D GDExtension addon, installed into the test project from extension.json testAddon before --import). Driven by tests/e2e/run_tool_e2e.py (scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (sources, function, ChangeRegionSize validation, guide) turns the suite red.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema \"terrain3d\" proves the module was discovered (its view type). The 'tools' then run every Terrain3DGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and a rejected region size. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated. A Terrain3D node's C# type is Node3D, so refs read Node3D#…(Terrain).",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -14,34 +14,112 @@
   ],
   "tools": [
     {
-      "tool": "terrain3d-defaults",
-      "input": { "preset": "small" },
-      "expect": ["\"Preset\":\"small\"", "\"RegionSize\":256"]
+      "tool": "rql-schema",
+      "input": {
+        "type": "terrain3d"
+      },
+      "expect": [
+        "Terrain3DView",
+        "ChangeRegionSize",
+        "regionCount"
+      ]
     },
     {
-      "tool": "terrain3d-create",
-      "input": { "name": "Terrain", "regionSize": 1024 },
-      "expect": ["\"Installed\":true", "\"RegionSize\":1024"]
+      "tool": "rql-query",
+      "input": {
+        "query": "terrain3d.addon | select installed hint"
+      },
+      "expect": [
+        "installed|hint",
+        "true|"
+      ]
     },
     {
-      "tool": "terrain3d-get",
-      "input": { "nodePath": "Terrain" },
-      "expect": ["\"Installed\":true", "\"RegionSize\":1024"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "root | call AddChild(\"Terrain3D\", \"Terrain\")"
+      },
+      "expect": [
+        "Node3D#",
+        "(Terrain)"
+      ]
     },
     {
-      "tool": "terrain3d-set-region-size",
-      "input": { "nodePath": "Terrain", "regionSize": 500 },
-      "expect": ["\"Installed\":true", "\"RegionSize\":512"]
+      "tool": "rql-query",
+      "input": {
+        "query": "terrain3d | select name regionSize dataDirectory meshLods meshSize vertexSpacing version"
+      },
+      "expect": [
+        "Terrain|256|"
+      ]
     },
     {
-      "tool": "terrain3d-set-data-directory",
-      "input": { "nodePath": "Terrain", "dataDirectory": "res://terrain_data" },
-      "expect": ["\"Installed\":true", "res://terrain_data"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "terrain3d | where name == \"Terrain\" | call ChangeRegionSize(1024)"
+      },
+      "expect": [
+        "ChangeRegionSize(",
+        "|1024"
+      ]
     },
     {
-      "tool": "terrain3d-set-material",
-      "input": { "nodePath": "Terrain" },
-      "expect": ["\"Installed\":true", "\"HasMaterial\":true"]
+      "tool": "rql-mutate",
+      "input": {
+        "query": "terrain3d | where name == \"Terrain\" | get node | set props[\"data_directory\"] = \"res://terrain_data\""
+      },
+      "expect": [
+        "data_directory",
+        "res://terrain_data"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "terrain3d | where name == \"Terrain\" | get node | set props[\"material\"] = terrain3d.newMaterial()"
+      },
+      "expect": [
+        "material",
+        "Resource#"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "terrain3d | where name == \"Terrain\" | get node | set props[\"mesh_lods\"] = 8, props[\"vertex_spacing\"] = 2"
+      },
+      "expect": [
+        "mesh_lods",
+        "vertex_spacing"
+      ]
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "terrain3d | select name regionSize dataDirectory material.class regionCount meshLods vertexSpacing"
+      },
+      "expect": [
+        "Terrain|1024|res://terrain_data|Terrain3DMaterial|0|8|2"
+      ]
+    },
+    {
+      "tool": "rql-mutate",
+      "input": {
+        "query": "terrain3d | where name == \"Terrain\" | call ChangeRegionSize(500)"
+      },
+      "expect": [
+        "RegionSize must be one of 64, 128, 256, 512, 1024, 2048 (got 500)"
+      ],
+      "expectFailure": true
+    },
+    {
+      "tool": "rql-query",
+      "input": {
+        "query": "nodes | where class == \"Terrain3D\" | select name props[\"region_size\"] props[\"data_directory\"]"
+      },
+      "expect": [
+        "Terrain|1024|res://terrain_data"
+      ]
     }
   ]
 }
