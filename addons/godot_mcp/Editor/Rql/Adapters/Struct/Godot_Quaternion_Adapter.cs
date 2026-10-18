@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Quaternion: write as \"(x, y, z, w)\" or [x, y, z, w]";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w]";
         protected override int Width => 4;
-        protected override float Part(Quaternion v, int index) => index switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
+        protected override float Part(Quaternion v, int index) => 0f + index switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
         protected override Quaternion? Make(float[] f) => f.Length == 4 ? new Quaternion(f[0], f[1], f[2], f[3]) : (Quaternion?)null;
     }
 }

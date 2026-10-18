@@ -142,7 +142,7 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 | Family | Tools | What it does |
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `classes`, `console`, `editor` sources; `godot.find` / `godot.resources` / `godot.resource`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `classes`, `console`, `editor`, `project`, `settings`, `inputActions`, `autoloads`, `groups` sources; `godot.find` / `godot.group` / `godot.resources` / `godot.resource`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free / Connect / Disconnect / AddToGroup / RemoveFromGroup; project settings, input map, autoloads, TileSets and Themes; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node and validating GDScript. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). In the editor, the RQL `console` source. |
@@ -159,8 +159,9 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 
 - `rql-query` — Read-only RQL query, compact rows: `nodes | where class == "OmniLight3D" | select name props["light_energy"]`.
 - `rql-mutate` — RQL query ending with `set` / `call`: `nodes | where name starts-with "Enemy" | set Visible = false`,
-  `root | call AddChild("Node3D", "Props")`, `editor | call SaveScene()`. All-or-nothing, undoable (Ctrl+Z),
-  `dry_run` previews; scene edits mark the scene unsaved, edited resource files are saved.
+  `root | call AddChild("Node3D", "Props")`, `nodes | where name == "Button" | call Connect("pressed", godot.find("UI"), "_on_pressed")`,
+  `project | call AddInputAction("jump", ["Key:Space"])`, `editor | call SaveScene()`. All-or-nothing, undoable (Ctrl+Z),
+  `dry_run` previews; scene edits mark the scene unsaved, edited resource files and `project.godot` are saved.
 - `rql-schema` — The sources, functions and node classes in the edited scene; with a type name its members,
   methods and Godot properties.
 

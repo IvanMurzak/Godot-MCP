@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Aabb: write as \"(x, y, z, width, height, depth)\" (position, then size)";
         protected override string Expected => "(x, y, z, width, height, depth)";
         protected override int Width => 6;
-        protected override float Part(Aabb v, int index) => index switch { 0 => v.Position.X, 1 => v.Position.Y, 2 => v.Position.Z, 3 => v.Size.X, 4 => v.Size.Y, _ => v.Size.Z };
+        protected override float Part(Aabb v, int index) => 0f + index switch { 0 => v.Position.X, 1 => v.Position.Y, 2 => v.Position.Z, 3 => v.Size.X, 4 => v.Size.Y, _ => v.Size.Z };
         protected override Aabb? Make(float[] f) => f.Length == 6 ? new Aabb(new Vector3(f[0], f[1], f[2]), new Vector3(f[3], f[4], f[5])) : (Aabb?)null;
     }
 }

@@ -41,7 +41,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                    "godot.find(name): the node with that unique name or path below the scene root (\"Level/Player\"), e.g. call Reparent(godot.find(\"Props\"))")
                .AddFunction("godot.resources", RqlGodot.FindResources,
                    $"godot.resources(type, folder?): resources of a Godot class (subclasses included) below an optional res:// folder, e.g. \"Texture2D\" (at most {RqlGodot.MaxResources}, loaded as needed)")
-               .AddFunction("godot.resource", RqlGodot.LoadResource, "godot.resource(path): the resource at a res:// or uid:// path, or null");
+               .AddFunction("godot.resource", RqlGodot.LoadResource, "godot.resource(path): the resource at a res:// or uid:// path, or null")
+               .AddFunction("godot.group", RqlGodot.FindGroup, "godot.group(name): the nodes of the edited scene in a group, e.g. godot.group(\"enemies\") | set Visible = false")
+               .AddSource("project", () => Settings.RqlProject.Instance,
+                   "project settings (project.godot): settings[\"section/key\"], name, mainScene; calls SetSetting, ClearSetting, AddInputAction, " +
+                   "RemoveInputAction, AddInputEvent, RemoveInputEvent, AddAutoload, RemoveAutoload, AddGlobalGroup, RemoveGlobalGroup")
+               .AddSource("settings", Settings.RqlProject.Settings,
+                   "every project setting: name section value type changed (write with project | set settings[\"<name>\"] = …)")
+               .AddSource("inputActions", Settings.RqlProject.InputActions,
+                   "the input map: name events deadzone builtIn (events as \"Key:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\"); calls AddEvent, RemoveEvent, Remove")
+               .AddSource("autoloads", Settings.RqlProject.Autoloads, "autoloads (singletons) in load order: name path singleton order; call Remove")
+               .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description");
 
             // Never expose native handles (garbage or a crash when read) nor plumbing members by type.
             ctx.ExcludeTypes(t => t == typeof(IntPtr) || t == typeof(UIntPtr) || t.IsPointer || t == typeof(System.Threading.CancellationToken)
@@ -53,7 +63,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddAdapter(new Godot_Node2D_Adapter())
                .AddAdapter(new Godot_Node3D_Adapter())
                .AddAdapter(new Godot_Control_Adapter())
-               .AddAdapter(new Godot_Resource_Adapter());
+               .AddAdapter(new Godot_Resource_Adapter())
+               .AddAdapter(new Godot_ProjectSettings_Adapter())
+               .AddAdapter(new Godot_TileSet_Adapter())
+               .AddAdapter(new Godot_TileSetAtlasSource_Adapter())
+               .AddAdapter(new Godot_Theme_Adapter());
 
             // Values
             ctx.AddAdapter(new Godot_Variant_Adapter())
@@ -74,7 +88,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddAdapter(new Godot_Transform3D_Adapter())
                .AddAdapter(new Godot_Rect2_Adapter())
                .AddAdapter(new Godot_Rect2I_Adapter())
-               .AddAdapter(new Godot_Aabb_Adapter());
+               .AddAdapter(new Godot_Aabb_Adapter())
+               .AddAdapter(new Godot_Plane_Adapter());
         }
     }
 }

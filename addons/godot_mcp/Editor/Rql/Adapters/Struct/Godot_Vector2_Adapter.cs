@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Vector2: write as \"(x, y)\", [x, y] or {x: 1, y: 2}";
         protected override string Expected => "(x, y) or [x, y]";
         protected override int Width => 2;
-        protected override float Part(Vector2 v, int index) => index switch { 0 => v.X, _ => v.Y };
+        protected override float Part(Vector2 v, int index) => 0f + index switch { 0 => v.X, _ => v.Y };
         protected override Vector2? Make(float[] f) => f.Length == 2 ? new Vector2(f[0], f[1]) : (Vector2?)null;
     }
 }

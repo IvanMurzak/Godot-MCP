@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Basis: write as \"(xx, xy, xz, yx, yy, yz, zx, zy, zz)\" (the X, Y, Z axis vectors)";
         protected override string Expected => "(xx, xy, xz, yx, yy, yz, zx, zy, zz)";
         protected override int Width => 9;
-        protected override float Part(Basis v, int index) => index switch { 0 => v.X.X, 1 => v.X.Y, 2 => v.X.Z, 3 => v.Y.X, 4 => v.Y.Y, 5 => v.Y.Z, 6 => v.Z.X, 7 => v.Z.Y, _ => v.Z.Z };
+        protected override float Part(Basis v, int index) => 0f + index switch { 0 => v.X.X, 1 => v.X.Y, 2 => v.X.Z, 3 => v.Y.X, 4 => v.Y.Y, 5 => v.Y.Z, 6 => v.Z.X, 7 => v.Z.Y, _ => v.Z.Z };
         protected override Basis? Make(float[] f) => f.Length == 9 ? new Basis(new Vector3(f[0], f[1], f[2]), new Vector3(f[3], f[4], f[5]), new Vector3(f[6], f[7], f[8])) : (Basis?)null;
     }
 }
