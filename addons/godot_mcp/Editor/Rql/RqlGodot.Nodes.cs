@@ -203,8 +203,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
                 return GodotObject.InstanceFromId(id) as Node ?? node;
             }
-            var similar = ClassDB.GetClassList().Where(c => c.Contains(className, StringComparison.OrdinalIgnoreCase) && ClassDB.IsParentClass(c, "Node")).Take(5).ToList();
-            throw new ArgumentException($"unknown node class '{className}'" + (similar.Count > 0 ? $" (similar: {string.Join(", ", similar)})" : ""));
+            throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
         }
     }
 }

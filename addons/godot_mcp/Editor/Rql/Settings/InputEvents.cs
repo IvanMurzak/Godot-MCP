@@ -49,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                     var key = new InputEventKey { Device = -1 };
                     if (spec.Kind == InputEventKind.PhysicalKey) key.PhysicalKeycode = code;
                     else key.Keycode = code;
-                    var mods = (long)full & (long)KeyModifierMask.ModifierMask;
+                    var mods = (long)full;
                     key.ShiftPressed = (mods & (long)KeyModifierMask.MaskShift) != 0;
                     key.AltPressed = (mods & (long)KeyModifierMask.MaskAlt) != 0;
                     key.CtrlPressed = (mods & (long)KeyModifierMask.MaskCtrl) != 0;

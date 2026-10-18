@@ -43,9 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                    $"godot.resources(type, folder?): resources of a Godot class (subclasses included) below an optional res:// folder, e.g. \"Texture2D\" (at most {RqlGodot.MaxResources}, loaded as needed)")
                .AddFunction("godot.resource", RqlGodot.LoadResource, "godot.resource(path): the resource at a res:// or uid:// path, or null")
                .AddFunction("godot.group", RqlGodot.FindGroup, "godot.group(name): the nodes of the edited scene in a group, e.g. godot.group(\"enemies\") | set Visible = false")
-               .AddSource("project", () => Settings.RqlProject.Instance,
-                   "project settings (project.godot): settings[\"section/key\"], name, mainScene; calls SetSetting, ClearSetting, AddInputAction, " +
-                   "RemoveInputAction, AddInputEvent, RemoveInputEvent, AddAutoload, RemoveAutoload, AddGlobalGroup, RemoveGlobalGroup")
+               .AddSource("project", () => Settings.RqlProject.Instance, Godot_ProjectSettings_Adapter.Summary)
                .AddSource("settings", Settings.RqlProject.Settings,
                    "every project setting: name section value type changed (write with project | set settings[\"<name>\"] = …)")
                .AddSource("inputActions", Settings.RqlProject.InputActions,

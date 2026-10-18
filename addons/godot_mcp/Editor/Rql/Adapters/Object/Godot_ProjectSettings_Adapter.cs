@@ -10,8 +10,8 @@
 #if TOOLS
 #nullable enable
 using System;
-using System.Linq;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Settings;
+using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql.Execution;
 
@@ -24,9 +24,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// </summary>
     public sealed class Godot_ProjectSettings_Adapter : RqlTypeAdapter<ProjectSettingsInstance>
     {
-        public override string Description =>
-            "Project settings (project.godot): settings[\"section/key\"], name, mainScene; calls SetSetting, ClearSetting, " +
+        /// <summary>The members and calls, shared with the <c>project</c> source description.</summary>
+        public const string Summary =
+            "project settings (project.godot): settings[\"section/key\"], name, mainScene; calls SetSetting, ClearSetting, " +
             "AddInputAction, RemoveInputAction, AddInputEvent, RemoveInputEvent, AddAutoload, RemoveAutoload, AddGlobalGroup, RemoveGlobalGroup";
+
+        public override string Description => "Project settings: " + Summary;
 
         private const string NameSetting = "application/config/name";
         private const string MainSceneSetting = "application/run/main_scene";
@@ -92,8 +95,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static string? ValidateScene(string? path)
         {
             if (string.IsNullOrEmpty(path)) return null;
-            if (!path.StartsWith("res://", StringComparison.Ordinal) && !path.StartsWith("uid://", StringComparison.Ordinal))
-                return $"'{path}' is not a res:// path to a scene";
+            if (!(ResPathNormalizer.IsResPath(path) && ResPathNormalizer.IsScenePath(path)) && !path.StartsWith("uid://", StringComparison.Ordinal))
+                return $"'{path}' is not a res:// path to a scene (.tscn, .scn)";
             return ResourceLoader.Exists(path) ? null : $"no scene at '{path}'";
         }
 

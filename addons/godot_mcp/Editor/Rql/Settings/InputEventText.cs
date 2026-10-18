@@ -111,7 +111,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                 case InputEventKind.Mouse:
                 {
                     var parts = value.Split('+').Select(p => p.Trim()).ToList();
-                    var mods = new List<string>();
+                    var mods = new HashSet<string>(StringComparer.Ordinal);
                     for (int i = 0; i < parts.Count - 1; i++)
                     {
                         if (!ModifierAliases.TryGetValue(parts[i], out var mod))
@@ -119,9 +119,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                             error = $"unknown modifier '{parts[i]}' in '{text}' (use {string.Join(", ", ModifierNames)})";
                             return false;
                         }
-                        if (!mods.Contains(mod)) mods.Add(mod);
+                        mods.Add(mod);
                     }
-                    var button = IndexOf(MouseButtons, parts[parts.Count - 1], allowNumber: true, first: 1);
+                    var button = IndexOf(MouseButtons, parts[parts.Count - 1], first: 1);
                     if (button < 1)
                     {
                         error = $"unknown mouse button '{parts[parts.Count - 1]}' (use {string.Join(", ", MouseButtons.Skip(1))})";
@@ -132,7 +132,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                 }
                 case InputEventKind.JoypadButton:
                 {
-                    var button = IndexOf(JoypadButtons, value, allowNumber: true, first: 0, max: 127);
+                    var button = IndexOf(JoypadButtons, value, first: 0, max: 127);
                     if (button < 0)
                     {
                         error = $"unknown joypad button '{value}' (use {string.Join(", ", JoypadButtons)} or a number)";
@@ -147,7 +147,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                     var axisText = value;
                     if (axisText.EndsWith("+", StringComparison.Ordinal)) { sign = 1; axisText = axisText.Substring(0, axisText.Length - 1); }
                     else if (axisText.EndsWith("-", StringComparison.Ordinal)) { sign = -1; axisText = axisText.Substring(0, axisText.Length - 1); }
-                    var axis = IndexOf(JoypadAxes, axisText.Trim(), allowNumber: true, first: 0, max: JoypadAxes.Count - 1);
+                    var axis = IndexOf(JoypadAxes, axisText.Trim(), first: 0, max: JoypadAxes.Count - 1);
                     if (axis < 0)
                     {
                         error = $"unknown joypad axis '{axisText}' (use {string.Join(", ", JoypadAxes)} followed by + or -)";
@@ -205,12 +205,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         }
 
         // The index of a name (case-insensitive, '_' and spaces ignored) or a number in [first, max]; -1 when neither.
-        private static int IndexOf(IReadOnlyList<string> names, string text, bool allowNumber, int first, int max = -1)
+        private static int IndexOf(IReadOnlyList<string> names, string text, int first, int max = -1)
         {
             var key = text.Replace("_", "").Replace(" ", "");
             for (int i = first; i < names.Count; i++)
                 if (string.Equals(names[i], key, StringComparison.OrdinalIgnoreCase)) return i;
-            if (allowNumber && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
                 && n >= first && n <= (max < 0 ? names.Count - 1 : max))
                 return n;
             return -1;

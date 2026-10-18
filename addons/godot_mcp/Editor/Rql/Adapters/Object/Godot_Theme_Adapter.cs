@@ -30,14 +30,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             "colors, constants, fonts, fontSizes, icons, styleboxes (assign null to clear a font / icon / stylebox); calls ClearItem(kind, key), " +
             "ClearType(type)";
 
-        private static readonly Dictionary<string, Theme.DataType> Kinds = new Dictionary<string, Theme.DataType>(StringComparer.OrdinalIgnoreCase)
+        // Every item kind with the name ClearItem / items use (aliases: the plural and the name without '_').
+        private static readonly (Theme.DataType kind, string name)[] AllKinds =
         {
-            ["color"] = Theme.DataType.Color, ["colors"] = Theme.DataType.Color,
-            ["constant"] = Theme.DataType.Constant, ["constants"] = Theme.DataType.Constant,
-            ["font"] = Theme.DataType.Font, ["fonts"] = Theme.DataType.Font,
-            ["fontsize"] = Theme.DataType.FontSize, ["fontsizes"] = Theme.DataType.FontSize, ["font_size"] = Theme.DataType.FontSize,
-            ["icon"] = Theme.DataType.Icon, ["icons"] = Theme.DataType.Icon,
-            ["stylebox"] = Theme.DataType.Stylebox, ["styleboxes"] = Theme.DataType.Stylebox,
+            (Theme.DataType.Color, "color"), (Theme.DataType.Constant, "constant"), (Theme.DataType.Font, "font"),
+            (Theme.DataType.FontSize, "font_size"), (Theme.DataType.Icon, "icon"), (Theme.DataType.Stylebox, "stylebox"),
         };
 
         protected override void Members(MemberTable<Theme> m)
@@ -81,8 +78,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         }
 
         // A type whose items were all cleared stays in the theme's type list; it is not shown.
-        private static bool HasItems(Theme t, string type) =>
-            Enum.GetValues(typeof(Theme.DataType)).Cast<Theme.DataType>().Any(k => k != Theme.DataType.Max && t.GetThemeItemList(k, type).Length > 0);
+        private static bool HasItems(Theme t, string type) => AllKinds.Any(k => t.GetThemeItemList(k.kind, type).Length > 0);
 
         private static IEnumerable<string> Keys(Theme t, Theme.DataType kind) =>
             t.GetThemeItemTypeList(kind).SelectMany(type => t.GetThemeItemList(kind, type).Select(item => $"{type}/{item}"));
@@ -90,13 +86,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static List<RqlThemeItem> Items(Theme t)
         {
             var list = new List<RqlThemeItem>();
-            foreach (Theme.DataType kind in Enum.GetValues(typeof(Theme.DataType)))
-            {
-                if (kind == Theme.DataType.Max) continue;
+            foreach (var (kind, kindName) in AllKinds)
                 foreach (var type in t.GetThemeItemTypeList(kind))
                     foreach (var item in t.GetThemeItemList(kind, type))
-                        list.Add(new RqlThemeItem(type, KindName(kind), item, GodotVariants.ToClr(t.GetThemeItem(kind, item, type))));
-            }
+                        list.Add(new RqlThemeItem(type, kindName, item, GodotVariants.ToClr(t.GetThemeItem(kind, item, type))));
             return list.OrderBy(i => i.type, StringComparer.Ordinal).ThenBy(i => i.kind, StringComparer.Ordinal).ThenBy(i => i.name, StringComparer.Ordinal).ToList();
         }
 
@@ -130,8 +123,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 
         private static bool ClearItem(Theme t, Theme.DataType kind, string key)
         {
-            if (Split(key, out var parts) is { } error) throw new ArgumentException(error);
-            if (!t.HasThemeItem(kind, parts.item, parts.type)) return false;
+            var (type, item) = Split(key);
+            if (!t.HasThemeItem(kind, item, type)) return false;
             Set(t, kind, key, null);
             return true;
         }
@@ -139,32 +132,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static int ClearType(Theme t, string type)
         {
             var removed = 0;
-            foreach (Theme.DataType kind in Enum.GetValues(typeof(Theme.DataType)))
-            {
-                if (kind == Theme.DataType.Max) continue;
-                foreach (var item in t.GetThemeItemList(kind, type).ToList())
+            foreach (var (kind, _) in AllKinds)
+                foreach (var item in t.GetThemeItemList(kind, type))
                 {
                     Set(t, kind, $"{type}/{item}", null);
                     removed++;
                 }
-            }
             return removed;
         }
 
-        private static Theme.DataType Kind(string kind) =>
-            Kinds.TryGetValue(kind.Replace(" ", ""), out var k)
-                ? k
-                : throw new ArgumentException($"unknown theme item kind '{kind}' (use color, constant, font, font_size, icon or stylebox)");
-
-        private static string KindName(Theme.DataType kind) => kind switch
+        private static Theme.DataType Kind(string kind)
         {
-            Theme.DataType.Color => "color",
-            Theme.DataType.Constant => "constant",
-            Theme.DataType.Font => "font",
-            Theme.DataType.FontSize => "font_size",
-            Theme.DataType.Icon => "icon",
-            _ => "stylebox",
-        };
+            var key = kind.Replace(" ", "").Replace("_", "").ToLowerInvariant();
+            foreach (var (k, name) in AllKinds)
+            {
+                var plain = name.Replace("_", "");
+                if (key == plain || key == plain + "s" || key == plain + "es") return k;
+            }
+            throw new ArgumentException($"unknown theme item kind '{kind}' (use {string.Join(", ", AllKinds.Select(k => k.name))})");
+        }
 
         private static (string type, string item) Split(string key)
         {

@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
 using Rql.Execution;
@@ -68,6 +69,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // "file::id" path until its file is loaded again, so this is how its changes find the file to save.
         private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Resource, Resource> _containers =
             new System.Runtime.CompilerServices.ConditionalWeakTable<Resource, Resource>();
+
+        /// <summary>
+        /// The stored properties of <paramref name="o"/> as the running mutation saw them before its first write (its undo
+        /// snapshot), or read now when there is none.
+        /// </summary>
+        internal static Dictionary<string, Variant> SnapshotOf(GodotObject o) =>
+            _snapshots.TryGetValue(o, out var snapshot) ? snapshot : StoredProperties(o);
 
         /// <summary>Record that <paramref name="sub"/> is stored inside <paramref name="container"/> (saved with it).</summary>
         internal static void RegisterContainer(Resource sub, Resource container) => _containers.AddOrUpdate(sub, container);
@@ -156,18 +164,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 var hasSnapshot = _snapshots.TryGetValue(owner, out var snapshot);
                 var propertiesChanged = !hasSnapshot; // no snapshot (never in practice): assume it changed
-                if (_explicitUndo.Contains(owner)) propertiesChanged = true; // its change registered its own undo
-                else if (hasSnapshot)
+                // A structural change registered its own undo for the entries it added or removed (setting a removed
+                // entry to null does not remove it again); values that changed in place are still diffed.
+                var explicitUndo = _explicitUndo.Contains(owner);
+                if (explicitUndo) propertiesChanged = true;
+                if (hasSnapshot)
                 {
                     var after = StoredProperties(owner);
                     var changed = new List<(string name, Variant before, Variant after)>();
                     foreach (var kv in after)
                     {
                         var known = snapshot!.TryGetValue(kv.Key, out var old);
+                        if (explicitUndo && !known) continue;
                         if (!known || !Same(old, kv.Value)) changed.Add((kv.Key, known ? old : default, kv.Value));
                     }
                     // A removed project setting (custom setting, input action, autoload) is restored by its undo.
-                    if (Settings.RqlProject.Is(owner))
+                    if (!explicitUndo && Settings.RqlProject.Is(owner))
                         foreach (var kv in snapshot!)
                             if (!after.ContainsKey(kv.Key)) changed.Add((kv.Key, kv.Value, default));
                     if (changed.Count > 0)
@@ -257,9 +269,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// element-wise, Godot arrays / dictionaries recursively, scalars and structs by value — no text conversion of
         /// large values; only the remaining kinds (Callable, Signal …) fall back to the text Godot writes to .tscn / .tres.
         /// </summary>
-        internal static bool SameValue(Variant a, Variant b) => Same(a, b);
-
-        private static bool Same(Variant a, Variant b)
+        internal static bool Same(Variant a, Variant b)
         {
             if (a.VariantType != b.VariantType) return false;
             switch (a.VariantType)
@@ -322,14 +332,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else
             {
                 Commit(undo, _sceneUndo, EditedRoot());
-                // The global history, whatever objects the steps touch: Godot would file an action on a path-less
-                // resource (a TileSet source created in this session) under the edited scene. A non-node, non-resource
-                // context object selects the global history.
-                Commit(undo, _otherUndo, Settings.RqlProject.Instance);
+                Commit(undo, _otherUndo, GlobalHistoryContext);
             }
             _removed.Clear();
             _snapshots.Clear();
         }
+
+        // The context that files an action under the global history, whatever objects its steps touch (Godot would file
+        // one on a path-less resource, such as a TileSet source created in this session, under the edited scene): any
+        // object that is neither a node nor a resource does; the ProjectSettings singleton is always there.
+        private static GodotObject GlobalHistoryContext => Settings.RqlProject.Instance;
 
         private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
         {
@@ -377,9 +389,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 return IsFileResource(container) ? container : ContainerFile(container, depth + 1);
             var path = resource.ResourcePath ?? "";
             var cut = path.IndexOf("::", StringComparison.Ordinal);
-            if (cut <= 0 || !path.StartsWith("res://", StringComparison.Ordinal)) return null;
+            if (cut <= 0 || !ResPathNormalizer.IsResPath(path)) return null;
             var file = path.Substring(0, cut);
-            if (file.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".scn", StringComparison.OrdinalIgnoreCase)) return null;
+            if (ResPathNormalizer.IsScenePath(file)) return null;
             // The loaded (cached) container: the one the sub-resource belongs to.
             return ResourceLoader.HasCached(file) ? ResourceLoader.Load(file) : null;
         }

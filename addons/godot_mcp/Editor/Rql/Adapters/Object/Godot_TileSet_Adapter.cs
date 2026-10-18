@@ -122,8 +122,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             var key = mode.Replace(" ", "").Replace("_", "");
             if (key.StartsWith("match", StringComparison.OrdinalIgnoreCase)) key = key.Substring(5);
-            if (!Enum.TryParse<TileSet.TerrainMode>(key, ignoreCase: true, out var parsed) || !Enum.IsDefined(typeof(TileSet.TerrainMode), parsed)
-                || int.TryParse(key, out _))
+            if (!TryParseName<TileSet.TerrainMode>(key, out var parsed))
                 throw new ArgumentException($"unknown terrain mode '{mode}' (use {string.Join(", ", Enum.GetValues(typeof(TileSet.TerrainMode)).Cast<TileSet.TerrainMode>().Select(TerrainModeName))})");
             var index = t.GetTerrainSetsCount();
             t.AddTerrainSet();
@@ -155,11 +154,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return index;
         }
 
+        // An enum value by its name only: Enum.TryParse also takes numbers ("3") and flag lists ("Bool,Int").
+        private static bool TryParseName<T>(string text, out T value) where T : struct, Enum
+        {
+            value = default;
+            return Enum.GetNames(typeof(T)).FirstOrDefault(n => string.Equals(n, text.Trim(), StringComparison.OrdinalIgnoreCase)) is { } name
+                   && Enum.TryParse(name, out value);
+        }
+
         private static int AddCustomDataLayer(TileSet t, string name, string type)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("a custom data layer needs a name");
             if (t.GetCustomDataLayerByName(name) >= 0) throw new ArgumentException($"the TileSet already has a custom data layer '{name}'");
-            if (!Enum.TryParse<Variant.Type>(type, ignoreCase: true, out var parsed) || parsed == Variant.Type.Nil || parsed == Variant.Type.Max || !Enum.IsDefined(typeof(Variant.Type), parsed))
+            if (!TryParseName<Variant.Type>(type, out var parsed) || parsed == Variant.Type.Nil || parsed == Variant.Type.Max)
                 throw new ArgumentException($"unknown value type '{type}' (e.g. Int, Float, Bool, String, Color, Vector2, Vector2I, Object)");
             var index = t.GetCustomDataLayersCount();
             t.AddCustomDataLayer();
@@ -283,9 +290,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var size = a.GetTileSizeInAtlas(coords);
             // The tile's stored properties ("x:y/…": its alternatives and their data), to restore them on undo.
             var prefix = $"{coords.X}:{coords.Y}/";
-            var saved = new List<(string name, Variant value)>();
-            foreach (var name in GodotVariants.PropertyNames(a, storageOnly: true))
-                if (name.StartsWith(prefix, StringComparison.Ordinal)) saved.Add((name, a.Get(name)));
+            var saved = RqlGodot.SnapshotOf(a).Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal)).Select(kv => (name: kv.Key, value: kv.Value)).ToList();
             a.RemoveTile(coords);
             RqlGodot.RecordUndoFor(a,
                 ur => ur.AddDoMethod(a, TileSetAtlasSource.MethodName.RemoveTile, coords),
@@ -328,13 +333,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return new Rect2I(a.Margins + coords * step, size);
         }
 
+        // One native call per cell (GetPixel per pixel would be one per pixel).
         private static bool IsTransparent(Image image, Rect2I region)
         {
-            var end = region.End;
-            for (int y = Math.Max(0, region.Position.Y); y < Math.Min(image.GetHeight(), end.Y); y++)
-                for (int x = Math.Max(0, region.Position.X); x < Math.Min(image.GetWidth(), end.X); x++)
-                    if (image.GetPixel(x, y).A > 0) return false;
-            return true;
+            var clipped = region.Intersection(new Rect2I(Vector2I.Zero, image.GetSize()));
+            return clipped.Area == 0 || image.GetRegion(clipped).IsInvisible();
         }
     }
 

@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
 
@@ -39,11 +40,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         public const string AutoloadPrefix = "autoload/";
         public const string GlobalGroupPrefix = "global_group/";
 
-        /// <summary>The ProjectSettings singleton object.</summary>
-        public static GodotObject Instance => Engine.GetSingleton("ProjectSettings");
+        private static GodotObject? _instance;
 
-        /// <summary>Whether <paramref name="o"/> is the ProjectSettings singleton.</summary>
-        public static bool Is(GodotObject o) => o.GetClass() == "ProjectSettings";
+        /// <summary>The ProjectSettings singleton object (one per process).</summary>
+        public static GodotObject Instance => _instance != null && GodotObject.IsInstanceValid(_instance) ? _instance : _instance = Engine.GetSingleton("ProjectSettings");
+
+        /// <summary>Whether <paramref name="o"/> is the ProjectSettings singleton (no native call for nodes and resources).</summary>
+        public static bool Is(GodotObject o) => !(o is Node) && !(o is Resource) && o.GetInstanceId() == Instance.GetInstanceId();
 
         // ------------------------------------------------------------ settings
 
@@ -88,11 +91,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         internal static string RequireInputAction(string name)
         {
             if (!ProjectSettings.HasSetting(InputPrefix + name))
-            {
-                var similar = SettingNames(InputPrefix).Select(n => n.Substring(InputPrefix.Length))
-                    .Where(n => n.Contains(name, StringComparison.OrdinalIgnoreCase)).Take(5).ToList();
-                throw new ArgumentException($"no input action '{name}'" + (similar.Count > 0 ? $" (similar: {string.Join(", ", similar)})" : ""));
-            }
+                throw new ArgumentException($"no input action '{name}'" + RqlGodot.Similar(SettingNames(InputPrefix).Select(n => n.Substring(InputPrefix.Length)), name));
             return name;
         }
 
@@ -106,6 +105,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         public static RqlAutoload AddAutoload(string name, string path, bool singleton)
         {
             RequireName(name, "an autoload");
+            if (!name.IsValidIdentifier())
+                throw new ArgumentException($"'{name}' is not a valid autoload name (letters, digits and '_', not starting with a digit)");
             if (ProjectSettings.HasSetting(AutoloadPrefix + name)) throw new ArgumentException($"autoload '{name}' already exists");
             if (ClassDB.ClassExists(name)) throw new ArgumentException($"'{name}' is the name of a Godot class; an autoload cannot use it");
             if (ProjectSettings.GetGlobalClassList().Any(c => c["class"].AsString() == name))
@@ -124,13 +125,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
 
         internal static string RequireAutoloadPath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("res://", StringComparison.Ordinal))
-                throw new ArgumentException($"'{path}' is not a res:// path to a script or scene");
-            if (!FileAccess.FileExists(path)) throw new ArgumentException($"no file at '{path}'");
-            var ext = path.Substring(path.LastIndexOf('.') + 1).ToLowerInvariant();
-            if (!(ext is "gd" or "cs" or "tscn" or "scn"))
-                throw new ArgumentException($"'{path}' is not a script or scene (.gd, .cs, .tscn, .scn)");
-            return path;
+            var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            if (!ScriptLang_.IsScriptExtension(p) && !ResPathNormalizer.IsScenePath(p))
+                throw new ArgumentException($"'{p}' is not a script or scene (.gd, .cs, .tscn, .scn)");
+            if (!FileAccess.FileExists(p)) throw new ArgumentException($"no file at '{p}'");
+            return p;
         }
 
         internal static string AutoloadValue(string path, bool singleton) => (singleton ? "*" : "") + path;
@@ -142,11 +141,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         /// </summary>
         public static List<RqlGroup> Groups()
         {
-            var names = new SortedSet<string>(StringComparer.Ordinal);
+            // One walk of the scene: each group gets its nodes.
+            var groups = new SortedDictionary<string, List<Node>>(StringComparer.Ordinal);
             foreach (var node in RqlGodot.AllNodes())
-                foreach (var g in RqlGodot.GroupsOf(node)) names.Add(g);
-            foreach (var n in SettingNames(GlobalGroupPrefix)) names.Add(n.Substring(GlobalGroupPrefix.Length));
-            return names.Select(n => new RqlGroup(n)).ToList();
+                foreach (var g in RqlGodot.GroupsOf(node))
+                {
+                    if (!groups.TryGetValue(g, out var members)) groups[g] = members = new List<Node>();
+                    members.Add(node);
+                }
+            foreach (var n in SettingNames(GlobalGroupPrefix))
+                if (!groups.ContainsKey(n.Substring(GlobalGroupPrefix.Length))) groups[n.Substring(GlobalGroupPrefix.Length)] = new List<Node>();
+            return groups.Select(kv => new RqlGroup(kv.Key, kv.Value)).ToList();
         }
 
         public static void AddGlobalGroup(string name, string? description)
@@ -177,8 +182,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         private static void RequireName(string name, string what)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException($"{what} needs a name");
-            if (!name.IsValidIdentifier() && what == "an autoload")
-                throw new ArgumentException($"'{name}' is not a valid autoload name (letters, digits and '_', not starting with a digit)");
             if (name.IndexOf('/') >= 0 || name.IndexOf(':') >= 0 || name.IndexOf('"') >= 0)
                 throw new ArgumentException($"{what} name cannot contain '/', ':' or '\"': '{name}'");
         }
@@ -209,7 +212,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
             get
             {
                 var ps = RqlProject.Instance;
-                return ps.PropertyCanRevert(name) && !RqlGodot.SameValue(ps.Get(name), ps.PropertyGetRevert(name));
+                return ps.PropertyCanRevert(name) && !RqlGodot.Same(ps.Get(name), ps.PropertyGetRevert(name));
             }
         }
     }
@@ -333,13 +336,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
     /// <summary>A node group: the nodes of the edited scene in it, and its global-group entry when it has one.</summary>
     public sealed class RqlGroup
     {
-        public RqlGroup(string name) { this.name = name; }
+        public RqlGroup(string name, List<Node> nodes) { this.name = name; this.nodes = nodes; }
 
         [RqlDescription("group name")]
         public string name { get; }
 
         [RqlDescription("nodes of the edited scene in the group")]
-        public List<Node> nodes => RqlGodot.NodesInGroup(name);
+        public List<Node> nodes { get; }
 
         [RqlDescription("number of nodes of the edited scene in the group")]
         public int count => nodes.Count;

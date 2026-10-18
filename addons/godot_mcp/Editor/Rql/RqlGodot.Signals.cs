@@ -98,13 +98,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RequireEditedRoot();
             RequireInEditedScene(source, "source");
             var callable = new Callable(target, method);
-            var existing = ConnectionsOf(source).FirstOrDefault(c => c.signal == signal && c.target == target && c.method == method);
-            if (existing == null)
+            var existing = source.HasSignal(signal) && source.IsConnected(signal, callable)
+                ? source.GetSignalConnectionList(signal).FirstOrDefault(c => c["callable"].AsCallable().Equals(callable))
+                : null;
+            if (existing == null || (existing["flags"].AsInt64() & (long)GodotObject.ConnectFlags.Persist) == 0)
             {
                 var targetName = target is Node n ? n.Name.ToString() : target.GetClass();
                 throw new ArgumentException($"'{source.Name}'.{signal} is not connected to '{targetName}'.{method}");
             }
-            var flags = (uint)existing.flags;
+            var flags = (uint)existing["flags"].AsInt64();
             source.Disconnect(signal, callable);
             RecordUndo(
                 ur => ur.AddDoMethod(source, GodotObject.MethodName.Disconnect, signal, callable),
@@ -122,8 +124,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return false;
         }
 
-        // Names close to the key: containing it, or at most two edits away (a typo).
-        private static string Similar(IEnumerable<string> names, string key)
+        /// <summary>" (similar: a, b)" for the names close to <paramref name="key"/> (containing it, or a typo away), or "".</summary>
+        internal static string Similar(IEnumerable<string> names, string key)
         {
             var similar = names.Where(n => n.Contains(key, StringComparison.OrdinalIgnoreCase) || key.Contains(n, StringComparison.OrdinalIgnoreCase)
                                            || EditDistance(n.ToLowerInvariant(), key.ToLowerInvariant()) <= 2).Take(5).ToList();
@@ -222,7 +224,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public List<string> args { get; }
 
         [RqlDescription("number of persistent connections from it (the ones saved with the scene)")]
-        public int connections => _owner is Node node ? RqlGodot.ConnectionsOf(node).Count(c => c.signal == name) : 0;
+        public int connections => _owner.GetSignalConnectionList(name).Count(c => (c["flags"].AsInt64() & (long)GodotObject.ConnectFlags.Persist) != 0);
 
         private static string Arg(global::Godot.Collections.Dictionary a)
         {
