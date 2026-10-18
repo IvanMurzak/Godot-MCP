@@ -75,6 +75,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         {
             RequireName(name, "an input action");
             if (ProjectSettings.HasSetting(InputPrefix + name)) throw new ArgumentException($"input action '{name}' already exists");
+            if (deadzone is { } dz) RequireDeadzone(dz);
             var list = new global::Godot.Collections.Array();
             foreach (var text in events ?? Array.Empty<string>()) list.Add(InputEvents.Make(text));
             var action = new global::Godot.Collections.Dictionary
@@ -86,7 +87,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
             return new RqlInputAction(name);
         }
 
-        public static void RemoveInputAction(string name) => Set(InputPrefix + RequireInputAction(name), default);
+        public static void RemoveInputAction(string name)
+        {
+            RequireInputAction(name);
+            // A built-in action (ui_*) has a default: erasing it lasts only until the editor restarts (project.godot never
+            // held it), and the Input Map editor does not remove one either.
+            if (Instance.PropertyGetRevert(InputPrefix + name).VariantType != Variant.Type.Nil)
+                throw new ArgumentException($"'{name}' is a built-in input action and cannot be removed: set its events = [] to clear it, " +
+                                            $"or project | call ClearSetting(\"{InputPrefix}{name}\") to restore its default");
+            Set(InputPrefix + name, default);
+        }
+
+        internal static void RequireDeadzone(double value)
+        {
+            if (double.IsNaN(value) || value < 0 || value > 1)
+                throw new ArgumentException($"deadzone must be between 0 and 1, got {value.ToString(CultureInfo.InvariantCulture)}");
+        }
 
         internal static string RequireInputAction(string name)
         {
@@ -236,7 +252,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
             get => Action().TryGetValue("deadzone", out var d) ? d.AsDouble() : InputEvents.DefaultDeadzone;
             set
             {
-                if (value < 0 || value > 1) throw new ArgumentException($"deadzone must be between 0 and 1, got {value.ToString(CultureInfo.InvariantCulture)}");
+                RqlProject.RequireDeadzone(value);
                 var action = Action().Duplicate(true);
                 action["deadzone"] = value;
                 RqlProject.Set(RqlProject.InputPrefix + name, action);
@@ -266,7 +282,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         public List<string> RemoveEvent(string input)
         {
             var current = Events();
-            var key = InputEventText.TryParse(input, out _, out _) ? InputEvents.Text(InputEvents.Make(input)) : input;
+            // The canonical text when the input is a valid event; otherwise (other kinds, or a listed key text the engine
+            // cannot build back) the text as given, so every listed event can be removed by its text.
+            var key = input;
+            if (InputEventText.TryParse(input, out _, out _))
+            {
+                try { key = InputEvents.Text(InputEvents.Make(input)); }
+                catch (ArgumentException) { }
+            }
             var kept = current.Where(e => !InputEventText.SameText(InputEvents.Text(e), key)).ToList();
             if (kept.Count == current.Count)
                 throw new ArgumentException($"input action '{name}' has no event '{input}' (it has: {string.Join(", ", current.Select(InputEvents.Text))})");

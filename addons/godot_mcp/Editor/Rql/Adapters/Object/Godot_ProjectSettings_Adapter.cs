@@ -127,9 +127,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static void ClearSetting(string name)
         {
             if (!ProjectSettings.HasSetting(name)) throw new ArgumentException($"no project setting '{name}'");
-            var ps = RqlProject.Instance;
-            // A built-in setting goes back to its default; a custom one is removed.
-            RqlProject.Set(name, ps.PropertyCanRevert(name) ? ps.PropertyGetRevert(name) : default);
+            // A built-in setting goes back to its default (its revert value); a custom one has none (null) and is removed.
+            // PropertyCanRevert is false for a built-in already at its default, so it must not gate this: setting null
+            // would erase the built-in setting.
+            RqlProject.Set(name, RqlProject.Instance.PropertyGetRevert(name));
         }
     }
 }

@@ -66,9 +66,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly HashSet<GodotObject> _explicitUndo = new HashSet<GodotObject>();
 
         // Sub-resources an adapter reached through their container (a TileSet's atlas sources): a new sub-resource has no
-        // "file::id" path until its file is loaded again, so this is how its changes find the file to save.
-        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Resource, Resource> _containers =
-            new System.Runtime.CompilerServices.ConditionalWeakTable<Resource, Resource>();
+        // "file::id" path until its file is loaded again, so this is how its changes find the file to save. The value is the
+        // container's instance id, not the container: a strong value would keep the container alive, which keeps the
+        // sub-resource (the key) alive natively, so neither would ever be freed.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Resource, System.Runtime.CompilerServices.StrongBox<ulong>> _containers =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<Resource, System.Runtime.CompilerServices.StrongBox<ulong>>();
 
         /// <summary>
         /// The stored properties of <paramref name="o"/> as the running mutation saw them before its first write (its undo
@@ -78,7 +80,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _snapshots.TryGetValue(o, out var snapshot) ? snapshot : StoredProperties(o);
 
         /// <summary>Record that <paramref name="sub"/> is stored inside <paramref name="container"/> (saved with it).</summary>
-        internal static void RegisterContainer(Resource sub, Resource container) => _containers.AddOrUpdate(sub, container);
+        internal static void RegisterContainer(Resource sub, Resource container) =>
+            _containers.AddOrUpdate(sub, new System.Runtime.CompilerServices.StrongBox<ulong>(container.GetInstanceId()));
 
         private static void ResetState()
         {
@@ -385,7 +388,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         private static Resource? ContainerFile(Resource resource, int depth = 0)
         {
-            if (depth < 8 && _containers.TryGetValue(resource, out var container) && GodotObject.IsInstanceValid(container))
+            if (depth < 8 && _containers.TryGetValue(resource, out var id) && GodotObject.InstanceFromId(id.Value) is Resource container)
                 return IsFileResource(container) ? container : ContainerFile(container, depth + 1);
             var path = resource.ResourcePath ?? "";
             var cut = path.IndexOf("::", StringComparison.Ordinal);

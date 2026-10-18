@@ -275,7 +275,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             if (a.Texture == null) throw new InvalidOperationException("the atlas source has no texture; set Texture first");
             if (size.X <= 0 || size.Y <= 0) throw new ArgumentException($"size must be positive, got {size}");
-            if (!a.HasRoomForTile(coords, size, a.GetTileAnimationColumns(coords), a.GetTileAnimationSeparation(coords), 1))
+            if (!a.HasRoomForTile(coords, size, 1, Vector2I.Zero, 1))
                 throw new ArgumentException($"no room for a {size} tile at {coords}: outside the texture grid {a.GetAtlasGridSize()} or overlapping a tile");
             a.CreateTile(coords, size);
             RqlGodot.RecordUndoFor(a,
