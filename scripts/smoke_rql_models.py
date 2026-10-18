@@ -729,13 +729,15 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
                                                           "content": "extends Node3D\n\nfunc _on_enemy_died():\n\tpass\n"}))
     must("G0 attach player script", tool(host, "script-attach-to-node", {"nodeRef": "Player", "scriptPath": "res://scenes/player.gd"}))
     must("G0 game script", tool(host, "script-create", {"scriptPath": "res://scenes/game.gd", "content": "extends Node\n"}))
-    write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
-    # res://tiles/ is a new folder: only a full scan registers it (a targeted Reimport reports the file NOT imported).
-    must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
         must(f"G0 {cls}", mutate(host, f"editor | call CreateResource({q(path)}, {q(cls)})"))
+    write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
+    # Last: a full scan imports the new texture (a targeted Reimport of a file in a folder the editor has not scanned
+    # reports it NOT imported) and settles the script-class update the new scripts started; creating files while that
+    # update still runs hung Godot 4.4's headless editor.
+    must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))
 
 
 def guide_checks(host: str, project: pathlib.Path) -> None:
