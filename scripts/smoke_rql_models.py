@@ -723,6 +723,11 @@ def themes(host: str, project: pathlib.Path, d: str) -> None:
 
 def guide_fixture(host: str, project: pathlib.Path) -> None:
     """What the guide's new examples need: a script with _on_enemy_died on Player, game.gd, a TileSet + texture, a Theme."""
+    # First, before any script is created: a full scan imports the texture in the new res://tiles/ folder (a targeted
+    # Reimport of a file in a folder the editor never scanned reports it NOT imported). Run after script-create, the
+    # scan collided with Godot 4.4's script-class update and hung the headless editor.
+    write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
+    must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))
     for event in ('project | call RemoveInputAction("jump")', 'project | call RemoveAutoload("Game")'):
         mutate(host, event)
     must("G0 player script", tool(host, "script-create", {"scriptPath": "res://scenes/player.gd",
@@ -733,11 +738,6 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
         must(f"G0 {cls}", mutate(host, f"editor | call CreateResource({q(path)}, {q(cls)})"))
-    write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
-    # Last: a full scan imports the new texture (a targeted Reimport of a file in a folder the editor has not scanned
-    # reports it NOT imported) and settles the script-class update the new scripts started; creating files while that
-    # update still runs hung Godot 4.4's headless editor.
-    must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))
 
 
 def guide_checks(host: str, project: pathlib.Path) -> None:
