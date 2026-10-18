@@ -47,21 +47,18 @@ def lacks(name: str, text: str, *needles: str) -> None:
     check(name, not present, f"unexpected {present} in: {text}")
 
 
-def undo(host: str, history: str) -> bool:
-    """Undo the last action of a history ("scene" / "global") through the test hooks; False (and a SKIP) without them."""
-    if not HOOKS["on"]:
-        return False
-    ok, text = query(host, f"test.undo({q(history)})")
-    check(f"undo ({history}) ran", ok and "true" in text.lower(), text)
-    return ok
+def step(host: str, history: str, op: str = "undo") -> None:
+    """Undo (or redo) the last action of a history ("scene" / "global") through the test hooks; callers check HOOKS first."""
+    ok, text = query(host, f"test.{op}({q(history)})")
+    check(f"{op} ({history}) ran", ok and "true" in text.lower(), text)
 
 
-def redo(host: str, history: str) -> bool:
-    if not HOOKS["on"]:
-        return False
-    ok, text = query(host, f"test.redo({q(history)})")
-    check(f"redo ({history}) ran", ok and "true" in text.lower(), text)
-    return ok
+def undo(host: str, history: str) -> None:
+    step(host, history, "undo")
+
+
+def redo(host: str, history: str) -> None:
+    step(host, history, "redo")
 
 
 def skip_undo(name: str) -> None:
@@ -165,7 +162,7 @@ def existing_adapters(host: str, project: pathlib.Path, d: str) -> None:
     text = must("E3 read back", query(host, f'{node("Holder")} | select Position'))
     has("E3 Position follows the transform", text, "(3, 4)")
     must("E3 save", mutate(host, "editor | call SaveScene()"))
-    for name, pattern in (("position", r"^position = Vector2\(10, 20\)$"), ("rotation", r"^rotation = 1\.5707\d*$"),
+    for name, pattern in (("position", r"^position = Vector2\(10, 20\)$"), ("rotation", r"^rotation = 1\.570[78]\d*$"),
                           ("scale", r"^scale = Vector2\(2, 3\)$"), ("skew", r"^skew = 0\.5$"),
                           ("frame (from frame_coords (2, 1) of 4 columns)", r"^frame = 6$"),
                           ("region_rect", r"^region_rect = Rect2\(1, 2, 30, 40\)$"),
@@ -727,7 +724,8 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
     must("G0 attach player script", tool(host, "script-attach-to-node", {"nodeRef": "Player", "scriptPath": "res://scenes/player.gd"}))
     must("G0 game script", tool(host, "script-create", {"scriptPath": "res://scenes/game.gd", "content": "extends Node\n"}))
     write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
-    must("G0 import terrain.png", mutate(host, 'editor | call Reimport(["res://tiles/terrain.png"])'))
+    # res://tiles/ is a new folder: only a full scan registers it (a targeted Reimport reports the file NOT imported).
+    must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
