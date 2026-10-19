@@ -10,7 +10,13 @@
     "scenes | select name path active",
     "classes | where parent == \"Light3D\" | select name",
     "console | where logType == \"Error\" | sort sequence desc | first 5 | select message",
-    "editor | select isPlaying editedScene selection"
+    "editor | select isPlaying editedScene selection",
+    "godot.group(\"enemies\") | select name path",
+    "nodes | where name == \"Player\" | get incoming | select source signal method",
+    "settings | where section == \"display\" and changed | select name value",
+    "inputActions | where builtIn == false | select name events",
+    "autoloads | select name path singleton",
+    "godot.resources(\"TileSet\") | get sources | select id kind texture tileCount"
   ],
   "mutate": [
     "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",
@@ -31,6 +37,16 @@
     "editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")",
     "editor | call OpenScene(\"res://scenes/level.tscn\")",
     "editor | call Reimport([\"res://materials/red.tres\"])",
-    "editor | call ClearConsole()"
+    "editor | call ClearConsole()",
+    "nodes | where name starts-with \"Enemy\" | call AddToGroup(\"enemies\")",
+    "nodes | where name == \"Enemy1\" | call Connect(\"tree_exited\", godot.find(\"Player\"), \"_on_enemy_died\")",
+    "nodes | where name == \"Enemy1\" | get connections | where method == \"_on_enemy_died\" | call Disconnect()",
+    "project | set settings[\"display/window/size/viewport_width\"] = 1280",
+    "project | call AddInputAction(\"jump\", [\"Key:Space\", \"JoypadButton:A\"])",
+    "inputActions | where name == \"jump\" | call AddEvent(\"Key:W\")",
+    "project | call AddAutoload(\"Game\", \"res://scenes/game.gd\")",
+    "godot.resource(\"res://tiles/terrain.tres\") | call AddAtlasSource(\"res://tiles/terrain.png\")",
+    "godot.resource(\"res://tiles/terrain.tres\") | get sources | get atlas | call CreateTilesFromTexture()",
+    "godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8"
   ]
 }

@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
 using Rql.Execution;
@@ -58,6 +59,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly List<Resource> _toSave = new List<Resource>();
         private static readonly HashSet<Resource> _toSaveSet = new HashSet<Resource>();
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
+        private static bool _settingsChanged;
+        // Objects whose change registered its own do/undo (structural edits such as adding a TileSet source or a Theme
+        // item): their property snapshot is not turned into undo properties (setting a removed entry to null does not
+        // remove it again), they are only marked changed / saved.
+        private static readonly HashSet<GodotObject> _explicitUndo = new HashSet<GodotObject>();
+
+        // Sub-resources an adapter reached through their container (a TileSet's atlas sources): a new sub-resource has no
+        // "file::id" path until its file is loaded again, so this is how its changes find the file to save. The value is the
+        // container's instance id, not the container: a strong value would keep the container alive, which keeps the
+        // sub-resource (the key) alive natively, so neither would ever be freed.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Resource, System.Runtime.CompilerServices.StrongBox<ulong>> _containers =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<Resource, System.Runtime.CompilerServices.StrongBox<ulong>>();
+
+        /// <summary>
+        /// The stored properties of <paramref name="o"/> as the running mutation saw them before its first write (its undo
+        /// snapshot), or read now when there is none.
+        /// </summary>
+        internal static Dictionary<string, Variant> SnapshotOf(GodotObject o) =>
+            _snapshots.TryGetValue(o, out var snapshot) ? snapshot : StoredProperties(o);
+
+        /// <summary>Record that <paramref name="sub"/> is stored inside <paramref name="container"/> (saved with it).</summary>
+        internal static void RegisterContainer(Resource sub, Resource container) =>
+            _containers.AddOrUpdate(sub, new System.Runtime.CompilerServices.StrongBox<ulong>(container.GetInstanceId()));
 
         private static void ResetState()
         {
@@ -68,6 +92,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _toSave.Clear();
             _toSaveSet.Clear();
             _removed.Clear();
+            _settingsChanged = false;
+            _explicitUndo.Clear();
         }
 
         /// <summary>
@@ -91,7 +117,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (_mutating > 0 || dryRun) return result;
 
             List<string> problems;
-            try { problems = SaveResources(); }
+            try { problems = SaveResources(); SaveProjectSettings(problems); }
             catch (Exception ex) { problems = new List<string> { $"saving failed: {ex.GetType().Name}: {ex.Message}" }; }
             foreach (var problem in problems)
                 result.Diagnostics.Add(Diagnostic.Warning("not-saved", problem));
@@ -105,6 +131,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         internal static void RecordUndo(Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo) =>
             _sceneUndo.Add(new UndoStep(redo, undo));
+
+        /// <summary>
+        /// Register the do / undo operations of a structural change of <paramref name="owner"/> (a resource such as a TileSet or
+        /// Theme) that a call or setter already applied. The owner's property snapshot is then not diffed into undo properties;
+        /// it is still saved (file resource) or marks the scene unsaved (built-in resource).
+        /// </summary>
+        internal static void RecordUndoFor(GodotObject owner, Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo)
+        {
+            (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(redo, undo));
+            _explicitUndo.Add(owner);
+        }
 
         /// <summary>Mark the edited scene as having unsaved changes.</summary>
         internal static void MarkSceneUnsaved()
@@ -130,6 +167,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 var hasSnapshot = _snapshots.TryGetValue(owner, out var snapshot);
                 var propertiesChanged = !hasSnapshot; // no snapshot (never in practice): assume it changed
+                // A structural change registered its own undo for the entries it added or removed (setting a removed
+                // entry to null does not remove it again); values that changed in place are still diffed.
+                var explicitUndo = _explicitUndo.Contains(owner);
+                if (explicitUndo) propertiesChanged = true;
                 if (hasSnapshot)
                 {
                     var after = StoredProperties(owner);
@@ -137,15 +178,30 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     foreach (var kv in after)
                     {
                         var known = snapshot!.TryGetValue(kv.Key, out var old);
+                        if (explicitUndo && !known) continue;
                         if (!known || !Same(old, kv.Value)) changed.Add((kv.Key, known ? old : default, kv.Value));
                     }
+                    // A removed project setting (custom setting, input action, autoload) is restored by its undo.
+                    if (!explicitUndo && Settings.RqlProject.Is(owner))
+                        foreach (var kv in snapshot!)
+                            if (!after.ContainsKey(kv.Key)) changed.Add((kv.Key, kv.Value, default));
                     if (changed.Count > 0)
                     {
                         propertiesChanged = true;
                         var target = owner;
+                        // Undoing / redoing a project setting also writes project.godot, like the Project Settings dialog.
+                        var save = Settings.RqlProject.Is(owner);
                         (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(
-                            ur => { foreach (var c in changed) ur.AddDoProperty(target, c.name, c.after); },
-                            ur => { foreach (var c in changed) ur.AddUndoProperty(target, c.name, c.before); }));
+                            ur =>
+                            {
+                                foreach (var c in changed) ur.AddDoProperty(target, c.name, c.after);
+                                if (save) ur.AddDoMethod(target, ProjectSettings.MethodName.Save);
+                            },
+                            ur =>
+                            {
+                                foreach (var c in changed) ur.AddUndoProperty(target, c.name, c.before);
+                                if (save) ur.AddUndoMethod(target, ProjectSettings.MethodName.Save);
+                            }));
                     }
                 }
 
@@ -159,8 +215,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                         // rewrite the file (the replaced resource-modify's "no modifications, not re-saved" rule).
                         if (propertiesChanged && _toSaveSet.Add(resource)) _toSave.Add(resource);
                         break;
-                    case Resource _ when propertiesChanged:
-                        sceneChanged = true; // built-in (scene-embedded) resource
+                    case Resource resource when propertiesChanged:
+                        // A sub-resource built into a resource file (a TileSet's atlas source, a mesh's material): saved
+                        // with that file. One built into a scene marks the scene unsaved.
+                        if (ContainerFile(resource) is { } container) { if (_toSaveSet.Add(container)) _toSave.Add(container); }
+                        else sceneChanged = true;
+                        break;
+                    case GodotObject settings when propertiesChanged && Settings.RqlProject.Is(settings):
+                        _settingsChanged = true;
                         break;
                 }
             }
@@ -174,12 +236,20 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var owners = new List<GodotObject>();
             var seen = new HashSet<GodotObject>();
             foreach (var r in records)
+            {
+                // The nearest node, resource or project-settings object; a plain Object on the way (a TileSet tile's
+                // TileData) is stored by the resource that holds it, so it counts only when nothing encloses it.
+                GodotObject? plain = null, owner = null;
                 foreach (var candidate in r.Owners)
-                    if (candidate is GodotObject o)
-                    {
-                        if (GodotObject.IsInstanceValid(o) && seen.Add(o)) owners.Add(o);
-                        break;
-                    }
+                {
+                    var o = candidate as GodotObject ?? (candidate as Settings.IRqlViewOf)?.Owner;
+                    if (o == null || !GodotObject.IsInstanceValid(o)) continue;
+                    if (o is Node || o is Resource || Settings.RqlProject.Is(o)) { owner = o; break; }
+                    plain ??= o;
+                }
+                owner ??= plain;
+                if (owner != null && seen.Add(owner)) owners.Add(owner);
+            }
             return owners;
         }
 
@@ -190,7 +260,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         internal static Dictionary<string, Variant> StoredProperties(GodotObject o)
         {
             var values = new Dictionary<string, Variant>(StringComparer.Ordinal);
-            foreach (var name in GodotVariants.PropertyNames(o, storageOnly: true))
+            // Project settings at their default value have no storage usage: snapshot every listed setting.
+            foreach (var name in GodotVariants.PropertyNames(o, storageOnly: !Settings.RqlProject.Is(o)))
                 values[name] = o.Get(name);
             if (o is Node node) values["name"] = node.Name;
             return values;
@@ -201,7 +272,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// element-wise, Godot arrays / dictionaries recursively, scalars and structs by value — no text conversion of
         /// large values; only the remaining kinds (Callable, Signal …) fall back to the text Godot writes to .tscn / .tres.
         /// </summary>
-        private static bool Same(Variant a, Variant b)
+        internal static bool Same(Variant a, Variant b)
         {
             if (a.VariantType != b.VariantType) return false;
             switch (a.VariantType)
@@ -225,7 +296,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 : Equals(x, y);
         }
 
-        private static bool IsSceneObject(GodotObject o) => o is Node || (o is Resource r && !IsFileResource(r));
+        // A node, or a resource built into the scene (not a file resource, nor a sub-resource of one).
+        private static bool IsSceneObject(GodotObject o) => o is Node || (o is Resource r && !IsFileResource(r) && ContainerFile(r) == null);
 
         /// <summary>A node of the scene being edited (the root or one of its descendants).</summary>
         internal static bool IsInEditedScene(Node node)
@@ -263,11 +335,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else
             {
                 Commit(undo, _sceneUndo, EditedRoot());
-                Commit(undo, _otherUndo, null);
+                Commit(undo, _otherUndo, GlobalHistoryContext);
             }
             _removed.Clear();
             _snapshots.Clear();
         }
+
+        // The context that files an action under the global history, whatever objects its steps touch (Godot would file
+        // one on a path-less resource, such as a TileSet source created in this session, under the edited scene): any
+        // object that is neither a node nor a resource does; the ProjectSettings singleton is always there.
+        private static GodotObject GlobalHistoryContext => Settings.RqlProject.Instance;
 
         private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
         {
@@ -275,6 +352,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             try
             {
                 undo.CreateAction("RQL mutation", global::Godot.UndoRedo.MergeMode.Disable, context);
+                // Every step joins the context's history: a built-in or path-less resource would otherwise be guessed into
+                // another one ("UndoRedo history mismatch").
+                undo.ForceFixedHistory();
                 // Undo operations run in the order they are registered: the do parts go in the order the changes
                 // happened, the undo parts in reverse, so the last change is undone first.
                 foreach (var step in steps) Register(undo, step.Redo);
@@ -300,6 +380,32 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     problems.Add(problem);
             _toSave.Clear();
             return problems;
+        }
+
+        /// <summary>
+        /// The resource file a built-in sub-resource is stored in (path "res://tiles.tres::TileSetAtlasSource_x"), when that
+        /// file is a resource and not a scene (a scene's sub-resources are saved with the scene); null otherwise.
+        /// </summary>
+        private static Resource? ContainerFile(Resource resource, int depth = 0)
+        {
+            if (depth < 8 && _containers.TryGetValue(resource, out var id) && GodotObject.InstanceFromId(id.Value) is Resource container)
+                return IsFileResource(container) ? container : ContainerFile(container, depth + 1);
+            var path = resource.ResourcePath ?? "";
+            var cut = path.IndexOf("::", StringComparison.Ordinal);
+            if (cut <= 0 || !ResPathNormalizer.IsResPath(path)) return null;
+            var file = path.Substring(0, cut);
+            if (ResPathNormalizer.IsScenePath(file)) return null;
+            // The loaded (cached) container: the one the sub-resource belongs to.
+            return ResourceLoader.HasCached(file) ? ResourceLoader.Load(file) : null;
+        }
+
+        /// <summary>Save project.godot after a mutation that changed a project setting.</summary>
+        private static void SaveProjectSettings(List<string> problems)
+        {
+            if (!_settingsChanged) return;
+            _settingsChanged = false;
+            var error = ProjectSettings.Save();
+            if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
         }
 
         /// <summary>Write a file resource to its res:// file and refresh the editor filesystem; the problem, or null when saved.</summary>

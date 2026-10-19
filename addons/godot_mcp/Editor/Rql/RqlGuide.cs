@@ -27,12 +27,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     internal static class RqlGuide
     {
         public const string QueryBlurb =
-            "Query the live Godot editor (scene nodes, resources, files, scenes, classes, console) with RQL in ONE call: filter, " +
+            "Query the live Godot editor (scene nodes, resources, files, scenes, classes, console, project settings, input map) with RQL in ONE call: filter, " +
             "project, sort, count, walk the scene tree. Far fewer calls/tokens than reading nodes one by one.";
 
         public const string MutateBlurb =
             "Change the live Godot editor with RQL set/call: bulk edits in one all-or-nothing, undoable call; add, duplicate, " +
-            "reparent and remove nodes; create, move and delete resources; open and save scenes. dry_run previews.";
+            "reparent and remove nodes; connect signals, groups; project settings, input map, autoloads; TileSets, Themes; " +
+            "create, move and delete resources; open and save scenes. dry_run previews.";
 
         public const string SchemaBlurb =
             "List RQL sources and the node classes present in the edited scene; pass a type name for its members and Godot properties.";
@@ -41,10 +42,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
             "selection, scenes (open scenes), files (every res:// file the editor knows), classes (Godot classes, ClassDB), " +
-            "console (captured editor log entries), editor (editor state and operations). " +
+            "console (captured editor log entries), editor (editor state and operations), project (project settings: " +
+            "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
+            "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
+            "singleton order), groups (name nodes count global). " +
             "Resources: godot.resources(\"StandardMaterial3D\") or godot.resources(\"Texture2D\", \"res://art\"), " +
             "godot.resource(\"res://materials/red.tres\"). ref(\"Node3D#1234\") resolves a $ref; godot.find(\"Player\") or " +
-            "godot.find(\"Level/Player\") a node by unique name or path below the scene root.\n" +
+            "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group.\n" +
             "Stages:\n" +
             "  where <predicate>   filter\n" +
             "  select a b.c alias=(expr)   project columns (wrap computed expressions in parentheses)\n" +
@@ -61,12 +65,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Meta: $ (current item), $ref (stable id such as Node3D#1234), $type, $path, $index, $depth. Enums compare to strings; " +
             "== on strings is case-sensitive.\n" +
             "Godot: every node has name, path (below the scene root, \".\" = root), class (the Godot class, e.g. \"OmniLight3D\"), " +
-            "parent, owner, children (list), childCount, index, script (res:// path) and id. Members are the C# properties " +
+            "parent, owner, children (list), childCount, index, script (res:// path), groups (list) and id; signals, connections " +
+            "(persistent: signal target method flags) and incoming are read on request (select connections, get connections). " +
+            "Members are the C# properties " +
             "(Position, Rotation, Scale, Visible, Text …), matched case-insensitively, so position works too. Every Godot property, " +
             "including GDScript script variables and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
             "props[\"speed\"] on a scripted node). Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
             "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". A resource path \"res://…\" works wherever a resource is expected, " +
-            "a node path or name wherever a node is expected. Freed nodes read as null. Navigate with paths or get; select only " +
+            "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +
+            "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
+            "(id kind atlas texture tileCount), physicsLayers, terrainSets, customDataLayers; an atlas source has tiles (coords size data). " +
+            "A Theme has maps keyed \"ControlType/item\": colors, constants, fonts, fontSizes, icons, styleboxes. " +
+            "Navigate with paths or get; select only " +
             "projects output columns.\n" +
             "Results come back as compact rows (header line, then col|col). Long results are truncated — refine with where/first or use count. " +
             "Unknown members produce warnings with suggestions; rql-schema(type) lists a type's members and Godot properties.";
@@ -85,7 +95,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  scenes | select name path active\n" +
             "  classes | where parent == \"Light3D\" | select name\n" +
             "  console | where logType == \"Error\" | sort sequence desc | first 5 | select message\n" +
-            "  editor | select isPlaying editedScene selection";
+            "  editor | select isPlaying editedScene selection\n" +
+            "  godot.group(\"enemies\") | select name path\n" +
+            "  nodes | where name == \"Player\" | get incoming | select source signal method\n" +
+            "  settings | where section == \"display\" and changed | select name value\n" +
+            "  inputActions | where builtIn == false | select name events\n" +
+            "  autoloads | select name path singleton\n" +
+            "  godot.resources(\"TileSet\") | get sources | select id kind texture tileCount";
 
         /// <summary>
         /// rql-mutate examples, one per line ("  &lt;query&gt;   &lt;what it does&gt;", at least three spaces before the note);
@@ -110,7 +126,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")   create, save and open a scene (path, root class, root name)\n" +
             "  editor | call OpenScene(\"res://scenes/level.tscn\")   open a scene file\n" +
             "  editor | call Reimport([\"res://materials/red.tres\"])   re-import files (no argument: full filesystem scan)\n" +
-            "  editor | call ClearConsole()   clear the captured editor log";
+            "  editor | call ClearConsole()   clear the captured editor log\n" +
+            "  nodes | where name starts-with \"Enemy\" | call AddToGroup(\"enemies\")   add nodes to a group (saved with the scene; set groups = [...] replaces them)\n" +
+            "  nodes | where name == \"Enemy1\" | call Connect(\"tree_exited\", godot.find(\"Player\"), \"_on_enemy_died\")   connect a signal to a method of the target's script (saved with the scene)\n" +
+            "  nodes | where name == \"Enemy1\" | get connections | where method == \"_on_enemy_died\" | call Disconnect()   remove a connection\n" +
+            "  project | set settings[\"display/window/size/viewport_width\"] = 1280   any project setting by its path (saved to project.godot)\n" +
+            "  project | call AddInputAction(\"jump\", [\"Key:Space\", \"JoypadButton:A\"])   new input action with its events\n" +
+            "  inputActions | where name == \"jump\" | call AddEvent(\"Key:W\")   add an event to an input action (RemoveEvent, set events = [...], set deadzone)\n" +
+            "  project | call AddAutoload(\"Game\", \"res://scenes/game.gd\")   register an autoload singleton\n" +
+            "  godot.resource(\"res://tiles/terrain.tres\") | call AddAtlasSource(\"res://tiles/terrain.png\")   add a texture to a TileSet (returns the source id)\n" +
+            "  godot.resource(\"res://tiles/terrain.tres\") | get sources | get atlas | call CreateTilesFromTexture()   create tiles in the non-transparent grid cells\n" +
+            "  godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8   edit Theme items";
 
         /// <summary>The queries of <see cref="QueryExampleText"/>, in order.</summary>
         public static string[] QueryExamples => Examples(QueryExampleText);

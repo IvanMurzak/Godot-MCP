@@ -26,6 +26,27 @@ The addon itself stays Apache-2.0.
 | `reflection-method-find`, `reflection-method-call` (editor) | `call CallMethod("name", [args])` on any Godot object, node / resource calls, `rql-schema` |
 | — | `rql-schema`: sources, functions, the node classes in the edited scene; one type's members, methods and Godot properties (ClassDB) |
 
+## Data models beyond nodes and resources
+
+What the Godot editor keeps outside plain properties, each with read, write, undo and saving:
+
+| Model | Read | Change | Saved to |
+|---|---|---|---|
+| **Groups** | node `groups` (persistent groups, internal `_…` excluded), `godot.group("enemies")`, the `groups` source (`name nodes count global description`) | `call AddToGroup(g)` / `RemoveFromGroup(g)` (return whether anything changed), `set groups = [...]` | the scene (`groups=[…]` in the node header) |
+| **Signals** | node `signals` (`name args connections`), `connections` (persistent ones: `signal target method flags deferred oneShot`), `incoming` | `call Connect(signal, target, method, deferred?, oneShot?)` (the method must exist in the target's script or class), `Disconnect(signal, target, method)`, a connection row's `Disconnect()` | the scene (`[connection …]`) |
+| **Project settings** | the `settings` source (`name section value type changed`), `project` (`settings["section/key"]`, `name`, `mainScene`) | `project \| set settings["display/window/size/viewport_width"] = 1280` (typed like the Project Settings dialog), `call SetSetting(name, value)` (custom), `ClearSetting(name)` | `project.godot` |
+| **Input map** | the `inputActions` source (`name events deadzone builtIn`); events as text: `Key:Space`, `Key:Ctrl+S`, `PhysicalKey:W`, `Mouse:Left`, `Mouse:Shift+WheelUp`, `JoypadButton:A`, `JoypadMotion:LeftX-` | `project \| call AddInputAction(name, events?, deadzone?)` / `RemoveInputAction` / `AddInputEvent` / `RemoveInputEvent`; rows: `call AddEvent / RemoveEvent / Remove`, `set events = [...]`, `set deadzone` | `project.godot` (`[input]`, all devices) |
+| **Autoloads** | the `autoloads` source (`name path singleton order`) | `project \| call AddAutoload(name, path, singleton?)` / `RemoveAutoload`; rows: `set path`, `set singleton`, `call Remove()` | `project.godot` (`[autoload]`) |
+| **Global groups** | the `groups` source (`global`, `description`) | `project \| call AddGlobalGroup(name, description?)` / `RemoveGlobalGroup` | `project.godot` (`[global_group]`) |
+| **TileSet** | `sources` (`id kind atlas scenes texture tileCount`), `physicsLayers`, `navigationLayers`, `occlusionLayers`, `terrainSets` (`index mode terrains`), `customDataLayers` (`index name type`); an atlas source's `tiles` (`coords size alternatives data`) and `gridSize` | `call AddAtlasSource(texture, tileSize?)`, `RemoveSource(id)`, `AddPhysicsLayer()`, `AddNavigationLayer()`, `AddOcclusionLayer()`, `AddTerrainSet(mode?)`, `AddTerrain(set, name, color?)`, `AddCustomDataLayer(name, type)`; atlas: `CreateTile(coords, size?)`, `RemoveTile(coords)`, `CreateTilesFromTexture()`; tile settings on `data` (TileData: `Modulate`, `ZIndex`, `props["custom_data_0"]` …); layer settings in `props["physics_layer_0/collision_layer"]` | its `.tres` (or the scene that embeds it) |
+| **Theme** | `types`, `items` (`type kind name value`), maps keyed `"ControlType/item"`: `colors`, `constants`, `fonts`, `fontSizes`, `icons`, `styleboxes` | `set colors["Button/font_color"] = "#ffcc00"` (a new key adds the item, `null` removes it), `call ClearItem(kind, key)`, `ClearType(type)` | its `.tres` |
+| **Plane** | `"(a, b, c, d)"` — normal and distance (e.g. `WorldBoundaryShape3D.Plane`) | text, list or object literal | — |
+
+Structural changes register their own do/undo operations (connect/disconnect, add/remove group, add/remove a TileSet
+source, layer or tile — a removed tile comes back with its data — and Theme items); project settings are snapshotted
+like any object, and undoing them writes `project.godot` again. Changes to a sub-resource stored inside a resource
+file (a TileSet's atlas source, also one created in the same session) save that file.
+
 Kept as tools: `script-*`, `screenshot-*`, `ping`, `godot-skill-*`, `runtime-errors-*`. The **in-game runtime** tool
 surface is unchanged: `console-*`, `reflection-*`, `runtime-errors-*` and `ping` stay registered in a game build (the
 editor removes `console-*` / `reflection-*` from the plugin it builds — `RqlInstaller.EditorReplacedTools`).
@@ -42,7 +63,9 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 - **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` (Ctrl+Z): a `set` snapshots the stored Godot properties
   of every changed object and records the differences as do/undo properties; the structural node calls register the
   same do/undo methods the Scene dock does (the removed node of `Free()` stays alive in the undo history). An action
-  that touches scene nodes and global objects (file resources) is split in two, one per undo history.
+  that touches scene nodes and global objects (file resources, project settings) is split in two, one per undo
+  history; every step is forced into its action's history (`ForceFixedHistory`), so a path-less resource cannot
+  scatter it.
 - **Saving** follows the replaced tools: a change to a node of the edited scene marks the scene unsaved — write it
   with `editor | call SaveScene()` (like Ctrl+S; `node-modify` did not save either); a change to a resource stored in
   its own file (`res://….tres`) is saved to that file after the mutation, like `resource-modify` (only when a property
@@ -57,8 +80,14 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
     operations. One engine per editor session; `Reset()` on plugin teardown.
   - `EditorApi/` — the `editor` source (state, scenes, resource files, files, console, classes) and its view types.
   - `Adapters/` — one adapter per file: GodotObject (`id`, `class`, `props`, `CallMethod`), Node, Node2D, Node3D,
-    Control, Resource; StringName / NodePath / Variant; Vector2/3/4(I), Color, Quaternion, Basis, Transform2D/3D,
-    Rect2(I), Aabb (pure C#, unit-tested); NodeRef (tool arguments).
+    Control, Resource, ProjectSettings (the `project` source), TileSet, TileSetAtlasSource, Theme; StringName /
+    NodePath / Variant; Vector2/3/4(I), Color, Quaternion, Basis, Transform2D/3D, Rect2(I), Aabb, Plane (pure C#,
+    unit-tested; `-0` prints as `0`); NodeRef (tool arguments).
+  - `RqlGodot.Signals.cs` — groups and signal connections of the edited scene's nodes.
+  - `Settings/` — project settings, input map (`InputEventText.cs`: the pure event grammar, unit-tested;
+    `InputEvents.cs`: ⇄ Godot `InputEvent`s), autoloads and groups (`RqlProject.cs`).
+  - `Modules/TestHooksModule.cs` — `test.undo` / `test.redo` / `test.action`, only with `GODOT_MCP_RQL_TEST_HOOKS=1`
+    (the live smoke drives undo with them; never on in a user's editor).
   - `Modules/GodotCoreModule.cs`, `Modules/ToolTypesModule.cs` — the core module; modules are discovered in every loaded
     assembly (`GodotAssemblyUtils.AllAssemblies`), so an extension's `IRqlModule` in the consumer project assembly is
     found as soon as it is installed (its `ctx.AddGuide` text appears in the `godot-rql` skill).
@@ -80,12 +109,18 @@ the reload still unloads.
 
 ## Tests
 
-- `Godot-MCP.Tests/Rql*Tests.cs` (xUnit, no Godot binary): every guide example parses, the struct adapters, the tool
-  binding (schemas, RQL arguments, compact results, escaping), type names, the cache release, the config setting.
+- `Godot-MCP.Tests/Rql*Tests.cs` (xUnit, no Godot binary): every guide example parses, the struct adapters (Plane and
+  negative zero included), the input-event text grammar, the tool binding (schemas, RQL arguments, compact results,
+  escaping), type names, the cache release, the config setting.
 - `scripts/smoke_rql.py` (CI: `test_godot_runtime_harness.yml`, every Godot version of the matrix) against a live
   headless editor: read-back of every change from the `.tscn` / `.tres` Godot wrote (the former
   `smoke_property_patches.py` cases), `AddChild` + `SaveScene` round-trip, resource move / delete with sidecars, and
-  every example of the guide (`Godot-Tests/rql-guide-examples.json`) in order.
+  every example of the guide (`Godot-Tests/rql-guide-examples.json`) in order. `scripts/smoke_rql_models.py` adds
+  ~500 checks: every existing adapter on real properties (Node2D, Node3D, Control, Resource, NodePath, StringName,
+  Variant, NodeRef, the struct types), groups, signal connections, project settings, the input map, autoloads, global
+  groups, TileSets and Themes — each change read back from the `.tscn` / `.tres` / `project.godot` Godot wrote,
+  validation errors, dry runs, and (with `GODOT_MCP_RQL_TEST_HOOKS=1` in the editor) undo and redo of every kind of
+  change; without the hooks those checks print `SKIP`.
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 

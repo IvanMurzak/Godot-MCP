@@ -34,6 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public Rect2 Rect { get; set; }
         public Rect2I RectI { get; set; }
         public Aabb Bounds { get; set; }
+        public Plane Floor { get; set; }
     }
 
     /// <summary>
@@ -58,7 +59,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                          new Godot_Vector2_Adapter(), new Godot_Vector2I_Adapter(), new Godot_Vector3_Adapter(), new Godot_Vector3I_Adapter(),
                          new Godot_Vector4_Adapter(), new Godot_Vector4I_Adapter(), new Godot_Color_Adapter(), new Godot_Quaternion_Adapter(),
                          new Godot_Basis_Adapter(), new Godot_Transform2D_Adapter(), new Godot_Transform3D_Adapter(),
-                         new Godot_Rect2_Adapter(), new Godot_Rect2I_Adapter(), new Godot_Aabb_Adapter(),
+                         new Godot_Rect2_Adapter(), new Godot_Rect2I_Adapter(), new Godot_Aabb_Adapter(), new Godot_Plane_Adapter(),
                      })
                 engine.AddAdapter(adapter);
             return engine;
@@ -144,6 +145,31 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var r = Query("items | where name == \"a\" | select Transform Bounds");
             Assert.Contains("(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 7)", Text(r));
             Assert.Contains("(0, 0, 0, 1, 2, 3)", Text(r));
+        }
+
+        [Fact]
+        public void PlanesRoundTripAsNormalAndDistance()
+        {
+            Assert.True(Mutate("items | where name == \"a\" | set Floor = \"(0, 1, 0, 2)\"").Ok);
+            Assert.Equal(new Plane(0, 1, 0, 2), _items[0].Floor);
+            Assert.True(Mutate("items | where name == \"a\" | set Floor = [1, 0, 0, -3]").Ok);
+            Assert.Equal(new Vector3(1, 0, 0), _items[0].Floor.Normal);
+            Assert.Equal(-3f, _items[0].Floor.D);
+            Assert.Contains("(1, 0, 0, -3)", Text(Query("items | where name == \"a\" | select Floor")));
+            var r = Mutate("items | where name == \"a\" | set Floor = \"(0, 1, 0)\"");
+            Assert.False(r.Ok);
+            Assert.Contains("(a, b, c, d)", Text(r));
+        }
+
+        [Fact]
+        public void NegativeZeroPrintsAsZero()
+        {
+            _items[1].Position = new Vector3(-0f, 0f, -0f);
+            _items[1].Rotation = new Quaternion(-0f, 0f, 0f, 1f);
+            var text = Text(Query("items | where name == \"b\" | select Position Rotation"));
+            Assert.Contains("(0, 0, 0)", text);
+            Assert.Contains("(0, 0, 0, 1)", text);
+            Assert.DoesNotContain("-0", text);
         }
 
         [Fact]
