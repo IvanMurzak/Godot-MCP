@@ -1,0 +1,19 @@
+cli/src/utils/machine-store.ts
+  s_19d41331028342::t_52bd10db3702cc 10,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bd6ee3d4c7710836fbd3734b6ae3fa10fdb9fc3",
+  "prompts": {},
+  "sessions": {
+    "s_19d41331028342": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_19d41331028342",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
