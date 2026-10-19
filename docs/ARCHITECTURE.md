@@ -188,7 +188,9 @@ references `EditorInterface` / `EditorPlugin` / `EditorFileSystem` / `EditorScri
 code that is **not** inside a `#if TOOLS` guard and **not** inside a comment or string
 literal. It is comment- and string-aware on purpose: the runtime files mention editor type
 names heavily in doc-comments and `[Description("…")]` strings to *explain* the boundary, and
-those are not violations — only un-guarded code is.
+those are not violations — only un-guarded code is. It also scans **every** addon `.cs` file and
+fails if one uses an editor-only NuGet package (`Rql.*`, `com.IvanMurzak.CodeExec*`, `Microsoft.CodeAnalysis*`)
+outside `#if TOOLS` (see the next section: export builds do not reference those packages).
 
 Run it locally any time:
 
@@ -200,6 +202,33 @@ python scripts/check-runtime-boundary.py --verbose  # also lists the allowed #if
 This guard is a fast pre-filter; the authoritative proof that the boundary holds is that the
 `ExportRelease` (TOOLS-undefined) configuration **compiles** and the resulting assembly
 contains the runtime types and none of the editor types.
+
+## Editor-only NuGet packages (no Roslyn in an exported game)
+
+The `#if TOOLS` strip removes editor *code*; the NuGet *packages* only that code uses are kept out of
+exports by an MSBuild condition, the Godot counterpart of Unity-MCP importing the Roslyn DLLs Editor-only.
+Four packages are editor-only: `com.IvanMurzak.Rql` (the RQL data layer), `com.IvanMurzak.CodeExec`,
+the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp` (`script-execute`).
+`Godot-MCP.csproj` declares each with
+
+```xml
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+```
+
+`ExportDebug` / `ExportRelease` are exactly the Godot.NET.Sdk configurations without `TOOLS` (`Debug`, the editor
+build, defines it); the SDK conditions its own `GodotSharpEditor` reference the same way. Godot restores per build,
+so the editor build (`Debug`) gets the packages and an export (`dotnet publish -c ExportRelease`) does not.
+`godot-cli install-plugin` writes the same `Condition` into the consumer's `.csproj` (it reads the editor-only flag
+from the addon's `nuget-deps.json` / `Godot-MCP.csproj`, and adds the condition to an unconditioned entry an older
+install wrote; a `Condition` the project already set is kept). `com.IvanMurzak.McpPlugin` and
+`com.IvanMurzak.ReflectorNet` stay unconditional: `Runtime/` (the in-game path) uses them.
+
+What makes this compile: every addon file that uses one of those packages is inside `#if TOOLS` (or
+`#if TOOLS || GODOT_MCP_UNIT_TESTS` for the pure sources the xUnit suite compiles), which the CI boundary guard
+above enforces. A Godot 4.5.1 headless `--export-release` of the testbed ships `McpPlugin.dll`,
+`McpPlugin.Common.dll` and `ReflectorNet.dll` and none of `Rql.*`, `com.IvanMurzak.CodeExec.dll` or
+`Microsoft.CodeAnalysis*.dll`. An extension package that depends on RQL (e.g. `com.IvanMurzak.Godot.MCP.Tilemap`)
+still brings RQL into an export transitively; that is the extension's dependency, not the core addon's.
 
 ## (Optional) Strictly-zero-bytes export exclude for dev-only users
 
@@ -218,25 +247,9 @@ condition in their **own game `.csproj`** (not the addon's):
 </PropertyGroup>
 ```
 
-If you also want to drop the reused NuGet payload (`com.IvanMurzak.McpPlugin` /
-`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql` / Code-Exec and Roslyn, which only `script-execute` in the editor
-uses) from the published game, guard those `<PackageReference>`s the
-same way:
-
-```xml
-<ItemGroup Condition="'$(Configuration)' != 'ExportRelease'">
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.1" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" />
-</ItemGroup>
-```
-
-The three `script-execute` packages (`com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn`,
-`Microsoft.CodeAnalysis.CSharp`) can be left out of exports on their own, runtime path kept: only editor code
-(`#if TOOLS`) uses them, so guard just those three with `Condition="'$(Configuration)' == 'Debug'"` (the editor build).
+If you also want to drop the two remaining NuGet packages (`com.IvanMurzak.McpPlugin` /
+`com.IvanMurzak.ReflectorNet`, which the `Runtime/` code needs) from the published game, give their
+`<PackageReference>`s the same `Condition` the editor-only packages carry (previous section).
 
 > **Only do this if you never use the runtime (in-game) path.** Excluding the addon sources
 > from `ExportRelease` removes `GodotMcpRuntime` too, so a game that calls

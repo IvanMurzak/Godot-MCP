@@ -37,19 +37,24 @@ export interface ResolvedAddonNugetDeps {
 const NUGET_ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 const NUGET_VERSION_RE = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
 
-function validRef(id: unknown, version: unknown): AddonPackageReference | null {
-  return typeof id === 'string' && typeof version === 'string' && NUGET_ID_RE.test(id) && NUGET_VERSION_RE.test(version)
-    ? { id, version }
-    : null;
+function validRef(id: unknown, version: unknown, editorOnly: boolean): AddonPackageReference | null {
+  if (typeof id !== 'string' || typeof version !== 'string' || !NUGET_ID_RE.test(id) || !NUGET_VERSION_RE.test(version)) {
+    return null;
+  }
+  return editorOnly ? { id, version, editorOnly } : { id, version };
 }
 
-/** Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. */
+/**
+ * Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. A reference with a
+ * `Condition` is editor-only: Godot-MCP.csproj conditions exactly its editor-only packages (parity-tested).
+ */
 export function parseCsprojPackageReferences(csprojText: string): AddonPackageReference[] {
   const refs: AddonPackageReference[] = [];
   for (const element of csprojText.match(/<PackageReference\b[^>]*>/gi) ?? []) {
     const ref = validRef(
       /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1],
       /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1],
+      /\bCondition\s*=/i.test(element),
     );
     if (ref !== null) refs.push(ref);
   }
@@ -57,8 +62,9 @@ export function parseCsprojPackageReferences(csprojText: string): AddonPackageRe
 }
 
 /**
- * Parse a `nuget-deps.json` manifest (`{ "packageReferences": [{ "id", "version" }] }`).
- * Throws on malformed JSON, a missing/empty list, or an invalid entry.
+ * Parse a `nuget-deps.json` manifest (`{ "packageReferences": [{ "id", "version", "editorOnly"? }] }`).
+ * Manifests that predate `editorOnly` mark nothing editor-only, which those addons need (their RQL sources
+ * compile into export builds). Throws on malformed JSON, a missing/empty list, or an invalid entry.
  */
 export function parseAddonNugetDeps(text: string): AddonPackageReference[] {
   const parsed: unknown = JSON.parse(text);
@@ -67,8 +73,8 @@ export function parseAddonNugetDeps(text: string): AddonPackageReference[] {
     throw new Error('"packageReferences" must be a non-empty array');
   }
   return list.map((entry: unknown, i) => {
-    const e = entry as { id?: unknown; version?: unknown } | null;
-    const ref = validRef(e?.id, e?.version);
+    const e = entry as { id?: unknown; version?: unknown; editorOnly?: unknown } | null;
+    const ref = validRef(e?.id, e?.version, e?.editorOnly === true);
     if (ref === null) throw new Error(`packageReferences[${i}] is not a valid { id, version } pair`);
     return ref;
   });

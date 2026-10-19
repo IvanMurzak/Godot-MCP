@@ -18,10 +18,19 @@
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+  </ItemGroup>
+
+  <!--
+    Editor-only packages: only `#if TOOLS` code uses them (RQL data layer, `script-execute` via Code-Exec + Roslyn),
+    so Godot's export builds (ExportDebug / ExportRelease, the two configurations without TOOLS) leave them out and
+    an exported game ships no Roslyn. Same rule the Godot SDK applies to GodotSharpEditor. The Condition sits on each
+    element (after Version) so `godot-cli install-plugin` copies it per package; see docs/ARCHITECTURE.md.
+  -->
+  <ItemGroup>
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   </ItemGroup>
 
   <!--

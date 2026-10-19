@@ -2,6 +2,7 @@ import { isNewerVersion } from './semver.js';
 import {
   ADDON_PACKAGE_REFERENCES,
   ADDON_EMBEDDED_RESOURCES,
+  EDITOR_ONLY_CONDITION,
   type AddonPackageReference,
   type AddonEmbeddedResource,
 } from './addon-deps.js';
@@ -15,7 +16,8 @@ import {
  *  - a project with NO `<ItemGroup>` at all (appends one before `</Project>`);
  *  - a project that already declares both pins at the right version (no change);
  *  - a project that declares one or both at a DIFFERENT version (reconciles in place);
- *  - a project that declares only one of the two (adds the missing one).
+ *  - a project that declares only one of the two (adds the missing one);
+ *  - an editor-only package declared without a Condition (adds the editor-only Condition, see `keptCondition`).
  *
  * It deliberately does a minimal, well-scoped text edit rather than a full XML
  * parse/serialize, to preserve the rest of the consumer's csproj formatting
@@ -90,9 +92,26 @@ function embeddedResourceRegex(include: string): RegExp {
   );
 }
 
-/** Render the canonical self-closing element for a required reference. */
-function renderRef(ref: AddonPackageReference): string {
-  return `<PackageReference Include="${ref.id}" Version="${ref.version}" />`;
+/** The Condition a freshly written element gets: the canonical one for an editor-only package, else none. */
+function canonicalCondition(ref: AddonPackageReference): string | undefined {
+  return ref.editorOnly ? EDITOR_ONLY_CONDITION : undefined;
+}
+
+/** Render the self-closing element for a reference, with its Condition when it has one. */
+function renderRef(ref: AddonPackageReference, condition: string | undefined): string {
+  const conditionAttr = condition === undefined ? '' : ` Condition="${condition}"`;
+  return `<PackageReference Include="${ref.id}" Version="${ref.version}"${conditionAttr} />`;
+}
+
+/**
+ * The Condition an existing element should keep, or `null` when it must change. An editor-only reference keeps any
+ * Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the canonical one when it has none (the
+ * migration of csprojs written before editor-only packages). Any other reference keeps its own Condition, except the
+ * canonical editor-only one, which an addon that needs the package in export builds (an older one) drops.
+ */
+function keptCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined | null {
+  if (ref.editorOnly) return existing ?? null;
+  return existing === EDITOR_ONLY_CONDITION ? null : existing;
 }
 
 /** Render the canonical self-closing element for a required embedded resource. */
@@ -142,18 +161,21 @@ export function addAddonPackageReferences(
       continue;
     }
     const existingVersion = match[1] ?? match[2] ?? '';
-    if (existingVersion === ref.version) {
-      changes.push({ id: ref.id, action: 'unchanged', version: ref.version });
-      continue;
-    }
-    // A third-party package (Roslyn) the project already uses at a newer version stays: the addon needs "at least"
-    // (the source-only Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade would break the project's own use.
+    // A third-party package (Roslyn) the project already uses at a newer version stays as it is: the addon needs "at
+    // least" (the source-only Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade, or making it
+    // editor-only, would break the project's own use.
     if (!ref.id.startsWith('com.IvanMurzak.') && isNewerVersion(ref.version, existingVersion)) {
       changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
       continue;
     }
-    // Reconcile in place: replace the whole element with the canonical pin.
-    text = text.replace(re, renderRef(ref));
+    const kept = keptCondition(ref, /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1]);
+    if (existingVersion === ref.version && kept !== null) {
+      changes.push({ id: ref.id, action: 'unchanged', version: ref.version });
+      continue;
+    }
+    // Reconcile in place: replace the whole element with the pin (a function replacer: a Condition holds `$`).
+    const rendered = renderRef(ref, kept === null ? canonicalCondition(ref) : kept);
+    text = text.replace(re, () => rendered);
     changes.push({ id: ref.id, action: 'updated', from: existingVersion, version: ref.version });
   }
 
@@ -161,7 +183,7 @@ export function addAddonPackageReferences(
   // already holds a <PackageReference> (group them together); else append a fresh
   // <ItemGroup> just before </Project>.
   if (missing.length > 0) {
-    const block = missing.map((ref) => `${indent}${renderRef(ref)}`).join(eol);
+    const block = missing.map((ref) => `${indent}${renderRef(ref, canonicalCondition(ref))}`).join(eol);
 
     const pkgItemGroupClose = findPackageReferenceItemGroupClose(text);
     if (pkgItemGroupClose !== -1) {

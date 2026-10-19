@@ -7,6 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+// Editor-only (RQL needs the editor-only com.IvanMurzak.Rql package); also compiled by the xUnit suite.
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using Godot;
 using Rql.Execution;
@@ -23,3 +25,4 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override Vector2? Make(float[] f) => f.Length == 2 ? new Vector2(f[0], f[1]) : (Vector2?)null;
     }
 }
+#endif

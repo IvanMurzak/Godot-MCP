@@ -25,6 +25,19 @@ describe('parseAddonNugetDeps', () => {
     ]);
   });
 
+  it('reads editorOnly: true and ignores any other editorOnly value (older manifests have none)', () => {
+    const text = JSON.stringify({
+      packageReferences: [
+        { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true },
+        { id: 'com.IvanMurzak.Rql', version: '0.1.1', editorOnly: 'yes' },
+      ],
+    });
+    expect(parseAddonNugetDeps(text)).toEqual([
+      { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true },
+      { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
+    ]);
+  });
+
   it.each([
     ['not JSON', '{'],
     ['null', 'null'],
@@ -45,11 +58,13 @@ describe('parseCsprojPackageReferences', () => {
     <PackageReference Include="A.B" Version="1.2.3" />
     <PackageReference Version="4.5.6" Include="C.D"></PackageReference>
     <PackageReference Include="NoVersion" />
+    <PackageReference Include="E.F" Version="7.8.9" Condition="'$(Configuration)' != 'ExportRelease'" />
   </ItemGroup>
 </Project>`;
     expect(parseCsprojPackageReferences(csproj)).toEqual([
       { id: 'A.B', version: '1.2.3' },
       { id: 'C.D', version: '4.5.6' },
+      { id: 'E.F', version: '7.8.9', editorOnly: true },
     ]);
   });
 });

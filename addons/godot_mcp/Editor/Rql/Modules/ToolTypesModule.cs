@@ -7,6 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+// Editor-only (RQL needs the editor-only com.IvanMurzak.Rql package); also compiled by the xUnit suite.
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using Rql.Execution;
@@ -25,3 +27,4 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
             .AddAdapter(new ReflectorNet_SerializedMemberList_Adapter());
     }
 }
+#endif

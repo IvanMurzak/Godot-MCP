@@ -11,7 +11,8 @@
 // this CLI's version — the SAME values, never a bump of those pins. `com.IvanMurzak.Rql` (the RQL data layer of
 // the editor tools, PolyForm Shield 1.0.0) is a direct dependency of the addon sources since 1.0; Code-Exec
 // (`com.IvanMurzak.CodeExec` + the source-only `.Roslyn` adapter, compiled against the pinned
-// `Microsoft.CodeAnalysis.CSharp`) runs `script-execute`. A parity test
+// `Microsoft.CodeAnalysis.CSharp`) runs `script-execute`. Those four are `editorOnly`: only `#if TOOLS` code
+// uses them, so exported games ship neither RQL nor Roslyn. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
 // never silently install a mismatched version.
@@ -24,7 +25,19 @@ export interface AddonPackageReference {
   id: string;
   /** The pinned version (the `Version=` attribute). */
   version: string;
+  /**
+   * Only editor (`#if TOOLS`) code uses the package: it is written with `EDITOR_ONLY_CONDITION`, so Godot's
+   * export builds leave it out (an exported game ships no RQL / Roslyn).
+   */
+  editorOnly?: boolean;
 }
+
+/**
+ * The MSBuild condition of an editor-only `<PackageReference>`: every configuration except Godot's two export
+ * builds (`ExportDebug` / `ExportRelease`, the ones without `TOOLS`). The Godot SDK applies the same rule to
+ * GodotSharpEditor. Godot-MCP.csproj marks its editor-only packages with this exact attribute.
+ */
+export const EDITOR_ONLY_CONDITION = "'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'";
 
 /**
  * A single `<EmbeddedResource>` the consumer csproj must declare so an asset the
@@ -48,10 +61,10 @@ export interface AddonEmbeddedResource {
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.3' },
   { id: 'com.IvanMurzak.McpPlugin', version: '8.9.0' },
-  { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
-  { id: 'com.IvanMurzak.CodeExec', version: '0.2.1' },
-  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1' },
-  { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0' },
+  { id: 'com.IvanMurzak.Rql', version: '0.1.1', editorOnly: true },
+  { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true },
+  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1', editorOnly: true },
+  { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true },
 ] as const;
 
 /**

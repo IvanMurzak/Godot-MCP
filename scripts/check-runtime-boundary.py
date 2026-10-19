@@ -24,6 +24,9 @@ Concretely it FAILS (exit 1) when a `Runtime/**/*.cs` file, OUTSIDE comments, co
     as a narrow, documented editor-coupling shim (see GodotMcpConnection.cs) and is reported
     as a WARNING, not a failure, because the guarded body is stripped from the game build.
 
+It also FAILS when ANY `addons/godot_mcp/**/*.cs` file uses an editor-only NuGet package (RQL, Code-Exec,
+Roslyn) outside `#if TOOLS`: Godot-MCP.csproj leaves those packages out of the export configurations.
+
 The check is comment-aware: editor type names mentioned in `//` / `///` / `/* */`
 documentation (which the addon's runtime files use heavily to EXPLAIN the boundary) never
 trip the guard — only real code does. This mirrors exactly what the ExportRelease compile
@@ -45,6 +48,12 @@ from pathlib import Path
 # Editor-only Godot APIs a runtime (game-shipped) file must never touch in real code.
 EDITOR_TOKENS = ("EditorInterface", "EditorPlugin", "EditorFileSystem", "EditorScript")
 _TOKEN_RE = re.compile(r"\b(" + "|".join(EDITOR_TOKENS) + r")\b")
+
+# Namespaces of the editor-only NuGet packages (com.IvanMurzak.Rql, com.IvanMurzak.CodeExec[.Roslyn],
+# Microsoft.CodeAnalysis.CSharp). Godot-MCP.csproj leaves those packages out of ExportDebug/ExportRelease, so ANY
+# addon file (Runtime/ or Editor/) may use them only inside `#if TOOLS`, or the exported game fails to compile.
+# `(?<![.\w])` keeps the addon's own `...Editor.Rql` namespace from matching.
+_PACKAGE_RE = re.compile(r"(?<![.\w])(Rql\.(?:Execution|Parser|Contracts)|com\.IvanMurzak\.CodeExec|Microsoft\.CodeAnalysis)\b")
 
 
 def strip_comments(text: str) -> str:
@@ -133,10 +142,10 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
-def scan_file(path: Path):
+def scan_file(path: Path, token_re: re.Pattern = _TOKEN_RE):
     """Return (violations, warnings) for one .cs file.
 
-    A violation is an editor token in real code outside a `#if TOOLS` guard.
+    A violation is a `token_re` match in real code outside a `#if TOOLS` guard.
     A warning is a `#if TOOLS` guard present in a Runtime file (allowed shim, but flagged).
     """
     raw = path.read_text(encoding="utf-8")
@@ -150,7 +159,7 @@ def scan_file(path: Path):
         m_if = re.match(r"#\s*if\s+(.*)$", stripped)
         if m_if:
             cond = m_if.group(1)
-            is_tools = bool(re.search(r"\bTOOLS\b", cond))
+            is_tools = bool(re.search(r"(?<![!\w])TOOLS\b", cond))  # `#if !TOOLS` compiles into the game
             if_stack.append(is_tools)
             if is_tools:
                 tools_depth += 1
@@ -171,7 +180,7 @@ def scan_file(path: Path):
             continue
         if tools_depth > 0:
             continue  # inside #if TOOLS: stripped from the game build, not a leak
-        for m in _TOKEN_RE.finditer(line):
+        for m in token_re.finditer(line):
             violations.append((lineno, m.group(1), line.strip()))
     return violations, warnings
 
@@ -203,6 +212,15 @@ def main(argv=None) -> int:
                 total_warnings += 1
                 print(f"warning   {rel}:{lineno}: {msg}")
 
+    package_violations = 0
+    addon_files = sorted((repo_root / "addons" / "godot_mcp").rglob("*.cs"))
+    for f in addon_files:
+        rel = f.relative_to(repo_root).as_posix()
+        for lineno, token, text in scan_file(f, _PACKAGE_RE)[0]:
+            package_violations += 1
+            print(f"VIOLATION {rel}:{lineno}: editor-only package '{token}' used outside #if TOOLS")
+            print(f"          {text}")
+
     scanned = len(files)
     if total_violations:
         print()
@@ -210,9 +228,18 @@ def main(argv=None) -> int:
         print("A file under addons/godot_mcp/Runtime/ referenced an editor-only Godot API in code that")
         print("ships into a game build. Move the file (or the offending member) to addons/godot_mcp/Editor/,")
         print("or guard the editor-only code with #if TOOLS so it is stripped from the export build.")
+    if package_violations:
+        print()
+        print(f"FAILED: {package_violations} use(s) of an editor-only package outside #if TOOLS.")
+        print("Godot-MCP.csproj leaves RQL / Code-Exec / Roslyn out of ExportDebug/ExportRelease, so the exported")
+        print("game would not compile. Wrap the file in #if TOOLS (|| GODOT_MCP_UNIT_TESTS for xUnit-compiled sources).")
+    if total_violations or package_violations:
         return 1
 
-    print(f"OK: runtime/editor boundary holds ({scanned} Runtime/ file(s) scanned, 0 violations).")
+    print(
+        f"OK: runtime/editor boundary holds ({scanned} Runtime/ file(s) scanned, 0 violations; "
+        f"no editor-only package use outside #if TOOLS in {len(addon_files)} addon file(s))."
+    )
     return 0
 
 

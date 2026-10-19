@@ -448,9 +448,13 @@ describe('installPlugin — NuGet versions from the installed addon', () => {
       expect(result.kind).toBe('success');
       if (result.kind !== 'success') return;
       expect(result.csproj.packagesOrigin).toBe('source-csproj');
+      const pinned = parseCsprojPackageReferences(fs.readFileSync(path.join(repoRoot, 'Godot-MCP.csproj'), 'utf-8'));
       expect(result.csproj.packages.map(({ id, version }) => ({ id, version }))).toEqual(
-        parseCsprojPackageReferences(fs.readFileSync(path.join(repoRoot, 'Godot-MCP.csproj'), 'utf-8')),
+        pinned.map(({ id, version }) => ({ id, version })),
       );
+      // The editor-only packages land conditioned in the consumer csproj too (exports ship no RQL / Roslyn).
+      expect(pinned.some((r) => r.editorOnly)).toBe(true);
+      expect(parseCsprojPackageReferences(fs.readFileSync(csprojFile, 'utf-8'))).toEqual(expect.arrayContaining(pinned));
     });
   });
 });

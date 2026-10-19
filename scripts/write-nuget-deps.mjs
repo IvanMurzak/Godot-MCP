@@ -23,7 +23,11 @@ const packageReferences = [];
 for (const element of csproj.match(/<PackageReference\b[^>]*>/gi) ?? []) {
   const id = /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1];
   const version = /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1];
-  if (id !== undefined && version !== undefined) packageReferences.push({ id, version });
+  // A Condition marks an editor-only package (exports leave it out); godot-cli writes it with the same condition.
+  const editorOnly = /\bCondition\s*=/i.test(element);
+  if (id !== undefined && version !== undefined) {
+    packageReferences.push(editorOnly ? { id, version, editorOnly } : { id, version });
+  }
 }
 
 if (packageReferences.length === 0) {
@@ -34,4 +38,4 @@ if (packageReferences.length === 0) {
 const manifest = { schemaVersion: 1, packageReferences };
 fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
 console.log(`Wrote ${path.relative(repoRoot, outputPath)}:`);
-for (const ref of packageReferences) console.log(`  ${ref.id} ${ref.version}`);
+for (const ref of packageReferences) console.log(`  ${ref.id} ${ref.version}${ref.editorOnly ? ' (editor-only)' : ''}`);
