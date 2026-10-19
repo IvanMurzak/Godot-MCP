@@ -62,7 +62,7 @@ def wait_ready(host: str, timeout: float) -> bool:
         try:
             if execute(host, {"csharpCode": "0"}, timeout=min(30, left))[0]:
                 return True
-        except OSError:  # server not reachable yet, or the probe timed out
+        except (OSError, ValueError):  # server not reachable yet, the probe timed out, or a non-JSON reply
             pass
         time.sleep(1)
     return False
