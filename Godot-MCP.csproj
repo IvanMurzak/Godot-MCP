@@ -40,8 +40,12 @@
   <ItemGroup>
     <Compile Remove="Godot-MCP.Tests/**/*.cs" />
     <Compile Remove="Godot-Tests/**/*.cs" />
-    <!-- Optional packages and fixtures must never leak through the root SDK glob. -->
-    <Compile Remove="extensions/**/*.cs;templates/**/*.cs;tests/**/*.cs;.artifacts/**/*.cs" />
+    <!--
+      Optional packages and fixtures must never leak through the root SDK glob. Never add .artifacts/ here:
+      the SDK glob already skips dot-folders, and a Remove would strip the sources a source-only package
+      (com.IvanMurzak.CodeExec.Roslyn) adds when a chain run's NUGET_PACKAGES cache sits under .artifacts/.
+    -->
+    <Compile Remove="extensions/**/*.cs;templates/**/*.cs;tests/**/*.cs" />
   </ItemGroup>
 
   <!--
