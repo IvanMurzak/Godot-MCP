@@ -72,6 +72,9 @@ project's .csproj must declare the six NuGet package references the addon depend
   com.IvanMurzak.CodeExec         version 0.2.1
   com.IvanMurzak.CodeExec.Roslyn  version 0.2.1
   Microsoft.CodeAnalysis.CSharp   version 4.12.0
+The last four are editor-only: give them
+Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" so exported games ship
+neither RQL nor Roslyn (godot-cli install-plugin writes all six this way).
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
 global-packages folder.

@@ -90,6 +90,10 @@ editors keep answering tool calls with an old build).
   `scripts/write-nuget-deps.mjs` (never committed), or the checkout's csproj for `--source`; the
   constants in `cli/src/utils/addon-deps.ts` (parity-tested against `Godot-MCP.csproj`) are only the
   fallback for older zips. User-facing steps: README.
+- **Editor-only packages.** RQL, Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
+  in every csproj (and `editorOnly` in the CLI), so exported games ship none of them. Any addon code using them must
+  sit inside `#if TOOLS` (`|| GODOT_MCP_UNIT_TESTS` if xUnit compiles it); `scripts/check-runtime-boundary.py`
+  fails otherwise. Details: `docs/ARCHITECTURE.md`.
 - **Server pin.** The consumed server version is `ServerVersion` in
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.

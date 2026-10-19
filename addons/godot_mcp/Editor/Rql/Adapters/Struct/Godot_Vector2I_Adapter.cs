@@ -7,6 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using Godot;
 using Rql.Execution;
@@ -25,3 +26,4 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override Vector2I? Make(float[] f) => WholeNumbers.Of(f, 2) is { } i ? new Vector2I(i[0], i[1]) : (Vector2I?)null;
     }
 }
+#endif

@@ -7,6 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using Godot;
 using Rql.Execution;
@@ -23,3 +24,4 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override Rect2? Make(float[] f) => f.Length == 4 ? new Rect2(f[0], f[1], f[2], f[3]) : (Rect2?)null;
     }
 }
+#endif

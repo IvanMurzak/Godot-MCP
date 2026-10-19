@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { addAddonPackageReferences, addAddonEmbeddedResources } from '../src/utils/csproj-deps.js';
-import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES } from '../src/utils/addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES, EDITOR_ONLY_CONDITION } from '../src/utils/addon-deps.js';
 
 const REFLECTOR = ADDON_PACKAGE_REFERENCES[0];
 const MCP = ADDON_PACKAGE_REFERENCES[1];
@@ -242,5 +242,73 @@ describe('addAddonPackageReferences — third-party pins are a floor', () => {
   it('raises an older Roslyn to the pin', () => {
     const { text } = addAddonPackageReferences(csproj('0.1.1', '4.8.0'), refs);
     expect(text).toContain('Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0"');
+  });
+});
+
+describe('addAddonPackageReferences — editor-only packages', () => {
+  const cond = `Condition="${EDITOR_ONLY_CONDITION}"`;
+  const refs = [
+    { id: 'com.IvanMurzak.McpPlugin', version: '8.9.0' },
+    { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true },
+  ];
+  const csproj = (...elements: string[]) =>
+    `<Project Sdk="Godot.NET.Sdk/4.5.1">\n  <ItemGroup>\n${elements.map((e) => `    ${e}\n`).join('')}  </ItemGroup>\n</Project>\n`;
+
+  it('writes an editor-only package with the export-excluding Condition, the others without one', () => {
+    const { text } = addAddonPackageReferences(FRESH_CSPROJ, refs);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${cond} />`);
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />');
+    expect(addAddonPackageReferences(text, refs).changed).toBe(false);
+  });
+
+  it('migrates an unconditioned editor-only package at the right version (an older install)', () => {
+    const before = csproj(
+      '<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />',
+      '<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />',
+    );
+    const { text, changes } = addAddonPackageReferences(before, refs);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${cond} />`);
+    expect(changes).toEqual([
+      { id: 'com.IvanMurzak.McpPlugin', action: 'unchanged', version: '8.9.0' },
+      { id: 'com.IvanMurzak.CodeExec', action: 'updated', from: '0.2.1', version: '0.2.1' },
+    ]);
+  });
+
+  it("keeps the project's own Condition on an editor-only package, also across a version bump", () => {
+    const own = `Condition="'$(Configuration)' == 'Debug'"`;
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.0" ${own} />`);
+    const { text } = addAddonPackageReferences(before, refs);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${own} />`);
+    expect(addAddonPackageReferences(text, refs).changed).toBe(false);
+  });
+
+  it('drops the editor-only Condition when the installed addon needs the package in export builds', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" ${cond} />`);
+    const { text } = addAddonPackageReferences(before, [{ id: 'com.IvanMurzak.Rql', version: '0.1.1' }]);
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />');
+  });
+
+  it('keeps the Condition a dev-only project put on a runtime package (McpPlugin)', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" ${cond} />`);
+    expect(addAddonPackageReferences(before, [refs[0]]).changed).toBe(false);
+  });
+
+  it("keeps the element's other attributes when it adds the Condition or bumps the version", () => {
+    const before = csproj(
+      '<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.0.0" PrivateAssets="all" />',
+      '<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" NoWarn="NU1603"></PackageReference>',
+    );
+    const { text } = addAddonPackageReferences(before, refs);
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" PrivateAssets="all" />');
+    expect(text).toContain(
+      `<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" NoWarn="NU1603" ${cond}></PackageReference>`,
+    );
+    expect(addAddonPackageReferences(text, refs).changed).toBe(false);
+  });
+
+  it('leaves a newer third-party package the project uses as it is (no Condition added)', () => {
+    const roslyn = { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true };
+    const before = csproj('<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />');
+    expect(addAddonPackageReferences(before, [roslyn]).changed).toBe(false);
   });
 });

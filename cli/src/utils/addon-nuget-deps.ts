@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ADDON_PACKAGE_REFERENCES, type AddonPackageReference } from './addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, EDITOR_ONLY_CONDITION, type AddonPackageReference } from './addon-deps.js';
 
 // Resolve the NuGet PackageReferences the INSTALLED addon needs, so `install-plugin`
 // pins the consumer csproj to what that addon release was built against — not to the
@@ -37,19 +37,23 @@ export interface ResolvedAddonNugetDeps {
 const NUGET_ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 const NUGET_VERSION_RE = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
 
-function validRef(id: unknown, version: unknown): AddonPackageReference | null {
+function validRef(id: unknown, version: unknown, editorOnly: boolean): AddonPackageReference | null {
   return typeof id === 'string' && typeof version === 'string' && NUGET_ID_RE.test(id) && NUGET_VERSION_RE.test(version)
-    ? { id, version }
+    ? { id, version, ...(editorOnly && { editorOnly }) }
     : null;
 }
 
-/** Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. */
+/**
+ * Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. A reference whose
+ * `Condition` is `EDITOR_ONLY_CONDITION` is editor-only.
+ */
 export function parseCsprojPackageReferences(csprojText: string): AddonPackageReference[] {
   const refs: AddonPackageReference[] = [];
   for (const element of csprojText.match(/<PackageReference\b[^>]*>/gi) ?? []) {
     const ref = validRef(
       /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1],
       /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1],
+      /\bCondition\s*=\s*"([^"]*)"/i.exec(element)?.[1] === EDITOR_ONLY_CONDITION,
     );
     if (ref !== null) refs.push(ref);
   }
@@ -57,8 +61,9 @@ export function parseCsprojPackageReferences(csprojText: string): AddonPackageRe
 }
 
 /**
- * Parse a `nuget-deps.json` manifest (`{ "packageReferences": [{ "id", "version" }] }`).
- * Throws on malformed JSON, a missing/empty list, or an invalid entry.
+ * Parse a `nuget-deps.json` manifest (`{ "packageReferences": [{ "id", "version", "editorOnly"? }] }`).
+ * Manifests that predate `editorOnly` mark nothing editor-only, which those addons need (their RQL sources
+ * compile into export builds). Throws on malformed JSON, a missing/empty list, or an invalid entry.
  */
 export function parseAddonNugetDeps(text: string): AddonPackageReference[] {
   const parsed: unknown = JSON.parse(text);
@@ -67,8 +72,8 @@ export function parseAddonNugetDeps(text: string): AddonPackageReference[] {
     throw new Error('"packageReferences" must be a non-empty array');
   }
   return list.map((entry: unknown, i) => {
-    const e = entry as { id?: unknown; version?: unknown } | null;
-    const ref = validRef(e?.id, e?.version);
+    const e = entry as { id?: unknown; version?: unknown; editorOnly?: unknown } | null;
+    const ref = validRef(e?.id, e?.version, e?.editorOnly === true);
     if (ref === null) throw new Error(`packageReferences[${i}] is not a valid { id, version } pair`);
     return ref;
   });

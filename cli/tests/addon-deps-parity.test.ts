@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES } from '../src/utils/addon-deps.js';
+import { parseCsprojPackageReferences } from '../src/utils/addon-nuget-deps.js';
 
 // The CLI's ADDON_PACKAGE_REFERENCES must single-source the addon's own reused
 // NuGet pins (Godot-MCP.csproj). If the addon bumps a pin, this test fails until
@@ -72,6 +73,13 @@ describe('addon-deps parity with Godot-MCP.csproj', () => {
       'Godot-MCP.csproj declares a PackageReference that ADDON_PACKAGE_REFERENCES (cli/src/utils/addon-deps.ts) lacks: ' +
         'a consumer installed from an older zip would not compile the addon sources.',
     ).toEqual(csprojPins);
+  });
+
+  it('the CLI marks exactly the packages the addon csproj gives the editor-only Condition as editor-only', () => {
+    expect(
+      parseCsprojPackageReferences(fs.readFileSync(ADDON_CSPROJ, 'utf-8')),
+      'editorOnly in cli/src/utils/addon-deps.ts must match EDITOR_ONLY_CONDITION on the Godot-MCP.csproj element',
+    ).toEqual([...ADDON_PACKAGE_REFERENCES]);
   });
 
   it('every CLI-written EmbeddedResource matches the addon csproj Include + LogicalName exactly', () => {

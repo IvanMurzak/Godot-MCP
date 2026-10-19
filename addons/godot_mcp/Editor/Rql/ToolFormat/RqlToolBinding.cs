@@ -7,6 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 
 #nullable enable
 using System;
@@ -384,3 +385,4 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
         }
     }
 }
+#endif

@@ -4,6 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **No Roslyn in exported games.** `install-plugin` writes the addon's editor-only packages (RQL, Code-Exec, Roslyn)
+  with a Condition that leaves them out of Godot's export builds, and adds it to entries an older version wrote (a
+  `Condition` the project set is kept). The installed addon says which packages are editor-only (`editorOnly` in
+  `nuget-deps.json`); an older addon marks none.
 - **Editor sessions on `@baizor/gamedev-cli-core` 0.7.1.** The pre-launch C# build of `exec` / `open --headless`
   runs in the session's `beforeLaunch` hook, under its heartbeated startup lock and only when the call starts the
   editor: parallel cold calls build once (the CLI's own `.ai-game-dev/build.lock` is gone). The lease records the
