@@ -7,6 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+// Editor-only (script-execute); also compiled by the xUnit suite.
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -79,13 +81,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         /// <summary>
         /// The DLL an assembly loaded from memory was built to. Godot loads the game assembly from a stream (empty
-        /// <c>Location</c>), so snippets compile against <c>res://.godot/mono/temp/bin/&lt;configuration&gt;/&lt;name&gt;.dll</c>;
-        /// the newest build wins when several configurations exist. Null when there is none.
+        /// <c>Location</c>), so snippets compile against <c>res://.godot/mono/temp/bin/&lt;configuration&gt;/&lt;name&gt;.dll</c>:
+        /// the editor's own <c>Debug</c> build, else the newest configuration. Null when there is none.
         /// </summary>
         public static string? BuiltAssemblyPath(string binRoot, string? assemblyName)
         {
             if (string.IsNullOrEmpty(assemblyName) || !Directory.Exists(binRoot))
                 return null;
+            var editorBuild = Path.Combine(binRoot, "Debug", assemblyName + ".dll");
+            if (File.Exists(editorBuild))
+                return editorBuild;
             return Directory.EnumerateDirectories(binRoot)
                 .Select(dir => Path.Combine(dir, assemblyName + ".dll"))
                 .Where(File.Exists)
@@ -124,3 +129,4 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
     }
 }
+#endif

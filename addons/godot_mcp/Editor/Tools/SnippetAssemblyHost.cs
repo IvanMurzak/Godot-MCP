@@ -7,6 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+// Editor-only (script-execute); also compiled by the xUnit suite.
+#if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using System;
 using System.IO;
@@ -84,3 +86,4 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
     }
 }
+#endif

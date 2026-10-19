@@ -75,7 +75,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 bool _ => "System.Boolean",
                 long l when l >= int.MinValue && l <= int.MaxValue => "System.Int32",
                 long _ => "System.Int64",
-                double _ => "System.Single",
+                double _ => "System.Double",
                 _ => null,
             };
             member = null;

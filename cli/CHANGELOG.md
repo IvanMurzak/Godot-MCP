@@ -7,13 +7,15 @@ All notable changes to `godot-cli` are documented in this file.
 - **`exec`: run C# in the editor.** `godot-cli exec '<code>'` (or `-f <file>` / stdin, repeatable `--using` /
   `--include`) calls the addon's new `script-execute` tool. A running editor of the project is reused; otherwise the
   C# assembly is built and a **headless** editor starts (`--window` for a GUI one) on the project's local server,
-  which its plugin starts itself (`GODOT_MCP_START_SERVER`), and quits by itself after `--idle` seconds (default
-  300) without tool calls. Built on `@baizor/gamedev-cli-core` 0.7.0 `EditorSession` (lease
+  which its plugin starts itself (`GODOT_MCP_START_SERVER`); a headless one quits by itself after `--idle` seconds
+  (default 300) without tool calls. A user's editor whose local server does not answer is reported after 20 s. Built on `@baizor/gamedev-cli-core` 0.7.0 `EditorSession` (lease
   `.ai-game-dev/session.json`, startup lock: parallel calls start one editor). Library: `execCode`, `ensureEditor`,
   `createGodotSession`.
 - **`open --headless [--idle-timeout <s>]`** starts that session without running code; a windowed `open` first
   closes a headless editor the CLI started for the project. **`close --owned-only`** saves and quits only an editor
   the CLI started, through the plugin's `session-close` system tool (a windowless editor gets no WM_CLOSE).
+- `install-plugin` keeps a newer third-party package the project already pins (e.g. its own Roslyn) instead of
+  downgrading it to the addon's pin; `com.IvanMurzak.*` pins are still reconciled exactly.
 - `install-plugin` writes the addon's three new NuGet pins (`com.IvanMurzak.CodeExec` and `.Roslyn` 0.2.0,
   `Microsoft.CodeAnalysis.CSharp` 4.12.0); `setup-skills` lists `script-execute` and the `session` family.
 

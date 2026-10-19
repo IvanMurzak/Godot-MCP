@@ -234,6 +234,10 @@ same way:
 </ItemGroup>
 ```
 
+The three `script-execute` packages (`com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn`,
+`Microsoft.CodeAnalysis.CSharp`) can be left out of exports on their own, runtime path kept: only editor code
+(`#if TOOLS`) uses them, so guard just those three with `Condition="'$(Configuration)' == 'Debug'"` (the editor build).
+
 > **Only do this if you never use the runtime (in-game) path.** Excluding the addon sources
 > from `ExportRelease` removes `GodotMcpRuntime` too, so a game that calls
 > `GodotMcpRuntime.Initialize()` would fail to compile in that configuration. This snippet is

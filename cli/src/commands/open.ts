@@ -8,7 +8,9 @@ import {
   isGodotProjectDir as libIsGodotProjectDir,
 } from '../lib/open.js';
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
+import type { EditorSession } from '@baizor/gamedev-cli-core';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
+import { isLocalhostUrl } from '../utils/project-marker.js';
 import { parsePositiveIntFlag } from '../utils/input.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
@@ -119,8 +121,14 @@ export const openCommand = new Command('open')
       }
 
       // A headless editor this CLI started holds the project: close it so the windowed one can open.
-      const session = createGodotSession({ projectPath, ...resolveSessionConnection({}) }).session;
-      const prepared = await session.prepareWindowOpen();
+      const local = options.url !== undefined && isLocalhostUrl(options.url) ? { url: options.url } : {};
+      let prepared: Awaited<ReturnType<EditorSession<string>['prepareWindowOpen']>>;
+      try {
+        prepared = await createGodotSession({ projectPath, ...resolveSessionConnection({ ...local, token: options.token }) }).session.prepareWindowOpen();
+      } catch (err) {
+        ui.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
       if (prepared.kind === 'already-open') {
         ui.success(`The editor started by godot-cli already runs with a window (PID ${prepared.pid})`);
         process.exit(0);

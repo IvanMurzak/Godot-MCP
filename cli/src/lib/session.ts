@@ -2,11 +2,14 @@
 // the project, otherwise start our own (headless by default) connected to the project's LOCAL MCP server, with a
 // lease so only our own editor is ever closed. Library-safe: no console output, no `process.exit`.
 
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {
   defaultSessionProcessOps,
   EditorSession,
   EditorSessionError,
+  CredentialLockBusyError,
   MachineCredentialLock,
   godotAdapter,
   mcpReadinessProbe,
@@ -35,6 +38,9 @@ export const SESSION_CLOSE_TOOL = 'session-close';
 
 /** Serializes the pre-start C# build of a project (beside the session lock). */
 const BUILD_LOCK_FILE_NAME = 'build.lock';
+
+/** How long to wait for a user's own editor whose local server does not answer yet (it may still be loading). */
+const FOREIGN_READY_TIMEOUT_MS = 20_000;
 
 export interface GodotSessionOptions {
   projectPath: string;
@@ -94,7 +100,8 @@ export function godotSessionAdapter(url: string, token: string | undefined, read
           input: { nonce },
           timeoutMs: 15_000,
         });
-        return result.kind === 'success';
+        // A refusing tool (wrong nonce, an addon without session-close) answers 200 with status "error".
+        return result.kind === 'success' && (result.data as { status?: string } | null)?.status !== 'error';
       },
     },
   };
@@ -133,7 +140,9 @@ export function createGodotSession(options: GodotSessionOptions): GodotSession {
  * folder; the second one finds an up-to-date build.
  */
 export async function buildBeforeStart(projectPath: string): Promise<BuildProjectResult> {
-  const lock = new MachineCredentialLock(path.join(path.resolve(projectPath), SESSION_DIR_NAME), {
+  const dir = path.join(path.resolve(projectPath), SESSION_DIR_NAME);
+  removeDeadBuildLock(path.join(dir, BUILD_LOCK_FILE_NAME));
+  const lock = new MachineCredentialLock(dir, {
     lockFileName: BUILD_LOCK_FILE_NAME,
     staleMs: 600_000,
     acquireBudgetMs: 900_000,
@@ -145,7 +154,6 @@ export async function buildBeforeStart(projectPath: string): Promise<BuildProjec
 export interface EnsureEditorDeps {
   ensure: (session: EditorSession<string>, mode: 'headless' | 'window') => Promise<EnsureResult<string>>;
   build: (projectPath: string) => Promise<BuildProjectResult>;
-  isAlive: (pid: number) => boolean;
 }
 
 export interface EnsureEditorOptions extends GodotSessionOptions {
@@ -178,7 +186,6 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
   const deps: EnsureEditorDeps = {
     ensure: (session, mode) => session.ensure({ mode }),
     build: buildBeforeStart,
-    isAlive: (pid) => defaultSessionProcessOps.isAlive(pid),
     ...options.deps,
   };
   const fail = (reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason'], err: unknown, hint = '') => {
@@ -197,10 +204,20 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
   const running = await godot.probe();
   if (running !== undefined) return { kind: 'success', success: true, godot, ensured: { ready: running, source: 'running' } };
 
-  // Build only when an editor is about to be started: no CLI call is starting one, and no other editor has the project.
-  if (options.build !== false && !startingElsewhere(godot.session, deps.isAlive) && findGodotProcess(godot.session.projectRoot) === null) {
+  const ours = await godot.session.ownedSession();
+  const foreign = ours === undefined && godot.session.readLease() === undefined && findGodotProcess(godot.session.projectRoot) !== null;
+  if (foreign) {
+    // The user's editor without a reachable local server: it may still be loading, but do not wait the full start budget.
+    godot = createGodotSession({ ...options, readyTimeoutMs: Math.min(options.readyTimeoutMs ?? FOREIGN_READY_TIMEOUT_MS, FOREIGN_READY_TIMEOUT_MS) });
+  } else if (options.build !== false && ours === undefined) {
+    // Build only when an editor is about to be started: none of ours runs (or is starting), and no other editor has the project.
     options.onStatus?.('Building C# assembly...');
-    const built = await deps.build(options.projectPath);
+    let built: BuildProjectResult;
+    try {
+      built = await deps.build(options.projectPath);
+    } catch (err) {
+      return fail('build-failed', err, err instanceof CredentialLockBusyError ? ' (another godot-cli call is building this project)' : '');
+    }
     if (built.kind === 'failure') return fail('build-failed', built.error);
   }
 
@@ -208,16 +225,33 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
     return { kind: 'success', success: true, godot, ensured: await deps.ensure(godot.session, options.window ? 'window' : 'headless') };
   } catch (err) {
     const sessionReason = err instanceof EditorSessionError ? err.reason : undefined;
-    // Timed out without a lease of ours: it was the user's editor, connected elsewhere or without its local server.
-    const hint = sessionReason === 'not-ready' && godot.session.readLease() === undefined
-      ? ` (an editor of this project is running, but its local MCP server ${godot.url} does not answer: start the server in its AI Game Developer dock in Custom mode, or close that editor)`
-      : '';
+    let hint = '';
+    if (sessionReason === 'not-ready') {
+      if (godot.session.readLease() === undefined) {
+        // The user's editor, connected elsewhere or without its local server.
+        hint = ` (an editor of this project is running, but its local MCP server ${godot.url} does not answer: start the server in its AI Game Developer dock in Custom mode, or close that editor)`;
+      } else {
+        // Our editor started but its plugin never answered (e.g. the addon failed to load): it would never idle out.
+        const closed = await godot.session.closeOwned({ timeoutMs: 5_000, force: true });
+        hint = closed.kind === 'closed' ? ` (stopped the unresponsive editor, PID ${closed.pid}; see its log)` : '';
+      }
+    }
     return fail(sessionReason === 'exited' || sessionReason === 'not-ready' ? 'not-ready' : 'launch-failed', err, hint);
   }
 }
 
-/** A lease of a live process: another CLI call is starting (or runs) our editor; it built the project. */
-function startingElsewhere(session: EditorSession<string>, isAlive: (pid: number) => boolean): boolean {
-  const lease = session.readLease();
-  return lease !== undefined && isAlive(lease.pid);
+/**
+ * Delete a build lock whose holder was this machine and is gone (a Ctrl+C mid-build never releases it); the lock
+ * protocol alone would wait out its staleness bar. Best-effort.
+ */
+function removeDeadBuildLock(lockPath: string): void {
+  try {
+    const holder = JSON.parse(fs.readFileSync(lockPath, 'utf-8')) as { pid?: unknown; hostId?: unknown };
+    if (typeof holder.pid === 'number' && typeof holder.hostId === 'string' && holder.hostId.toLowerCase() === os.hostname().toLowerCase()
+      && !defaultSessionProcessOps.isAlive(holder.pid)) {
+      fs.rmSync(lockPath, { force: true });
+    }
+  } catch {
+    // no lock, or one we cannot read: the lock protocol decides
+  }
 }

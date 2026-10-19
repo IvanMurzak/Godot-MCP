@@ -202,7 +202,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var named = new global::Rql.Execution.ObjectValue { ["n"] = 21.0, ["f"] = 1.5, ["s"] = "x", ["b"] = true, ["none"] = null };
             Assert.Equal(global::Rql.Execution.AdapterOutcome.Ok, adapter.TryCoerce(named, typeof(SerializedMemberList), null!, out var result, out _));
             var list = Assert.IsType<SerializedMemberList>(result);
-            Assert.Equal(new[] { "n:System.Int32:21", "f:System.Single:1.5", "s:System.String:\"x\"", "b:System.Boolean:true", "none:System.Object:" },
+            Assert.Equal(new[] { "n:System.Int32:21", "f:System.Double:1.5", "s:System.String:\"x\"", "b:System.Boolean:true", "none:System.Object:" },
                 list.Select(m => $"{m.name}:{m.typeName}:{m.valueJsonElement?.GetRawText()}"));
 
             var reflectorForm = new List<object?> { new global::Rql.Execution.ObjectValue { ["name"] = "n", ["typeName"] = "System.Int32", ["value"] = 6.0 } };

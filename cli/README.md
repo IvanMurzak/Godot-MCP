@@ -177,15 +177,16 @@ godot-cli exec 'Helper.Twice(21)' --include helpers       # .cs files/folders un
 ```
 
 The code is plain statements; the last expression is the result. The output is the value (`Type: value`) and,
-under `logs:`, what the code printed (`GD.Print`; push_warning / push_error on Godot 4.5+). A compile error points
+under `logs:`, what the code printed (`Console`; `GD.Print` / push_warning / push_error with Godot.NET.Sdk 4.5+). A compile error points
 at the snippet's line (`snippet.cs(2,12)`) and exits 1.
 
 - **A running editor of the project** (yours, with a window, or one `godot-cli` started) is reused and never closed.
   Yours must serve the project's **local** server (dock: Custom mode, server started).
 - **None running:** the C# assembly is built, then a **headless** editor starts (`--headless --editor --path`, or a
   window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`),
-  which its plugin starts itself. It quits after `--idle <seconds>` (default 300, `0` = never) without tool calls,
-  saving the open scenes that have a file. Parallel calls start one editor.
+  which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without
+  tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls start one editor;
+  a user's editor whose local server does not answer is waited for 20 s, then reported.
 - `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves
   and quits it (through the plugin's `session-close` tool — never a user's editor).
 

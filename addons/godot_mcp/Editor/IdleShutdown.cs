@@ -37,6 +37,12 @@ namespace com.IvanMurzak.Godot.MCP
             var seconds = IdleShutdownTimer.ReadSeconds(name => OS.GetEnvironment(name));
             if (seconds == null)
                 return null;
+            if (DisplayServer.GetName() != "headless")
+            {
+                // A CLI session with a window (exec --window) is someone's working editor: never close it under them.
+                GodotMcpLog.Info("[Godot-MCP] idle shutdown not armed: the editor has a window.");
+                return null;
+            }
             // A C# reload re-runs the plugin boot and starts the timer over, which is fine: a reload means activity.
             GodotMcpLog.Info($"[Godot-MCP] idle shutdown armed: the editor quits after {seconds.Value}s without tool calls.");
             return new IdleShutdown(new IdleShutdownTimer(TimeSpan.FromSeconds(seconds.Value), Now()));
@@ -51,7 +57,7 @@ namespace com.IvanMurzak.Godot.MCP
             _sinceCheck = 0;
             var calls = connection?.Plugin?.ToolCallsCount ?? 0;
             var editor = EditorInterface.Singleton;
-            var busy = editor.IsPlayingScene() || editor.GetResourceFilesystem()?.IsScanning() == true;
+            var busy = Tools.ScriptExecutor.IsBusy || editor.IsPlayingScene() || editor.GetResourceFilesystem()?.IsScanning() == true;
             if (!_timer.ShouldQuit(Now(), calls, busy))
                 return false;
             SaveAndQuit($"no tool calls for {_timer.Timeout.TotalSeconds:0}s");

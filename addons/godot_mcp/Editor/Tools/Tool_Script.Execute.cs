@@ -52,7 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "calls: use `include` for shared helpers.\n\n" +
             "## Output\n\n" +
             "`result` holds the value (type name and serialized value; `Success` when nothing is returned). `logs` holds what " +
-            "the code printed: `GD.Print`, `GD.PushWarning` / `GD.PushError` (Godot 4.5+) and `Console`.\n\n" +
+            "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+.\n\n" +
             "## usings / include\n\n" +
             "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n" +
             "- `include`: helper `.cs` files or folders (recursive), relative to `<project>/.ai-game-dev/snippets`, compiled with the " +
@@ -61,7 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "Parameters become the snippet's variables (or the method's arguments, in order); each has `name`, `typeName` and a value.")]
         [Description("Compiles and runs C# in the Godot editor: plain statements with the last expression as the result " +
             "(own usings, local classes, await allowed), or a declared class 'className' with static method 'methodName'. " +
-            "Returns the result and the printed output (GD.Print).")]
+            "Returns the result and the printed output (Console; GD.Print on Godot 4.5+).")]
         public Task<ScriptExecuteResult> Execute
         (
             [Description("C# code. Snippet: 'var root = EditorInterface.Singleton.GetEditedSceneRoot();\\nroot.GetChildCount()'. " +
@@ -99,12 +99,34 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         static CodeRunner? _runner;
         static readonly object _runnerLock = new object();
 
+        // One snippet runs at a time: an awaiting snippet frees the main thread, and overlapping runs would interleave the
+        // process-wide Console / engine-logger capture (Code-Exec runs must not overlap).
+        static readonly SemaphoreSlim _runGate = new SemaphoreSlim(1, 1);
+        static int _inFlight;
+
+        /// <summary>A call is compiling or running (an awaiting snippet neither moves the tool-call counter nor stalls frames).</summary>
+        public static bool IsBusy => Volatile.Read(ref _inFlight) > 0;
+
         public static async Task<ScriptExecuteResult> Execute(string csharpCode, string className, string methodName,
             SerializedMemberList? parameters, bool isMethodBody, string[]? usings, string[]? include)
         {
             if (string.IsNullOrEmpty(csharpCode))
                 throw new Exception("'csharpCode' is null or empty. Please provide valid C# code to execute.");
 
+            Interlocked.Increment(ref _inFlight);
+            try
+            {
+                return await Run(csharpCode, className, methodName, parameters, isMethodBody, usings, include);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        static async Task<ScriptExecuteResult> Run(string csharpCode, string className, string methodName,
+            SerializedMemberList? parameters, bool isMethodBody, string[]? usings, string[]? include)
+        {
             var runner = Runner();
             // Only the parameter TYPES are needed to compile; the values are deserialized on the main thread.
             var request = new ExecuteRequest
@@ -137,7 +159,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 prepared = prepared.WithValues(parameters.Select(p => reflector.Deserialize(data: p)).ToList());
             }
 
-            var result = await runner.RunAsync(prepared);
+            ExecuteResult result;
+            await _runGate.WaitAsync();
+            try
+            {
+                result = await runner.RunAsync(prepared);
+            }
+            finally
+            {
+                _runGate.Release();
+            }
             if (!result.Success)
                 throw new Exception(ScriptExecuteSource.Describe(result));
 

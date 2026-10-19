@@ -55,7 +55,7 @@ namespace com.IvanMurzak.Godot.MCP
 
         /// <summary>
         /// <c>true</c> / <c>1</c>: in Custom mode the editor starts its local MCP server on boot, as if the dock's
-        /// Start button were pressed. Set by <c>godot-cli exec</c> / <c>open --start-server</c> for headless editors.
+        /// Start button were pressed. Set by <c>godot-cli exec</c> / <c>open --headless</c>.
         /// </summary>
         public const string StartServer = "GODOT_MCP_START_SERVER";
 

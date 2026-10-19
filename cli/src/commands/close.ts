@@ -93,7 +93,8 @@ export const closeCommand = new Command('close')
     }
 
     if (options.ownedOnly) {
-      await closeOwned(projectPath, timeoutSeconds, options);
+      // The local port is derived from the path as typed (exec / open --headless do not resolve links either).
+      await closeOwned(path.resolve(positionalPath ?? process.cwd()), timeoutSeconds, options);
       return;
     }
 
@@ -158,7 +159,13 @@ export const closeCommand = new Command('close')
  * left alone.
  */
 async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions): Promise<void> {
-  const { session } = createGodotSession({ projectPath, ...resolveSessionConnection(options) });
+  let session: ReturnType<typeof createGodotSession>['session'];
+  try {
+    session = createGodotSession({ projectPath, ...resolveSessionConnection(options) }).session;
+  } catch (err) {
+    ui.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
   const spinner = ui.startSpinner('Closing the editor started by godot-cli...');
   const result = await session.closeOwned({ timeoutMs: timeoutSeconds * 1000, force: options.force === true });
   switch (result.kind) {

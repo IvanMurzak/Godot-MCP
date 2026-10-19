@@ -176,8 +176,8 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `script-execute` — Compile and run C# in the editor (Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
   plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a
   static method. The game's compiled types are visible; `include` adds helper `.cs` files from
-  `<project>/.ai-game-dev/snippets`. Returns the value plus what the code printed (`GD.Print`; push_warning /
-  push_error on Godot 4.5+). From a terminal: `godot-cli exec '1 + 2'`.
+  `<project>/.ai-game-dev/snippets`. Returns the value plus what the code printed (`Console`; `GD.Print` /
+  push_warning / push_error when the project builds with Godot.NET.Sdk 4.5+). From a terminal: `godot-cli exec '1 + 2'`.
 
 **screenshot**
 

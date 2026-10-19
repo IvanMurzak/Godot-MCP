@@ -459,13 +459,6 @@ namespace com.IvanMurzak.Godot.MCP
                 return;
             _torndown = true;
 
-            // The editor is closing (not a C# reload): drop the CLI's lease if it is ours, so the CLI does not wait on it.
-            if (!fromReload)
-            {
-                try { IdleShutdown.RemoveOwnLease(); }
-                catch (System.Exception ex) { TryLogTeardownError("session lease removal", ex); }
-            }
-
             // 1) Stop the dev-control listener FIRST — releases its bound socket + joins the accept thread.
             try
             {

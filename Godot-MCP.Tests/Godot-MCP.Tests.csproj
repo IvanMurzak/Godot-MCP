@@ -6,6 +6,8 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Tests</RootNamespace>
     <AssemblyName>Godot-MCP.Tests</AssemblyName>
+    <!-- Editor-only pure sources (script-execute) are guarded `#if TOOLS || GODOT_MCP_UNIT_TESTS`. -->
+    <DefineConstants>$(DefineConstants);GODOT_MCP_UNIT_TESTS</DefineConstants>
     <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
          exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
          none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live

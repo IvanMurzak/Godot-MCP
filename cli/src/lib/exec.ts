@@ -108,10 +108,17 @@ export function readToolResponse(data: unknown): { ok: boolean; text: string } {
   const texts = (response?.content ?? []).filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c.text!);
   if (texts.length > 0) return { ok, text: texts.join('\n') };
 
-  const result = response?.structured?.result as { result?: { typeName?: string; value?: unknown }; logs?: unknown } | undefined;
+  const result = response?.structured?.result as {
+    result?: { typeName?: string; value?: unknown; fields?: unknown; props?: unknown };
+    logs?: unknown;
+  } | undefined;
   if (result && typeof result === 'object' && 'result' in result) {
     const member = result.result;
-    let text = member ? `${member.typeName ?? 'object'}: ${typeof member.value === 'string' ? member.value : JSON.stringify(member.value ?? null)}` : 'null';
+    // A scalar member carries `value`; an object (Node, Vector3, ...) its `fields` / `props`.
+    const value = member?.value !== undefined ? member.value : member?.fields !== undefined || member?.props !== undefined
+      ? { ...(member.fields !== undefined ? { fields: member.fields } : {}), ...(member.props !== undefined ? { props: member.props } : {}) }
+      : null;
+    let text = member ? `${member.typeName ?? 'object'}: ${typeof value === 'string' ? value : JSON.stringify(value)}` : 'null';
     if (Array.isArray(result.logs) && result.logs.length > 0) text += '\nlogs:\n' + result.logs.join('\n');
     return { ok, text };
   }
