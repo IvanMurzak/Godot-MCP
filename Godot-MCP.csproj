@@ -39,10 +39,9 @@
   -->
   <PropertyGroup>
     <!--
-      .artifacts/ (build outputs, packed feeds, and a chain run's NUGET_PACKAGES cache) is kept out of the
-      default SDK globs rather than removed from Compile afterwards: a Compile Remove would also strip the
-      sources that a source-only package (com.IvanMurzak.CodeExec.Roslyn) adds from its own package folder
-      whenever that folder lives under .artifacts/.
+      .artifacts/ (build outputs, packed feeds, a chain run's NUGET_PACKAGES cache) is excluded from the
+      SDK globs, not via Compile Remove: Remove would also strip the sources a source-only package
+      (com.IvanMurzak.CodeExec.Roslyn) adds when its package folder sits under .artifacts/.
     -->
     <DefaultItemExcludes>$(DefaultItemExcludes);.artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
