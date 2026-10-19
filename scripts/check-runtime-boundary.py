@@ -52,8 +52,9 @@ _TOKEN_RE = re.compile(r"\b(" + "|".join(EDITOR_TOKENS) + r")\b")
 # Namespaces of the editor-only NuGet packages (com.IvanMurzak.Rql, com.IvanMurzak.CodeExec[.Roslyn],
 # Microsoft.CodeAnalysis.CSharp). Godot-MCP.csproj leaves those packages out of ExportDebug/ExportRelease, so ANY
 # addon file (Runtime/ or Editor/) may use them only inside `#if TOOLS`, or the exported game fails to compile.
+# `Rql` is the root namespace of every RQL assembly (`using Rql;`, `Rql.Execution`, `global::Rql.RqlParser`);
 # `(?<![.\w])` keeps the addon's own `...Editor.Rql` namespace from matching.
-_PACKAGE_RE = re.compile(r"(?<![.\w])(Rql\.(?:Execution|Parser|Contracts)|com\.IvanMurzak\.CodeExec|Microsoft\.CodeAnalysis)\b")
+_PACKAGE_RE = re.compile(r"(?<![.\w])(Rql(?=\s*[.;])|com\.IvanMurzak\.CodeExec|Microsoft\.CodeAnalysis)\b")
 
 
 def strip_comments(text: str) -> str:
@@ -142,15 +143,16 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
-def scan_file(path: Path, token_re: re.Pattern = _TOKEN_RE):
-    """Return (violations, warnings) for one .cs file.
+def scan_file(path: Path):
+    """Return (violations, package_violations, warnings) for one .cs file.
 
-    A violation is a `token_re` match in real code outside a `#if TOOLS` guard.
-    A warning is a `#if TOOLS` guard present in a Runtime file (allowed shim, but flagged).
+    A violation is an editor token, a package violation an editor-only package, in real code outside a
+    `#if TOOLS` guard. A warning is a `#if TOOLS` guard (an allowed shim when the file is under Runtime/).
     """
     raw = path.read_text(encoding="utf-8")
     code = strip_comments(raw)
     violations = []
+    package_violations = []
     warnings = []
     tools_depth = 0          # >0 while inside a #if TOOLS (...) block
     if_stack = []            # track whether each #if level is a TOOLS gate
@@ -180,9 +182,11 @@ def scan_file(path: Path, token_re: re.Pattern = _TOKEN_RE):
             continue
         if tools_depth > 0:
             continue  # inside #if TOOLS: stripped from the game build, not a leak
-        for m in token_re.finditer(line):
+        for m in _TOKEN_RE.finditer(line):
             violations.append((lineno, m.group(1), line.strip()))
-    return violations, warnings
+        for m in _PACKAGE_RE.finditer(line):
+            package_violations.append((lineno, m.group(1), line.strip()))
+    return violations, package_violations, warnings
 
 
 def main(argv=None) -> int:
@@ -197,31 +201,29 @@ def main(argv=None) -> int:
         print(f"ERROR: runtime dir not found: {runtime_dir}", file=sys.stderr)
         return 2
 
-    files = sorted(runtime_dir.rglob("*.cs"))
+    # One pass over the addon: editor-only packages are checked everywhere, editor APIs under Runtime/ only.
+    addon_files = sorted((repo_root / "addons" / "godot_mcp").rglob("*.cs"))
+    scanned = 0
     total_violations = 0
-    total_warnings = 0
-    for f in files:
-        violations, warnings = scan_file(f)
+    package_violations = 0
+    for f in addon_files:
+        violations, packages, warnings = scan_file(f)
         rel = f.relative_to(repo_root).as_posix()
+        for lineno, token, text in packages:
+            package_violations += 1
+            print(f"VIOLATION {rel}:{lineno}: editor-only package '{token}' used outside #if TOOLS")
+            print(f"          {text}")
+        if not f.is_relative_to(runtime_dir):
+            continue
+        scanned += 1
         for lineno, token, text in violations:
             total_violations += 1
             print(f"VIOLATION {rel}:{lineno}: editor-only API '{token}' in un-guarded runtime code")
             print(f"          {text}")
         if args.verbose:
             for lineno, msg in warnings:
-                total_warnings += 1
                 print(f"warning   {rel}:{lineno}: {msg}")
 
-    package_violations = 0
-    addon_files = sorted((repo_root / "addons" / "godot_mcp").rglob("*.cs"))
-    for f in addon_files:
-        rel = f.relative_to(repo_root).as_posix()
-        for lineno, token, text in scan_file(f, _PACKAGE_RE)[0]:
-            package_violations += 1
-            print(f"VIOLATION {rel}:{lineno}: editor-only package '{token}' used outside #if TOOLS")
-            print(f"          {text}")
-
-    scanned = len(files)
     if total_violations:
         print()
         print(f"FAILED: {total_violations} runtime/editor boundary violation(s) across {scanned} Runtime/ file(s).")

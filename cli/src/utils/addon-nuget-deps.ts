@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ADDON_PACKAGE_REFERENCES, type AddonPackageReference } from './addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, EDITOR_ONLY_CONDITION, type AddonPackageReference } from './addon-deps.js';
 
 // Resolve the NuGet PackageReferences the INSTALLED addon needs, so `install-plugin`
 // pins the consumer csproj to what that addon release was built against — not to the
@@ -38,15 +38,14 @@ const NUGET_ID_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 const NUGET_VERSION_RE = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
 
 function validRef(id: unknown, version: unknown, editorOnly: boolean): AddonPackageReference | null {
-  if (typeof id !== 'string' || typeof version !== 'string' || !NUGET_ID_RE.test(id) || !NUGET_VERSION_RE.test(version)) {
-    return null;
-  }
-  return editorOnly ? { id, version, editorOnly } : { id, version };
+  return typeof id === 'string' && typeof version === 'string' && NUGET_ID_RE.test(id) && NUGET_VERSION_RE.test(version)
+    ? { id, version, ...(editorOnly && { editorOnly }) }
+    : null;
 }
 
 /**
- * Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. A reference with a
- * `Condition` is editor-only: Godot-MCP.csproj conditions exactly its editor-only packages (parity-tested).
+ * Every `<PackageReference Include=".." Version="..">` in a csproj text, in document order. A reference whose
+ * `Condition` is `EDITOR_ONLY_CONDITION` is editor-only.
  */
 export function parseCsprojPackageReferences(csprojText: string): AddonPackageReference[] {
   const refs: AddonPackageReference[] = [];
@@ -54,7 +53,7 @@ export function parseCsprojPackageReferences(csprojText: string): AddonPackageRe
     const ref = validRef(
       /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1],
       /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1],
-      /\bCondition\s*=/i.test(element),
+      /\bCondition\s*=\s*"([^"]*)"/i.exec(element)?.[1] === EDITOR_ONLY_CONDITION,
     );
     if (ref !== null) refs.push(ref);
   }

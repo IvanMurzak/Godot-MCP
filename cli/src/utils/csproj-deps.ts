@@ -92,11 +92,6 @@ function embeddedResourceRegex(include: string): RegExp {
   );
 }
 
-/** The Condition a freshly written element gets: the canonical one for an editor-only package, else none. */
-function canonicalCondition(ref: AddonPackageReference): string | undefined {
-  return ref.editorOnly ? EDITOR_ONLY_CONDITION : undefined;
-}
-
 /** Render the self-closing element for a reference, with its Condition when it has one. */
 function renderRef(ref: AddonPackageReference, condition: string | undefined): string {
   const conditionAttr = condition === undefined ? '' : ` Condition="${condition}"`;
@@ -104,14 +99,15 @@ function renderRef(ref: AddonPackageReference, condition: string | undefined): s
 }
 
 /**
- * The Condition an existing element should keep, or `null` when it must change. An editor-only reference keeps any
- * Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the canonical one when it has none (the
- * migration of csprojs written before editor-only packages). Any other reference keeps its own Condition, except the
- * canonical editor-only one, which an addon that needs the package in export builds (an older one) drops.
+ * The Condition a reference's element should carry, given the one it has (`undefined` for a new element). An
+ * editor-only reference keeps any Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the
+ * canonical one when it has none (the migration of csprojs written before editor-only packages). Any other reference
+ * keeps its own Condition, except the canonical editor-only one, which an addon that needs the package in export
+ * builds (an older one) drops.
  */
-function keptCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined | null {
-  if (ref.editorOnly) return existing ?? null;
-  return existing === EDITOR_ONLY_CONDITION ? null : existing;
+function desiredCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined {
+  if (ref.editorOnly) return existing ?? EDITOR_ONLY_CONDITION;
+  return existing === EDITOR_ONLY_CONDITION ? undefined : existing;
 }
 
 /** Render the canonical self-closing element for a required embedded resource. */
@@ -168,13 +164,14 @@ export function addAddonPackageReferences(
       changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
       continue;
     }
-    const kept = keptCondition(ref, /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1]);
-    if (existingVersion === ref.version && kept !== null) {
+    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
+    const condition = desiredCondition(ref, existingCondition);
+    if (existingVersion === ref.version && condition === existingCondition) {
       changes.push({ id: ref.id, action: 'unchanged', version: ref.version });
       continue;
     }
     // Reconcile in place: replace the whole element with the pin (a function replacer: a Condition holds `$`).
-    const rendered = renderRef(ref, kept === null ? canonicalCondition(ref) : kept);
+    const rendered = renderRef(ref, condition);
     text = text.replace(re, () => rendered);
     changes.push({ id: ref.id, action: 'updated', from: existingVersion, version: ref.version });
   }
@@ -183,7 +180,7 @@ export function addAddonPackageReferences(
   // already holds a <PackageReference> (group them together); else append a fresh
   // <ItemGroup> just before </Project>.
   if (missing.length > 0) {
-    const block = missing.map((ref) => `${indent}${renderRef(ref, canonicalCondition(ref))}`).join(eol);
+    const block = missing.map((ref) => `${indent}${renderRef(ref, desiredCondition(ref, undefined))}`).join(eol);
 
     const pkgItemGroupClose = findPackageReferenceItemGroupClose(text);
     if (pkgItemGroupClose !== -1) {

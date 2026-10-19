@@ -7,7 +7,6 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// Editor-only (RQL needs the editor-only com.IvanMurzak.Rql package); also compiled by the xUnit suite.
 #if TOOLS || GODOT_MCP_UNIT_TESTS
 
 #nullable enable

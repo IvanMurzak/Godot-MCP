@@ -18,15 +18,24 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const csprojPath = path.join(repoRoot, 'Godot-MCP.csproj');
 const outputPath = path.resolve(repoRoot, process.argv[2] ?? 'addons/godot_mcp/nuget-deps.json');
 
+// Same string as EDITOR_ONLY_CONDITION in cli/src/utils/addon-deps.ts (the generator test reads the manifest back).
+const EDITOR_ONLY_CONDITION = "'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'";
+
 const csproj = fs.readFileSync(csprojPath, 'utf-8');
 const packageReferences = [];
 for (const element of csproj.match(/<PackageReference\b[^>]*>/gi) ?? []) {
   const id = /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1];
   const version = /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1];
-  // A Condition marks an editor-only package (exports leave it out); godot-cli writes it with the same condition.
-  const editorOnly = /\bCondition\s*=/i.test(element);
+  // The editor-only Condition marks a package exports leave out; godot-cli writes it with the same condition. Any
+  // other Condition is refused: the manifest could not carry it.
+  const condition = /\bCondition\s*=\s*"([^"]*)"/i.exec(element)?.[1];
+  if (condition !== undefined && condition !== EDITOR_ONLY_CONDITION) {
+    console.error(`${id}: unsupported Condition "${condition}" (only "${EDITOR_ONLY_CONDITION}") in ${csprojPath}`);
+    process.exit(1);
+  }
+  const editorOnly = condition !== undefined;
   if (id !== undefined && version !== undefined) {
-    packageReferences.push(editorOnly ? { id, version, editorOnly } : { id, version });
+    packageReferences.push({ id, version, ...(editorOnly && { editorOnly }) });
   }
 }
 

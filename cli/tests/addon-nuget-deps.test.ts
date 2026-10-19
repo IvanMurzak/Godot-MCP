@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { ADDON_PACKAGE_REFERENCES } from '../src/utils/addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, EDITOR_ONLY_CONDITION } from '../src/utils/addon-deps.js';
 import { parseAddonNugetDeps, parseCsprojPackageReferences } from '../src/utils/addon-nuget-deps.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -58,13 +58,16 @@ describe('parseCsprojPackageReferences', () => {
     <PackageReference Include="A.B" Version="1.2.3" />
     <PackageReference Version="4.5.6" Include="C.D"></PackageReference>
     <PackageReference Include="NoVersion" />
-    <PackageReference Include="E.F" Version="7.8.9" Condition="'$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="E.F" Version="7.8.9" Condition="${EDITOR_ONLY_CONDITION}" />
+    <PackageReference Include="G.H" Version="1.0.0" Condition="'$(TargetFramework)' == 'net8.0'" />
   </ItemGroup>
 </Project>`;
+    // Only the canonical editor-only Condition marks a package editor-only.
     expect(parseCsprojPackageReferences(csproj)).toEqual([
       { id: 'A.B', version: '1.2.3' },
       { id: 'C.D', version: '4.5.6' },
       { id: 'E.F', version: '7.8.9', editorOnly: true },
+      { id: 'G.H', version: '1.0.0' },
     ]);
   });
 });

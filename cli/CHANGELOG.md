@@ -4,13 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
-- **No Roslyn in exported games.** `install-plugin` writes the addon's editor-only packages (`com.IvanMurzak.Rql`,
-  `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn`, `Microsoft.CodeAnalysis.CSharp`) with
-  `Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'"`, so Godot's export
-  builds leave them out; the editor (`Debug`) build keeps them. Re-running it on a project an older version set up
-  adds the condition to those entries (a `Condition` the project already set is kept). Which packages are
-  editor-only comes from the installed addon (`editorOnly` in `nuget-deps.json`, or a `Condition` in the
-  checkout's `Godot-MCP.csproj` for `--source`); an older addon marks none, so nothing is conditioned for it.
+- **No Roslyn in exported games.** `install-plugin` writes the addon's editor-only packages (RQL, Code-Exec, Roslyn)
+  with a Condition that leaves them out of Godot's export builds, and adds it to entries an older version wrote (a
+  `Condition` the project set is kept). The installed addon says which packages are editor-only (`editorOnly` in
+  `nuget-deps.json`); an older addon marks none.
 - **Editor sessions on `@baizor/gamedev-cli-core` 0.7.1.** The pre-launch C# build of `exec` / `open --headless`
   runs in the session's `beforeLaunch` hook, under its heartbeated startup lock and only when the call starts the
   editor: parallel cold calls build once (the CLI's own `.ai-game-dev/build.lock` is gone). The lease records the
