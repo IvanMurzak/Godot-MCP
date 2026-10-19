@@ -1,0 +1,29 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_5e2881ed8bfd52::t_b7d8083ccd623f 70
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_5e2881ed8bfd52::t_6626fe5f229ace 286
+addons/godot_mcp/plugin.cfg
+  s_5e2881ed8bfd52::t_9d0f0d8113cbb7 6
+cli/package-lock.json
+  s_5e2881ed8bfd52::t_c3fd50c35196be 3,9
+cli/package.json
+  s_5e2881ed8bfd52::t_a96d09b6aa3afd 3
+docs/assetlib/SUBMISSION.md
+  s_5e2881ed8bfd52::t_f4f4fc25e78d9a 28,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a2b8d4e1043f4300524851013202ac0a83c01e9e",
+  "prompts": {},
+  "sessions": {
+    "s_5e2881ed8bfd52": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a139fe-5e37-7630-a5ee-38fd3b09c0dd",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,85 @@
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_819be9280803fe 6,150-154
+extensions/Godot-AI-Animation/AGENTS.md
+  s_eb8bcde0be96a2::t_927ed1d6c340cd 49
+extensions/Godot-AI-Animation/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_52c04d1c36b51f 21-31
+extensions/Godot-AI-Animation/commands/bump-version.py
+  s_eb8bcde0be96a2::t_feb82d8b7364ea 33-48
+extensions/Godot-AI-Beehave/AGENTS.md
+  s_eb8bcde0be96a2::t_53966ab3de4061 76
+extensions/Godot-AI-Beehave/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_5b0a59a798234b 21-31
+extensions/Godot-AI-Beehave/commands/bump-version.py
+  s_eb8bcde0be96a2::t_d38b5e172cf5df 33-48
+extensions/Godot-AI-CSG/AGENTS.md
+  s_eb8bcde0be96a2::t_b3fdfb1c85a231 48
+extensions/Godot-AI-CSG/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_78b001e9fd932c 21-31
+extensions/Godot-AI-CSG/commands/bump-version.py
+  s_eb8bcde0be96a2::t_ddaf80b4337060 33-48
+extensions/Godot-AI-Dialogic/AGENTS.md
+  s_eb8bcde0be96a2::t_09b806bec74e13 77
+extensions/Godot-AI-Dialogic/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_957c0e72a3b4c2 21-31
+extensions/Godot-AI-Dialogic/commands/bump-version.py
+  s_eb8bcde0be96a2::t_5ec2c812f4c285 33-48
+extensions/Godot-AI-GridMap/AGENTS.md
+  s_eb8bcde0be96a2::t_565f50b961eec3 48
+extensions/Godot-AI-GridMap/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_ec4bdb0e80b4b4 21-31
+extensions/Godot-AI-GridMap/commands/bump-version.py
+  s_eb8bcde0be96a2::t_d5f9ee143964b4 33-48
+extensions/Godot-AI-Navigation/AGENTS.md
+  s_eb8bcde0be96a2::t_ca93bb30e95343 48
+extensions/Godot-AI-Navigation/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_70adaede6faa97 21-31
+extensions/Godot-AI-Navigation/commands/bump-version.py
+  s_eb8bcde0be96a2::t_bed1fe2eacaf12 33-48
+extensions/Godot-AI-Particles/AGENTS.md
+  s_eb8bcde0be96a2::t_d2f03c01435682 46
+extensions/Godot-AI-Particles/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_229c1f08744fd8 21-31
+extensions/Godot-AI-Particles/commands/bump-version.py
+  s_eb8bcde0be96a2::t_6c0411a7ae49e1 33-48
+extensions/Godot-AI-PhantomCamera/AGENTS.md
+  s_eb8bcde0be96a2::t_07e08a876af50a 75
+extensions/Godot-AI-PhantomCamera/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_f0882884fb50d7 21-31
+extensions/Godot-AI-PhantomCamera/commands/bump-version.py
+  s_eb8bcde0be96a2::t_eee7da64ebc3ae 33-48
+extensions/Godot-AI-Terrain3D/AGENTS.md
+  s_eb8bcde0be96a2::t_94bab4bdf93779 74
+extensions/Godot-AI-Terrain3D/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_2a45c2985cc300 21-31
+extensions/Godot-AI-Terrain3D/commands/bump-version.py
+  s_eb8bcde0be96a2::t_799bee8211173a 33-48
+extensions/Godot-AI-Tilemap/AGENTS.md
+  s_eb8bcde0be96a2::t_9193a2c4786e64 47
+extensions/Godot-AI-Tilemap/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_91220c36ca73fa 21-31
+extensions/Godot-AI-Tilemap/commands/bump-version.py
+  s_eb8bcde0be96a2::t_6b69c011b07651 33-48
+templates/extension/AGENTS.md
+  s_eb8bcde0be96a2::t_214637f61b524d 34
+templates/extension/commands/bump-version.ps1
+  s_eb8bcde0be96a2::t_ea5a30eb8842e7 21-31
+templates/extension/commands/bump-version.py
+  s_eb8bcde0be96a2::t_a610bff9fec350 33-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab38a729dea3fa1d7cdf0238ee5dc702705fe642",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

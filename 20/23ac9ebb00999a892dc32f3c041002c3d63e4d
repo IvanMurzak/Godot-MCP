@@ -1,0 +1,30 @@
+.github/workflows/deploy.yml
+  s_e36a2a3c4d1c6f::t_ed3d50f183149b 1-70,72-87
+  s_e36a2a3c4d1c6f::t_44798b8c7ec9be 71
+.github/workflows/release.yml
+  s_e36a2a3c4d1c6f::t_fd805b526c938e 165,187,193,200,207,228
+  s_e36a2a3c4d1c6f::t_6e8c0865a11320 9,11-12,15,40-43,48-52,58-60,62,70-75,78-104,158-162,164,167,184-186,188-192,194-199,201-206,208-227,229-250,258,272-273,277-278,282-298
+  s_e36a2a3c4d1c6f::t_a8a25173451bed 67-69,76-77,105-157
+  s_e36a2a3c4d1c6f::t_90efa790565276 13-14,16-39,44-47
+docs/RELEASING.md
+  s_e36a2a3c4d1c6f::t_1cc2b332a9246d 33-37,39,41-44,46-59,61-63,65,67-72,74,76-78
+  s_e36a2a3c4d1c6f::t_e400dfc8bc3009 3,5,7-10,14-28,45,60,64,66,73,75
+  s_e36a2a3c4d1c6f::t_b5df915ae30d90 122-127
+  s_e36a2a3c4d1c6f::t_3f9bff96c554f9 136-142,148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2023ac9ebb00999a892dc32f3c041002c3d63e4d",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+addons/godot_mcp/Tools/Tool_Screenshot.Isolated.cs
+  s_e36a2a3c4d1c6f::t_7fc58df04e758d 137,139
+  s_e36a2a3c4d1c6f::t_a046d7b3bd13b5 126-136,138,140-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "eec8785921fd960ed5191071fb92056cccd2fe13",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

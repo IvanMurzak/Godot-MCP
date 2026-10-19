@@ -1,0 +1,41 @@
+addons/godot_mcp/Tools/Tool_Script.Validate.cs
+  s_cb9891c329452d::t_b449480de8a679 1-106,112-117,121,123,125-126,130,133,136-137,145-235
+  s_cb9891c329452d::t_7923f722969a7d 107-111,118-120,122,124,127-129,131-132,134-135,138-144
+addons/godot_mcp/Tools/GodotScriptErrorLogger.cs
+  s_cb9891c329452d::t_d3222a50c4133d 58-60
+  s_cb9891c329452d::t_099a3a28ac687f 1-45,50-56,61-74,76,81-114,116-122
+  s_cb9891c329452d::t_7628d9e13785c7 115
+  s_cb9891c329452d::t_4e8a4385d20839 46-49,57,75,77-80
+addons/godot_mcp/Data/ScriptDiagnostic.cs
+  s_cb9891c329452d::t_5192f58c30efc7 1-87
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_cb9891c329452d::t_0401d89160d0a8 117-126
+addons/godot_mcp/Data/ScriptDiagnosticsResult.cs
+  s_cb9891c329452d::t_67776190eec013 1-3,5-91
+  s_cb9891c329452d::t_d118c9d46cc1d2 4
+addons/godot_mcp/Tools/ScriptErrorCapture.cs
+  s_cb9891c329452d::t_6e3b401dc93b96 1-153
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_cb9891c329452d::t_9e4f5933f342a6 50-63
+  s_cb9891c329452d::t_7c95d814d9e01e 198-203
+Godot-MCP.Tests/ScriptDiagnosticsTests.cs
+  s_cb9891c329452d::t_ecf479f11af9ba 1-220
+addons/godot_mcp/Tools/GodotScriptErrorLogger.Stub.cs
+  s_cb9891c329452d::t_21ccc6b151b883 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7151e4d497663bab49f31d10d4db4fbe9d86db48",
+  "prompts": {},
+  "sessions": {
+    "s_cb9891c329452d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "de59d46b-298d-4b2e-aa1e-21cf926a684c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
