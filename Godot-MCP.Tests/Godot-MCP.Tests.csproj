@@ -48,8 +48,8 @@
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.0" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
@@ -210,7 +210,6 @@
          (Tool_Script.Execute.cs) and the GD.Print capture are #if TOOLS and verified via the headless Godot smoke. The
          idle-shutdown timer (CLI-started editors) is pure as well. -->
     <Compile Include="..\addons\godot_mcp\Editor\Tools\ScriptExecuteSource.cs" Link="Source\ScriptExecuteSource.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Tools\SnippetAssemblyHost.cs" Link="Source\SnippetAssemblyHost.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />

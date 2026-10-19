@@ -94,9 +94,9 @@ editors keep answering tool calls with an old build).
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.
 - **Code-Exec in the editor.** `script-execute` (`Editor/Tools/Tool_Script.Execute.cs`) loads snippets through
-  `SnippetAssemblyHost`, which binds them to the LIVE game assembly and GodotSharp: Code-Exec's default host asks the
-  default context first, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin`
-  (stale statics, and a GodotSharp copy crashes the editor on its first engine call).
+  Code-Exec's default host, which (0.2.1+) binds them to the LIVE game assembly and GodotSharp before asking the default
+  context, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin` (stale statics, and a
+  GodotSharp copy crashes the editor on its first engine call). Never pin Code-Exec below 0.2.1.
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
   (`SKILL_FAMILIES`) and the README counts/table; `cli/tests/skills-addon-parity.test.ts` fails on drift.
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by

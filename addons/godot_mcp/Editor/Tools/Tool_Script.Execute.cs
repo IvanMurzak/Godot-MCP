@@ -199,13 +199,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         static CodeRunner Create(string projectRoot)
         {
             var binRoot = Path.Combine(projectRoot, ".godot", "mono", "temp", "bin");
-            // Snippets reference the LOADED assemblies: load System.Console, or `Console` binds to CoreLib's Internal.Console
-            // (auto-import) and its output bypasses the capture.
-            GC.KeepAlive(Console.Out);
+            // Code-Exec's default host binds snippets to the assemblies the editor already runs (the live game assembly and
+            // GodotSharp) before the default context is asked, where GodotMcpAssemblyResolver would load second copies.
             return new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
             {
                 DefaultUsings = ScriptExecuteSource.DefaultUsings,
-                Host = new SnippetAssemblyHost(), // binds to the live game assembly and GodotSharp, see there
                 IncludeRoot = Path.GetFullPath(Path.Combine(projectRoot, McpPlugin.AgentConfig.ProjectMarker.DirectoryName, "snippets")),
                 // Godot loads the game assembly from memory: point the compiler at the DLL it was built to.
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),

@@ -153,10 +153,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// <summary>
         /// Godot's situation: the game assembly lives in its own collectible context, loaded from memory, while a
         /// default-context resolver (GodotMcpAssemblyResolver) would answer a miss with a fresh copy from the bin folder.
-        /// The snippet must see the LIVE assembly (its statics), never a copy.
+        /// Code-Exec's default host (0.2.1+) must bind the snippet to the LIVE assembly (its statics), never a copy.
         /// </summary>
         [Fact]
-        public void SnippetAssemblyHost_BindsToTheLiveAssembly_NotADiskCopy()
+        public void DefaultHost_BindsToTheLiveAssembly_NotADiskCopy()
         {
             var dir = Path.Combine(Path.GetTempPath(), "godot-mcp-game-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
@@ -180,13 +180,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
                 var runner = new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
                 {
-                    Host = new SnippetAssemblyHost(),
                     References = new LoadedAssembliesReferenceProvider(a => a.GetName().Name == gameName ? dllPath : null),
                 });
                 var result = runner.Execute(new ExecuteRequest { Code = "MyGame.Score.Value" });
                 Assert.True(result.Success, ScriptExecuteSource.Describe(result));
                 Assert.Equal("5", result.Value);
-                Assert.Same(live, SnippetAssemblyHost.FindLoaded(gameName));
+                Assert.Same(live, Assert.Single(AppDomain.CurrentDomain.GetAssemblies(), a => a.GetName().Name == gameName));
             }
             finally
             {
@@ -234,8 +233,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Describe_RuntimeError_AppendsOutput()
         {
-            // References are the LOADED assemblies: without System.Console, `Console` would auto-import CoreLib's Internal.Console.
-            GC.KeepAlive(Console.Out);
             var result = NewRunner().Execute(new ExecuteRequest { Code = "Console.WriteLine(\"before\");\nthrow new InvalidOperationException(\"nope\");" });
             Assert.Equal(ErrorKind.Runtime, result.ErrorKind);
             var text = ScriptExecuteSource.Describe(result);

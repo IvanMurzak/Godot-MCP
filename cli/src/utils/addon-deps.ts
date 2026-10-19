@@ -49,8 +49,8 @@ export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.3' },
   { id: 'com.IvanMurzak.McpPlugin', version: '8.9.0' },
   { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
-  { id: 'com.IvanMurzak.CodeExec', version: '0.2.0' },
-  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.0' },
+  { id: 'com.IvanMurzak.CodeExec', version: '0.2.1' },
+  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1' },
   { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0' },
 ] as const;
 

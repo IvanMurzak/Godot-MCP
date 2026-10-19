@@ -69,8 +69,8 @@ project's .csproj must declare the six NuGet package references the addon depend
   com.IvanMurzak.ReflectorNet     version 5.4.3
   com.IvanMurzak.McpPlugin        version 8.9.0
   com.IvanMurzak.Rql              version 0.1.1
-  com.IvanMurzak.CodeExec         version 0.2.0
-  com.IvanMurzak.CodeExec.Roslyn  version 0.2.0
+  com.IvanMurzak.CodeExec         version 0.2.1
+  com.IvanMurzak.CodeExec.Roslyn  version 0.2.1
   Microsoft.CodeAnalysis.CSharp   version 4.12.0
 Without them the addon's C# will not compile. Run dotnet restore after adding them. No manual DLL
 copying is required — at editor runtime the addon's assembly resolver locates the DLLs in your NuGet
