@@ -26,6 +26,10 @@
 #      stub degradation (no engine logger; frames null) while the C# channel still
 #      captures.
 #
+# Then two live EDITOR smokes against the same server: RQL (scripts/smoke_rql.py) and
+# script-execute (scripts/smoke_script_execute.py). Both skip Godot 4.4, whose headless
+# editor intermittently segfaults at OpenScene (Godot-Tests/README.md "Known issues").
+#
 # Called once per matrix version by test_pull_request.yml.
 name: Test Godot Runtime Harness
 
@@ -269,6 +273,12 @@ jobs:
           godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
           echo "Import pass complete."
 
+      # The script-execute smoke (below) calls a game type of its own; it must be in the assembly this build compiles.
+      - name: Prepare the script-execute smoke fixtures
+        if: ${{ !startsWith(inputs.godotVersion, '4.4.') }}
+        shell: bash
+        run: python scripts/smoke_script_execute.py --prepare --project "${TEST_PROJECT}"
+
       - name: Build C# (addon + harness compile into the project assembly)
         shell: bash
         run: |
@@ -488,8 +498,10 @@ jobs:
       # every example of the agent guide (Godot-Tests/rql-guide-examples.json) against its fixture scene.
       # GODOT_MCP_RQL_TEST_HOOKS=1 adds the test-only test.undo / test.redo functions the undo checks need;
       # --require-test-hooks fails the smoke when they are missing instead of skipping those checks.
+      # Not on Godot 4.4: its headless editor intermittently segfaults at OpenScene here; a known issue the owner chose
+      # not to investigate (Godot-Tests/README.md "Known issues"). The 4.4 game harness above still runs.
       - name: Live editor RQL smoke (rql-query / rql-mutate / rql-schema)
-        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.server.outcome == 'success' && !startsWith(inputs.godotVersion, '4.4.') }}
         shell: bash
         run: |
           set -uo pipefail
@@ -506,6 +518,30 @@ jobs:
           echo "----- editor-rql.log (tail) -----"; tail -n 150 editor-rql.log || true
           if [ "$RC" != "0" ]; then
             echo "::error::the live editor RQL smoke (scripts/smoke_rql.py) failed on Godot ${{ inputs.godotVersion }} — see the FAIL lines above."
+          fi
+          exit "$RC"
+
+      # Live EDITOR suite of script-execute (Code-Exec + Roslyn): a fresh editor (the RQL one has quit, so it is the
+      # only plugin connected) runs scripts/smoke_script_execute.py — game type + auto-import, Godot API, GD.Print /
+      # Console capture, one copy of the game assembly and GodotSharp, compile / runtime error lines, include, and
+      # snippet unload. Skipped on Godot 4.4 for the same known issue as the RQL smoke.
+      - name: Live editor script-execute smoke
+        if: ${{ !cancelled() && steps.server.outcome == 'success' && !startsWith(inputs.godotVersion, '4.4.') }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          GODOT_MCP_CONNECTION_MODE=Custom \
+          GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
+          GODOT_MCP_AUTH_OPTION=None \
+            godot --headless --path "${TEST_PROJECT}" --editor > editor-exec.log 2>&1 &
+          EDITOR_PID=$!
+          RC=0
+          python scripts/smoke_script_execute.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --wait 180 || RC=$?
+          kill "$EDITOR_PID" 2>/dev/null || true
+          wait "$EDITOR_PID" 2>/dev/null || true
+          echo "----- editor-exec.log (tail) -----"; tail -n 150 editor-exec.log || true
+          if [ "$RC" != "0" ]; then
+            echo "::error::the live editor script-execute smoke (scripts/smoke_script_execute.py) failed on Godot ${{ inputs.godotVersion }} — see the FAIL lines above."
           fi
           exit "$RC"
 
@@ -542,6 +578,7 @@ jobs:
             build.log
             game.log
             editor-rql.log
+            editor-exec.log
             server.log
             harness-result.json
           if-no-files-found: ignore

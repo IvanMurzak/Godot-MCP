@@ -67,7 +67,22 @@ holds the connection (proving connect + handshake + dispatch), and asserts the r
 via `scripts/assert_runtime_harness.py`. The **4.5.1** leg asserts the engine GDScript
 backtrace + `push_error`/`push_warning`; the **4.3/4.4** legs assert graceful stub
 degradation (no engine logger, frames null) while the C# channel still captures.
-`test_pull_request.yml` and `release.yml` both fan it out across 4.3 / 4.4 / 4.5.
+`test_pull_request.yml` and `release.yml` both fan it out across the Godot matrix (4.3 / 4.4 / 4.5 / 4.6 / 4.7).
+
+After the game, the same job boots a headless **editor** twice against that server for the live editor smokes:
+`scripts/smoke_rql.py` (RQL tools) and `scripts/smoke_script_execute.py` (`script-execute`: Code-Exec + Roslyn; its
+fixture game type is written by `--prepare` before the C# build). Both run on every matrix version except 4.4
+(see Known issues).
+
+## Known issues
+
+- **Godot 4.4: the headless editor intermittently segfaults at `OpenScene`.** Symptom: in the live editor RQL smoke
+  the editor process dies during `editor | call OpenScene("res://scenes/level.tscn")` (right after `NewScene`), with
+  no managed exception in `editor-rql.log`; every later call then fails with `Failed to invoke ... RequestCallTool
+  after 10 retries` (e.g. PR CI run 39209792225). It does not happen on 4.3, 4.5, 4.6 or 4.7. Decision: not
+  investigated. 4.4 is an old release and users are on newer versions. Mitigation: the live editor smokes (RQL and
+  `script-execute`) skip 4.4 in `test_godot_runtime_harness.yml`; the 4.4 addon-load smoke, game harness and
+  dock-reload legs still run. Revisit only if a user reports it on 4.4.
 
 ## Local run
 

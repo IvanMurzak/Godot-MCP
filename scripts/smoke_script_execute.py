@@ -15,7 +15,8 @@ It does NOT launch anything (or use `godot-cli exec`, which does):
 
 `--project` gets a fixture game type (`res://SmokeExec/SmokeExecScore.cs`, namespace SmokeExec) and a snippet helper
 (`.ai-game-dev/snippets/smoke/SmokeHelper.cs`) written before the run: build the project after the first run (or run
-it once, build, start the editor, run again). Use a disposable project. Exit code 0 = every case passed. Stdlib only.
+it once, build, start the editor, run again). `--prepare` only writes them (CI runs it before its C# build). Use a
+disposable project. Exit code 0 = every case passed. Stdlib only.
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ import argparse
 import json
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -62,10 +64,11 @@ def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--host", required=True, help="MCP server base URL, e.g. http://localhost:8080")
+    parser.add_argument("--host", help="MCP server base URL, e.g. http://localhost:8080 (required unless --prepare)")
     parser.add_argument("--project", required=True, type=pathlib.Path, help="the Godot project the editor has open")
+    parser.add_argument("--prepare", action="store_true", help="only write the fixtures into --project, then exit")
+    parser.add_argument("--wait", type=float, default=0, help="seconds to wait for the editor to answer script-execute")
     args = parser.parse_args()
-    host = args.host.rstrip("/")
 
     game = args.project / "SmokeExec" / "SmokeExecScore.cs"
     helper = args.project / ".ai-game-dev" / "snippets" / "smoke" / "SmokeHelper.cs"
@@ -73,6 +76,15 @@ def main() -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.write_text(text, encoding="utf-8")
+    if args.prepare:
+        return 0
+    if not args.host:
+        parser.error("--host is required unless --prepare")
+    host = args.host.rstrip("/")
+
+    deadline = time.monotonic() + args.wait
+    while time.monotonic() < deadline and not execute(host, {"csharpCode": "0"})[0]:
+        time.sleep(2)
 
     case(host, "expression", {"csharpCode": "1 + 2"}, True, "System.Int32: 3")
     case(host, "game type + auto-import", {"csharpCode": "SmokeExecScore.Value"}, True, "System.Int32: 77")
