@@ -11,6 +11,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using com.IvanMurzak.McpPlugin.AgentConfig;
 
 namespace com.IvanMurzak.Godot.MCP
 {
@@ -22,7 +23,7 @@ namespace com.IvanMurzak.Godot.MCP
     /// </summary>
     public static class SessionLease
     {
-        public static string PathFor(string projectRoot) => Path.Combine(projectRoot, ".ai-game-dev", "session.json");
+        public static string PathFor(string projectRoot) => Path.Combine(projectRoot, ProjectMarker.DirectoryName, "session.json");
 
         /// <summary>Delete the lease when its nonce is <paramref name="nonce"/>. Never throws; true when deleted.</summary>
         public static bool DeleteIfOwned(string projectRoot, string? nonce)

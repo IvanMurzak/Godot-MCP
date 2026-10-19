@@ -67,9 +67,6 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         public const string SessionIdleSeconds = "AIGD_SESSION_IDLE_SECONDS";
 
-        /// <summary><c>cli</c> marks an editor the CLI started (its <c>session-close</c> tool then works).</summary>
-        public const string SessionOwner = "AIGD_SESSION_OWNER";
-
         /// <summary>The nonce of the CLI's lease (<c>.ai-game-dev/session.json</c>): the editor removes only its own lease.</summary>
         public const string SessionNonce = "AIGD_SESSION_NONCE";
 

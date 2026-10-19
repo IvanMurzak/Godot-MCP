@@ -66,7 +66,7 @@ namespace com.IvanMurzak.Godot.MCP
             if (_torndown)
                 return;
             _connection?.PollReconnect(delta);
-            if (_idleShutdown != null && _idleShutdown.Tick(_connection))
+            if (_idleShutdown != null && _idleShutdown.Tick(_connection, delta))
                 _idleShutdown = null;
         }
 
@@ -330,8 +330,8 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         void StartLocalServerIfRequested(GodotMcpConnection connection)
         {
-            var flag = OS.GetEnvironment(GodotMcpEnv.StartServer).Trim();
-            if (!flag.Equals("true", System.StringComparison.OrdinalIgnoreCase) && flag != "1")
+            var flag = GodotMcpConfig.NormalizeEnv(OS.GetEnvironment(GodotMcpEnv.StartServer));
+            if (!string.Equals(flag, "true", System.StringComparison.OrdinalIgnoreCase) && flag != "1")
                 return;
             if (connection.Config.ActiveMode != GodotMcpConnectionMode.Custom)
             {

@@ -175,7 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 DefaultUsings = ScriptExecuteSource.DefaultUsings,
                 Host = new SnippetAssemblyHost(), // binds to the live game assembly and GodotSharp, see there
-                IncludeRoot = Path.GetFullPath(Path.Combine(projectRoot, ".ai-game-dev", "snippets")),
+                IncludeRoot = Path.GetFullPath(Path.Combine(projectRoot, McpPlugin.AgentConfig.ProjectMarker.DirectoryName, "snippets")),
                 // Godot loads the game assembly from memory: point the compiler at the DLL it was built to.
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),
                 ValueConverter = Serialize,

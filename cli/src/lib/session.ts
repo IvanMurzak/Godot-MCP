@@ -132,13 +132,13 @@ export function createGodotSession(options: GodotSessionOptions): GodotSession {
  * assembly disables the addon). Serialized per project, so parallel cold calls do not run two MSBuilds on one obj/
  * folder; the second one finds an up-to-date build.
  */
-export async function buildBeforeStart(projectPath: string, build: typeof buildProject = buildProject): Promise<BuildProjectResult> {
+export async function buildBeforeStart(projectPath: string): Promise<BuildProjectResult> {
   const lock = new MachineCredentialLock(path.join(path.resolve(projectPath), SESSION_DIR_NAME), {
     lockFileName: BUILD_LOCK_FILE_NAME,
     staleMs: 600_000,
     acquireBudgetMs: 900_000,
   });
-  return lock.withLock(() => build({ projectPath }));
+  return lock.withLock(() => buildProject({ projectPath }));
 }
 
 /** Injection points for tests. */
@@ -177,7 +177,7 @@ export type EnsureEditorResult =
 export async function ensureEditor(options: EnsureEditorOptions): Promise<EnsureEditorResult> {
   const deps: EnsureEditorDeps = {
     ensure: (session, mode) => session.ensure({ mode }),
-    build: (projectPath) => buildBeforeStart(projectPath),
+    build: buildBeforeStart,
     isAlive: (pid) => defaultSessionProcessOps.isAlive(pid),
     ...options.deps,
   };
@@ -193,8 +193,12 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
     return fail('invalid-options', err);
   }
 
-  // Build only when an editor is about to be started: none answers, and no CLI call is starting one right now.
-  if (options.build !== false && (await godot.probe()) === undefined && !startingElsewhere(godot.session, deps.isAlive)) {
+  // Warm path: the local server answers, so an editor is up (the session would only probe it again).
+  const running = await godot.probe();
+  if (running !== undefined) return { kind: 'success', success: true, godot, ensured: { ready: running, source: 'running' } };
+
+  // Build only when an editor is about to be started: no CLI call is starting one, and no other editor has the project.
+  if (options.build !== false && !startingElsewhere(godot.session, deps.isAlive) && findGodotProcess(godot.session.projectRoot) === null) {
     options.onStatus?.('Building C# assembly...');
     const built = await deps.build(options.projectPath);
     if (built.kind === 'failure') return fail('build-failed', built.error);

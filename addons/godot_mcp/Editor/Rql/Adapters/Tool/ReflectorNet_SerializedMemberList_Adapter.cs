@@ -64,6 +64,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static bool TryMember(string name, object? value, out SerializedMember? member, out string? reason)
         {
             reason = null;
+            // RQL numbers are doubles: a whole one is passed as an integer (one rule for the type and the JSON).
+            if (value is double whole && Math.Floor(whole) == whole && Math.Abs(whole) < 9e15)
+                value = (long)whole;
             var typeName = value switch
             {
                 null => "System.Object",
@@ -72,7 +75,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 bool _ => "System.Boolean",
                 long l when l >= int.MinValue && l <= int.MaxValue => "System.Int32",
                 long _ => "System.Int64",
-                double d when Math.Floor(d) == d && Math.Abs(d) <= int.MaxValue => "System.Int32",
                 double _ => "System.Single",
                 _ => null,
             };

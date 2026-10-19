@@ -23,7 +23,11 @@ namespace com.IvanMurzak.Godot.MCP
     /// </summary>
     sealed class IdleShutdown
     {
+        /// <summary>Seconds between idle checks: well under the timer's 1 s stall threshold, far cheaper than every frame.</summary>
+        const double CheckIntervalSeconds = 0.25;
+
         readonly IdleShutdownTimer _timer;
+        double _sinceCheck;
 
         IdleShutdown(IdleShutdownTimer timer) { _timer = timer; }
 
@@ -39,8 +43,12 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>True once the editor has been told to quit; the caller drops this instance then.</summary>
-        public bool Tick(GodotMcpConnection? connection)
+        public bool Tick(GodotMcpConnection? connection, double delta)
         {
+            _sinceCheck += delta;
+            if (_sinceCheck < CheckIntervalSeconds)
+                return false;
+            _sinceCheck = 0;
             var calls = connection?.Plugin?.ToolCallsCount ?? 0;
             var editor = EditorInterface.Singleton;
             var busy = editor.IsPlayingScene() || editor.GetResourceFilesystem()?.IsScanning() == true;
@@ -72,8 +80,7 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Remove <c>.ai-game-dev/session.json</c> when it is this editor's (same <c>AIGD_SESSION_NONCE</c>).</summary>
         public static void RemoveOwnLease()
         {
-            var nonce = OS.GetEnvironment(GodotMcpEnv.SessionNonce);
-            if (nonce.Length > 0 && SessionLease.DeleteIfOwned(ProjectSettings.GlobalizePath("res://"), nonce))
+            if (SessionLease.DeleteIfOwned(ProjectSettings.GlobalizePath("res://"), OS.GetEnvironment(GodotMcpEnv.SessionNonce)))
                 GodotMcpLog.Info("[Godot-MCP] removed the CLI session lease.");
         }
 

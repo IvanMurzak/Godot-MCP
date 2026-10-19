@@ -23,19 +23,18 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>A gap between two checks longer than this means the main thread was busy.</summary>
         public static readonly TimeSpan StallThreshold = TimeSpan.FromSeconds(1);
 
-        readonly TimeSpan _timeout;
         DateTime _lastActivity;
         DateTime _lastCheck;
         ulong _lastCalls;
 
         public IdleShutdownTimer(TimeSpan timeout, DateTime now)
         {
-            _timeout = timeout;
+            Timeout = timeout;
             _lastActivity = now;
             _lastCheck = now;
         }
 
-        public TimeSpan Timeout => _timeout;
+        public TimeSpan Timeout { get; }
 
         public bool ShouldQuit(DateTime now, ulong toolCalls, bool busy)
         {
@@ -47,7 +46,7 @@ namespace com.IvanMurzak.Godot.MCP
                 _lastActivity = now;
                 return false;
             }
-            return now - _lastActivity >= _timeout;
+            return now - _lastActivity >= Timeout;
         }
 
         /// <summary>

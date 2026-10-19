@@ -3,12 +3,13 @@
 
 import type { EnsureResult } from '@baizor/gamedev-cli-core';
 import { runTool } from './run-tool.js';
-import { ensureEditor, type EnsureEditorDeps, type EnsureEditorOptions } from './session.js';
+import { ensureEditor, type EnsureEditorDeps, type EnsureEditorOptions, type EnsureEditorResult } from './session.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from './types.js';
 
 export const SCRIPT_EXECUTE_TOOL = 'script-execute';
 
-const DEFAULT_TIMEOUT_MS = 180_000;
+/** Default `script-execute` call timeout. */
+export const DEFAULT_EXEC_TIMEOUT_MS = 180_000;
 
 /** Injection points for tests. */
 export interface ExecDeps extends EnsureEditorDeps {
@@ -39,7 +40,7 @@ export interface ExecCodeFailure {
   kind: 'failure';
   success: false;
   /** {@link ensureEditor}'s reasons, or `tool-failed`: the call failed. */
-  reason: 'invalid-options' | 'build-failed' | 'launch-failed' | 'not-ready' | 'tool-failed';
+  reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason'] | 'tool-failed';
   /** The server that was called (`tool-failed` only). */
   baseUrl?: string;
   /** The underlying call failure (`tool-failed` only). */
@@ -67,7 +68,7 @@ export async function execCode(options: ExecCodeOptions): Promise<ExecCodeResult
     url: baseUrl,
     ...(options.token ? { token: options.token } : {}),
     input: buildScriptExecuteInput(options.code, options.usings ?? [], options.include ?? []),
-    timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    timeoutMs: options.timeoutMs ?? DEFAULT_EXEC_TIMEOUT_MS,
   });
   if (result.kind === 'failure') {
     return { kind: 'failure', success: false, reason: 'tool-failed', baseUrl, toolFailure: result, message: toolErrorText(result), error: result.error };

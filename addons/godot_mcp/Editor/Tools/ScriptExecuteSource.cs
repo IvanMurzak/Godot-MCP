@@ -44,14 +44,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
             if (script.Members.Any(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)))
                 return null;
-            var root = CSharpSyntaxTree.ParseText(code).GetRoot();
-            var types = root.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
-                .OfType<TypeDeclarationSyntax>()
-                .ToList();
-            if (types.Count == 0)
-                return null;
-            foreach (var type in types)
+            var declaresTypes = false;
+            foreach (var type in script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
+                .OfType<TypeDeclarationSyntax>())
             {
+                declaresTypes = true;
                 var fullName = RuntimeName(type);
                 if (type.Identifier.Text != className && fullName != className)
                     continue;
@@ -59,6 +56,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     return fullName;
                 throw new Exception($"Class '{className}' is declared, but it has no static method '{methodName}'.");
             }
+            if (!declaresTypes)
+                return null;
             throw new Exception($"'csharpCode' declares no class '{className}' and has no statements to run. " +
                 "Set 'className' / 'methodName' to the entry point, or write plain statements.");
         }

@@ -9,7 +9,8 @@ import {
 } from '../lib/open.js';
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
-import { parsePositiveIntFlag } from './exec.js';
+import { parsePositiveIntFlag } from '../utils/input.js';
+import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
 
 export interface ResolveProjectPathResult {
@@ -52,8 +53,8 @@ export const openCommand = new Command('open')
   .option('--mode <mode>', 'Connection mode: Cloud or Custom (sets GODOT_MCP_CONNECTION_MODE)')
   .option('--log-level <level>', 'Log level: Trace/Debug/Info/Warning/Error/None (sets GODOT_MCP_LOG_LEVEL)')
   .option('--headless', "Start a windowless editor on the project's local MCP server and wait until it is ready (reuses a running one)")
-  .option('--idle-timeout <seconds>', 'With --headless: the started editor quits after this many seconds without tool calls (0 = never)', '300')
-  .option('--ready-timeout <ms>', 'With --headless: how long to wait for the editor to become ready', '300000')
+  .option('--idle-timeout <seconds>', 'With --headless: the started editor quits after this many seconds without tool calls (0 = never)', String(DEFAULT_SESSION_IDLE_SECONDS))
+  .option('--ready-timeout <ms>', 'With --headless: how long to wait for the editor to become ready', String(DEFAULT_SESSION_READY_TIMEOUT_MS))
   .action(
     async (
       positionalPath: string | undefined,
@@ -70,8 +71,8 @@ export const openCommand = new Command('open')
         mode?: string;
         logLevel?: string;
         headless?: boolean;
-        idleTimeout?: string;
-        readyTimeout?: string;
+        idleTimeout: string;
+        readyTimeout: string;
       },
     ) => {
       const { projectPath, usedCwdFallback } = resolveOpenProjectPath(
@@ -233,10 +234,10 @@ export const openCommand = new Command('open')
 /** `open --headless`: a ready windowless editor on the project's local server (cli-core EditorSession). */
 async function openHeadless(
   projectPath: string,
-  options: { url?: string; token?: string; editorPath?: string; build?: boolean; idleTimeout?: string; readyTimeout?: string },
+  options: { url?: string; token?: string; editorPath?: string; build?: boolean; idleTimeout: string; readyTimeout: string },
 ): Promise<void> {
-  const idleSeconds = parsePositiveIntFlag(options.idleTimeout, '--idle-timeout', 300, true);
-  const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout', 300_000);
+  const idleSeconds = parsePositiveIntFlag(options.idleTimeout, '--idle-timeout', true);
+  const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout');
   const spinner = ui.startSpinner('Connecting...');
   const result = await ensureEditor({
     projectPath,

@@ -47,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string nonce
         )
         {
-            var expected = System.Environment.GetEnvironmentVariable(GodotMcpEnv.SessionNonce);
+            var expected = OS.GetEnvironment(GodotMcpEnv.SessionNonce);
             if (string.IsNullOrEmpty(expected))
                 throw new InvalidOperationException("This editor was not started by a godot-cli session; close it yourself.");
             if (!string.Equals(nonce, expected, StringComparison.Ordinal))

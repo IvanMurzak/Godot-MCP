@@ -305,7 +305,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ReadSeconds(string? idle, int? expected)
         {
             // The owner mark alone never arms it: a CLI session started with idle 0 passes no idle value.
-            var env = new Dictionary<string, string?> { [GodotMcpEnv.SessionIdleSeconds] = idle, [GodotMcpEnv.SessionOwner] = "cli" };
+            var env = new Dictionary<string, string?> { [GodotMcpEnv.SessionIdleSeconds] = idle, ["AIGD_SESSION_OWNER"] = "cli" };
             Assert.Equal(expected, IdleShutdownTimer.ReadSeconds(name => env.TryGetValue(name, out var v) ? v : null));
         }
     }

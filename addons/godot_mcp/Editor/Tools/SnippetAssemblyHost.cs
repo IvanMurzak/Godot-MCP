@@ -46,7 +46,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 if (assembly.IsDynamic || assembly.FullName?.StartsWith(CodeRunner.SnippetAssemblyPrefix, StringComparison.Ordinal) == true)
                     continue;
-                if (string.Equals(assembly.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase))
+                // The simple name from the runtime-cached FullName: no AssemblyName allocation per assembly and lookup.
+                var full = assembly.FullName ?? "";
+                var comma = full.IndexOf(',');
+                var length = comma < 0 ? full.Length : comma;
+                if (length == simpleName.Length && string.Compare(full, 0, simpleName, 0, length, StringComparison.OrdinalIgnoreCase) == 0)
                     found = assembly;
             }
             return found;

@@ -29,32 +29,34 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var logger = new GodotSnippetLogger(sink);
             OS.AddLogger(logger);
             return new Registration(logger);
-#else
-            return new Registration();
-#endif
         }
 
         sealed class Registration : IDisposable
         {
-#if GODOT4_5_OR_GREATER
             GodotSnippetLogger? _logger;
+
             public Registration(GodotSnippetLogger logger) { _logger = logger; }
-#else
-            public Registration() { }
-#endif
 
             public void Dispose()
             {
-#if GODOT4_5_OR_GREATER
                 var logger = _logger;
                 _logger = null;
                 if (logger == null)
                     return;
                 logger.Detach();
                 OS.RemoveLogger(logger);
-#endif
             }
         }
+#else
+            return NoCapture.Instance;
+        }
+
+        sealed class NoCapture : IDisposable
+        {
+            public static readonly NoCapture Instance = new NoCapture();
+            public void Dispose() { }
+        }
+#endif
     }
 
 #if GODOT4_5_OR_GREATER

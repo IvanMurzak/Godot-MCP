@@ -370,7 +370,6 @@ export function localProjectUrl(projectPath: string): string {
   return `http://localhost:${deriveProjectIdentityV2(projectPath, portOverride).port}`;
 }
 
-
 /**
  * Connection of a CLI editor session (`exec`, `open --headless`, `close --owned-only`): always a LOCAL server.
  * URL: `--url`, else a loopback `GODOT_MCP_HOST`, else undefined (the session uses the project's derived port).
@@ -380,5 +379,5 @@ export function resolveSessionConnection(options: { url?: string; token?: string
   const envHost = normalizeEnv(process.env[ENV_HOST]);
   const url = options.url ?? (envHost !== undefined && isLocalhostUrl(envHost) ? envHost : undefined);
   const token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
-  return { ...(url ? { url: url.replace(/\/$/, '') } : {}), ...(token ? { token } : {}) };
+  return { ...(url ? { url } : {}), ...(token ? { token } : {}) };
 }
