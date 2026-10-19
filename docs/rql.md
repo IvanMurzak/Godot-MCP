@@ -120,7 +120,7 @@ the reload still unloads.
   Variant, NodeRef, the struct types), groups, signal connections, project settings, the input map, autoloads, global
   groups, TileSets and Themes — each change read back from the `.tscn` / `.tres` / `project.godot` Godot wrote,
   validation errors, dry runs, and (with `GODOT_MCP_RQL_TEST_HOOKS=1` in the editor) undo and redo of every kind of
-  change; without the hooks those checks print `SKIP`.
+  change; without the hooks those checks print `SKIP` (CI passes `--require-test-hooks`, which fails instead).
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 
