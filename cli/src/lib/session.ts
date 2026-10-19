@@ -4,12 +4,10 @@
 
 import * as path from 'path';
 import {
-  defaultSessionProcessOps,
   EditorSession,
   EditorSessionError,
   godotAdapter,
   mcpReadinessProbe,
-  readSessionLease,
   type EditorSessionOptions,
   type EngineAdapter,
   type EnsureResult,
@@ -42,9 +40,9 @@ const SESSION_CONNECTION_MODE = 'Custom';
 export interface GodotSessionOptions {
   projectPath: string;
   /**
-   * The server the editor's plugin connects to and the session probes. Default: the server recorded in the lease
-   * of a live editor started by the CLI, else the project's local port (`http://localhost:<derived>`). A non-loopback
-   * URL is rejected: headless sessions are local only.
+   * The server the editor's plugin connects to and the session probes. Default: the project's local port
+   * (`http://localhost:<derived>`). A non-loopback URL is rejected: headless sessions are local only.
+   * {@link ensureEditor} prefers the server of a verified live CLI editor of the project (its lease).
    */
   url?: string;
   /** Bearer token: the started editor uses it (auth Required) and every probe / call sends it. */
@@ -108,20 +106,14 @@ export function godotSessionAdapter(url: string, token: string | undefined): Eng
   };
 }
 
-/**
- * The local server of the editor the CLI started for the project, from its lease, while that editor lives — so a
- * call without `--url` reaches an editor started with one.
- */
-function leasedServerUrl(projectRoot: string, isAlive: (pid: number) => boolean): string | undefined {
-  const lease = readSessionLease(projectRoot);
-  return lease?.serverUrl !== undefined && isLocalhostUrl(lease.serverUrl) && isAlive(lease.pid) ? lease.serverUrl : undefined;
+function normalizeUrl(url: string): string {
+  return url.replace(/\/+$/, '');
 }
 
 /** Build the session of a Godot project. Throws when `url` is not local. */
 export function createGodotSession(options: GodotSessionOptions): GodotSession {
   const projectRoot = path.resolve(options.projectPath);
-  const isAlive = options.processOps?.isAlive ?? defaultSessionProcessOps.isAlive;
-  const url = (options.url ?? leasedServerUrl(projectRoot, isAlive) ?? localProjectUrl(projectRoot)).replace(/\/+$/, '');
+  const url = normalizeUrl(options.url ?? localProjectUrl(projectRoot));
   if (!isLocalhostUrl(url)) {
     throw new Error(`editor sessions connect to a local server only; ${url} is not on this machine`);
   }
@@ -178,7 +170,11 @@ export type EnsureEditorResult =
     };
 
 /** The pre-launch C# build failed (thrown from `beforeLaunch`, which `ensure` propagates unchanged). */
-class BuildFailedError extends Error {}
+class BuildFailedError extends Error {
+  constructor(readonly buildError: Error) {
+    super(buildError.message);
+  }
+}
 
 /**
  * A ready editor of the project (the `exec` / `open --headless` policy): reuse a running one, otherwise build the
@@ -199,13 +195,26 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
 
   const beforeLaunch = async (projectRoot: string) => {
     options.onStatus?.('Building C# assembly...');
-    const built = await deps.build(projectRoot);
-    if (built.kind === 'failure') throw new BuildFailedError(built.errorMessage);
+    let built: BuildProjectResult;
+    try {
+      built = await deps.build(projectRoot);
+    } catch (err) {
+      throw new BuildFailedError(err instanceof Error ? err : new Error(String(err)));
+    }
+    if (built.kind === 'failure') throw new BuildFailedError(built.error);
   };
 
+  const sessionOptions: GodotSessionOptions = { ...options, ...(options.build !== false ? { beforeLaunch } : {}) };
   let godot: GodotSession;
   try {
-    godot = createGodotSession({ ...options, ...(options.build !== false ? { beforeLaunch } : {}) });
+    godot = createGodotSession(sessionOptions);
+    // Our editor of this project runs: talk to the server it was started on (it may differ from --url /
+    // GODOT_MCP_HOST). Only a lease cli-core verified live counts: a crashed editor's lease may name a port that
+    // another project's editor serves now.
+    const leasedUrl = (await godot.session.ownedSession())?.serverUrl;
+    if (leasedUrl !== undefined && isLocalhostUrl(leasedUrl) && normalizeUrl(leasedUrl) !== godot.url) {
+      godot = createGodotSession({ ...sessionOptions, url: leasedUrl });
+    }
   } catch (err) {
     return fail('invalid-options', err);
   }
@@ -213,17 +222,20 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
   try {
     return { kind: 'success', success: true, godot, ensured: await deps.ensure(godot.session, options.window ? 'window' : 'headless') };
   } catch (err) {
-    if (err instanceof BuildFailedError) return fail('build-failed', err);
+    if (err instanceof BuildFailedError) return fail('build-failed', err.buildError);
     const sessionError = err instanceof EditorSessionError ? err : undefined;
     let hint = '';
     if (sessionError?.reason === 'not-ready') {
       if (sessionError.source === 'foreign') {
         // Core's message says what is wrong; add only how to fix it in Godot.
         hint = ` (Godot: in that editor's AI Game Developer dock choose Custom mode and start the server on ${godot.url})`;
-      } else {
-        // Our editor started but its plugin never answered (e.g. the addon failed to load): it would never idle out.
+      } else if (sessionError.source === 'started') {
+        // The editor this call started never answered (e.g. the addon failed to load): it would never idle out.
         const closed = await godot.session.closeOwned({ timeoutMs: 5_000, force: true });
         hint = closed.kind === 'closed' ? ` (stopped the unresponsive editor, PID ${closed.pid}; see its log)` : '';
+      } else {
+        // Another call's editor: that call may still be waiting for it, so it is not stopped here.
+        hint = ' (an editor started by another godot-cli call; `godot-cli close --owned-only --force` stops it)';
       }
     }
     const notReady = sessionError?.reason === 'exited' || sessionError?.reason === 'not-ready';

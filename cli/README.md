@@ -192,7 +192,8 @@ at the snippet's line (`snippet.cs(2,12)`) and exits 1.
 
 Sessions use [`@baizor/gamedev-cli-core`](https://www.npmjs.com/package/@baizor/gamedev-cli-core) `EditorSession`:
 the lease `<project>/.ai-game-dev/session.json` marks an editor as started by the CLI (only such an editor is ever
-closed) and records the server it runs on, so later `exec` / `open` / `close` calls reach it without `--url`.
+closed) and records the server it runs on: while that editor provably lives, later `exec` / `open` / `close` calls
+use that server, whatever `--url` says.
 `<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor: the C# build runs under it, only in the
 call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.gitignore`. The editor receives
 `AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`,

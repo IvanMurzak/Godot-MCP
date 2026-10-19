@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
+import * as http from 'http';
+import type { AddressInfo } from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import { EditorSessionError, readSessionLease, type EditorSession, type EnsureResult, type SessionLease } from '@baizor/gamedev-cli-core';
@@ -138,14 +140,6 @@ describe('createGodotSession', () => {
     expect(createGodotSession({ projectPath: project }).url).toMatch(/^http:\/\/localhost:\d+$/);
     expect(() => createGodotSession({ projectPath: project, url: 'https://ai-game.dev/mcp' })).toThrow(/local server only/);
   });
-
-  it('defaults to the server recorded in the lease of a live editor', () => {
-    const project = tempProject();
-    writeLease(project, { serverUrl: 'http://localhost:4321' });
-    expect(createGodotSession({ projectPath: project, processOps: { isAlive: () => true } }).url).toBe('http://localhost:4321');
-    // A dead editor's lease does not redirect the next session.
-    expect(createGodotSession({ projectPath: project, processOps: { isAlive: () => false } }).url).not.toBe('http://localhost:4321');
-  });
 });
 
 describe('godotSessionAdapter', () => {
@@ -233,13 +227,14 @@ describe('ensureEditor / execCode', () => {
   });
 
   it('maps session errors, with a hint for an editor that is not ours', async () => {
-    const fail = (reason: ConstructorParameters<typeof EditorSessionError>[0], source?: 'foreign' | 'started') =>
+    const fail = (reason: ConstructorParameters<typeof EditorSessionError>[0], source?: 'foreign' | 'started' | 'owned') =>
       ensureEditor({
         projectPath: tempProject(), url: DEAD_URL, build: false,
         deps: { ensure: async () => { throw new EditorSessionError(reason, 'nope', source ? { source } : {}); } },
       });
     expect(await fail('not-ready', 'foreign')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringContaining('AI Game Developer dock') });
     expect(await fail('not-ready', 'started')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: 'nope' });
+    expect(await fail('not-ready', 'owned')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringContaining('close --owned-only --force') });
     expect(await fail('exited')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: 'nope' });
     expect(await fail('no-editor-binary')).toMatchObject({ kind: 'failure', reason: 'launch-failed' });
     expect(await ensureEditor({ projectPath: tempProject(), url: 'https://example.com' })).toMatchObject({ reason: 'invalid-options' });
@@ -253,6 +248,52 @@ describe('ensureEditor / execCode', () => {
     expect(result).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringContaining('AI Game Developer dock') });
     expect(build).not.toHaveBeenCalled();
     expect(fake.spawned).toBe(0);
+  });
+
+  describe('the server of a leased editor', () => {
+    /** A local server that answers every readiness probe. */
+    async function answeringServer(): Promise<{ url: string; close: () => Promise<void> }> {
+      const server = http.createServer((_req, res) => res.writeHead(200, { 'Content-Type': 'application/json' }).end('{}'));
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const { port } = server.address() as AddressInfo;
+      return { url: `http://127.0.0.1:${port}`, close: () => new Promise((resolve) => server.close(() => resolve())) };
+    }
+    const urlOf = (r: Awaited<ReturnType<typeof ensureEditor>>) => (r.kind === 'success' ? r.godot.url : undefined);
+    const capture = async (session: EditorSession<string>) => ready(session.projectRoot, 'running');
+
+    it('is used once cli-core verified the lease live, over --url', async () => {
+      const project = tempProject();
+      writeLease(project, { serverUrl: 'http://localhost:4321', processStart: 'start' });
+      const result = await ensureEditor({ projectPath: project, url: DEAD_URL, processOps: fakeProcessOps().ops, deps: { ensure: capture } });
+      expect(urlOf(result)).toBe('http://localhost:4321');
+    });
+
+    it('is ignored for a reused pid (another process start time)', async () => {
+      const project = tempProject();
+      writeLease(project, { serverUrl: 'http://localhost:4321', processStart: 'earlier' });
+      const result = await ensureEditor({ projectPath: project, url: DEAD_URL, processOps: fakeProcessOps().ops, deps: { ensure: capture } });
+      expect(urlOf(result)).toBe(DEAD_URL);
+    });
+
+    it('a crashed editor whose port another editor now serves: the code never runs there', async () => {
+      const other = await answeringServer();
+      try {
+        const project = tempProject();
+        writeLease(project, { serverUrl: other.url, processStart: 'start' });
+        const fake = fakeProcessOps();
+        const ops = { ...fake.ops, isAlive: (pid: number) => pid !== 40_001 && fake.ops.isAlive(pid) };
+        const invoke = vi.fn();
+        const result = await execCode({
+          projectPath: project, code: '1', editorPath: process.execPath, build: false, readyTimeoutMs: 50, processOps: ops, deps: { invoke },
+        });
+        expect(result.kind).toBe('failure');
+        expect(invoke).not.toHaveBeenCalled();
+        // It started its own editor on the project's port instead (which nothing answers in this test).
+        expect(fake.spawned).toBe(1);
+      } finally {
+        await other.close();
+      }
+    });
   });
 
   it('two parallel cold calls build once and start ONE editor (cli-core lease + startup lock)', async () => {
