@@ -75,11 +75,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public const string ExecutableName = "gamedev-mcp-server";
 
         /// <summary>
-        /// How long the local server waits for ONE tool call (<c>tool-timeout</c>, ms). McpPlugin 8.11.0+ servers send
-        /// a call to the plugin once and give up after this; <c>plugin-timeout</c> is only the connection timeout. It
-        /// must exceed <c>script-execute</c>'s own run limit (<c>ScriptExecuteSource.RunTimeoutMs</c>) so a slow snippet
-        /// ends with its own error, and <c>godot-cli exec</c>'s default <c>--timeout</c> must exceed it (both are
-        /// parity-tested). Older servers ignore the argument.
+        /// The local server's <c>tool-timeout</c> (ms): how long it waits for one tool call (McpPlugin 8.11.0+; older
+        /// servers ignore it). Above <c>ScriptExecuteSource.RunTimeoutMs</c>, below <c>godot-cli exec</c>'s default
+        /// <c>--timeout</c> (both tested).
         /// </summary>
         public const int ToolTimeoutMs = 300_000;
 

@@ -29,6 +29,12 @@ function parseAddonServerVersion(text: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Extract `public const int ToolTimeoutMs = 300_000;` from the addon source. */
+function parseAddonToolTimeoutMs(text: string): number | null {
+  const m = text.match(/public\s+const\s+int\s+ToolTimeoutMs\s*=\s*([\d_]+)\s*;/);
+  return m ? Number(m[1].replace(/_/g, '')) : null;
+}
+
 describe('server-source parity with GodotMcpServerView.cs', () => {
   it('the addon ServerView source is reachable (relative layout sanity)', () => {
     expect(fs.existsSync(SERVER_VIEW_CS)).toBe(true);
@@ -48,9 +54,8 @@ describe('server-source parity with GodotMcpServerView.cs', () => {
 
 describe('exec timeout parity with GodotMcpServerView.ToolTimeoutMs', () => {
   it('DEFAULT_EXEC_TIMEOUT_MS outlasts the tool-timeout the addon passes to the server', () => {
-    const m = fs.readFileSync(SERVER_VIEW_CS, 'utf-8').match(/public\s+const\s+int\s+ToolTimeoutMs\s*=\s*([\d_]+)\s*;/);
-    expect(m, 'GodotMcpServerView.cs is missing a `public const int ToolTimeoutMs = …`').not.toBeNull();
-    const toolTimeoutMs = Number(m![1].replace(/_/g, ''));
-    expect(DEFAULT_EXEC_TIMEOUT_MS).toBeGreaterThan(toolTimeoutMs);
+    const toolTimeoutMs = parseAddonToolTimeoutMs(fs.readFileSync(SERVER_VIEW_CS, 'utf-8'));
+    expect(toolTimeoutMs, 'GodotMcpServerView.cs is missing a `public const int ToolTimeoutMs = …`').not.toBeNull();
+    expect(DEFAULT_EXEC_TIMEOUT_MS).toBeGreaterThan(toolTimeoutMs!);
   });
 });

@@ -264,7 +264,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void BuildLaunchArguments_None_IsAnonymousWithNoCredentialArgs()
         {
             var args = GodotMcpServerView.BuildLaunchArguments(port: 8080, pluginTimeoutMs: 10000, authOption: McpServerConsts.AuthOption.none);
-            Assert.Equal("port=8080 plugin-timeout=10000 client-transport=streamableHttp auth=none tool-timeout=300000", args);
+            Assert.Equal($"port=8080 plugin-timeout=10000 client-transport=streamableHttp auth=none tool-timeout={GodotMcpServerView.ToolTimeoutMs}", args);
             Assert.DoesNotContain("token=", args);
             Assert.DoesNotContain("auth-issuer=", args);
         }
@@ -273,7 +273,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void BuildLaunchArguments_Token_AppendsTokenSecret()
         {
             var args = GodotMcpServerView.BuildLaunchArguments(port: 5300, pluginTimeoutMs: 12000, authOption: McpServerConsts.AuthOption.token, token: "abc123");
-            Assert.Equal("port=5300 plugin-timeout=12000 client-transport=streamableHttp auth=token token=abc123 tool-timeout=300000", args);
+            Assert.Equal($"port=5300 plugin-timeout=12000 client-transport=streamableHttp auth=token token=abc123 tool-timeout={GodotMcpServerView.ToolTimeoutMs}", args);
         }
 
         [Fact]
@@ -295,7 +295,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 authIssuer: "https://ai-game.dev",
                 publicUrl: "http://localhost:5300/mcp/p/abcd1234");
             Assert.Equal(
-                "port=5300 plugin-timeout=10000 client-transport=streamableHttp auth=oauth auth-issuer=https://ai-game.dev public-url=http://localhost:5300/mcp/p/abcd1234 tool-timeout=300000",
+                $"port=5300 plugin-timeout=10000 client-transport=streamableHttp auth=oauth auth-issuer=https://ai-game.dev public-url=http://localhost:5300/mcp/p/abcd1234 tool-timeout={GodotMcpServerView.ToolTimeoutMs}",
                 args);
             Assert.DoesNotContain("token=", args);
         }
