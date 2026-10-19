@@ -486,11 +486,14 @@ jobs:
       # exactly one plugin — this editor — is connected. scripts/smoke_rql.py verifies every change in the .tscn /
       # .tres text Godot wrote (AddChild + SaveScene round-trip, resource edits, move / delete with sidecars) and runs
       # every example of the agent guide (Godot-Tests/rql-guide-examples.json) against its fixture scene.
+      # GODOT_MCP_RQL_TEST_HOOKS=1 adds the test-only test.undo / test.redo functions, so the undo checks run
+      # instead of reporting SKIP.
       - name: Live editor RQL smoke (rql-query / rql-mutate / rql-schema)
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         shell: bash
         run: |
           set -uo pipefail
+          GODOT_MCP_RQL_TEST_HOOKS=1 \
           GODOT_MCP_CONNECTION_MODE=Custom \
           GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
           GODOT_MCP_AUTH_OPTION=None \
