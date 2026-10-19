@@ -12,10 +12,15 @@ import {
   waitForExit,
   type SupportedPlatform,
 } from '../utils/godot-shutdown.js';
+import { resolveSessionConnection } from '../utils/connection.js';
+import { createGodotSession } from '../lib/session.js';
 
 export interface CloseOptions {
   timeout?: string;
   force?: boolean;
+  ownedOnly?: boolean;
+  url?: string;
+  token?: string;
 }
 
 const DEFAULT_TIMEOUT_SECONDS = 30;
@@ -64,6 +69,9 @@ export const closeCommand = new Command('close')
   .argument('[path]', 'Path to the Godot project (defaults to current directory)')
   .option('--timeout <seconds>', `Polite-quit timeout in seconds (default: ${DEFAULT_TIMEOUT_SECONDS})`, String(DEFAULT_TIMEOUT_SECONDS))
   .option('--force', 'Hard-kill the editor if it does not exit within --timeout')
+  .option('--owned-only', 'Close only an editor started by godot-cli (exec / open --headless); never a user editor')
+  .option('--url <url>', 'With --owned-only: the local MCP server of that editor (default: the project local port)')
+  .option('--token <token>', 'With --owned-only: bearer token (default: GODOT_MCP_TOKEN)')
   .action(async (positionalPath: string | undefined, options: CloseOptions) => {
     const projectPath = resolveCloseProjectPath(positionalPath, process.cwd());
     verbose(`close invoked for project: ${projectPath}`);
@@ -82,6 +90,11 @@ export const closeCommand = new Command('close')
     if (timeoutSeconds === null) {
       ui.error(`Invalid --timeout value: "${options.timeout}". Must be a positive integer (seconds).`);
       process.exit(1);
+    }
+
+    if (options.ownedOnly) {
+      await closeOwned(projectPath, timeoutSeconds, options);
+      return;
     }
 
     const platform = nodePlatform() as SupportedPlatform;
@@ -138,3 +151,25 @@ export const closeCommand = new Command('close')
     spinner.error(`Godot editor (PID ${pid}) is still alive after force-kill`);
     process.exit(1);
   });
+
+/**
+ * `close --owned-only`: ask the editor named by our lease (`.ai-game-dev/session.json`) to save and quit through
+ * its plugin (a windowless editor gets no WM_CLOSE). Anything else — no lease, a stale lease, a user's editor — is
+ * left alone.
+ */
+async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions): Promise<void> {
+  const { session } = createGodotSession({ projectPath, ...resolveSessionConnection(options) });
+  const spinner = ui.startSpinner('Closing the editor started by godot-cli...');
+  const result = await session.closeOwned({ timeoutMs: timeoutSeconds * 1000, force: options.force === true });
+  switch (result.kind) {
+    case 'closed':
+      spinner.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
+      return;
+    case 'not-owned':
+      spinner.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
+      return;
+    case 'still-running':
+      spinner.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
+      process.exit(1);
+  }
+}

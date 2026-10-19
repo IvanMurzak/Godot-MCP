@@ -219,7 +219,8 @@ condition in their **own game `.csproj`** (not the addon's):
 ```
 
 If you also want to drop the reused NuGet payload (`com.IvanMurzak.McpPlugin` /
-`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql`) from the published game, guard those `<PackageReference>`s the
+`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql` / Code-Exec and Roslyn, which only `script-execute` in the editor
+uses) from the published game, guard those `<PackageReference>`s the
 same way:
 
 ```xml
@@ -227,6 +228,9 @@ same way:
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
   <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.0" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" />
 </ItemGroup>
 ```
 

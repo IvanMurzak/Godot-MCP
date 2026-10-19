@@ -51,19 +51,15 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>
-        /// The idle timeout an editor was started with, or null to never quit (a user's own editor). Read from
-        /// <c>AIGD_SESSION_IDLE_SECONDS</c> (a positive whole number); an editor marked <c>AIGD_SESSION_OWNER=cli</c>
-        /// without a value uses <see cref="DefaultCliSeconds"/>. An invalid value never arms the timer.
+        /// The idle timeout an editor was started with (<c>AIGD_SESSION_IDLE_SECONDS</c>, a positive whole number), or
+        /// null to never quit: unset (a user's own editor, or a CLI session started without one) or invalid.
         /// </summary>
         public static int? ReadSeconds(Func<string, string?> env)
         {
             var raw = env(GodotMcpEnv.SessionIdleSeconds)?.Trim();
-            if (!string.IsNullOrEmpty(raw))
-                return int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) && seconds > 0 ? seconds : (int?)null;
-            return string.Equals(env(GodotMcpEnv.SessionOwner)?.Trim(), "cli", StringComparison.OrdinalIgnoreCase) ? DefaultCliSeconds : (int?)null;
+            return !string.IsNullOrEmpty(raw) && int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) && seconds > 0
+                ? seconds
+                : (int?)null;
         }
-
-        /// <summary>The CLI's default idle time (<c>godot-cli exec --idle</c>).</summary>
-        public const int DefaultCliSeconds = 300;
     }
 }

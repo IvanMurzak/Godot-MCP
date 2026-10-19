@@ -33,6 +33,7 @@ export const ENV_TOKEN = 'GODOT_MCP_TOKEN';
 export const ENV_CONNECTION_MODE = 'GODOT_MCP_CONNECTION_MODE';
 export const ENV_AUTH_OPTION = 'GODOT_MCP_AUTH_OPTION';
 export const ENV_LOG_LEVEL = 'GODOT_MCP_LOG_LEVEL';
+export const ENV_START_SERVER = 'GODOT_MCP_START_SERVER';
 
 export interface ConnectionOptions {
   path?: string;
@@ -180,9 +181,7 @@ function resolveTargetUrl(projectPath: string, options: ConnectionOptions): Reso
     return { url, isCloud: true };
   }
 
-  const portOverride = typeof marker?.portOverride === 'number' ? marker.portOverride : null;
-  const { port } = deriveProjectIdentityV2(projectPath, portOverride);
-  const url = `http://localhost:${port}`;
+  const url = localProjectUrl(projectPath);
   verbose(`Using derived local port fallback: ${url}`);
   return { url, isCloud: false };
 }
@@ -359,4 +358,27 @@ export async function resolveOpenAuthToken(
     return resolveCloudAccessToken(projectPath);
   }
   return undefined;
+}
+
+/**
+ * The local URL of the project's own server: `http://localhost:<v2-derived port>` (or the enrolled marker's
+ * port override), the port a Custom-mode editor binds when no host is configured.
+ */
+export function localProjectUrl(projectPath: string): string {
+  const marker = readProjectMarker(projectPath);
+  const portOverride = typeof marker?.portOverride === 'number' ? marker.portOverride : null;
+  return `http://localhost:${deriveProjectIdentityV2(projectPath, portOverride).port}`;
+}
+
+
+/**
+ * Connection of a CLI editor session (`exec`, `open --headless`, `close --owned-only`): always a LOCAL server.
+ * URL: `--url`, else a loopback `GODOT_MCP_HOST`, else undefined (the session uses the project's derived port).
+ * Token: `--token`, else `GODOT_MCP_TOKEN`. Cloud credentials are never used here.
+ */
+export function resolveSessionConnection(options: { url?: string; token?: string }): { url?: string; token?: string } {
+  const envHost = normalizeEnv(process.env[ENV_HOST]);
+  const url = options.url ?? (envHost !== undefined && isLocalhostUrl(envHost) ? envHost : undefined);
+  const token = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
+  return { ...(url ? { url: url.replace(/\/$/, '') } : {}), ...(token ? { token } : {}) };
 }

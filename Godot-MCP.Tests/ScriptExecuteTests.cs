@@ -295,24 +295,50 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Theory]
-        [InlineData("300", null, 300)]
-        [InlineData(" 45 ", "cli", 45)]
-        [InlineData(null, "cli", IdleShutdownTimer.DefaultCliSeconds)]
-        [InlineData(null, "CLI", IdleShutdownTimer.DefaultCliSeconds)]
-        [InlineData(null, null, null)]
-        [InlineData(null, "user", null)]
-        [InlineData("0", "cli", null)]
-        [InlineData("-5", null, null)]
-        [InlineData("abc", "cli", null)]
-        [InlineData("", null, null)]
-        public void ReadSeconds(string? idle, string? owner, int? expected)
+        [InlineData("300", 300)]
+        [InlineData(" 45 ", 45)]
+        [InlineData(null, null)]
+        [InlineData("", null)]
+        [InlineData("0", null)]
+        [InlineData("-5", null)]
+        [InlineData("abc", null)]
+        public void ReadSeconds(string? idle, int? expected)
         {
-            var env = new Dictionary<string, string?>
-            {
-                [GodotMcpEnv.SessionIdleSeconds] = idle,
-                [GodotMcpEnv.SessionOwner] = owner,
-            };
+            // The owner mark alone never arms it: a CLI session started with idle 0 passes no idle value.
+            var env = new Dictionary<string, string?> { [GodotMcpEnv.SessionIdleSeconds] = idle, [GodotMcpEnv.SessionOwner] = "cli" };
             Assert.Equal(expected, IdleShutdownTimer.ReadSeconds(name => env.TryGetValue(name, out var v) ? v : null));
+        }
+    }
+
+    /// <summary>The editor removes the CLI's session lease on exit, but only its own (same nonce).</summary>
+    public class SessionLeaseTests
+    {
+        [Fact]
+        public void DeleteIfOwned_OnlyTheLeaseWithTheSameNonce()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "godot-mcp-lease-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(root, ".ai-game-dev"));
+            try
+            {
+                var lease = SessionLease.PathFor(root);
+                Assert.False(SessionLease.DeleteIfOwned(root, "abc")); // no lease
+
+                File.WriteAllText(lease, "{\"pid\": 1, \"nonce\": \"other\", \"ownedBy\": \"cli\"}");
+                Assert.False(SessionLease.DeleteIfOwned(root, "abc"));
+                Assert.False(SessionLease.DeleteIfOwned(root, null));
+                Assert.True(File.Exists(lease));
+
+                File.WriteAllText(lease, "not json");
+                Assert.False(SessionLease.DeleteIfOwned(root, "abc"));
+
+                File.WriteAllText(lease, "{\"pid\": 1, \"nonce\": \"abc\", \"ownedBy\": \"cli\"}");
+                Assert.True(SessionLease.DeleteIfOwned(root, "abc"));
+                Assert.False(File.Exists(lease));
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
     }
 }

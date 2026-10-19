@@ -211,6 +211,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Tools\SnippetAssemblyHost.cs" Link="Source\SnippetAssemblyHost.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />
     <!-- script-validate diagnostics — pure-managed (no Godot native types, no #if TOOLS): the diagnostic
          result models (ScriptDiagnostic / ScriptDiagnosticsResult + their enums) and the ScriptErrorCapture
          router that classifies + routes engine-error callbacks (passive log capture + on-demand validation

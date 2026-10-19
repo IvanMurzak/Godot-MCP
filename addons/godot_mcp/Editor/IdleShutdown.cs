@@ -16,11 +16,10 @@ using Godot;
 namespace com.IvanMurzak.Godot.MCP
 {
     /// <summary>
-    /// Quits an editor started by <c>godot-cli exec</c> / <c>open --idle-timeout</c> after
+    /// Quits an editor started by <c>godot-cli exec</c> / <c>open --headless</c> after
     /// <c>AIGD_SESSION_IDLE_SECONDS</c> without tool calls, so a warm headless editor does not live forever. Off unless
     /// the variable is set (see <see cref="IdleShutdownTimer.ReadSeconds"/>): a user's own editor is never closed.
-    /// Before quitting it saves the open scenes that have a file (an untitled scene has nowhere to go) and the
-    /// resources they changed. Ticked from <see cref="GodotMcpPlugin._Process"/>.
+    /// Ticked from <see cref="GodotMcpPlugin._Process"/>; <see cref="SaveAndQuit"/> is also the <c>session-close</c> path.
     /// </summary>
     sealed class IdleShutdown
     {
@@ -40,26 +39,42 @@ namespace com.IvanMurzak.Godot.MCP
         }
 
         /// <summary>True once the editor has been told to quit; the caller drops this instance then.</summary>
-        public bool Tick(GodotMcpConnection? connection, SceneTree tree)
+        public bool Tick(GodotMcpConnection? connection)
         {
             var calls = connection?.Plugin?.ToolCallsCount ?? 0;
             var editor = EditorInterface.Singleton;
             var busy = editor.IsPlayingScene() || editor.GetResourceFilesystem()?.IsScanning() == true;
             if (!_timer.ShouldQuit(Now(), calls, busy))
                 return false;
+            SaveAndQuit($"no tool calls for {_timer.Timeout.TotalSeconds:0}s");
+            return true;
+        }
 
-            GodotMcpLog.Info($"[Godot-MCP] idle shutdown: no tool calls for {_timer.Timeout.TotalSeconds:0}s, saving and quitting.");
+        /// <summary>
+        /// Main thread only. Saves every open scene that has a path (untitled ones have nowhere to go) and the external
+        /// resources they edited, removes this editor's CLI lease and quits.
+        /// </summary>
+        public static void SaveAndQuit(string reason)
+        {
+            GodotMcpLog.Info($"[Godot-MCP] closing the CLI session ({reason}): saving and quitting.");
             try
             {
-                // Saves every open scene that has a path (untitled ones are skipped) and the external resources they edited.
-                editor.SaveAllScenes();
+                EditorInterface.Singleton.SaveAllScenes();
             }
             catch (Exception e)
             {
-                GodotMcpLog.Error($"[Godot-MCP] idle shutdown: saving failed, quitting anyway: {e.Message}");
+                GodotMcpLog.Error($"[Godot-MCP] saving failed, quitting anyway: {e.Message}");
             }
-            tree.Quit();
-            return true;
+            RemoveOwnLease();
+            ((SceneTree)Engine.GetMainLoop()).Quit();
+        }
+
+        /// <summary>Remove <c>.ai-game-dev/session.json</c> when it is this editor's (same <c>AIGD_SESSION_NONCE</c>).</summary>
+        public static void RemoveOwnLease()
+        {
+            var nonce = OS.GetEnvironment(GodotMcpEnv.SessionNonce);
+            if (nonce.Length > 0 && SessionLease.DeleteIfOwned(ProjectSettings.GlobalizePath("res://"), nonce))
+                GodotMcpLog.Info("[Godot-MCP] removed the CLI session lease.");
         }
 
         /// <summary>Engine uptime as a timestamp: unlike the wall clock, a system clock change cannot fire or stall the timer.</summary>

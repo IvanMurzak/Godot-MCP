@@ -71,7 +71,7 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
     id: 'script',
     title: 'Script',
-    summary: 'Read, create, update, delete, and attach GDScript / C# scripts.',
+    summary: 'Read, create, update, delete, and attach GDScript / C# scripts, and run C# in the editor.',
     tools: [
       { name: 'script-read', description: 'Read the source of a script file.' },
       { name: 'script-create', description: 'Create a new script file.' },
@@ -79,6 +79,11 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
       { name: 'script-validate', description: 'Validate GDScript (.gd) files and return structured parse/compile diagnostics.' },
       { name: 'script-delete', description: 'Delete a script file.' },
       { name: 'script-attach-to-node', description: 'Attach a script to a node in the scene.' },
+      {
+        name: 'script-execute',
+        description:
+          'Compile and run C# in the editor (Roslyn): plain statements with the last expression as the result, or a class with a static method; returns the result and what the code printed (GD.Print).',
+      },
     ],
   },
   {
@@ -135,6 +140,17 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
     summary: 'Liveness check — confirm the MCP connection to the Godot editor is alive.',
     tools: [
       { name: 'ping', description: 'Return `pong` (or the echoed message) to confirm connectivity.' },
+    ],
+  },
+  {
+    id: 'session',
+    title: 'Session',
+    summary: 'Editors started by godot-cli (exec / open --headless): close them gracefully.',
+    tools: [
+      {
+        name: 'session-close',
+        description: 'Save and quit an editor started by godot-cli; needs the nonce of that session from .ai-game-dev/session.json.',
+      },
     ],
   },
   {

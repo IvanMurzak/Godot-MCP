@@ -52,13 +52,13 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
     expect(addonFamilies).toContain('RuntimeErrors');
   });
 
-  it('discovers exactly the catalog families (8 since RQL replaced the node/scene/resource/filesystem/editor families)', () => {
+  it('discovers exactly the catalog families (9: RQL replaced the node/scene/resource/filesystem/editor families; session added for CLI-started editors)', () => {
     // Compound `Tool_<Seg1>_<Seg2>` classes resolve to their first segment (covered by the synthetic tests
     // below); the shipped addon has none since the RQL migration removed `Tool_Editor_Selection`.
     const addonFamilies = discoverAddonToolFamilies(REPO_ROOT);
     expect(addonFamilies).toContain('Rql');
     expect(addonFamilies).toEqual(catalogToolFamilyClassSuffixes());
-    expect(addonFamilies).toHaveLength(8);
+    expect(addonFamilies).toHaveLength(9);
   });
 
   describe('discovery robustness against compound + misattributed [AiToolType] classes', () => {
@@ -214,14 +214,14 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
     expect(addonIds).toContain('script-validate');
   });
 
-  it('discovers exactly 21 addon tool ids', () => {
+  it('discovers exactly 23 addon tool ids', () => {
     // Anchors the ground-truth count so an addon tool added/removed without a
     // catalog update is caught here too (not only by the set-equality assert).
-    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(21);
+    expect(discoverAddonToolIds(REPO_ROOT)).toHaveLength(23);
   });
 
-  it('the CLI catalog advertises exactly 21 tools', () => {
-    expect(catalogToolIds()).toHaveLength(21);
+  it('the CLI catalog advertises exactly 23 tools', () => {
+    expect(catalogToolIds()).toHaveLength(23);
   });
 
   it('catalog tool ids exactly match the addon `*ToolId` constants (no per-tool drift)', () => {
@@ -276,8 +276,8 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   }
 
   it('expected counts derive non-vacuously from the addon source', () => {
-    expect(expectedToolCount).toBe(21);
-    expect(expectedFamilyCount).toBe(8);
+    expect(expectedToolCount).toBe(23);
+    expect(expectedFamilyCount).toBe(9);
   });
 
   const countDocs = [

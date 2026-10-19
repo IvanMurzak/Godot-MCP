@@ -43,7 +43,7 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **21 built-in Tools** — [MCP Tools](#tools-reference) across 8 families for operating the Godot Editor, led by [RQL](docs/rql.md): one query language for the whole editor
+- ✔️ **23 built-in Tools** — [MCP Tools](#tools-reference) across 9 families for operating the Godot Editor, led by [RQL](docs/rql.md): one query language for the whole editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
 - ✔️ **Scene & Node control** — Query and edit the scene tree, Godot properties (GDScript variables included), `.tscn` scenes and `.tres`/`.res` resources with RQL — bulk, all-or-nothing, undoable
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
@@ -128,7 +128,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **21 built-in tools** grouped into **8 families**. The editor's data layer is
+Godot-MCP ships **23 built-in tools** grouped into **9 families**. The editor's data layer is
 [RQL](docs/rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` and `rql-schema` read and change scene
 nodes, Godot properties, resources, files, scenes and editor state in one query instead of one tool per operation
 (they replace the former `node-*`, `scene-*`, `resource-*`, `filesystem-*` and `editor-*` tools; in the editor also
@@ -143,11 +143,12 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `classes`, `console`, `editor` sources; `godot.find` / `godot.resources` / `godot.resource`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, plus attaching a script to a node and validating GDScript. |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-execute` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, attaching a script to a node, validating GDScript, and running C# in the editor ([Code-Exec](https://github.com/IvanMurzak/Code-Exec)). |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). In the editor, the RQL `console` source. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet. In the editor, RQL `call` / `CallMethod` and `rql-schema`. |
 | **skills** | `godot-skill-create`, `godot-skill-generate` | Author a new MCP tool as a C# file in the project, and regenerate the `SKILL.md` files from the tools the editor currently has registered. **System tools** — reachable over the server's `/api/system-tools/` HTTP surface (like `ping`), not advertised to AI agents in `tools/list`. |
+| **session** | `session-close` | Save and quit an editor started by `godot-cli exec` / `open --headless` (`godot-cli close --owned-only`). **System tool**, and only for that CLI session (its lease nonce). |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | Poll errors raised inside the **running game** (NOT the editor) — GDScript runtime errors, `push_error`/`push_warning`, shader errors, and C# unhandled / unobserved-`Task` exceptions, with multi-frame GDScript backtraces on Godot 4.5+. **OFF by default** — opt in with `builder.WithRuntimeErrorCapture()`. |
 
 **ping**
@@ -172,6 +173,11 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `script-delete` — Delete a script file.
 - `script-attach-to-node` — Attach a script to a node.
 - `script-validate` — Validate GDScript (.gd) files and return structured parse/compile diagnostics.
+- `script-execute` — Compile and run C# in the editor (Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+  plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a
+  static method. The game's compiled types are visible; `include` adds helper `.cs` files from
+  `<project>/.ai-game-dev/snippets`. Returns the value plus what the code printed (`GD.Print`; push_warning /
+  push_error on Godot 4.5+). From a terminal: `godot-cli exec '1 + 2'`.
 
 **screenshot**
 
@@ -191,6 +197,12 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 
 - `reflection-method-find` — Find C# methods (including private) across every loaded assembly.
 - `reflection-method-call` — Call any C# method with input parameters and get the result.
+
+**session** (system tool — served on `/api/system-tools/`, not advertised to AI agents)
+
+- `session-close` — Save and quit an editor started by `godot-cli` (`exec`, `open --headless`): open scenes that have
+  a file and the resources they changed. Needs that session's nonce from `.ai-game-dev/session.json`, so it never
+  closes a user's editor; `godot-cli close --owned-only` calls it.
 
 **runtime-errors** (in-game; **OFF by default** — enable with `builder.WithRuntimeErrorCapture()`)
 
@@ -279,7 +291,7 @@ On a successful load the editor Output panel prints:
 
 ## Step 2: Add the NuGet packages + the extension catalog embed
 
-Add the three `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
+Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
 `.csproj` (use these exact pinned versions — they must match the addon's `Godot-MCP.csproj`):
 
 ```xml
@@ -287,6 +299,9 @@ Add the three `PackageReference`s **and** the extension-catalog `<EmbeddedResour
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
   <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.0" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" />
 </ItemGroup>
 
 <!-- Embed the extension catalog so the Extensions panel populates (else it is EMPTY). -->
@@ -300,6 +315,9 @@ Add the three `PackageReference`s **and** the extension-catalog `<EmbeddedResour
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.3` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.9.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.1.1` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.2.0` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.2.0` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
+| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
 registry reads the catalog at editor runtime via `GetManifestResourceStream` (no `res://` / filesystem

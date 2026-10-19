@@ -7,7 +7,9 @@ import {
   resolveProjectPath as libResolveProjectPath,
   isGodotProjectDir as libIsGodotProjectDir,
 } from '../lib/open.js';
-import { resolveOpenAuthToken } from '../utils/connection.js';
+import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
+import { createGodotSession, ensureEditor } from '../lib/session.js';
+import { parsePositiveIntFlag } from './exec.js';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
 
 export interface ResolveProjectPathResult {
@@ -49,6 +51,9 @@ export const openCommand = new Command('open')
   .option('--auth <option>', 'Auth option: None or Required (sets GODOT_MCP_AUTH_OPTION)')
   .option('--mode <mode>', 'Connection mode: Cloud or Custom (sets GODOT_MCP_CONNECTION_MODE)')
   .option('--log-level <level>', 'Log level: Trace/Debug/Info/Warning/Error/None (sets GODOT_MCP_LOG_LEVEL)')
+  .option('--headless', "Start a windowless editor on the project's local MCP server and wait until it is ready (reuses a running one)")
+  .option('--idle-timeout <seconds>', 'With --headless: the started editor quits after this many seconds without tool calls (0 = never)', '300')
+  .option('--ready-timeout <ms>', 'With --headless: how long to wait for the editor to become ready', '300000')
   .action(
     async (
       positionalPath: string | undefined,
@@ -64,6 +69,9 @@ export const openCommand = new Command('open')
         auth?: string;
         mode?: string;
         logLevel?: string;
+        headless?: boolean;
+        idleTimeout?: string;
+        readyTimeout?: string;
       },
     ) => {
       const { projectPath, usedCwdFallback } = resolveOpenProjectPath(
@@ -103,6 +111,24 @@ export const openCommand = new Command('open')
         ui.error('--mode must be "Cloud" or "Custom"');
         process.exit(1);
       }
+
+      if (options.headless) {
+        await openHeadless(projectPath, options);
+        return;
+      }
+
+      // A headless editor this CLI started holds the project: close it so the windowed one can open.
+      const session = createGodotSession({ projectPath, ...resolveSessionConnection({}) }).session;
+      const prepared = await session.prepareWindowOpen();
+      if (prepared.kind === 'already-open') {
+        ui.success(`The editor started by godot-cli already runs with a window (PID ${prepared.pid})`);
+        process.exit(0);
+      }
+      if (prepared.kind === 'still-running') {
+        ui.error(`The headless editor started by godot-cli (PID ${prepared.pid}) did not quit; run \`godot-cli close --owned-only --force\`.`);
+        process.exit(1);
+      }
+      if (prepared.stoppedPid !== undefined) verbose(`Closed the headless editor (PID ${prepared.stoppedPid})`);
 
       // In Cloud mode with no explicit --token / GODOT_MCP_TOKEN, inject the
       // token persisted by `godot-cli login` so `open --mode Cloud` auto-connects.
@@ -203,3 +229,35 @@ export const openCommand = new Command('open')
       verbose(`Resolved project path: ${path.resolve(result.projectPath)}`);
     },
   );
+
+/** `open --headless`: a ready windowless editor on the project's local server (cli-core EditorSession). */
+async function openHeadless(
+  projectPath: string,
+  options: { url?: string; token?: string; editorPath?: string; build?: boolean; idleTimeout?: string; readyTimeout?: string },
+): Promise<void> {
+  const idleSeconds = parsePositiveIntFlag(options.idleTimeout, '--idle-timeout', 300, true);
+  const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout', 300_000);
+  const spinner = ui.startSpinner('Connecting...');
+  const result = await ensureEditor({
+    projectPath,
+    ...resolveSessionConnection(options),
+    ...(options.editorPath ? { editorPath: options.editorPath } : {}),
+    build: options.build !== false,
+    idleSeconds,
+    readyTimeoutMs,
+    onStatus: (message) => {
+      verbose(message);
+      spinner.text = message;
+    },
+  });
+  if (result.kind === 'failure') {
+    spinner.error(result.reason === 'not-ready' ? 'The editor did not become ready' : 'Could not start the Godot editor');
+    ui.error(result.message);
+    process.exit(1);
+  }
+  const { ensured, godot } = result;
+  const pid = ensured.lease?.pid;
+  const what = ensured.source === 'started' ? 'Started a headless Godot editor' : 'A Godot editor is already running for this project';
+  spinner.success(`${what}${pid !== undefined ? ` (PID ${pid})` : ''}; MCP server ready at ${godot.url}`);
+  if (ensured.source === 'started' && idleSeconds > 0) ui.info(`It quits after ${idleSeconds}s without tool calls.`);
+}
