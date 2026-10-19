@@ -13,6 +13,7 @@ from __future__ import annotations
 import pathlib
 import re
 import struct
+import time
 import zlib
 
 from smoke_rql_lib import check, disk, file_has, file_text, must, mutate, node_line, q, query, tool
@@ -734,6 +735,9 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
                                                           "content": "extends Node3D\n\nfunc _on_enemy_died():\n\tpass\n"}))
     must("G0 attach player script", tool(host, "script-attach-to-node", {"nodeRef": "Player", "scriptPath": "res://scenes/player.gd"}))
     must("G0 game script", tool(host, "script-create", {"scriptPath": "res://scenes/game.gd", "content": "extends Node\n"}))
+    # New scripts start the editor's script-class update over the next frames; on Godot 4.4 a scene or resource
+    # operation arriving while it runs ("Task 'update_scripts_classes' already exists") can hang the headless editor.
+    time.sleep(3)
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
