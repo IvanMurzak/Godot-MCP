@@ -267,6 +267,8 @@ def main() -> int:
     ap.add_argument("--project", required=True, type=pathlib.Path, help="Godot project root open in the editor")
     ap.add_argument("--dir", default="res://rql_smoke", help="res:// folder of the read-back cases; each run uses a fresh subfolder")
     ap.add_argument("--wait", type=float, default=120, help="seconds to wait for the editor's tools to answer")
+    ap.add_argument("--require-test-hooks", action="store_true",
+                    help="fail instead of skipping the undo checks when the editor runs without GODOT_MCP_RQL_TEST_HOOKS=1")
     a = ap.parse_args()
     host, project = a.host.rstrip("/"), a.project
     if not wait_ready(host, a.wait):
@@ -275,7 +277,7 @@ def main() -> int:
     d = f"{a.dir.rstrip('/')}/{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() // 1_000_000 % 1000:03d}"
     schema_checks(host)
     property_round_trips(host, project, d)
-    smoke_rql_models.run(host, project, d)
+    smoke_rql_models.run(host, project, d, a.require_test_hooks)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

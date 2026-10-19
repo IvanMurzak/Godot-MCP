@@ -111,10 +111,12 @@ def node(name: str) -> str:
 # ------------------------------------------------------------------ cases
 
 
-def run(host: str, project: pathlib.Path, d: str) -> None:
+def run(host: str, project: pathlib.Path, d: str, require_hooks: bool = False) -> None:
     ok, _ = query(host, 'test.action("global")')
     HOOKS["on"] = ok
     print(f"[INFO] undo test hooks {'on' if ok else 'OFF (set GODOT_MCP_RQL_TEST_HOOKS=1)'}", flush=True)
+    if require_hooks:
+        check("undo test hooks on (GODOT_MCP_RQL_TEST_HOOKS=1 in the editor)", ok)
     schema(host)
     existing_adapters(host, project, d)
     undo_of_node_edits(host, project, d)
