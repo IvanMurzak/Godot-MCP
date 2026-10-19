@@ -1,0 +1,32 @@
+addons/godot_mcp/Editor/Connection/GodotAccountAuth.cs
+  s_5b742bf37a2587::t_47f6711da3e7a8 300-424
+  s_5b742bf37a2587::t_c934bb98373b75 530-533,539-540,543-554
+  s_5b742bf37a2587::t_27254527e419f7 126-132,139,145-149,151-152
+  s_5b742bf37a2587::t_06f0c380f3b204 256-258,265,267,271-276
+  s_5b742bf37a2587::t_673049cf5f3b28 170-171,179
+  s_5b742bf37a2587::t_ff486a1e56886f 277-279
+  s_5b742bf37a2587::t_e803a10547db45 280
+addons/godot_mcp/Editor/UI/ConnectionPanelView.cs
+  s_5b742bf37a2587::t_e3c4e06f4e3860 216-218
+Godot-MCP.Tests/GodotAccountAuthTests.cs
+  s_5b742bf37a2587::t_be2fcf1baabfdb 403-432,434-476,478-513,516-523,526-576
+  s_5b742bf37a2587::t_ec997e07662aa9 634-638,642-667
+  s_5b742bf37a2587::t_5ff8223c8332aa 433,477,514-515
+  s_5b742bf37a2587::t_32ac303bc574e6 577
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4998e4f2f42b8b7da30dd01a3af2c38fd0cc70f4",
+  "prompts": {},
+  "sessions": {
+    "s_5b742bf37a2587": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba723765-770d-456d-823d-c53d8073ed95",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+.github/workflows/test_pull_request.yml
+  s_c7987960245c7b::t_bc36905c77fe93 43-45
+.github/workflows/test_cli_e2e_install.yml
+  s_c7987960245c7b::t_1c5dbc83514b7e 64-65,68-74
+  s_c7987960245c7b::t_33eefc92df8689 174-181
+  s_c7987960245c7b::t_d1618db232ead7 353-355,363-365
+  s_c7987960245c7b::t_04fb177f6f5bd0 89-92
+  s_c7987960245c7b::t_2734be72b8758a 61-63,66-67,141,149,183,195,211,224,244,285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5ca83b00344be3ff357d0a973c3615c848d3ec98",
+  "prompts": {},
+  "sessions": {
+    "s_c7987960245c7b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "370aad94-9c8a-4b3c-a63d-4982a83a2756",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_88692866f8a457::t_aa11ddf7a72175 1118-1127,1133,1140-1141,1149-1160
+addons/godot_mcp/Connection/GodotMcpConfigJsonContext.cs
+  s_88692866f8a457::t_a7d4c23195cb59 1-39
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_88692866f8a457::t_5bbee6e3a3647e 408-412,414
+  s_88692866f8a457::t_36c9a0f04e647d 237,247
+  s_88692866f8a457::t_4d9a7a6501f637 391-407
+  s_88692866f8a457::t_ddb1429ee02cfe 413
+addons/godot_mcp/Connection/GodotMcpConfigStore.cs
+  s_88692866f8a457::t_785f85887a505a 72,99
+addons/godot_mcp/Connection/GodotMcpStjReflectionCache.cs
+  s_88692866f8a457::t_0bf17cd3886f48 1-56,60-65,78,82-83,89,92,94,98,101,103-104,106-107,109-111,113-117
+  s_88692866f8a457::t_94631498e792f9 57-59,66-77,79-81,84-88,90-91,93,95-97,99-100,102,105,108,112
+addons/godot_mcp/Connection/GodotMcpConfig.cs
+  s_88692866f8a457::t_3ceb02c7ced778 65,68,71,74,80,88
+Godot-MCP.Tests/GodotMcpConfigJsonContextTests.cs
+  s_88692866f8a457::t_806606ab888cc8 1-74
+Godot-MCP.csproj
+  s_88692866f8a457::t_b2adfc842286dd 20
+addons/godot_mcp/GodotMcpEnv.cs
+  s_88692866f8a457::t_10f2e594472192 1-46,48-50
+  s_88692866f8a457::t_9c8041ddc0ad74 47
+Godot-MCP.Tests/GodotMcpStjReflectionCacheTests.cs
+  s_88692866f8a457::t_070eb5b78f5142 1-27,29,36-43,54-61
+  s_88692866f8a457::t_63e8aae6b50dae 28,30-35,44-53
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_88692866f8a457::t_6be41eca781ff6 65
+  s_88692866f8a457::t_1dc0d31f4986ec 66
+  s_88692866f8a457::t_aa7342ec5af0f7 55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "a1a2dd0bdb32fb0fc998df34072341f75a1b2c8a",
+  "prompts": {},
+  "sessions": {
+    "s_88692866f8a457": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2977a50-af66-49ec-9bc3-af770d89759d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
