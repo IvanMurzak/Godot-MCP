@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
@@ -8,6 +7,7 @@ import {
   HttpTokenRefresher,
   godotAdapter,
   effectiveFamilies,
+  ensureAiGameDevGitignore,
   MACHINE_STORE_DIR_NAME,
   DEFAULT_CLOUD_BASE_URL,
   type MachineCredentials,
@@ -80,25 +80,7 @@ export function openProjectStore(projectPath: string): MachineCredentialStore {
  * version-controllable. Idempotent and best-effort — a failure never blocks persisting.
  */
 export function ensureProjectStoreGitignored(projectPath: string): void {
-  const entries = ['credentials.json', 'credentials.lock', 'credentials.lock.takeover'];
-  try {
-    const dir = resolveProjectStoreDir(projectPath);
-    fs.mkdirSync(dir, { recursive: true });
-    const gitignorePath = path.join(dir, '.gitignore');
-    if (!fs.existsSync(gitignorePath)) {
-      fs.writeFileSync(gitignorePath, entries.join('\n') + '\n');
-      return;
-    }
-    const existing = fs.readFileSync(gitignorePath, 'utf-8');
-    const lines = existing.split(/\r?\n/).map((l) => l.trim());
-    const missing = entries.filter((e) => !lines.includes(e));
-    if (missing.length > 0) {
-      const prefix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
-      fs.appendFileSync(gitignorePath, `${prefix}${missing.join('\n')}\n`);
-    }
-  } catch {
-    // Best-effort only — never fail a login over a .gitignore write.
-  }
+  ensureAiGameDevGitignore(projectPath, ['credentials.json', 'credentials.lock', 'credentials.lock.takeover']);
 }
 
 /** Options for {@link createMachineCredentialProvider}. */

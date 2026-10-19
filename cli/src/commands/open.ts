@@ -10,7 +10,6 @@ import {
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
 import type { EditorSession } from '@baizor/gamedev-cli-core';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
-import { isLocalhostUrl } from '../utils/project-marker.js';
 import { parsePositiveIntFlag } from '../utils/input.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
@@ -120,11 +119,11 @@ export const openCommand = new Command('open')
         return;
       }
 
-      // A headless editor this CLI started holds the project: close it so the windowed one can open.
-      const local = options.url !== undefined && isLocalhostUrl(options.url) ? { url: options.url } : {};
+      // A headless editor this CLI started holds the project: close it so the windowed one can open (its lease
+      // names the server it runs on, so `--url` — this open's connection, possibly remote — is not needed here).
       let prepared: Awaited<ReturnType<EditorSession<string>['prepareWindowOpen']>>;
       try {
-        prepared = await createGodotSession({ projectPath, ...resolveSessionConnection({ ...local, token: options.token }) }).session.prepareWindowOpen();
+        prepared = await createGodotSession({ projectPath, ...resolveSessionConnection({ token: options.token }) }).session.prepareWindowOpen();
       } catch (err) {
         ui.error(err instanceof Error ? err.message : String(err));
         process.exit(1);
@@ -264,9 +263,9 @@ async function openHeadless(
     ui.error(result.message);
     process.exit(1);
   }
-  const { ensured, godot } = result;
+  const { ensured } = result;
   const pid = ensured.lease?.pid;
   const what = ensured.source === 'started' ? 'Started a headless Godot editor' : 'A Godot editor is already running for this project';
-  spinner.success(`${what}${pid !== undefined ? ` (PID ${pid})` : ''}; MCP server ready at ${godot.url}`);
+  spinner.success(`${what}${pid !== undefined ? ` (PID ${pid})` : ''}; MCP server ready at ${ensured.ready}`);
   if (ensured.source === 'started' && idleSeconds > 0) ui.info(`It quits after ${idleSeconds}s without tool calls.`);
 }

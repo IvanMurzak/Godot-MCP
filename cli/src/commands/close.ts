@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { platform as nodePlatform } from 'os';
@@ -70,7 +70,8 @@ export const closeCommand = new Command('close')
   .option('--timeout <seconds>', `Polite-quit timeout in seconds (default: ${DEFAULT_TIMEOUT_SECONDS})`, String(DEFAULT_TIMEOUT_SECONDS))
   .option('--force', 'Hard-kill the editor if it does not exit within --timeout')
   .option('--owned-only', 'Close only an editor started by godot-cli (exec / open --headless); never a user editor')
-  .option('--url <url>', 'With --owned-only: the local MCP server of that editor (default: the project local port)')
+  // Hidden fallback: a lease written by godot-cli 0.30.0 (cli-core 0.7.0) does not record the editor's server.
+  .addOption(new Option('--url <url>', 'With --owned-only: the local MCP server of that editor, for a lease without one').hideHelp())
   .option('--token <token>', 'With --owned-only: bearer token (default: GODOT_MCP_TOKEN)')
   .action(async (positionalPath: string | undefined, options: CloseOptions) => {
     const projectPath = resolveCloseProjectPath(positionalPath, process.cwd());

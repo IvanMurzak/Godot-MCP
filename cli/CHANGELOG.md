@@ -4,6 +4,17 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Editor sessions on `@baizor/gamedev-cli-core` 0.7.1.** The pre-launch C# build of `exec` / `open --headless`
+  runs in the session's `beforeLaunch` hook, under its heartbeated startup lock and only when the call starts the
+  editor: parallel cold calls build once (the CLI's own `.ai-game-dev/build.lock` is gone). The lease records the
+  server URL and connection mode; while cli-core verifies that lease live (same host, pid and process start time),
+  `exec` / `open --headless` talk to that server whatever `--url` / `GODOT_MCP_HOST` say (a crashed editor's lease
+  is never followed), and `close --owned-only` / a windowed `open` send `session-close` there with the lease's nonce
+  (`close --url` is now a hidden fallback for a lease written by 0.30.0). A user's editor that does not answer is
+  reported after the session's own `foreign` wait (now 60 s, as in unity-mcp-cli). An editor started by another
+  call that does not answer is no longer stopped (that call may still wait for it). The session files are listed
+  in `.ai-game-dev/.gitignore`. Library: `createGodotSession` and the `GodotSession` type are exported;
+  `GodotSession.probe` is removed (the session probes itself).
 - **`exec`: run C# in the editor.** `godot-cli exec '<code>'` (or `-f <file>` / stdin, repeatable `--using` /
   `--include`) calls the addon's new `script-execute` tool. A running editor of the project is reused; otherwise the
   C# assembly is built and a **headless** editor starts (`--window` for a GUI one) on the project's local server,

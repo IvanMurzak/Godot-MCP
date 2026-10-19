@@ -185,14 +185,17 @@ at the snippet's line (`snippet.cs(2,12)`) and exits 1.
 - **None running:** the C# assembly is built, then a **headless** editor starts (`--headless --editor --path`, or a
   window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`),
   which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without
-  tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls start one editor;
-  a user's editor whose local server does not answer is waited for 20 s, then reported.
+  tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls build once and
+  start one editor; a user's editor whose local server does not answer is waited for up to 60 s, then reported.
 - `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves
   and quits it (through the plugin's `session-close` tool — never a user's editor).
 
 Sessions use [`@baizor/gamedev-cli-core`](https://www.npmjs.com/package/@baizor/gamedev-cli-core) `EditorSession`:
 the lease `<project>/.ai-game-dev/session.json` marks an editor as started by the CLI (only such an editor is ever
-closed), and `<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor. The editor receives
+closed) and records the server it runs on: while that editor provably lives, later `exec` / `open` / `close` calls
+use that server, whatever `--url` says.
+`<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor: the C# build runs under it, only in the
+call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.gitignore`. The editor receives
 `AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`,
 `GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call),
 `--no-build`, `--editor-path`, `--token`, `--raw`.
