@@ -6,6 +6,8 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Tests</RootNamespace>
     <AssemblyName>Godot-MCP.Tests</AssemblyName>
+    <!-- Editor-only pure sources (script-execute) are guarded `#if TOOLS || GODOT_MCP_UNIT_TESTS`. -->
+    <DefineConstants>$(DefineConstants);GODOT_MCP_UNIT_TESTS</DefineConstants>
     <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
          exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
          none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live
@@ -46,6 +48,9 @@
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.0" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -200,6 +205,15 @@
          not here. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptInfo.cs" Link="Source\ScriptInfo.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptLang.cs" Link="Source\ScriptLang.cs" />
+    <!-- script-execute — pure-managed pieces (mode detection, game-assembly path, snippet-type check, error text) and its
+         result model; the Code-Exec packages + the source-only Roslyn adapter run real snippets here. The editor handler
+         (Tool_Script.Execute.cs) and the GD.Print capture are #if TOOLS and verified via the headless Godot smoke. The
+         idle-shutdown timer (CLI-started editors) is pure as well. -->
+    <Compile Include="..\addons\godot_mcp\Editor\Tools\ScriptExecuteSource.cs" Link="Source\ScriptExecuteSource.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Tools\SnippetAssemblyHost.cs" Link="Source\SnippetAssemblyHost.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />
     <!-- script-validate diagnostics — pure-managed (no Godot native types, no #if TOOLS): the diagnostic
          result models (ScriptDiagnostic / ScriptDiagnosticsResult + their enums) and the ScriptErrorCapture
          router that classifies + routes engine-error callbacks (passive log capture + on-demand validation

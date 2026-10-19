@@ -37,7 +37,7 @@ interface CliOptions {
   timeout?: string;
 }
 
-interface FailureContext {
+export interface FailureContext {
   toolName: string;
   endpoint: string;
   raw: boolean | undefined;
@@ -148,7 +148,7 @@ function handleFailure(failure: RunToolFailure, ctx: FailureContext): never {
   process.exit(1);
 }
 
-function buildFailureMessage(failure: RunToolFailure, ctx: FailureContext): string {
+export function buildFailureMessage(failure: RunToolFailure, ctx: FailureContext): string {
   switch (failure.reason) {
     case 'timeout':
       return `${capitalize(ctx.errorNoun)} call timed out after ${ctx.timeoutMs / 1000} seconds: ${ctx.toolName}`;

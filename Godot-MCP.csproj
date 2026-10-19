@@ -19,6 +19,9 @@
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.0" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
   <!--

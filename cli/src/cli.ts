@@ -6,6 +6,7 @@
 
 export { loginCommand } from './commands/login.js';
 export { openCommand } from './commands/open.js';
+export { execCommand } from './commands/exec.js';
 export { runToolCommand } from './commands/run-tool.js';
 export { runSystemToolCommand } from './commands/run-system-tool.js';
 export { statusCommand } from './commands/status.js';

@@ -16,6 +16,7 @@ import { createUpdateCommand } from './commands/update.js';
 import { installPluginCommand } from './commands/install-plugin.js';
 import { installExtensionCommand } from './commands/install-extension.js';
 import { removePluginCommand } from './commands/remove-plugin.js';
+import { execCommand } from './commands/exec.js';
 import { configureStyledHelp, error as uiError, setVerbose } from './utils/ui.js';
 import { checkForUpdate, isRunningViaNpx, printUpdateNotification } from './utils/update-check.js';
 
@@ -36,6 +37,7 @@ const subcommands = [
   closeCommand,
   configureCommand,
   createProjectCommand,
+  execCommand,
   installPluginCommand,
   installExtensionCommand,
   loginCommand,

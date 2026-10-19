@@ -807,6 +807,18 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _serverManager.StopServer();
                 return;
             }
+            StartServer();
+        }
+
+        /// <summary>
+        /// Start the local server unless it is already running or starting — the Start half of
+        /// <see cref="OnServerStartStopPressed"/>, also used by the plugin when <c>GODOT_MCP_START_SERVER</c> asks for
+        /// it (CLI-launched headless editors).
+        /// </summary>
+        public void StartServer()
+        {
+            if (_serverManager.Status != GodotMcpServerStatus.Stopped)
+                return;
 
             var port = _connection.ResolveLocalServerPort();
             var timeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultTimeoutMs;

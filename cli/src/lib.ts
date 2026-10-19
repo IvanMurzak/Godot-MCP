@@ -14,6 +14,10 @@
 // via the `exports` field in package.json).
 
 export { openProject } from './lib/open.js';
+export { execCode, readToolResponse, buildScriptExecuteInput, SCRIPT_EXECUTE_TOOL } from './lib/exec.js';
+export type { ExecCodeOptions, ExecCodeResult, ExecCodeSuccess, ExecCodeFailure } from './lib/exec.js';
+export { ensureEditor, SESSION_CLOSE_TOOL } from './lib/session.js';
+export type { GodotSessionOptions, EnsureEditorOptions, EnsureEditorResult } from './lib/session.js';
 export { buildProject } from './lib/build.js';
 export { createProject } from './lib/create-project.js';
 export { runTool, runSystemTool } from './lib/run-tool.js';
