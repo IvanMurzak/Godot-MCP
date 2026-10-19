@@ -3,9 +3,9 @@
 Live smoke of `script-execute` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
 
 Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
-API, GD.Print / GD.PushWarning and Console captured into the result, the plugin's live statics with a single copy of
-the game assembly and GodotSharp, `await`, full-source mode, a compile error at the snippet's
-own line, a runtime error, `include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
+API, GD.Print / GD.PushWarning and Console captured into the result, the plugin's live statics with one copy of the
+game assembly and GodotSharp, `await`, full-source mode, a compile error at the snippet's own line, a runtime error,
+`include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
 
 It does NOT launch anything (or use `godot-cli exec`, which does):
 

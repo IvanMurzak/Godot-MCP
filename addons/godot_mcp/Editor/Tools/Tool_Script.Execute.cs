@@ -199,8 +199,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         static CodeRunner Create(string projectRoot)
         {
             var binRoot = Path.Combine(projectRoot, ".godot", "mono", "temp", "bin");
-            // Code-Exec's default host binds snippets to the assemblies the editor already runs (the live game assembly and
-            // GodotSharp) before the default context is asked, where GodotMcpAssemblyResolver would load second copies.
+            // The default host binds snippets to the LIVE game assembly and GodotSharp (Code-Exec 0.2.1+), never to the
+            // second copies GodotMcpAssemblyResolver would load into the default context.
             return new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
             {
                 DefaultUsings = ScriptExecuteSource.DefaultUsings,
