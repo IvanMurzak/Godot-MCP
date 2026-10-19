@@ -53,6 +53,23 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         public const string ServerPath = "GODOT_MCP_SERVER_PATH";
 
+        /// <summary>
+        /// <c>true</c> / <c>1</c>: in Custom mode the editor starts its local MCP server on boot, as if the dock's
+        /// Start button were pressed. Set by <c>godot-cli exec</c> / <c>open --start-server</c> for headless editors.
+        /// </summary>
+        public const string StartServer = "GODOT_MCP_START_SERVER";
+
+        // --- CLI-owned editor sessions (shared names across engines; editor-only). ---
+
+        /// <summary>
+        /// Seconds without tool calls after which the editor saves and quits itself. Set by <c>godot-cli exec</c> /
+        /// <c>open --idle-timeout</c>; unset = never (a user's editor is never closed).
+        /// </summary>
+        public const string SessionIdleSeconds = "AIGD_SESSION_IDLE_SECONDS";
+
+        /// <summary><c>cli</c> marks an editor the CLI started; without an idle value it then quits after the default.</summary>
+        public const string SessionOwner = "AIGD_SESSION_OWNER";
+
         // --- Dev-only inject/control bridge (off unless set to "1"). ---
 
         /// <summary>Enables the 127.0.0.1 dev-control HTTP bridge when exactly <c>"1"</c>.</summary>

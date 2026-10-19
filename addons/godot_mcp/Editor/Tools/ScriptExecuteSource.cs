@@ -1,0 +1,127 @@
+/*
+┌──────────────────────────────────────────────────────────────────┐
+│  Author: Ivan Murzak (https://github.com/IvanMurzak)             │
+│  Repository: GitHub (https://github.com/IvanMurzak/Godot-MCP)    │
+│  Copyright (c) 2026 Ivan Murzak                                  │
+│  Licensed under the Apache License, Version 2.0.                 │
+│  See the LICENSE file in the project root for more information.  │
+└──────────────────────────────────────────────────────────────────┘
+*/
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using com.IvanMurzak.CodeExec;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace com.IvanMurzak.Godot.MCP.Tools
+{
+    /// <summary>
+    /// The pure-managed half of <c>script-execute</c> (no Godot API, so it is unit-testable): mode detection, where the
+    /// game assembly lives on disk, which results must be flattened before their snippet unloads, and error text.
+    /// Mirrors Unity-MCP's Script.Execute.cs.
+    /// </summary>
+    public static class ScriptExecuteSource
+    {
+        /// <summary>Usings every snippet gets; Godot's namespace on top of Unity-MCP's System set.</summary>
+        public static readonly IReadOnlyList<string> DefaultUsings = new[]
+        {
+            "System", "System.Collections", "System.Collections.Generic", "System.Linq", "System.Threading.Tasks", "Godot",
+        };
+
+        /// <summary>
+        /// Full mode when the code declares class <paramref name="className"/> (namespace-qualified or not) with a static
+        /// method <paramref name="methodName"/>: returns its runtime type name. Null = run the code as a snippet.
+        /// Code with top-level statements is always a snippet (its own helper types may reuse the name); code with only
+        /// type declarations and none of them the entry point is an error, since as a snippet nothing would run.
+        /// </summary>
+        public static string? FullSourceEntryType(string code, string className, string methodName)
+        {
+            // Parsed as a script, the way the snippet writer reads it: anything but a type or namespace is snippet code.
+            var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
+            if (script.Members.Any(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)))
+                return null;
+            var root = CSharpSyntaxTree.ParseText(code).GetRoot();
+            var types = root.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
+                .OfType<TypeDeclarationSyntax>()
+                .ToList();
+            if (types.Count == 0)
+                return null;
+            foreach (var type in types)
+            {
+                var fullName = RuntimeName(type);
+                if (type.Identifier.Text != className && fullName != className)
+                    continue;
+                if (type.Members.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == methodName && m.Modifiers.Any(SyntaxKind.StaticKeyword)))
+                    return fullName;
+                throw new Exception($"Class '{className}' is declared, but it has no static method '{methodName}'.");
+            }
+            throw new Exception($"'csharpCode' declares no class '{className}' and has no statements to run. " +
+                "Set 'className' / 'methodName' to the entry point, or write plain statements.");
+        }
+
+        static readonly CSharpParseOptions ScriptParseOptions = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Script);
+
+        static string RuntimeName(TypeDeclarationSyntax type)
+        {
+            var name = type.Identifier.Text;
+            for (var parent = type.Parent; parent != null; parent = parent.Parent)
+            {
+                if (parent is TypeDeclarationSyntax outer)
+                    name = outer.Identifier.Text + "+" + name;
+                else if (parent is BaseNamespaceDeclarationSyntax ns)
+                    name = ns.Name + "." + name;
+            }
+            return name;
+        }
+
+        /// <summary>
+        /// The DLL an assembly loaded from memory was built to. Godot loads the game assembly from a stream (empty
+        /// <c>Location</c>), so snippets compile against <c>res://.godot/mono/temp/bin/&lt;configuration&gt;/&lt;name&gt;.dll</c>;
+        /// the newest build wins when several configurations exist. Null when there is none.
+        /// </summary>
+        public static string? BuiltAssemblyPath(string binRoot, string? assemblyName)
+        {
+            if (string.IsNullOrEmpty(assemblyName) || !Directory.Exists(binRoot))
+                return null;
+            return Directory.EnumerateDirectories(binRoot)
+                .Select(dir => Path.Combine(dir, assemblyName + ".dll"))
+                .Where(File.Exists)
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// A type of the snippet's own assembly (or built from one, like <c>List&lt;SnippetType&gt;</c>). Such a result is
+        /// turned into text: serializing it would cache the type and keep the snippet from unloading.
+        /// </summary>
+        public static bool IsSnippetType(Type type)
+        {
+            if (type.Assembly.FullName?.StartsWith(CodeRunner.SnippetAssemblyPrefix, StringComparison.Ordinal) == true)
+                return true;
+            if (type.HasElementType && type.GetElementType() is { } element)
+                return IsSnippetType(element);
+            return type.IsGenericType && type.GetGenericArguments().Any(IsSnippetType);
+        }
+
+        /// <summary>Captured output as lines: <c>message</c> for info, <c>level: message</c> otherwise.</summary>
+        public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
+            logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
+
+        /// <summary>The error text of a failed run: diagnostics in the snippet's coordinates, then auto-imports and output.</summary>
+        public static string Describe(ExecuteResult result)
+        {
+            var text = result.ErrorKind == ErrorKind.Compile
+                ? "Compilation failed:\n" + string.Join("\n", result.Diagnostics.Select(d => d.ToString()))
+                : $"Execution failed ({result.ErrorKind}): {result.Error}";
+            if (result.AutoImported.Count > 0)
+                text += "\nAuto-imported: " + string.Join(", ", result.AutoImported);
+            if (result.Logs.Count > 0)
+                text += "\nOutput:\n" + string.Join("\n", LogLines(result.Logs));
+            return text;
+        }
+    }
+}
