@@ -3,9 +3,10 @@
 Live smoke of `script-execute` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
 
 Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
-API, GD.Print / GD.PushWarning and Console captured into the result, the plugin's live statics with one copy of the
-game assembly and GodotSharp, `await`, full-source mode, a compile error at the snippet's own line, a runtime error,
-`include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
+API, GD.Print / GD.PushWarning (Godot 4.5+ only: the engine logger) and Console captured into the result, the
+plugin's live statics with one copy of the game assembly and GodotSharp, `await`, full-source mode, a compile error at
+the snippet's own line, a runtime error, `include` of a helper, and that snippet assemblies unload (0 live contexts
+after GC).
 
 It does NOT launch anything (or use `godot-cli exec`, which does):
 
@@ -15,14 +16,17 @@ It does NOT launch anything (or use `godot-cli exec`, which does):
 
 `--project` gets a fixture game type (`res://SmokeExec/SmokeExecScore.cs`, namespace SmokeExec) and a snippet helper
 (`.ai-game-dev/snippets/smoke/SmokeHelper.cs`) written before the run: build the project after the first run (or run
-it once, build, start the editor, run again). Use a disposable project. Exit code 0 = every case passed. Stdlib only.
+it once, build, start the editor, run again). `--prepare` only writes them (CI runs it before its C# build). Use a
+disposable project. Exit code 0 = every case passed. Stdlib only.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import pathlib
+import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -31,12 +35,12 @@ HELPER = "public static class SmokeHelper\n{\n    public static int Twice(int v)
 FAILURES: list[str] = []
 
 
-def execute(host: str, args: dict) -> tuple[bool, str]:
+def execute(host: str, args: dict, timeout: float = 180) -> tuple[bool, str]:
     """(succeeded, the tool's text or error)."""
     req = urllib.request.Request(f"{host}/api/tools/script-execute", data=json.dumps(args).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode() or "{}")
     except urllib.error.HTTPError as e:
         raw = e.read().decode()
@@ -51,21 +55,36 @@ def execute(host: str, args: dict) -> tuple[bool, str]:
     return True, "\n".join(c.get("text", "") for c in body.get("content") or [])
 
 
-def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> None:
+def wait_ready(host: str, timeout: float) -> bool:
+    """Poll a trivial snippet until the editor answers (each probe bounded by the time left, at most 30 s)."""
+    deadline = time.monotonic() + timeout
+    while (left := deadline - time.monotonic()) > 0:
+        try:
+            if execute(host, {"csharpCode": "0"}, timeout=min(30, left))[0]:
+                return True
+        except (OSError, ValueError):  # server not reachable yet, the probe timed out, or a non-JSON reply
+            pass
+        time.sleep(1)
+    return False
+
+
+def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> str:
     succeeded, text = execute(host, args)
     missing = [e for e in expected if e not in text]
     status = "PASS" if succeeded == ok and not missing else "FAIL"
     print(f"{status} {name}: {text.splitlines()[0] if text else ''}")
     if status == "FAIL":
         FAILURES.append(f"{name}: succeeded={succeeded} (want {ok}), missing {missing}; got:\n{text}")
+    return text
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--host", required=True, help="MCP server base URL, e.g. http://localhost:8080")
+    parser.add_argument("--host", help="MCP server base URL, e.g. http://localhost:8080 (required unless --prepare)")
     parser.add_argument("--project", required=True, type=pathlib.Path, help="the Godot project the editor has open")
+    parser.add_argument("--prepare", action="store_true", help="only write the fixtures into --project, then exit")
+    parser.add_argument("--wait", type=float, default=0, help="seconds to wait for the editor to answer script-execute")
     args = parser.parse_args()
-    host = args.host.rstrip("/")
 
     game = args.project / "SmokeExec" / "SmokeExecScore.cs"
     helper = args.project / ".ai-game-dev" / "snippets" / "smoke" / "SmokeHelper.cs"
@@ -73,12 +92,27 @@ def main() -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.write_text(text, encoding="utf-8")
+    if args.prepare:
+        return 0
+    if not args.host:
+        parser.error("--host is required unless --prepare")
+    host = args.host.rstrip("/")
+
+    if args.wait > 0 and not wait_ready(host, args.wait):
+        print(f"script-execute never answered on {host} within {args.wait:.0f}s", flush=True)
+        return 1
 
     case(host, "expression", {"csharpCode": "1 + 2"}, True, "System.Int32: 3")
     case(host, "game type + auto-import", {"csharpCode": "SmokeExecScore.Value"}, True, "System.Int32: 77")
-    case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True, "System.String: ", "4.")
-    case(host, "GD.Print captured", {"csharpCode": 'GD.Print("smoke-print"); GD.PushWarning("smoke-warn"); 5'}, True,
-         "System.Int32: 5", "logs:", "smoke-print")
+    version = case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True,
+                   "System.String: ", "4.")
+    # GD.Print / GD.PushWarning reach `logs` only through the engine logger (OS.AddLogger, Godot 4.5+); older engines
+    # capture Console output only (GodotPrintLogCapture), so there the snippet must just succeed.
+    match = re.search(r"System\.String: (\d+)\.(\d+)", version)
+    engine_logger = not match or (int(match[1]), int(match[2])) >= (4, 5)
+    case(host, "GD.Print captured" if engine_logger else "GD.Print (not captured before Godot 4.5)",
+         {"csharpCode": 'GD.Print("smoke-print"); GD.PushWarning("smoke-warn"); 5'}, True,
+         "System.Int32: 5", *(("logs:", "smoke-print") if engine_logger else ()))
     case(host, "Console captured", {"csharpCode": 'Console.WriteLine("smoke-console"); 6'}, True,
          "System.Int32: 6", "logs:", "smoke-console")
     # The addon compiles into the game assembly: a live static set by the plugin, and one copy of it and of GodotSharp
