@@ -452,9 +452,10 @@ use the **Local server** row:
   later launches; it is only re-downloaded when the pinned server version changes (an **exact**
   version match, so the editor plugin and the server it talks to never drift). The server is launched
   on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport,
-  with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`: a tool call is sent to the editor
-  once and may run up to 5 minutes (`script-execute` stops a snippet itself after 2 minutes). Servers built on
-  McpPlugin older than 8.11.0 ignore `tool-timeout`.
+  with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`. A server built on McpPlugin 8.11.0+
+  sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself after
+  2 minutes). Older servers, including the currently pinned one, ignore `tool-timeout`: they re-send a call every
+  10 s and give up after about 110 s; the addon runs each re-sent call only once.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
 > `ServerVersion` constant and your platform RID — there is no arbitrary-URL binary execution. The addon
