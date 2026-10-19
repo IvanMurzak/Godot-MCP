@@ -1,3 +1,4 @@
+import { isNewerVersion } from './semver.js';
 import {
   ADDON_PACKAGE_REFERENCES,
   ADDON_EMBEDDED_RESOURCES,
@@ -143,6 +144,12 @@ export function addAddonPackageReferences(
     const existingVersion = match[1] ?? match[2] ?? '';
     if (existingVersion === ref.version) {
       changes.push({ id: ref.id, action: 'unchanged', version: ref.version });
+      continue;
+    }
+    // A third-party package (Roslyn) the project already uses at a newer version stays: the addon needs "at least"
+    // (the source-only Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade would break the project's own use.
+    if (!ref.id.startsWith('com.IvanMurzak.') && isNewerVersion(ref.version, existingVersion)) {
+      changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
       continue;
     }
     // Reconcile in place: replace the whole element with the canonical pin.

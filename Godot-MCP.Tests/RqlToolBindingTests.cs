@@ -205,6 +205,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("name | count\na | 1\nb | 2", text);
             Assert.Null(shown.StructuredContent);
         }
+
+        [Fact]
+        public void ScriptExecuteResultShowsTheValueThenTheOutput()
+        {
+            var method = typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!;
+            var member = new com.IvanMurzak.ReflectorNet.Model.SerializedMember { name = "result", typeName = "System.Int32" }.SetJsonValue("3");
+            string Show(com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult r) =>
+                string.Join("\n", RqlToolBinding.Instance.Result(method, r)!.Content.Select(c => c.Text));
+
+            Assert.Equal("System.Int32: 3", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = member }));
+            Assert.Equal("System.Int32: 3\nlogs:\nhello\nwarning: careful",
+                Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = member, Logs = new List<string> { "hello", "warning: careful" } }));
+        }
     }
 
     [CollectionDefinition(Name, DisableParallelization = true)]

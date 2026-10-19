@@ -20,6 +20,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using com.IvanMurzak.Godot.MCP.Connection;
+using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.Common.Model;
 using com.IvanMurzak.ReflectorNet.Model;
@@ -324,6 +325,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                     return ResponseCallTool.Success(s);
                 case SerializedMember member:
                     return ResponseCallTool.Success(Render(member));
+                case ScriptExecuteResult script:
+                    // script-execute: the value as a member, then what the code printed.
+                    var shown = script.Result != null ? Render(script.Result) : "null";
+                    if (script.Logs is { Count: > 0 } logs)
+                        shown += "\nlogs:\n" + string.Join("\n", logs);
+                    return ResponseCallTool.Success(shown);
                 default:
                     return OnMain(() =>
                     {

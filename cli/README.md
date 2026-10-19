@@ -67,6 +67,9 @@ godot-cli open ./MyGodotProject
 
 # Wait until the MCP server is ready to accept tool calls
 godot-cli wait-for-ready ./MyGodotProject
+
+# Run C# in the editor — starts a headless editor when none is open, keeps it warm 5 minutes
+godot-cli exec 'EditorInterface.Singleton.GetEditedSceneRoot()?.Name' --path ./MyGodotProject
 ```
 
 Or run any command ad-hoc with `npx` — no global install required:
@@ -83,7 +86,8 @@ npx godot-cli install-plugin /path/to/godot/project
 
 | Command | What it does |
 | --- | --- |
-| `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. |
+| `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)). |
+| `exec [code]` | Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm. |
 | `build [path]` | Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching. |
 | `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. |
 | `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
@@ -93,7 +97,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
 | `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
-| `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). |
+| `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). `--owned-only` closes only an editor `godot-cli` started (`exec` / `open --headless`). |
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
 | `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
@@ -161,6 +165,37 @@ backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` t
 local/self-hosted server explicitly.
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
+
+## `exec`
+
+Run C# in the project's Godot editor (the addon's `script-execute` tool, on [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+
+```bash
+godot-cli exec '1 + 2'                                   # → System.Int32: 3
+godot-cli exec -f snippet.cs --using MyGame.Gameplay      # code from a file ("-" or a pipe: stdin)
+godot-cli exec 'Helper.Twice(21)' --include helpers       # .cs files/folders under <project>/.ai-game-dev/snippets
+```
+
+The code is plain statements; the last expression is the result. The output is the value (`Type: value`) and,
+under `logs:`, what the code printed (`Console`; `GD.Print` / push_warning / push_error with Godot.NET.Sdk 4.5+). A compile error points
+at the snippet's line (`snippet.cs(2,12)`) and exits 1.
+
+- **A running editor of the project** (yours, with a window, or one `godot-cli` started) is reused and never closed.
+  Yours must serve the project's **local** server (dock: Custom mode, server started).
+- **None running:** the C# assembly is built, then a **headless** editor starts (`--headless --editor --path`, or a
+  window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`),
+  which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without
+  tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls start one editor;
+  a user's editor whose local server does not answer is waited for 20 s, then reported.
+- `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves
+  and quits it (through the plugin's `session-close` tool — never a user's editor).
+
+Sessions use [`@baizor/gamedev-cli-core`](https://www.npmjs.com/package/@baizor/gamedev-cli-core) `EditorSession`:
+the lease `<project>/.ai-game-dev/session.json` marks an editor as started by the CLI (only such an editor is ever
+closed), and `<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor. The editor receives
+`AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`,
+`GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call),
+`--no-build`, `--editor-path`, `--token`, `--raw`.
 
 ## `login`
 
@@ -287,7 +322,7 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder --version 1.3.0 
 The package also exports a side-effect-free library (the `.` entry):
 
 ```ts
-import { openProject, runTool, setupMcp, installPlugin, installExtension } from 'godot-cli';
+import { openProject, runTool, setupMcp, installPlugin, installExtension, execCode, ensureEditor } from 'godot-cli';
 
 // The shared extension catalog + lookup helpers are exported too, so a GUI (the app)
 // can render the same list the dock + CLI install from:

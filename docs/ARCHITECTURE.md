@@ -219,7 +219,8 @@ condition in their **own game `.csproj`** (not the addon's):
 ```
 
 If you also want to drop the reused NuGet payload (`com.IvanMurzak.McpPlugin` /
-`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql`) from the published game, guard those `<PackageReference>`s the
+`com.IvanMurzak.ReflectorNet` / `com.IvanMurzak.Rql` / Code-Exec and Roslyn, which only `script-execute` in the editor
+uses) from the published game, guard those `<PackageReference>`s the
 same way:
 
 ```xml
@@ -227,8 +228,15 @@ same way:
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
   <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.0" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" />
 </ItemGroup>
 ```
+
+The three `script-execute` packages (`com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn`,
+`Microsoft.CodeAnalysis.CSharp`) can be left out of exports on their own, runtime path kept: only editor code
+(`#if TOOLS`) uses them, so guard just those three with `Condition="'$(Configuration)' == 'Debug'"` (the editor build).
 
 > **Only do this if you never use the runtime (in-game) path.** Excluding the addon sources
 > from `ExportRelease` removes `GodotMcpRuntime` too, so a game that calls

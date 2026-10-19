@@ -67,7 +67,9 @@ server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localh
 `python scripts/smoke_rql.py --host <host> --project <testbed>` checks `rql-query` / `rql-mutate` / `rql-schema` by
 reading back the `.tres`/`.tscn` Godot wrote and runs every agent-guide example (CI runs it in
 `test_godot_runtime_harness.yml`; it writes fixed `res://scenes/` / `res://materials/` paths, so use a disposable
-project). Two traps: build
+project). `python scripts/smoke_script_execute.py --host <host> --project <testbed>` does the same for
+`script-execute` (game type, GD.Print capture, error lines, unload); `godot-cli exec` / `open --headless` start such an
+editor themselves (cli-core EditorSession, lease `.ai-game-dev/session.json`). Two traps: build
 the testbed with the `Godot.NET.Sdk` version of the running editor (CI rewrites the `Sdk=` pin; a 4.3
 build on a 4.4+ editor throws `MissingMethodException` from changed APIs), and keep exactly ONE editor
 connected (a background launch must record Godot's own PID — `(cd tb && exec godot …) &` — or stale
@@ -91,6 +93,10 @@ editors keep answering tool calls with an old build).
 - **Server pin.** The consumed server version is `ServerVersion` in
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.
+- **Code-Exec in the editor.** `script-execute` (`Editor/Tools/Tool_Script.Execute.cs`) loads snippets through
+  `SnippetAssemblyHost`, which binds them to the LIVE game assembly and GodotSharp: Code-Exec's default host asks the
+  default context first, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin`
+  (stale statics, and a GodotSharp copy crashes the editor on its first engine call).
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
   (`SKILL_FAMILIES`) and the README counts/table; `cli/tests/skills-addon-parity.test.ts` fails on drift.
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by

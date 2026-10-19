@@ -361,6 +361,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _logLevelOverrideNote.Visible = overridden;
         }
 
+        /// <summary>Start the local MCP server, as the Connection panel's Start button does. False without a wired panel.</summary>
+        public bool StartLocalServer()
+        {
+            if (_connectionPanel == null)
+                return false;
+            _connectionPanel.StartServer();
+            return true;
+        }
+
         /// <summary>
         /// Re-render the dock from current state. No-op in this foundation scaffold — there is no dynamic
         /// state to show yet. The later connection task fills this in (status line, mode indicator) and

@@ -74,3 +74,13 @@ export function parseInput(options: InputOptions): string {
 
   return '{}';
 }
+
+/** A whole-number flag value (commander supplies the default as text), or exit with an error. */
+export function parsePositiveIntFlag(raw: string, flagName: string, allowZero = false): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0 || (value === 0 && !allowZero)) {
+    ui.error(`${flagName} must be a ${allowZero ? 'non-negative' : 'positive'} whole number, got "${raw}"`);
+    process.exit(1);
+  }
+  return value;
+}

@@ -58,10 +58,16 @@ namespace com.IvanMurzak.Godot.MCP
         // so there is no cross-thread race to protect against.
         bool _torndown;
 
+        // Armed only for editors the CLI started with an idle timeout (AIGD_SESSION_IDLE_SECONDS); see IdleShutdown.
+        IdleShutdown? _idleShutdown;
+
         public override void _Process(double delta)
         {
-            if (!_torndown)
-                _connection?.PollReconnect(delta);
+            if (_torndown)
+                return;
+            _connection?.PollReconnect(delta);
+            if (_idleShutdown != null && _idleShutdown.Tick(_connection, delta))
+                _idleShutdown = null;
         }
 
         // The live plugin instance the static ReloadTeardown closure reaches. Set in _EnterTree, cleared in
@@ -207,6 +213,8 @@ namespace com.IvanMurzak.Godot.MCP
             // touch NuGet-dependency types (McpPlugin / ReflectorNet), so they live in a single non-inlined
             // method invoked AFTER the assembly resolver is installed above — see BootMcp's remarks.
             BootMcp();
+
+            _idleShutdown = IdleShutdown.ArmIfRequested();
         }
 
         /// <summary>
@@ -304,6 +312,8 @@ namespace com.IvanMurzak.Godot.MCP
             if (_connection == null)
                 return;
 
+            StartLocalServerIfRequested(_connection);
+
             try
             {
                 _connection.Start();
@@ -312,6 +322,24 @@ namespace com.IvanMurzak.Godot.MCP
             {
                 LogError($"[Godot-MCP] failed to start MCP connection: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Start the local MCP server when <c>GODOT_MCP_START_SERVER</c> asks for it (headless editors started by
+        /// <c>godot-cli exec</c>, which have no dock button to press). Custom mode only: a Cloud connection needs none.
+        /// </summary>
+        void StartLocalServerIfRequested(GodotMcpConnection connection)
+        {
+            var flag = GodotMcpConfig.NormalizeEnv(OS.GetEnvironment(GodotMcpEnv.StartServer));
+            if (!string.Equals(flag, "true", System.StringComparison.OrdinalIgnoreCase) && flag != "1")
+                return;
+            if (connection.Config.ActiveMode != GodotMcpConnectionMode.Custom)
+            {
+                LogWarning($"[Godot-MCP] {GodotMcpEnv.StartServer} is set but the connection mode is not Custom; not starting a local server.");
+                return;
+            }
+            if (_dock?.StartLocalServer() != true)
+                LogWarning($"[Godot-MCP] {GodotMcpEnv.StartServer} is set but the dock is not available; not starting a local server.");
         }
 
         /// <summary>

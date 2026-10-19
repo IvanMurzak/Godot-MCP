@@ -223,3 +223,24 @@ describe('addAddonPackageReferences + addAddonEmbeddedResources — combined sca
 function escapeRe(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+describe('addAddonPackageReferences — third-party pins are a floor', () => {
+  const refs = [
+    { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
+    { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0' },
+  ];
+  const csproj = (rql: string, roslyn: string) =>
+    `<Project Sdk="Godot.NET.Sdk/4.5.1">\n  <ItemGroup>\n    <PackageReference Include="com.IvanMurzak.Rql" Version="${rql}" />\n    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="${roslyn}" />\n  </ItemGroup>\n</Project>\n`;
+
+  it('keeps a newer Roslyn the project already uses, but still reconciles IvanMurzak pins exactly', () => {
+    const { text, changes } = addAddonPackageReferences(csproj('0.2.0', '4.14.0'), refs);
+    expect(text).toContain('Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"');
+    expect(text).toContain('Include="com.IvanMurzak.Rql" Version="0.1.1"');
+    expect(changes).toContainEqual({ id: 'Microsoft.CodeAnalysis.CSharp', action: 'unchanged', version: '4.14.0' });
+  });
+
+  it('raises an older Roslyn to the pin', () => {
+    const { text } = addAddonPackageReferences(csproj('0.1.1', '4.8.0'), refs);
+    expect(text).toContain('Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0"');
+  });
+});
