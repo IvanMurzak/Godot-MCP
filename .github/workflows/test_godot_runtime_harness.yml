@@ -522,9 +522,9 @@ jobs:
           exit "$RC"
 
       # Live EDITOR suite of script-execute (Code-Exec + Roslyn): a fresh editor (the RQL one has quit, so it is the
-      # only plugin connected) runs scripts/smoke_script_execute.py — game type + auto-import, Godot API, GD.Print /
-      # Console capture, one copy of the game assembly and GodotSharp, compile / runtime error lines, include, and
-      # snippet unload. Skipped on Godot 4.4 for the same known issue as the RQL smoke.
+      # only plugin connected) runs scripts/smoke_script_execute.py — game type + auto-import, Godot API, GD.Print
+      # (4.5+) / Console capture, one copy of the game assembly and GodotSharp, compile / runtime error lines, include,
+      # and snippet unload. Skipped on Godot 4.4 for the same known issue as the RQL smoke.
       - name: Live editor script-execute smoke
         if: ${{ !cancelled() && steps.server.outcome == 'success' && !startsWith(inputs.godotVersion, '4.4.') }}
         shell: bash

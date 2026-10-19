@@ -3,9 +3,10 @@
 Live smoke of `script-execute` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
 
 Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
-API, GD.Print / GD.PushWarning and Console captured into the result, the plugin's live statics with one copy of the
-game assembly and GodotSharp, `await`, full-source mode, a compile error at the snippet's own line, a runtime error,
-`include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
+API, GD.Print / GD.PushWarning (Godot 4.5+ only: the engine logger) and Console captured into the result, the
+plugin's live statics with one copy of the game assembly and GodotSharp, `await`, full-source mode, a compile error at
+the snippet's own line, a runtime error, `include` of a helper, and that snippet assemblies unload (0 live contexts
+after GC).
 
 It does NOT launch anything (or use `godot-cli exec`, which does):
 
@@ -23,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 import time
 import urllib.error
@@ -53,13 +55,14 @@ def execute(host: str, args: dict) -> tuple[bool, str]:
     return True, "\n".join(c.get("text", "") for c in body.get("content") or [])
 
 
-def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> None:
+def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> str:
     succeeded, text = execute(host, args)
     missing = [e for e in expected if e not in text]
     status = "PASS" if succeeded == ok and not missing else "FAIL"
     print(f"{status} {name}: {text.splitlines()[0] if text else ''}")
     if status == "FAIL":
         FAILURES.append(f"{name}: succeeded={succeeded} (want {ok}), missing {missing}; got:\n{text}")
+    return text
 
 
 def main() -> int:
@@ -88,9 +91,15 @@ def main() -> int:
 
     case(host, "expression", {"csharpCode": "1 + 2"}, True, "System.Int32: 3")
     case(host, "game type + auto-import", {"csharpCode": "SmokeExecScore.Value"}, True, "System.Int32: 77")
-    case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True, "System.String: ", "4.")
-    case(host, "GD.Print captured", {"csharpCode": 'GD.Print("smoke-print"); GD.PushWarning("smoke-warn"); 5'}, True,
-         "System.Int32: 5", "logs:", "smoke-print")
+    version = case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True,
+                   "System.String: ", "4.")
+    # GD.Print / GD.PushWarning reach `logs` only through the engine logger (OS.AddLogger, Godot 4.5+); older engines
+    # capture Console output only (GodotPrintLogCapture), so there the snippet must just succeed.
+    match = re.search(r"System\.String: (\d+)\.(\d+)", version)
+    engine_logger = not match or (int(match[1]), int(match[2])) >= (4, 5)
+    case(host, "GD.Print captured" if engine_logger else "GD.Print (not captured before Godot 4.5)",
+         {"csharpCode": 'GD.Print("smoke-print"); GD.PushWarning("smoke-warn"); 5'}, True,
+         "System.Int32: 5", *(("logs:", "smoke-print") if engine_logger else ()))
     case(host, "Console captured", {"csharpCode": 'Console.WriteLine("smoke-console"); 6'}, True,
          "System.Int32: 6", "logs:", "smoke-console")
     # The addon compiles into the game assembly: a live static set by the plugin, and one copy of it and of GodotSharp
