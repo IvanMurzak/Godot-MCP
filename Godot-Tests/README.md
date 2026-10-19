@@ -67,7 +67,7 @@ holds the connection (proving connect + handshake + dispatch), and asserts the r
 via `scripts/assert_runtime_harness.py`. The **4.5.1** leg asserts the engine GDScript
 backtrace + `push_error`/`push_warning`; the **4.3/4.4** legs assert graceful stub
 degradation (no engine logger, frames null) while the C# channel still captures.
-`test_pull_request.yml` and `release.yml` both fan it out across the Godot matrix (4.3 / 4.4 / 4.5 / 4.6 / 4.7).
+`test_pull_request.yml` and `release.yml` both fan it out across the Godot matrix.
 
 After the game, the same job boots a headless **editor** twice against that server for the live editor smokes:
 `scripts/smoke_rql.py` (RQL tools) and `scripts/smoke_script_execute.py` (`script-execute`: Code-Exec + Roslyn; its

@@ -35,12 +35,12 @@ HELPER = "public static class SmokeHelper\n{\n    public static int Twice(int v)
 FAILURES: list[str] = []
 
 
-def execute(host: str, args: dict) -> tuple[bool, str]:
+def execute(host: str, args: dict, timeout: float = 180) -> tuple[bool, str]:
     """(succeeded, the tool's text or error)."""
     req = urllib.request.Request(f"{host}/api/tools/script-execute", data=json.dumps(args).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode() or "{}")
     except urllib.error.HTTPError as e:
         raw = e.read().decode()
@@ -53,6 +53,19 @@ def execute(host: str, args: dict) -> tuple[bool, str]:
     if "structured" in body:
         return True, json.dumps(body["structured"])
     return True, "\n".join(c.get("text", "") for c in body.get("content") or [])
+
+
+def wait_ready(host: str, timeout: float) -> bool:
+    """Poll a trivial snippet until the editor answers (each probe bounded by the time left, at most 30 s)."""
+    deadline = time.monotonic() + timeout
+    while (left := deadline - time.monotonic()) > 0:
+        try:
+            if execute(host, {"csharpCode": "0"}, timeout=min(30, left))[0]:
+                return True
+        except OSError:  # server not reachable yet, or the probe timed out
+            pass
+        time.sleep(1)
+    return False
 
 
 def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> str:
@@ -85,9 +98,9 @@ def main() -> int:
         parser.error("--host is required unless --prepare")
     host = args.host.rstrip("/")
 
-    deadline = time.monotonic() + args.wait
-    while time.monotonic() < deadline and not execute(host, {"csharpCode": "0"})[0]:
-        time.sleep(2)
+    if args.wait > 0 and not wait_ready(host, args.wait):
+        print(f"script-execute never answered on {host} within {args.wait:.0f}s", flush=True)
+        return 1
 
     case(host, "expression", {"csharpCode": "1 + 2"}, True, "System.Int32: 3")
     case(host, "game type + auto-import", {"csharpCode": "SmokeExecScore.Value"}, True, "System.Int32: 77")
