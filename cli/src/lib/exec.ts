@@ -8,8 +8,12 @@ import type { RunToolFailure, RunToolOptions, RunToolResult } from './types.js';
 
 export const SCRIPT_EXECUTE_TOOL = 'script-execute';
 
-/** Default `script-execute` call timeout. */
-export const DEFAULT_EXEC_TIMEOUT_MS = 180_000;
+/**
+ * Default `script-execute` call timeout. Longer than the server `tool-timeout` the addon passes
+ * (`GodotMcpServerView.ToolTimeoutMs`, parity-tested), so a call the server gives up on returns the server's
+ * timeout error instead of a client abort.
+ */
+export const DEFAULT_EXEC_TIMEOUT_MS = 310_000;
 
 /** Injection points for tests. */
 export interface ExecDeps extends EnsureEditorDeps {
@@ -20,7 +24,7 @@ export interface ExecCodeOptions extends EnsureEditorOptions {
   code: string;
   usings?: string[];
   include?: string[];
-  /** Tool call timeout. Default 180000. */
+  /** Tool call timeout. Default {@link DEFAULT_EXEC_TIMEOUT_MS}. */
   timeoutMs?: number;
   deps?: Partial<ExecDeps>;
 }

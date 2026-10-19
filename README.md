@@ -298,7 +298,7 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.11.0" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
@@ -318,7 +318,7 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.3` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.9.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.11.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.1.1` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.2.1` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.2.1` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
@@ -451,7 +451,10 @@ use the **Local server** row:
 - The binary is cached under your project's `.godot/mcp-server/<rid>/` folder (gitignored) and re-used on
   later launches; it is only re-downloaded when the pinned server version changes (an **exact**
   version match, so the editor plugin and the server it talks to never drift). The server is launched
-  on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport.
+  on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport,
+  with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`: a tool call is sent to the editor
+  once and may run up to 5 minutes (`script-execute` stops a snippet itself after 2 minutes). Servers built on
+  McpPlugin older than 8.11.0 ignore `tool-timeout`.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
 > `ServerVersion` constant and your platform RID — there is no arbitrary-URL binary execution. The addon

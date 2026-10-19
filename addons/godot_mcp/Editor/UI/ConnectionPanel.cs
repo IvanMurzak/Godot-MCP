@@ -821,6 +821,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
 
             var port = _connection.ResolveLocalServerPort();
+            // plugin-timeout is the connection timeout; BuildLaunchArguments adds the per-call tool-timeout.
             var timeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultTimeoutMs;
             var authOption = _connection.Config.ActiveAuthOption; // normalized none/oauth/token (env-aware)
 

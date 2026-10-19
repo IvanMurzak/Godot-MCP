@@ -197,7 +197,8 @@ use that server, whatever `--url` says.
 `<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor: the C# build runs under it, only in the
 call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.gitignore`. The editor receives
 `AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`,
-`GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call),
+`GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call, default 310000: just over the
+server's 5-minute `tool-timeout`),
 `--no-build`, `--editor-path`, `--token`, `--raw`.
 
 ## `login`

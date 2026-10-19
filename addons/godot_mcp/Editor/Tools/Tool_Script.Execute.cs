@@ -94,8 +94,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     static class ScriptExecutor
     {
-        const int TimeoutMs = 120_000;
-
         static CodeRunner? _runner;
         static readonly object _runnerLock = new object();
 
@@ -136,7 +134,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 Include = include ?? Array.Empty<string>(),
                 Parameters = parameters?.Select((p, i) => new SnippetParameter(ParameterName(p, i), ParameterType(p, i), null)).ToList()
                     ?? (IReadOnlyList<SnippetParameter>)Array.Empty<SnippetParameter>(),
-                TimeoutMs = TimeoutMs,
+                TimeoutMs = ScriptExecuteSource.RunTimeoutMs,
             };
             if (!isMethodBody && ScriptExecuteSource.FullSourceEntryType(csharpCode, className, methodName) is { } entryType)
             {

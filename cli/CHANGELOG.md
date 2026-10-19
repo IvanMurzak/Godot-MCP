@@ -4,6 +4,11 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **McpPlugin 8.11.0; `exec` waits for the server's tool timeout.** `install-plugin` pins `com.IvanMurzak.McpPlugin`
+  8.11.0 (fallback for addons without `nuget-deps.json`). The addon starts its local server with
+  `tool-timeout=300000` (a call is sent to the editor once and may run 5 minutes; `plugin-timeout` is only the
+  connection timeout), so `exec`'s default `--timeout` goes from 180000 to 310000 ms and a slow call ends with the
+  server's timeout error rather than a client abort.
 - **No Roslyn in exported games.** `install-plugin` writes the addon's editor-only packages (RQL, Code-Exec, Roslyn)
   with a Condition that leaves them out of Godot's export builds, and adds it to entries an older version wrote (a
   `Condition` the project set is kept). The installed addon says which packages are editor-only (`editorOnly` in
