@@ -28,6 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class ScriptExecuteSource
     {
+        /// <summary>How long one snippet may run (ms); below the server's <c>GodotMcpServerView.ToolTimeoutMs</c>.</summary>
+        public const int RunTimeoutMs = 120_000;
+
         /// <summary>Usings every snippet gets; Godot's namespace on top of Unity-MCP's System set.</summary>
         public static readonly IReadOnlyList<string> DefaultUsings = new[]
         {

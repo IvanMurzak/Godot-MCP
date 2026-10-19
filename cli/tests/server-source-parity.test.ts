@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { DEFAULT_SERVER_VERSION } from '../src/utils/server-source.js';
+import { DEFAULT_EXEC_TIMEOUT_MS } from '../src/lib/exec.js';
 
 // The CLI's DEFAULT_SERVER_VERSION must single-source the addon's own pinned
 // `GodotMcpServerView.ServerVersion` constant. If the addon bumps the consumed
@@ -28,6 +29,12 @@ function parseAddonServerVersion(text: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Extract `public const int ToolTimeoutMs = 300_000;` from the addon source. */
+function parseAddonToolTimeoutMs(text: string): number | null {
+  const m = text.match(/public\s+const\s+int\s+ToolTimeoutMs\s*=\s*([\d_]+)\s*;/);
+  return m ? Number(m[1].replace(/_/g, '')) : null;
+}
+
 describe('server-source parity with GodotMcpServerView.cs', () => {
   it('the addon ServerView source is reachable (relative layout sanity)', () => {
     expect(fs.existsSync(SERVER_VIEW_CS)).toBe(true);
@@ -42,5 +49,13 @@ describe('server-source parity with GodotMcpServerView.cs', () => {
       `CLI DEFAULT_SERVER_VERSION (${DEFAULT_SERVER_VERSION}) drifted from the addon ServerVersion (${addonVersion}). ` +
         'Update DEFAULT_SERVER_VERSION in cli/src/utils/server-source.ts to match the addon pin.',
     ).toBe(addonVersion);
+  });
+});
+
+describe('exec timeout parity with GodotMcpServerView.ToolTimeoutMs', () => {
+  it('DEFAULT_EXEC_TIMEOUT_MS outlasts the tool-timeout the addon passes to the server', () => {
+    const toolTimeoutMs = parseAddonToolTimeoutMs(fs.readFileSync(SERVER_VIEW_CS, 'utf-8'));
+    expect(toolTimeoutMs, 'GodotMcpServerView.cs is missing a `public const int ToolTimeoutMs = …`').not.toBeNull();
+    expect(DEFAULT_EXEC_TIMEOUT_MS).toBeGreaterThan(toolTimeoutMs!);
   });
 });

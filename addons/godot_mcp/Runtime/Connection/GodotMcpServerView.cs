@@ -75,6 +75,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public const string ExecutableName = "gamedev-mcp-server";
 
         /// <summary>
+        /// The local server's <c>tool-timeout</c> (ms): how long it waits for one tool call (McpPlugin 8.11.0+; older
+        /// servers ignore it). Above <c>ScriptExecuteSource.RunTimeoutMs</c>, below <c>godot-cli exec</c>'s default
+        /// <c>--timeout</c> (both tested).
+        /// </summary>
+        public const int ToolTimeoutMs = 300_000;
+
+        /// <summary>
         /// The GitHub release-asset / .NET RID prefix. The GameDev-MCP-Server release workflow zips each
         /// self-contained build as <c>gamedev-mcp-server-&lt;rid&gt;.zip</c>, so the asset stem is the
         /// executable name plus the platform RID.
@@ -448,9 +455,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///   the shared builder throws when either is empty.</item>
         /// </list>
         /// The secret <paramref name="token"/> is emitted only in <c>token</c> mode and is NEVER logged.
+        /// <c>tool-timeout=</c><see cref="ToolTimeoutMs"/> comes last (the shared builder does not emit it).
         /// </summary>
         /// <param name="port">The TCP port the server should listen on (the plugin connects to this port).</param>
-        /// <param name="pluginTimeoutMs">The plugin-timeout argument in milliseconds.</param>
+        /// <param name="pluginTimeoutMs">The plugin-timeout argument in milliseconds (the connection timeout).</param>
         /// <param name="authOption">The auth mode (target state: <c>none</c> / <c>oauth</c> / <c>token</c>).</param>
         /// <param name="token">The offline shared secret; required (and emitted) only in <c>token</c> mode.</param>
         /// <param name="authIssuer">The authorization-server URL; required only in <c>oauth</c> mode.</param>
@@ -469,7 +477,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 authOption,
                 token,
                 authIssuer,
-                publicUrl);
+                publicUrl) + $" {McpServerConsts.Args.ToolTimeout}={ToolTimeoutMs}";
 
         // --- Status presentation (status -> button text / label / circle state), pure + unit-tested ---
 

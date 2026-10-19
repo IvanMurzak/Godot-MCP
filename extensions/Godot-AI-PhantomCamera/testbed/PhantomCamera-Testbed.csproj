@@ -24,7 +24,7 @@
   <ItemGroup>
     <!-- Core MCP pins (the godot_mcp addon depends on these); keep in lockstep with the addon. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.11.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
     <!-- The extension under test, restored from the local feed (CI packs it as 0.0.0-ci). -->
     <PackageReference Include="com.IvanMurzak.Godot.MCP.PhantomCamera" Version="0.0.0-ci" />
