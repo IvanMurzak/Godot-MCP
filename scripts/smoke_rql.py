@@ -12,9 +12,12 @@ It does NOT launch anything. Point it at a local `gamedev-mcp-server` whose Godo
 default toolFormat Rql) has the project at `--project` open:
 
     gamedev-mcp-server port=8080 client-transport=streamableHttp authorization=none &
-    GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\
+    GODOT_MCP_RQL_TEST_HOOKS=1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\
         godot --headless --path <project> --editor &
-    python scripts/smoke_rql.py --host http://localhost:8080 --project <project>
+    python scripts/smoke_rql.py --host http://localhost:8080 --project <project> --require-test-hooks
+
+GODOT_MCP_RQL_TEST_HOOKS=1 enables the undo checks (test.undo / test.redo); without it they print SKIP, and
+--require-test-hooks (CI) turns that into a failure.
 
 The guide fixture uses fixed paths (res://scenes/, res://materials/): run it on a disposable project.
 Exit code 0 = every case passed. Pure stdlib, Python 3.8+.

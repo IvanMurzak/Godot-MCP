@@ -6,7 +6,8 @@ object / value / struct adapters on real Godot properties, and undo of every kin
 
 Every change is checked where it cannot lie: the .tscn / .tres / project.godot text Godot wrote, plus a read-back query.
 Undo is checked through the test-only functions test.undo / test.redo (TestHooksModule; the editor must run with
-GODOT_MCP_RQL_TEST_HOOKS=1, otherwise those checks are reported as SKIP). Pure stdlib, Python 3.8+.
+GODOT_MCP_RQL_TEST_HOOKS=1, otherwise those checks are reported as SKIP, or as one FAIL with --require-test-hooks).
+Pure stdlib, Python 3.8+.
 """
 from __future__ import annotations
 
@@ -112,11 +113,11 @@ def node(name: str) -> str:
 
 
 def run(host: str, project: pathlib.Path, d: str, require_hooks: bool = False) -> None:
-    ok, _ = query(host, 'test.action("global")')
+    ok, text = query(host, 'test.action("global")')
     HOOKS["on"] = ok
     print(f"[INFO] undo test hooks {'on' if ok else 'OFF (set GODOT_MCP_RQL_TEST_HOOKS=1)'}", flush=True)
     if require_hooks:
-        check("undo test hooks on (GODOT_MCP_RQL_TEST_HOOKS=1 in the editor)", ok)
+        check("undo test hooks on (GODOT_MCP_RQL_TEST_HOOKS=1 in the editor)", ok, f"test.action probe: {text}")
     schema(host)
     existing_adapters(host, project, d)
     undo_of_node_edits(host, project, d)
