@@ -34,7 +34,10 @@ import type { BuildProjectResult } from './types.js';
 export const SESSION_CLOSE_TOOL = 'session-close';
 
 /** How long to wait for a user's own editor whose local server does not answer yet (it may still be loading). */
-const FOREIGN_READY_TIMEOUT_MS = 20_000;
+const FOREIGN_READY_TIMEOUT_MS = 60_000;
+
+/** The connection mode of an editor the session starts (a local server), in its env and its lease. */
+const SESSION_CONNECTION_MODE = 'Custom';
 
 export interface GodotSessionOptions {
   projectPath: string;
@@ -71,7 +74,7 @@ export interface GodotSession {
  */
 export function sessionEditorEnv(url: string, token: string | undefined): Record<string, string> {
   return {
-    [ENV_CONNECTION_MODE]: 'Custom',
+    [ENV_CONNECTION_MODE]: SESSION_CONNECTION_MODE,
     [ENV_HOST]: url,
     [ENV_START_SERVER]: 'true',
     ...(token ? { [ENV_TOKEN]: token, [ENV_AUTH_OPTION]: 'Required' } : {}),
@@ -132,8 +135,9 @@ export function createGodotSession(options: GodotSessionOptions): GodotSession {
       return binary;
     },
     env: sessionEditorEnv(url, options.token),
+    // The resolved, normalised connection the started editor gets (env above), recorded in the lease.
     serverUrl: url,
-    connectionMode: 'Custom',
+    connectionMode: SESSION_CONNECTION_MODE,
     // The user's editor without a reachable local server: it may still be loading, but do not wait the full start budget.
     foreignReadyTimeoutMs: Math.min(options.readyTimeoutMs ?? FOREIGN_READY_TIMEOUT_MS, FOREIGN_READY_TIMEOUT_MS),
     ...(options.beforeLaunch ? { beforeLaunch: options.beforeLaunch } : {}),
@@ -214,8 +218,8 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
     let hint = '';
     if (sessionError?.reason === 'not-ready') {
       if (sessionError.source === 'foreign') {
-        // The user's editor, connected elsewhere or without its local server.
-        hint = ` (an editor of this project is running, but its local MCP server ${godot.url} does not answer: start the server in its AI Game Developer dock in Custom mode, or close that editor)`;
+        // Core's message says what is wrong; add only how to fix it in Godot.
+        hint = ` (Godot: in that editor's AI Game Developer dock choose Custom mode and start the server on ${godot.url})`;
       } else {
         // Our editor started but its plugin never answered (e.g. the addon failed to load): it would never idle out.
         const closed = await godot.session.closeOwned({ timeoutMs: 5_000, force: true });

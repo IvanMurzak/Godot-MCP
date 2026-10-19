@@ -10,12 +10,12 @@ All notable changes to `godot-cli` are documented in this file.
   server URL and connection mode, so a later call without `--url` reaches an editor started with one, and
   `close --owned-only` / a windowed `open` send `session-close` to that server with the verified lease's nonce
   (`close --url` only matters for a lease written by 0.30.0). A user's editor that does not answer is reported
-  from the session's own `foreign` wait (20 s); the session files are listed in `.ai-game-dev/.gitignore`.
+  from the session's own `foreign` wait (now 60 s, as in unity-mcp-cli); the session files are listed in `.ai-game-dev/.gitignore`.
 - **`exec`: run C# in the editor.** `godot-cli exec '<code>'` (or `-f <file>` / stdin, repeatable `--using` /
   `--include`) calls the addon's new `script-execute` tool. A running editor of the project is reused; otherwise the
   C# assembly is built and a **headless** editor starts (`--window` for a GUI one) on the project's local server,
   which its plugin starts itself (`GODOT_MCP_START_SERVER`); a headless one quits by itself after `--idle` seconds
-  (default 300) without tool calls. A user's editor whose local server does not answer is reported after 20 s. Built on `@baizor/gamedev-cli-core` 0.7.0 `EditorSession` (lease
+  (default 300) without tool calls. A user's editor whose local server does not answer is reported after 60 s. Built on `@baizor/gamedev-cli-core` 0.7.0 `EditorSession` (lease
   `.ai-game-dev/session.json`, startup lock: parallel calls start one editor). Library: `execCode`, `ensureEditor`,
   `createGodotSession`.
 - **`open --headless [--idle-timeout <s>]`** starts that session without running code; a windowed `open` first

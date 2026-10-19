@@ -186,7 +186,7 @@ at the snippet's line (`snippet.cs(2,12)`) and exits 1.
   window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`),
   which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without
   tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls build once and
-  start one editor; a user's editor whose local server does not answer is waited for 20 s, then reported.
+  start one editor; a user's editor whose local server does not answer is waited for up to 60 s, then reported.
 - `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves
   and quits it (through the plugin's `session-close` tool — never a user's editor).
 
