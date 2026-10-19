@@ -16,7 +16,7 @@ All notable changes to `godot-cli` are documented in this file.
   the CLI started, through the plugin's `session-close` system tool (a windowless editor gets no WM_CLOSE).
 - `install-plugin` keeps a newer third-party package the project already pins (e.g. its own Roslyn) instead of
   downgrading it to the addon's pin; `com.IvanMurzak.*` pins are still reconciled exactly.
-- `install-plugin` writes the addon's three new NuGet pins (`com.IvanMurzak.CodeExec` and `.Roslyn` 0.2.0,
+- `install-plugin` writes the addon's three new NuGet pins (`com.IvanMurzak.CodeExec` and `.Roslyn` 0.2.1,
   `Microsoft.CodeAnalysis.CSharp` 4.12.0); `setup-skills` lists `script-execute` and the `session` family.
 
 - **Extension catalog: the extensions are RQL modules.** The `EXTENSIONS_CATALOG` mirror follows the shared

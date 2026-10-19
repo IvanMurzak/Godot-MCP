@@ -3,8 +3,9 @@
 Live smoke of `script-execute` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
 
 Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
-API, GD.Print / GD.PushWarning captured into the result, `await`, full-source mode, a compile error at the snippet's
-own line, a runtime error, `include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
+API, GD.Print / GD.PushWarning and Console captured into the result, the plugin's live statics with one copy of the
+game assembly and GodotSharp, `await`, full-source mode, a compile error at the snippet's own line, a runtime error,
+`include` of a helper, and that snippet assemblies unload (0 live contexts after GC).
 
 It does NOT launch anything (or use `godot-cli exec`, which does):
 
@@ -78,6 +79,17 @@ def main() -> int:
     case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True, "System.String: ", "4.")
     case(host, "GD.Print captured", {"csharpCode": 'GD.Print("smoke-print"); GD.PushWarning("smoke-warn"); 5'}, True,
          "System.Int32: 5", "logs:", "smoke-print")
+    case(host, "Console captured", {"csharpCode": 'Console.WriteLine("smoke-console"); 6'}, True,
+         "System.Int32: 6", "logs:", "smoke-console")
+    # The addon compiles into the game assembly: a live static set by the plugin, and one copy of it and of GodotSharp
+    # (assemblies of contexts still unloading after a hot reload are not counted).
+    case(host, "live statics, no duplicate assemblies", {"csharpCode":
+         "using System.Runtime.Loader;\n"
+         "var names = new[] { typeof(SmokeExecScore).Assembly.GetName().Name, \"GodotSharp\" };\n"
+         "var live = AppDomain.CurrentDomain.GetAssemblies().Where(a => AssemblyLoadContext.All.Contains(AssemblyLoadContext.GetLoadContext(a)));\n"
+         "var copies = names.Select(n => live.Count(a => a.GetName().Name == n));\n"
+         "$\"{com.IvanMurzak.Godot.MCP.MainThreadDispatch.MainThreadDispatcher.Instance != null}/{string.Join(\",\", copies)}\""},
+         True, "True/1,1")
     case(host, "await", {"csharpCode": "await Task.Delay(20);\nEngine.GetProcessFrames() > 0"}, True, "System.Boolean: true")
     case(host, "full-source mode", {"csharpCode": "public class Script { public static int Main() { return 7; } }"}, True, "System.Int32: 7")
     case(host, "compile error line", {"csharpCode": "var a = 1;\nvar b = a +;\nb"}, False, "Compilation failed", "snippet.cs(2,")

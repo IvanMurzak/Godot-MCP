@@ -300,8 +300,8 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.9.0" />
   <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.0" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.0" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.2.1" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" />
 </ItemGroup>
 
@@ -316,8 +316,8 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.4.3` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.9.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.1.1` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.2.0` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.2.0` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.2.1` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.2.1` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
 
 The `<EmbeddedResource>` is **as required as the NuGet pins**: the addon's pure-managed extension
