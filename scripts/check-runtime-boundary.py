@@ -41,6 +41,7 @@ Exit codes: 0 = boundary holds, 1 = at least one hard violation found.
 from __future__ import annotations
 
 import argparse
+import itertools
 import re
 import sys
 from pathlib import Path
@@ -55,6 +56,27 @@ _TOKEN_RE = re.compile(r"\b(" + "|".join(EDITOR_TOKENS) + r")\b")
 # `Rql` is the root namespace of every RQL assembly (`using Rql;`, `Rql.Execution`, `global::Rql.RqlParser`);
 # `(?<![.\w])` keeps the addon's own `...Editor.Rql` namespace from matching.
 _PACKAGE_RE = re.compile(r"(?<![.\w])(Rql(?=\s*[.;])|com\.IvanMurzak\.CodeExec|Microsoft\.CodeAnalysis)\b")
+
+# Symbols no game build defines: TOOLS (the editor build) and the xUnit suite's own symbol.
+_NON_GAME_SYMBOLS = frozenset({"TOOLS", "GODOT_MCP_UNIT_TESTS"})
+_PP_OPS = {"&&": " and ", "||": " or ", "==": " == ", "!=": " != ", "!": " not "}
+
+
+def is_tools_gate(cond: str) -> bool:
+    """True when an `#if` condition is false in every game build: TOOLS and GODOT_MCP_UNIT_TESTS undefined, any value
+    for the other symbols (`#if TOOLS || DEBUG` compiles into an ExportDebug game, `#if !TOOLS` into every one)."""
+    if not re.search(r"\bTOOLS\b", cond):
+        return False
+    expr = re.sub(r"&&|\|\||==|!=|!", lambda m: _PP_OPS[m.group()], cond)
+    others = sorted(set(re.findall(r"\b[A-Za-z_]\w*\b", expr)) - {"and", "or", "not", "true", "false"} - _NON_GAME_SYMBOLS)
+    for values in itertools.product((False, True), repeat=len(others)):
+        env = {**dict(zip(others, values)), **dict.fromkeys(_NON_GAME_SYMBOLS, False), "true": True, "false": False}
+        try:
+            if eval(expr, {"__builtins__": {}}, env):  # a preprocessor expression from a repo file
+                return False
+        except SyntaxError:
+            return False
+    return True
 
 
 def strip_comments(text: str) -> str:
@@ -161,7 +183,7 @@ def scan_file(path: Path):
         m_if = re.match(r"#\s*if\s+(.*)$", stripped)
         if m_if:
             cond = m_if.group(1)
-            is_tools = bool(re.search(r"(?<![!\w])TOOLS\b", cond))  # `#if !TOOLS` compiles into the game
+            is_tools = is_tools_gate(cond)
             if_stack.append(is_tools)
             if is_tools:
                 tools_depth += 1

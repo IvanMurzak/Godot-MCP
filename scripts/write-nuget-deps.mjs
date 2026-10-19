@@ -30,7 +30,7 @@ for (const element of csproj.match(/<PackageReference\b[^>]*>/gi) ?? []) {
   // other Condition is refused: the manifest could not carry it.
   const condition = /\bCondition\s*=\s*"([^"]*)"/i.exec(element)?.[1];
   if (condition !== undefined && condition !== EDITOR_ONLY_CONDITION) {
-    console.error(`${id}: unsupported Condition "${condition}" (only "${EDITOR_ONLY_CONDITION}") in ${csprojPath}`);
+    console.error(`Unsupported Condition in ${csprojPath} (only "${EDITOR_ONLY_CONDITION}"): ${element}`);
     process.exit(1);
   }
   const editorOnly = condition !== undefined;

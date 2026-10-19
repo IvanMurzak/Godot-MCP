@@ -17,7 +17,7 @@ import {
  *  - a project that already declares both pins at the right version (no change);
  *  - a project that declares one or both at a DIFFERENT version (reconciles in place);
  *  - a project that declares only one of the two (adds the missing one);
- *  - an editor-only package declared without a Condition (adds the editor-only Condition, see `keptCondition`).
+ *  - an editor-only package declared without a Condition (adds the editor-only Condition, see `desiredCondition`).
  *
  * It deliberately does a minimal, well-scoped text edit rather than a full XML
  * parse/serialize, to preserve the rest of the consumer's csproj formatting
@@ -99,15 +99,35 @@ function renderRef(ref: AddonPackageReference, condition: string | undefined): s
 }
 
 /**
+ * Rewrite an existing element's Version and Condition in place, keeping every other attribute the project set
+ * (`PrivateAssets`, `IncludeAssets`, ...) and its attribute order.
+ */
+function patchRef(element: string, version: string, condition: string | undefined): string {
+  const conditionRe = /\s+Condition\s*=\s*"[^"]*"/i;
+  // Function replacers throughout: a Condition holds `$`.
+  let out = element.replace(/(\bVersion\s*=\s*")[^"]*"/i, (_m, head: string) => `${head}${version}"`);
+  if (condition === undefined) return out.replace(conditionRe, '');
+  if (conditionRe.test(out)) return out.replace(conditionRe, () => ` Condition="${condition}"`);
+  out = out.replace(/\s*(\/>|><\/PackageReference>)$/i, (_m, end: string) =>
+    ` Condition="${condition}"${end === '/>' ? ' />' : end}`,
+  );
+  return out;
+}
+
+/** The packages this CLI knows as editor-only (an older addon's manifest may not mark them). */
+const KNOWN_EDITOR_ONLY_IDS = new Set(ADDON_PACKAGE_REFERENCES.filter((r) => r.editorOnly).map((r) => r.id));
+
+/**
  * The Condition a reference's element should carry, given the one it has (`undefined` for a new element). An
  * editor-only reference keeps any Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the
  * canonical one when it has none (the migration of csprojs written before editor-only packages). Any other reference
- * keeps its own Condition, except the canonical editor-only one, which an addon that needs the package in export
- * builds (an older one) drops.
+ * keeps its own Condition, except the canonical editor-only one on a package this CLI writes editor-only, which an
+ * addon that needs the package in export builds (an older one) drops. The same Condition on another package (e.g.
+ * McpPlugin, which docs/ARCHITECTURE.md lets a dev-only project exclude from exports) is the project's own and stays.
  */
 function desiredCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined {
   if (ref.editorOnly) return existing ?? EDITOR_ONLY_CONDITION;
-  return existing === EDITOR_ONLY_CONDITION ? undefined : existing;
+  return existing === EDITOR_ONLY_CONDITION && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
 }
 
 /** Render the canonical self-closing element for a required embedded resource. */
@@ -170,9 +190,9 @@ export function addAddonPackageReferences(
       changes.push({ id: ref.id, action: 'unchanged', version: ref.version });
       continue;
     }
-    // Reconcile in place: replace the whole element with the pin (a function replacer: a Condition holds `$`).
-    const rendered = renderRef(ref, condition);
-    text = text.replace(re, () => rendered);
+    // Reconcile in place: patch Version / Condition, keeping the element's other attributes.
+    const patched = patchRef(match[0], ref.version, condition);
+    text = text.replace(re, () => patched);
     changes.push({ id: ref.id, action: 'updated', from: existingVersion, version: ref.version });
   }
 

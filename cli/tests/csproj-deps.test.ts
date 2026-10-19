@@ -283,9 +283,27 @@ describe('addAddonPackageReferences — editor-only packages', () => {
   });
 
   it('drops the editor-only Condition when the installed addon needs the package in export builds', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" ${cond} />`);
+    const { text } = addAddonPackageReferences(before, [{ id: 'com.IvanMurzak.Rql', version: '0.1.1' }]);
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />');
+  });
+
+  it('keeps the Condition a dev-only project put on a runtime package (McpPlugin)', () => {
     const before = csproj(`<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" ${cond} />`);
+    expect(addAddonPackageReferences(before, [refs[0]]).changed).toBe(false);
+  });
+
+  it("keeps the element's other attributes when it adds the Condition or bumps the version", () => {
+    const before = csproj(
+      '<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.0.0" PrivateAssets="all" />',
+      '<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" NoWarn="NU1603"></PackageReference>',
+    );
     const { text } = addAddonPackageReferences(before, refs);
-    expect(text).toContain('<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" />');
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.9.0" PrivateAssets="all" />');
+    expect(text).toContain(
+      `<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" NoWarn="NU1603" ${cond}></PackageReference>`,
+    );
+    expect(addAddonPackageReferences(text, refs).changed).toBe(false);
   });
 
   it('leaves a newer third-party package the project uses as it is (no Condition added)', () => {
