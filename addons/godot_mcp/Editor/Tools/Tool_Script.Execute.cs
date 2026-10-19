@@ -200,7 +200,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             var binRoot = Path.Combine(projectRoot, ".godot", "mono", "temp", "bin");
             // The default host binds snippets to the LIVE game assembly and GodotSharp (Code-Exec 0.2.1+), never to the
-            // second copies GodotMcpAssemblyResolver would load into the default context.
+            // second copies GodotMcpAssemblyResolver would load into the default context; `Console` binds to System.Console
+            // (not CoreLib's Internal.Console), so its output is captured.
             return new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
             {
                 DefaultUsings = ScriptExecuteSource.DefaultUsings,

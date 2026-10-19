@@ -81,10 +81,13 @@ def main() -> int:
          "System.Int32: 5", "logs:", "smoke-print")
     case(host, "Console captured", {"csharpCode": 'Console.WriteLine("smoke-console"); 6'}, True,
          "System.Int32: 6", "logs:", "smoke-console")
-    # The addon compiles into the game assembly: a live static set by the plugin, and one copy of it and of GodotSharp.
+    # The addon compiles into the game assembly: a live static set by the plugin, and one copy of it and of GodotSharp
+    # (assemblies of contexts still unloading after a hot reload are not counted).
     case(host, "live statics, no duplicate assemblies", {"csharpCode":
+         "using System.Runtime.Loader;\n"
          "var names = new[] { typeof(SmokeExecScore).Assembly.GetName().Name, \"GodotSharp\" };\n"
-         "var copies = names.Select(n => AppDomain.CurrentDomain.GetAssemblies().Count(a => a.GetName().Name == n));\n"
+         "var live = AppDomain.CurrentDomain.GetAssemblies().Where(a => AssemblyLoadContext.All.Contains(AssemblyLoadContext.GetLoadContext(a)));\n"
+         "var copies = names.Select(n => live.Count(a => a.GetName().Name == n));\n"
          "$\"{com.IvanMurzak.Godot.MCP.MainThreadDispatch.MainThreadDispatcher.Instance != null}/{string.Join(\",\", copies)}\""},
          True, "True/1,1")
     case(host, "await", {"csharpCode": "await Task.Delay(20);\nEngine.GetProcessFrames() > 0"}, True, "System.Boolean: true")
