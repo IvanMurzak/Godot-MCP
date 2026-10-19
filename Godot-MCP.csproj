@@ -37,11 +37,20 @@
                              trap — see conventions.md). The harness only ever compiles inside
                              Godot-Tests.csproj, driven by the Godot editor/CLI in the harness workflow.
   -->
+  <PropertyGroup>
+    <!--
+      .artifacts/ (build outputs, packed feeds, and a chain run's NUGET_PACKAGES cache) is kept out of the
+      default SDK globs rather than removed from Compile afterwards: a Compile Remove would also strip the
+      sources that a source-only package (com.IvanMurzak.CodeExec.Roslyn) adds from its own package folder
+      whenever that folder lives under .artifacts/.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);.artifacts/**</DefaultItemExcludes>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Godot-MCP.Tests/**/*.cs" />
     <Compile Remove="Godot-Tests/**/*.cs" />
     <!-- Optional packages and fixtures must never leak through the root SDK glob. -->
-    <Compile Remove="extensions/**/*.cs;templates/**/*.cs;tests/**/*.cs;.artifacts/**/*.cs" />
+    <Compile Remove="extensions/**/*.cs;templates/**/*.cs;tests/**/*.cs" />
   </ItemGroup>
 
   <!--
