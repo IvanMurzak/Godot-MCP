@@ -288,17 +288,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             if (!a.HasTile(coords)) throw new ArgumentException($"no tile at {coords}");
             var size = a.GetTileSizeInAtlas(coords);
-            // The tile's stored properties ("x:y/…": its alternatives and their data), to restore them on undo.
-            var prefix = $"{coords.X}:{coords.Y}/";
-            var saved = RqlGodot.SnapshotOf(a).Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal)).Select(kv => (name: kv.Key, value: kv.Value)).ToList();
-            a.RemoveTile(coords);
-            RqlGodot.RecordUndoFor(a,
+            // The tile's stored properties ("x:y/…": its alternatives and their data) come back on undo.
+            RqlGodot.RecordRemoval(a, $"{coords.X}:{coords.Y}/", () => a.RemoveTile(coords),
                 ur => ur.AddDoMethod(a, TileSetAtlasSource.MethodName.RemoveTile, coords),
-                ur =>
-                {
-                    ur.AddUndoMethod(a, TileSetAtlasSource.MethodName.CreateTile, coords, size);
-                    foreach (var (name, value) in saved) ur.AddUndoProperty(a, name, value);
-                });
+                ur => ur.AddUndoMethod(a, TileSetAtlasSource.MethodName.CreateTile, coords, size));
         }
 
         private static int CreateTilesFromTexture(TileSetAtlasSource a)

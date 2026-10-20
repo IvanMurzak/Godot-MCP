@@ -79,7 +79,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary><c>Type#id</c> where id is the Godot instance id; the engine checks the type.</summary>
-        private static object? ResolveStableRef(string type, string id)
+        internal static object? ResolveStableRef(string type, string id)
         {
             if (!ulong.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var instanceId)) return null;
             if (!GodotObject.IsInstanceIdValid(instanceId)) return null;
