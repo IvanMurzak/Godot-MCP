@@ -73,6 +73,23 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   `AuthOption = Consts.MCP.Server.AuthOption.token` and a real token — never on an unauthenticated public
   interface in a release build.
 
+## In-game code execution (`WithScriptExecute`)
+
+`builder.WithScriptExecute()` registers `script-execute` in the game: a connected client sends C#, the game
+compiles it with Roslyn and runs it on its main thread. That is **arbitrary code execution in the game
+process**, with the player's file system and network access. It is OFF by default, never implied by
+`WithToolsFromAssembly(...)`, and it needs a build opt-in: an exported game has Code-Exec and Roslyn only
+when its `.csproj` sets `GodotMcpCodeExecInGame=true` and defines `GODOT_MCP_CODE_EXEC_IN_GAME` (README
+"Runtime usage"). Without the opt-in the call logs a warning and registers nothing.
+
+- **Debug / dev builds only.** Gate the call (and the csproj opt-in) behind your own dev switch. Never ship it
+  enabled in a public release build.
+- **Loopback + token, always.** Use a loopback host and `AuthOption = token` with a real token from the
+  environment. Anyone who can call tools on the connection owns the process.
+- **Desktop CoreCLR only.** NativeAOT and iOS cannot run code emitted at run time; mobile is untested.
+- **Size.** The opt-in adds Roslyn (`Microsoft.CodeAnalysis*.dll`, several MB) to the export. RQL is never
+  shipped.
+
 ## Environment variables
 
 The runtime config (`GodotMcpConfig`) reads these `GODOT_MCP_*` variables live (process env or project

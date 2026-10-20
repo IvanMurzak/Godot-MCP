@@ -2,7 +2,9 @@ import { isNewerVersion } from './semver.js';
 import {
   ADDON_PACKAGE_REFERENCES,
   ADDON_EMBEDDED_RESOURCES,
+  CODE_EXEC_IN_GAME_CONDITION,
   EDITOR_ONLY_CONDITION,
+  canonicalCondition,
   type AddonPackageReference,
   type AddonEmbeddedResource,
 } from './addon-deps.js';
@@ -117,17 +119,23 @@ function patchRef(element: string, version: string, condition: string | undefine
 /** The packages this CLI knows as editor-only (an older addon's manifest may not mark them). */
 const KNOWN_EDITOR_ONLY_IDS = new Set(ADDON_PACKAGE_REFERENCES.filter((r) => r.editorOnly).map((r) => r.id));
 
+/** The Conditions `install-plugin` writes; any other Condition on an element is the project's own. */
+const CANONICAL_CONDITIONS: ReadonlySet<string> = new Set([EDITOR_ONLY_CONDITION, CODE_EXEC_IN_GAME_CONDITION]);
+
 /**
  * The Condition a reference's element should carry, given the one it has (`undefined` for a new element). An
- * editor-only reference keeps any Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the
- * canonical one when it has none (the migration of csprojs written before editor-only packages). Any other reference
- * keeps its own Condition, except the canonical editor-only one on a package this CLI writes editor-only, which an
- * addon that needs the package in export builds (an older one) drops. The same Condition on another package (e.g.
- * McpPlugin, which docs/ARCHITECTURE.md lets a dev-only project exclude from exports) is the project's own and stays.
+ * editor-only reference gets its canonical Condition (`canonicalCondition`) when it has none (the migration of csprojs
+ * written before editor-only packages) or another canonical one (a Code-Exec package written editor-only before the
+ * in-game opt-in existed is upgraded to `CODE_EXEC_IN_GAME_CONDITION`), and keeps any other Condition the project set
+ * (e.g. a stricter `== 'Debug'`). Any other reference keeps its own Condition, except a canonical one on a package this
+ * CLI writes editor-only, which an addon that needs the package in export builds (an older one) drops. The editor-only
+ * Condition on another package (e.g. McpPlugin, which docs/ARCHITECTURE.md lets a dev-only project exclude from
+ * exports) is the project's own and stays.
  */
 function desiredCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined {
-  if (ref.editorOnly) return existing ?? EDITOR_ONLY_CONDITION;
-  return existing === EDITOR_ONLY_CONDITION && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
+  const canonical = existing === undefined || CANONICAL_CONDITIONS.has(existing);
+  if (ref.editorOnly) return canonical ? canonicalCondition(ref) : existing;
+  return canonical && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
 }
 
 /** Render the canonical self-closing element for a required embedded resource. */

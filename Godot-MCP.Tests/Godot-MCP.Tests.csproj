@@ -6,8 +6,9 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Tests</RootNamespace>
     <AssemblyName>Godot-MCP.Tests</AssemblyName>
-    <!-- Editor-only pure sources (script-execute, RQL) are guarded `#if TOOLS || GODOT_MCP_UNIT_TESTS`. -->
-    <DefineConstants>$(DefineConstants);GODOT_MCP_UNIT_TESTS</DefineConstants>
+    <!-- Editor-only pure sources (script-execute, RQL) are guarded `#if TOOLS || GODOT_MCP_UNIT_TESTS`; the in-game
+         script-execute sources `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`, so this suite builds as an opted-in game. -->
+    <DefineConstants>$(DefineConstants);GODOT_MCP_UNIT_TESTS;GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
     <!-- This is a plain xUnit assembly, not a Godot game assembly. It references GodotSharp only to
          exercise the value-type converters/refs (Vector2/3, Color, NodePath, NodeRef, ResourceRef),
          none of which need a running SceneTree. The editor dispatcher (behind #if TOOLS) needs a live
@@ -209,7 +210,13 @@
          result model; the Code-Exec packages + the source-only Roslyn adapter run real snippets here. The editor handler
          (Tool_Script.Execute.cs) and the GD.Print capture are #if TOOLS and verified via the headless Godot smoke. The
          idle-shutdown timer (CLI-started editors) is pure as well. -->
-    <Compile Include="..\addons\godot_mcp\Editor\Tools\ScriptExecuteSource.cs" Link="Source\ScriptExecuteSource.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptExecuteSource.cs" Link="Source\ScriptExecuteSource.cs" />
+    <!-- In-game script-execute (GODOT_MCP_CODE_EXEC_IN_GAME, defined above): the tool's registration (which runner wins
+         the name) is unit-tested; running a snippet needs the Godot main thread, so the executor and the engine log
+         capture are compiled in only so the tool's references resolve (the live run is the runtime harness). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptExecutor.cs" Link="Source\ScriptExecutor.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotSnippetLogger.cs" Link="Source\GodotSnippetLogger.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_GameScript.cs" Link="Source\Tool_GameScript.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />

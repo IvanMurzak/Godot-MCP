@@ -618,6 +618,7 @@ Builder surface (all fluent / chainable):
 | `builder.WithResources(params Type[])` | Register specific `[AiResourceType]` classes. |
 | `builder.WithoutMainThreadDispatcher()` | Skip the automatic main-thread-dispatcher bootstrap (only if you install your own autoload dispatcher). |
 | `builder.WithRuntimeErrorCapture()` | Capture errors raised in the **running game** (GDScript runtime errors, `push_error`/`push_warning`, shader errors via the Godot 4.5+ engine hook; C# unhandled / unobserved-`Task` exceptions with full stack traces) and register the `runtime-errors-*` tool so an agent can poll them. **OFF by default.** See ["Capturing in-game runtime errors"](#capturing-in-game-runtime-errors) below. |
+| `builder.WithScriptExecute()` | Register `script-execute` **in the game**: the agent's C# is compiled with Roslyn and run on the game's main thread. **OFF by default**, needs the csproj opt-in, arbitrary code execution. See ["Running C# in the game"](#running-c-in-the-game) below. |
 | `builder.Build()` | Finalize; returns a **default-OFF** `GodotMcpRuntimeHandle`. |
 | `handle.Connect()` / `handle.Disconnect()` | Open / close the connection. `handle.Dispose()` tears it down on shutdown. |
 
@@ -693,6 +694,40 @@ An MCP client polls the captured errors with the `runtime-errors-get` tool (and 
 > `127.0.0.1`) with `AuthOption = Consts.MCP.Server.AuthOption.token` and a real token — never an
 > unauthenticated public interface in a release build. See [Security](#security-opt-in-only-default-off)
 > and [`docs/runtime-security.md`](docs/runtime-security.md).
+
+## Running C# in the game
+
+`script-execute` normally runs in the editor. A game can offer it too: the agent sends C#, the running game
+compiles it with Roslyn and runs it on its main thread, with the game's own types, autoloads and scene tree
+(`((SceneTree)Engine.GetMainLoop()).Root`). There is no editor there, so no `EditorInterface`.
+
+Godot's export builds leave Roslyn out, so the game's `.csproj` opts in:
+
+```xml
+<PropertyGroup>
+  <GodotMcpCodeExecInGame>true</GodotMcpCodeExecInGame>
+  <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
+</PropertyGroup>
+```
+
+(`godot-cli install-plugin` writes the Code-Exec / Roslyn `PackageReference`s with a `Condition` that honours
+`GodotMcpCodeExecInGame`; RQL is never shipped.) Then register the tool:
+
+```csharp
+_mcp = GodotMcpRuntime.Initialize(builder =>
+{
+    builder.WithConfig(cfg => { /* loopback host + token */ });
+    builder.WithScriptExecute();
+}).Build();
+```
+
+Without the opt-in, `WithScriptExecute()` logs a warning and registers nothing, so the same code builds
+either way. A game started from the editor always has it.
+
+> ⚠️ **Security — arbitrary code execution.** Anyone who can call tools on this connection can run any code
+> in the game process. Use it in debug/dev builds only, on a loopback host with a token, and never ship it
+> enabled in a public release build. Desktop CoreCLR builds only: NativeAOT and iOS cannot run code emitted
+> at run time; mobile is untested. See [`docs/runtime-security.md`](docs/runtime-security.md).
 
 ## Sample: a live game-state tool
 
@@ -890,6 +925,9 @@ tools can do, a connected MCP client can drive. Godot-MCP's runtime is built so 
   `runtime-errors-get` and may contain absolute paths, machine/user names, or a secret that appeared in
   an exception — so enable it only on a trusted loopback + token connection (full note under
   [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)).
+- **In-game `script-execute` is arbitrary code execution.** `WithScriptExecute()` is **OFF by default** and
+  needs a csproj opt-in; enable it only in dev builds on a loopback + token connection
+  ([Running C# in the game](#running-c-in-the-game)).
 
 ### Editor-side security notes (accepted posture)
 

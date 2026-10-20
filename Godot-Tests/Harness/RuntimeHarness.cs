@@ -218,6 +218,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 // 7) Snapshot the captured rows into the report.
                 Snapshot(report);
 
+                // 7a) In-game script-execute: Roslyn compiles and runs C# inside THIS game process. After the snapshot,
+                //     so its own engine logger never overlaps the capture window asserted above. Called on the tool
+                //     directly: the runtime registers no extra tool, so the recorded tool contract is unchanged.
+                await CheckScriptExecuteAsync(report);
+
                 // 7b) Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): signal the workflow (ready
                 //     file) and keep the connection up while its MCP-client recorder drives tools/list + the
                 //     battery. Env-gated, default 0 = no hold. The workflow waits for the ready file before it
@@ -246,6 +251,46 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             GetTree().Quit(ok ? 0 : 1);
         }
+
+        // --- In-game script-execute ----------------------------------------------------------------------
+
+        /// <summary>
+        /// Runs two snippets through the in-game <c>script-execute</c> (<see cref="Tool_GameScript"/>): plain arithmetic and
+        /// a read of this game's own scene tree. Records the raw result values (or the error) for the assert script.
+        /// </summary>
+        async Task CheckScriptExecuteAsync(HarnessReport report)
+        {
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
+            var tool = new Tool_GameScript();
+            report.ScriptExecuteSum = await RunSnippetAsync(tool, "1 + 1", report);
+            report.ScriptExecuteRootName = await RunSnippetAsync(tool, "((SceneTree)Engine.GetMainLoop()).Root.Name.ToString()", report);
+            GD.Print($"[harness] script-execute: sum={report.ScriptExecuteSum}, rootName={report.ScriptExecuteRootName}.");
+#else
+            report.ScriptExecuteFailures.Add("this build has no code execution (neither TOOLS nor GODOT_MCP_CODE_EXEC_IN_GAME)");
+            await Task.CompletedTask;
+#endif
+        }
+
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
+        static async Task<string?> RunSnippetAsync(Tool_GameScript tool, string code, HarnessReport report)
+        {
+            try
+            {
+                var run = tool.Execute(code);
+                if (await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(60))) != run)
+                {
+                    report.ScriptExecuteFailures.Add($"'{code}' did not finish within 60 s");
+                    return null;
+                }
+                return (await run).Result?.valueJsonElement?.GetRawText();
+            }
+            catch (Exception ex)
+            {
+                report.ScriptExecuteFailures.Add($"'{code}' threw: {ex.Message}");
+                return null;
+            }
+        }
+#endif
 
         // --- Godot.Variant round-trip (issue #292) ----------------------------------------------------
 
@@ -624,6 +669,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             // Godot.Variant / Node-ref converters (issue #292) — version-independent, no server needed.
             if (report.VariantRoundTripFailures.Count > 0)
                 return false;
+
+            // In-game script-execute: Roslyn ran C# inside this game and read its scene tree.
+            if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "\"root\"")
+                return false;
             if (report.VariantRoundTripChecked < VariantRoundTripMinimumChecks)
                 return false;
             if (!report.VariantRoundTripRejectsGarbage || !report.VariantProjectSettingRoundTrip)
@@ -751,6 +800,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             [JsonPropertyName("variantRoundTripRejectsGarbage")] public bool VariantRoundTripRejectsGarbage { get; set; }
             [JsonPropertyName("variantProjectSettingRoundTrip")] public bool VariantProjectSettingRoundTrip { get; set; }
             [JsonPropertyName("variantRoundTripFailures")] public List<string> VariantRoundTripFailures { get; set; } = new();
+
+            [JsonPropertyName("scriptExecuteSum")] public string? ScriptExecuteSum { get; set; }
+            [JsonPropertyName("scriptExecuteRootName")] public string? ScriptExecuteRootName { get; set; }
+            [JsonPropertyName("scriptExecuteFailures")] public List<string> ScriptExecuteFailures { get; set; } = new();
         }
     }
 }

@@ -161,6 +161,13 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
             var plugin = mcpBuilder.Build(reflector);
 
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
+            // 4c) The in-game script-execute must win over the editor one a WithToolsFromAssembly scan of the addon
+            //     registers in an editor build (the scan runs after the explicit types; the last name wins).
+            if (builder.ScriptExecute)
+                Tools.Tool_GameScript.EnsureRegistered(plugin.McpManager?.ToolManager, reflector);
+#endif
+
             // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
             //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the
             //    McpPluginBuilder.Build reflection scan, the WithTools/Prompts/Resources type scans) never leaves

@@ -7,8 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// Editor-only (script-execute); also compiled by the xUnit suite.
-#if TOOLS || GODOT_MCP_UNIT_TESTS
+// script-execute: the editor, a game built with the in-game opt-in (docs/ARCHITECTURE.md), and the xUnit suite.
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -80,6 +80,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     name = ns.Name + "." + name;
             }
             return name;
+        }
+
+        /// <summary>
+        /// The folder snippet paths (<c>include</c>) are relative to: the Godot project when the process runs from an
+        /// editor build (the editor itself, or a game started from it), else the folder of the game executable. An
+        /// exported game has no project folder; its <c>res://</c> is inside the pack.
+        /// </summary>
+        public static string ProjectRoot(bool editorBuild, string globalizedResRoot, string executablePath)
+        {
+            if (editorBuild || string.IsNullOrEmpty(executablePath))
+                return globalizedResRoot;
+            return Path.GetDirectoryName(Path.GetFullPath(executablePath)) ?? globalizedResRoot;
         }
 
         /// <summary>

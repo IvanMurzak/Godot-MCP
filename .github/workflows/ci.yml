@@ -25,6 +25,25 @@ jobs:
       - name: Check Runtime/ does not leak editor-only APIs
         run: python scripts/check-runtime-boundary.py --verbose
 
+  # Export-build package set, no Godot binary: Godot-MCP.csproj in ExportRelease / ExportDebug ships McpPlugin +
+  # ReflectorNet and no RQL / Code-Exec / Roslyn; with the in-game script-execute opt-in
+  # (-p:GodotMcpCodeExecInGame=true) it also ships Code-Exec + Roslyn, still no RQL. See scripts/check-export-assemblies.py.
+  export-packages:
+    name: export builds (package set)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Check export builds
+        run: python3 scripts/check-export-assemblies.py
+
   build:
     name: dotnet build (.NET 8)
     runs-on: ubuntu-latest

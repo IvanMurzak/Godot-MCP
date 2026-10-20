@@ -25,12 +25,18 @@
     so Godot's export builds (ExportDebug / ExportRelease, the two configurations without TOOLS) leave them out and
     an exported game ships no Roslyn. Same rule the Godot SDK applies to GodotSharpEditor. The Condition sits on each
     element (after Version) so `godot-cli install-plugin` copies it per package; see docs/ARCHITECTURE.md.
+    Code-Exec and Roslyn also go into exports when the game opts in to in-game `script-execute` with
+    `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
+    consumer csproj sets both). RQL never ships in a game.
   -->
+  <PropertyGroup Condition="'$(GodotMcpCodeExecInGame)' == 'true'">
+    <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
   </ItemGroup>
 
   <!--
