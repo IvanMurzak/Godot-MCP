@@ -175,7 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             RqlMutationOwner.Nearest<Obj>(enclosing, o =>
             {
                 var obj = (Obj)o;
-                return obj.Kind == RqlOwnerKind.View ? (obj.ViewOf, RqlOwnerKind.View) : (obj.Kind == RqlOwnerKind.None ? null : obj, obj.Kind);
+                return (obj.Kind == RqlOwnerKind.View ? obj.ViewOf : obj, obj.Kind);
             })?.Name;
 
         [Fact]

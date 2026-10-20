@@ -161,28 +161,51 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var groups = VisibleGroups(node);
             if (groups.Count == 0) return groups;
             var persistent = PersistentGroups(node);
-            return groups.Where(persistent.Contains).ToList();
+            return persistent == null ? groups : groups.Where(persistent.Contains).ToList();
         }
 
         private static List<string> VisibleGroups(Node node) =>
             node.GetGroups().Select(g => g.ToString()).Where(g => g.Length > 0 && !g.StartsWith("_", StringComparison.Ordinal))
                 .OrderBy(g => g, StringComparer.Ordinal).ToList();
 
-        /// <summary>
-        /// The groups of <paramref name="node"/> a saved scene keeps. Godot's API has no per-group persistent flag, but
-        /// packing keeps exactly the persistent ones: the node packed on its own (a scene of the node and the descendants it
-        /// owns — only itself, unless it is the scene root) lists them as its scene state's groups.
-        /// </summary>
-        private static HashSet<string> PersistentGroups(Node node)
+        // A node's persistent groups cost a pack (of the whole scene for its root), so a query packs each node once:
+        // RunQuery scopes this cache to one query; AddToGroup / RemoveFromGroup and the undo test hooks invalidate it.
+        private static Dictionary<ulong, HashSet<string>?>? _persistentGroups;
+
+        /// <summary>Run <paramref name="run"/> (one RQL query) with the persistent-groups cache; nested queries share it.</summary>
+        internal static T RunQuery<T>(Func<T> run)
         {
-            using var scene = new PackedScene();
-            var state = scene.Pack(node) == Error.Ok ? scene.GetState() : null;
-            if (state == null || state.GetNodeCount() == 0)
-                return new HashSet<string>(VisibleGroups(node), StringComparer.Ordinal); // cannot tell: treat all as persistent
-            return new HashSet<string>(state.GetNodeGroups(0), StringComparer.Ordinal);
+            if (_persistentGroups != null) return run();
+            _persistentGroups = new Dictionary<ulong, HashSet<string>?>();
+            try { return run(); }
+            finally { _persistentGroups = null; }
         }
 
-        private static bool IsPersistentGroup(Node node, string group) => node.IsInGroup(group) && PersistentGroups(node).Contains(group);
+        internal static void InvalidateGroups(Node? node = null)
+        {
+            if (node == null) _persistentGroups?.Clear();
+            else _persistentGroups?.Remove(node.GetInstanceId());
+        }
+
+        /// <summary>
+        /// The groups of <paramref name="node"/> a saved scene keeps, or null when that cannot be told (all count as
+        /// persistent). Godot's API has no per-group persistent flag, but packing keeps exactly the persistent ones: the node
+        /// packed on its own (a scene of the node and the descendants it owns — only itself, unless it is the scene root)
+        /// lists them as its scene state's groups.
+        /// </summary>
+        private static HashSet<string>? PersistentGroups(Node node)
+        {
+            var id = node.GetInstanceId();
+            if (_persistentGroups != null && _persistentGroups.TryGetValue(id, out var cached)) return cached;
+            using var scene = new PackedScene();
+            var state = scene.Pack(node) == Error.Ok ? scene.GetState() : null;
+            var groups = state == null || state.GetNodeCount() == 0 ? null : new HashSet<string>(state.GetNodeGroups(0), StringComparer.Ordinal);
+            if (_persistentGroups != null) _persistentGroups[id] = groups;
+            return groups;
+        }
+
+        private static bool IsPersistentGroup(Node node, string group) =>
+            node.IsInGroup(group) && (PersistentGroups(node)?.Contains(group) ?? true);
 
         /// <summary>The nodes of the edited scene in the persistent group <paramref name="group"/>, depth-first.</summary>
         public static List<Node> NodesInGroup(string group) => AllNodes().Where(n => IsPersistentGroup(n, group)).ToList();
@@ -208,6 +231,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // Godot keeps the flag of the first AddToGroup: a non-persistent membership has to be replaced.
             if (member) node.RemoveFromGroup(group);
             node.AddToGroup(group, persistent: true);
+            InvalidateGroups(node);
             RecordUndo(
                 ur =>
                 {
@@ -230,6 +254,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!node.IsInGroup(group)) return false;
             var persistent = IsPersistentGroup(node, group);
             node.RemoveFromGroup(group);
+            InvalidateGroups(node);
             RecordUndo(
                 ur => ur.AddDoMethod(node, Node.MethodName.RemoveFromGroup, group),
                 ur => ur.AddUndoMethod(node, Node.MethodName.AddToGroup, group, persistent));

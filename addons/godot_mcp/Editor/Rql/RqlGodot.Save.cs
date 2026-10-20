@@ -110,7 +110,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             QueryResult result;
             try
             {
-                result = Engine.Execute(query, null, new QueryOptions { AllowMutation = true, DryRun = dryRun });
+                result = RunQuery(() => Engine.Execute(query, null, new QueryOptions { AllowMutation = true, DryRun = dryRun }));
             }
             finally
             {
@@ -261,9 +261,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (sceneChanged) MarkSceneUnsaved();
         }
 
-        // The Godot object whose snapshot covers each change (RqlMutationOwner.Nearest): a write into a struct member is
-        // recorded on the node / resource that holds it, one into a plain Object on that Object, one beneath a view row on
-        // the object the view stands for; view objects such as the editor source are not Godot objects and need no undo.
+        // The Godot object whose snapshot covers each change (see RqlMutationOwner.Nearest).
         private static List<GodotObject> MutatedObjects(IReadOnlyList<MutationRecord> records)
         {
             var owners = new List<GodotObject>();

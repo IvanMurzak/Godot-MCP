@@ -47,23 +47,20 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
         private static object? Step(object?[] args, bool undo)
         {
             var history = History(args) ?? throw new InvalidOperationException("no undo manager (the plugin is not installed)");
+            RqlGodot.InvalidateGroups(); // the step may change groups behind RQL
             return undo ? history.Undo() : history.Redo();
         }
 
-        // The manager the plugin assigned, and both histories a mutation commits to (global; the edited scene's, when one is open).
-        private static bool HasUndoManager()
-        {
-            var manager = RqlGodot.UndoRedo?.Invoke();
-            if (manager == null || !GodotObject.IsInstanceValid(manager)) return false;
-            if (manager.GetHistoryUndoRedo(GlobalHistory) == null) return false;
-            return RqlGodot.EditedRoot() is not { } root || manager.GetHistoryUndoRedo(manager.GetObjectHistoryId(root)) != null;
-        }
+        // Both histories a mutation commits to are reachable (global; the edited scene's, when one is open).
+        private static bool HasUndoManager() =>
+            History(new object?[] { "global" }) != null && (RqlGodot.EditedRoot() == null || History(new object?[] { "scene" }) != null);
 
         private static object? AddToGroup(object?[] args)
         {
             if (args.Length != 3 || !(args[0] is Node node) || !(args[1] is string group) || !(args[2] is bool persistent))
                 return new RqlError("type-mismatch", "test.addToGroup(node, group, persistent) expects a node, a group name and a bool");
             node.AddToGroup(group, persistent);
+            RqlGodot.InvalidateGroups(node);
             return true;
         }
 

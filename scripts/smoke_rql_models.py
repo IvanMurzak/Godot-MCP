@@ -45,6 +45,11 @@ def result_is(name: str, text: str, value: str) -> None:
     check(name, re.search(rf"\|{re.escape(value)}$", text, re.M | re.I) is not None, text)
 
 
+def value_is(name: str, text: str, value: str) -> None:
+    """A query result has a line that is exactly `value`."""
+    check(name, re.search(rf"^{re.escape(value)}$", text, re.M) is not None, text)
+
+
 def lacks(name: str, text: str, *needles: str) -> None:
     present = [n for n in needles if n in text]
     check(name, not present, f"unexpected {present} in: {text}")
@@ -289,10 +294,10 @@ def existing_adapters(host: str, project: pathlib.Path, d: str) -> None:
         has("E14 plain Object reached through the node", text, "Object|1")
         must("E14 write into the plain Object", mutate(host, f'{plain} | set props["inner"].props["value"] = 5'))
         text = must("E14 read after write", query(host, f'{plain} | select v=(props["inner"].props["value"])'))
-        check("E14 written", re.search(r"^5$", text, re.M) is not None, text)
+        value_is("E14 written", text, "5")
         undo(host, "global")
         text = must("E14 read after undo", query(host, f'{plain} | select v=(props["inner"].props["value"])'))
-        check("E14 undo restored the plain Object", re.search(r"^1$", text, re.M) is not None, text)
+        value_is("E14 undo restored the plain Object", text, "1")
     else:
         skip_undo("E14")
 
@@ -397,7 +402,7 @@ def groups(host: str, project: pathlib.Path, d: str) -> None:
         text = must("GR9 read", query(host, f'{node("GD")} | select groups'))
         lacks("GR9 edit-time groups are not listed", text, "runtime", "transient")
         text = must("GR9 godot.group", query(host, 'godot.group("runtime") | count'))
-        check("GR9 godot.group lists persistent members only", re.search(r"^0$", text, re.M) is not None, text)
+        value_is("GR9 godot.group lists persistent members only", text, "0")
         must("GR9 set groups makes it persistent", mutate(host, f'{node("GD")} | set groups = ["runtime"]'))
         text = must("GR9 read after set", query(host, f'{node("GD")} | select groups'))
         has("GR9 listed now", text, "runtime")
@@ -727,7 +732,7 @@ def tilesets(host: str, project: pathlib.Path, d: str) -> None:
         must("TS12 tile data for undo", mutate(host, f'{atlas} | get tiles | where coords == "(0, 0)" | set data.ZIndex = 9'))
         undo(host, "global")
         text = must("TS12 read", query(host, f'{atlas} | get tiles | where coords == "(0, 0)" | select z=(data.ZIndex)'))
-        check("TS12 undo restored the tile data", re.search(r"^2$", text, re.M) is not None, text)
+        value_is("TS12 undo restored the tile data", text, "2")
     else:
         skip_undo("TS11-12")
 
