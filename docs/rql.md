@@ -32,7 +32,7 @@ What the Godot editor keeps outside plain properties, each with read, write, und
 
 | Model | Read | Change | Saved to |
 |---|---|---|---|
-| **Groups** | node `groups` (persistent groups, internal `_…` excluded), `godot.group("enemies")`, the `groups` source (`name nodes count global description`) | `call AddToGroup(g)` / `RemoveFromGroup(g)` (return whether anything changed), `set groups = [...]` | the scene (`groups=[…]` in the node header) |
+| **Groups** | node `groups` (persistent groups, internal `_…` excluded; a group a tool script joined without `persistent` is not listed), `godot.group("enemies")`, the `groups` source (`name nodes count global description`) | `call AddToGroup(g)` / `RemoveFromGroup(g)` (return whether anything changed), `set groups = [...]` (a listed edit-time group becomes persistent) | the scene (`groups=[…]` in the node header) |
 | **Signals** | node `signals` (`name args connections`), `connections` (persistent ones: `signal target method flags deferred oneShot`), `incoming` | `call Connect(signal, target, method, deferred?, oneShot?)` (the method must exist in the target's script or class), `Disconnect(signal, target, method)`, a connection row's `Disconnect()` | the scene (`[connection …]`) |
 | **Project settings** | the `settings` source (`name section value type changed`), `project` (`settings["section/key"]`, `name`, `mainScene`) | `project \| set settings["display/window/size/viewport_width"] = 1280` (typed like the Project Settings dialog), `call SetSetting(name, value)` (custom), `ClearSetting(name)` | `project.godot` |
 | **Input map** | the `inputActions` source (`name events deadzone builtIn`); events as text: `Key:Space`, `Key:Ctrl+S`, `PhysicalKey:W`, `Mouse:Left`, `Mouse:Shift+WheelUp`, `JoypadButton:A`, `JoypadMotion:LeftX-` | `project \| call AddInputAction(name, events?, deadzone?)` / `RemoveInputAction` / `AddInputEvent` / `RemoveInputEvent`; rows: `call AddEvent / RemoveEvent / Remove`, `set events = [...]`, `set deadzone` | `project.godot` (`[input]`, all devices) |
@@ -61,7 +61,11 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 - **All-or-nothing.** Every target and value is checked before anything is written; a failure changes nothing.
   `dry_run: true` returns the receipt (`$ref member old new`) without changing anything.
 - **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` (Ctrl+Z): a `set` snapshots the stored Godot properties
-  of every changed object and records the differences as do/undo properties; the structural node calls register the
+  of every changed object and records the differences as do/undo properties. The changed object is the nearest node,
+  resource or project-settings object enclosing the write; a plain `Object` held by a node property is snapshotted
+  itself, one beneath a view row is a change of the object the row stands for (a tile's `TileData` → its atlas
+  source). Undo steps a setter registers itself (Theme items, `groups`) join the action only when the `set` commits:
+  a `set` the engine rolls back leaves no undo entry (`RqlSetStageBuffer`). The structural node calls register the
   same do/undo methods the Scene dock does (the removed node of `Free()` stays alive in the undo history). An action
   that touches scene nodes and global objects (file resources, project settings) is split in two, one per undo
   history; every step is forced into its action's history (`ForceFixedHistory`), so a path-less resource cannot
@@ -84,10 +88,13 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
     NodePath / Variant; Vector2/3/4(I), Color, Quaternion, Basis, Transform2D/3D, Rect2(I), Aabb, Plane (pure C#,
     unit-tested; `-0` prints as `0`); NodeRef (tool arguments).
   - `RqlGodot.Signals.cs` — groups and signal connections of the edited scene's nodes.
+  - `RqlSetStageBuffer.cs`, `RqlMutationOwner.cs` — the mutation hooks' pure parts (setter undo steps held until their
+    `set` commits; which object a change is snapshotted on), unit-tested.
   - `Settings/` — project settings, input map (`InputEventText.cs`: the pure event grammar, unit-tested;
     `InputEvents.cs`: ⇄ Godot `InputEvent`s), autoloads and groups (`RqlProject.cs`).
-  - `Modules/TestHooksModule.cs` — `test.undo` / `test.redo` / `test.action`, only with `GODOT_MCP_RQL_TEST_HOOKS=1`
-    (the live smoke drives undo with them; never on in a user's editor).
+  - `Modules/TestHooksModule.cs` — `test.undo` / `test.redo` / `test.action` / `test.undoManager` (true only when the
+    undo manager is reachable; the smoke's probe) / `test.addToGroup(node, group, persistent)`, only with
+    `GODOT_MCP_RQL_TEST_HOOKS=1` (the live smoke drives undo with them; never on in a user's editor).
   - `Modules/GodotCoreModule.cs`, `Modules/ToolTypesModule.cs` — the core module; modules are discovered in every loaded
     assembly (`GodotAssemblyUtils.AllAssemblies`), so an extension's `IRqlModule` in the consumer project assembly is
     found as soon as it is installed (its `ctx.AddGuide` text appears in the `godot-rql` skill).
@@ -111,7 +118,8 @@ the reload still unloads.
 
 - `Godot-MCP.Tests/Rql*Tests.cs` (xUnit, no Godot binary): every guide example parses, the struct adapters (Plane and
   negative zero included), the input-event text grammar, the tool binding (schemas, RQL arguments, compact results,
-  escaping), type names, the cache release, the config setting.
+  escaping), type names, the cache release, the config setting, and the mutation hooks' pure parts over a real engine
+  (a rolled-back `set` drops its setters' undo steps, calls keep theirs; owner selection).
 - `scripts/smoke_rql.py` (CI: `test_godot_runtime_harness.yml`, every Godot version of the matrix) against a live
   headless editor: read-back of every change from the `.tscn` / `.tres` Godot wrote (the former
   `smoke_property_patches.py` cases), `AddChild` + `SaveScene` round-trip, resource move / delete with sidecars, and
@@ -120,7 +128,8 @@ the reload still unloads.
   Variant, NodeRef, the struct types), groups, signal connections, project settings, the input map, autoloads, global
   groups, TileSets and Themes — each change read back from the `.tscn` / `.tres` / `project.godot` Godot wrote,
   validation errors, dry runs, and (with `GODOT_MCP_RQL_TEST_HOOKS=1` in the editor) undo and redo of every kind of
-  change; without the hooks those checks print `SKIP` (CI passes `--require-test-hooks`, which fails instead).
+  change; without the hooks (or without a reachable undo manager, probed by `test.undoManager()`) those checks print
+  `SKIP` (CI passes `--require-test-hooks`, which fails instead).
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 
