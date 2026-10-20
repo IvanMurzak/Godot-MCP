@@ -203,6 +203,8 @@ namespace com.IvanMurzak.Godot.MCP
             FreeStaleNode(ref _dispatcher);
             _dispatcher = new MainThreadDispatcher { Name = DispatcherNodeName };
             AddChild(_dispatcher);
+            // Hold queued MCP calls while the editor's progress dialog pumps a nested frame (see HoldWhile).
+            MainThreadDispatcher.HoldWhile = EditorProgressGate.Create(this);
 
             // Route ReflectorNet's MainThread.Instance through the dispatcher.
             GodotMainThread.Install();
@@ -512,6 +514,8 @@ namespace com.IvanMurzak.Godot.MCP
             //    always run.
             if (MainThreadDispatcher.IsMainThread)
             {
+                MainThreadDispatcher.HoldWhile = null;
+
                 // Tear down the editor engine-logger channel (4.5+) installed in _EnterTree. THIS is the
                 // godotengine/godot#78513 fix: the engine holds a strong handle to a GodotObject defined in the
                 // COLLECTIBLE addon assembly, which roots the hot-reload ALC and makes its unload fail with the

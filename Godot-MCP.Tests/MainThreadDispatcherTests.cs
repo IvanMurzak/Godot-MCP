@@ -53,6 +53,64 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         static void ResetState() => MainThreadDispatcher.ResetForTests();
 
+        // ---- Holding the queue while the editor pumps a nested frame -----------------------------------------
+
+        [Fact]
+        public void Drain_WhileHeld_KeepsActionsQueued_ThenRunsThemInOrder()
+        {
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            var held = true;
+            MainThreadDispatcher.HoldWhile = () => held;
+            var ran = new List<int>();
+            MainThreadDispatcher.Enqueue(() => ran.Add(1));
+            MainThreadDispatcher.Enqueue(() => ran.Add(2));
+
+            MainThreadDispatcher.DrainForTests();
+            Assert.Empty(ran);
+            Assert.Equal(2, MainThreadDispatcher.PendingActionCountForTests);
+
+            held = false;
+            MainThreadDispatcher.DrainForTests();
+            Assert.Equal(new[] { 1, 2 }, ran);
+        }
+
+        [Fact]
+        public void Drain_StopsAfterTheActionThatStartsAHold()
+        {
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            var held = false;
+            MainThreadDispatcher.HoldWhile = () => held;
+            var ran = new List<int>();
+            MainThreadDispatcher.Enqueue(() => { ran.Add(1); held = true; });
+            MainThreadDispatcher.Enqueue(() => ran.Add(2));
+
+            MainThreadDispatcher.DrainForTests();
+            Assert.Equal(new[] { 1 }, ran);
+
+            held = false;
+            MainThreadDispatcher.DrainForTests();
+            Assert.Equal(new[] { 1, 2 }, ran);
+        }
+
+        [Fact]
+        public void Drain_NestedInsideARunningAction_DoesNotStartTheNextAction()
+        {
+            // Models an action whose editor call shows a progress dialog: Godot pumps a nested frame, which ticks
+            // the dispatcher again before the action returns.
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            var order = new List<string>();
+            MainThreadDispatcher.Enqueue(() =>
+            {
+                order.Add("first:start");
+                MainThreadDispatcher.DrainForTests();
+                order.Add("first:end");
+            });
+            MainThreadDispatcher.Enqueue(() => order.Add("second"));
+
+            MainThreadDispatcher.DrainForTests();
+            Assert.Equal(new[] { "first:start", "first:end", "second" }, order);
+        }
+
         // ---- Early-boot buffering (the issue #169 fix) -----------------------------------------------------
 
         [Fact]

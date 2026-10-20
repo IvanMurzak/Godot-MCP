@@ -222,11 +222,59 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             }
         }
 
+        /// <summary>
+        /// Optional editor-supplied predicate: while it returns <c>true</c> the per-tick drain is skipped and
+        /// the queued actions wait for a later tick. Godot's modal <c>ProgressDialog</c> runs
+        /// <c>Main::iteration()</c> from inside the operation it reports (registering global script classes,
+        /// loading a scene ...), so this Node's <see cref="_Process"/> also ticks in that NESTED frame. Running
+        /// an MCP action there re-enters the editor mid-operation: on Godot 4.4 a scene call made while
+        /// "update_scripts_classes" is in progress starts the same task again ("Task 'update_scripts_classes'
+        /// already exists") and the editor stops answering. <c>GodotMcpPlugin</c> sets this to "the progress
+        /// dialog is showing" (the editor-only check cannot live in this runtime assembly). Main thread only.
+        /// </summary>
+        public static Func<bool>? HoldWhile { get; set; }
+
+        /// <summary>True while <see cref="DrainQueue"/> runs an action (main thread only); see <see cref="DrainQueue"/>.</summary>
+        static bool _draining;
+
+        /// <summary>
+        /// Run the queued actions, unless the editor is busy (<see cref="HoldWhile"/>) or this is a nested tick
+        /// inside an action that is still running: an action that shows a progress dialog pumps a nested frame,
+        /// and draining there would start the next action before the current one returns. Skipped actions stay
+        /// queued in order and run on the next ordinary tick.
+        /// </summary>
         static void DrainQueue()
         {
-            while (_actions.TryDequeue(out var action))
+            if (_draining || IsHeld())
+                return;
+            _draining = true;
+            try
             {
-                InvokeDrained(action);
+                while (_actions.TryDequeue(out var action))
+                {
+                    InvokeDrained(action);
+                    if (IsHeld())
+                        break;
+                }
+            }
+            finally
+            {
+                _draining = false;
+            }
+        }
+
+        static bool IsHeld()
+        {
+            try
+            {
+                return HoldWhile?.Invoke() == true;
+            }
+            catch (Exception ex)
+            {
+                // A broken predicate must not stall every MCP call: log it and drain as before.
+                GodotMcpLog.Error($"[Godot-MCP] MainThreadDispatcher hold check threw; ignoring it: {ex}");
+                HoldWhile = null;
+                return false;
             }
         }
 
@@ -331,6 +379,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             _instance = null;
             _instancePresentForTests = false;
             _hasEverEntered = false;
+            _draining = false;
+            HoldWhile = null;
             MainThreadId = -1;
         }
     }

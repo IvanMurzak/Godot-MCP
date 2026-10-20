@@ -14,7 +14,6 @@ from __future__ import annotations
 import pathlib
 import re
 import struct
-import time
 import zlib
 
 from smoke_rql_lib import check, disk, file_has, file_text, must, mutate, node_line, q, query, tool
@@ -738,9 +737,17 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
                                                           "content": "extends Node3D\n\nfunc _on_enemy_died():\n\tpass\n"}))
     must("G0 attach player script", tool(host, "script-attach-to-node", {"nodeRef": "Player", "scriptPath": "res://scenes/player.gd"}))
     must("G0 game script", tool(host, "script-create", {"scriptPath": "res://scenes/game.gd", "content": "extends Node\n"}))
-    # New scripts start the editor's script-class update over the next frames; on Godot 4.4 a scene or resource
-    # operation arriving while it runs ("Task 'update_scripts_classes' already exists") can hang the headless editor.
-    time.sleep(3)
+    # No wait after creating scripts: the editor registers their classes over the next frames behind a progress dialog
+    # that pumps nested frames, and the plugin holds MCP calls until it closes. Two class_name scripts make the editor
+    # show that dialog; a scene created and another opened right away hung Godot 4.4 before the hold
+    # ("Task 'update_scripts_classes' already exists").
+    for name in ("HoldA", "HoldB"):
+        must(f"G0 {name} script", tool(host, "script-create", {"scriptPath": f"res://scripts/{name.lower()}.gd",
+                                                                "content": f"class_name {name}\nextends Node\n"}))
+    if disk(project, "res://scenes/hold.tscn").exists():
+        must("G0 clean hold.tscn", mutate(host, 'editor | call DeleteResource("res://scenes/hold.tscn")'))
+    must("G0 new scene during class registration", mutate(host, 'editor | call NewScene("res://scenes/hold.tscn", "Node", "Hold")'))
+    must("G0 open level right after", mutate(host, 'editor | call OpenScene("res://scenes/level.tscn")'))
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
