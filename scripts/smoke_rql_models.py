@@ -6,7 +6,8 @@ object / value / struct adapters on real Godot properties, and undo of every kin
 
 Every change is checked where it cannot lie: the .tscn / .tres / project.godot text Godot wrote, plus a read-back query.
 Undo is checked through the test-only functions test.undo / test.redo (TestHooksModule; the editor must run with
-GODOT_MCP_RQL_TEST_HOOKS=1, otherwise those checks are reported as SKIP, or as one FAIL with --require-test-hooks).
+GODOT_MCP_RQL_TEST_HOOKS=1 and have an undo manager, which test.undoManager() reports; otherwise those checks are reported
+as SKIP, or as one FAIL with --require-test-hooks).
 Pure stdlib, Python 3.8+.
 """
 from __future__ import annotations
@@ -42,6 +43,11 @@ def has(name: str, text: str, *needles: str) -> None:
 def result_is(name: str, text: str, value: str) -> None:
     """A call receipt's result column (the last cell of a row) is exactly `value` (case-insensitive)."""
     check(name, re.search(rf"\|{re.escape(value)}$", text, re.M | re.I) is not None, text)
+
+
+def value_is(name: str, text: str, value: str) -> None:
+    """A query result has a line that is exactly `value`."""
+    check(name, re.search(rf"^{re.escape(value)}$", text, re.M) is not None, text)
 
 
 def lacks(name: str, text: str, *needles: str) -> None:
@@ -113,11 +119,15 @@ def node(name: str) -> str:
 
 
 def run(host: str, project: pathlib.Path, d: str, require_hooks: bool = False) -> None:
-    ok, text = query(host, 'test.action("global")')
+    # The hooks must exist AND reach a working undo manager: without one, mutations apply with no undo entries and
+    # test.action / test.undo would only answer null / fail later.
+    ok, text = query(host, "test.undoManager()")
+    ok = ok and re.search(r"^true$", text, re.M | re.I) is not None
     HOOKS["on"] = ok
-    print(f"[INFO] undo test hooks {'on' if ok else 'OFF (set GODOT_MCP_RQL_TEST_HOOKS=1)'}", flush=True)
+    print(f"[INFO] undo test hooks {'on' if ok else 'OFF (GODOT_MCP_RQL_TEST_HOOKS=1 and an undo manager are needed)'}", flush=True)
     if require_hooks:
-        check("undo test hooks on (GODOT_MCP_RQL_TEST_HOOKS=1 in the editor)", ok, f"test.action probe: {text}")
+        check("undo test hooks on (GODOT_MCP_RQL_TEST_HOOKS=1 in the editor, undo manager reachable)", ok,
+              f"test.undoManager() probe: {text}")
     schema(host)
     existing_adapters(host, project, d)
     undo_of_node_edits(host, project, d)
@@ -269,6 +279,28 @@ def existing_adapters(host: str, project: pathlib.Path, d: str) -> None:
     lacks("E13 no script", text, script)
     fails("E13 unknown node", tool(host, "script-attach-to-node", {"nodeRef": "NoSuchNode", "scriptPath": script}))
 
+    # A plain Object (not a node or resource) held by a node property: a write to it is undone on the object itself
+    # (the node's own properties do not change).
+    if HOOKS["on"]:
+        holder = f"{d}/holder.gd"
+        must("E14 script-create", tool(host, "script-create", {
+            "scriptPath": holder,
+            "content": "@tool\nextends Node3D\n\nclass Inner extends Object:\n\t@export var value := 1\n\n"
+                       "@export_storage var inner: Object = Inner.new()\n"}))
+        must("E14 holder node", mutate(host, 'root | call AddChild("Node3D", "PlainHolder")'))
+        must("E14 attach", tool(host, "script-attach-to-node", {"nodeRef": "PlainHolder", "scriptPath": holder}))
+        plain = node("PlainHolder")
+        text = must("E14 read", query(host, f'{plain} | select c=(props["inner"].class) v=(props["inner"].props["value"])'))
+        has("E14 plain Object reached through the node", text, "Object|1")
+        must("E14 write into the plain Object", mutate(host, f'{plain} | set props["inner"].props["value"] = 5'))
+        text = must("E14 read after write", query(host, f'{plain} | select v=(props["inner"].props["value"])'))
+        value_is("E14 written", text, "5")
+        undo(host, "global")
+        text = must("E14 read after undo", query(host, f'{plain} | select v=(props["inner"].props["value"])'))
+        value_is("E14 undo restored the plain Object", text, "1")
+    else:
+        skip_undo("E14")
+
 
 def undo_of_node_edits(host: str, project: pathlib.Path, d: str) -> None:
     """Every kind of node edit is one undo action that restores the scene exactly (and redo re-applies it)."""
@@ -324,7 +356,7 @@ def undo_of_node_edits(host: str, project: pathlib.Path, d: str) -> None:
 
 def groups(host: str, project: pathlib.Path, d: str) -> None:
     sc = f"{d}/groups.tscn"
-    new_scene(host, sc, "Node3D", "GroupRoot", [("Node3D", "GA"), ("Node3D", "GB"), ("Node3D", "GC")])
+    new_scene(host, sc, "Node3D", "GroupRoot", [("Node3D", "GA"), ("Node3D", "GB"), ("Node3D", "GC"), ("Node3D", "GD")])
     text = must("GR1 AddToGroup", mutate(host, f'{node("GA")} | call AddToGroup("enemies")'))
     result_is("GR1 returns true", text, "true")
     text = must("GR1 again", mutate(host, f'{node("GA")} | call AddToGroup("enemies")'))
@@ -361,11 +393,43 @@ def groups(host: str, project: pathlib.Path, d: str) -> None:
         has("GR7 undo restored the groups", text, "enemies")
     else:
         skip_undo("GR7")
+    if HOOKS["on"]:
+        # A group a tool script joined without `persistent` is not saved, so `groups` does not list it; listing it in
+        # `set groups` makes it persistent (saved below), an unlisted one stays as it was.
+        for g in ("runtime", "transient"):
+            text = must(f"GR9 script joins {g} (not persistent)", query(host, f'test.addToGroup(godot.find("GD"), {q(g)}, false)'))
+            has(f"GR9 joined {g}", text, "true")
+        text = must("GR9 read", query(host, f'{node("GD")} | select groups'))
+        lacks("GR9 edit-time groups are not listed", text, "runtime", "transient")
+        text = must("GR9 godot.group", query(host, 'godot.group("runtime") | count'))
+        value_is("GR9 godot.group lists persistent members only", text, "0")
+        must("GR9 set groups makes it persistent", mutate(host, f'{node("GD")} | set groups = ["runtime"]'))
+        text = must("GR9 read after set", query(host, f'{node("GD")} | select groups'))
+        has("GR9 listed now", text, "runtime")
+        lacks("GR9 the unlisted one is untouched", text, "transient")
+        undo(host, "scene")
+        text = must("GR9 read after undo", query(host, f'{node("GD")} | select groups'))
+        lacks("GR9 undo makes it edit-time again", text, "runtime")
+        redo(host, "scene")
+        # A set the engine rolls back (its second write fails) leaves no undo action: undo then reverts the change before it.
+        must("GR10 change before", mutate(host, f'{node("GA")} | set groups = ["enemies", "marker"]'))
+        fails("GR10 rolled-back set", mutate(host, f'{node("GC")} | set groups = ["rolled"], groups = ["x/y"]'), "rolled back")
+        text = must("GR10 read", query(host, f'{node("GC")} | select groups'))
+        lacks("GR10 the rollback removed the group", text, "rolled")
+        undo(host, "scene")
+        text = must("GR10 read after undo", query(host, f'{node("GA")} | select groups'))
+        lacks("GR10 undo reverted the change before the rolled-back set", text, "marker")
+        has("GR10 GA keeps its group", text, "enemies")
+    else:
+        skip_undo("GR9-10")
     must("GR8 save", mutate(host, "editor | call SaveScene()"))
     scene = file_text(project, sc)
     check("GR8 GA saved with its group", re.search(r'^\[node name="GA"[^\]]*groups=\["enemies"\]', scene, re.M) is not None, scene)
     check("GR8 GB saved with its group", re.search(r'^\[node name="GB"[^\]]*groups=\["enemies"\]', scene, re.M) is not None, scene)
     check("GR8 GC saved without groups", re.search(r'^\[node name="GC"[^\]]*groups=', scene, re.M) is None, scene)
+    if HOOKS["on"]:
+        check("GR9 GD saved with the group made persistent only",
+              re.search(r'^\[node name="GD"[^\]]*groups=\["runtime"\]', scene, re.M) is not None, scene)
 
 
 def signals(host: str, project: pathlib.Path, d: str) -> None:
@@ -664,8 +728,13 @@ def tilesets(host: str, project: pathlib.Path, d: str) -> None:
         undo(host, "global")
         text = must("TS11 read terrains", query(host, f"{ts} | get terrainSets | select terrains"))
         lacks("TS11 undo removed the terrain", text, "sand")
+        # A write to a tile's TileData (a plain Object) is a change of its atlas source: one undoable action.
+        must("TS12 tile data for undo", mutate(host, f'{atlas} | get tiles | where coords == "(0, 0)" | set data.ZIndex = 9'))
+        undo(host, "global")
+        text = must("TS12 read", query(host, f'{atlas} | get tiles | where coords == "(0, 0)" | select z=(data.ZIndex)'))
+        value_is("TS12 undo restored the tile data", text, "2")
     else:
-        skip_undo("TS11")
+        skip_undo("TS11-12")
 
 
 def themes(host: str, project: pathlib.Path, d: str) -> None:
