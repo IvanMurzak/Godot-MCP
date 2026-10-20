@@ -66,6 +66,17 @@ class PackageGuards(unittest.TestCase):
         self.assertEqual(([], []), (violations, packages))
 
 
+class CharLiterals(unittest.TestCase):
+    def test_a_quote_char_literal_opens_no_string(self):
+        violations, packages, _ = scan("var s = raw.Trim('\"');\nusing com.IvanMurzak.CodeExec;\nvar e = EditorInterface.Singleton;\n")
+        self.assertEqual([3], [v[0] for v in violations])
+        self.assertEqual([2], [p[0] for p in packages])
+
+    def test_escaped_char_literals(self):
+        code = boundary.strip_comments("a('\\'', '\\\\', '\\u0022', 'x') // c\n")
+        self.assertEqual("a('  ', '  ', '      ', ' ')", code.rstrip())
+
+
 class RepoHolds(unittest.TestCase):
     def test_addon_passes(self):
         self.assertEqual(0, boundary.main([]))

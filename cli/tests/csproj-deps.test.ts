@@ -352,6 +352,18 @@ describe('addAddonPackageReferences — in-game code execution opt-in (GodotMcpC
     expect(addAddonPackageReferences(before, [codeExec]).changed).toBe(false);
   });
 
+  it('moves a newer Roslyn the project pins from the editor-only to the in-game condition, keeping its version', () => {
+    const roslyn = { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true, inGameOptIn: true };
+    const before = csproj(`<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" ${editorOnly} />`);
+    const { text, changes } = addAddonPackageReferences(before, [roslyn]);
+    expect(text).toContain(`<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" ${inGame} />`);
+    expect(changes).toEqual([{ id: 'Microsoft.CodeAnalysis.CSharp', action: 'updated', from: '4.14.0', version: '4.14.0' }]);
+    expect(addAddonPackageReferences(text, [roslyn]).changed).toBe(false);
+    // Unconditioned (the project's own Roslyn): left alone.
+    const own = csproj('<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />');
+    expect(addAddonPackageReferences(own, [roslyn]).changed).toBe(false);
+  });
+
   it('goes back to editor-only for an addon without the in-game opt-in (an older addon)', () => {
     const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${inGame} />`);
     const { text } = addAddonPackageReferences(before, [{ id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true }]);

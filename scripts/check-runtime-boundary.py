@@ -97,6 +97,10 @@ def is_code_exec_gate(cond: str) -> bool:
     return _is_gate(cond, _NON_CODE_EXEC_GAME_SYMBOLS)
 
 
+# A C# char literal: one char or one escape (`'"'`, `'\''`, `'\\'`, `'\u0022'`).
+_CHAR_LITERAL_RE = re.compile(r"'(?:\\(?:u[0-9A-Fa-f]{4}|x[0-9A-Fa-f]{1,4}|.)|[^'\\\n])'")
+
+
 def strip_comments(text: str) -> str:
     """Blank out everything that is NOT real C# code on each line — `//` line comments,
     `/* */` block comments, AND string literals (regular `"..."`, verbatim `@"..."`, and the
@@ -177,6 +181,9 @@ def strip_comments(text: str) -> str:
                 in_str = True
                 out.append('"')
                 i += 1
+            elif (m := _CHAR_LITERAL_RE.match(text, i)) is not None:  # '"', '\'', 'x': never opens a string
+                out.append("'" + " " * (len(m.group()) - 2) + "'")
+                i = m.end()
             else:
                 out.append(c)
                 i += 1

@@ -276,7 +276,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         {
             try
             {
-                var run = tool.Execute(code);
+                // Off the main thread like an MCP call: the compile runs there, so the timeout below can fire.
+                var run = Task.Run(() => tool.Execute(code));
                 if (await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(60))) != run)
                 {
                     report.ScriptExecuteFailures.Add($"'{code}' did not finish within 60 s");

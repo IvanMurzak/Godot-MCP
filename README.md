@@ -710,8 +710,9 @@ Godot's export builds leave Roslyn out, so the game's `.csproj` opts in:
 </PropertyGroup>
 ```
 
-(`godot-cli install-plugin` writes the Code-Exec / Roslyn `PackageReference`s with a `Condition` that honours
-`GodotMcpCodeExecInGame`; RQL is never shipped.) Then register the tool:
+(`godot-cli install-plugin` of this release or later writes the Code-Exec / Roslyn `PackageReference`s with a
+`Condition` that honours `GodotMcpCodeExecInGame`; an older one writes them editor-only, and the opted-in export
+then fails to compile until you re-run a current `install-plugin`. RQL is never shipped.) Then register the tool:
 
 ```csharp
 _mcp = GodotMcpRuntime.Initialize(builder =>
@@ -722,7 +723,8 @@ _mcp = GodotMcpRuntime.Initialize(builder =>
 ```
 
 Without the opt-in, `WithScriptExecute()` logs a warning and registers nothing, so the same code builds
-either way. A game started from the editor always has it.
+either way. A game started from the editor always has it (and there a `WithToolsFromAssembly` scan of the game
+assembly also brings the addon's editor tools, see [`docs/runtime-security.md`](docs/runtime-security.md)).
 
 > ⚠️ **Security — arbitrary code execution.** Anyone who can call tools on this connection can run any code
 > in the game process. Use it in debug/dev builds only, on a loopback host with a token, and never ship it

@@ -180,14 +180,25 @@ export function addAddonPackageReferences(
       continue;
     }
     const existingVersion = match[1] ?? match[2] ?? '';
-    // A third-party package (Roslyn) the project already uses at a newer version stays as it is: the addon needs "at
-    // least" (the source-only Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade, or making it
-    // editor-only, would break the project's own use.
+    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
+    // A third-party package (Roslyn) the project already uses at a newer version keeps its version and, unless an older
+    // install wrote one of our canonical Conditions, its Condition: the addon needs "at least" (the source-only
+    // Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade, or making it editor-only, would break the
+    // project's own use. A canonical Condition still moves to the current canonical one (editor-only -> in-game opt-in).
     if (!ref.id.startsWith('com.IvanMurzak.') && isNewerVersion(ref.version, existingVersion)) {
-      changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
+      const migrated =
+        ref.editorOnly && existingCondition !== undefined && CANONICAL_CONDITIONS.has(existingCondition)
+          ? canonicalCondition(ref)
+          : existingCondition;
+      if (migrated === existingCondition) {
+        changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
+      } else {
+        const patched = patchRef(match[0], existingVersion, migrated);
+        text = text.replace(re, () => patched);
+        changes.push({ id: ref.id, action: 'updated', from: existingVersion, version: existingVersion });
+      }
       continue;
     }
-    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
     const condition = desiredCondition(ref, existingCondition);
     if (existingVersion === ref.version && condition === existingCondition) {
       changes.push({ id: ref.id, action: 'unchanged', version: ref.version });

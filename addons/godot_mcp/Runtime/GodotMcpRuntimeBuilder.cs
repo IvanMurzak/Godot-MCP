@@ -260,8 +260,9 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 
         /// <summary>
         /// Enable <c>script-execute</c> IN THE RUNNING GAME: the agent sends C#, the game compiles it with Roslyn and runs it
-        /// on its main thread (game types, autoloads and the scene tree available; no editor APIs). OFF by default and never
-        /// implied by <see cref="WithToolsFromAssembly"/>.
+        /// on its main thread (game types, autoloads and the scene tree available; no editor APIs). OFF by default. (In an
+        /// editor build, e.g. a game started from the editor, a <see cref="WithToolsFromAssembly"/> scan of the game assembly
+        /// also registers the addon's editor tools, the editor <c>script-execute</c> included; an export build has none.)
         ///
         /// <para>
         /// <b>Needs the build opt-in.</b> Godot's export builds leave Code-Exec and Roslyn out, so an exported game has this
