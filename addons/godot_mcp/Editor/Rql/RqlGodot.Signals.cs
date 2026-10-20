@@ -169,7 +169,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 .OrderBy(g => g, StringComparer.Ordinal).ToList();
 
         // A node's persistent groups cost a pack (of the whole scene for its root), so a query packs each node once:
-        // RunQuery scopes this cache to one query; AddToGroup / RemoveFromGroup and the undo test hooks invalidate it.
+        // RunQuery scopes this cache to one query; AddToGroup / RemoveFromGroup update it (no re-pack), the undo test hooks
+        // invalidate it.
         private static Dictionary<ulong, HashSet<string>?>? _persistentGroups;
 
         /// <summary>Run <paramref name="run"/> (one RQL query) with the persistent-groups cache; nested queries share it.</summary>
@@ -187,11 +188,20 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else _persistentGroups?.Remove(node.GetInstanceId());
         }
 
+        // A persistent membership of node changed: keep its cached set (when packed) in step instead of re-packing it.
+        private static void UpdatePersistentGroup(Node node, string group, bool persistent)
+        {
+            if (_persistentGroups == null || !_persistentGroups.TryGetValue(node.GetInstanceId(), out var set) || set == null) return;
+            if (persistent) set.Add(group);
+            else set.Remove(group);
+        }
+
         /// <summary>
         /// The groups of <paramref name="node"/> a saved scene keeps, or null when that cannot be told (all count as
         /// persistent). Godot's API has no per-group persistent flag, but packing keeps exactly the persistent ones: the node
         /// packed on its own (a scene of the node and the descendants it owns — only itself, unless it is the scene root)
-        /// lists them as its scene state's groups.
+        /// lists them as its scene state's groups. The root of an inherited scene packs only the groups it adds; the base
+        /// scenes' groups (persistent there) are read from the base scene states.
         /// </summary>
         private static HashSet<string>? PersistentGroups(Node node)
         {
@@ -199,7 +209,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (_persistentGroups != null && _persistentGroups.TryGetValue(id, out var cached)) return cached;
             using var scene = new PackedScene();
             var state = scene.Pack(node) == Error.Ok ? scene.GetState() : null;
-            var groups = state == null || state.GetNodeCount() == 0 ? null : new HashSet<string>(state.GetNodeGroups(0), StringComparer.Ordinal);
+            HashSet<string>? groups = null;
+            if (state != null && state.GetNodeCount() > 0)
+            {
+                groups = new HashSet<string>(state.GetNodeGroups(0), StringComparer.Ordinal);
+                // An inherited root's node 0 instance is its base scene (null for any other packed node).
+                for (int depth = 0; depth < 32 && state.GetNodeInstance(0) is { } baseScene && baseScene.GetState() is { } baseState
+                         && baseState.GetNodeCount() > 0; depth++)
+                {
+                    state = baseState;
+                    groups.UnionWith(state.GetNodeGroups(0));
+                }
+            }
             if (_persistentGroups != null) _persistentGroups[id] = groups;
             return groups;
         }
@@ -231,7 +252,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // Godot keeps the flag of the first AddToGroup: a non-persistent membership has to be replaced.
             if (member) node.RemoveFromGroup(group);
             node.AddToGroup(group, persistent: true);
-            InvalidateGroups(node);
+            UpdatePersistentGroup(node, group, persistent: true);
             RecordUndo(
                 ur =>
                 {
@@ -254,7 +275,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!node.IsInGroup(group)) return false;
             var persistent = IsPersistentGroup(node, group);
             node.RemoveFromGroup(group);
-            InvalidateGroups(node);
+            UpdatePersistentGroup(node, group, persistent: false);
             RecordUndo(
                 ur => ur.AddDoMethod(node, Node.MethodName.RemoveFromGroup, group),
                 ur => ur.AddUndoMethod(node, Node.MethodName.AddToGroup, group, persistent));
