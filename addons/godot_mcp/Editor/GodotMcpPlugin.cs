@@ -194,6 +194,10 @@ namespace com.IvanMurzak.Godot.MCP
             _torndown = false;
             GodotMcpAssemblyResolver.ReloadTeardown = static () => Current?.Teardown(fromReload: true);
 
+            // Hold queued MCP calls while the editor's progress dialog pumps a nested frame (see HoldWhile). Set
+            // before the dispatcher enters the tree so its _EnterTree drain waits too.
+            MainThreadDispatcher.HoldWhile = new EditorProgressGate(GetTree()).IsShowing;
+
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
             // lives in the editor SceneTree and gets _Process ticks for the lifetime of the plugin.
             // FreeStaleNode first so the hot-reload re-entry (BootAfterReload, deferred to a later idle
@@ -512,6 +516,8 @@ namespace com.IvanMurzak.Godot.MCP
             //    always run.
             if (MainThreadDispatcher.IsMainThread)
             {
+                MainThreadDispatcher.HoldWhile = null;
+
                 // Tear down the editor engine-logger channel (4.5+) installed in _EnterTree. THIS is the
                 // godotengine/godot#78513 fix: the engine holds a strong handle to a GodotObject defined in the
                 // COLLECTIBLE addon assembly, which roots the hot-reload ALC and makes its unload fail with the
