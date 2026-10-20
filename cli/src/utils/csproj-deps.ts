@@ -123,14 +123,9 @@ const KNOWN_EDITOR_ONLY_IDS = new Set(ADDON_PACKAGE_REFERENCES.filter((r) => r.e
 const CANONICAL_CONDITIONS: ReadonlySet<string> = new Set([EDITOR_ONLY_CONDITION, CODE_EXEC_IN_GAME_CONDITION]);
 
 /**
- * The Condition a reference's element should carry, given the one it has (`undefined` for a new element). An
- * editor-only reference gets its canonical Condition (`canonicalCondition`) when it has none (the migration of csprojs
- * written before editor-only packages) or another canonical one (a Code-Exec package written editor-only before the
- * in-game opt-in existed is upgraded to `CODE_EXEC_IN_GAME_CONDITION`), and keeps any other Condition the project set
- * (e.g. a stricter `== 'Debug'`). Any other reference keeps its own Condition, except a canonical one on a package this
- * CLI writes editor-only, which an addon that needs the package in export builds (an older one) drops. The editor-only
- * Condition on another package (e.g. McpPlugin, which docs/ARCHITECTURE.md lets a dev-only project exclude from
- * exports) is the project's own and stays.
+ * The Condition a reference's element should carry, given the one it has (`undefined` for a new element): a missing or
+ * canonical Condition becomes the reference's canonical one (dropped for a known editor-only package the addon now needs
+ * in exports); any other Condition is the project's own and stays. Cases: `csproj-deps.test.ts`.
  */
 function desiredCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined {
   const canonical = existing === undefined || CANONICAL_CONDITIONS.has(existing);

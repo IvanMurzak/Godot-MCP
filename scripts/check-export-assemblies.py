@@ -14,7 +14,6 @@ No Godot binary is needed: Godot.NET.Sdk restores from nuget.org. Every build wr
 Usage:
     python scripts/check-export-assemblies.py                        # ExportRelease + ExportDebug
     python scripts/check-export-assemblies.py --configuration ExportRelease
-    python scripts/check-export-assemblies.py --dir <output> --code-exec   # only check an existing output folder
 
 Exit codes: 0 = all checks hold, 1 = a check failed, 2 = a build failed.
 """
@@ -80,17 +79,13 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Godot-MCP export-build package guard")
     parser.add_argument("--configuration", action="append", choices=("ExportRelease", "ExportDebug"),
                         help="export configuration to build (repeatable; default: both)")
-    parser.add_argument("--dir", type=Path, help="check this existing output folder instead of building")
-    parser.add_argument("--code-exec", action="store_true", help="with --dir: the folder is an opt-in build")
     args = parser.parse_args(argv)
-
-    if args.dir is not None:
-        return 0 if report(str(args.dir), check_output(args.dir, args.code_exec)) else 1
 
     ok = True
     with tempfile.TemporaryDirectory(prefix="godot-mcp-export-") as tmp:
-        for configuration in args.configuration or ["ExportRelease", "ExportDebug"]:
-            for code_exec in (False, True):
+        # Opt-in outermost: the builds share obj/, so the package set (restore) switches only once.
+        for code_exec in (False, True):
+            for configuration in args.configuration or ["ExportRelease", "ExportDebug"]:
                 label = f"{configuration}{' + GodotMcpCodeExecInGame' if code_exec else ''}"
                 out_dir = Path(tmp) / label.replace(" + ", "-")
                 if not build(configuration, code_exec, out_dir):

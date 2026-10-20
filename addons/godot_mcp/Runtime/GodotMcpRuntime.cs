@@ -164,7 +164,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
             // 4c) The in-game script-execute must win over the editor one a WithToolsFromAssembly scan of the addon
             //     registers in an editor build (the scan runs after the explicit types; the last name wins).
-            if (builder.ScriptExecute)
+            if (builder.ToolTypes.Contains(typeof(Tools.Tool_GameScript)))
                 Tools.Tool_GameScript.EnsureRegistered(plugin.McpManager?.ToolManager, reflector);
 #endif
 

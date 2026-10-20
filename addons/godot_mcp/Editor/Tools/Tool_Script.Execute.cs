@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     public partial class Tool_Script
     {
-        public const string ScriptExecuteToolId = "script-execute";
+        public const string ScriptExecuteToolId = Tool_GameScript.ScriptExecuteToolId;
 
         [AiTool
         (
@@ -33,23 +33,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [AiSkillBody(
             "## Modes\n\n" +
             "- **Snippet** (default): plain statements. The last expression is the result " +
-            "(`EditorInterface.Singleton.GetEditedSceneRoot().Name`). Own `using` lines, local classes and functions are allowed; " +
-            "`await` works. Usings for System, LINQ and Godot are already there; an unknown type name (also one of the game's own " +
-            "classes) is imported automatically when exactly one namespace has it.\n" +
-            "- **Full code**: when `csharpCode` declares class `className` with a static method `methodName`, that method runs.\n" +
-            "- `isMethodBody=true` forces snippet mode.\n\n" +
+            "(`EditorInterface.Singleton.GetEditedSceneRoot().Name`)." + ScriptExecuteSource.SkillSnippetModeTail +
             "The code runs on the editor main thread; Godot APIs and the game's compiled C# types are available (rebuild the " +
             "project to see new game code). Compile errors point at your own lines (`snippet.cs(2,5)`). Nothing is kept between " +
             "calls: use `include` for shared helpers.\n\n" +
-            "## Output\n\n" +
-            "`result` holds the value (type name and serialized value; `Success` when nothing is returned). `logs` holds what " +
-            "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+.\n\n" +
-            "## usings / include\n\n" +
-            "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n" +
+            ScriptExecuteSource.SkillOutputAndUsings +
             "- `include`: helper `.cs` files or folders (recursive), relative to `<project>/.ai-game-dev/snippets`, compiled with the " +
             "snippet. Godot does not compile that folder into the game.\n\n" +
-            "## Parameters\n\n" +
-            "Parameters become the snippet's variables (or the method's arguments, in order); each has `name`, `typeName` and a value.")]
+            ScriptExecuteSource.SkillParameters)]
         [Description("Compiles and runs C# in the Godot editor: plain statements with the last expression as the result " +
             "(own usings, local classes, await allowed), or a declared class 'className' with static method 'methodName'. " +
             "Returns the result and the printed output (Console; GD.Print on Godot 4.5+).")]
@@ -58,18 +49,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description("C# code. Snippet: 'var root = EditorInterface.Singleton.GetEditedSceneRoot();\\nroot.GetChildCount()'. " +
                 "Full: 'public class Script { public static int Main() { return 42; } }'.")]
             string csharpCode,
-            [Description("Full mode: the class whose static method runs (namespace-qualified or not).")]
+            [Description(ScriptExecuteSource.ClassNameDescription)]
             string className = "Script",
-            [Description("Full mode: the static method to run.")]
+            [Description(ScriptExecuteSource.MethodNameDescription)]
             string methodName = "Main",
-            [Description("Parameters, each with 'name' and 'typeName': the snippet's variables or the method's arguments in order. " +
-                "Leave empty when none.")]
+            [Description(ScriptExecuteSource.ParametersDescription)]
             [Editor.Rql.ToolFormat.RqlArgument("Values for the snippet's / method's parameters by name, e.g. {node: ref(\"Node3D#12\"), n: 6}. " +
                 "Leave empty if there are none.")]
             SerializedMemberList? parameters = null,
-            [Description("Force snippet mode even when the code declares 'className'.")]
+            [Description(ScriptExecuteSource.IsMethodBodyDescription)]
             bool isMethodBody = false,
-            [Description("Extra namespaces for snippet mode, e.g. [\"MyGame.Gameplay\"].")]
+            [Description(ScriptExecuteSource.UsingsDescription)]
             string[]? usings = null,
             [Description("Helper .cs files or folders (recursive) compiled with the code, relative to <project>/.ai-game-dev/snippets.")]
             string[]? include = null

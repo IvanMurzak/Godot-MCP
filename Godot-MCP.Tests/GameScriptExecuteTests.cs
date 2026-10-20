@@ -34,7 +34,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var builder = GodotMcpRuntime.Initialize(b => b.WithToolsFromAssembly(typeof(Tool_GameScript).Assembly));
 
-            Assert.False(builder.ScriptExecute);
             Assert.DoesNotContain(typeof(Tool_GameScript), builder.ToolTypes);
         }
 
@@ -43,7 +42,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var builder = GodotMcpRuntime.Initialize(b => b.WithScriptExecute().WithScriptExecute());
 
-            Assert.True(builder.ScriptExecute);
             Assert.Equal(new[] { typeof(Tool_GameScript) }, builder.ToolTypes);
         }
 

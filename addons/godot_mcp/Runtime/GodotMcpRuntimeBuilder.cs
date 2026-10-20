@@ -289,7 +289,6 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         public GodotMcpRuntimeBuilder WithScriptExecute()
         {
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
-            ScriptExecute = true;
             WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_GameScript));
 #else
             GodotMcpLog.Warning(ScriptExecuteUnavailableMessage);
@@ -303,12 +302,6 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             "Enable it in the game .csproj: <PropertyGroup><GodotMcpCodeExecInGame>true</GodotMcpCodeExecInGame>" +
             "<DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants></PropertyGroup> " +
             "(see docs/runtime-security.md before shipping it).";
-
-        /// <summary>
-        /// Whether <see cref="WithScriptExecute"/> registered the in-game <c>script-execute</c> (only in a build that has
-        /// code execution: <c>TOOLS</c> or <c>GODOT_MCP_CODE_EXEC_IN_GAME</c>).
-        /// </summary>
-        internal bool ScriptExecute { get; private set; }
 
         /// <summary>
         /// Finalize this configuration: build the reused MCP plugin (reflector + opted-in tools + resolved

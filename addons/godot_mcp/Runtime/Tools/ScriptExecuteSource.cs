@@ -67,6 +67,29 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 "Set 'className' / 'methodName' to the entry point, or write plain statements.");
         }
 
+        // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) script-execute.
+        internal const string SkillSnippetModeTail =
+            " Own `using` lines, local classes and functions are allowed; " +
+            "`await` works. Usings for System, LINQ and Godot are already there; an unknown type name (also one of the game's own " +
+            "classes) is imported automatically when exactly one namespace has it.\n" +
+            "- **Full code**: when `csharpCode` declares class `className` with a static method `methodName`, that method runs.\n" +
+            "- `isMethodBody=true` forces snippet mode.\n\n";
+        internal const string SkillOutputAndUsings =
+            "## Output\n\n" +
+            "`result` holds the value (type name and serialized value; `Success` when nothing is returned). `logs` holds what " +
+            "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+.\n\n" +
+            "## usings / include\n\n" +
+            "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n";
+        internal const string SkillParameters =
+            "## Parameters\n\n" +
+            "Parameters become the snippet's variables (or the method's arguments, in order); each has `name`, `typeName` and a value.";
+        internal const string ClassNameDescription = "Full mode: the class whose static method runs (namespace-qualified or not).";
+        internal const string MethodNameDescription = "Full mode: the static method to run.";
+        internal const string ParametersDescription = "Parameters, each with 'name' and 'typeName': the snippet's variables or the method's arguments in order. " +
+            "Leave empty when none.";
+        internal const string IsMethodBodyDescription = "Force snippet mode even when the code declares 'className'.";
+        internal const string UsingsDescription = "Extra namespaces for snippet mode, e.g. [\"MyGame.Gameplay\"].";
+
         static readonly CSharpParseOptions ScriptParseOptions = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None, SourceCodeKind.Script);
 
         static string RuntimeName(TypeDeclarationSyntax type)
