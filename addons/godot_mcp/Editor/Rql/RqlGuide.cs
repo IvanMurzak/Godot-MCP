@@ -33,7 +33,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public const string MutateBlurb =
             "Change the live Godot editor with RQL set/call: bulk edits in one all-or-nothing, undoable call; add, duplicate, " +
-            "reparent and remove nodes; connect signals, groups; project settings, input map, autoloads; TileSets, Themes; " +
+            "reparent and remove nodes; connect signals, groups; project settings, input map, autoloads, layer names; TileSets, Themes, " +
+            "shader parameters, MeshLibraries; " +
             "create, move and delete resources; open and save scenes. dry_run previews.";
 
         public const string SchemaBlurb =
@@ -46,10 +47,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "console (captured editor log entries), editor (editor state and operations), project (project settings: " +
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
             "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
-            "singleton order), groups (name nodes count global). " +
+            "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names). " +
             "Resources: godot.resources(\"StandardMaterial3D\") or godot.resources(\"Texture2D\", \"res://art\"), " +
             "godot.resource(\"res://materials/red.tres\"). ref(\"Node3D#1234\") resolves a $ref; godot.find(\"Player\") or " +
-            "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group.\n" +
+            "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group; " +
+            "godot.callable(\"Player\", \"_on_hit\") a Callable.\n" +
             "Stages:\n" +
             "  where <predicate>   filter\n" +
             "  select a b.c alias=(expr)   project columns (wrap computed expressions in parentheses)\n" +
@@ -77,6 +79,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
             "(id kind atlas texture tileCount), physicsLayers, terrainSets, customDataLayers; an atlas source has tiles (coords size data). " +
             "A Theme has maps keyed \"ControlType/item\": colors, constants, fonts, fontSizes, icons, styleboxes. " +
+            "A ShaderMaterial has uniforms (name type default value overridden) and params[\"uniform\"] (typed by the shader; null reverts " +
+            "to the default); a MeshLibrary has items (id name mesh meshTransform shapes navigationMesh preview). Layer masks by name: " +
+            "layerNames[\"collision_mask\"] on any object with layer properties is a list of layer names (a number for an unnamed layer). " +
+            "Callables are \"Player::_on_hit\" (target::method); RIDs are read-only \"RID(…)\"; a Projection is 16 numbers. " +
             "Navigate with paths or get; select only " +
             "projects output columns.\n" +
             "Results come back as compact rows (header line, then col|col). Long results are truncated — refine with where/first or use count. " +
@@ -102,7 +108,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  settings | where section == \"display\" and changed | select name value\n" +
             "  inputActions | where builtIn == false | select name events\n" +
             "  autoloads | select name path singleton\n" +
-            "  godot.resources(\"TileSet\") | get sources | select id kind texture tileCount";
+            "  godot.resources(\"TileSet\") | get sources | select id kind texture tileCount\n" +
+            "  godot.resource(\"res://materials/water.tres\") | get uniforms | select name type default value overridden\n" +
+            "  nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]\n" +
+            "  layers | where kind == \"3d_physics\" and name != \"\" | select index name\n" +
+            "  godot.resources(\"MeshLibrary\") | get items | select id name mesh";
 
         /// <summary>
         /// rql-mutate examples, one per line ("  &lt;query&gt;   &lt;what it does&gt;", at least three spaces before the note);
@@ -137,7 +147,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  project | call AddAutoload(\"Game\", \"res://scenes/game.gd\")   register an autoload singleton\n" +
             "  godot.resource(\"res://tiles/terrain.tres\") | call AddAtlasSource(\"res://tiles/terrain.png\")   add a texture to a TileSet (returns the source id)\n" +
             "  godot.resource(\"res://tiles/terrain.tres\") | get sources | get atlas | call CreateTilesFromTexture()   create tiles in the non-transparent grid cells\n" +
-            "  godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8   edit Theme items";
+            "  godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8   edit Theme items\n" +
+            "  layers | where kind == \"3d_physics\" and index == 2 | set name = \"enemies\"   name a layer (saved to project.godot)\n" +
+            "  nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]   a layer mask by layer names (numbers for unnamed layers)\n" +
+            "  godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"   shader uniforms of a ShaderMaterial (null or call ClearParam(name) reverts one)\n" +
+            "  godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")   add a MeshLibrary item (set its shapes, navigationMesh … on the returned row)";
 
         /// <summary>The queries of <see cref="QueryExampleText"/>, in order.</summary>
         public static string[] QueryExamples => Examples(QueryExampleText);

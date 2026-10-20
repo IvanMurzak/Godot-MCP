@@ -29,7 +29,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     public sealed class Godot_GodotObject_Adapter : RqlTypeAdapter<GodotObject>
     {
         public override string Description =>
-            "Godot object: id, class, props[\"snake_name\"] (every Godot property, GDScript variables included)";
+            "Godot object: id, class, props[\"snake_name\"] (every Godot property, GDScript variables included), " +
+            "layerNames[\"collision_mask\"] (layer properties by layer name)";
 
         protected override string? Id(GodotObject o) =>
             GodotObject.IsInstanceValid(o) ? o.GetInstanceId().ToString(CultureInfo.InvariantCulture) : null;
@@ -48,6 +49,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 (o, key, value) => GodotVariants.Properties((GodotObject)o).ContainsKey(key) ? null : $"{((GodotObject)o).GetClass()} has no property '{key}'",
                 "every Godot property by its snake_case name (GDScript script variables and GDExtension properties included)",
                 has: (o, key) => GodotVariants.Properties((GodotObject)o).ContainsKey(key));
+            m.Untyped.AddMixedMap("layerNames",
+                o => Settings.RqlLayers.Properties((GodotObject)o),
+                (o, key) => typeof(object),
+                (o, key) => Settings.RqlLayers.Read((GodotObject)o, key),
+                (o, key, value) => Settings.RqlLayers.Write((GodotObject)o, key, value),
+                (o, key, value) => Settings.RqlLayers.Validate((GodotObject)o, key, value),
+                "layer properties (collision_layer, collision_mask, visibility_layer, layers, cull_mask, navigation_layers …) as lists of " +
+                "layer names, a number for an unnamed layer: set layerNames[\"collision_mask\"] = [\"world\", 3]",
+                // Every key reaches validate, which names the object's layer properties.
+                has: (o, key) => true);
+            m.ExplicitOnly("layerNames");
             m.Untyped.AddMethod("CallMethod",
                 new[] { new CallableParameter("method", typeof(string)), new CallableParameter("args", typeof(List<object?>), hasDefault: true, defaultValue: null) },
                 typeof(object),

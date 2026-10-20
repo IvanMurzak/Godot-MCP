@@ -40,10 +40,17 @@ What the Godot editor keeps outside plain properties, each with read, write, und
 | **Global groups** | the `groups` source (`global`, `description`) | `project \| call AddGlobalGroup(name, description?)` / `RemoveGlobalGroup` | `project.godot` (`[global_group]`) |
 | **TileSet** | `sources` (`id kind atlas scenes texture tileCount`), `physicsLayers`, `navigationLayers`, `occlusionLayers`, `terrainSets` (`index mode terrains`), `customDataLayers` (`index name type`); an atlas source's `tiles` (`coords size alternatives data`) and `gridSize` | `call AddAtlasSource(texture, tileSize?)`, `RemoveSource(id)`, `AddPhysicsLayer()`, `AddNavigationLayer()`, `AddOcclusionLayer()`, `AddTerrainSet(mode?)`, `AddTerrain(set, name, color?)`, `AddCustomDataLayer(name, type)`; atlas: `CreateTile(coords, size?)`, `RemoveTile(coords)`, `CreateTilesFromTexture()`; tile settings on `data` (TileData: `Modulate`, `ZIndex`, `props["custom_data_0"]` …); layer settings in `props["physics_layer_0/collision_layer"]` | its `.tres` (or the scene that embeds it) |
 | **Theme** | `types`, `items` (`type kind name value`), maps keyed `"ControlType/item"`: `colors`, `constants`, `fonts`, `fontSizes`, `icons`, `styleboxes` | `set colors["Button/font_color"] = "#ffcc00"` (a new key adds the item, `null` removes it), `call ClearItem(kind, key)`, `ClearType(type)` | its `.tres` |
+| **Shader parameters** | ShaderMaterial `uniforms` (`name type group default value overridden`; defaults from the rendering server, else the literal in the code — the headless renderer keeps none), `params["uniform"]`; a Shader's (or VisualShader's) `uniforms` | `set params["speed"] = 2, params["tint"] = "#3388ff"` (typed by the uniform, validated against the shader's uniform list, a sampler takes a texture of its class), `null` or `call ClearParam(name)` reverts to the default, `ClearParams()` | the material's `.tres` (`shader_parameter/…`) |
+| **Layer names** | the `layers` source (`kind index bit name setting` for 2d/3d render, physics, navigation and avoidance); every object's `layerNames["<property>"]` for its layer-hinted properties (`collision_layer`, `collision_mask`, `visibility_layer`, `light_mask`, `layers`, `cull_mask`, `navigation_layers`, a TileSet's `physics_layer_0/collision_mask` …) as a list of names, an unnamed layer as its number | rows: `set name = "enemies"`; objects: `set layerNames["collision_mask"] = ["world", 3]` (names or numbers; bits above the kind's count are kept); the raw ints (`CollisionMask`, `props["collision_mask"]`) keep working | `project.godot` (`[layer_names]`); the scene / resource |
+| **MeshLibrary** | `items` (`id name mesh meshTransform shapes navigationMesh navigationMeshTransform navigationLayers preview`), an item's `shapes` (`index shape transform`) | `call CreateItem(name, mesh?, id?)`, `RemoveItem(id)` (a removed item comes back with all its settings on undo); rows: `set name / mesh / meshTransform / navigationMesh / navigationLayers / preview …`, `call AddShape(shape, transform?)`, `ClearShapes()` | its `.tres` |
 | **Plane** | `"(a, b, c, d)"` — normal and distance (e.g. `WorldBoundaryShape3D.Plane`) | text, list or object literal | — |
+| **Projection** | 16 numbers column by column (e.g. a `mat4` uniform) | text or list | — |
+| **RID** | `"RID(1234)"`, `Id`, `IsValid` (a World3D's `Space`, `Texture2DRD.TextureRdRid` …) | read-only: an opaque server handle | — |
+| **Callable** | `"Player::_on_hit"` (`target::method`; the target as a node path, a `res://` path or `Class#id`), `target`, `method`, `valid` | that text, `[target, method]`, `{target: …, method: …}` or `godot.callable(target, method)`; the target must have the method (e.g. `MultiplayerSpawner.SpawnFunction`, a `CallMethod` argument) | — (a Callable property is not stored) |
 
 Structural changes register their own do/undo operations (connect/disconnect, add/remove group, add/remove a TileSet
-source, layer or tile — a removed tile comes back with its data — and Theme items); project settings are snapshotted
+source, layer or tile — a removed tile comes back with its data — Theme items and MeshLibrary items); shader parameters,
+layer masks and MeshLibrary item settings are stored properties and go through the property snapshot; project settings are snapshotted
 like any object, and undoing them writes `project.godot` again. Changes to a sub-resource stored inside a resource
 file (a TileSet's atlas source, also one created in the same session) save that file.
 
@@ -80,12 +87,15 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
     operations. One engine per editor session; `Reset()` on plugin teardown.
   - `EditorApi/` — the `editor` source (state, scenes, resource files, files, console, classes) and its view types.
   - `Adapters/` — one adapter per file: GodotObject (`id`, `class`, `props`, `CallMethod`), Node, Node2D, Node3D,
-    Control, Resource, ProjectSettings (the `project` source), TileSet, TileSetAtlasSource, Theme; StringName /
-    NodePath / Variant; Vector2/3/4(I), Color, Quaternion, Basis, Transform2D/3D, Rect2(I), Aabb, Plane (pure C#,
-    unit-tested; `-0` prints as `0`); NodeRef (tool arguments).
+    Control, Resource, ProjectSettings (the `project` source), TileSet, TileSetAtlasSource, Theme, Shader, ShaderMaterial
+    (`ShaderUniformDefaults.cs`: the pure parser of literal uniform defaults, unit-tested), MeshLibrary; StringName /
+    NodePath / Variant / Callable (`CallableText.cs`: the pure text form, unit-tested); Vector2/3/4(I), Color, Quaternion,
+    Basis, Transform2D/3D, Rect2(I), Aabb, Plane, Projection, Rid (pure C#, unit-tested; `-0` prints as `0`); NodeRef (tool
+    arguments).
   - `RqlGodot.Signals.cs` — groups and signal connections of the edited scene's nodes.
   - `Settings/` — project settings, input map (`InputEventText.cs`: the pure event grammar, unit-tested;
-    `InputEvents.cs`: ⇄ Godot `InputEvent`s), autoloads and groups (`RqlProject.cs`).
+    `InputEvents.cs`: ⇄ Godot `InputEvent`s), autoloads and groups (`RqlProject.cs`), layer names (`LayerNames.cs`: the pure
+    mask ⇄ name mapping, unit-tested; `RqlLayers.cs`: the `layers` source and the `layerNames` map).
   - `Modules/TestHooksModule.cs` — `test.undo` / `test.redo` / `test.action`, only with `GODOT_MCP_RQL_TEST_HOOKS=1`
     (the live smoke drives undo with them; never on in a user's editor).
   - `Modules/GodotCoreModule.cs`, `Modules/ToolTypesModule.cs` — the core module; modules are discovered in every loaded
@@ -109,8 +119,9 @@ the reload still unloads.
 
 ## Tests
 
-- `Godot-MCP.Tests/Rql*Tests.cs` (xUnit, no Godot binary): every guide example parses, the struct adapters (Plane and
-  negative zero included), the input-event text grammar, the tool binding (schemas, RQL arguments, compact results,
+- `Godot-MCP.Tests/Rql*Tests.cs` (xUnit, no Godot binary): every guide example parses, the struct adapters (Plane,
+  Projection, Rid and negative zero included), the input-event text grammar, layer names ⇄ bits, shader uniform defaults,
+  the Callable text form, the tool binding (schemas, RQL arguments, compact results,
   escaping), type names, the cache release, the config setting.
 - `scripts/smoke_rql.py` (CI: `test_godot_runtime_harness.yml`, every Godot version of the matrix) against a live
   headless editor: read-back of every change from the `.tscn` / `.tres` Godot wrote (the former
@@ -121,6 +132,8 @@ the reload still unloads.
   groups, TileSets and Themes — each change read back from the `.tscn` / `.tres` / `project.godot` Godot wrote,
   validation errors, dry runs, and (with `GODOT_MCP_RQL_TEST_HOOKS=1` in the editor) undo and redo of every kind of
   change; without the hooks those checks print `SKIP` (CI passes `--require-test-hooks`, which fails instead).
+  `scripts/smoke_rql_adapters.py` does the same for shader parameters (a text shader and a VisualShader), layer names,
+  MeshLibrary items and the Projection / RID / Callable values.
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 

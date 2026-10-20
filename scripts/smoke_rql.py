@@ -32,6 +32,7 @@ import sys
 import time
 
 from smoke_rql_lib import FAILURES, ROOT, check, disk, file_has, file_text, must, mutate, node_line, q, query, tool  # noqa: F401
+import smoke_rql_adapters
 import smoke_rql_models
 
 
@@ -230,6 +231,7 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
         must(f"G0 AddChild {name}", mutate(host, f"root | call AddChild({q(cls)}, {q(name)})"))
     must("G0 material", mutate(host, 'editor | call CreateResource("res://materials/red.tres", "StandardMaterial3D")'))
     smoke_rql_models.guide_fixture(host, project)
+    smoke_rql_adapters.guide_fixture(host, project)
     must("G0 save", mutate(host, "editor | call SaveScene()"))
 
     for i, example in enumerate(examples["query"], 1):
@@ -262,6 +264,7 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
     text = must("G edited scene back to level", query(host, "editor | select editedScene"))
     check("G OpenScene switched back", level in text, text)
     smoke_rql_models.guide_checks(host, project)
+    smoke_rql_adapters.guide_checks(host, project)
 
 
 def main() -> int:
@@ -281,6 +284,7 @@ def main() -> int:
     schema_checks(host)
     property_round_trips(host, project, d)
     smoke_rql_models.run(host, project, d, a.require_test_hooks)
+    smoke_rql_adapters.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

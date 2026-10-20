@@ -61,6 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 case Projection x: return x;
                 case Color x: return x;
                 case Rid x: return x;
+                case Callable x: return x;
                 case StringName x: return x;
                 case NodePath x: return x;
                 case GodotObject x: return x;
@@ -121,6 +122,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.StringName => typeof(StringName),
             Variant.Type.NodePath => typeof(NodePath),
             Variant.Type.Rid => typeof(Rid),
+            Variant.Type.Callable => typeof(Callable),
             Variant.Type.Object => hint == PropertyHint.ResourceType ? typeof(Resource)
                 : hint == PropertyHint.NodeType ? typeof(Node) : typeof(GodotObject),
             Variant.Type.Dictionary => typeof(global::Godot.Collections.Dictionary),
@@ -134,7 +136,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.PackedVector2Array => typeof(Vector2[]),
             Variant.Type.PackedVector3Array => typeof(Vector3[]),
             Variant.Type.PackedColorArray => typeof(Color[]),
-            _ => typeof(object), // Nil (a Variant property), Callable, Signal, Packed types newer than 4.3
+            _ => typeof(object), // Nil (a Variant property), Signal, Packed types newer than 4.3
         };
 
         /// <summary>

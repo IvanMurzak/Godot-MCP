@@ -35,6 +35,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public Rect2I RectI { get; set; }
         public Aabb Bounds { get; set; }
         public Plane Floor { get; set; }
+        public Projection Lens { get; set; } = Projection.Identity;
+        public Rid Handle { get; set; }
     }
 
     /// <summary>
@@ -60,6 +62,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                          new Godot_Vector4_Adapter(), new Godot_Vector4I_Adapter(), new Godot_Color_Adapter(), new Godot_Quaternion_Adapter(),
                          new Godot_Basis_Adapter(), new Godot_Transform2D_Adapter(), new Godot_Transform3D_Adapter(),
                          new Godot_Rect2_Adapter(), new Godot_Rect2I_Adapter(), new Godot_Aabb_Adapter(), new Godot_Plane_Adapter(),
+                         new Godot_Projection_Adapter(), new Godot_Rid_Adapter(),
                      })
                 engine.AddAdapter(adapter);
             return engine;
@@ -159,6 +162,42 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var r = Mutate("items | where name == \"a\" | set Floor = \"(0, 1, 0)\"");
             Assert.False(r.Ok);
             Assert.Contains("(a, b, c, d)", Text(r));
+        }
+
+        [Fact]
+        public void ProjectionsRoundTripColumnByColumn()
+        {
+            Assert.Contains("(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)", Text(Query("items | where name == \"a\" | select Lens")));
+            Assert.True(Mutate("items | where name == \"a\" | set Lens = \"(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)\"").Ok);
+            Assert.Equal(new Vector4(1, 2, 3, 4), _items[0].Lens.X);
+            Assert.Equal(new Vector4(13, 14, 15, 16), _items[0].Lens.W);
+            Assert.Contains("(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)", Text(Query("items | where name == \"a\" | select Lens")));
+            Assert.True(Mutate("items | where name == \"a\" | set Lens = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1]").Ok);
+            Assert.Equal(2f, _items[0].Lens.Y.Y);
+            Assert.True(Query("items | where Lens == \"(2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1)\" | count").Ok);
+            var r = Mutate("items | where name == \"a\" | set Lens = \"(1, 0, 0, 1)\"");
+            Assert.False(r.Ok);
+            Assert.Contains("16 numbers", Text(r));
+            Assert.Equal(2f, _items[0].Lens.X.X);
+        }
+
+        private static Rid MakeRid(ulong id) =>
+            (Rid)typeof(Rid).GetConstructor(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, null, new[] { typeof(ulong) }, null)!
+                .Invoke(new object[] { id });
+
+        [Fact]
+        public void RidsAreShownAndComparedButNeverWritten()
+        {
+            _items[0].Handle = MakeRid(1234);
+            var text = Text(Query("items | where name == \"a\" | select Handle"));
+            Assert.Contains("RID(1234)", text);
+            Assert.Contains("RID(0)", Text(Query("items | where name == \"b\" | select Handle")));
+            Assert.Contains("a", Text(Query("items | where Handle == \"RID(1234)\" | select name")));
+            Assert.Contains("true", Text(Query("items | where name == \"a\" | select v=(Handle.IsValid)")));
+            var r = Mutate("items | where name == \"a\" | set Handle = \"RID(5)\"");
+            Assert.False(r.Ok);
+            Assert.Contains("cannot be written", Text(r));
+            Assert.Equal(1234UL, _items[0].Handle.Id);
         }
 
         [Fact]
