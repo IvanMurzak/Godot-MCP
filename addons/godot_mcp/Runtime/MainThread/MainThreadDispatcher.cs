@@ -200,6 +200,10 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             // touch the SceneTree while the editor tears the dispatcher down; callers must not assume the
             // tree is fully alive in work that could still be pending at _ExitTree time.)
             DrainQueueBounded();
+
+            // End any hold episode: the static outlives this node (plugin disable/enable), and a stale start time
+            // would make the next hold warn at once (or never, after a warning already fired).
+            _heldSinceMs = -1;
         }
 
         public override void _Process(double delta)

@@ -60,7 +60,6 @@ namespace com.IvanMurzak.Godot.MCP
 
         // Armed only for editors the CLI started with an idle timeout (AIGD_SESSION_IDLE_SECONDS); see IdleShutdown.
         IdleShutdown? _idleShutdown;
-        EditorProgressGate? _progressGate;
 
         public override void _Process(double delta)
         {
@@ -195,6 +194,10 @@ namespace com.IvanMurzak.Godot.MCP
             _torndown = false;
             GodotMcpAssemblyResolver.ReloadTeardown = static () => Current?.Teardown(fromReload: true);
 
+            // Hold queued MCP calls while the editor's progress dialog pumps a nested frame (see HoldWhile). Set
+            // before the dispatcher enters the tree so its _EnterTree drain waits too.
+            MainThreadDispatcher.HoldWhile = new EditorProgressGate(GetTree()).IsShowing;
+
             // Pump for off-thread → main-thread work. Added as a child of this EditorPlugin Node so it
             // lives in the editor SceneTree and gets _Process ticks for the lifetime of the plugin.
             // FreeStaleNode first so the hot-reload re-entry (BootAfterReload, deferred to a later idle
@@ -204,10 +207,6 @@ namespace com.IvanMurzak.Godot.MCP
             FreeStaleNode(ref _dispatcher);
             _dispatcher = new MainThreadDispatcher { Name = DispatcherNodeName };
             AddChild(_dispatcher);
-            // Hold queued MCP calls while the editor's progress dialog pumps a nested frame (see HoldWhile).
-            _progressGate?.Uninstall();
-            _progressGate = EditorProgressGate.Install(GetTree());
-            MainThreadDispatcher.HoldWhile = _progressGate.IsShowing;
 
             // Route ReflectorNet's MainThread.Instance through the dispatcher.
             GodotMainThread.Install();
@@ -518,8 +517,6 @@ namespace com.IvanMurzak.Godot.MCP
             if (MainThreadDispatcher.IsMainThread)
             {
                 MainThreadDispatcher.HoldWhile = null;
-                _progressGate?.Uninstall();
-                _progressGate = null;
 
                 // Tear down the editor engine-logger channel (4.5+) installed in _EnterTree. THIS is the
                 // godotengine/godot#78513 fix: the engine holds a strong handle to a GodotObject defined in the
