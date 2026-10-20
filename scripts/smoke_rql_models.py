@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import secrets
 import struct
 import zlib
 
@@ -737,17 +738,19 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
                                                           "content": "extends Node3D\n\nfunc _on_enemy_died():\n\tpass\n"}))
     must("G0 attach player script", tool(host, "script-attach-to-node", {"nodeRef": "Player", "scriptPath": "res://scenes/player.gd"}))
     must("G0 game script", tool(host, "script-create", {"scriptPath": "res://scenes/game.gd", "content": "extends Node\n"}))
-    # No wait after creating scripts: the editor registers their classes over the next frames behind a progress dialog
-    # that pumps nested frames, and the plugin holds MCP calls until it closes. Two class_name scripts make the editor
-    # show that dialog; a scene created and another opened right away hung Godot 4.4 before the hold
-    # ("Task 'update_scripts_classes' already exists").
-    for name in ("HoldA", "HoldB"):
-        must(f"G0 {name} script", tool(host, "script-create", {"scriptPath": f"res://scripts/{name.lower()}.gd",
+    # Two class_name scripts make the editor register classes behind its progress dialog over the next frames; the
+    # plugin holds MCP calls until it closes, so the scene calls below need no wait (they hung Godot 4.4 without it).
+    for old in sorted(disk(project, "res://scripts/").glob("hold_*.gd")):
+        tool(host, "script-delete", {"scriptPath": f"res://scripts/{old.name}"})
+    tag = secrets.token_hex(3)  # new class names each run: a just-deleted class_name is still registered for a while
+    for name in (f"HoldA{tag}", f"HoldB{tag}"):
+        must(f"G0 {name} script", tool(host, "script-create", {"scriptPath": f"res://scripts/hold_{name.lower()}.gd",
                                                                 "content": f"class_name {name}\nextends Node\n"}))
-    if disk(project, "res://scenes/hold.tscn").exists():
-        must("G0 clean hold.tscn", mutate(host, 'editor | call DeleteResource("res://scenes/hold.tscn")'))
-    must("G0 new scene during class registration", mutate(host, 'editor | call NewScene("res://scenes/hold.tscn", "Node", "Hold")'))
-    must("G0 open level right after", mutate(host, 'editor | call OpenScene("res://scenes/level.tscn")'))
+    hold, level = "res://scenes/hold.tscn", "res://scenes/level.tscn"
+    if disk(project, hold).exists():
+        must("G0 clean hold.tscn", mutate(host, f"editor | call DeleteResource({q(hold)})"))
+    must("G0 new scene during class registration", mutate(host, f'editor | call NewScene({q(hold)}, "Node", "Hold")'))
+    must("G0 open level right after", mutate(host, f"editor | call OpenScene({q(level)})"))
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
             must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))

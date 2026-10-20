@@ -9,33 +9,52 @@
 */
 #if TOOLS
 #nullable enable
-using System;
-using com.IvanMurzak.Godot.MCP.Connection;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP
 {
     /// <summary>
-    /// Builds the <see cref="MainThreadDispatch.MainThreadDispatcher.HoldWhile"/> predicate: "the editor's modal
-    /// progress dialog is showing". The dialog runs <c>Main::iteration()</c> from inside the operation it reports, so
-    /// while it is visible every dispatcher tick is a nested frame in the middle of an editor operation. Godot does
-    /// not expose the dialog to scripts; it is the one <c>ProgressDialog</c> node the editor creates at startup
-    /// (a <c>PopupPanel</c> on 4.3, a <c>CenterContainer</c> from 4.4; both have <c>visible</c>).
+    /// "The editor's modal progress dialog is showing": the <see cref="MainThreadDispatch.MainThreadDispatcher.HoldWhile"/>
+    /// predicate. Godot does not expose the dialog to scripts; it is the one <c>ProgressDialog</c> node the editor creates.
+    /// On 4.4+ it stays in the tree (a hidden <c>CenterContainer</c>); on 4.3 it is a <c>PopupPanel</c> that leaves the tree
+    /// while hidden, so it is also caught by <see cref="SceneTree.NodeAdded"/> the first time it shows.
     /// </summary>
-    internal static class EditorProgressGate
+    internal sealed class EditorProgressGate
     {
-        /// <summary>The predicate, or <c>null</c> (no hold) when the dialog cannot be found.</summary>
-        public static Func<bool>? Create(Node editorNode)
+        const string DialogClass = "ProgressDialog";
+
+        readonly SceneTree _tree;
+        ulong _dialogId;
+
+        EditorProgressGate(SceneTree tree) => _tree = tree;
+
+        public static EditorProgressGate Install(SceneTree tree)
         {
-            var root = editorNode.GetTree()?.Root;
-            var found = root?.FindChildren("*", "ProgressDialog", recursive: true, owned: false);
-            if (found == null || found.Count == 0)
-            {
-                GodotMcpLog.Warning("[Godot-MCP] editor ProgressDialog not found; MCP calls are not held while the editor shows progress");
-                return null;
-            }
-            var dialogId = found[0].GetInstanceId();
-            return () => GodotObject.InstanceFromId(dialogId) is Node dialog && dialog.Get(CanvasItem.PropertyName.Visible).AsBool();
+            var gate = new EditorProgressGate(tree);
+            var found = tree.Root.FindChildren("*", DialogClass, recursive: true, owned: false);
+            if (found.Count > 0)
+                gate._dialogId = found[0].GetInstanceId();
+            else
+                tree.NodeAdded += gate.OnNodeAdded;
+            return gate;
+        }
+
+        public bool IsShowing() =>
+            _dialogId != 0 && GodotObject.InstanceFromId(_dialogId) is Node dialog && dialog.Get(CanvasItem.PropertyName.Visible).AsBool();
+
+        /// <summary>Drop the NodeAdded subscription (it would root the collectible addon assembly across a hot reload).</summary>
+        public void Uninstall()
+        {
+            if (_dialogId == 0 && GodotObject.IsInstanceValid(_tree))
+                _tree.NodeAdded -= OnNodeAdded;
+        }
+
+        void OnNodeAdded(Node node)
+        {
+            if (!node.IsClass(DialogClass))
+                return;
+            _dialogId = node.GetInstanceId();
+            _tree.NodeAdded -= OnNodeAdded;
         }
     }
 }

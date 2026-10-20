@@ -27,8 +27,7 @@
 #      captures.
 #
 # Then two live EDITOR smokes against the same server: RQL (scripts/smoke_rql.py) and
-# script-execute (scripts/smoke_script_execute.py). Both skip Godot 4.4, whose headless
-# editor intermittently segfaults at OpenScene (Godot-Tests/README.md "Known issues").
+# script-execute (scripts/smoke_script_execute.py).
 #
 # Called once per matrix version by test_pull_request.yml.
 name: Test Godot Runtime Harness
@@ -171,13 +170,6 @@ jobs:
             echo "engine_logger_expected=1" >> "$GITHUB_OUTPUT"
           else
             echo "engine_logger_expected=0" >> "$GITHUB_OUTPUT"
-          fi
-          # The live editor smokes skip 4.4: its headless editor intermittently segfaults at OpenScene, a known issue
-          # the owner chose not to investigate (Godot-Tests/README.md "Known issues").
-          if [ "$MINOR" -eq 4 ]; then
-            echo "editor_smokes=0" >> "$GITHUB_OUTPUT"
-          else
-            echo "editor_smokes=1" >> "$GITHUB_OUTPUT"
           fi
           # Pin the testbed build SDK to the matrix Godot version (disposable checkout).
           # Anchor on the Sdk="..." attribute so ONLY the <Project Sdk=...> pin (line 1) is
@@ -504,9 +496,8 @@ jobs:
       # every example of the agent guide (Godot-Tests/rql-guide-examples.json) against its fixture scene.
       # GODOT_MCP_RQL_TEST_HOOKS=1 adds the test-only test.undo / test.redo functions the undo checks need;
       # --require-test-hooks fails the smoke when they are missing instead of skipping those checks.
-      # Skipped on Godot 4.4 (steps.leg.outputs.editor_smokes; Godot-Tests/README.md "Known issues").
       - name: Live editor RQL smoke (rql-query / rql-mutate / rql-schema)
-        if: ${{ !cancelled() && steps.server.outcome == 'success' && steps.leg.outputs.editor_smokes == '1' }}
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         shell: bash
         run: |
           set -uo pipefail
@@ -529,9 +520,9 @@ jobs:
       # Live EDITOR suite of script-execute (Code-Exec + Roslyn): a fresh editor (the RQL one has quit, so it is the
       # only plugin connected) runs scripts/smoke_script_execute.py — game type + auto-import, Godot API, GD.Print
       # (4.5+) / Console capture, one copy of the game assembly and GodotSharp, compile / runtime error lines, include,
-      # and snippet unload. Skipped on Godot 4.4 like the RQL smoke.
+      # and snippet unload.
       - name: Live editor script-execute smoke
-        if: ${{ !cancelled() && steps.server.outcome == 'success' && steps.leg.outputs.editor_smokes == '1' }}
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         shell: bash
         run: |
           set -uo pipefail
