@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { addAddonPackageReferences, addAddonEmbeddedResources } from '../src/utils/csproj-deps.js';
-import { ADDON_PACKAGE_REFERENCES, ADDON_EMBEDDED_RESOURCES, EDITOR_ONLY_CONDITION } from '../src/utils/addon-deps.js';
+import {
+  ADDON_PACKAGE_REFERENCES,
+  ADDON_EMBEDDED_RESOURCES,
+  CODE_EXEC_IN_GAME_CONDITION,
+  EDITOR_ONLY_CONDITION,
+} from '../src/utils/addon-deps.js';
 
 const REFLECTOR = ADDON_PACKAGE_REFERENCES[0];
 const MCP = ADDON_PACKAGE_REFERENCES[1];
@@ -310,5 +315,74 @@ describe('addAddonPackageReferences — editor-only packages', () => {
     const roslyn = { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true };
     const before = csproj('<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />');
     expect(addAddonPackageReferences(before, [roslyn]).changed).toBe(false);
+  });
+});
+
+describe('addAddonPackageReferences — in-game code execution opt-in (GodotMcpCodeExecInGame)', () => {
+  const editorOnly = `Condition="${EDITOR_ONLY_CONDITION}"`;
+  const inGame = `Condition="${CODE_EXEC_IN_GAME_CONDITION}"`;
+  const codeExec = { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true, inGameOptIn: true };
+  const rql = { id: 'com.IvanMurzak.Rql', version: '0.1.1', editorOnly: true };
+  const csproj = (...elements: string[]) =>
+    `<Project Sdk="Godot.NET.Sdk/4.5.1">\n  <ItemGroup>\n${elements.map((e) => `    ${e}\n`).join('')}  </ItemGroup>\n</Project>\n`;
+
+  it('is the editor-only condition widened by the MSBuild property', () => {
+    expect(CODE_EXEC_IN_GAME_CONDITION).toBe(
+      "'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')",
+    );
+  });
+
+  it('writes the in-game condition on Code-Exec packages and the editor-only one on RQL', () => {
+    const { text } = addAddonPackageReferences(FRESH_CSPROJ, [rql, codeExec]);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${inGame} />`);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" ${editorOnly} />`);
+    expect(addAddonPackageReferences(text, [rql, codeExec]).changed).toBe(false);
+  });
+
+  it('upgrades a Code-Exec package an older install wrote editor-only', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${editorOnly} />`);
+    const { text, changes } = addAddonPackageReferences(before, [codeExec]);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${inGame} />`);
+    expect(changes).toEqual([{ id: 'com.IvanMurzak.CodeExec', action: 'updated', from: '0.2.1', version: '0.2.1' }]);
+  });
+
+  it("keeps the project's own Condition on a Code-Exec package", () => {
+    const own = `Condition="'$(Configuration)' == 'Debug'"`;
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${own} />`);
+    expect(addAddonPackageReferences(before, [codeExec]).changed).toBe(false);
+  });
+
+  it('moves a newer Roslyn the project pins from the editor-only to the in-game condition, keeping its version', () => {
+    const roslyn = { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true, inGameOptIn: true };
+    const before = csproj(`<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" ${editorOnly} />`);
+    const { text, changes } = addAddonPackageReferences(before, [roslyn]);
+    expect(text).toContain(`<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" ${inGame} />`);
+    expect(changes).toEqual([{ id: 'Microsoft.CodeAnalysis.CSharp', action: 'updated', from: '4.14.0', version: '4.14.0' }]);
+    expect(addAddonPackageReferences(text, [roslyn]).changed).toBe(false);
+    // Unconditioned (the project's own Roslyn): left alone.
+    const own = csproj('<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />');
+    expect(addAddonPackageReferences(own, [roslyn]).changed).toBe(false);
+  });
+
+  it('goes back to editor-only for an addon without the in-game opt-in (an older addon)', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${inGame} />`);
+    const { text } = addAddonPackageReferences(before, [{ id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true }]);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${editorOnly} />`);
+  });
+
+  it('drops the in-game condition when the installed addon needs the package in every export build', () => {
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" ${inGame} />`);
+    const { text } = addAddonPackageReferences(before, [{ id: 'com.IvanMurzak.CodeExec', version: '0.2.1' }]);
+    expect(text).toContain('<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />');
+  });
+
+  it('the built-in pins write Code-Exec and Roslyn with the in-game condition, RQL editor-only', () => {
+    const { text } = addAddonPackageReferences(FRESH_CSPROJ);
+    const inGameRefs = ADDON_PACKAGE_REFERENCES.filter((r) => r.inGameOptIn);
+    expect(inGameRefs.map((r) => r.id)).toEqual(['com.IvanMurzak.CodeExec', 'com.IvanMurzak.CodeExec.Roslyn', 'Microsoft.CodeAnalysis.CSharp']);
+    for (const ref of inGameRefs) {
+      expect(text).toContain(`<PackageReference Include="${ref.id}" Version="${ref.version}" ${inGame} />`);
+    }
+    expect(text).toContain(`Include="com.IvanMurzak.Rql" Version="0.1.1" ${editorOnly}`);
   });
 });

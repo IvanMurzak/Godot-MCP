@@ -94,7 +94,9 @@ editors keep answering tool calls with an old build).
 - **Editor-only packages.** RQL, Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
   in every csproj (and `editorOnly` in the CLI), so exported games ship none of them. Any addon code using them must
   sit inside `#if TOOLS` (`|| GODOT_MCP_UNIT_TESTS` if xUnit compiles it); `scripts/check-runtime-boundary.py`
-  fails otherwise. Details: `docs/ARCHITECTURE.md`.
+  fails otherwise. Exception: Code-Exec + Roslyn also ship when a game opts in to in-game `script-execute`
+  (`GodotMcpCodeExecInGame=true`, wider Condition, `inGameOptIn` in the CLI); their code may use
+  `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`. Details: `docs/ARCHITECTURE.md`.
 - **Server pin.** The consumed server version is `ServerVersion` in
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.

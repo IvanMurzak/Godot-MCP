@@ -112,6 +112,15 @@ def main() -> int:
           "ProjectSettings.SetSetting through a wire Godot.Variant did not read back the value "
           "(the verbatim issue-#292 repro)")
 
+    # --- In-game script-execute -------------------------------------------------------------
+    # Roslyn compiled and ran C# inside the running game (arithmetic + a read of the game's scene tree).
+    exec_failures = data.get("scriptExecuteFailures") or []
+    check(not exec_failures, f"in-game script-execute failures: {exec_failures}")
+    check(data.get("scriptExecuteSum") == "2",
+          f"in-game script-execute '1 + 1' returned {data.get('scriptExecuteSum')!r}, expected '2'")
+    check(data.get("scriptExecuteRootName") == '"root"',
+          f"in-game script-execute read the root window name as {data.get('scriptExecuteRootName')!r}, expected '\"root\"'")
+
     if require_connect:
         check(_b(data.get("connected")), "the live SignalR transport did not reach Connected")
         check(_b(data.get("initialConnectReturned")), "Connect() did not return true (initial connect failed)")

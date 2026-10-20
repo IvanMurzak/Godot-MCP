@@ -259,6 +259,52 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
+        /// Enable <c>script-execute</c> IN THE RUNNING GAME: the agent sends C#, the game compiles it with Roslyn and runs it
+        /// on its main thread (game types, autoloads and the scene tree available; no editor APIs). OFF by default. (In an
+        /// editor build, e.g. a game started from the editor, a <see cref="WithToolsFromAssembly"/> scan of the game assembly
+        /// also registers the addon's editor tools, the editor <c>script-execute</c> included; an export build has none.)
+        ///
+        /// <para>
+        /// <b>Needs the build opt-in.</b> Godot's export builds leave Code-Exec and Roslyn out, so an exported game has this
+        /// tool only when its <c>.csproj</c> opts in:
+        /// <code>
+        /// &lt;PropertyGroup&gt;
+        ///   &lt;GodotMcpCodeExecInGame&gt;true&lt;/GodotMcpCodeExecInGame&gt;
+        ///   &lt;DefineConstants&gt;$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME&lt;/DefineConstants&gt;
+        /// &lt;/PropertyGroup&gt;
+        /// </code>
+        /// Without it (an export build of a game that did not opt in) this call logs one warning and registers nothing, so
+        /// the same game code compiles either way. Editor builds (a game started from the editor) always have it.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>SECURITY — arbitrary code execution.</b> Whoever can call tools on this connection can run any code in the game
+        /// process, with the player's file and network access. Use it only on a trusted connection: a loopback host
+        /// (<c>http://localhost:…</c>) with <c>AuthOption = token</c> and a real token. Never ship it enabled in a public
+        /// release build; gate the call behind your own debug/dev switch. Desktop CoreCLR builds only: NativeAOT and iOS
+        /// cannot run code emitted at run time, and mobile is untested. See <c>docs/runtime-security.md</c>.
+        /// </para>
+        ///
+        /// Returns <c>this</c> for chaining.
+        /// </summary>
+        public GodotMcpRuntimeBuilder WithScriptExecute()
+        {
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
+            WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_GameScript));
+#else
+            GodotMcpLog.Warning(ScriptExecuteUnavailableMessage);
+#endif
+            return this;
+        }
+
+        /// <summary>The warning <see cref="WithScriptExecute"/> logs in a build without code execution.</summary>
+        internal const string ScriptExecuteUnavailableMessage =
+            "[Godot-MCP] WithScriptExecute(): this build has no code execution, so script-execute is not registered. " +
+            "Enable it in the game .csproj: <PropertyGroup><GodotMcpCodeExecInGame>true</GodotMcpCodeExecInGame>" +
+            "<DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants></PropertyGroup> " +
+            "(see docs/runtime-security.md before shipping it).";
+
+        /// <summary>
         /// Finalize this configuration: build the reused MCP plugin (reflector + opted-in tools + resolved
         /// config), bootstrap the main-thread dispatcher in the running <c>SceneTree</c> (unless
         /// <see cref="WithoutMainThreadDispatcher"/> was called), and return the connection handle. The

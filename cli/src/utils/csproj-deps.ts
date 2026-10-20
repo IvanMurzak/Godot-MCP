@@ -2,7 +2,9 @@ import { isNewerVersion } from './semver.js';
 import {
   ADDON_PACKAGE_REFERENCES,
   ADDON_EMBEDDED_RESOURCES,
+  CODE_EXEC_IN_GAME_CONDITION,
   EDITOR_ONLY_CONDITION,
+  canonicalCondition,
   type AddonPackageReference,
   type AddonEmbeddedResource,
 } from './addon-deps.js';
@@ -117,17 +119,18 @@ function patchRef(element: string, version: string, condition: string | undefine
 /** The packages this CLI knows as editor-only (an older addon's manifest may not mark them). */
 const KNOWN_EDITOR_ONLY_IDS = new Set(ADDON_PACKAGE_REFERENCES.filter((r) => r.editorOnly).map((r) => r.id));
 
+/** The Conditions `install-plugin` writes; any other Condition on an element is the project's own. */
+const CANONICAL_CONDITIONS: ReadonlySet<string> = new Set([EDITOR_ONLY_CONDITION, CODE_EXEC_IN_GAME_CONDITION]);
+
 /**
- * The Condition a reference's element should carry, given the one it has (`undefined` for a new element). An
- * editor-only reference keeps any Condition the project already set (e.g. a stricter `== 'Debug'`) and gains the
- * canonical one when it has none (the migration of csprojs written before editor-only packages). Any other reference
- * keeps its own Condition, except the canonical editor-only one on a package this CLI writes editor-only, which an
- * addon that needs the package in export builds (an older one) drops. The same Condition on another package (e.g.
- * McpPlugin, which docs/ARCHITECTURE.md lets a dev-only project exclude from exports) is the project's own and stays.
+ * The Condition a reference's element should carry, given the one it has (`undefined` for a new element): a missing or
+ * canonical Condition becomes the reference's canonical one (dropped for a known editor-only package the addon now needs
+ * in exports); any other Condition is the project's own and stays. Cases: `csproj-deps.test.ts`.
  */
 function desiredCondition(ref: AddonPackageReference, existing: string | undefined): string | undefined {
-  if (ref.editorOnly) return existing ?? EDITOR_ONLY_CONDITION;
-  return existing === EDITOR_ONLY_CONDITION && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
+  const canonical = existing === undefined || CANONICAL_CONDITIONS.has(existing);
+  if (ref.editorOnly) return canonical ? canonicalCondition(ref) : existing;
+  return canonical && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
 }
 
 /** Render the canonical self-closing element for a required embedded resource. */
@@ -177,14 +180,25 @@ export function addAddonPackageReferences(
       continue;
     }
     const existingVersion = match[1] ?? match[2] ?? '';
-    // A third-party package (Roslyn) the project already uses at a newer version stays as it is: the addon needs "at
-    // least" (the source-only Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade, or making it
-    // editor-only, would break the project's own use.
+    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
+    // A third-party package (Roslyn) the project already uses at a newer version keeps its version and, unless an older
+    // install wrote one of our canonical Conditions, its Condition: the addon needs "at least" (the source-only
+    // Code-Exec adapter compiles against Roslyn 3.8+), and a downgrade, or making it editor-only, would break the
+    // project's own use. A canonical Condition still moves to the current canonical one (editor-only -> in-game opt-in).
     if (!ref.id.startsWith('com.IvanMurzak.') && isNewerVersion(ref.version, existingVersion)) {
-      changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
+      const migrated =
+        ref.editorOnly && existingCondition !== undefined && CANONICAL_CONDITIONS.has(existingCondition)
+          ? canonicalCondition(ref)
+          : existingCondition;
+      if (migrated === existingCondition) {
+        changes.push({ id: ref.id, action: 'unchanged', version: existingVersion });
+      } else {
+        const patched = patchRef(match[0], existingVersion, migrated);
+        text = text.replace(re, () => patched);
+        changes.push({ id: ref.id, action: 'updated', from: existingVersion, version: existingVersion });
+      }
       continue;
     }
-    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
     const condition = desiredCondition(ref, existingCondition);
     if (existingVersion === ref.version && condition === existingCondition) {
       changes.push({ id: ref.id, action: 'unchanged', version: ref.version });

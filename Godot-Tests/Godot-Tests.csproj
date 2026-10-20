@@ -31,14 +31,18 @@
     <AssemblyName>Godot-MCP-Tests</AssemblyName>
   </PropertyGroup>
 
-  <!-- Mirror of ../Godot-MCP.csproj package pins and their editor-only Conditions (must stay in lockstep). -->
+  <!-- Mirror of ../Godot-MCP.csproj package pins and their editor-only Conditions (must stay in lockstep), and of its
+       in-game code-execution opt-in (GodotMcpCodeExecInGame=true). -->
+  <PropertyGroup Condition="'$(GodotMcpCodeExecInGame)' == 'true'">
+    <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.11.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
   </ItemGroup>
 
 </Project>

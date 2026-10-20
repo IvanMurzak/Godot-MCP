@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { ADDON_PACKAGE_REFERENCES, EDITOR_ONLY_CONDITION } from '../src/utils/addon-deps.js';
+import { ADDON_PACKAGE_REFERENCES, CODE_EXEC_IN_GAME_CONDITION, EDITOR_ONLY_CONDITION } from '../src/utils/addon-deps.js';
 import { parseAddonNugetDeps, parseCsprojPackageReferences } from '../src/utils/addon-nuget-deps.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -38,6 +38,21 @@ describe('parseAddonNugetDeps', () => {
     ]);
   });
 
+  it('reads inGameOptIn: true only together with editorOnly', () => {
+    const text = JSON.stringify({
+      packageReferences: [
+        { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true, inGameOptIn: true },
+        { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', inGameOptIn: true },
+        { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1', editorOnly: true, inGameOptIn: 'yes' },
+      ],
+    });
+    expect(parseAddonNugetDeps(text)).toEqual([
+      { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true, inGameOptIn: true },
+      { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0' },
+      { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1', editorOnly: true },
+    ]);
+  });
+
   it.each([
     ['not JSON', '{'],
     ['null', 'null'],
@@ -60,14 +75,16 @@ describe('parseCsprojPackageReferences', () => {
     <PackageReference Include="NoVersion" />
     <PackageReference Include="E.F" Version="7.8.9" Condition="${EDITOR_ONLY_CONDITION}" />
     <PackageReference Include="G.H" Version="1.0.0" Condition="'$(TargetFramework)' == 'net8.0'" />
+    <PackageReference Include="I.J" Version="2.0.0" Condition="${CODE_EXEC_IN_GAME_CONDITION}" />
   </ItemGroup>
 </Project>`;
-    // Only the canonical editor-only Condition marks a package editor-only.
+    // Only the canonical Conditions mark a package editor-only (and the in-game one in-game opt-in).
     expect(parseCsprojPackageReferences(csproj)).toEqual([
       { id: 'A.B', version: '1.2.3' },
       { id: 'C.D', version: '4.5.6' },
       { id: 'E.F', version: '7.8.9', editorOnly: true },
       { id: 'G.H', version: '1.0.0' },
+      { id: 'I.J', version: '2.0.0', editorOnly: true, inGameOptIn: true },
     ]);
   });
 });
@@ -88,5 +105,17 @@ describe('scripts/write-nuget-deps.mjs (release-time manifest generator)', () =>
     expect(fromManifest).toEqual(fromCsproj);
     // ...and those are what the CLI's built-in fallback carries (addon-deps parity).
     expect(fromManifest).toEqual([...ADDON_PACKAGE_REFERENCES]);
+  });
+
+  it('marks exactly the Code-Exec packages inGameOptIn (RQL never ships in a game)', () => {
+    out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gmcp-nuget-deps-')), 'nuget-deps.json');
+    execFileSync(process.execPath, [GENERATOR, out], { stdio: 'pipe' });
+
+    const raw = JSON.parse(fs.readFileSync(out, 'utf-8')) as { packageReferences: { id: string; inGameOptIn?: boolean }[] };
+    expect(raw.packageReferences.filter((r) => r.inGameOptIn).map((r) => r.id)).toEqual([
+      'com.IvanMurzak.CodeExec',
+      'com.IvanMurzak.CodeExec.Roslyn',
+      'Microsoft.CodeAnalysis.CSharp',
+    ]);
   });
 });

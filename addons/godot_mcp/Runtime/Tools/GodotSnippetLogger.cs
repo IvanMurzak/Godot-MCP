@@ -7,7 +7,8 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-#if TOOLS
+// script-execute output capture: the editor and a game built with the in-game opt-in (docs/ARCHITECTURE.md).
+#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
 #nullable enable
 using System;
 using com.IvanMurzak.CodeExec;

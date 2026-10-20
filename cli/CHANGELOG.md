@@ -4,6 +4,14 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **In-game `script-execute` opt-in.** `install-plugin` writes Code-Exec, its Roslyn adapter and
+  `Microsoft.CodeAnalysis.CSharp` with `'$(GodotMcpCodeExecInGame)' == 'true' or (<editor-only condition>)`, so a game
+  that sets `GodotMcpCodeExecInGame=true` keeps them in its exports (RQL stays editor-only). Entries an older
+  version wrote with the editor-only condition are upgraded; a `Condition` the project set is kept. The addon marks
+  those packages `inGameOptIn` in `nuget-deps.json` (an older `godot-cli` ignores the flag and writes them
+  editor-only; with `--source` it reads the new csproj condition as none and writes them unconditioned, so use
+  this version for `--source` installs). A newer Roslyn the project pins keeps its version but moves between the
+  two canonical conditions too.
 - **McpPlugin 8.11.0; `exec` waits for the server's tool timeout.** `install-plugin` pins `com.IvanMurzak.McpPlugin`
   8.11.0 (fallback for addons without `nuget-deps.json`). The addon starts its local server with
   `tool-timeout=300000` (on a server built on McpPlugin 8.11.0+ a call is sent to the editor once and may run

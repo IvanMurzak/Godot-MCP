@@ -54,7 +54,8 @@ addons/godot_mcp/
 │   ├── Data/                         # pure-managed result/ref models (NodeRef, ResourceRef, …)
 │   ├── Extensions/                   # extension registry/installer planning logic (pure-managed)
 │   └── Tools/                        # RUNTIME-SAFE tools: Tool_Ping, Tool_Console*, Tool_Reflection*,
-│                                     #   Tool_RuntimeErrors* (in-game runtime-error capture, opt-in)
+│                                     #   Tool_RuntimeErrors* (in-game runtime-error capture, opt-in),
+│                                     #   Tool_GameScript + ScriptExecutor (script-execute, editor + in-game opt-in)
 │                                     #   + the engine-error logger bridge (GodotScriptErrorLogger*, 4.5+,
 │                                     #   shared by the editor AND the in-game runtime) + pure helpers
 │                                     #   (NodePathNormalizer, ResPathNormalizer, RuntimeErrorCollector, …)
@@ -190,7 +191,7 @@ literal. It is comment- and string-aware on purpose: the runtime files mention e
 names heavily in doc-comments and `[Description("…")]` strings to *explain* the boundary, and
 those are not violations — only un-guarded code is. It also scans **every** addon `.cs` file and
 fails if one uses an editor-only NuGet package (`Rql.*`, `com.IvanMurzak.CodeExec*`, `Microsoft.CodeAnalysis*`)
-outside `#if TOOLS` (see the next section: export builds do not reference those packages).
+outside its guard (see the next section: export builds do not reference those packages unless the game opts in).
 
 Run it locally any time:
 
@@ -215,6 +216,7 @@ the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSh
 <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 ```
 
+(Code-Exec and Roslyn carry a wider condition, see "In-game code execution" below.)
 `ExportDebug` / `ExportRelease` are exactly the Godot.NET.Sdk configurations without `TOOLS` (`Debug`, the editor
 build, defines it); the SDK conditions its own `GodotSharpEditor` reference the same way. Godot restores per build,
 so the editor build (`Debug`) gets the packages and an export (`dotnet publish -c ExportRelease`) does not.
@@ -229,6 +231,26 @@ above enforces. A Godot 4.5.1 headless `--export-release` of the testbed ships `
 `McpPlugin.Common.dll` and `ReflectorNet.dll` and none of `Rql.*`, `com.IvanMurzak.CodeExec.dll` or
 `Microsoft.CodeAnalysis*.dll`. An extension package that depends on RQL (e.g. `com.IvanMurzak.Godot.MCP.Tilemap`)
 still brings RQL into an export transitively; that is the extension's dependency, not the core addon's.
+CI checks the package set of both export configurations without Godot (`scripts/check-export-assemblies.py`).
+
+### In-game code execution (opt-in)
+
+A game can keep Code-Exec and Roslyn to offer `script-execute` itself (`GodotMcpRuntimeBuilder.WithScriptExecute()`,
+security: [`runtime-security.md`](runtime-security.md)). Its `.csproj` sets the MSBuild property
+`GodotMcpCodeExecInGame=true` and defines `GODOT_MCP_CODE_EXEC_IN_GAME` (README "Running C# in the game"). The three
+Code-Exec packages carry
+
+```xml
+Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')"
+```
+
+(`inGameOptIn` in the CLI and `nuget-deps.json`; RQL keeps the editor-only condition). The shared executor
+(`Runtime/Tools/ScriptExecutor.cs`, `ScriptExecuteSource.cs`, `GodotSnippetLogger.cs`) and the in-game tool
+(`Runtime/Tools/Tool_GameScript.cs`) compile under `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`; the editor
+`Tool_Script.Execute` calls the same executor. `Tool_GameScript` is not an `[AiToolType]`, so the editor's assembly
+scan never registers it; in an editor build a game's own `WithToolsFromAssembly` scan of the addon would register the
+editor `script-execute`, so `GodotMcpRuntime.Build` puts the in-game one back in its place. The boundary guard allows
+Code-Exec / Roslyn under a guard that includes `GODOT_MCP_CODE_EXEC_IN_GAME`; editor APIs and RQL stay `#if TOOLS`.
 
 ## (Optional) Strictly-zero-bytes export exclude for dev-only users
 

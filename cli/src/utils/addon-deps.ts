@@ -12,7 +12,8 @@
 // the editor tools, PolyForm Shield 1.0.0) is a direct dependency of the addon sources since 1.0; Code-Exec
 // (`com.IvanMurzak.CodeExec` + the source-only `.Roslyn` adapter, compiled against the pinned
 // `Microsoft.CodeAnalysis.CSharp`) runs `script-execute`. Those four are `editorOnly`: only `#if TOOLS` code
-// uses them, so exported games ship neither RQL nor Roslyn. A parity test
+// uses them, so exported games ship neither RQL nor Roslyn. The three Code-Exec ones are also `inGameOptIn`: a game
+// that opts in to in-game `script-execute` (`GodotMcpCodeExecInGame=true`) keeps them in its exports. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
 // never silently install a mismatched version.
@@ -30,6 +31,12 @@ export interface AddonPackageReference {
    * export builds leave it out (an exported game ships no RQL / Roslyn).
    */
   editorOnly?: boolean;
+  /**
+   * With `editorOnly`: a game that opts in to in-game `script-execute` (MSBuild property `GodotMcpCodeExecInGame=true`)
+   * keeps the package in its export builds, so it is written with `CODE_EXEC_IN_GAME_CONDITION` instead. A CLI that
+   * predates this flag reads such a manifest entry as plain editor-only (safe: no in-game code execution).
+   */
+  inGameOptIn?: boolean;
 }
 
 /**
@@ -38,6 +45,21 @@ export interface AddonPackageReference {
  * GodotSharpEditor. Godot-MCP.csproj marks its editor-only packages with this exact attribute.
  */
 export const EDITOR_ONLY_CONDITION = "'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'";
+
+/** The MSBuild property a game sets to `true` to keep Code-Exec and Roslyn in its exports (in-game `script-execute`). */
+export const CODE_EXEC_IN_GAME_PROPERTY = 'GodotMcpCodeExecInGame';
+
+/**
+ * The MSBuild condition of an `inGameOptIn` package: the editor-only condition, or the game opted in to in-game
+ * `script-execute`. Godot-MCP.csproj marks its Code-Exec packages with this exact attribute.
+ */
+export const CODE_EXEC_IN_GAME_CONDITION = `'$(${CODE_EXEC_IN_GAME_PROPERTY})' == 'true' or (${EDITOR_ONLY_CONDITION})`;
+
+/** The canonical Condition `install-plugin` writes for a reference (undefined: none). */
+export function canonicalCondition(ref: AddonPackageReference): string | undefined {
+  if (!ref.editorOnly) return undefined;
+  return ref.inGameOptIn ? CODE_EXEC_IN_GAME_CONDITION : EDITOR_ONLY_CONDITION;
+}
 
 /**
  * A single `<EmbeddedResource>` the consumer csproj must declare so an asset the
@@ -62,9 +84,9 @@ export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.4.3' },
   { id: 'com.IvanMurzak.McpPlugin', version: '8.11.0' },
   { id: 'com.IvanMurzak.Rql', version: '0.1.1', editorOnly: true },
-  { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true },
-  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1', editorOnly: true },
-  { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true },
+  { id: 'com.IvanMurzak.CodeExec', version: '0.2.1', editorOnly: true, inGameOptIn: true },
+  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.2.1', editorOnly: true, inGameOptIn: true },
+  { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true, inGameOptIn: true },
 ] as const;
 
 /**
