@@ -56,15 +56,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
             return false;
         }
 
-        /// <summary>The layer kind by its name ("3d_physics"); false when there is none.</summary>
-        public static bool TryKindNamed(string name, out Kind kind)
-        {
-            foreach (var k in Kinds)
-                if (string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase)) { kind = k; return true; }
-            kind = default;
-            return false;
-        }
-
         /// <summary>The project setting that names a layer: <c>layer_names/3d_physics/layer_2</c>.</summary>
         public static string SettingName(string kind, int layer) => $"layer_names/{kind}/layer_{layer.ToString(CultureInfo.InvariantCulture)}";
 
@@ -125,21 +116,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                     if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)) return InRange(number, kind);
                     throw new ArgumentException($"no {kind.Name} layer named '{text}' ({Known(kind, nameOf)})");
                 }
-                case double d when Math.Floor(d) == d && !double.IsInfinity(d):
-                    return InRange(d > int.MaxValue || d < int.MinValue ? -1 : (int)d, kind);
-                case float f when Math.Floor(f) == f && !float.IsInfinity(f):
-                    return InRange(f > int.MaxValue || f < int.MinValue ? -1 : (int)f, kind);
-                case int i: return InRange(i, kind);
-                case long l: return InRange(l > int.MaxValue || l < int.MinValue ? -1 : (int)l, kind);
+                case double or float or int or long:
+                {
+                    var number = Convert.ToDouble(entry, CultureInfo.InvariantCulture);
+                    if (Math.Floor(number) == number) return InRange(number, kind);
+                    goto default;
+                }
                 default:
                     throw new ArgumentException($"a {kind.Name} layer is a name or a number 1-{kind.Count}, not {entry ?? "null"}");
             }
         }
 
-        private static int InRange(int layer, Kind kind)
+        private static int InRange(double layer, Kind kind)
         {
-            if (layer < 1 || layer > kind.Count) throw new ArgumentException($"{kind.Name} layers are numbered 1-{kind.Count}, not {layer}");
-            return layer;
+            if (!(layer >= 1 && layer <= kind.Count))
+                throw new ArgumentException($"{kind.Name} layers are numbered 1-{kind.Count}, not {layer.ToString(CultureInfo.InvariantCulture)}");
+            return (int)layer;
         }
 
         // The named layers ("1 world, 2 enemies"), for errors.

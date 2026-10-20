@@ -44,8 +44,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var kind = Kind(hint);
             Assert.Equal(name, kind.Name);
             Assert.Equal(count, kind.Count);
-            Assert.True(LayerNames.TryKindNamed(name.ToUpperInvariant(), out var byName));
-            Assert.Equal(hint, byName.Hint);
         }
 
         [Fact]
@@ -53,7 +51,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.False(LayerNames.TryKindOf(PropertyHint.None, out _));
             Assert.False(LayerNames.TryKindOf(PropertyHint.Flags, out _));
-            Assert.False(LayerNames.TryKindNamed("3d_sound", out _));
         }
 
         [Fact]

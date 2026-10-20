@@ -145,9 +145,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static bool IsExposed(PropertyUsageFlags usage, bool storageOnly)
         {
-            if ((usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0) return false;
+            if (IsHeader(usage)) return false;
             return (usage & (storageOnly ? PropertyUsageFlags.Storage : PropertyUsageFlags.Storage | PropertyUsageFlags.Editor)) != 0;
         }
+
+        /// <summary>A category / group / subgroup header of a property list (not a property).</summary>
+        public static bool IsHeader(PropertyUsageFlags usage) =>
+            (usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0;
 
         /// <summary>One Godot property of an object: its Variant type and hint.</summary>
         public readonly struct GodotProperty
@@ -171,12 +175,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // for the keys, the entry type, "has" and the validation of the same object many times. Outside a scope nothing is
         // cached (a property list can change with the object's state, e.g. a ShaderMaterial's shader parameters).
         private static Dictionary<ulong, Dictionary<string, GodotProperty>>? _tables;
+        private static Dictionary<object, object>? _scoped;
         private static int _scopes;
 
         /// <summary>Cache property tables until the returned scope is disposed (one RQL query / mutation).</summary>
         public static IDisposable QueryScope()
         {
-            if (_scopes++ == 0) _tables = new Dictionary<ulong, Dictionary<string, GodotProperty>>();
+            if (_scopes++ == 0)
+            {
+                _tables = new Dictionary<ulong, Dictionary<string, GodotProperty>>();
+                _scoped = new Dictionary<object, object>();
+            }
             return new Scope();
         }
 
@@ -187,8 +196,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 if (_done) return;
                 _done = true;
-                if (--_scopes == 0) _tables = null;
+                if (--_scopes == 0) { _tables = null; _scoped = null; }
             }
+        }
+
+        /// <summary>
+        /// <paramref name="make"/>'s value for <paramref name="key"/>, made once while a query scope is open (like the property
+        /// tables), every time outside one.
+        /// </summary>
+        public static T Scoped<T>(object key, Func<T> make) where T : class
+        {
+            if (_scoped == null) return make();
+            if (_scoped.TryGetValue(key, out var cached) && cached is T hit) return hit;
+            var made = make();
+            _scoped[key] = made;
+            return made;
         }
 
         /// <summary>The exposed (stored or inspector) properties of <paramref name="o"/>, by name, in the object's order.</summary>

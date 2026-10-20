@@ -136,10 +136,9 @@ def shader_params(host: str, project: pathlib.Path, d: str) -> None:
     must("SH5 null reverts", mutate(host, f'{m} | set params["count"] = null'))
     text = must("SH5 read", query(host, f'{m} | select s=(params["speed"]) c=(params["count"])'))
     has("SH5 defaults back", text, "2.5|3")
-    content = file_text(project, mat)
     check("SH5 file no longer holds the old values",
-          re.search(r"^shader_parameter/speed = 4\.0$", content, re.M) is None and re.search(r"^shader_parameter/count = 7$", content, re.M) is None,
-          content)
+          not file_has(project, mat, r"^shader_parameter/speed = 4\.0$") and not file_has(project, mat, r"^shader_parameter/count = 7$"),
+          file_text(project, mat))
 
     if HOOKS["on"]:
         must("SH6 change for undo", mutate(host, f'{m} | set params["speed"] = 5, params["tint"] = "#00ff00"'))
@@ -172,16 +171,21 @@ def shader_params(host: str, project: pathlib.Path, d: str) -> None:
 # ------------------------------------------------------------------ layer names
 
 
+def name_layer(kind: str, index: int, name: str = "") -> str:
+    """The mutation that names (or, with "", unnames) a project layer."""
+    return f"layers | where kind == {q(kind)} and index == {index} | set name = {q(name)}"
+
+
 def layer_names(host: str, project: pathlib.Path, d: str) -> None:
     for kind, index in (("3d_physics", 2), ("3d_physics", 3), ("3d_render", 4)):
-        mutate(host, f'layers | where kind == {q(kind)} and index == {index} | set name = ""')
+        mutate(host, name_layer(kind, index))
     text = must("LY1 layers source", query(host, "layers | count"))
     has("LY1 every layer of every kind (20 + 32 * 5 + 20)", text, "200")
     text = must("LY1 a row", query(host, 'layers | where kind == "3d_physics" and index == 3 | select bit name setting'))
     has("LY1 bit and setting", text, "4|", "layer_names/3d_physics/layer_3")
-    must("LY2 name layers", mutate(host, 'layers | where kind == "3d_physics" and index == 2 | set name = "rql_enemies"'))
-    must("LY2 name another", mutate(host, 'layers | where kind == "3d_physics" and index == 3 | set name = "rql_world"'))
-    must("LY2 name a render layer", mutate(host, 'layers | where kind == "3d_render" and index == 4 | set name = "rql_ui"'))
+    must("LY2 name layers", mutate(host, name_layer("3d_physics", 2, "rql_enemies")))
+    must("LY2 name another", mutate(host, name_layer("3d_physics", 3, "rql_world")))
+    must("LY2 name a render layer", mutate(host, name_layer("3d_render", 4, "rql_ui")))
     check("LY2 project.godot", setting_line(project, "layer_names/3d_physics/layer_2") == '"rql_enemies"', ini_section(project, "layer_names"))
     check("LY2 project.godot render", setting_line(project, "layer_names/3d_render/layer_4") == '"rql_ui"', ini_section(project, "layer_names"))
 
@@ -225,7 +229,7 @@ def layer_names(host: str, project: pathlib.Path, d: str) -> None:
         text = must("LY8 redo read", query(host, f'{node("Body")} | select CollisionMask'))
         has("LY8 redo re-applied", text, "1")
         undo(host, "scene")
-        must("LY8 rename for undo", mutate(host, 'layers | where kind == "3d_physics" and index == 2 | set name = "rql_renamed"'))
+        must("LY8 rename for undo", mutate(host, name_layer("3d_physics", 2, "rql_renamed")))
         undo(host, "global")
         check("LY8 undo restored the name in project.godot", setting_line(project, "layer_names/3d_physics/layer_2") == '"rql_enemies"',
               ini_section(project, "layer_names"))
@@ -247,7 +251,7 @@ def layer_names(host: str, project: pathlib.Path, d: str) -> None:
     check("LY10 TileSet file", file_has(project, tiles, r"^physics_layer_0/collision_mask = 9$"), file_text(project, tiles))
 
     for kind, index in (("3d_physics", 2), ("3d_physics", 3), ("3d_render", 4)):
-        must(f"LY11 unname {kind} {index}", mutate(host, f'layers | where kind == {q(kind)} and index == {index} | set name = ""'))
+        must(f"LY11 unname {kind} {index}", mutate(host, name_layer(kind, index)))
     check("LY11 names removed from project.godot", "rql_" not in ini_section(project, "layer_names"), ini_section(project, "layer_names"))
 
 
@@ -280,7 +284,7 @@ def mesh_library(host: str, project: pathlib.Path, d: str) -> None:
     has("ML3 row", text, "0|Floor|", box, "(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)", "|3|", icon)
     text = must("ML3 shapes", query(host, f"{floor} | get shapes | select index shape transform"))
     has("ML3 shape rows", text, shape, "(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)")
-    text = must("ML3 layer names of an item", mutate(host, f'{ml} | set layerNames["item/0/navigation_layers"] = [1, 2, 3]'))
+    must("ML3 layer names of an item", mutate(host, f'{ml} | set layerNames["item/0/navigation_layers"] = [1, 2, 3]'))
     text = must("ML3 read the item mask", query(host, f"{floor} | select navigationLayers"))
     has("ML3 mask by layer numbers", text, "7")
     content = file_text(project, lib)
@@ -367,8 +371,7 @@ def value_types(host: str, project: pathlib.Path, d: str) -> None:
     has("VT6 listed", text, "timeout|_on_tick")
     must("VT6 save", mutate(host, "editor | call SaveScene()"))
     check("VT6 saved with the scene",
-          re.search(r'^\[connection signal="timeout" from="Clock" to="Target" method="_on_tick"\]$', file_text(project, sc), re.M) is not None,
-          file_text(project, sc))
+          file_has(project, sc, r'^\[connection signal="timeout" from="Clock" to="Target" method="_on_tick"\]$'), file_text(project, sc))
 
 
 # ------------------------------------------------------------------ guide examples
@@ -385,7 +388,7 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
     must("G0 water material shader", mutate(host, f"godot.resource({q(water)}) | set Shader = {q(shader)}"))
     must("G0 mesh library", mutate(host, f'editor | call CreateResource({q(tiles)}, "MeshLibrary")'))
     must("G0 floor mesh", mutate(host, f'editor | call CreateResource({q(floor)}, "BoxMesh")'))
-    mutate(host, 'layers | where kind == "3d_physics" and index == 2 | set name = ""')
+    mutate(host, name_layer("3d_physics", 2))
     must("G0 Wall", mutate(host, 'root | call AddChild("StaticBody3D", "Wall")'))
 
 
@@ -399,4 +402,4 @@ def guide_checks(host: str, project: pathlib.Path) -> None:
     check("G water params", "shader_parameter/speed = 2.0" in water and re.search(r"^shader_parameter/tint = Color\(0\.2", water, re.M) is not None, water)
     tiles = file_text(project, "res://meshes/tiles.tres")
     check("G MeshLibrary item", 'item/0/name = "Floor"' in tiles and re.search(r'^item/0/mesh = ExtResource\("[^"]+"\)$', tiles, re.M) is not None, tiles)
-    must("G cleanup layer name", mutate(host, 'layers | where kind == "3d_physics" and index == 2 | set name = ""'))
+    must("G cleanup layer name", mutate(host, name_layer("3d_physics", 2)))

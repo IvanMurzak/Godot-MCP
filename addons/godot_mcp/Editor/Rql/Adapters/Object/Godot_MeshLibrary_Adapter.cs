@@ -69,17 +69,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static void RemoveItem(MeshLibrary lib, int id)
         {
             RqlMeshItem.Require(lib, id);
-            // The item's stored properties ("item/<id>/…"), to restore them on undo.
-            var prefix = $"item/{id}/";
-            var saved = RqlGodot.SnapshotOf(lib).Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal)).Select(kv => (name: kv.Key, value: kv.Value)).ToList();
-            lib.RemoveItem(id);
-            RqlGodot.RecordUndoFor(lib,
+            // The item's stored properties ("item/<id>/…") come back on undo.
+            RqlGodot.RecordRemoval(lib, $"item/{id}/", () => lib.RemoveItem(id),
                 ur => ur.AddDoMethod(lib, MeshLibrary.MethodName.RemoveItem, id),
-                ur =>
-                {
-                    ur.AddUndoMethod(lib, MeshLibrary.MethodName.CreateItem, id);
-                    foreach (var (name, value) in saved) ur.AddUndoProperty(lib, name, value);
-                });
+                ur => ur.AddUndoMethod(lib, MeshLibrary.MethodName.CreateItem, id));
         }
     }
 
@@ -98,26 +91,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 throw new ArgumentException($"the MeshLibrary has no item {id} (its items: {string.Join(", ", lib.GetItemList().OrderBy(i => i))})");
         }
 
+        // Writes and calls check the item still exists (rows are listed from the library, so reads need not).
         private int Id { get { Require(_lib, id); return id; } }
 
         [RqlDescription("item id (what GridMap cells refer to)")]
         public int id { get; }
 
         [RqlDescription("item name")]
-        public string name { get => _lib.GetItemName(Id); set => _lib.SetItemName(Id, value ?? ""); }
+        public string name { get => _lib.GetItemName(id); set => _lib.SetItemName(Id, value ?? ""); }
 
         [RqlDescription("the mesh (a res:// path works), or null")]
-        public Mesh? mesh { get => _lib.GetItemMesh(Id); set => _lib.SetItemMesh(Id, value); }
+        public Mesh? mesh { get => _lib.GetItemMesh(id); set => _lib.SetItemMesh(Id, value); }
 
         [RqlDescription("transform of the mesh within the cell")]
-        public Transform3D meshTransform { get => _lib.GetItemMeshTransform(Id); set => _lib.SetItemMeshTransform(Id, value); }
+        public Transform3D meshTransform { get => _lib.GetItemMeshTransform(id); set => _lib.SetItemMeshTransform(Id, value); }
 
         [RqlDescription("collision shapes: index shape transform (add with call AddShape(shape, transform?), ClearShapes())")]
         public List<RqlMeshShape> shapes
         {
             get
             {
-                var raw = _lib.GetItemShapes(Id);
+                var raw = _lib.GetItemShapes(id);
                 var list = new List<RqlMeshShape>();
                 for (int i = 0; i + 1 < raw.Count; i += 2)
                     list.Add(new RqlMeshShape(list.Count, raw[i].As<Shape3D>(), raw[i + 1].VariantType == Variant.Type.Transform3D ? raw[i + 1].AsTransform3D() : Transform3D.Identity));
@@ -126,16 +120,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         }
 
         [RqlDescription("the navigation mesh (a res:// path works), or null")]
-        public NavigationMesh? navigationMesh { get => _lib.GetItemNavigationMesh(Id); set => _lib.SetItemNavigationMesh(Id, value); }
+        public NavigationMesh? navigationMesh { get => _lib.GetItemNavigationMesh(id); set => _lib.SetItemNavigationMesh(Id, value); }
 
         [RqlDescription("transform of the navigation mesh within the cell")]
-        public Transform3D navigationMeshTransform { get => _lib.GetItemNavigationMeshTransform(Id); set => _lib.SetItemNavigationMeshTransform(Id, value); }
+        public Transform3D navigationMeshTransform { get => _lib.GetItemNavigationMeshTransform(id); set => _lib.SetItemNavigationMeshTransform(Id, value); }
 
         [RqlDescription("navigation layers bit mask of the navigation mesh (by name: the library's layerNames[\"item/<id>/navigation_layers\"])")]
-        public uint navigationLayers { get => _lib.GetItemNavigationLayers(Id); set => _lib.SetItemNavigationLayers(Id, value); }
+        public uint navigationLayers { get => _lib.GetItemNavigationLayers(id); set => _lib.SetItemNavigationLayers(Id, value); }
 
         [RqlDescription("the preview icon (a res:// texture works), or null")]
-        public Texture2D? preview { get => _lib.GetItemPreview(Id); set => _lib.SetItemPreview(Id, value); }
+        public Texture2D? preview { get => _lib.GetItemPreview(id); set => _lib.SetItemPreview(Id, value); }
 
         [RqlCallable("add a collision shape (a res:// path works) with an optional transform; returns the number of shapes")]
         public int AddShape(Shape3D shape, Transform3D? transform = null)

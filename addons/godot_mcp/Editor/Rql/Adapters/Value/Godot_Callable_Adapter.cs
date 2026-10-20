@@ -45,7 +45,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override bool? Equal(Callable value, object? other, RqlKernel kernel) => other switch
         {
             string s => Text(value) == s.Trim(),
-            Callable o => Text(value) == Text(o),
+            Callable o => value.Delegate == null && o.Delegate == null && TargetOf(value) is { } a && TargetOf(o) is { } b
+                          && a.GetInstanceId() == b.GetInstanceId() && value.Method.ToString() == o.Method.ToString(),
             _ => null,
         };
 
@@ -97,9 +98,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (o == null)
             {
                 if (!(target is string text) || text.Length == 0) { reason = "a Callable needs a target: a node path, a node, a res:// path or Class#id"; return false; }
-                if (!TryResolve(text, out o, out reason)) return false;
+                if (!TryResolve(text, out var resolved, out reason)) return false;
+                o = resolved;
             }
-            if (o == null || !GodotObject.IsInstanceValid(o)) { reason = "the Callable's target no longer exists"; return false; }
+            if (!GodotObject.IsInstanceValid(o)) { reason = "the Callable's target no longer exists"; return false; }
             if (!o.HasMethod(method))
             {
                 reason = $"{o.GetClass()} has no method '{method}'";
@@ -109,28 +111,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return true;
         }
 
-        // A target's text: Class#id, a res:// / uid:// resource or a node of the edited scene.
-        private static bool TryResolve(string text, out GodotObject? o, out string? reason)
+        // A target's text: Class#id (the $ref form), a res:// / uid:// resource or a node of the edited scene; non-null when true.
+        private static bool TryResolve(string text, out GodotObject o, out string? reason)
         {
-            o = null;
             reason = null;
+            GodotObject? found;
             var reference = CallableText.Reference.Match(text);
             if (reference.Success)
             {
-                if (ulong.TryParse(reference.Groups["id"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && GodotObject.IsInstanceIdValid(id))
-                    o = GodotObject.InstanceFromId(id);
-                if (o == null) reason = $"no object {text}";
-                return o != null;
+                found = RqlGodot.ResolveStableRef(reference.Groups["type"].Value, reference.Groups["id"].Value) as GodotObject;
+                if (found == null) reason = $"no object {text}";
             }
-            if (text.StartsWith("res://", StringComparison.Ordinal) || text.StartsWith("uid://", StringComparison.Ordinal))
-            {
-                var ok = RqlGodot.TryLoadResource(text, out var resource, out reason);
-                o = resource;
-                return ok;
-            }
-            if (RqlGodot.TryFindNode(text, out var node, out var error)) { o = node; return true; }
-            reason = error!.Value.message;
-            return false;
+            else if (text.StartsWith("res://", StringComparison.Ordinal) || text.StartsWith("uid://", StringComparison.Ordinal))
+                found = RqlGodot.TryLoadResource(text, out var resource, out reason) ? resource : null;
+            else if (RqlGodot.TryFindNode(text, out var node, out var error)) found = node;
+            else (found, reason) = (null, error!.Value.message);
+            o = found!;
+            return found != null;
         }
 
         /// <summary>The text of a Callable (<see cref="CallableText"/>), or null when its target is gone.</summary>

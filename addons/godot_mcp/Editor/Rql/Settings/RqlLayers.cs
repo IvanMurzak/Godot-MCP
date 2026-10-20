@@ -31,22 +31,30 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
             LayerNames.Kinds.SelectMany(k => Enumerable.Range(1, k.Count).Select(i => new RqlLayer(k, i))).ToList();
 
         /// <summary>The name of a layer (empty when unnamed).</summary>
-        public static string NameOf(LayerNames.Kind kind, int layer)
+        public static string NameOf(LayerNames.Kind kind, int layer) =>
+            ProjectSettings.GetSetting(LayerNames.SettingName(kind.Name, layer), "").AsString();
+
+        // The names of a kind's layers, each read once for one read or write.
+        private static Func<int, string?> Namer(LayerNames.Kind kind)
         {
-            var setting = LayerNames.SettingName(kind.Name, layer);
-            return ProjectSettings.HasSetting(setting) ? ProjectSettings.GetSetting(setting).AsString() : "";
+            var names = new string?[kind.Count + 1];
+            return layer => names[layer] ??= NameOf(kind, layer);
         }
 
-        private static Func<int, string?> Namer(LayerNames.Kind kind) => layer => NameOf(kind, layer);
-
-        /// <summary>The layer properties of <paramref name="o"/> (layer-hinted ints), by name, with their kind.</summary>
+        /// <summary>The layer properties of <paramref name="o"/> (layer-hinted ints), by name.</summary>
         public static IEnumerable<string> Properties(GodotObject o) =>
-            GodotVariants.Properties(o).Where(kv => kv.Value.Type == Variant.Type.Int && LayerNames.TryKindOf(kv.Value.Hint, out _)).Select(kv => kv.Key);
+            GodotVariants.Properties(o).Where(kv => IsLayer(kv.Value, out _)).Select(kv => kv.Key);
+
+        private static bool IsLayer(GodotVariants.GodotProperty info, out LayerNames.Kind kind)
+        {
+            kind = default;
+            return info.Type == Variant.Type.Int && LayerNames.TryKindOf(info.Hint, out kind);
+        }
 
         private static bool TryKind(GodotObject o, string property, out LayerNames.Kind kind)
         {
             kind = default;
-            return GodotVariants.Properties(o).TryGetValue(property, out var info) && info.Type == Variant.Type.Int && LayerNames.TryKindOf(info.Hint, out kind);
+            return GodotVariants.Properties(o).TryGetValue(property, out var info) && IsLayer(info, out kind);
         }
 
         /// <summary>The layers set in a layer property, by name (number when unnamed); null for any other key.</summary>
