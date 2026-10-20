@@ -30,7 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string query
         )
         {
-            return Run(() => RqlGodot.Engine.Execute(query));
+            return Run(() => RqlGodot.RunQuery(() => RqlGodot.Engine.Execute(query)));
         }
     }
 }

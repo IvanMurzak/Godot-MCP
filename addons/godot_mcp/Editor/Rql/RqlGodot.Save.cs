@@ -64,6 +64,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // item): their property snapshot is not turned into undo properties (setting a removed entry to null does not
         // remove it again), they are only marked changed / saved.
         private static readonly HashSet<GodotObject> _explicitUndo = new HashSet<GodotObject>();
+        // The undo steps setters register during a set stage, held until the stage commits (dropped when it is rolled back).
+        private static readonly RqlSetStageBuffer _setStages = new RqlSetStageBuffer();
 
         // Sub-resources an adapter reached through their container (a TileSet's atlas sources): a new sub-resource has no
         // "file::id" path until its file is loaded again, so this is how its changes find the file to save. The value is the
@@ -94,6 +96,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _removed.Clear();
             _settingsChanged = false;
             _explicitUndo.Clear();
+            _setStages.Clear();
         }
 
         /// <summary>
@@ -107,11 +110,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             QueryResult result;
             try
             {
-                result = Engine.Execute(query, null, new QueryOptions { AllowMutation = true, DryRun = dryRun });
+                result = RunQuery(() => Engine.Execute(query, null, new QueryOptions { AllowMutation = true, DryRun = dryRun }));
             }
             finally
             {
                 _mutating--;
+                // A set stage of this query that never committed was rolled back: its setters' undo steps go with it.
+                _setStages.DiscardAbove(_mutating);
                 if (_mutating == 0) CommitUndo();
             }
             if (_mutating > 0 || dryRun) return result;
@@ -127,10 +132,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>
         /// Register the do and the undo operations of a structural scene change a call already applied; they join the
         /// running mutation's scene-history action (committed with <c>execute: false</c>; undo parts of later steps run
-        /// first). Calls only run inside rql-mutate.
+        /// first). Calls only run inside rql-mutate. A step registered by a setter joins only when its set stage commits.
         /// </summary>
-        internal static void RecordUndo(Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo) =>
-            _sceneUndo.Add(new UndoStep(redo, undo));
+        internal static void RecordUndo(Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo)
+        {
+            var step = new UndoStep(redo, undo);
+            _setStages.Record(() => _sceneUndo.Add(step));
+        }
 
         /// <summary>
         /// Register the do / undo operations of a structural change of <paramref name="owner"/> (a resource such as a TileSet or
@@ -139,8 +147,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         internal static void RecordUndoFor(GodotObject owner, Action<EditorUndoRedoManager>? redo, Action<EditorUndoRedoManager>? undo)
         {
-            (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(redo, undo));
-            _explicitUndo.Add(owner);
+            var step = new UndoStep(redo, undo);
+            _setStages.Record(() =>
+            {
+                (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(step);
+                _explicitUndo.Add(owner);
+            });
         }
 
         /// <summary>
@@ -170,6 +182,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static void BeforeWrite(IReadOnlyList<MutationRecord> records)
         {
+            _setStages.BeforeWrite(records, _mutating);
             foreach (var owner in MutatedObjects(records))
                 if (!_snapshots.ContainsKey(owner))
                     _snapshots[owner] = StoredProperties(owner);
@@ -179,6 +192,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // call threw); a set the engine rolled back never gets here.
         private static void Committed(IReadOnlyList<MutationRecord> records)
         {
+            // First the undo steps the stage's setters registered (they also mark their owners as explicitly undone).
+            _setStages.Committed(records, _mutating);
             var sceneChanged = false;
             foreach (var owner in MutatedObjects(records))
             {
@@ -246,28 +261,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (sceneChanged) MarkSceneUnsaved();
         }
 
-        // The nearest Godot object enclosing each change (a write into a struct member is recorded on the node / resource
-        // that holds it); view objects such as the editor source are not Godot objects and need no undo.
+        // The Godot object whose snapshot covers each change (see RqlMutationOwner.Nearest).
         private static List<GodotObject> MutatedObjects(IReadOnlyList<MutationRecord> records)
         {
             var owners = new List<GodotObject>();
             var seen = new HashSet<GodotObject>();
             foreach (var r in records)
-            {
-                // The nearest node, resource or project-settings object; a plain Object on the way (a TileSet tile's
-                // TileData) is stored by the resource that holds it, so it counts only when nothing encloses it.
-                GodotObject? plain = null, owner = null;
-                foreach (var candidate in r.Owners)
-                {
-                    var o = candidate as GodotObject ?? (candidate as Settings.IRqlViewOf)?.Owner;
-                    if (o == null || !GodotObject.IsInstanceValid(o)) continue;
-                    if (o is Node || o is Resource || Settings.RqlProject.Is(o)) { owner = o; break; }
-                    plain ??= o;
-                }
-                owner ??= plain;
-                if (owner != null && seen.Add(owner)) owners.Add(owner);
-            }
+                if (RqlMutationOwner.Nearest<GodotObject>(r.Owners, ClassifyOwner) is { } owner && seen.Add(owner)) owners.Add(owner);
             return owners;
+        }
+
+        private static (GodotObject?, RqlOwnerKind) ClassifyOwner(object candidate)
+        {
+            var (o, view) = candidate is Settings.IRqlViewOf v ? (v.Owner, true) : (candidate as GodotObject, false);
+            if (o == null || !GodotObject.IsInstanceValid(o)) return (null, RqlOwnerKind.None);
+            if (view) return (o, RqlOwnerKind.View);
+            return (o, o is Node || o is Resource || Settings.RqlProject.Is(o) ? RqlOwnerKind.Stored : RqlOwnerKind.Plain);
         }
 
         /// <summary>
