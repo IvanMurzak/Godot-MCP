@@ -38,15 +38,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             // The CLR members (Delegate, a function-pointer Trampoline) are plumbing; these three describe a Callable.
             m.HideWhere(_ => true);
             m.Add<GodotObject?>("target", c => TargetOf(c), description: "the object whose method it calls (null for a C# lambda or a freed object)")
-             .Add<string>("method", c => c.Delegate != null ? "" : c.Method.ToString(), description: "the method name")
-             .Add<bool>("valid", c => c.Delegate != null || TargetOf(c) is { } t && t.HasMethod(c.Method), description: "true when the target exists and has the method");
+             .Add<string>("method", MethodOf, description: "the method name")
+             .Add<bool>("valid", c => c.Delegate != null || TargetOf(c) is { } t && MethodOf(c) is { Length: > 0 } method && RqlGodot.HasCallableMethod(t, method),
+                 description: "true when the target exists and has the method");
         }
 
         protected override bool? Equal(Callable value, object? other, RqlKernel kernel) => other switch
         {
             string s => Text(value) == s.Trim(),
             Callable o => value.Delegate == null && o.Delegate == null && TargetOf(value) is { } a && TargetOf(o) is { } b
-                          && a.GetInstanceId() == b.GetInstanceId() && value.Method.ToString() == o.Method.ToString(),
+                          && a.GetInstanceId() == b.GetInstanceId() && MethodOf(value) == MethodOf(o),
             _ => null,
         };
 
@@ -102,7 +103,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 o = resolved;
             }
             if (!GodotObject.IsInstanceValid(o)) { reason = "the Callable's target no longer exists"; return false; }
-            if (!o.HasMethod(method))
+            if (!RqlGodot.HasCallableMethod(o, method))
             {
                 reason = $"{o.GetClass()} has no method '{method}'";
                 return false;
@@ -119,8 +120,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var reference = CallableText.Reference.Match(text);
             if (reference.Success)
             {
-                found = RqlGodot.ResolveStableRef(reference.Groups["type"].Value, reference.Groups["id"].Value) as GodotObject;
+                var type = reference.Groups["type"].Value;
+                found = RqlGodot.ResolveStableRef(type, reference.Groups["id"].Value) as GodotObject;
                 if (found == null) reason = $"no object {text}";
+                // ResolveStableRef leaves the type check to the engine; a direct call checks it here (Godot class or C# type).
+                else if (!IsOfType(found, type))
+                {
+                    reason = $"object {reference.Groups["id"].Value} is a {found.GetClass()}, not a {type}";
+                    found = null;
+                }
             }
             else if (text.StartsWith("res://", StringComparison.Ordinal) || text.StartsWith("uid://", StringComparison.Ordinal))
                 found = RqlGodot.TryLoadResource(text, out var resource, out reason) ? resource : null;
@@ -130,14 +138,28 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return found != null;
         }
 
-        /// <summary>The text of a Callable (<see cref="CallableText"/>), or null when its target is gone.</summary>
+        private static bool IsOfType(GodotObject o, string type)
+        {
+            if (o.IsClass(type)) return true;
+            for (var t = o.GetType(); t != null; t = t.BaseType)
+                if (t.Name == type) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The text of a Callable (<see cref="CallableText"/>), or null when its target is gone or it names no method (a custom
+        /// Callable such as a GDScript lambda or a bound one, which C# sees as an empty Callable).
+        /// </summary>
         public static string? Text(Callable c)
         {
             if (c.Delegate != null) return "<delegate>";
-            return TargetOf(c) is { } target ? CallableText.Format(TargetText(target), c.Method.ToString()) : null;
+            return TargetOf(c) is { } target && MethodOf(c) is { Length: > 0 } method ? CallableText.Format(TargetText(target), method) : null;
         }
 
         private static GodotObject? TargetOf(Callable c) => c.Target is { } t && GodotObject.IsInstanceValid(t) ? t : null;
+
+        // Method is null on default(Callable), which is also what C# makes of a custom (non-managed) native Callable.
+        private static string MethodOf(Callable c) => c.Delegate != null ? "" : c.Method?.ToString() ?? "";
 
         private static string TargetText(GodotObject target) => target switch
         {

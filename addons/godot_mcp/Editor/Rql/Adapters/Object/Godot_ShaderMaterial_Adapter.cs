@@ -144,7 +144,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public bool Overridden(ShaderMaterial mat)
         {
             var own = mat.GetShaderParameter(Name);
-            return own.VariantType != Variant.Type.Nil && !RqlGodot.Same(own, GodotVariants.ToVariant(Default));
+            if (own.VariantType == Variant.Type.Nil) return false;
+            // A shader keeps float uniforms in 32 bits (the rendering server's default of 0.1 is 0.100000001…), the material
+            // the double written to it: compare them at the shader's precision.
+            if (own.VariantType == Variant.Type.Float && Default is double d) return (float)own.AsDouble() != (float)d;
+            return !RqlGodot.Same(own, GodotVariants.ToVariant(Default));
         }
     }
 

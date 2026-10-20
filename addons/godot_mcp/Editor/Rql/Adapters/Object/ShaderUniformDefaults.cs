@@ -27,7 +27,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     {
         // uniform [precision] <type> <name> [: hints] = <default>;  (hints such as hint_range(0, 1) hold no '=' or ';')
         private static readonly Regex Uniform = new Regex(
-            @"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?(?<type>\w+)\s+(?<name>\w+)\s*(?::[^=;]*)?=\s*(?<value>[^;]+);",
+            @"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+(?<name>\w+)\s*(?::[^=;]*)?=\s*(?<value>[^;]+);",
             RegexOptions.CultureInvariant);
 
         private static readonly Regex Constructor = new Regex(@"^(?<type>\w+)\s*\((?<args>[^()]*)\)$", RegexOptions.CultureInvariant);
@@ -40,13 +40,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var defaults = new Dictionary<string, double[]>(StringComparer.Ordinal);
             if (string.IsNullOrEmpty(code)) return defaults;
             foreach (Match m in Uniform.Matches(Comments.Replace(code, " ")))
-                if (Literal(m.Groups["type"].Value, m.Groups["value"].Value.Trim()) is { } parts)
+                if (Literal(m.Groups["value"].Value.Trim()) is { } parts)
                     defaults[m.Groups["name"].Value] = parts;
             return defaults;
         }
 
         // A scalar literal, or a vector constructor of scalar literals (one argument fills every component).
-        private static double[]? Literal(string type, string text)
+        private static double[]? Literal(string text)
         {
             if (Scalar(text) is { } scalar) return new[] { scalar };
             var m = Constructor.Match(text);
