@@ -115,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         // A method the target (or its script, also a non-tool one whose instance is a placeholder) defines.
-        private static bool HasCallableMethod(GodotObject target, string method)
+        internal static bool HasCallableMethod(GodotObject target, string method)
         {
             if (target.HasMethod(method)) return true;
             if (target.GetScript().As<Script>() is { } script)

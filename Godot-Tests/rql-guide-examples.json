@@ -16,7 +16,11 @@
     "settings | where section == \"display\" and changed | select name value",
     "inputActions | where builtIn == false | select name events",
     "autoloads | select name path singleton",
-    "godot.resources(\"TileSet\") | get sources | select id kind texture tileCount"
+    "godot.resources(\"TileSet\") | get sources | select id kind texture tileCount",
+    "godot.resource(\"res://materials/water.tres\") | get uniforms | select name type default value overridden",
+    "nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]",
+    "layers | where kind == \"3d_physics\" and name != \"\" | select index name",
+    "godot.resources(\"MeshLibrary\") | get items | select id name mesh"
   ],
   "mutate": [
     "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",
@@ -47,6 +51,10 @@
     "project | call AddAutoload(\"Game\", \"res://scenes/game.gd\")",
     "godot.resource(\"res://tiles/terrain.tres\") | call AddAtlasSource(\"res://tiles/terrain.png\")",
     "godot.resource(\"res://tiles/terrain.tres\") | get sources | get atlas | call CreateTilesFromTexture()",
-    "godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8"
+    "godot.resource(\"res://ui/theme.tres\") | set colors[\"Button/font_color\"] = \"#ffcc00\", constants[\"HBoxContainer/separation\"] = 8",
+    "layers | where kind == \"3d_physics\" and index == 2 | set name = \"enemies\"",
+    "nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]",
+    "godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"",
+    "godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")"
   ]
 }

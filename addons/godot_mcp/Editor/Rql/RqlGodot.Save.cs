@@ -143,6 +143,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _explicitUndo.Add(owner);
         }
 
+        /// <summary>
+        /// Remove an entry of <paramref name="owner"/> whose stored properties start with <paramref name="prefix"/> (a TileSet tile
+        /// "x:y/", a MeshLibrary item "item/&lt;id&gt;/") and register its undo: <paramref name="recreate"/>, then every saved
+        /// property, so the entry comes back with all its settings.
+        /// </summary>
+        internal static void RecordRemoval(GodotObject owner, string prefix, Action remove, Action<EditorUndoRedoManager> redo,
+            Action<EditorUndoRedoManager> recreate)
+        {
+            var saved = SnapshotOf(owner).Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+            remove();
+            RecordUndoFor(owner, redo, ur =>
+            {
+                recreate(ur);
+                foreach (var kv in saved) ur.AddUndoProperty(owner, kv.Key, kv.Value);
+            });
+        }
+
         /// <summary>Mark the edited scene as having unsaved changes.</summary>
         internal static void MarkSceneUnsaved()
         {

@@ -49,11 +49,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("inputActions", Settings.RqlProject.InputActions,
                    "the input map: name events deadzone builtIn (events as \"Key:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\"); calls AddEvent, RemoveEvent, Remove")
                .AddSource("autoloads", Settings.RqlProject.Autoloads, "autoloads (singletons) in load order: name path singleton order; call Remove")
-               .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description");
+               .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description")
+               .AddSource("layers", Settings.RqlLayers.All,
+                   "the project's layers (Project Settings → Layer Names): kind index bit name setting; set name renames one (objects read and write their masks by these names in layerNames[\"…\"])")
+               .AddFunction("godot.callable", Godot_Callable_Adapter.Function,
+                   "godot.callable(target, method): a Callable of a method on a node (path or node), a resource (res://) or Class#id, e.g. godot.callable(\"Player\", \"_on_hit\")");
 
             // Never expose native handles (garbage or a crash when read) nor plumbing members by type.
             ctx.ExcludeTypes(t => t == typeof(IntPtr) || t == typeof(UIntPtr) || t.IsPointer || t == typeof(System.Threading.CancellationToken)
-                                  || t == typeof(global::Godot.Callable) || t == typeof(global::Godot.Signal));
+                                  || t == typeof(global::Godot.Signal));
 
             // Godot objects
             ctx.AddAdapter(new Godot_GodotObject_Adapter())
@@ -65,12 +69,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddAdapter(new Godot_ProjectSettings_Adapter())
                .AddAdapter(new Godot_TileSet_Adapter())
                .AddAdapter(new Godot_TileSetAtlasSource_Adapter())
-               .AddAdapter(new Godot_Theme_Adapter());
+               .AddAdapter(new Godot_Theme_Adapter())
+               .AddAdapter(new Godot_Shader_Adapter())
+               .AddAdapter(new Godot_ShaderMaterial_Adapter())
+               .AddAdapter(new Godot_MeshLibrary_Adapter());
 
             // Values
             ctx.AddAdapter(new Godot_Variant_Adapter())
                .AddAdapter(new Godot_StringName_Adapter())
-               .AddAdapter(new Godot_NodePath_Adapter());
+               .AddAdapter(new Godot_NodePath_Adapter())
+               .AddAdapter(new Godot_Callable_Adapter())
+               .AddAdapter(new Godot_Rid_Adapter());
 
             // Structs
             ctx.AddAdapter(new Godot_Vector2_Adapter())
@@ -87,7 +96,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddAdapter(new Godot_Rect2_Adapter())
                .AddAdapter(new Godot_Rect2I_Adapter())
                .AddAdapter(new Godot_Aabb_Adapter())
-               .AddAdapter(new Godot_Plane_Adapter());
+               .AddAdapter(new Godot_Plane_Adapter())
+               .AddAdapter(new Godot_Projection_Adapter());
         }
     }
 }

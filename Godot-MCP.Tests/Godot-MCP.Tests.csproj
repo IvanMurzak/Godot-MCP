@@ -417,8 +417,8 @@
 
   <!-- RQL data layer (Editor/Rql) — the pure-managed parts only: the agent guide (every example must parse),
        the tool binding's compact-text / type-name formatting and argument binding (RqlToolBinding over a plain
-       RqlEngine), the numeric-struct adapters (Godot's Vector*/Color/Quaternion/Basis/Transform*/Rect2*/Aabb are
-       pure C# structs), the NodeRef tool-argument adapter, and the static-cache release used on hot reload. The
+       RqlEngine), the numeric-struct adapters (Godot's Vector*/Color/Quaternion/Basis/Transform*/Rect2*/Aabb/Plane/Projection
+       and Rid are pure C# structs), the layer-name / shader-default / Callable-text parsing, the NodeRef tool-argument adapter, and the static-cache release used on hot reload. The
        engine over the live editor (RqlGodot, the GodotObject / Node / Resource adapters, the editor source) is
        #if TOOLS and native-backed; it is verified by the live CI smoke (scripts/smoke_rql.py). -->
   <ItemGroup>
@@ -427,6 +427,9 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\InputEventText.cs" Link="Source\Rql\Settings\InputEventText.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\LayerNames.cs" Link="Source\Rql\Settings\LayerNames.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\ShaderUniformDefaults.cs" Link="Source\Rql\Adapters\ShaderUniformDefaults.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Value\CallableText.cs" Link="Source\Rql\Adapters\CallableText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />
   </ItemGroup>
