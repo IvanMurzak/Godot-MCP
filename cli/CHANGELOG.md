@@ -4,6 +4,9 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **ReflectorNet 5.5.0, McpPlugin 8.11.1, server 9.2.14.** The `install-plugin` fallback pins (addons without
+  `nuget-deps.json`) and the default server download follow. ReflectorNet 5.5.0's base `MainThread` now detects the main
+  thread by its `SynchronizationContext`; the addon is unaffected (`GodotMainThread` overrides that detection).
 - **In-game `script-execute` opt-in.** `install-plugin` writes Code-Exec, its Roslyn adapter and
   `Microsoft.CodeAnalysis.CSharp` with `'$(GodotMcpCodeExecInGame)' == 'true' or (<editor-only condition>)`, so a game
   that sets `GodotMcpCodeExecInGame=true` keeps them in its exports (RQL stays editor-only). Entries an older

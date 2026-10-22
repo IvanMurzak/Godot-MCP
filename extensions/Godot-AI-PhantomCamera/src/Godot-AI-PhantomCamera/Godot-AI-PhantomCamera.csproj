@@ -67,8 +67,8 @@
     pinned to the core. `update-core.ps1` / `update-core.py` keep package, tests and testbed in lockstep.
   -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.11.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.11.1" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
