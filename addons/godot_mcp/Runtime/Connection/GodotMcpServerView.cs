@@ -59,7 +59,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     {
         /// <summary>
         /// The PINNED version of the shared <c>GameDev-MCP-Server</c> this addon downloads and runs. The
-        /// addon version (<c>plugin.cfg</c>, 0.x) and the shared server version (8.x) DIVERGE — the server
+        /// addon version (<c>plugin.cfg</c>, 0.x) and the shared server version (9.x) DIVERGE — the server
         /// is released from its own repo (https://github.com/IvanMurzak/GameDev-MCP-Server) on its own
         /// cadence — so the download URL must NEVER be derived from the addon version. Bumping the consumed
         /// server is an explicit addon change: update THIS constant (and make sure the corresponding
