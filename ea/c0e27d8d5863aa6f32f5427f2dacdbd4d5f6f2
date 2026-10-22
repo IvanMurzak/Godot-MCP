@@ -1,0 +1,33 @@
+extensions/Godot-AI-Beehave/README.md
+  s_eb8bcde0be96a2::t_2b8c9d3c01b956 8-21
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/README.md
+  s_eb8bcde0be96a2::t_07d9113831663a 8-21
+extensions/Godot-AI-Dialogic/README.md
+  s_eb8bcde0be96a2::t_bc7f4bc3e2dbd2 8-22
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/README.md
+  s_eb8bcde0be96a2::t_e3c7455ca311a8 8-22
+extensions/Godot-AI-PhantomCamera/README.md
+  s_eb8bcde0be96a2::t_7228e35de9f8bb 8-22
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/README.md
+  s_eb8bcde0be96a2::t_2ff142bff71aae 8-22
+extensions/Godot-AI-Terrain3D/README.md
+  s_eb8bcde0be96a2::t_888c2d3d73588d 8-24
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/README.md
+  s_eb8bcde0be96a2::t_bbbd0bd1260c2d 8-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eac0e27d8d5863aa6f32f5427f2dacdbd4d5f6f2",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+cli/src/utils/extension-install.ts
+  s_52bfd8633bca95::t_44ea53fccca3b9 18-20
+  s_52bfd8633bca95::t_84a94795071477 32-38
+  s_52bfd8633bca95::t_db221e3083d217 9-10
+  s_52bfd8633bca95::t_8e536462b5e0e1 11-14,17
+  s_42750093d76ffa::t_bbec34024b583f 148-151,233,240,242-256
+cli/tests/install-extension.test.ts
+  s_e3cea916442b5e::t_8b8a7e41b17a09 68-98
+Godot-MCP.Tests/ExtensionInstallTests.cs
+  s_42750093d76ffa::t_8ed1b8fc9683ec 115,117-119,124,126-127,205-225,261-263
+addons/godot_mcp/Runtime/Extensions/ExtensionInstallPlanner.cs
+  s_42750093d76ffa::t_c7e6c1acfedb66 71-78,82,87-91,131,137,140-153,215-217
+addons/godot_mcp/Runtime/Extensions/ExtensionInstaller.cs
+  s_42750093d76ffa::t_ee758d57a5ddd1 107-109
+cli/src/lib/install-extension.ts
+  s_42750093d76ffa::t_cbe9ebfd25686f 141-143
+cli/tests/extension-install.test.ts
+  s_42750093d76ffa::t_217854809c4f04 118-120,123,125-126,166-178,209,213-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "f69070cec33e9cf7e3ada32b5612fb064b7f0cea",
+  "prompts": {},
+  "sessions": {
+    "s_42750093d76ffa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a7e7486c13cc9da46",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_52bfd8633bca95": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d9bda5b-4e10-4c2c-a34a-3932ba4a1c0e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e3cea916442b5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c575ab56-73e6-4952-bb8b-fef415924e27",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,66 @@
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthResult.cs
+  s_5b742bf37a2587::t_0db1b7c73b1038 34-41,46
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthService.cs
+  s_5b742bf37a2587::t_7396c601c44810 33-34,36-37,39-46
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5b742bf37a2587::t_88fa9f57bb2448 147-149
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_5b742bf37a2587::t_04b83ed5084049 356-363
+  s_5b742bf37a2587::t_8a651a760bf0ee 639-671
+  s_5b742bf37a2587::t_9476c2d75aab3a 1438-1442
+  s_5b742bf37a2587::t_ee2b9c5fff2848 219-230
+Godot-MCP.Tests/GodotTokenRefresherTests.cs
+  s_5b742bf37a2587::t_27664b74884e65 17,23-30,42,50,52,57-59,63,73,77-107,121,124-128,136,146-147,151,160,164,166,173-182
+  s_5b742bf37a2587::t_b4b691bc9eb034 183
+Godot-MCP.Tests/GodotCloudAccountControllerTests.cs
+  s_5b742bf37a2587::t_b8ed6e5c50c9ed 1-212
+Godot-MCP.Tests/GodotDeviceAuthFlowTests.cs
+  s_5b742bf37a2587::t_f2054e23551719 102-104,108-109
+Godot-MCP.Tests/GodotAccountAuthTests.cs
+  s_5b742bf37a2587::t_f2e8223b63e5cb 591
+  s_5b742bf37a2587::t_d135bd6a035b30 14,26-40,45-47,55,64,75-76,85,91-97,99,102-108,110-113,115,117-138,143-163,165-175,179,187-192,194,196,201-221,223-234,236,239-240,242-243,245,247-250,253-262,264-272,274,281,285-286,291-381,384-417,419-421,423-424,428,433-434,437,439,441-444,446-454,465,471,473-479,481-492,497-516,518,524-526,546-554,556-560,562,564-572,575-590,592-593
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_5b742bf37a2587::t_2afcbe258e16c1 1043-1048,1053,1056
+  s_5b742bf37a2587::t_14da33fd8ff0bb 587-599
+  s_5b742bf37a2587::t_185e6e50e24793 1067-1070,1073
+  s_5b742bf37a2587::t_901665464af2af 1164-1166
+  s_5b742bf37a2587::t_5d31b01e408909 1207-1213,1218-1220,1222-1230,1232-1234,1236,1238-1266
+  s_5b742bf37a2587::t_d6bb2ed229a3ee 1281-1288
+  s_5b742bf37a2587::t_b8fdfe10d2c6aa 1184-1190
+  s_5b742bf37a2587::t_3d96f1cf4fd4fa 719-722
+  s_5b742bf37a2587::t_ff3c5da2a08b39 1116-1119,1125-1126,1128,1130,1132-1158
+  s_5b742bf37a2587::t_1e54865b8fce5f 127-130,1221
+addons/godot_mcp/Editor/Connection/GodotCloudAccountController.cs
+  s_5b742bf37a2587::t_59ff8e8a12a45a 1-63
+addons/godot_mcp/Editor/Connection/GodotDeviceAuthFlow.cs
+  s_5b742bf37a2587::t_ff624217c3e0b8 71-80
+  s_5b742bf37a2587::t_17f7cb79e4b2bb 159
+  s_5b742bf37a2587::t_b6572c99c3528a 188-189
+addons/godot_mcp/Editor/UI/ConnectionPanelView.cs
+  s_5b742bf37a2587::t_f1062edd9ae645 183-222
+Godot-MCP.Tests/ConnectionPanelViewTests.cs
+  s_5b742bf37a2587::t_856db0db0870a2 321-361
+addons/godot_mcp/Editor/Connection/GodotTokenRefresher.cs
+  s_5b742bf37a2587::t_47c26820ca6e82 12,20-33,36-43,48,52-58,63,66-72,75-80,82-84,88-90,92,94-96
+  s_5b742bf37a2587::t_486c21e995b024 97-99,101
+addons/godot_mcp/Editor/Connection/GodotAccountAuth.cs
+  s_5b742bf37a2587::t_57ed9fd92a1e9d 337-341
+  s_5b742bf37a2587::t_93fb4d3e0a847b 12,21-87,89-93,95-107,111-121,127-131,134-139,142-147,152,155-156,158,160-163,167,170-179,181,184,189-190,192,196-198,201,204-214,216-217,221-222,226,228,237-289,292-336,342-382,384
+  s_5b742bf37a2587::t_6d7cd0235eeac8 233-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "02966365c04ad5f8277c124c42f5b814ae529212",
+  "prompts": {},
+  "sessions": {
+    "s_5b742bf37a2587": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba723765-770d-456d-823d-c53d8073ed95",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
