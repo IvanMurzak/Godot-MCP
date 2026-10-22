@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-GridMap",
   "packageId": "com.IvanMurzak.Godot.MCP.GridMap",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "project": "extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj",
   "tests": "extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Godot-AI-GridMap.Tests.csproj",
   "minGodotVersion": "4.3.0",

@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-Tilemap",
   "packageId": "com.IvanMurzak.Godot.MCP.Tilemap",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "project": "extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj",
   "tests": "extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/Godot-AI-Tilemap.Tests.csproj",
   "minGodotVersion": "4.3.0",
