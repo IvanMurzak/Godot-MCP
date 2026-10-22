@@ -31,7 +31,7 @@ and our source compiles against *that* exact version.
   <!-- Only the MCP / reflection / query stack is a package dependency (the consumer already has it); pins = the core's. -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.11.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.12.0" />
     <PackageReference Include="com.IvanMurzak.Rql"         Version="0.1.1" />
   </ItemGroup>
 

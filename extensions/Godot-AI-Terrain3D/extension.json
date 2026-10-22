@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-Terrain3D",
   "packageId": "com.IvanMurzak.Godot.MCP.Terrain3D",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "project": "extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj",
   "tests": "extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj",
   "minGodotVersion": "4.4.0",

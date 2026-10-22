@@ -34,7 +34,7 @@
     <!-- ===== Package identity (bump-version.ps1 / get-version.ps1 own the Version element) ===== -->
     <IsPackable>true</IsPackable>
     <PackageId>com.IvanMurzak.Godot.MCP.Tilemap</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Title>Tilemap Tools</Title>
     <Authors>Ivan Murzak</Authors>
     <Description>RQL module for Godot Tilemap.</Description>
@@ -68,7 +68,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.11.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.12.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
   </ItemGroup>
 
