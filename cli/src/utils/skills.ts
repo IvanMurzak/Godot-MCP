@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { buildGuideFiles, skillMetadataLines, SKILL_REFERENCES } from './skill-guides.js';
 
 // Godot-MCP skill catalog + SKILL.md content generation.
 //
@@ -208,6 +209,7 @@ function buildRootSkill(): SkillFile {
       'Drive the Godot editor through Godot-MCP. Use when creating/editing scenes, nodes, resources, scripts, or capturing screenshots in a Godot project connected to an MCP server.',
     )}`,
   );
+  lines.push(...skillMetadataLines());
   lines.push('---');
   lines.push('');
   lines.push('# Godot-MCP');
@@ -233,6 +235,7 @@ function buildRootSkill(): SkillFile {
   lines.push('');
   lines.push('See the per-family skill files in this directory for the tool list and usage of each family.');
   lines.push('');
+  lines.push(SKILL_REFERENCES, '');
   return { relativePath: `${ROOT_SKILL_NAME}/SKILL.md`, content: lines.join('\n') };
 }
 
@@ -243,6 +246,7 @@ function buildFamilySkill(fam: SkillFamily): SkillFile {
   lines.push('---');
   lines.push(`name: ${slug}`);
   lines.push(`description: ${yamlSingleQuote(`Godot-MCP ${fam.title} tools. ${fam.summary}`)}`);
+  lines.push(...skillMetadataLines());
   lines.push('---');
   lines.push('');
   lines.push(`# Godot-MCP — ${fam.title}`);
@@ -262,6 +266,7 @@ function buildFamilySkill(fam: SkillFamily): SkillFile {
   );
   lines.push('- Results are returned as structured data (ReflectorNet-serialized), not free-form text.');
   lines.push('');
+  lines.push(SKILL_REFERENCES, '');
   return { relativePath: `${slug}/SKILL.md`, content: lines.join('\n') };
 }
 
@@ -271,7 +276,7 @@ function buildFamilySkill(fam: SkillFamily): SkillFile {
  * bytes, so writing them is idempotent.
  */
 export function buildSkillFiles(): SkillFile[] {
-  const files: SkillFile[] = [buildRootSkill()];
+  const files: SkillFile[] = [buildRootSkill(), ...buildGuideFiles()];
   for (const fam of SKILL_FAMILIES) {
     files.push(buildFamilySkill(fam));
   }

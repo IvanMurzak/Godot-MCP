@@ -47,7 +47,7 @@
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.12.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.13.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.2.1" />
@@ -184,6 +184,8 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ISkillsToolHost.cs" Link="Source\ISkillsToolHost.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\SkillsToolPaths.cs" Link="Source\SkillsToolPaths.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.cs" Link="Source\Tool_Skills.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotSkillFileGenerator.cs" Link="Source\GodotSkillFileGenerator.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Skills\Skill_Guides.cs" Link="Source\Skill_Guides.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.cs" Link="Source\Tool_Skills.Create.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.SkillBody.cs" Link="Source\Tool_Skills.Create.SkillBody.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Generate.cs" Link="Source\Tool_Skills.Generate.cs" />
