@@ -185,7 +185,7 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\SkillsToolPaths.cs" Link="Source\SkillsToolPaths.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.cs" Link="Source\Tool_Skills.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotSkillFileGenerator.cs" Link="Source\GodotSkillFileGenerator.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Skills\Skill_Guides.cs" Link="Source\Skill_Guides.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Skills\Skill_Guides.cs" Link="Source\Skill_Guides.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.cs" Link="Source\Tool_Skills.Create.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Create.SkillBody.cs" Link="Source\Tool_Skills.Create.SkillBody.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Skills.Generate.cs" Link="Source\Tool_Skills.Generate.cs" />
