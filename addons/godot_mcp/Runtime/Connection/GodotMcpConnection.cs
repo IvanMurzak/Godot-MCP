@@ -493,6 +493,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             var builder = new McpPluginBuilder(version, loggerProvider)
                 .SetConfig(_config)
+                .WithConfig(config =>
+                {
+                    config.SkillMetadata["generated-by"] = "godot-mcp";
+                    config.SkillMetadata["ai-game-dev"] = "exclude";
+                })
+                .WithSkillFileGenerator<GodotSkillFileGenerator>()
                 // Prune the heavy assemblies so neither the tool/prompt/resource scan NOR the
                 // IReflectorModule discovery below ever type-enumerates them. Mirrors the Unity reference's
                 // .IgnoreAssemblies(...) prefix list (BCL, the reused McpPlugin/ReflectorNet/R3/SignalR

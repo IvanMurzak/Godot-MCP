@@ -57,9 +57,28 @@ describe('setup-skills command (CLI surface)', () => {
 // ---------------------------------------------------------------------------
 
 describe('skill content (Godot tool families)', () => {
-  it('emits one root file plus one per family', () => {
+  it('provides referenced standalone guides and marks every generated document for App exclusion', () => {
     const files = buildSkillFiles();
-    expect(files.length).toBe(SKILL_FAMILIES.length + 1);
+    const cli = files.find(f => f.relativePath === 'godot-cli/SKILL.md');
+    const app = files.find(f => f.relativePath === 'ai-game-dev-app/SKILL.md');
+    expect(cli?.content).toContain('npm install -g godot-cli');
+    expect(cli?.content).toContain('node --version');
+    expect(app?.content).toContain('Blender');
+    expect(app?.content).toContain('https://ai-game.dev/download');
+    for (const file of files) {
+      const frontMatter = file.content.slice(0, file.content.indexOf('\n---', 4));
+      expect(frontMatter).toContain('metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude');
+      if (file !== cli) expect(file.content).not.toContain('npm install');
+      if (file !== cli && file !== app) {
+        expect(file.content).toContain('`godot-cli` skill');
+        expect(file.content).toContain('`ai-game-dev-app`');
+      }
+    }
+  });
+
+  it('emits root and family files plus the standalone CLI and App guides', () => {
+    const files = buildSkillFiles();
+    expect(files.length).toBe(SKILL_FAMILIES.length + 3);
     expect(files[0].relativePath).toBe('godot-mcp/SKILL.md');
   });
 
@@ -118,7 +137,7 @@ describe('setupSkills generation + idempotency', () => {
 
     const expectedDir = path.join(tmpDir, agent!.skillsPath!);
     expect(result.skillsDir).toBe(expectedDir);
-    expect(result.filesWritten.length).toBe(SKILL_FAMILIES.length + 1);
+    expect(result.filesWritten.length).toBe(SKILL_FAMILIES.length + 3);
 
     // Root + every family file exist on disk under the agent's skills path.
     for (const file of result.filesWritten) {
