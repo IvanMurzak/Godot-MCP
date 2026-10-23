@@ -18,7 +18,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public const string SkillId = "godot-cli";
 
         [AiSkill(SkillId, "Install and use godot-cli: Node.js requirements, npm installation, npx, tool calls, JSON input files and troubleshooting.")]
-        public static string Markdown =>
+        public static string Markdown => BuildMarkdown(IsWindows);
+
+        public static string BuildMarkdown(bool windows) => FormatPlatform(Template, windows);
+
+        private const string Template =
             "# Godot CLI\n" +
             "\n" +
             "Install and use `godot-cli` to call the engine's MCP tools from a terminal.\n" +
@@ -28,57 +32,94 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "Node.js ^20.19.0 or >=22.12.0 and npm are required. Node.js 21 is unsupported.\n" +
             "Check existing installations first:\n" +
             "\n" +
-            "```bash\n" +
+            "```@SHELL@\n" +
             "node --version\n" +
-            "npm --version\n" +
+            "@NPM@ --version\n" +
             "```\n" +
             "\n" +
             "If needed, install a supported Node.js LTS release from https://nodejs.org/ and reopen the terminal.\n" +
-            "Use the installer for the current operating system. On macOS with Homebrew, `brew install node@22`\n" +
-            "may require adding the installed executable directory to PATH.\n" +
+            "@NODE_SETUP@\n" +
             "\n" +
             "## Install and verify\n" +
             "\n" +
-            "```bash\n" +
-            "npm install -g godot-cli\n" +
-            "godot-cli --version\n" +
-            "godot-cli --help\n" +
+            "```@SHELL@\n" +
+            "@NPM@ install -g godot-cli\n" +
+            "@CLI@ --version\n" +
+            "@CLI@ --help\n" +
             "```\n" +
             "\n" +
             "Alternatively, use npm's temporary runner without a global installation:\n" +
             "\n" +
-            "```bash\n" +
-            "npx godot-cli --help\n" +
+            "```@SHELL@\n" +
+            "@NPX@ godot-cli --help\n" +
             "```\n" +
             "\n" +
-            "Replace the leading `godot-cli` with `npx godot-cli` in subsequent examples when using this option.\n" +
+            "Replace the leading `@CLI@` with `@NPX@ godot-cli` in subsequent examples when using this option.\n" +
             "\n" +
             "## Call tools\n" +
             "\n" +
             "Run commands from the game project's root directory. The target editor or game must be running with its MCP plugin connected.\n" +
+            "The following read-only example lists the available RQL sources and types in the editor:\n" +
             "\n" +
-            "```bash\n" +
-            "godot-cli status\n" +
-            "godot-cli run-tool <tool-name> --input '{\"parameter\":\"value\"}'\n" +
+            "```@SHELL@\n" +
+            "@CLI@ status\n" +
+            "@CLI@ run-tool rql-schema --input '{}'\n" +
             "```\n" +
             "\n" +
-            "For complex input, write a JSON file and use:\n" +
+            "For input files, create a UTF-8 JSON file and pass its path. This example makes the same read-only call:\n" +
             "\n" +
-            "```bash\n" +
-            "godot-cli run-tool <tool-name> --input-file args.json\n" +
+            "```@SHELL@\n" +
+            "@WRITE_JSON@\n" +
+            "@CLI@ run-tool rql-schema --input-file args.json\n" +
             "```\n" +
             "\n" +
-            "Consult the individual tool skill for parameter names and examples. Use command-specific `--help` for options.\n" +
+            "Replace `rql-schema` and the JSON with the tool name and arguments from its individual skill.\n" +
+            "Use command-specific `--help` for options. RQL tools require an editor; a game exposes only its registered runtime tools.\n" +
             "\n" +
             "## Troubleshooting\n" +
             "\n" +
-            "- `node` or `npm` not found: finish installing Node.js, check PATH, and reopen the terminal.\n" +
-            "- `godot-cli` not found: reopen the terminal, check the npm global executable directory in PATH, or use `npx godot-cli`.\n" +
+            "- `node` or `@NPM@` not found: finish installing Node.js, check PATH, and reopen the terminal.\n" +
+            "- `@CLI@` not found: reopen the terminal, check the npm global executable directory in PATH, or use `@NPX@ godot-cli`.\n" +
             "- Global npm installation denied: use a user-owned Node.js installation or the npx alternative.\n" +
-            "- Connection unavailable: check the project directory and ensure the target editor or game and its MCP plugin are running and connected.\n" +
+            "- Connection unavailable: check the project directory and ensure its editor or game and MCP plugin are running and connected.\n" +
             "\n" +
             "For optional asset-generation and Blender workflows, consult the `ai-game-dev-app` skill.\n" +
             "";
+
+        public static bool IsWindows => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+            System.Runtime.InteropServices.OSPlatform.Windows);
+
+        public static string FormatPlatform(string template, bool windows)
+        {
+            return template.Replace("@SHELL@", windows ? "powershell" : "bash")
+                .Replace("@CLI@", windows ? "godot-cli.cmd" : "godot-cli")
+                .Replace("@NPM@", windows ? "npm.cmd" : "npm")
+                .Replace("@NPX@", windows ? "npx.cmd" : "npx")
+                .Replace("@NODE_SETUP@", windows
+                    ? "Use the Windows installer and reopen PowerShell. The examples use .cmd launchers to avoid npm PowerShell execution-policy restrictions."
+                    : "On macOS with Homebrew, `brew install node@22` may require adding its executable directory to PATH.")
+                .Replace("@WRITE_JSON@", windows
+                    ? "[System.IO.File]::WriteAllText((Join-Path $PWD 'args.json'), '{}')"
+                    : "printf '%s\\n' '{}' > args.json");
+        }
+
+        public static string ToolCommand(string command, string toolName, string json, bool windows)
+        {
+            var cli = windows ? "godot-cli.cmd" : "godot-cli";
+            if (windows)
+                return "```powershell\n" + JsonFile(json, true) + "\n" +
+                    cli + " " + command + " " + toolName + " --input-file args.json\n```\n";
+            return "```bash\n" + cli + " " + command + " " + toolName + " --input '" +
+                json.Replace("'", "'\"'\"'") + "'\n```\n";
+        }
+
+        public static string JsonFile(string json, bool windows)
+        {
+            if (windows)
+                return "[System.IO.File]::WriteAllText((Join-Path $PWD 'args.json'), @'\n" + json + "\n'@)";
+            return "printf '%s\\n' '" + json.Replace("'", "'\"'\"'") + "' > args.json";
+        }
+
     }
 
     [AiSkillType]

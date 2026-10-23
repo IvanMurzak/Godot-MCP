@@ -61,7 +61,7 @@ describe('skill content (Godot tool families)', () => {
     const files = buildSkillFiles();
     const cli = files.find(f => f.relativePath === 'godot-cli/SKILL.md');
     const app = files.find(f => f.relativePath === 'ai-game-dev-app/SKILL.md');
-    expect(cli?.content).toContain('npm install -g godot-cli');
+    expect(cli?.content).toContain(process.platform === 'win32' ? 'npm.cmd install -g godot-cli' : 'npm install -g godot-cli');
     expect(cli?.content).toContain('node --version');
     expect(app?.content).toContain('Blender');
     expect(app?.content).toContain('https://ai-game.dev/download');
