@@ -20,6 +20,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public override bool IncludeAuthorizationExample => false;
         protected virtual bool UsePowerShell => Skill_Cli.IsWindows;
 
+        protected override void BuildHowToCallHeading(StringBuilder sb)
+        {
+            sb.AppendLine("Run from the project's root directory:");
+            sb.AppendLine();
+        }
+
         protected override void BuildToolCommand(StringBuilder sb, IRunTool tool, string host, string inputExample)
         {
             var command = tool.ToolType == McpToolType.System ? "run-system-tool" : "run-tool";

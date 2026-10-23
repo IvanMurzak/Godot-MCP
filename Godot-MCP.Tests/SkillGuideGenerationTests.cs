@@ -34,8 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(windows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", guide);
             Assert.Contains("run-tool rql-schema --input '{}'", guide);
             Assert.DoesNotContain("<tool-name>", guide);
-            Assert.DoesNotContain("@SHELL@", guide);
-            Assert.DoesNotContain("@godot-cli@", guide);
+            Assert.DoesNotMatch("@[A-Z_]+@", guide);
             Assert.DoesNotContain("<<'EOF'", guide);
         }
 
