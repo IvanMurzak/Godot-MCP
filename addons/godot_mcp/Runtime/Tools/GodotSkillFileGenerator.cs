@@ -17,9 +17,28 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// <summary>Adds references to the standalone CLI and companion-app guides.</summary>
     public class GodotSkillFileGenerator : SkillFileGenerator
     {
+        public override bool IncludeAuthorizationExample => false;
+        protected virtual bool UsePowerShell => Skill_Cli.IsWindows;
+
+        protected override void BuildHowToCallHeading(StringBuilder sb)
+        {
+            sb.AppendLine("Run from the project's root directory:");
+            sb.AppendLine();
+        }
+
         protected override void BuildToolCommand(StringBuilder sb, IRunTool tool, string host, string inputExample)
         {
-            base.BuildToolCommand(sb, tool, host, inputExample);
+            var command = tool.ToolType == McpToolType.System ? "run-system-tool" : "run-tool";
+            sb.AppendLine(Skill_Cli.ToolCommand(command, tool.Name, inputExample, UsePowerShell));
+            if (!UsePowerShell && inputExample != "{}")
+            {
+                sb.AppendLine("For complex input, create a JSON file instead:");
+                sb.AppendLine("```bash");
+                sb.AppendLine(Skill_Cli.JsonFile(inputExample, false));
+                sb.AppendLine($"godot-cli {command} {tool.Name} --input-file args.json");
+                sb.AppendLine("```");
+                sb.AppendLine();
+            }
             AppendReferences(sb);
         }
 
