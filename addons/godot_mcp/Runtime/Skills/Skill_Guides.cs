@@ -55,7 +55,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "\n" +
             "## Call tools\n" +
             "\n" +
-            "Run commands from the game project's root directory. The editor must be running with its MCP plugin connected.\n" +
+            "Run commands from the game project's root directory. The target editor or game must be running with its MCP plugin connected.\n" +
             "\n" +
             "```bash\n" +
             "godot-cli status\n" +
@@ -75,7 +75,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "- `node` or `npm` not found: finish installing Node.js, check PATH, and reopen the terminal.\n" +
             "- `godot-cli` not found: reopen the terminal, check the npm global executable directory in PATH, or use `npx godot-cli`.\n" +
             "- Global npm installation denied: use a user-owned Node.js installation or the npx alternative.\n" +
-            "- Connection unavailable: check the project directory and ensure its editor and MCP plugin are running and connected.\n" +
+            "- Connection unavailable: check the project directory and ensure the target editor or game and its MCP plugin are running and connected.\n" +
             "\n" +
             "For optional asset-generation and Blender workflows, consult the `ai-game-dev-app` skill.\n" +
             "";
