@@ -145,6 +145,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("res://.godot/imported/x.ctex", true)]
         [InlineData("res://addons/godot_mcp/plugin.cfg", true)]
         [InlineData("res://ADDONS/Godot_Mcp/x.cs", true)]
+        [InlineData("res://./project.godot", true)]
+        [InlineData("res://addons//godot_mcp/x.cs", true)]
         [InlineData("res://addons/other/plugin.cfg", false)]
         [InlineData("res://materials/project.godot", false)]
         [InlineData("res://scenes/level.tscn", false)]
@@ -174,6 +176,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("res://exp/sub.tscn", "res://exp/sub.tscn", null, true)]
         [InlineData("uid://other::::res://exp/sub2.tscn", "res://exp/sub.tscn", "uid://bb35l34tvp488", false)]
         [InlineData("res://exp/sub.tscn.bak", "res://exp/sub.tscn", null, false)]
+        [InlineData("uid://x::::res://Exp/Sub.tscn", "res://exp/sub.tscn", null, true)] // Windows / macOS: the same file
         public void DependencyNames_MatchesPathOrUid(string entry, string path, string? uid, bool expected)
             => Assert.Equal(expected, ResPathNormalizer.DependencyNames(entry, path, uid));
     }

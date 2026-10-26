@@ -35,13 +35,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (EditorInterface.Singleton.GetResourceFilesystem()?.GetFilesystem() is { } dir)
                 foreach (var (path, _) in RqlGodot.WalkFiles(dir))
                 {
-                    if (path == resPath || !DependentExtensions.Contains(System.IO.Path.GetExtension(path).TrimStart('.'))) continue;
+                    if (string.Equals(path, resPath, StringComparison.OrdinalIgnoreCase) || !DependentExtensions.Contains(System.IO.Path.GetExtension(path).TrimStart('.'))) continue;
                     if (ResourceLoader.GetDependencies(path).Any(d => ResPathNormalizer.DependencyNames(d, resPath, uid))) users.Add(path);
                 }
             if (RqlGodot.EditedRoot() is { } root)
                 foreach (var node in RqlGodot.AllNodes())
                     // An instance of the scene file, or a property holding the resource.
-                    if ((node != root && node.SceneFilePath == resPath) || Holds(node, resPath, depth: 0))
+                    if ((node != root && string.Equals(node.SceneFilePath, resPath, StringComparison.OrdinalIgnoreCase)) || Holds(node, resPath, depth: 0))
                         users.Add($"node '{RqlGodot.PathOf(node)}' of the edited scene {root.SceneFilePath}".TrimEnd());
             return users;
         }
@@ -57,7 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             foreach (var value in RqlGodot.StoredProperties(o).Values)
             {
                 if (value.VariantType != Variant.Type.Object || !(value.AsGodotObject() is Resource r) || !GodotObject.IsInstanceValid(r)) continue;
-                if (r.ResourcePath == resPath) return true;
+                if (string.Equals(r.ResourcePath, resPath, StringComparison.OrdinalIgnoreCase)) return true;
                 // Built-in sub-resources only: another file resource is checked through its own dependencies above.
                 if (!RqlGodot.IsFileResource(r) && Holds(r, resPath, depth + 1)) return true;
             }

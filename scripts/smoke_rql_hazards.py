@@ -61,6 +61,9 @@ def renames(host: str, d: str) -> None:
     must("H2 the same name again is a no-op", mutate(host, f'{node("Renamed")} | set name = "Renamed"'))
     text = must("H2 read", query(host, "root | select children.name"))
     has("H2 renamed", text, "[Renamed,N2]")
+    fails("H2 two siblings given one new name in one set", mutate(host, 'root | get children | set name = "Same"'), "Same")
+    text = must("H2 nothing renamed", query(host, "root | select children.name"))
+    has("H2 rolled back", text, "[Renamed,N2]")
 
 
 def scene_boundary(host: str, d: str) -> None:

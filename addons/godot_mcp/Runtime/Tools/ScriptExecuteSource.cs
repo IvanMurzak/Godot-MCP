@@ -80,7 +80,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "`result` holds the value (type name and serialized value; `Success` when nothing is returned). `logs` holds what " +
             "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+. " +
             "Both are capped (20000 characters each, 2000 per output line; the cut is noted): return a count, a summary or a slice " +
-            "rather than a whole data set. A lazy sequence (LINQ query, iterator) is enumerated, at most 1000 items.\n\n" +
+            "rather than a whole data set. A lazy sequence (LINQ query, iterator) is enumerated, at most 1000 items (one that never yields an item would block the editor).\n\n" +
             "## usings / include\n\n" +
             "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n";
         internal const string SkillParameters =
@@ -177,7 +177,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (total >= MaxLogChars) { omittedLines++; omittedChars += line.Length; continue; }
                 if (line.Length > MaxLogLineChars) line = line.Substring(0, MaxLogLineChars) + $"… (line cut: {line.Length} chars)";
                 lines.Add(line);
-                total += line.Length;
+                total += line.Length + 4; // a line costs its quotes and separator too, so empty lines are bounded
             }
             if (omittedLines > 0)
                 lines.Add($"… {omittedLines} more line(s) not shown ({omittedChars} chars): output is capped at {MaxLogChars} chars; print less");
@@ -221,17 +221,26 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             && !type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(ICollection<>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)));
 
         /// <summary>
-        /// The first <see cref="MaxSequenceItems"/> items of a sequence (an endless one stops there); items of the snippet's
-        /// own types become their text, as a snippet-typed result does (<see cref="IsSnippetType"/>).
+        /// The first <see cref="MaxSequenceItems"/> items of a sequence (an endless one stops there, with a last item saying so),
+        /// each passed through <paramref name="item"/> (the caller's per-value rules); items of the snippet's own types become
+        /// their text, as a snippet-typed result does (<see cref="IsSnippetType"/>).
         /// </summary>
-        public static List<object?> Materialize(System.Collections.IEnumerable sequence)
+        public static List<object?> Materialize(System.Collections.IEnumerable sequence, Func<object?, object?>? item = null)
         {
             var items = new List<object?>();
-            foreach (var item in sequence)
+            var e = sequence.GetEnumerator();
+            try
             {
-                if (items.Count == MaxSequenceItems) break;
-                items.Add(item != null && IsSnippetType(item.GetType()) ? item.ToString() : item);
+                // Past the cap only one more item is asked for, to tell whether the sequence has more.
+                while (items.Count < MaxSequenceItems && e.MoveNext())
+                {
+                    var value = e.Current;
+                    items.Add(value != null && IsSnippetType(value.GetType()) ? value.ToString() : item != null ? item(value) : value);
+                }
+                if (items.Count == MaxSequenceItems && e.MoveNext())
+                    items.Add($"… (the first {MaxSequenceItems} items; the sequence has more)");
             }
+            finally { (e as IDisposable)?.Dispose(); }
             return items;
         }
 

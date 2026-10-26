@@ -186,7 +186,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (args.Length < 1 || args.Length > 2 || !(args[0] is string type) || (args.Length == 2 && !(args[1] is string)))
                 return new RqlError("type-mismatch", "godot.resources(type, folder?) expects a Godot class such as \"StandardMaterial3D\" and an optional res:// folder");
             var folder = args.Length == 2 ? (string)args[1]! : null;
-            if (type.Length > 0 && !ClassDB.ClassExists(type) && !IsGlobalScriptClass(type))
+            // Matched case-insensitively, like the file types below.
+            if (type.Length > 0 && !ClassDB.ClassExists(type) && !ClassDB.GetClassList().Contains(type, StringComparer.OrdinalIgnoreCase) && !IsGlobalScriptClass(type))
                 return new RqlError("unknown-type", $"no Godot class '{type}'" +
                     Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Resource")), type) +
                     "; godot.resources takes a resource class such as \"Texture2D\" or \"StandardMaterial3D\"");

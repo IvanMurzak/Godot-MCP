@@ -382,14 +382,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var files = changedFiles.Where(r => GodotObject.IsInstanceValid(r) && IsFileResource(r)).ToList();
             if (steps.Count == 0 || files.Count == 0) return;
             var saver = global::Godot.Engine.GetSingleton("ResourceSaver");
-            var efs = EditorInterface.Singleton.GetResourceFilesystem();
+            // An empty path saves to the resource's path at undo / redo time: a file moved since goes to its new place, and a
+            // deleted one (its path cleared) is not written back.
             void Save(Action<GodotObject, StringName, Variant[]> add)
             {
-                foreach (var r in files)
-                {
-                    add(saver, "save", new Variant[] { r, r.ResourcePath });
-                    if (efs != null) add(efs, EditorFileSystem.MethodName.UpdateFile, new Variant[] { r.ResourcePath });
-                }
+                foreach (var r in files) add(saver, "save", new Variant[] { r, "" });
             }
             steps.Insert(0, new UndoStep(null, ur => Save(ur.AddUndoMethod)));
             steps.Add(new UndoStep(ur => Save(ur.AddDoMethod), null));

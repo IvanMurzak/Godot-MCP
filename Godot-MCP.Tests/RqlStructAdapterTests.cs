@@ -173,7 +173,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         [Theory]
         [InlineData(0f, "0")]
-        [InlineData(-0f, "0")]
         [InlineData(-4.371139E-08f, "0")]
         [InlineData(1.5707964f, "1.570796")]
         [InlineData(0.1f, "0.1")]
@@ -182,6 +181,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(2.5e-6f, "0.0000025")]
         [InlineData(float.NaN, "NaN")]
         public void Tidy(float value, string expected) => Assert.Equal(expected, GodotFloatTupleAdapter<Vector3>.Tidy(value));
+
+        [Fact]
+        public void TidyNegativeZero() => Assert.Equal("0", GodotFloatTupleAdapter<Vector3>.Tidy(-0f)); // xUnit dedupes -0f with 0f in InlineData
 
         private static string[] Rows(QueryResult r) =>
             Text(r).Split('\n').Skip(2).Where(l => l.Length > 0).ToArray();

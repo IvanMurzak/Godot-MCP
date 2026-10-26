@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
@@ -54,7 +55,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (ResPathNormalizer.MoveProblem(src, dst) is { } moveProblem) throw new ArgumentException(moveProblem);
             // A case-only rename names the same file on Windows / macOS: the destination "exists" and its sidecars are the
             // source's own.
-            var caseOnly = ResPathNormalizer.IsCaseOnlyRename(src, dst);
+            // On a case-sensitive file system both names can be real files: then the destination is another file.
+            var caseOnly = ResPathNormalizer.IsCaseOnlyRename(src, dst)
+                && !DirAccess.GetFilesAt(ResPathNormalizer.ParentDir(dst)).Contains(System.IO.Path.GetFileName(dst));
             if (FileAccess.FileExists(dst) && !caseOnly)
                 throw new ArgumentException($"a file already exists at '{dst}'");
 

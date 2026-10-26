@@ -34,7 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             // The C# Name is a StringName; the virtual name below reads and writes it as text.
             m.Hide("Name");
-            m.Add<string>("name", n => n.Name.ToString(), (n, v) => n.Name = v,
+            m.Add<string>("name", n => n.Name.ToString(), (n, v) => Rename(n, v),
                     validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, name => SiblingHas(n, name)), description: "node name")
              .Add<string>("path", n => RqlGodot.PathOf(n), description: "path below the edited scene root (\".\" = the root)")
              .Add<Node?>("parent", n => n == RqlGodot.EditedRoot() ? null : n.GetParent(),
@@ -104,6 +104,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         // The root has no siblings in the scene (its parent is the editor's viewport).
         private static bool SiblingHas(Node n, string name) =>
             n != RqlGodot.EditedRoot() && n.GetParent()?.GetNodeOrNull(name) is { } other && other != n;
+
+        // Validation sees the names before the set: two rows given the same new name both pass, and Godot would make the
+        // second unique ("Enemy2"). Throwing rolls the whole set back.
+        private static void Rename(Node n, string v)
+        {
+            n.Name = v;
+            if (n.Name.ToString() != v)
+                throw new InvalidOperationException($"another node of the same parent is already named '{v}' (node names are unique among siblings)");
+        }
 
         private static string? ScriptPath(Node n)
         {

@@ -238,7 +238,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var lines = ScriptExecuteSource.LogLines(logs);
 
             Assert.StartsWith(new string('y', ScriptExecuteSource.MaxLogLineChars) + "… (line cut: 10000 chars)", lines[0]);
-            var shown = lines.Take(lines.Count - 1).Sum(l => l.Length);
+            var shown = lines.Take(lines.Count - 1).Sum(l => l.Length + 4); // each line counts its quotes and separator
             Assert.InRange(shown, ScriptExecuteSource.MaxLogChars, ScriptExecuteSource.MaxLogChars + ScriptExecuteSource.MaxLogLineChars + 40);
             Assert.Matches(@"^… \d+ more line\(s\) not shown \(\d+ chars\)", lines[^1]);
             Assert.True(lines.Count < 1000, $"{lines.Count} lines kept");
@@ -304,10 +304,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void Materialize_StopsAnEndlessSequence()
         {
             var items = ScriptExecuteSource.Materialize(Endless());
-            Assert.Equal(ScriptExecuteSource.MaxSequenceItems, items.Count);
+            Assert.Equal(ScriptExecuteSource.MaxSequenceItems + 1, items.Count);
+            Assert.Equal(ScriptExecuteSource.MaxSequenceItems - 1, items[ScriptExecuteSource.MaxSequenceItems - 1]);
+            Assert.Equal($"… (the first {ScriptExecuteSource.MaxSequenceItems} items; the sequence has more)", items[^1]);
             Assert.Equal(new object?[] { 0, 1, 4 }, ScriptExecuteSource.Materialize(Enumerable.Range(0, 3).Select(i => i * i)));
+            // Exactly the cap: no note.
+            Assert.Equal(ScriptExecuteSource.MaxSequenceItems,
+                ScriptExecuteSource.Materialize(Enumerable.Range(0, ScriptExecuteSource.MaxSequenceItems).Select(i => i)).Count);
         }
 
+        [Fact]
+        public void Materialize_AppliesTheItemRule()
+            => Assert.Equal(new object?[] { "2", "4" }, ScriptExecuteSource.Materialize(Enumerable.Range(1, 2).Select(i => i * 2), v => v?.ToString()));
+
+        [Fact]
+        public void LogLines_BoundsEmptyLines()
+        {
+            var lines = ScriptExecuteSource.LogLines(Enumerable.Range(0, 1_000_000).Select(_ => new LogEntry("info", "")));
+            Assert.InRange(lines.Count, 1, ScriptExecuteSource.MaxLogChars / 4 + 2);
+            Assert.Matches(@"more line\(s\) not shown", lines[^1]);
+        }
         static IEnumerable<int> Endless()
         {
             for (int i = 0; ; i++) yield return i;

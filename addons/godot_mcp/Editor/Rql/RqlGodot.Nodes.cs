@@ -52,19 +52,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!TryLoadResource(path, out var resource, out var reason)) throw new ArgumentException(reason);
             if (!(resource is PackedScene packed)) throw new ArgumentException($"'{path}' is a {resource!.GetClass()}, not a scene (PackedScene)");
             // Like the Scene dock: a scene cannot contain itself (Godot would then fail to save it, keeping only the root).
-            if (!string.IsNullOrEmpty(root.SceneFilePath) && (packed.ResourcePath == root.SceneFilePath || Contains(packed, root.SceneFilePath, new HashSet<string>())))
+            if (!string.IsNullOrEmpty(root.SceneFilePath) && (SamePath(packed.ResourcePath, root.SceneFilePath) || Contains(packed, root.SceneFilePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase))))
                 throw new InvalidOperationException($"cannot instance '{path}' in '{root.SceneFilePath}': the edited scene would contain itself");
             var node = packed.Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
             if (!string.IsNullOrEmpty(name)) node.Name = name;
             return Attach(parent, node, root);
         }
 
+        // Paths compared case-insensitively (Windows / macOS): a false match only refuses an instance, never allows a cycle.
+        private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
         // Whether the scene instances the file at scenePath, directly or through its own sub-scenes (each walked once).
         private static bool Contains(PackedScene scene, string scenePath, HashSet<string> visited)
         {
             var state = scene.GetState();
             for (int i = 0; i < state.GetNodeCount(); i++)
-                if (state.GetNodeInstance(i) is { } sub && (sub.ResourcePath == scenePath || (visited.Add(sub.ResourcePath) && Contains(sub, scenePath, visited))))
+                if (state.GetNodeInstance(i) is { } sub && (SamePath(sub.ResourcePath, scenePath) || (visited.Add(sub.ResourcePath) && Contains(sub, scenePath, visited))))
                     return true;
             return false;
         }

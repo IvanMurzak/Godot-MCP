@@ -168,12 +168,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return Text(type, value.ToString());
             // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items.
             if (ScriptExecuteSource.IsLazySequence(type))
-                value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value);
+                value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, AsItem);
             var member = GodotMcpReflector.GetOrCreate().Serialize(obj: value);
             if (string.IsNullOrEmpty(member.name))
                 member.name = JsonSchema.Result;
             return ScriptExecuteSource.CapValue(member);
         }
+
+        // An item of an enumerated sequence: the same text rules as a top-level value (a freed object, a Godot struct).
+        static object? AsItem(object? item) => item switch
+        {
+            GodotObject o when !GodotObject.IsInstanceValid(o) => $"<freed {o.GetType().Name}>",
+            not null when ScriptExecuteSource.IsGodotTextValue(item.GetType()) => item.ToString(),
+            _ => item,
+        };
 
         static SerializedMember Text(Type type, string? text) =>
             ScriptExecuteSource.CapValue(ScriptExecuteSource.TextMember(JsonSchema.Result, type.FullName ?? type.Name, text));

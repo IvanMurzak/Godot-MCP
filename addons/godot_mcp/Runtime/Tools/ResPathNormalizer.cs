@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Linq;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -93,8 +94,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// (<c>res://.godot/</c>) and this addon (<c>res://addons/godot_mcp/</c>, the tools themselves). Case-insensitive, as
         /// Windows and macOS file systems are.
         /// </summary>
-        public static string? ProtectedFileProblem(string resPath)
+        public static string? ProtectedFileProblem(string path)
         {
+            if (!path.StartsWith(ResScheme, StringComparison.Ordinal)) return null;
+            // "res://./project.godot" and "res://addons//godot_mcp/x" name the same files.
+            var resPath = ResScheme + string.Join("/", path.Substring(ResScheme.Length).Split('/').Where(s => s.Length > 0 && s != "."));
             if (string.Equals(resPath, ResScheme + "project.godot", StringComparison.OrdinalIgnoreCase))
                 return "'res://project.godot' is the project file; change settings with project | set settings[\"…\"] instead";
             if (resPath.StartsWith(ResScheme + ".godot/", StringComparison.OrdinalIgnoreCase))
@@ -124,7 +128,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static bool DependencyNames(string entry, string resPath, string? uid)
         {
             foreach (var part in entry.Split(new[] { "::" }, StringSplitOptions.None))
-                if (part == resPath || (!string.IsNullOrEmpty(uid) && part == uid)) return true;
+                if (string.Equals(part, resPath, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(uid) && part == uid)) return true;
             return false;
         }
 
