@@ -236,8 +236,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static bool IsGodotTextValue(Type type) => type.FullName != null && GodotTextValues.Contains(type.FullName);
 
         /// <summary>
-        /// The error text of a failed run (every part bounded by Code-Exec): diagnostics in the snippet's coordinates, then
-        /// auto-imports, what Code-Exec cut, and output.
+        /// The error text of a failed run (error and output bounded by Code-Exec, at most 20 diagnostics): diagnostics in
+        /// the snippet's coordinates, then auto-imports, what Code-Exec cut, and output.
         /// </summary>
         public static string Describe(ExecuteResult result)
         {

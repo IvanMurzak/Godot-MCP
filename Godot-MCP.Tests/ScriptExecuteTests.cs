@@ -340,6 +340,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void SkillText_StatesTheCaps()
         {
             Assert.Contains($"{OutputLimits.DefaultLogChars} characters each, {OutputLimits.DefaultLogLineChars} per output line", ScriptExecuteSource.SkillOutputAndUsings);
+            Assert.Equal(OutputLimits.DefaultLogChars, ScriptExecuteSource.MaxValueChars); // "each": the result and the logs
             Assert.Contains($"at most {ScriptExecuteSource.MaxSequenceItems} items", ScriptExecuteSource.SkillOutputAndUsings);
         }
 
