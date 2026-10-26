@@ -1,0 +1,24 @@
+addons/godot_mcp/UI/FeatureRow.cs
+  s_06c53c82d6e5ea::t_141095f87f84e1 62-64
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_06c53c82d6e5ea::t_d131b448fb769a 157
+addons/godot_mcp/UI/SupportFooter.cs
+  s_06c53c82d6e5ea::t_90c7c5f0cc9de4 94-96
+  s_06c53c82d6e5ea::t_999b4c31b1405e 38-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6ff67d367d8443e74825fdb55c27844ebfa3ec4a",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

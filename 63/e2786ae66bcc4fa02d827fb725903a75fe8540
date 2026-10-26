@@ -1,0 +1,55 @@
+.github/assetlib/edit.hbs
+  s_697d22ff7426cb::t_8cd5b62cd9bba9 3
+CLAUDE.md
+  s_697d22ff7426cb::t_b3f33a5b2d7231 16-17,169-170
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_697d22ff7426cb::t_e85c6a2160291e 45-46
+Godot-MCP.csproj
+  s_697d22ff7426cb::t_4fe487a1ab3da5 19-20
+Godot-Tests/Godot-Tests.csproj
+  s_697d22ff7426cb::t_9aaf10e37c00b5 15,36-37
+Godot-Tests/README.md
+  s_697d22ff7426cb::t_98e40cce87b09b 14-15
+README.md
+  s_697d22ff7426cb::t_38fee806e5b16a 319-320,331-332
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_697d22ff7426cb::t_8bc5a0c9270491 70
+addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs
+  s_697d22ff7426cb::t_710101fff74aad 69
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_697d22ff7426cb::t_568d21ea9dbe44 286
+addons/godot_mcp/plugin.cfg
+  s_697d22ff7426cb::t_0f9cd1590b6316 6
+cli/package-lock.json
+  s_697d22ff7426cb::t_a3c8a8f9696c64 3,9
+cli/package.json
+  s_697d22ff7426cb::t_9fef5423e7ab34 3
+cli/src/utils/addon-deps.ts
+  s_697d22ff7426cb::t_eb41abc90ce9e7 45-46
+cli/src/utils/server-source.ts
+  s_697d22ff7426cb::t_85210b5efaa021 23
+cli/tests/skills-addon-parity.test.ts
+  s_697d22ff7426cb::t_5540b4c569a962 323
+docs/ARCHITECTURE.md
+  s_697d22ff7426cb::t_b912a357d18049 219-220
+docs/RELEASING.md
+  s_697d22ff7426cb::t_bd8f7a81c0083e 247-248
+docs/assetlib/SUBMISSION.md
+  s_697d22ff7426cb::t_c227fe3fe6d819 28,32,69-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "63e2786ae66bcc4fa02d827fb725903a75fe8540",
+  "prompts": {},
+  "sessions": {
+    "s_697d22ff7426cb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_697d22ff7426cb",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

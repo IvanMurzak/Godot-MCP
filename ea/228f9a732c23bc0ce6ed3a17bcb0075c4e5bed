@@ -1,0 +1,21 @@
+addons/godot_mcp/UI/DockStyle.cs
+  s_cf7ef7d7435eeb::t_1c47150eda139e 223-244
+  s_cf7ef7d7435eeb::t_c926925b06c09b 273-274,286
+  s_cf7ef7d7435eeb::t_43207a9c01b883 313-316,318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ea228f9a732c23bc0ce6ed3a17bcb0075c4e5bed",
+  "prompts": {},
+  "sessions": {
+    "s_cf7ef7d7435eeb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43e0612a-829b-4e33-b2f7-3d1fbe030ca4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
