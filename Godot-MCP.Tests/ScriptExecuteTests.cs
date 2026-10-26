@@ -230,18 +230,39 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(new[] { "hello", "warning: careful", "error: boom" }, lines);
         }
 
+        // Code-Exec (0.3+) bounds the output itself, with the limits the plugin used to apply: each line, the total, a note.
         [Fact]
-        public void LogLines_CapsLongLinesAndTheTotal()
+        public void Run_OutputIsBoundedByCodeExec()
         {
-            var logs = Enumerable.Range(0, 20_000).Select(i => new LogEntry("info", "line " + i + " " + new string('x', 50))).ToList();
-            logs.Insert(0, new LogEntry("info", new string('y', 10_000)));
-            var lines = ScriptExecuteSource.LogLines(logs);
+            var result = NewRunner().Execute(new ExecuteRequest
+            {
+                Code = "Console.WriteLine(new string('y', 10000));\nfor (var i = 0; i < 20000; i++) Console.WriteLine(\"line \" + i + \" \" + new string('x', 50));",
+            });
+            Assert.True(result.Success, ScriptExecuteSource.Describe(result));
+            var lines = ScriptExecuteSource.LogLines(result.Logs);
 
-            Assert.StartsWith(new string('y', ScriptExecuteSource.MaxLogLineChars) + "… (line cut: 10000 chars)", lines[0]);
-            var shown = lines.Take(lines.Count - 1).Sum(l => l.Length + 4); // each line counts its quotes and separator
-            Assert.InRange(shown, ScriptExecuteSource.MaxLogChars, ScriptExecuteSource.MaxLogChars + ScriptExecuteSource.MaxLogLineChars + 40);
-            Assert.Matches(@"^… \d+ more line\(s\) not shown \(\d+ chars\)", lines[^1]);
-            Assert.True(lines.Count < 1000, $"{lines.Count} lines kept");
+            Assert.Contains("logs", result.Truncated);
+            Assert.StartsWith(new string('y', OutputLimits.DefaultLogLineChars) + "... [truncated: 2000 of 10000 characters shown", lines[0]);
+            Assert.Contains(lines, l => l.StartsWith("warning: ... ") && l.Contains("log line(s) left out"));
+            Assert.InRange(lines.Sum(l => l.Length), OutputLimits.DefaultLogChars / 2, OutputLimits.DefaultLogChars);
+        }
+
+        [Fact]
+        public void Describe_ListsWhatCodeExecCut()
+        {
+            var result = NewRunner().Execute(new ExecuteRequest { Code = "throw new Exception(new string('e', 30000));" });
+            var text = ScriptExecuteSource.Describe(result);
+            Assert.Contains("\nTruncated: error", text);
+            Assert.True(text.Length < OutputLimits.DefaultErrorChars + 2000, $"{text.Length} chars");
+        }
+
+        [Fact]
+        public void Describe_ReportsInnerExceptions()
+        {
+            var result = NewRunner().Execute(new ExecuteRequest { Code = "throw new InvalidOperationException(\"outer\", new ArgumentException(\"the cause\"));" });
+            var text = ScriptExecuteSource.Describe(result);
+            Assert.Contains("outer", text);
+            Assert.Contains("the cause", text);
         }
 
         [Fact]
@@ -318,11 +339,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             => Assert.Equal(new object?[] { "2", "4" }, ScriptExecuteSource.Materialize(Enumerable.Range(1, 2).Select(i => i * 2), v => v?.ToString()));
 
         [Fact]
-        public void LogLines_BoundsEmptyLines()
+        public void Run_EmptyLinesAreBoundedToo()
         {
-            var lines = ScriptExecuteSource.LogLines(Enumerable.Range(0, 1_000_000).Select(_ => new LogEntry("info", "")));
-            Assert.InRange(lines.Count, 1, ScriptExecuteSource.MaxLogChars / 4 + 2);
-            Assert.Matches(@"more line\(s\) not shown", lines[^1]);
+            var result = NewRunner().Execute(new ExecuteRequest { Code = "for (var i = 0; i < 1000000; i++) Console.WriteLine();" });
+            Assert.True(result.Success, ScriptExecuteSource.Describe(result));
+            var lines = ScriptExecuteSource.LogLines(result.Logs);
+            Assert.InRange(lines.Count, 1, OutputLimits.DefaultLogChars / OutputLimits.LogEntryChars + 2);
+            Assert.Contains(lines, l => l.Contains("log line(s) left out"));
         }
         static IEnumerable<int> Endless()
         {
@@ -342,8 +365,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void SkillText_StatesTheCaps()
         {
-            Assert.Contains($"{ScriptExecuteSource.MaxLogChars} characters each, {ScriptExecuteSource.MaxLogLineChars} per output line", ScriptExecuteSource.SkillOutputAndUsings);
-            Assert.Equal(ScriptExecuteSource.MaxLogChars, ScriptExecuteSource.MaxValueChars);
+            Assert.Contains($"{OutputLimits.DefaultLogChars} characters each, {OutputLimits.DefaultLogLineChars} per output line", ScriptExecuteSource.SkillOutputAndUsings);
+            Assert.Equal(OutputLimits.DefaultLogChars, ScriptExecuteSource.MaxValueChars);
             Assert.Contains($"at most {ScriptExecuteSource.MaxSequenceItems} items", ScriptExecuteSource.SkillOutputAndUsings);
         }
 

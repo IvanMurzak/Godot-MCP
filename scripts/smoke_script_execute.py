@@ -137,11 +137,15 @@ def main() -> int:
     case(host, "runtime error", {"csharpCode": 'throw new InvalidOperationException("smoke-boom");'}, False,
          "Execution failed (Runtime)", "smoke-boom", "snippet.cs:line 1")
     case(host, "include", {"csharpCode": "SmokeHelper.Twice(21)", "include": ["smoke"]}, True, "System.Int32: 42")
+    # Code-Exec 0.3: includes stay inside the snippets folder; a bad `using` is reported as itself.
+    case(host, "include outside the snippets folder is refused", {"csharpCode": "1", "include": ["../../project.godot"]},
+         False, "InvalidRequest")
+    case(host, "bad using is named", {"csharpCode": "1", "usings": ["No.Such.Smoke"]}, False, "using 'No.Such.Smoke'")
     # Output caps: a huge value or flood of prints reaches the agent cut (20000 chars each), with a note.
     text = case(host, "huge value is cut", {"csharpCode": "new string('y', 2_000_000)"}, True, "result cut:")
     check_size("huge value is cut", text, 25_000)
     text = case(host, "flood of prints is cut", {"csharpCode": "for (int i = 0; i < 20000; i++) Console.WriteLine(\"line \" + i + \" \" + new string('x', 50));\n1"},
-                True, "System.Int32: 1", "more line(s) not shown")
+                True, "System.Int32: 1", "log line(s) left out")
     check_size("flood of prints is cut", text, 25_000)
     # Values the reflector cannot show field by field: Godot structs as text, lazy sequences enumerated, a freed object.
     case(host, "Basis as text", {"csharpCode": "Basis.Identity"}, True, "(1, 0, 0)")

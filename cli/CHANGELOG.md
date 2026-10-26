@@ -4,6 +4,8 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Code-Exec 0.3.1.** The `install-plugin` fallback pins for `com.IvanMurzak.CodeExec` and `.Roslyn` (addons without
+  `nuget-deps.json`) follow the addon.
 - **ReflectorNet 5.5.0, McpPlugin 8.11.1, server 9.2.14.** The `install-plugin` fallback pins (addons without
   `nuget-deps.json`) and the default server download follow. ReflectorNet 5.5.0's base `MainThread` now detects the main
   thread by its `SynchronizationContext`; the addon is unaffected (`GodotMainThread` overrides that detection).
