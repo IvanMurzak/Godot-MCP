@@ -152,41 +152,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return type.IsGenericType && type.GetGenericArguments().Any(IsSnippetType);
         }
 
-        /// <summary>Most characters of the serialized result returned to the agent (the rest is cut, with a note).</summary>
-        public const int MaxValueChars = 20_000;
-        /// <summary>Most characters of captured output returned (all lines together).</summary>
-        public const int MaxLogChars = 20_000;
-        /// <summary>Most characters of one captured output line.</summary>
-        public const int MaxLogLineChars = 2_000;
+        /// <summary>
+        /// Most characters of the result returned to the agent. Code-Exec bounds logs, errors and text values; the object
+        /// this plugin's value converter returns is the one thing it cannot measure, so it is cut here with its limit.
+        /// </summary>
+        public const int MaxValueChars = OutputLimits.DefaultValueChars;
         /// <summary>Most items of a lazy sequence (LINQ query, iterator) enumerated for the result.</summary>
         public const int MaxSequenceItems = 1_000;
 
-        /// <summary>
-        /// Captured output as lines: <c>message</c> for info, <c>level: message</c> otherwise. Each line is cut at
-        /// <see cref="MaxLogLineChars"/> and the whole at <see cref="MaxLogChars"/>, so a chatty snippet cannot flood the
-        /// agent's context; a last line says how much was left out.
-        /// </summary>
-        public static List<string> LogLines(IEnumerable<LogEntry> logs)
-        {
-            var lines = new List<string>();
-            int total = 0, omittedLines = 0;
-            long omittedChars = 0;
-            foreach (var l in logs)
-            {
-                var line = l.Level == "info" ? l.Message : l.Level + ": " + l.Message;
-                if (total >= MaxLogChars) { omittedLines++; omittedChars += line.Length; continue; }
-                if (line.Length > MaxLogLineChars) line = line.Substring(0, MaxLogLineChars) + $"… (line cut: {line.Length} chars)";
-                lines.Add(line);
-                total += line.Length + 4; // a line costs its quotes and separator too, so empty lines are bounded
-            }
-            if (omittedLines > 0)
-                lines.Add($"… {omittedLines} more line(s) not shown ({omittedChars} chars): output is capped at {MaxLogChars} chars; print less");
-            return lines;
-        }
+        /// <summary>Captured output (already bounded by Code-Exec) as lines: <c>message</c> for info, <c>level: message</c> otherwise.</summary>
+        public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
+            logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
 
         /// <summary>
-        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes the first
-        /// <see cref="MaxValueChars"/> characters of that form as text, with a note (return a count, a summary or a slice).
+        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes that form
+        /// as text, clipped the way Code-Exec clips everything else (<c>... [truncated: N of M characters shown; hint]</c>).
         /// </summary>
         public static SerializedMember CapValue(SerializedMember member)
         {
@@ -199,9 +179,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 try { full = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
                 catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
             }
-            if (full.Length <= MaxValueChars) return member;
-            return TextMember(member.name, member.typeName, full.Substring(0, MaxValueChars) +
-                $"… (result cut: {full.Length} chars, the limit is {MaxValueChars}; return a count, a summary or a slice instead)");
+            return full.Length <= MaxValueChars
+                ? member
+                : TextMember(member.name, member.typeName, OutputLimits.Clip(full, MaxValueChars, "return a count, a summary or a slice"));
         }
 
         /// <summary>A result member holding <paramref name="text"/> as its value.</summary>
@@ -255,7 +235,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>A Godot value returned as its text (e.g. a Basis as "[X: (1, 0, 0), Y: …]").</summary>
         public static bool IsGodotTextValue(Type type) => type.FullName != null && GodotTextValues.Contains(type.FullName);
 
-        /// <summary>The error text of a failed run: diagnostics in the snippet's coordinates, then auto-imports and output.</summary>
+        /// <summary>
+        /// The error text of a failed run (error and output bounded by Code-Exec, at most 20 diagnostics): diagnostics in
+        /// the snippet's coordinates, then auto-imports, what Code-Exec cut, and output.
+        /// </summary>
         public static string Describe(ExecuteResult result)
         {
             var text = result.ErrorKind == ErrorKind.Compile
@@ -263,6 +246,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 : $"Execution failed ({result.ErrorKind}): {result.Error}";
             if (result.AutoImported.Count > 0)
                 text += "\nAuto-imported: " + string.Join(", ", result.AutoImported);
+            if (result.Truncated.Count > 0)
+                text += "\nTruncated: " + string.Join(", ", result.Truncated);
             if (result.Logs.Count > 0)
                 text += "\nOutput:\n" + string.Join("\n", LogLines(result.Logs));
             return text;
