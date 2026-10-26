@@ -88,6 +88,51 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 || path.EndsWith(".scn", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
+        /// Why a file tool must not move or delete <paramref name="resPath"/>; null when it may. Protected: the project file
+        /// (<c>res://project.godot</c>: without it the folder is no longer a Godot project), Godot's own cache folder
+        /// (<c>res://.godot/</c>) and this addon (<c>res://addons/godot_mcp/</c>, the tools themselves). Case-insensitive, as
+        /// Windows and macOS file systems are.
+        /// </summary>
+        public static string? ProtectedFileProblem(string resPath)
+        {
+            if (string.Equals(resPath, ResScheme + "project.godot", StringComparison.OrdinalIgnoreCase))
+                return "'res://project.godot' is the project file; change settings with project | set settings[\"…\"] instead";
+            if (resPath.StartsWith(ResScheme + ".godot/", StringComparison.OrdinalIgnoreCase))
+                return $"'{resPath}' is in Godot's own cache folder res://.godot/";
+            if (resPath.StartsWith(ResScheme + "addons/godot_mcp/", StringComparison.OrdinalIgnoreCase))
+                return $"'{resPath}' belongs to the Godot-MCP addon itself";
+            return null;
+        }
+
+        /// <summary>
+        /// Why a move from <paramref name="src"/> to <paramref name="dst"/> would break the file; null when it would not. A
+        /// different extension changes how Godot reads the file (a text .tres renamed to .res no longer loads).
+        /// </summary>
+        public static string? MoveProblem(string src, string dst)
+        {
+            var from = System.IO.Path.GetExtension(src);
+            var to = System.IO.Path.GetExtension(dst);
+            return string.Equals(from, to, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : $"moving '{src}' to '{dst}' changes the file extension ('{from}' -> '{to}'), and Godot would no longer read the file; keep the extension";
+        }
+
+        /// <summary>
+        /// Whether a <c>ResourceLoader.GetDependencies</c> entry names the file <paramref name="resPath"/> (or its
+        /// <paramref name="uid"/>). Entries are <c>uid://…::Type::res://path</c> (Godot 4.x), <c>res://path::Type</c> or a bare path.
+        /// </summary>
+        public static bool DependencyNames(string entry, string resPath, string? uid)
+        {
+            foreach (var part in entry.Split(new[] { "::" }, StringSplitOptions.None))
+                if (part == resPath || (!string.IsNullOrEmpty(uid) && part == uid)) return true;
+            return false;
+        }
+
+        /// <summary>Whether <paramref name="src"/> → <paramref name="dst"/> only changes letter case (the same file on Windows / macOS).</summary>
+        public static bool IsCaseOnlyRename(string src, string dst)
+            => !string.Equals(src, dst, StringComparison.Ordinal) && string.Equals(src, dst, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Derive the parent directory (trailing-slash form) of a <c>res://</c> file path. For
         /// <c>res://scenes/level.tscn</c> this returns <c>res://scenes/</c>; for a file directly under the
         /// project root (<c>res://thing.tres</c>) it returns the bare scheme <c>res://</c>. Pure string logic

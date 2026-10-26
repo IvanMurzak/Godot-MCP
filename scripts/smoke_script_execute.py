@@ -5,7 +5,8 @@ Live smoke of `script-execute` (Code-Exec) against a running Godot editor with t
 Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
 API, GD.Print / GD.PushWarning (Godot 4.5+ only: the engine logger) and Console captured into the result, the
 plugin's live statics with one copy of the game assembly and GodotSharp, `await`, full-source mode, a compile error at
-the snippet's own line, a runtime error, `include` of a helper, and that snippet assemblies unload (0 live contexts
+the snippet's own line, a runtime error, `include` of a helper, the output caps (a huge value or print flood comes back cut),
+Godot structs / lazy sequences / a freed object as results, and that snippet assemblies unload (0 live contexts
 after GC).
 
 It does NOT launch anything (or use `godot-cli exec`, which does):
@@ -78,6 +79,12 @@ def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> str:
     return text
 
 
+def check_size(name: str, text: str, limit: int) -> None:
+    if len(text) > limit:
+        print(f"FAIL {name}: {len(text)} chars returned (limit {limit})")
+        FAILURES.append(f"{name}: {len(text)} chars returned, more than {limit}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--host", help="MCP server base URL, e.g. http://localhost:8080 (required unless --prepare)")
@@ -130,6 +137,17 @@ def main() -> int:
     case(host, "runtime error", {"csharpCode": 'throw new InvalidOperationException("smoke-boom");'}, False,
          "Execution failed (Runtime)", "smoke-boom", "snippet.cs:line 1")
     case(host, "include", {"csharpCode": "SmokeHelper.Twice(21)", "include": ["smoke"]}, True, "System.Int32: 42")
+    # Output caps: a huge value or flood of prints reaches the agent cut (20000 chars each), with a note.
+    text = case(host, "huge value is cut", {"csharpCode": "new string('y', 2_000_000)"}, True, "result cut:")
+    check_size("huge value is cut", text, 25_000)
+    text = case(host, "flood of prints is cut", {"csharpCode": "for (int i = 0; i < 20000; i++) Console.WriteLine(\"line \" + i + \" \" + new string('x', 50));\n1"},
+                True, "System.Int32: 1", "more line(s) not shown")
+    check_size("flood of prints is cut", text, 25_000)
+    # Values the reflector cannot show field by field: Godot structs as text, lazy sequences enumerated, a freed object.
+    case(host, "Basis as text", {"csharpCode": "Basis.Identity"}, True, "(1, 0, 0)")
+    case(host, "StringName as text", {"csharpCode": "new StringName(\"smoke-name\")"}, True, "smoke-name")
+    case(host, "lazy sequence enumerated", {"csharpCode": "Enumerable.Range(0, 5).Select(i => i * i)"}, True, "16")
+    case(host, "freed object", {"csharpCode": "var n = new Node(); n.Free(); n"}, True, "freed")
     for i in range(20):
         execute(host, {"csharpCode": f"var v{i} = {i};\nv{i} + 1"})
     case(host, "unload (0 live snippet contexts besides this one)", {"csharpCode":

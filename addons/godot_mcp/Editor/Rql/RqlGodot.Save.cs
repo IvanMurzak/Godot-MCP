@@ -360,8 +360,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             else
             {
-                Commit(undo, _sceneUndo, EditedRoot());
-                Commit(undo, _otherUndo, GlobalHistoryContext);
+                Commit(undo, _sceneUndo, EditedRoot(), null);
+                // The mutation saves the resource files it changed: undo and redo save them again, so the file never
+                // keeps a value the editor has undone.
+                Commit(undo, _otherUndo, GlobalHistoryContext, _toSave);
             }
             _removed.Clear();
             _snapshots.Clear();
@@ -372,9 +374,26 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // object that is neither a node nor a resource does; the ProjectSettings singleton is always there.
         private static GodotObject GlobalHistoryContext => Settings.RqlProject.Instance;
 
-        private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
+        private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context, List<Resource>? saveAfter)
         {
             if (steps.Count == 0) return;
+            if (saveAfter != null && saveAfter.Count > 0)
+            {
+                // Registered last on both sides, so each save runs after every property of its action is applied.
+                var files = saveAfter.Where(r => GodotObject.IsInstanceValid(r) && IsFileResource(r)).ToList();
+                var saver = global::Godot.Engine.GetSingleton("ResourceSaver");
+                var efs = EditorInterface.Singleton.GetResourceFilesystem();
+                void Save(Action<GodotObject, StringName, Variant[]> add)
+                {
+                    foreach (var r in files)
+                    {
+                        add(saver, "save", new Variant[] { r, r.ResourcePath });
+                        if (efs != null) add(efs, EditorFileSystem.MethodName.UpdateFile, new Variant[] { r.ResourcePath });
+                    }
+                }
+                steps.Insert(0, new UndoStep(null, ur => Save((o, m, a) => ur.AddUndoMethod(o, m, a))));
+                steps.Add(new UndoStep(ur => Save((o, m, a) => ur.AddDoMethod(o, m, a)), null));
+            }
             try
             {
                 undo.CreateAction("RQL mutation", global::Godot.UndoRedo.MergeMode.Disable, context);

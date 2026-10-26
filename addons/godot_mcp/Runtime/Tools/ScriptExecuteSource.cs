@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using com.IvanMurzak.CodeExec;
+using SerializedMember = com.IvanMurzak.ReflectorNet.Model.SerializedMember;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -77,7 +78,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         internal const string SkillOutputAndUsings =
             "## Output\n\n" +
             "`result` holds the value (type name and serialized value; `Success` when nothing is returned). `logs` holds what " +
-            "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+.\n\n" +
+            "the code printed: `Console` always; `GD.Print`, `GD.PushWarning` / `GD.PushError` when the project builds with Godot.NET.Sdk 4.5+. " +
+            "Both are capped (20000 characters each, 2000 per output line; the cut is noted): return a count, a summary or a slice " +
+            "rather than a whole data set. A lazy sequence (LINQ query, iterator) is enumerated, at most 1000 items.\n\n" +
             "## usings / include\n\n" +
             "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n";
         internal const string SkillParameters =
@@ -149,9 +152,95 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return type.IsGenericType && type.GetGenericArguments().Any(IsSnippetType);
         }
 
-        /// <summary>Captured output as lines: <c>message</c> for info, <c>level: message</c> otherwise.</summary>
-        public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
-            logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
+        /// <summary>Most characters of the serialized result returned to the agent (the rest is cut, with a note).</summary>
+        public const int MaxValueChars = 20_000;
+        /// <summary>Most characters of captured output returned (all lines together).</summary>
+        public const int MaxLogChars = 20_000;
+        /// <summary>Most characters of one captured output line.</summary>
+        public const int MaxLogLineChars = 2_000;
+        /// <summary>Most items of a lazy sequence (LINQ query, iterator) enumerated for the result.</summary>
+        public const int MaxSequenceItems = 1_000;
+
+        /// <summary>
+        /// Captured output as lines: <c>message</c> for info, <c>level: message</c> otherwise. Each line is cut at
+        /// <see cref="MaxLogLineChars"/> and the whole at <see cref="MaxLogChars"/>, so a chatty snippet cannot flood the
+        /// agent's context; a last line says how much was left out.
+        /// </summary>
+        public static List<string> LogLines(IEnumerable<LogEntry> logs)
+        {
+            var lines = new List<string>();
+            int total = 0, omittedLines = 0;
+            long omittedChars = 0;
+            foreach (var l in logs)
+            {
+                var line = l.Level == "info" ? l.Message : l.Level + ": " + l.Message;
+                if (total >= MaxLogChars) { omittedLines++; omittedChars += line.Length; continue; }
+                if (line.Length > MaxLogLineChars) line = line.Substring(0, MaxLogLineChars) + $"… (line cut: {line.Length} chars)";
+                lines.Add(line);
+                total += line.Length;
+            }
+            if (omittedLines > 0)
+                lines.Add($"… {omittedLines} more line(s) not shown ({omittedChars} chars): output is capped at {MaxLogChars} chars; print less");
+            return lines;
+        }
+
+        /// <summary>
+        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes the first
+        /// <see cref="MaxValueChars"/> characters of that form as text, with a note (return a count, a summary or a slice).
+        /// </summary>
+        public static SerializedMember CapValue(SerializedMember member)
+        {
+            string json;
+            try { json = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
+            catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
+            if (json.Length <= MaxValueChars) return member;
+            // A plain text value is cut as text; anything else as its serialized form.
+            var plain = member.fields == null && member.props == null && member.valueJsonElement is { ValueKind: System.Text.Json.JsonValueKind.String } element
+                ? element.GetString() ?? ""
+                : json;
+            var text = plain.Substring(0, Math.Min(plain.Length, MaxValueChars)) + $"… (result cut: {plain.Length} chars, the limit is {MaxValueChars}; " +
+                       "return a count, a summary or a slice instead)";
+            return new SerializedMember { name = member.name, typeName = member.typeName }
+                .SetJsonValue(System.Text.Json.JsonSerializer.Serialize(text));
+        }
+
+        static readonly System.Text.Json.JsonSerializerOptions CapJson = new System.Text.Json.JsonSerializerOptions { IncludeFields = true };
+
+        /// <summary>
+        /// A lazy sequence: enumerable, but neither a string nor a collection (a LINQ query, an iterator). Its own members
+        /// (Current, the source iterator) say nothing about its items, so it is enumerated first (<see cref="Materialize"/>).
+        /// </summary>
+        public static bool IsLazySequence(Type type) =>
+            typeof(System.Collections.IEnumerable).IsAssignableFrom(type)
+            && type != typeof(string)
+            && !typeof(System.Collections.ICollection).IsAssignableFrom(type)
+            && !type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(ICollection<>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)));
+
+        /// <summary>
+        /// The first <see cref="MaxSequenceItems"/> items of a sequence (an endless one stops there); items of the snippet's
+        /// own types become their text, as a snippet-typed result does (<see cref="IsSnippetType"/>).
+        /// </summary>
+        public static List<object?> Materialize(System.Collections.IEnumerable sequence)
+        {
+            var items = new List<object?>();
+            foreach (var item in sequence)
+            {
+                if (items.Count == MaxSequenceItems) break;
+                items.Add(item != null && IsSnippetType(item.GetType()) ? item.ToString() : item);
+            }
+            return items;
+        }
+
+        // Godot value types the reflector has no converter for (it would print "{}"): their ToString text is the value.
+        static readonly HashSet<string> GodotTextValues = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Godot.Basis", "Godot.Transform2D", "Godot.Transform3D", "Godot.Quaternion", "Godot.Aabb", "Godot.Rect2", "Godot.Rect2I",
+            "Godot.Plane", "Godot.Projection", "Godot.Vector2I", "Godot.Vector3I", "Godot.Vector4", "Godot.Vector4I", "Godot.Rid",
+            "Godot.StringName",
+        };
+
+        /// <summary>A Godot value returned as its text (e.g. a Basis as "[X: (1, 0, 0), Y: …]").</summary>
+        public static bool IsGodotTextValue(Type type) => type.FullName != null && GodotTextValues.Contains(type.FullName);
 
         /// <summary>The error text of a failed run: diagnostics in the snippet's coordinates, then auto-imports and output.</summary>
         public static string Describe(ExecuteResult result)

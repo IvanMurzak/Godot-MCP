@@ -33,6 +33,7 @@ import time
 
 from smoke_rql_lib import FAILURES, ROOT, check, disk, file_has, file_text, must, mutate, node_line, q, query, tool  # noqa: F401
 import smoke_rql_adapters
+import smoke_rql_hazards
 import smoke_rql_models
 
 
@@ -223,7 +224,7 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
     for path in ("res://scenes/new.tscn", "res://scenes/level.tscn", "res://scenes/enemy.tscn", "res://scenes/player.gd", "res://scenes/game.gd",
                  "res://materials/red.tres", "res://materials/blue.tres", "res://materials/old/blue.tres"):
         if disk(project, path).exists():
-            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
+            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)}, true)"))
     must("G0 enemy scene", mutate(host, 'editor | call NewScene("res://scenes/enemy.tscn", "Node3D", "Enemy")'))
     must("G0 level scene", mutate(host, 'editor | call NewScene("res://scenes/level.tscn", "Node3D", "Level")'))
     for cls, name in (("Node3D", "Player"), ("Node3D", "Enemy1"), ("Node3D", "Enemy2"), ("OmniLight3D", "Lamp"),
@@ -285,6 +286,7 @@ def main() -> int:
     property_round_trips(host, project, d)
     smoke_rql_models.run(host, project, d, a.require_test_hooks)
     smoke_rql_adapters.run(host, project, d)
+    smoke_rql_hazards.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

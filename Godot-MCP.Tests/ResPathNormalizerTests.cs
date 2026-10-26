@@ -136,5 +136,45 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.Throws<ArgumentException>(() => ResPathNormalizer.NormalizeDir("res://a/../b"));
         }
+
+        // ---- protected files, moves, dependencies (DeleteResource / MoveResource) -----------------------
+
+        [Theory]
+        [InlineData("res://project.godot", true)]
+        [InlineData("res://Project.Godot", true)]
+        [InlineData("res://.godot/imported/x.ctex", true)]
+        [InlineData("res://addons/godot_mcp/plugin.cfg", true)]
+        [InlineData("res://ADDONS/Godot_Mcp/x.cs", true)]
+        [InlineData("res://addons/other/plugin.cfg", false)]
+        [InlineData("res://materials/project.godot", false)]
+        [InlineData("res://scenes/level.tscn", false)]
+        public void ProtectedFileProblem(string path, bool isProtected)
+            => Assert.Equal(isProtected, ResPathNormalizer.ProtectedFileProblem(path) != null);
+
+        [Theory]
+        [InlineData("res://a/mat.tres", "res://b/mat2.tres", false)]
+        [InlineData("res://a/mat.tres", "res://a/mat.TRES", false)]
+        [InlineData("res://a/mat.tres", "res://a/mat.res", true)]
+        [InlineData("res://a/img.png", "res://a/img.jpg", true)]
+        [InlineData("res://a/noext", "res://a/noext2", false)]
+        public void MoveProblem_FlagsAnExtensionChange(string src, string dst, bool problem)
+            => Assert.Equal(problem, ResPathNormalizer.MoveProblem(src, dst) != null);
+
+        [Theory]
+        [InlineData("res://a/bin.res", "res://a/BIN.res", true)]
+        [InlineData("res://a/bin.res", "res://a/bin.res", false)]
+        [InlineData("res://a/bin.res", "res://a/bin2.res", false)]
+        public void IsCaseOnlyRename(string src, string dst, bool expected)
+            => Assert.Equal(expected, ResPathNormalizer.IsCaseOnlyRename(src, dst));
+
+        [Theory]
+        [InlineData("uid://bb35l34tvp488::::res://exp/sub.tscn", "res://exp/sub.tscn", null, true)]
+        [InlineData("uid://bb35l34tvp488::PackedScene::res://exp/moved.tscn", "res://exp/sub.tscn", "uid://bb35l34tvp488", true)]
+        [InlineData("res://exp/sub.tscn::PackedScene", "res://exp/sub.tscn", null, true)]
+        [InlineData("res://exp/sub.tscn", "res://exp/sub.tscn", null, true)]
+        [InlineData("uid://other::::res://exp/sub2.tscn", "res://exp/sub.tscn", "uid://bb35l34tvp488", false)]
+        [InlineData("res://exp/sub.tscn.bak", "res://exp/sub.tscn", null, false)]
+        public void DependencyNames_MatchesPathOrUid(string entry, string path, string? uid, bool expected)
+            => Assert.Equal(expected, ResPathNormalizer.DependencyNames(entry, path, uid));
     }
 }

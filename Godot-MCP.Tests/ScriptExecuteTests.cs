@@ -231,6 +231,107 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void LogLines_CapsLongLinesAndTheTotal()
+        {
+            var logs = Enumerable.Range(0, 20_000).Select(i => new LogEntry("info", "line " + i + " " + new string('x', 50))).ToList();
+            logs.Insert(0, new LogEntry("info", new string('y', 10_000)));
+            var lines = ScriptExecuteSource.LogLines(logs);
+
+            Assert.StartsWith(new string('y', ScriptExecuteSource.MaxLogLineChars) + "… (line cut: 10000 chars)", lines[0]);
+            var shown = lines.Take(lines.Count - 1).Sum(l => l.Length);
+            Assert.InRange(shown, ScriptExecuteSource.MaxLogChars, ScriptExecuteSource.MaxLogChars + ScriptExecuteSource.MaxLogLineChars + 40);
+            Assert.Matches(@"^… \d+ more line\(s\) not shown \(\d+ chars\)", lines[^1]);
+            Assert.True(lines.Count < 1000, $"{lines.Count} lines kept");
+        }
+
+        [Fact]
+        public void LogLines_ShortOutputIsUntouched()
+        {
+            var lines = ScriptExecuteSource.LogLines(Enumerable.Range(0, 100).Select(i => new LogEntry("info", "l" + i)));
+            Assert.Equal(100, lines.Count);
+            Assert.Equal("l99", lines[^1]);
+        }
+
+        [Fact]
+        public void CapValue_CutsAHugeValueToText()
+        {
+            var big = new SerializedMember { name = "result", typeName = "System.String" }
+                .SetJsonValue(JsonSerializer.Serialize(new string('z', 2_000_000)));
+            var capped = ScriptExecuteSource.CapValue(big);
+
+            var text = capped.valueJsonElement!.Value.GetString()!;
+            Assert.InRange(text.Length, ScriptExecuteSource.MaxValueChars, ScriptExecuteSource.MaxValueChars + 200);
+            Assert.StartsWith(new string('z', 100), text);
+            Assert.Contains("result cut: 2000000 chars", text);
+            Assert.Equal("System.String", capped.typeName);
+        }
+
+        [Fact]
+        public void CapValue_CountsNestedMembers()
+        {
+            var list = new SerializedMember { name = "result", typeName = "System.Int32[]", fields = new SerializedMemberList() };
+            for (int i = 0; i < 5_000; i++)
+                list.fields.Add(new SerializedMember { name = $"[{i}]", typeName = "System.Int32" }.SetJsonValue(i.ToString()));
+            var capped = ScriptExecuteSource.CapValue(list);
+            Assert.Null(capped.fields);
+            Assert.Contains("result cut:", capped.valueJsonElement!.Value.GetString());
+        }
+
+        [Fact]
+        public void CapValue_SmallValueIsTheSameObject()
+        {
+            var small = new SerializedMember { name = "result", typeName = "System.Int32" }.SetJsonValue("3");
+            Assert.Same(small, ScriptExecuteSource.CapValue(small));
+        }
+
+        [Theory]
+        [InlineData(typeof(string), false)]
+        [InlineData(typeof(int[]), false)]
+        [InlineData(typeof(List<int>), false)]
+        [InlineData(typeof(Dictionary<string, int>), false)]
+        [InlineData(typeof(HashSet<int>), false)]
+        public void IsLazySequence_Collections_False(Type type, bool expected)
+            => Assert.Equal(expected, ScriptExecuteSource.IsLazySequence(type));
+
+        [Fact]
+        public void IsLazySequence_QueriesAndIterators_True()
+        {
+            Assert.True(ScriptExecuteSource.IsLazySequence(Enumerable.Range(0, 5).Select(i => i * i).GetType()));
+            Assert.True(ScriptExecuteSource.IsLazySequence(Endless().GetType()));
+        }
+
+        [Fact]
+        public void Materialize_StopsAnEndlessSequence()
+        {
+            var items = ScriptExecuteSource.Materialize(Endless());
+            Assert.Equal(ScriptExecuteSource.MaxSequenceItems, items.Count);
+            Assert.Equal(new object?[] { 0, 1, 4 }, ScriptExecuteSource.Materialize(Enumerable.Range(0, 3).Select(i => i * i)));
+        }
+
+        static IEnumerable<int> Endless()
+        {
+            for (int i = 0; ; i++) yield return i;
+        }
+
+        [Theory]
+        [InlineData(typeof(global::Godot.Basis), true)]
+        [InlineData(typeof(global::Godot.Transform3D), true)]
+        [InlineData(typeof(global::Godot.Quaternion), true)]
+        [InlineData(typeof(global::Godot.StringName), true)]
+        [InlineData(typeof(global::Godot.Vector3), false)] // has a reflection converter
+        [InlineData(typeof(global::Godot.Color), false)]
+        [InlineData(typeof(string), false)]
+        public void IsGodotTextValue(Type type, bool expected) => Assert.Equal(expected, ScriptExecuteSource.IsGodotTextValue(type));
+
+        [Fact]
+        public void SkillText_StatesTheCaps()
+        {
+            Assert.Contains($"{ScriptExecuteSource.MaxLogChars} characters each, {ScriptExecuteSource.MaxLogLineChars} per output line", ScriptExecuteSource.SkillOutputAndUsings);
+            Assert.Equal(ScriptExecuteSource.MaxLogChars, ScriptExecuteSource.MaxValueChars);
+            Assert.Contains($"at most {ScriptExecuteSource.MaxSequenceItems} items", ScriptExecuteSource.SkillOutputAndUsings);
+        }
+
+        [Fact]
         public void Describe_RuntimeError_AppendsOutput()
         {
             var result = NewRunner().Execute(new ExecuteRequest { Code = "Console.WriteLine(\"before\");\nthrow new InvalidOperationException(\"nope\");" });
