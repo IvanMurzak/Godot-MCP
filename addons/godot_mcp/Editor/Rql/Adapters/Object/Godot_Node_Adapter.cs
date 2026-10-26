@@ -11,7 +11,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 using Rql.Execution;
 
@@ -36,7 +35,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             // The C# Name is a StringName; the virtual name below reads and writes it as text.
             m.Hide("Name");
             m.Add<string>("name", n => n.Name.ToString(), (n, v) => n.Name = v,
-                    validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, SiblingNames(n)), description: "node name")
+                    validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, name => SiblingHas(n, name)), description: "node name")
              .Add<string>("path", n => RqlGodot.PathOf(n), description: "path below the edited scene root (\".\" = the root)")
              .Add<Node?>("parent", n => n == RqlGodot.EditedRoot() ? null : n.GetParent(),
                     description: "parent node, null for the scene root (read-only: move a node with call Reparent(node))")
@@ -102,10 +101,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return list;
         }
 
-        private static IEnumerable<string> SiblingNames(Node n) =>
-            n.GetParent() is { } parent && n != RqlGodot.EditedRoot()
-                ? Children(parent).Where(c => c != n).Select(c => c.Name.ToString())
-                : Enumerable.Empty<string>();
+        // The root has no siblings in the scene (its parent is the editor's viewport).
+        private static bool SiblingHas(Node n, string name) =>
+            n != RqlGodot.EditedRoot() && n.GetParent()?.GetNodeOrNull(name) is { } other && other != n;
 
         private static string? ScriptPath(Node n)
         {

@@ -24,11 +24,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// </summary>
     public abstract class GodotTupleAdapter<T> : NumericTupleAdapter<T> where T : struct
     {
+        // The literal of a where clause is the same object for every row: built once.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ObjectValue, Built> _literals =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ObjectValue, Built>();
+
+        private sealed class Built
+        {
+            public Built(T? value) { Value = value; }
+            public readonly T? Value;
+        }
+
         protected override bool? Equal(T value, object? other, RqlKernel kernel)
         {
-            if (other is ObjectValue literal)
-                return kernel.TryCoerce(literal, typeof(T), out var built, out _) && built is T t ? base.Equal(value, t, kernel) : (bool?)false;
-            return base.Equal(value, other, kernel);
+            if (!(other is ObjectValue literal)) return base.Equal(value, other, kernel);
+            var built = _literals.GetValue(literal, l => new Built(kernel.TryCoerce(l, typeof(T), out var v, out _) && v is T t ? t : (T?)null));
+            return built.Value is T target ? base.Equal(value, target, kernel) : (bool?)false;
         }
     }
 

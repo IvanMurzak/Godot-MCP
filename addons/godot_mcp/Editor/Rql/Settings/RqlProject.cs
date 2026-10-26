@@ -125,7 +125,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
                 throw new ArgumentException($"'{name}' is not a valid autoload name (letters, digits and '_', not starting with a digit)");
             if (ProjectSettings.HasSetting(AutoloadPrefix + name)) throw new ArgumentException($"autoload '{name}' already exists");
             if (ClassDB.ClassExists(name)) throw new ArgumentException($"'{name}' is the name of a Godot class; an autoload cannot use it");
-            if (ProjectSettings.GetGlobalClassList().Any(c => c["class"].AsString() == name))
+            if (RqlGodot.IsGlobalScriptClass(name))
                 throw new ArgumentException($"'{name}' is a global script class (class_name); an autoload cannot use it");
             Set(AutoloadPrefix + name, AutoloadValue(RequireAutoloadPath(path), singleton));
             return new RqlAutoload(name);

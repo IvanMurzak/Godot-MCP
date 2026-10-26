@@ -199,7 +199,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return LoadResources(ResourceFiles(dir, type)).Take(MaxResources);
         }
 
-        private static bool IsGlobalScriptClass(string name)
+        /// <summary>Whether <paramref name="name"/> is a global script class (GDScript <c>class_name</c>, C# [GlobalClass]).</summary>
+        internal static bool IsGlobalScriptClass(string name)
         {
             foreach (var entry in ProjectSettings.GetGlobalClassList())
                 if (entry["class"].AsString() == name) return true;

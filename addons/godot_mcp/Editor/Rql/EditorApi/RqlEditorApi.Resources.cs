@@ -52,12 +52,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RequireUnprotected(dst);
             if (!FileAccess.FileExists(src)) throw new ArgumentException($"no file exists at '{src}'");
             if (ResPathNormalizer.MoveProblem(src, dst) is { } moveProblem) throw new ArgumentException(moveProblem);
-            // A case-only rename names the same file on Windows / macOS: the existence check would find the file itself.
-            if (FileAccess.FileExists(dst) && !ResPathNormalizer.IsCaseOnlyRename(src, dst))
+            // A case-only rename names the same file on Windows / macOS: the destination "exists" and its sidecars are the
+            // source's own.
+            var caseOnly = ResPathNormalizer.IsCaseOnlyRename(src, dst);
+            if (FileAccess.FileExists(dst) && !caseOnly)
                 throw new ArgumentException($"a file already exists at '{dst}'");
 
-            // Stale sidecars at the destination go; on a case-only rename they are the source's own.
-            if (!ResPathNormalizer.IsCaseOnlyRename(src, dst))
+            // Stale sidecars at the destination go.
+            if (!caseOnly)
                 foreach (var sidecar in EditorToolGuards.Sidecars)
                     if (FileAccess.FileExists(dst + sidecar)) DirAccess.RemoveAbsolute(dst + sidecar);
             EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(dst));

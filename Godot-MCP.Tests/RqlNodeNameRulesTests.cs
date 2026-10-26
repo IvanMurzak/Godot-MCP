@@ -19,7 +19,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class RqlNodeNameRulesTests
     {
-        private static readonly string[] Siblings = { "Player", "Enemy" };
+        private static readonly System.Func<string, bool> Siblings = name => name == "Player" || name == "Enemy";
 
         [Theory]
         [InlineData("Boss")]

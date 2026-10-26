@@ -176,8 +176,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         static SerializedMember Text(Type type, string? text) =>
-            ScriptExecuteSource.CapValue(new SerializedMember { name = JsonSchema.Result, typeName = type.FullName ?? type.Name }
-                .SetJsonValue(System.Text.Json.JsonSerializer.Serialize(text)));
+            ScriptExecuteSource.CapValue(ScriptExecuteSource.TextMember(JsonSchema.Result, type.FullName ?? type.Name, text));
 
         static string ParameterName(SerializedMember parameter, int index) => parameter.name ?? $"param{index}";
 

@@ -9,7 +9,7 @@
 */
 #if TOOLS || GODOT_MCP_UNIT_TESTS
 #nullable enable
-using System.Collections.Generic;
+using System;
 using System.Linq;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
@@ -24,14 +24,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// <summary>The characters Godot does not allow in a node name (<c>String.get_invalid_node_name_characters</c>).</summary>
         public const string InvalidCharacters = ".:@/\"%";
 
-        /// <summary>Why <paramref name="name"/> cannot be a node's name among <paramref name="siblingNames"/>; null when it can.</summary>
-        public static string? Problem(string? name, IEnumerable<string> siblingNames)
+        /// <summary>Why <paramref name="name"/> cannot be a node's name (<paramref name="siblingHas"/>: a sibling has it); null when it can.</summary>
+        public static string? Problem(string? name, Func<string, bool> siblingHas)
         {
             if (string.IsNullOrWhiteSpace(name)) return "a node name cannot be empty";
-            var bad = name!.Where(c => InvalidCharacters.IndexOf(c) >= 0).Distinct().ToList();
-            if (bad.Count > 0)
-                return $"a node name cannot contain {string.Join(" ", bad.Select(c => "'" + c + "'"))} (not allowed: {string.Join(" ", InvalidCharacters.ToCharArray())})";
-            if (siblingNames.Contains(name))
+            if (name!.IndexOfAny(InvalidCharacters.ToCharArray()) >= 0)
+            {
+                var bad = name.Where(c => InvalidCharacters.IndexOf(c) >= 0).Distinct().Select(c => "'" + c + "'");
+                return $"a node name cannot contain {string.Join(" ", bad)} (not allowed: {string.Join(" ", InvalidCharacters.ToCharArray())})";
+            }
+            if (siblingHas(name))
                 return $"a sibling is already named '{name}' (node names are unique among siblings)";
             return null;
         }

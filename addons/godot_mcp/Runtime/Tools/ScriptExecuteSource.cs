@@ -190,19 +190,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// </summary>
         public static SerializedMember CapValue(SerializedMember member)
         {
-            string json;
-            try { json = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
-            catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
-            if (json.Length <= MaxValueChars) return member;
-            // A plain text value is cut as text; anything else as its serialized form.
-            var plain = member.fields == null && member.props == null && member.valueJsonElement is { ValueKind: System.Text.Json.JsonValueKind.String } element
-                ? element.GetString() ?? ""
-                : json;
-            var text = plain.Substring(0, Math.Min(plain.Length, MaxValueChars)) + $"… (result cut: {plain.Length} chars, the limit is {MaxValueChars}; " +
-                       "return a count, a summary or a slice instead)";
-            return new SerializedMember { name = member.name, typeName = member.typeName }
-                .SetJsonValue(System.Text.Json.JsonSerializer.Serialize(text));
+            // A plain text value is measured and cut as text; anything else as its serialized form.
+            string full;
+            if (member.fields == null && member.props == null && member.valueJsonElement is { ValueKind: System.Text.Json.JsonValueKind.String } element)
+                full = element.GetString() ?? "";
+            else
+            {
+                try { full = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
+                catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
+            }
+            if (full.Length <= MaxValueChars) return member;
+            return TextMember(member.name, member.typeName, full.Substring(0, MaxValueChars) +
+                $"… (result cut: {full.Length} chars, the limit is {MaxValueChars}; return a count, a summary or a slice instead)");
         }
+
+        /// <summary>A result member holding <paramref name="text"/> as its value.</summary>
+        public static SerializedMember TextMember(string? name, string typeName, string? text) =>
+            new SerializedMember { name = name, typeName = typeName }.SetJsonValue(System.Text.Json.JsonSerializer.Serialize(text));
 
         static readonly System.Text.Json.JsonSerializerOptions CapJson = new System.Text.Json.JsonSerializerOptions { IncludeFields = true };
 
