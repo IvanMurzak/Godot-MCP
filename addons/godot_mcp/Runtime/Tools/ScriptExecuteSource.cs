@@ -153,24 +153,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Most characters of the serialized result returned to the agent (the rest is cut, with a note). Code-Exec clips
-        /// text values, logs and errors itself (its default limits); the reflector-serialized object passed through the
-        /// value converter is the one thing it cannot measure, so it is bounded here with the same limit.
+        /// Most characters of the result returned to the agent. Code-Exec bounds logs, errors and text values; the object
+        /// this plugin's value converter returns is the one thing it cannot measure, so it is cut here with its limit.
         /// </summary>
         public const int MaxValueChars = OutputLimits.DefaultValueChars;
         /// <summary>Most items of a lazy sequence (LINQ query, iterator) enumerated for the result.</summary>
         public const int MaxSequenceItems = 1_000;
 
-        /// <summary>
-        /// Captured output as lines: <c>message</c> for info, <c>level: message</c> otherwise. Code-Exec has already
-        /// bounded it (each line, the total, and a note entry for what it left out).
-        /// </summary>
+        /// <summary>Captured output (already bounded by Code-Exec) as lines: <c>message</c> for info, <c>level: message</c> otherwise.</summary>
         public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
             logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
 
         /// <summary>
-        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes the first
-        /// <see cref="MaxValueChars"/> characters of that form as text, with a note (return a count, a summary or a slice).
+        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes that form
+        /// as text, clipped the way Code-Exec clips everything else (<c>... [truncated: N of M characters shown; hint]</c>).
         /// </summary>
         public static SerializedMember CapValue(SerializedMember member)
         {
@@ -183,9 +179,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 try { full = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
                 catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
             }
-            if (full.Length <= MaxValueChars) return member;
-            return TextMember(member.name, member.typeName, full.Substring(0, MaxValueChars) +
-                $"… (result cut: {full.Length} chars, the limit is {MaxValueChars}; return a count, a summary or a slice instead)");
+            return full.Length <= MaxValueChars
+                ? member
+                : TextMember(member.name, member.typeName, OutputLimits.Clip(full, MaxValueChars, "return a count, a summary or a slice"));
         }
 
         /// <summary>A result member holding <paramref name="text"/> as its value.</summary>
@@ -240,9 +236,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static bool IsGodotTextValue(Type type) => type.FullName != null && GodotTextValues.Contains(type.FullName);
 
         /// <summary>
-        /// The error text of a failed run: diagnostics in the snippet's coordinates, then auto-imports, what Code-Exec cut,
-        /// and output. Code-Exec bounds every part (at most 20 diagnostics plus a count, a clipped error with its inner
-        /// exceptions, bounded logs).
+        /// The error text of a failed run (every part bounded by Code-Exec): diagnostics in the snippet's coordinates, then
+        /// auto-imports, what Code-Exec cut, and output.
         /// </summary>
         public static string Describe(ExecuteResult result)
         {

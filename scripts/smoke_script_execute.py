@@ -142,7 +142,7 @@ def main() -> int:
          False, "InvalidRequest")
     case(host, "bad using is named", {"csharpCode": "1", "usings": ["No.Such.Smoke"]}, False, "using 'No.Such.Smoke'")
     # Output caps: a huge value or flood of prints reaches the agent cut (20000 chars each), with a note.
-    text = case(host, "huge value is cut", {"csharpCode": "new string('y', 2_000_000)"}, True, "result cut:")
+    text = case(host, "huge value is cut", {"csharpCode": "new string('y', 2_000_000)"}, True, "[truncated:")
     check_size("huge value is cut", text, 25_000)
     text = case(host, "flood of prints is cut", {"csharpCode": "for (int i = 0; i < 20000; i++) Console.WriteLine(\"line \" + i + \" \" + new string('x', 50));\n1"},
                 True, "System.Int32: 1", "log line(s) left out")
