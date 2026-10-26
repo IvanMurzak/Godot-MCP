@@ -72,7 +72,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "(persistent: signal target method flags) and incoming are read on request (select connections, get connections). " +
             "Members are the C# properties " +
             "(Position, Rotation, Scale, Visible, Text …), matched case-insensitively, so position works too. Every Godot property, " +
-            "including GDScript script variables and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
+            "including GDScript script variables (in the editor: @export ones, every one of a @tool script) and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
             "props[\"speed\"] on a scripted node). Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
             "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". A resource path \"res://…\" works wherever a resource is expected, " +
             "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +

@@ -361,6 +361,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else
             {
                 Commit(undo, _sceneUndo, EditedRoot());
+                AddResaveSteps(_otherUndo, _toSave);
                 Commit(undo, _otherUndo, GlobalHistoryContext);
             }
             _removed.Clear();
@@ -371,6 +372,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // one on a path-less resource, such as a TileSet source created in this session, under the edited scene): any
         // object that is neither a node nor a resource does; the ProjectSettings singleton is always there.
         private static GodotObject GlobalHistoryContext => Settings.RqlProject.Instance;
+
+        /// <summary>
+        /// The mutation saves the resource files it changed, so undo and redo save them again: the file never keeps a value
+        /// the editor has undone. The saves are registered last on both sides (after every property of the action).
+        /// </summary>
+        private static void AddResaveSteps(List<UndoStep> steps, List<Resource> changedFiles)
+        {
+            var files = changedFiles.Where(r => GodotObject.IsInstanceValid(r) && IsFileResource(r)).ToList();
+            if (steps.Count == 0 || files.Count == 0) return;
+            var saver = global::Godot.Engine.GetSingleton("ResourceSaver");
+            // An empty path saves to the resource's path at undo / redo time: a file moved since goes to its new place, and a
+            // deleted one (its path cleared) is not written back.
+            void Save(Action<GodotObject, StringName, Variant[]> add)
+            {
+                foreach (var r in files) add(saver, "save", new Variant[] { r, "" });
+            }
+            steps.Insert(0, new UndoStep(null, ur => Save(ur.AddUndoMethod)));
+            steps.Add(new UndoStep(ur => Save(ur.AddDoMethod), null));
+        }
 
         private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
         {

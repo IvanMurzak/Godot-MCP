@@ -56,6 +56,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!string.IsNullOrWhiteSpace(path))
             {
                 path = RequireScenePath(path!);
+                // Save-as onto another file would replace that scene (Godot overwrites without asking here).
+                if (path != root.SceneFilePath && FileAccess.FileExists(path))
+                    throw new ArgumentException($"a file already exists at '{path}'; save to a new path, or delete that file first with DeleteResource");
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
                 Ei.SaveSceneAs(path);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;

@@ -382,7 +382,7 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
     shader, water, tiles, floor = "res://materials/water.gdshader", "res://materials/water.tres", "res://meshes/tiles.tres", "res://meshes/floor.tres"
     for path in (shader, water, tiles, floor):
         if disk(project, path).exists():
-            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
+            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)}, true)"))
     write_shader(host, project, shader)
     must("G0 water material", mutate(host, f'editor | call CreateResource({q(water)}, "ShaderMaterial")'))
     must("G0 water material shader", mutate(host, f"godot.resource({q(water)}) | set Shader = {q(shader)}"))

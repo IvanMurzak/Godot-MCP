@@ -9,6 +9,7 @@
 */
 #if TOOLS
 #nullable enable
+using System;
 using System.ComponentModel;
 using com.IvanMurzak.Godot.MCP.Editor.Rql;
 using com.IvanMurzak.McpPlugin;
@@ -30,8 +31,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string? type = null
         )
         {
+            // An unknown type renders as "error unknown-type: …": report it as a failed call, like rql-query does.
             return Run(() => RqlGodotSchema.Render(RqlGodot.Engine, string.IsNullOrWhiteSpace(type) ? null : type!.Trim()),
-                ResponseCallTool.Success);
+                text => text.StartsWith("error ", StringComparison.Ordinal) ? ResponseCallTool.Error(text) : ResponseCallTool.Success(text));
         }
     }
 }

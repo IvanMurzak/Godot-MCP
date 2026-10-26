@@ -442,6 +442,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\InputEventText.cs" Link="Source\Rql\Settings\InputEventText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\LayerNames.cs" Link="Source\Rql\Settings\LayerNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\ShaderUniformDefaults.cs" Link="Source\Rql\Adapters\ShaderUniformDefaults.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\NodeNameRules.cs" Link="Source\Rql\Adapters\NodeNameRules.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Value\CallableText.cs" Link="Source\Rql\Adapters\CallableText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />

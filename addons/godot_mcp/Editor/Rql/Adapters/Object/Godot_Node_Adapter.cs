@@ -34,10 +34,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             // The C# Name is a StringName; the virtual name below reads and writes it as text.
             m.Hide("Name");
-            m.Add<string>("name", n => n.Name.ToString(), (n, v) => n.Name = v,
-                    validate: (n, v) => string.IsNullOrWhiteSpace(v) ? "a node name cannot be empty" : null, description: "node name")
+            m.Add<string>("name", n => n.Name.ToString(), (n, v) => Rename(n, v),
+                    validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, name => SiblingHas(n, name)), description: "node name")
              .Add<string>("path", n => RqlGodot.PathOf(n), description: "path below the edited scene root (\".\" = the root)")
-             .Add<Node?>("parent", n => n.GetParent(), description: "parent node (read-only: move a node with call Reparent(node))")
+             .Add<Node?>("parent", n => n == RqlGodot.EditedRoot() ? null : n.GetParent(),
+                    description: "parent node, null for the scene root (read-only: move a node with call Reparent(node))")
              .Add<List<Node>>("children", n => Children(n), description: "direct child nodes (internal children excluded)", owning: true)
              .Add<int>("childCount", n => n.GetChildCount(includeInternal: false), description: "number of child nodes")
              .Add<int>("index", n => Math.Max(0, n.GetIndex(includeInternal: false)), description: "position among its siblings (reorder with call MoveChild(i))")
@@ -66,7 +67,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 .AddMethod("Free", Array.Empty<CallableParameter>(), typeof(void), (o, a) => { RqlGodot.Remove((Node)o); return null; },
                     "remove this node from the scene (undoable, like Delete in the Scene dock)")
                 .AddMethod("Reparent", new[] { new CallableParameter("parent", typeof(Node)), new CallableParameter("keepGlobalTransform", typeof(bool), hasDefault: true, defaultValue: true) },
-                    typeof(void), (o, a) => { RqlGodot.Reparent((Node)o, (Node)a[0]!, a[1] is bool keep ? keep : true); return null; },
+                    typeof(void), (o, a) => { RqlGodot.Reparent((Node)o, a[0] as Node, a[1] is bool keep ? keep : true); return null; },
                     "move this node under another node, keeping its global transform unless keepGlobalTransform is false")
                 .AddMethod("MoveChild", new[] { new CallableParameter("index", typeof(int)) },
                     typeof(int), (o, a) => RqlGodot.MoveChild((Node)o, (int)a[0]!),
@@ -98,6 +99,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             for (int i = 0; i < count; i++)
                 if (n.GetChild(i, includeInternal: false) is { } child) list.Add(child);
             return list;
+        }
+
+        // The root has no siblings in the scene (its parent is the editor's viewport).
+        private static bool SiblingHas(Node n, string name) =>
+            n != RqlGodot.EditedRoot() && n.GetParent()?.GetNodeOrNull(name) is { } other && other != n;
+
+        // Validation sees the names before the set: two rows given the same new name both pass, and Godot would make the
+        // second unique ("Enemy2"). Throwing rolls the whole set back.
+        private static void Rename(Node n, string v)
+        {
+            n.Name = v;
+            if (n.Name.ToString() != v)
+                throw new InvalidOperationException($"another node of the same parent is already named '{v}' (node names are unique among siblings)");
         }
 
         private static string? ScriptPath(Node n)

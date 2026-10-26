@@ -75,7 +75,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         internal static Node? FindByPath(Node editedRoot, string rawPath)
         {
             var path = NormalizePathToEditedRoot(rawPath, editedRoot);
-            return string.IsNullOrEmpty(path) || path == "." ? editedRoot : editedRoot.GetNodeOrNull(path);
+            if (string.IsNullOrEmpty(path) || path == ".") return editedRoot;
+            // ".." segments may climb out of the scene into the editor's own UI (the viewport the root lives in).
+            var node = editedRoot.GetNodeOrNull(path);
+            return node != null && (node == editedRoot || editedRoot.IsAncestorOf(node)) ? node : null;
         }
 
         /// <summary>

@@ -75,6 +75,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     ?? throw new ArgumentException(
                         $"Resource at '{resPath}' is not a Godot Script.", nameof(scriptPath));
 
+                // Like the Inspector: a script extending Node3D cannot drive a Sprite2D (the editor would keep it as a
+                // placeholder and the game would fail to instance it).
+                var baseType = script.GetInstanceBaseType().ToString();
+                if (baseType.Length > 0 && ClassDB.ClassExists(baseType) && !ClassDB.IsParentClass(node.GetClass(), baseType))
+                    throw new ArgumentException(
+                        $"'{resPath}' extends {baseType}, so it cannot be attached to '{node.Name}' (a {node.GetClass()}).", nameof(scriptPath));
+
                 node.SetScript(script);
 
                 // Mark unsaved so the script assignment persists when the scene is saved (the assignment is

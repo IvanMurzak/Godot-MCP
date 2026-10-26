@@ -132,6 +132,62 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.DoesNotContain("a\n", Text(r) + "\n");
         }
 
+        [Theory]
+        [InlineData("Position == {x: 0, y: 0.5, z: 0}", "b")]
+        [InlineData("Position == {y: 0.5}", "b")]
+        [InlineData("Position != {x: 1, y: 2, z: 3}", "b")]
+        [InlineData("Cell == {x: 1, y: 2, z: 3}", "a")]
+        [InlineData("Tint == {r: 1, g: 0, b: 0, a: 1}", "a")]
+        public void WhereComparesAgainstObjectLiterals(string predicate, string expected)
+        {
+            var r = Query($"items | where {predicate} | select name");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal(new[] { expected }, Rows(r));
+        }
+
+        [Fact]
+        public void AnObjectLiteralMatchesNothingElse()
+        {
+            var r = Query("items | where Position == {x: 9, y: 9, z: 9} | count");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal("0", Text(r).Trim());
+        }
+
+        [Fact]
+        public void FloatNoiseIsTidiedForReading()
+        {
+            // A 90° rotation about Y, scaled by 2: cos(90°) is -4.371139E-08 in float, and 136/255 is 0.533333361.
+            _items[0].Basis = new Basis(Vector3.Up, Mathf.Pi / 2).Scaled(new Vector3(2, 2, 2));
+            _items[0].Tint = Color.FromHtml("#ff8800");
+            _items[0].Position = new Vector3(0.1f, 1e-7f, -1234567.8f);
+            var text = Text(Query("items | where name == \"a\" | select Basis Tint Position"));
+            Assert.DoesNotContain("E-", text);
+            Assert.DoesNotContain("E+", text);
+            Assert.Contains("(0, 0, -2, 0, 2, 0, 2, 0, 0)", text);
+            Assert.Contains("(1, 0.5333334, 0, 1)", text);
+            Assert.Contains("(0.1, 0, -1234568)", text);
+            // The exact value still compares and stays stored.
+            Assert.Equal(new[] { "a" }, Rows(Query("items | where Tint == \"#ff8800\" | select name")));
+            Assert.NotEqual(0f, _items[0].Basis.X.X);
+        }
+
+        [Theory]
+        [InlineData(0f, "0")]
+        [InlineData(-4.371139E-08f, "0")]
+        [InlineData(1.5707964f, "1.570796")]
+        [InlineData(0.1f, "0.1")]
+        [InlineData(100000.5f, "100000.5")]
+        [InlineData(3e7f, "30000000")]
+        [InlineData(2.5e-6f, "0.0000025")]
+        [InlineData(float.NaN, "NaN")]
+        public void Tidy(float value, string expected) => Assert.Equal(expected, GodotFloatTupleAdapter<Vector3>.Tidy(value));
+
+        [Fact]
+        public void TidyNegativeZero() => Assert.Equal("0", GodotFloatTupleAdapter<Vector3>.Tidy(-0f)); // xUnit dedupes -0f with 0f in InlineData
+
+        private static string[] Rows(QueryResult r) =>
+            Text(r).Split('\n').Skip(2).Where(l => l.Length > 0).ToArray();
+
         [Fact]
         public void TransformsAndBoundsRoundTrip()
         {

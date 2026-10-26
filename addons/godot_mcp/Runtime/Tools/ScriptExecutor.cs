@@ -161,16 +161,30 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (value == null)
                 return null;
             var type = value.GetType();
-            if (ScriptExecuteSource.IsSnippetType(type))
-            {
-                var text = new SerializedMember { name = JsonSchema.Result, typeName = type.FullName ?? type.Name };
-                return text.SetJsonValue(System.Text.Json.JsonSerializer.Serialize(value.ToString()));
-            }
+            if (value is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
+                return Text(type, $"<freed {type.Name}>");
+            // Godot structs without a reflection converter (Basis, Transform3D …) and StringName serialize as "{}": their text.
+            if (ScriptExecuteSource.IsSnippetType(type) || ScriptExecuteSource.IsGodotTextValue(type))
+                return Text(type, value.ToString());
+            // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items.
+            if (ScriptExecuteSource.IsLazySequence(type))
+                value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, AsItem);
             var member = GodotMcpReflector.GetOrCreate().Serialize(obj: value);
             if (string.IsNullOrEmpty(member.name))
                 member.name = JsonSchema.Result;
-            return member;
+            return ScriptExecuteSource.CapValue(member);
         }
+
+        // An item of an enumerated sequence: the same text rules as a top-level value (a freed object, a Godot struct).
+        static object? AsItem(object? item) => item switch
+        {
+            GodotObject o when !GodotObject.IsInstanceValid(o) => $"<freed {o.GetType().Name}>",
+            not null when ScriptExecuteSource.IsGodotTextValue(item.GetType()) => item.ToString(),
+            _ => item,
+        };
+
+        static SerializedMember Text(Type type, string? text) =>
+            ScriptExecuteSource.CapValue(ScriptExecuteSource.TextMember(JsonSchema.Result, type.FullName ?? type.Name, text));
 
         static string ParameterName(SerializedMember parameter, int index) => parameter.name ?? $"param{index}";
 

@@ -51,9 +51,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RequireInEditedScene(parent, "parent");
             if (!TryLoadResource(path, out var resource, out var reason)) throw new ArgumentException(reason);
             if (!(resource is PackedScene packed)) throw new ArgumentException($"'{path}' is a {resource!.GetClass()}, not a scene (PackedScene)");
+            // Like the Scene dock: a scene cannot contain itself (Godot would then fail to save it, keeping only the root).
+            if (!string.IsNullOrEmpty(root.SceneFilePath) && (SamePath(packed.ResourcePath, root.SceneFilePath) || Contains(packed, root.SceneFilePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase))))
+                throw new InvalidOperationException($"cannot instance '{path}' in '{root.SceneFilePath}': the edited scene would contain itself");
             var node = packed.Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
             if (!string.IsNullOrEmpty(name)) node.Name = name;
             return Attach(parent, node, root);
+        }
+
+        // Paths compared case-insensitively (Windows / macOS): a false match only refuses an instance, never allows a cycle.
+        private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        // Whether the scene instances the file at scenePath, directly or through its own sub-scenes (each walked once).
+        private static bool Contains(PackedScene scene, string scenePath, HashSet<string> visited)
+        {
+            var state = scene.GetState();
+            for (int i = 0; i < state.GetNodeCount(); i++)
+                if (state.GetNodeInstance(i) is { } sub && (SamePath(sub.ResourcePath, scenePath) || (visited.Add(sub.ResourcePath) && Contains(sub, scenePath, visited))))
+                    return true;
+            return false;
         }
 
         /// <summary>A copy of <paramref name="node"/> placed right after it.</summary>
@@ -111,9 +127,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>Move <paramref name="node"/> under <paramref name="newParent"/> (keeping its global transform by default).</summary>
-        public static void Reparent(Node node, Node newParent, bool keepGlobalTransform)
+        public static void Reparent(Node node, Node? newParent, bool keepGlobalTransform)
         {
             var root = RequireEditedRoot();
+            if (newParent == null)
+                throw new ArgumentException("Reparent needs the new parent node, e.g. call Reparent(godot.find(\"Props\")) or godot.find(\".\") for the scene root");
             RequireInEditedScene(node, "node");
             RequireInEditedScene(newParent, "new parent");
             if (node == root) throw new InvalidOperationException("the scene root cannot be reparented");
@@ -125,11 +143,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             node.Reparent(newParent, keepGlobalTransform);
             if (node.Owner == null) node.Owner = root;
             Tool_Node.SetOwnerRecursive(node, root);
+            // The mutation's property snapshot also records the node's local transform that keepGlobalTransform changed,
+            // and its undo runs first (undo parts of later steps run first): moving back must keep that restored local
+            // transform, or the old offset is applied a second time.
             RecordUndo(
                 ur => ur.AddDoMethod(node, Node.MethodName.Reparent, newParent, keepGlobalTransform),
                 ur =>
                 {
-                    ur.AddUndoMethod(node, Node.MethodName.Reparent, oldParent, keepGlobalTransform);
+                    ur.AddUndoMethod(node, Node.MethodName.Reparent, oldParent, false);
                     ur.AddUndoMethod(oldParent, Node.MethodName.MoveChild, node, oldIndex);
                 });
             MarkSceneUnsaved();

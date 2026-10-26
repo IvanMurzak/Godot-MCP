@@ -80,8 +80,18 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 - **Saving** follows the replaced tools: a change to a node of the edited scene marks the scene unsaved — write it
   with `editor | call SaveScene()` (like Ctrl+S; `node-modify` did not save either); a change to a resource stored in
   its own file (`res://….tres`) is saved to that file after the mutation, like `resource-modify` (only when a property
-  actually changed). Built-in (scene-embedded) resources mark the scene unsaved. Problems saving become `not-saved`
-  warnings on the receipt.
+  actually changed), and undo / redo of that change save the file again. Built-in (scene-embedded) resources mark the
+  scene unsaved. Problems saving become `not-saved` warnings on the receipt.
+- **Refused instead of silently changed**: a rename Godot would alter (a character it does not allow in node names,
+  `. : @ / " %`, or a sibling's name); `SaveScene(path)` onto another existing file; `InstantiateScene` of a scene that
+  contains the edited one; `MoveResource` that changes the extension; `DeleteResource` of a file a scene or resource still
+  uses, the edited scene's unsaved nodes included (`DeleteResource(path, true)` deletes anyway); moving or deleting
+  `res://project.godot`, `res://.godot/` or this addon; `CallMethod` on a method of a non-`@tool` script (it does not run
+  in the editor) or with the wrong number of arguments. Paths stay inside the edited scene: the root's `parent` is null and
+  `godot.find("..")` finds nothing.
+- **Printed structs** are tidied for reading (components below 1e-6 print as 0, at most 7 significant digits, no
+  exponent): float noise such as `-4.371139E-08` in a rotated basis never reaches the agent; comparisons and stored values
+  stay exact. An object literal compares like the text form: `where Position == {x: 0, y: 1, z: 0}`.
 
 ## Code
 
@@ -97,6 +107,7 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
     Basis, Transform2D/3D, Rect2(I), Aabb, Plane, Projection, Rid (pure C#, unit-tested; `-0` prints as `0`); NodeRef (tool
     arguments).
   - `RqlGodot.Signals.cs` — groups and signal connections of the edited scene's nodes.
+  - `RqlReferences.cs` — who still uses a file (saved scenes and resources, the edited scene's live nodes): `DeleteResource`'s check.
   - `RqlSetStageBuffer.cs`, `RqlMutationOwner.cs` — the mutation hooks' pure parts (setter undo steps held until their
     `set` commits; which object a change is snapshotted on), unit-tested.
   - `Settings/` — project settings, input map (`InputEventText.cs`: the pure event grammar, unit-tested;
@@ -142,7 +153,9 @@ the reload still unloads.
   change; without the hooks (or without a reachable undo manager, probed by `test.undoManager()`) those checks print
   `SKIP` (CI passes `--require-test-hooks`, which fails instead).
   `scripts/smoke_rql_adapters.py` does the same for shader parameters (a text shader and a VisualShader), layer names,
-  MeshLibrary items and the Projection / RID / Callable values.
+  MeshLibrary items and the Projection / RID / Callable values. `scripts/smoke_rql_hazards.py` covers the edits that used
+  to corrupt data or answer misleadingly (the refusals above, undo of a transform-keeping Reparent, undo of a resource
+  file edit, object-literal compares, tidy struct text).
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 

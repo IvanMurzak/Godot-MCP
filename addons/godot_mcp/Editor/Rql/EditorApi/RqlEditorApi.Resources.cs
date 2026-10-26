@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
@@ -27,6 +28,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public Resource CreateResource(string path, string className = "Resource")
         {
             var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            RequireUnprotected(resPath);
             if (!resPath.EndsWith(".tres", StringComparison.OrdinalIgnoreCase) && !resPath.EndsWith(".res", StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException($"a resource path must end with .tres or .res; got '{path}'");
             if (FileAccess.FileExists(resPath) || ResourceLoader.Exists(resPath))
@@ -47,11 +49,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var src = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             var dst = ResPathNormalizer.RequireResFilePath(newPath, nameof(newPath));
             if (src == dst) throw new ArgumentException("the source and destination paths are the same");
+            RequireUnprotected(src);
+            RequireUnprotected(dst);
             if (!FileAccess.FileExists(src)) throw new ArgumentException($"no file exists at '{src}'");
-            if (FileAccess.FileExists(dst)) throw new ArgumentException($"a file already exists at '{dst}'");
+            if (ResPathNormalizer.MoveProblem(src, dst) is { } moveProblem) throw new ArgumentException(moveProblem);
+            // A case-only rename names the same file on Windows / macOS: the destination "exists" and its sidecars are the
+            // source's own.
+            // On a case-sensitive file system both names can be real files: then the destination is another file.
+            var caseOnly = ResPathNormalizer.IsCaseOnlyRename(src, dst)
+                && !DirAccess.GetFilesAt(ResPathNormalizer.ParentDir(dst)).Contains(System.IO.Path.GetFileName(dst));
+            if (FileAccess.FileExists(dst) && !caseOnly)
+                throw new ArgumentException($"a file already exists at '{dst}'");
 
-            foreach (var sidecar in EditorToolGuards.Sidecars)
-                if (FileAccess.FileExists(dst + sidecar)) DirAccess.RemoveAbsolute(dst + sidecar);
+            // Stale sidecars at the destination go.
+            if (!caseOnly)
+                foreach (var sidecar in EditorToolGuards.Sidecars)
+                    if (FileAccess.FileExists(dst + sidecar)) DirAccess.RemoveAbsolute(dst + sidecar);
             EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(dst));
 
             var moveError = DirAccess.RenameAbsolute(src, dst);
@@ -73,11 +86,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return dst;
         }
 
-        [RqlCallable("delete a file and its .import / .uid sidecars; returns the deleted path")]
-        public string DeleteResource(string path)
+        [RqlCallable("delete a file and its .import / .uid sidecars; returns the deleted path. Refused while a scene or resource " +
+            "(the edited scene's unsaved changes included) still uses the file, unless force is true")]
+        public string DeleteResource(string path, bool force = false)
         {
             var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            RequireUnprotected(resPath);
             if (!FileAccess.FileExists(resPath)) throw new ArgumentException($"no file exists at '{resPath}'");
+            if (!force && RqlReferences.UsersOf(resPath) is { Count: > 0 } users)
+                throw new InvalidOperationException($"'{resPath}' is still used by {RqlReferences.Describe(users)}; deleting it would break " +
+                    $"those references. Point them elsewhere first, or delete anyway with DeleteResource(\"{resPath}\", true)");
             var error = DirAccess.RemoveAbsolute(resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not delete '{resPath}': {error}");
             try
@@ -95,6 +113,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             finally { Ei.GetResourceFilesystem()?.Scan(); }
             return resPath;
+        }
+
+        private static void RequireUnprotected(string resPath)
+        {
+            if (ResPathNormalizer.ProtectedFileProblem(resPath) is { } problem) throw new ArgumentException(problem + "; the file tools do not create, move or delete files there");
         }
 
         [RqlCallable("create a folder (and missing parents), e.g. \"res://art/materials\"; returns its path")]

@@ -817,12 +817,12 @@ def guide_fixture(host: str, project: pathlib.Path) -> None:
                                                                 "content": f"class_name {name}\nextends Node\n"}))
     hold, level = "res://scenes/hold.tscn", "res://scenes/level.tscn"
     if disk(project, hold).exists():
-        must("G0 clean hold.tscn", mutate(host, f"editor | call DeleteResource({q(hold)})"))
+        must("G0 clean hold.tscn", mutate(host, f"editor | call DeleteResource({q(hold)}, true)"))
     must("G0 new scene during class registration", mutate(host, f'editor | call NewScene({q(hold)}, "Node", "Hold")'))
     must("G0 open level right after", mutate(host, f"editor | call OpenScene({q(level)})"))
     for path, cls in (("res://tiles/terrain.tres", "TileSet"), ("res://ui/theme.tres", "Theme")):
         if disk(project, path).exists():
-            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)})"))
+            must(f"G0 clean {path}", mutate(host, f"editor | call DeleteResource({q(path)}, true)"))
         must(f"G0 {cls}", mutate(host, f"editor | call CreateResource({q(path)}, {q(cls)})"))
 
 

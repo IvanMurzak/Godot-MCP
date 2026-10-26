@@ -90,8 +90,30 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             if (string.IsNullOrWhiteSpace(method)) throw new ArgumentException("CallMethod needs a method name");
             if (!o.HasMethod(method)) throw new ArgumentException($"{o.GetClass()} has no method '{method}'");
+            // In the editor a non-tool script runs as a placeholder: Godot answers a call to its methods with an error text
+            // ("Attempt to call a method on a placeholder instance…") as if it were the result.
+            if (!ClassDB.ClassHasMethod(o.GetClass(), method) && o.GetScript().As<Script>() is { } script && !script.IsTool())
+                throw new InvalidOperationException($"'{method}' is a method of the non-tool script {script.ResourcePath}, which does not run in the editor; " +
+                    "add @tool at the top of a GDScript (or [Tool] on a C# class) to call it here");
+            var given = args?.Count ?? 0;
+            if (ArgumentProblem(o, method, given) is { } problem) throw new ArgumentException(problem);
             var variants = (args ?? new List<object?>()).Select(GodotVariants.ToVariant).ToArray();
             return GodotVariants.ToClr(o.Call(method, variants));
+        }
+
+        // A wrong argument count makes Godot print an error and return null, which would read as a successful call.
+        private static string? ArgumentProblem(GodotObject o, string method, int given)
+        {
+            foreach (var entry in o.GetMethodList())
+            {
+                if (entry["name"].AsString() != method) continue;
+                if ((entry["flags"].AsInt32() & (int)MethodFlags.Vararg) != 0) return null;
+                var max = entry["args"].AsGodotArray().Count;
+                var min = max - entry["default_args"].AsGodotArray().Count;
+                if (given >= min && given <= max) return null;
+                return $"{method} takes {(min == max ? $"{max}" : $"{min} to {max}")} argument(s), got {given}";
+            }
+            return null;
         }
 
         /// <summary>
