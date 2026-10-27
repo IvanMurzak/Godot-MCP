@@ -241,6 +241,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 {
                     case Node node when IsInEditedScene(node):
                         sceneChanged = true;
+                        // A node inside an instance (a property override, a call such as AddChild on it) is saved only
+                        // when the instance has Editable Children.
+                        if (EditedRoot() is { } root && IsForeign(node, root)) EnsureEditable(node, root);
                         break;
                     case Resource resource when IsFileResource(resource):
                         // Saved only when a Godot property actually changed: writing the same value again does not

@@ -49,7 +49,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var root = RequireEditedRoot();
             RequireInEditedScene(parent, "parent");
-            var node = InstantiableScene(path, root).Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
+            // Like the Scene dock: the instance keeps its scene's state, so only what is changed here is saved as an override
+            // (without it the .tscn pins the instance's type, script and groups, which then no longer follow the scene file).
+            var node = InstantiableScene(path, root).Instantiate(PackedScene.GenEditState.Instance)
+                       ?? throw new InvalidOperationException($"could not instantiate '{path}'");
             if (!string.IsNullOrEmpty(name)) node.Name = name;
             return Attach(parent, node, root);
         }
@@ -87,6 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var root = RequireEditedRoot();
             RequireInEditedScene(node, "node");
             if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
+            RequireOwnNode(node, root, "removed");
         });
 
         public static string? ValidateDuplicate(Node node) => Rejection(() => DuplicateParent(node, RequireEditedRoot()));
@@ -98,6 +102,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             RequireInEditedScene(node, "node");
             if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
+            RequireOwnNode(node, root, "duplicated");
             return node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
         }
 
@@ -105,8 +110,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static Node MoveChildParent(Node node)
         {
             RequireInEditedScene(node, "node");
-            if (node == EditedRoot() || !(node.GetParent() is { } parent))
+            var root = RequireEditedRoot();
+            if (node == root || !(node.GetParent() is { } parent))
                 throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            RequireOwnNode(node, root, "reordered");
             return parent;
         }
 
@@ -119,6 +126,47 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             catch (InvalidOperationException e) { return e.Message; }
         }
 
+        /// <summary>
+        /// Whether <paramref name="node"/> is part of a scene instanced in the edited scene (owned by the instance, not by the
+        /// edited scene root): Godot saves its property overrides, never its removal, renaming, reordering or a new parent.
+        /// </summary>
+        internal static bool IsForeign(Node node, Node root) => node != root && node.Owner != null && node.Owner != root;
+
+        /// <summary>Why <paramref name="node"/> cannot be renamed, or null (the Node adapter's name validation).</summary>
+        internal static string? ForeignRenameProblem(Node node) =>
+            EditedRoot() is { } root && IsForeign(node, root) ? ForeignProblem(node, "renamed") : null;
+
+        // Like the Scene dock ("Can't operate on nodes from a foreign scene"): the edit would be lost when the scene is saved.
+        private static void RequireOwnNode(Node node, Node root, string verb)
+        {
+            if (IsForeign(node, root)) throw new InvalidOperationException(ForeignProblem(node, verb));
+        }
+
+        private static string ForeignProblem(Node node, string verb)
+        {
+            var instance = node.Owner!;
+            var scene = string.IsNullOrEmpty(instance.SceneFilePath) ? "an instanced scene" : instance.SceneFilePath;
+            return $"'{PathOf(node)}' is part of the instance '{PathOf(instance)}' of {scene} and cannot be {verb} here (Godot " +
+                   $"would not save it); edit {scene} instead, or the whole instance. Its properties can be changed here (saved as overrides)";
+        }
+
+        /// <summary>
+        /// Turn on Editable Children for every instance that owns <paramref name="node"/>, undoably: Godot saves changes to the
+        /// nodes inside an instance (property overrides, added children) only for an editable instance, and drops them otherwise.
+        /// </summary>
+        internal static void EnsureEditable(Node node, Node root)
+        {
+            for (var owner = node.Owner; owner != null && owner != root; owner = owner.Owner)
+            {
+                if (root.IsEditableInstance(owner)) continue;
+                var instance = owner;
+                root.SetEditableInstance(instance, true);
+                _sceneUndo.Add(new UndoStep(
+                    ur => ur.AddDoMethod(root, Node.MethodName.SetEditableInstance, instance, true),
+                    ur => ur.AddUndoMethod(root, Node.MethodName.SetEditableInstance, instance, false)));
+            }
+        }
+
         private static void CheckReparent(Node node, [System.Diagnostics.CodeAnalysis.NotNull] Node? newParent, Node root)
         {
             if (newParent == null)
@@ -126,6 +174,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RequireInEditedScene(node, "node");
             RequireInEditedScene(newParent, "new parent");
             if (node == root) throw new InvalidOperationException("the scene root cannot be reparented");
+            RequireOwnNode(node, root, "moved");
             if (node == newParent || node.IsAncestorOf(newParent))
                 throw new InvalidOperationException($"'{node.Name}' cannot be moved under itself or one of its descendants");
         }
@@ -168,6 +217,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (WasRemoved(node)) return;
             RequireInEditedScene(node, "node");
             if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
+            RequireOwnNode(node, root, "removed");
             var parent = node.GetParent()!;
             var index = node.GetIndex(includeInternal: false);
             var owners = new List<(Node node, Node? owner)>();
@@ -205,6 +255,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var oldIndex = node.GetIndex(includeInternal: false);
             if (oldParent == newParent) return;
             node.Reparent(newParent, keepGlobalTransform);
+            EnsureEditable(newParent, root);
             if (node.Owner == null) node.Owner = root;
             Tool_Node.SetOwnerRecursive(node, root);
             // The mutation's property snapshot also records the node's local transform that keepGlobalTransform changed,
