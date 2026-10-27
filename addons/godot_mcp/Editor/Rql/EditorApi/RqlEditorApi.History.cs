@@ -32,6 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlCallable("redo the last undone action, like Ctrl+Shift+Z; returns the redone action. Fails when there is nothing to redo")]
         public string Redo() => EditorHistory.Step(undo: false);
 
+        // "20" is HistoryStepText.MaxListed (an attribute argument cannot format an int constant).
         [RqlDescription("what Undo() can step back, newest first: the edited scene's actions, then the global history's (files, project " +
             "settings) marked \"(global)\" (at most 20 each); empty when there is nothing to undo")]
         public string[] undoHistory => EditorHistory.Pending(undo: true);

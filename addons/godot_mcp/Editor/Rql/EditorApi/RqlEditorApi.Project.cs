@@ -96,19 +96,26 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
     }
 
-    /// <summary>The import options of an imported file: the <c>[params]</c> section of its <c>.import</c> sidecar.</summary>
+    /// <summary>The import options of an imported file: the <c>[params]</c> section of its <c>.import</c> sidecar (read once per query).</summary>
     internal static class ImportSettings
     {
         private const string Section = "params";
 
-        private static ConfigFile? Load(string path)
+        private sealed class Sidecar
         {
-            var config = new ConfigFile();
-            return FileAccess.FileExists(path + ".import") && config.Load(path + ".import") == Error.Ok ? config : null;
+            public ConfigFile? Config;
         }
 
-        public static IEnumerable<string> Keys(string path) =>
-            Load(path) is { } c && c.HasSection(Section) ? c.GetSectionKeys(Section) : System.Array.Empty<string>();
+        private static ConfigFile? Load(string path) => GodotVariants.Scoped(("import", path), () =>
+        {
+            var config = new ConfigFile();
+            var sidecar = ReimportClassifier.ImportSidecarPath(path);
+            return new Sidecar { Config = FileAccess.FileExists(sidecar) && config.Load(sidecar) == Error.Ok ? config : null };
+        }).Config;
+
+        private static string[] KeysOf(ConfigFile c) => c.HasSection(Section) ? c.GetSectionKeys(Section) : System.Array.Empty<string>();
+
+        public static IEnumerable<string> Keys(string path) => Load(path) is { } c ? KeysOf(c) : System.Array.Empty<string>();
 
         public static System.Type TypeOf(string path, string key) =>
             Load(path) is { } c && c.HasSectionKey(Section, key) ? GodotVariants.ClrType(c.GetValue(Section, key).VariantType) : typeof(object);
@@ -116,20 +123,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static object? Get(string path, string key) =>
             Load(path) is { } c && c.HasSectionKey(Section, key) ? GodotVariants.ToClr(c.GetValue(Section, key)) : null;
 
-        public static string? Problem(string path, string key)
+        public static string? Problem(string path, string key) => Load(path) switch
         {
-            if (Load(path) is not { } c) return $"'{path}' is not an imported file (it has no .import sidecar)";
-            if (c.HasSectionKey(Section, key)) return null;
-            return $"'{path}' has no import option '{key}'; its options: {string.Join(", ", Keys(path))}";
-        }
+            null => $"'{path}' is not an imported file (it has no .import sidecar)",
+            var c when c.HasSectionKey(Section, key) => null,
+            var c => $"'{path}' has no import option '{key}'; its options: {string.Join(", ", KeysOf(c))}",
+        };
 
         public static void Set(string path, string key, object? value)
         {
             var config = Load(path) ?? throw new System.InvalidOperationException(Problem(path, key));
             config.SetValue(Section, key, GodotVariants.ToVariant(value));
-            var error = config.Save(path + ".import");
+            var error = config.Save(ReimportClassifier.ImportSidecarPath(path));
             if (error != Error.Ok) throw new System.InvalidOperationException($"could not write '{path}.import': {error}");
-            Tools.EditorToolGuards.GetResourceFileSystemOrThrow().ReimportFiles(new[] { path });
+            var status = RqlReimport.Run(new[] { path });
+            if (status.Contains("NOT imported", System.StringComparison.Ordinal)) throw new System.InvalidOperationException(status);
         }
     }
 
@@ -146,7 +154,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             if (!_deps.TryGetValue(path, out var deps))
                 _deps[path] = deps = ResourceLoader.GetDependencies(path)
-                    .Select(entry => Resolve(DependencyText.PathOf(entry)))
+                    .Select(entry => Resolve(ResPathNormalizer.DependencyPath(entry)))
                     .Where(p => p.Length > 0)
                     .Distinct()
                     .ToList();
@@ -158,12 +166,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (_usedBy == null)
             {
                 _usedBy = new Dictionary<string, List<string>>();
+                // Only scenes and resources reference other files (as in DeleteResource's users check).
                 foreach (var (file, _) in RqlGodot.WalkFiles(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem()).Take(RqlGodot.MaxFiles))
+                {
+                    if (!RqlReferences.CanDepend(file)) continue;
                     foreach (var dep in DepsOf(file))
                     {
                         if (!_usedBy.TryGetValue(dep, out var users)) _usedBy[dep] = users = new List<string>();
                         users.Add(file);
                     }
+                }
             }
             return _usedBy.TryGetValue(path, out var found) ? found : new List<string>();
         }

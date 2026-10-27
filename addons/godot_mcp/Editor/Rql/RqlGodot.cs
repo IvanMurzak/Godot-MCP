@@ -222,11 +222,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>Whether <paramref name="name"/> is a global script class (GDScript <c>class_name</c>, C# [GlobalClass]).</summary>
-        internal static bool IsGlobalScriptClass(string name)
+        internal static bool IsGlobalScriptClass(string name) => GlobalClassPath(name) != null;
+
+        /// <summary>The res:// script that registers the global class <paramref name="name"/>, or null.</summary>
+        internal static string? GlobalClassPath(string name)
         {
             foreach (var entry in ProjectSettings.GetGlobalClassList())
-                if (entry["class"].AsString() == name) return true;
-            return false;
+                if (entry["class"].AsString() == name) return entry["path"].AsString();
+            return null;
         }
 
         // Lazy: a query that needs only a few resources (… | first 3) loads only those.

@@ -81,6 +81,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => lang == ScriptLang.GDScript ? GDScriptExtension : CSharpExtension;
 
         /// <summary>
+        /// Where a scene or resource file is read instead (agents reach for the script tools to read a .tscn / .tres), or empty
+        /// for any other file.
+        /// </summary>
+        public static string NotAScriptHint(string path) =>
+            ReimportClassifier.ExtensionOf(path) is "tscn" or "tres" or "scn" or "res"
+                ? " A scene or resource is not a script: query its nodes and properties with rql-query (godot.resource(\"" + path +
+                  "\") | select props, or editor | call OpenScene for a scene), or read its text with script-execute (FileAccess.GetFileAsString)."
+                : "";
+
+        /// <summary>
         /// Validate that <paramref name="path"/> is a <c>res://</c> script file path (a file under
         /// <c>res://</c>, not the bare root or a directory, with no <c>..</c> segment, ending in
         /// <c>.cs</c>/<c>.gd</c>), throwing <see cref="ArgumentException"/> (with
@@ -88,20 +98,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// success. Layers the script-extension contract on top of
         /// <see cref="ResPathNormalizer.RequireResFilePath"/> so the two share one set of res:// guards.
         /// </summary>
-        /// <summary>
-        /// Where a scene or resource file is read instead (agents reach for the script tools to read a .tscn / .tres), or empty
-        /// for any other file.
-        /// </summary>
-        public static string NotAScriptHint(string path)
-        {
-            var dot = path.LastIndexOf('.');
-            var ext = dot < 0 ? "" : path.Substring(dot).ToLowerInvariant();
-            return ext is ".tscn" or ".tres" or ".scn" or ".res"
-                ? " A scene or resource is not a script: query its nodes and properties with rql-query (godot.resource(\"" + path +
-                  "\") | select props, or editor | call OpenScene for a scene), or read its text with script-execute (FileAccess.GetFileAsString)."
-                : "";
-        }
-
         public static string RequireScriptResPath(string? path, string paramName, out ScriptLang lang)
         {
             var p = ResPathNormalizer.RequireResFilePath(path, paramName);

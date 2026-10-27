@@ -50,13 +50,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>
         /// The actions one history can still undo (newest first: the current action, then older ones) or redo (next first), at most
-        /// <paramref name="max"/>; <paramref name="tag"/> is appended to each name (" (global)" for the global history).
+        /// <see cref="MaxListed"/>; <paramref name="tag"/> is appended to each name (" (global)" for the global history).
         /// <paramref name="current"/> is the history's current action index (-1 when nothing is done), <paramref name="count"/> its size.
         /// </summary>
-        public static IEnumerable<string> Pending(bool undo, int current, int count, Func<int, string> name, string tag = "", int max = MaxListed)
+        public static IEnumerable<string> Pending(bool undo, int current, int count, Func<int, string> name, string tag = "")
         {
             var listed = 0;
-            for (int i = undo ? current : current + 1; i >= 0 && i < count && listed < max; i += undo ? -1 : 1, listed++)
+            for (int i = undo ? current : current + 1; i >= 0 && i < count && listed < MaxListed; i += undo ? -1 : 1, listed++)
             {
                 var text = name(i);
                 yield return (string.IsNullOrEmpty(text) ? "(unnamed action)" : text) + tag;

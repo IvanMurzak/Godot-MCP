@@ -44,18 +44,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void SameIgnoresFloatNoiseAndComparesObjectsByIdentity()
+        public void ApproxSameIgnoresFloatNoiseAndLeavesOtherKindsToTheCaller()
         {
-            Assert.True(OverrideDiff.Same(1.0, 1.00001));
-            Assert.False(OverrideDiff.Same(1.0, 1.1));
-            Assert.True(OverrideDiff.Same(new Vector3(1, 2, 3), new Vector3(1, 2, 3.00001f)));
-            Assert.True(OverrideDiff.Same(null, null));
-            Assert.False(OverrideDiff.Same(null, 0L));
-            Assert.True(OverrideDiff.Same("a", "a"));
-            var o = new object();
-            Assert.True(OverrideDiff.Same(o, o));
-            Assert.False(OverrideDiff.Same(o, new object()));
-            Assert.True(OverrideDiff.Same(new Color(1, 0, 0), new Color(1, 0, 0)));
+            Assert.True(OverrideDiff.ApproxSame(1.0, 1.00001));
+            Assert.False(OverrideDiff.ApproxSame(1.0, 1.1));
+            Assert.True(OverrideDiff.ApproxSame(new Vector3(1, 2, 3), new Vector3(1, 2, 3.00001f)));
+            Assert.True(OverrideDiff.ApproxSame(new Color(1, 0, 0), new Color(1, 0, 0)));
+            Assert.Null(OverrideDiff.ApproxSame(null, null));
+            Assert.Null(OverrideDiff.ApproxSame("a", "a"));
+            Assert.Null(OverrideDiff.ApproxSame(1.0, null));
         }
     }
 }

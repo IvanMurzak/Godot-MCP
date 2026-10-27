@@ -38,21 +38,26 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 for (int j = 0; j < state.GetNodePropertyCount(i); j++) stored[state.GetNodePropertyName(i, j)] = state.GetNodePropertyValue(i, j);
                 var cls = live.GetClass();
                 var shown = nodePath == "." ? "." : nodePath.StartsWith("./", StringComparison.Ordinal) ? nodePath.Substring(2) : nodePath;
-                foreach (var info in live.GetPropertyList())
+                foreach (var name in GodotVariants.PropertyNames(live, storageOnly: true))
                 {
-                    if (((PropertyUsageFlags)info["usage"].AsInt64() & PropertyUsageFlags.Storage) == 0) continue;
-                    var name = info["name"].AsString();
                     if (name == "script" || name.StartsWith("metadata/", StringComparison.Ordinal)) continue;
                     var template = stored.TryGetValue(name, out var s) ? s : ClassDB.ClassGetPropertyDefaultValue(cls, name);
                     var current = live.Get(name);
-                    if (name == "transform" && current.VariantType == Variant.Type.Transform3D && template.VariantType == Variant.Type.Transform3D)
-                        list.AddRange(OverrideDiff.Transform(current.AsTransform3D(), template.AsTransform3D())
-                            .Select(d => new RqlOverride(shown, d.property, d.live, d.template)));
-                    else if (name == "transform" && current.VariantType == Variant.Type.Transform2D && template.VariantType == Variant.Type.Transform2D)
-                        list.AddRange(OverrideDiff.Transform(current.AsTransform2D(), template.AsTransform2D())
-                            .Select(d => new RqlOverride(shown, d.property, d.live, d.template)));
-                    else if (!OverrideDiff.Same(GodotVariants.ToClr(current), GodotVariants.ToClr(template)))
-                        list.Add(new RqlOverride(shown, name, GodotVariants.ToClr(current), GodotVariants.ToClr(template)));
+                    var parts = name != "transform" ? null : (current.VariantType, template.VariantType) switch
+                    {
+                        (Variant.Type.Transform3D, Variant.Type.Transform3D) => OverrideDiff.Transform(current.AsTransform3D(), template.AsTransform3D()),
+                        (Variant.Type.Transform2D, Variant.Type.Transform2D) => OverrideDiff.Transform(current.AsTransform2D(), template.AsTransform2D()),
+                        _ => null,
+                    };
+                    if (parts != null)
+                    {
+                        list.AddRange(parts.Select(d => new RqlOverride(shown, d.property, d.live, d.template)));
+                        continue;
+                    }
+                    var value = GodotVariants.ToClr(current);
+                    var original = GodotVariants.ToClr(template);
+                    if (!(OverrideDiff.ApproxSame(value, original) ?? Same(current, template)))
+                        list.Add(new RqlOverride(shown, name, value, original));
                 }
             }
             return list;

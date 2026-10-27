@@ -44,23 +44,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!Near(live.Scale, template.Scale)) yield return ("scale", live.Scale, template.Scale);
         }
 
-        /// <summary>Two property values are the same override-wise: equal numbers / structs (within float noise), the same object.</summary>
-        public static bool Same(object? live, object? template)
+        /// <summary>
+        /// Float-noise tolerant equality for numbers, vectors and colors (what an edited value is compared by), or null for any
+        /// other kind (the caller compares those exactly).
+        /// </summary>
+        public static bool? ApproxSame(object? live, object? template) => (live, template) switch
         {
-            if (live == null || template == null) return live == null && template == null;
-            return (live, template) switch
-            {
-                (float a, float b) => Math.Abs(a - b) <= Epsilon,
-                (double a, double b) => Math.Abs(a - b) <= Epsilon,
-                (Vector2 a, Vector2 b) => Near(a, b),
-                (Vector3 a, Vector3 b) => Near(a, b),
-                (Color a, Color b) => Math.Abs(a.R - b.R) <= Epsilon && Math.Abs(a.G - b.G) <= Epsilon &&
-                                      Math.Abs(a.B - b.B) <= Epsilon && Math.Abs(a.A - b.A) <= Epsilon,
-                (Transform3D a, Transform3D b) => a.IsEqualApprox(b),
-                (Transform2D a, Transform2D b) => a.IsEqualApprox(b),
-                _ => ReferenceEquals(live, template) || Equals(live, template),
-            };
-        }
+            (float a, float b) => Math.Abs(a - b) <= Epsilon,
+            (double a, double b) => Math.Abs(a - b) <= Epsilon,
+            (Vector2 a, Vector2 b) => Near(a, b),
+            (Vector3 a, Vector3 b) => Near(a, b),
+            (Color a, Color b) => a.IsEqualApprox(b),
+            _ => null,
+        };
 
         private static Vector3 Degrees(Vector3 radians) => new Vector3(Mathf.RadToDeg(radians.X), Mathf.RadToDeg(radians.Y), Mathf.RadToDeg(radians.Z));
         private static bool Near(Vector3 a, Vector3 b) => (a - b).Length() <= Epsilon;

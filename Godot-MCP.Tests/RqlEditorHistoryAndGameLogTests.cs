@@ -52,7 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("uid://b1x::Texture2D::", "uid://b1x")]
         [InlineData("", "")]
         [InlineData(null, "")]
-        public void DependencyEntriesGiveTheirPath(string? entry, string expected) => Assert.Equal(expected, DependencyText.PathOf(entry));
+        public void DependencyEntriesGiveTheirPath(string? entry, string expected) => Assert.Equal(expected, com.IvanMurzak.Godot.MCP.Tools.ResPathNormalizer.DependencyPath(entry));
 
         [Fact]
         public void PendingUndoListsTheCurrentActionFirst()
@@ -67,7 +67,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.Empty(HistoryStepText.Pending(undo: true, current: -1, count: 3, i => "x"));
             Assert.Empty(HistoryStepText.Pending(undo: false, current: 2, count: 3, i => "x"));
-            Assert.Equal(new[] { "x9", "x8" }, HistoryStepText.Pending(undo: true, current: 9, count: 10, i => "x" + i, max: 2).ToArray());
+            Assert.Equal(HistoryStepText.MaxListed, HistoryStepText.Pending(undo: true, current: 99, count: 100, i => "x" + i).Count());
+            Assert.Equal("x99", HistoryStepText.Pending(undo: true, current: 99, count: 100, i => "x" + i).First());
             Assert.Equal(new[] { "(unnamed action)" }, HistoryStepText.Pending(undo: false, current: -1, count: 1, i => "").ToArray());
         }
 

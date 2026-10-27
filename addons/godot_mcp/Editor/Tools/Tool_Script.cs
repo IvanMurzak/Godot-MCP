@@ -175,7 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // 'Class "X" hides a global script class.' for an update of any class_name script (the same false
             // positive script-validate drops, issue #194). Only the file's own registration is exempt: a name
             // another file registers is a real conflict.
-            var own = ScriptDiagnosticsFilter.ExtractClassNames(content).Where(name => GlobalClassPath(name) == resPath).ToList();
+            var own = ScriptDiagnosticsFilter.ExtractClassNames(content).Where(name => Editor.Rql.RqlGodot.GlobalClassPath(name) == resPath).ToList();
             if (rows.Length > 0)
             {
                 var real = rows.Where(d => !ScriptDiagnosticsFilter.IsGlobalClassSelfHide(d.Message, own)).ToList();
@@ -209,15 +209,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (capture != null)
                     rows = capture.EndSession();
             }
-        }
-
-        // The res:// script that registers the global class <paramref name="name"/>, or null.
-        static string? GlobalClassPath(string name)
-        {
-            foreach (var entry in ProjectSettings.GetGlobalClassList())
-                if (entry["class"].AsString() == name)
-                    return entry["path"].AsString();
-            return null;
         }
 
         /// <summary>

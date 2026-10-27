@@ -106,8 +106,8 @@ def instance_overrides(host: str, project: pathlib.Path, d: str) -> None:
     has("W4O scale override", text, ".|scale|(1.2, 1.2, 1.2)|(1, 1, 1)")
     has("W4O child material override", text, f"Body|material_override|")
     has("W4O template value", text, mat_a)
-    lacks("W4O an untouched instance has none",
-          must("W4O H1", query(host, f'{node("H1")} | get overrides | select property')), "scale", "material_override")
+    text = must("W4O H1", query(host, f'{node("H1")} | get overrides | select node property'))
+    check("W4O an untouched instance has none (its placement aside)", all(l == ".|position" for l in text.splitlines()[2:] if l.strip()), text)
     must("W4O revert to the template", mutate(host, f'nodes | where path == "H3/Body" | set MaterialOverride = {q(mat_a)}'))
     lacks("W4O reverted", must("W4O H3", query(host, f'{node("H3")} | get overrides | select property')), "material_override")
     must("W4O save level", mutate(host, "editor | call SaveScene()"))
