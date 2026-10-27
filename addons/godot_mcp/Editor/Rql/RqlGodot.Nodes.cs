@@ -72,7 +72,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             RequireEditedRoot();
             RequireInEditedScene(parent, "parent");
-            CheckNodeClass(className);
+            NodeClass(className, out _);
         });
 
         public static string? ValidateInstantiateScene(Node parent, string path) => Rejection(() =>
@@ -109,26 +109,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 throw new InvalidOperationException($"'{node.Name}' cannot be moved under itself or one of its descendants");
         }
 
-        // What Instantiate would refuse, without creating a node.
-        private static void CheckNodeClass(string className)
-        {
-            if (string.IsNullOrWhiteSpace(className)) throw new ArgumentException("a node class is required, e.g. \"Node3D\"");
-            if (ClassDB.ClassExists(className))
-            {
-                if (!ClassDB.IsParentClass(className, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                if (!ClassDB.CanInstantiate(className)) throw new ArgumentException($"Godot class '{className}' cannot be instantiated (abstract/virtual).");
-                return;
-            }
-            foreach (var entry in ProjectSettings.GetGlobalClassList())
-            {
-                if (entry["class"].AsString() != className) continue;
-                var script = ResourceLoader.Load<Script>(entry["path"].AsString())
-                             ?? throw new ArgumentException($"the script of '{className}' failed to load");
-                if (!ClassDB.IsParentClass(script.GetInstanceBaseType().ToString(), "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                return;
-            }
-            throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
-        }
 
         // Paths compared case-insensitively (Windows / macOS): a false match only refuses an instance, never allows a cycle.
         private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
@@ -270,26 +250,35 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         private static Node Instantiate(string className)
         {
+            var native = NodeClass(className, out var script);
+            var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
+            if (script == null) return node;
+            var id = node.GetInstanceId();
+            node.SetScript(script);
+            // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
+            return GodotObject.InstanceFromId(id) as Node ?? node;
+        }
+
+        /// <summary>
+        /// The native class <see cref="Instantiate"/> creates for <paramref name="className"/> (and the global script class to
+        /// attach, if any), after every check it makes; creates nothing, so call validators use it too.
+        /// </summary>
+        private static string NodeClass(string className, out Script? script)
+        {
+            script = null;
             if (string.IsNullOrWhiteSpace(className)) throw new ArgumentException("a node class is required, e.g. \"Node3D\"");
-            if (ClassDB.ClassExists(className))
+            var native = className;
+            if (!ClassDB.ClassExists(className))
             {
-                if (!ClassDB.IsParentClass(className, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                return EditorToolGuards.ValidateClassDbInstantiation<Node>(className, "class");
+                var entry = ProjectSettings.GetGlobalClassList().FirstOrDefault(e => e["class"].AsString() == className)
+                            ?? throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
+                script = ResourceLoader.Load<Script>(entry["path"].AsString())
+                         ?? throw new ArgumentException($"the script of '{className}' failed to load");
+                native = script.GetInstanceBaseType().ToString();
             }
-            foreach (var entry in ProjectSettings.GetGlobalClassList())
-            {
-                if (entry["class"].AsString() != className) continue;
-                var script = ResourceLoader.Load<Script>(entry["path"].AsString())
-                             ?? throw new ArgumentException($"the script of '{className}' failed to load");
-                var native = script.GetInstanceBaseType().ToString();
-                if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
-                var id = node.GetInstanceId();
-                node.SetScript(script);
-                // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
-                return GodotObject.InstanceFromId(id) as Node ?? node;
-            }
-            throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
+            if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
+            EditorToolGuards.CheckClassDbInstantiation(native, "class");
+            return native;
         }
     }
 }

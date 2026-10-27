@@ -23,7 +23,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public Node NewScene(string path, string rootClass = "Node", string? rootName = null)
         {
             path = NewScenePath(path);
-            var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(RootClass(rootClass), "rootClass");
+            var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(RootClass(rootClass), "rootClass", requireParentClass: "Node");
             if (!string.IsNullOrEmpty(rootName)) root.Name = rootName;
             try
             {
@@ -88,7 +88,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return list;
         }
 
-        /// <summary>The trimmed path when it names a res:// scene file (.tscn / .scn); throws otherwise.</summary>
         // Call validator (RQL 0.2, run before the call, on dry runs too): nothing is created or opened when it rejects.
         public string? ValidateNewScene(string path, string rootClass, string? rootName) => RqlGodot.Rejection(() =>
         {
@@ -105,6 +104,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return path;
         }
 
+        /// <summary>The trimmed path when it names a res:// scene file (.tscn / .scn); throws otherwise.</summary>
         private static string RequireScenePath(string path)
         {
             var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));
