@@ -67,6 +67,26 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Connect a signal of <paramref name="source"/> to a method of <paramref name="target"/> (persistent, undoable).</summary>
         public static RqlConnection Connect(Node source, string signal, Node target, string method, bool deferred, bool oneShot)
         {
+            var callable = CheckConnect(source, signal, target, method);
+            var flags = (uint)GodotObject.ConnectFlags.Persist
+                        | (deferred ? (uint)GodotObject.ConnectFlags.Deferred : 0)
+                        | (oneShot ? (uint)GodotObject.ConnectFlags.OneShot : 0);
+            var error = source.Connect(signal, callable, flags);
+            if (error != Error.Ok) throw new InvalidOperationException($"connecting '{source.Name}'.{signal} failed: {error}");
+            RecordUndo(
+                ur => ur.AddDoMethod(source, GodotObject.MethodName.Connect, signal, callable, flags),
+                ur => ur.AddUndoMethod(source, GodotObject.MethodName.Disconnect, signal, callable));
+            MarkSceneUnsaved();
+            return new RqlConnection(source, signal, callable, flags);
+        }
+
+        /// <summary>Connect's call validator: every target is checked before the first connection is made (all-or-nothing).</summary>
+        public static string? ValidateConnect(Node source, string signal, Node? target, string method) =>
+            target == null ? "Connect needs the target node, e.g. godot.find(\"Player\")" : Rejection(() => CheckConnect(source, signal, target, method));
+
+        // The connection Connect would make, after every check (it changes nothing).
+        private static Callable CheckConnect(Node source, string signal, Node target, string method)
+        {
             RequireEditedRoot();
             RequireInEditedScene(source, "source");
             RequireInEditedScene(target, "target");
@@ -80,16 +100,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var callable = new Callable(target, method);
             if (source.IsConnected(signal, callable))
                 throw new InvalidOperationException($"'{source.Name}'.{signal} is already connected to '{target.Name}'.{method}");
-            var flags = (uint)GodotObject.ConnectFlags.Persist
-                        | (deferred ? (uint)GodotObject.ConnectFlags.Deferred : 0)
-                        | (oneShot ? (uint)GodotObject.ConnectFlags.OneShot : 0);
-            var error = source.Connect(signal, callable, flags);
-            if (error != Error.Ok) throw new InvalidOperationException($"connecting '{source.Name}'.{signal} failed: {error}");
-            RecordUndo(
-                ur => ur.AddDoMethod(source, GodotObject.MethodName.Connect, signal, callable, flags),
-                ur => ur.AddUndoMethod(source, GodotObject.MethodName.Disconnect, signal, callable));
-            MarkSceneUnsaved();
-            return new RqlConnection(source, signal, callable, flags);
+            return callable;
         }
 
         /// <summary>Disconnect a connection made with <see cref="Connect"/> (or in the editor), undoably.</summary>
@@ -127,10 +138,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>" (similar: a, b)" for the names close to <paramref name="key"/> (containing it, or a typo away), or "".</summary>
         internal static string Similar(IEnumerable<string> names, string key)
         {
-            var similar = names.Where(n => n.Contains(key, StringComparison.OrdinalIgnoreCase) || key.Contains(n, StringComparison.OrdinalIgnoreCase)
-                                           || EditDistance(n.ToLowerInvariant(), key.ToLowerInvariant()) <= 2).Take(5).ToList();
+            var similar = names.Where(n => IsSimilar(n, key)).Take(5).ToList();
             return similar.Count > 0 ? $" (similar: {string.Join(", ", similar)})" : "";
         }
+
+        /// <summary>A name that contains or is contained in <paramref name="key"/>, or is at most two edits from it (case-insensitive).</summary>
+        internal static bool IsSimilar(string name, string key) =>
+            name.Contains(key, StringComparison.OrdinalIgnoreCase) || key.Contains(name, StringComparison.OrdinalIgnoreCase)
+            || EditDistance(name.ToLowerInvariant(), key.ToLowerInvariant()) <= 2;
 
         private static int EditDistance(string a, string b)
         {

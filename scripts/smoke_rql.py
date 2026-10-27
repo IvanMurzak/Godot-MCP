@@ -34,6 +34,7 @@ import time
 from smoke_rql_lib import FAILURES, ROOT, check, disk, file_has, file_text, must, mutate, node_line, q, query, tool  # noqa: F401
 import smoke_rql_adapters
 import smoke_rql_hazards
+import smoke_rql_values
 import smoke_rql_models
 
 
@@ -228,7 +229,7 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
     must("G0 enemy scene", mutate(host, 'editor | call NewScene("res://scenes/enemy.tscn", "Node3D", "Enemy")'))
     must("G0 level scene", mutate(host, 'editor | call NewScene("res://scenes/level.tscn", "Node3D", "Level")'))
     for cls, name in (("Node3D", "Player"), ("Node3D", "Enemy1"), ("Node3D", "Enemy2"), ("OmniLight3D", "Lamp"),
-                      ("Node3D", "Crate"), ("Node", "Old")):
+                      ("Node3D", "Crate"), ("Node", "Old"), ("MeshInstance3D", "Floor")):
         must(f"G0 AddChild {name}", mutate(host, f"root | call AddChild({q(cls)}, {q(name)})"))
     must("G0 material", mutate(host, 'editor | call CreateResource("res://materials/red.tres", "StandardMaterial3D")'))
     smoke_rql_models.guide_fixture(host, project)
@@ -250,6 +251,7 @@ def guide_examples(host: str, project: pathlib.Path) -> None:
         ("G enemy instanced under Props", node_line("Enemy", "Props", instance=True)),
         ("G Crate reparented under Props", node_line("Crate", "Props", "Node3D")),
         ("G duplicate kept next to the original", node_line("Crate2", ".", "Node3D")),
+        ("G embedded PlaneMesh", r'^\[sub_resource type="PlaneMesh" id="[^"]+"\]\nsize = Vector2\(20, 20\)$'),
     ):
         check(name, file_has(project, level, pattern), file_text(project, level))
     check("G Old removed", '[node name="Old"' not in file_text(project, level), file_text(project, level))
@@ -287,6 +289,7 @@ def main() -> int:
     smoke_rql_models.run(host, project, d, a.require_test_hooks)
     smoke_rql_adapters.run(host, project, d)
     smoke_rql_hazards.run(host, project, d)
+    smoke_rql_values.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

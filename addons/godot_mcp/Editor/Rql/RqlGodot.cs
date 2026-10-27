@@ -160,7 +160,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     return false;
                 }
             }
-            error = ("not-found", $"no node at '{key}' in the edited scene '{root.Name}'");
+            // Suggest nodes whose name is close to the last path segment (a typo, a missing parent folder).
+            var leaf = key.Substring(key.LastIndexOf('/') + 1);
+            var near = leaf.Length == 0 ? new List<string>()
+                : AllNodes().Where(n => n != root && IsSimilar(n.Name.ToString(), leaf)).Select(PathOf).Take(5).ToList();
+            error = ("not-found", $"no node at '{key}' in the edited scene '{root.Name}'" + (near.Count > 0 ? $" (similar: {string.Join(", ", near)})" : ""));
             return false;
         }
 
@@ -197,7 +201,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             catch (ArgumentException ex) { return new RqlError("type-mismatch", ex.Message); }
             var dir = efs.GetFilesystemPath(scope);
             if (dir == null) return new RqlError("not-found", $"folder '{scope}' is not in the project filesystem");
-            return LoadResources(ResourceFiles(dir, type)).Take(MaxResources);
+            var resources = type.Length > 0 && !ClassDB.ClassExists(type) && IsGlobalScriptClass(type)
+                ? ScriptClassResources(dir, type)
+                : LoadResources(ResourceFiles(dir, type));
+            return resources.Take(MaxResources);
         }
 
         /// <summary>Whether <paramref name="name"/> is a global script class (GDScript <c>class_name</c>, C# [GlobalClass]).</summary>
@@ -220,6 +227,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var matches = new Dictionary<string, bool>(StringComparer.Ordinal);
             var typeIsClass = type.Length > 0 && ClassDB.ClassExists(type);
+            return MatchingFiles(dir, type, typeIsClass, matches);
+        }
+
+        // Resources of a script class (GDScript class_name, C# [GlobalClass]) or a class deriving from it: the editor reports a
+        // resource file's native type only ("Resource"), so the files of that type are loaded and their script chain checked.
+        private static IEnumerable<Resource> ScriptClassResources(EditorFileSystemDirectory dir, string type)
+        {
+            var entry = ProjectSettings.GetGlobalClassList().First(e => e["class"].AsString() == type);
+            var native = ResourceLoader.Load<Script>(entry["path"].AsString())?.GetInstanceBaseType().ToString() ?? "Resource";
+            return LoadResources(ResourceFiles(dir, native)).Where(r => HasScriptClass(r, type));
+        }
+
+        private static bool HasScriptClass(GodotObject o, string type)
+        {
+            for (var script = o.GetScript().As<Script>(); script != null; script = script.GetBaseScript())
+                if (script.GetGlobalName().ToString() == type) return true;
+            return false;
+        }
+
+        private static IEnumerable<string> MatchingFiles(EditorFileSystemDirectory dir, string type, bool typeIsClass, Dictionary<string, bool> matches)
+        {
             foreach (var (path, fileType) in WalkFiles(dir))
             {
                 if (!matches.TryGetValue(fileType, out var match))

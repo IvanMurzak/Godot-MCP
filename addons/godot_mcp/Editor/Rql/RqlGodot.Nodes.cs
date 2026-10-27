@@ -265,36 +265,47 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// A new node of <paramref name="className"/>: a Godot class (ClassDB), or a global script class (GDScript
         /// <c>class_name</c> / a C# [GlobalClass]) — its native base instantiated with the script attached.
         /// </summary>
-        private static Node Instantiate(string className)
+        private static Node Instantiate(string className) => Instantiate<Node>(className, "Node", "class");
+
+        private static string NodeClass(string className, out Script? script) => ScriptAwareClass(className, "Node", "class", out script);
+
+        /// <summary>
+        /// A new object of <paramref name="className"/> deriving from <paramref name="baseClass"/>: a Godot class (ClassDB), or a
+        /// global script class (GDScript <c>class_name</c> / a C# [GlobalClass]) — its native base instantiated with the script
+        /// attached.
+        /// </summary>
+        internal static T Instantiate<[MustBeVariant] T>(string className, string baseClass, string paramName) where T : GodotObject
         {
-            var native = NodeClass(className, out var script);
-            var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
-            if (script == null) return node;
-            var id = node.GetInstanceId();
-            node.SetScript(script);
+            var native = ScriptAwareClass(className, baseClass, paramName, out var script);
+            var o = EditorToolGuards.ValidateClassDbInstantiation<T>(native, paramName);
+            if (script == null) return o;
+            var id = o.GetInstanceId();
+            o.SetScript(script);
             // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
-            return GodotObject.InstanceFromId(id) as Node ?? node;
+            return GodotObject.InstanceFromId(id) as T ?? o;
         }
 
         /// <summary>
-        /// The native class <see cref="Instantiate"/> creates for <paramref name="className"/> (and the global script class to
+        /// The native class <see cref="Instantiate{T}"/> creates for <paramref name="className"/> (and the global script class to
         /// attach, if any), after every check it makes; creates nothing, so call validators use it too.
         /// </summary>
-        private static string NodeClass(string className, out Script? script)
+        internal static string ScriptAwareClass(string className, string baseClass, string paramName, out Script? script)
         {
             script = null;
-            if (string.IsNullOrWhiteSpace(className)) throw new ArgumentException("a node class is required, e.g. \"Node3D\"");
+            var kind = baseClass == "Node" ? "node" : "resource";
+            if (string.IsNullOrWhiteSpace(className))
+                throw new ArgumentException($"a {kind} class is required, e.g. \"{(baseClass == "Node" ? "Node3D" : "StandardMaterial3D")}\"");
             var native = className;
             if (!ClassDB.ClassExists(className))
             {
                 var entry = ProjectSettings.GetGlobalClassList().FirstOrDefault(e => e["class"].AsString() == className)
-                            ?? throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
+                            ?? throw new ArgumentException($"unknown {kind} class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, baseClass)), className));
                 script = ResourceLoader.Load<Script>(entry["path"].AsString())
                          ?? throw new ArgumentException($"the script of '{className}' failed to load");
                 native = script.GetInstanceBaseType().ToString();
             }
-            if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-            EditorToolGuards.CheckClassDbInstantiation(native, "class");
+            if (!ClassDB.IsParentClass(native, baseClass)) throw new ArgumentException($"'{className}' is not a {baseClass} class");
+            EditorToolGuards.CheckClassDbInstantiation(native, paramName);
             return native;
         }
     }
