@@ -85,13 +85,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             InstantiableScene(path, root);
         });
 
-        public static string? ValidateRemove(Node node) => WasRemoved(node) ? null : Rejection(() =>
+        public static string? ValidateRemove(Node node) => WasRemoved(node) ? null : Rejection(() => CheckRemove(node, RequireEditedRoot()));
+
+        // Throws for a node Remove may not take out: outside the edited scene, the root, or a node of an instance.
+        private static void CheckRemove(Node node, Node root)
         {
-            var root = RequireEditedRoot();
             RequireInEditedScene(node, "node");
             if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
             RequireOwnNode(node, root, "removed");
-        });
+        }
 
         public static string? ValidateDuplicate(Node node) => Rejection(() => DuplicateParent(node, RequireEditedRoot()));
 
@@ -134,7 +136,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>Why <paramref name="node"/> cannot be renamed, or null (the Node adapter's name validation).</summary>
         internal static string? ForeignRenameProblem(Node node) =>
-            EditedRoot() is { } root && IsForeign(node, root) ? ForeignProblem(node, "renamed") : null;
+            EditedRoot() is { } root ? Rejection(() => RequireOwnNode(node, root, "renamed")) : null;
 
         // Like the Scene dock ("Can't operate on nodes from a foreign scene"): the edit would be lost when the scene is saved.
         private static void RequireOwnNode(Node node, Node root, string verb)
@@ -161,9 +163,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (root.IsEditableInstance(owner)) continue;
                 var instance = owner;
                 root.SetEditableInstance(instance, true);
-                _sceneUndo.Add(new UndoStep(
+                RecordUndo(
                     ur => ur.AddDoMethod(root, Node.MethodName.SetEditableInstance, instance, true),
-                    ur => ur.AddUndoMethod(root, Node.MethodName.SetEditableInstance, instance, false)));
+                    ur => ur.AddUndoMethod(root, Node.MethodName.SetEditableInstance, instance, false));
             }
         }
 
@@ -215,9 +217,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var root = RequireEditedRoot();
             if (WasRemoved(node)) return;
-            RequireInEditedScene(node, "node");
-            if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
-            RequireOwnNode(node, root, "removed");
+            CheckRemove(node, root);
             var parent = node.GetParent()!;
             var index = node.GetIndex(includeInternal: false);
             var owners = new List<(Node node, Node? owner)>();
