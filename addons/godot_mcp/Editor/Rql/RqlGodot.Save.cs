@@ -195,6 +195,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // First the undo steps the stage's setters registered (they also mark their owners as explicitly undone).
             _setStages.Committed(records, _mutating);
             var sceneChanged = false;
+            var root = EditedRoot();
+            var isCall = records.Count > 0 && records[0].Method != null; // set records carry no method
             foreach (var owner in MutatedObjects(records))
             {
                 var hasSnapshot = _snapshots.TryGetValue(owner, out var snapshot);
@@ -239,8 +241,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
                 switch (owner)
                 {
-                    case Node node when IsInEditedScene(node):
+                    case Node node when root != null && (node == root || root.IsAncestorOf(node)):
                         sceneChanged = true;
+                        // A node inside an instance (a property override, a call such as AddChild on it) is saved only
+                        // when the instance has Editable Children (a no-op for the scene's own nodes). A set that changed no
+                        // stored property leaves the instance closed.
+                        if (propertiesChanged || isCall) EnsureEditable(node, root);
                         break;
                     case Resource resource when IsFileResource(resource):
                         // Saved only when a Godot property actually changed: writing the same value again does not

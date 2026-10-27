@@ -4,8 +4,9 @@ Live cases of edits that used to corrupt data or answer misleadingly, run by scr
 editor: undo of a Reparent that kept the global transform, renames Godot would silently change, the scene root's
 parent and ".." paths reaching the editor's own UI, deleting a file that is still used, protected project files,
 save-as onto another scene, a scene instancing itself, undo of a resource file edit, a non-tool script's method, a
-script attached to the wrong node class, comparing a struct to an object literal, float noise in printed structs, and
-calls refused before any runs (RQL 0.2 call validators: dry runs report them, multi-target calls are all-or-nothing).
+script attached to the wrong node class, comparing a struct to an object literal, float noise in printed structs,
+calls refused before any runs (RQL 0.2 call validators: dry runs report them, multi-target calls are all-or-nothing), and
+scene instances (overrides only, Editable Children for changes inside an instance, no edits Godot would not save).
 
 Every change is checked where it cannot lie: the .tscn / .tres / project.godot text Godot wrote, plus a read-back query.
 Undo uses the test-only test.undo / test.redo (GODOT_MCP_RQL_TEST_HOOKS=1); without them those checks print SKIP.
@@ -14,6 +15,7 @@ Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
+import re
 
 from smoke_rql_lib import check, disk, file_has, file_text, must, mutate, q, query, tool
 from smoke_rql_models import HOOKS, fails, has, lacks, new_scene, node, redo, skip_undo, undo
@@ -29,6 +31,9 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     scripts(host, d)
     structs(host, d)
     call_validators(host, d)
+    instances(host, project, d)
+    instance_copies(host, project, d)
+    inherited(host, project, d)
 
 
 def reparent_undo(host: str, d: str) -> None:
@@ -190,3 +195,121 @@ def call_validators(host: str, d: str) -> None:
           "invalid-value", "already exists")
     fails("H9 DeleteResource of a missing file", mutate(host, f'editor | call DeleteResource({q(d + "/hz_nothing.tres")})', dry_run=True),
           "invalid-value", "no file")
+
+
+def plain_instance(project: pathlib.Path, path: str, name: str) -> bool:
+    """The scene file's entry for instance `name` stores only overrides: no pinned type=, groups= or script (Godot 4.6+ adds unique_id=)."""
+    m = re.search(rf'^(\[node name="{re.escape(name)}"[^\n]*\])\n(.*?)(?=^\[|\Z)', file_text(project, path), re.M | re.S)
+    return bool(m) and "instance=ExtResource(" in m.group(1) and " type=" not in m.group(1) \
+        and "groups=" not in m.group(1) and "script = " not in m.group(2)
+
+
+def instances(host: str, project: pathlib.Path, d: str) -> None:
+    """
+    Scene instances: InstantiateScene saves only overrides (no pinned type / script / groups); a change inside an instance
+    turns on Editable Children so it is saved; removing, renaming, moving, reordering or duplicating a node of an instance
+    (which Godot would never save) is refused.
+    """
+    base, level = f"{d}/hz_inst_base.tscn", f"{d}/hz_inst_level.tscn"
+    gd = f"{d}/hz_inst.gd"
+    new_scene(host, base, "Node3D", "Enemy", [("OmniLight3D", "Eye"), ("Node3D", "Hat")])
+    must("H10 script", tool(host, "script-create", {"scriptPath": gd, "content": "@tool\nextends Node3D\n@export var health: int = 100\n"}))
+    must("H10 attach", tool(host, "script-attach-to-node", {"nodeRef": ".", "scriptPath": gd}))
+    must("H10 base group", mutate(host, 'root | call AddToGroup("enemies")'))
+    must("H10 save base", mutate(host, "editor | call SaveScene()"))
+    new_scene(host, level, "Node3D", "Level", [])
+    must("H10 instance", mutate(host, f'root | call InstantiateScene({q(base)}, "E1")'))
+    must("H10 instance 2", mutate(host, f'root | call InstantiateScene({q(base)}, "E2")'))
+    must("H10 override on the instance root", mutate(host, 'godot.find("E1") | set props["health"] = 50'))
+    must("H10 save", mutate(host, "editor | call SaveScene()"))
+    text = file_text(project, level)
+    check("H10 instance saved without a pinned type, groups or script",
+          plain_instance(project, level, "E2")
+          and "script = " not in text, text)
+    check("H10 the override is saved", file_has(project, level, r"^health = 50$"), text)
+    # A property inside an instance: saved because the instance becomes editable.
+    must("H10 set inside the instance", mutate(host, 'godot.find("E1/Eye") | set LightColor = "#ff0000"'))
+    must("H10 save 2", mutate(host, "editor | call SaveScene()"))
+    text = file_text(project, level)
+    check("H10 the instance is editable", file_has(project, level, r'^\[editable path="E1"\]$'), text)
+    check("H10 the inner override is saved", file_has(project, level, r'^\[node name="Eye" parent="E1"')
+          and file_has(project, level, r"^light_color = Color\(1, 0, 0, 1\)$"), text)
+    check("H10 the other instance stays closed", not file_has(project, level, r'^\[editable path="E2"\]$'), text)
+    # A child added under a node of an instance is saved too.
+    must("H10 add under an inner node", mutate(host, 'godot.find("E2/Hat") | call AddChild("Node3D", "Feather")'))
+    must("H10 save 3", mutate(host, "editor | call SaveScene()"))
+    check("H10 the new inner child is saved", file_has(project, level, r'^\[node name="Feather" type="Node3D" parent="E2/Hat"')
+          and file_has(project, level, r'^\[editable path="E2"\]$'), file_text(project, level))
+    for label, query_text, verb in (
+            ("Free", 'godot.find("E1/Hat") | call Free()', "removed"),
+            ("rename", 'godot.find("E1/Hat") | set name = "Cap"', "renamed"),
+            ("Reparent", 'godot.find("E1/Hat") | call Reparent(godot.find("."))', "moved"),
+            ("MoveChild", 'godot.find("E1/Hat") | call MoveChild(0)', "reordered"),
+            ("Duplicate", 'godot.find("E1/Hat") | call Duplicate()', "duplicated")):
+        fails(f"H10 {label} of a node of an instance is refused", mutate(host, query_text), "instance", base, verb)
+    has("H10 nothing moved", must("H10 read", query(host, 'godot.find("E1") | get children | select name')), "Eye", "Hat")
+    must("H10 the instance itself can go", mutate(host, 'godot.find("E2") | call Free()', dry_run=True))
+    if not HOOKS["on"]:
+        skip_undo("H10 undo of Editable Children")
+        return
+    must("H10 set inside E1 again", mutate(host, 'godot.find("E1/Hat") | set Position = "(0, 2, 0)"'))
+    undo(host, "scene")
+    must("H10 save after undo", mutate(host, "editor | call SaveScene()"))
+    check("H10 undo keeps E1 editable (it was before)", file_has(project, level, r'^\[editable path="E1"\]$'), file_text(project, level))
+    must("H10 instance 3", mutate(host, f'root | call InstantiateScene({q(base)}, "E3")'))
+    must("H10 set inside E3", mutate(host, 'godot.find("E3/Eye") | set OmniRange = 9'))
+    has("H10 E3 editable now", must("H10 E3 read", query(host, 'godot.find("E3/Eye") | select OmniRange')), "9")
+    undo(host, "scene")
+    must("H10 save after E3 undo", mutate(host, "editor | call SaveScene()"))
+    check("H10 undo turns Editable Children off again", not file_has(project, level, r'^\[editable path="E3"\]$')
+          and file_has(project, level, r'^\[node name="E3"'), file_text(project, level))
+
+
+def instance_copies(host: str, project: pathlib.Path, d: str) -> None:
+    """Duplicate of an instance stays an instance with the original's overrides; Free over an instance and its nodes works."""
+    base, level = f"{d}/hz_inst_base.tscn", f"{d}/hz_copies.tscn"  # the base scene instances() saved
+    new_scene(host, level, "Node3D", "Copies", [("Node3D", "Holder")])
+    must("H11 instance", mutate(host, f'root | call InstantiateScene({q(base)}, "A")'))
+    must("H11 overrides", mutate(host, 'godot.find("A") | set props["health"] = 7, Position = "(1, 0, 0)"'))
+    must("H11 inner override", mutate(host, 'godot.find("A/Eye") | set OmniRange = 4'))
+    must("H11 own child inside", mutate(host, 'godot.find("A/Hat") | call AddChild("Node3D", "Pin")'))
+    must("H11 duplicate", mutate(host, 'godot.find("A") | call Duplicate()'))
+    must("H11 no-op set inside another instance", mutate(host, f'root | call InstantiateScene({q(base)}, "Closed")'))
+    must("H11 same value", mutate(host, 'godot.find("Closed/Eye") | set Visible = true'))
+    must("H11 own node into an inner node", mutate(host, 'godot.find("Holder") | call Reparent(godot.find("Closed/Hat"))'))
+    must("H11 save", mutate(host, "editor | call SaveScene()"))
+    text = file_text(project, level)
+    check("H11 the copy is a plain instance (no pinned type, groups or script)",
+          plain_instance(project, level, "A2"), text)
+    check("H11 the copy keeps the overrides", file_has(project, level, r'^\[node name="Eye" parent="A2"[^\n]*\]\nomni_range = 4\.0$')
+          and text.count("health = 7") == 2, text)
+    check("H11 the copy keeps the node added inside", file_has(project, level, r'^\[node name="Pin" type="Node3D" parent="A2/Hat"'), text)
+    check("H11 the copy is editable", file_has(project, level, r'^\[editable path="A2"\]$'), text)
+    check("H11 the inner node is not re-saved whole", "light_color" not in text, text)
+    check("H11 a node moved into an instance is saved there", file_has(project, level, r'^\[node name="Holder" type="Node3D" parent="Closed/Hat"'), text)
+    must("H11 Free an instance with all its nodes", mutate(host, 'godot.find("A2") | recurse children | call Free()'))
+    fails("H11 Free of an inner node alone", mutate(host, 'godot.find("A/Hat") | call Free()'), "instance", "removed")
+    text = must("H11 read", query(host, "root | get children | select name"))
+    lacks("H11 A2 is gone", text, "A2")
+    has("H11 A kept", text, "A")
+
+
+def inherited(host: str, project: pathlib.Path, d: str) -> None:
+    """Nodes an inherited scene takes from its base: properties can change, structural edits are refused."""
+    base, child = f"{d}/hz_inst_base.tscn", f"{d}/hz_inherited.tscn"
+    # What Scene > New Inherited Scene saves: a root that instances the base scene.
+    disk(project, child).write_text('[gd_scene load_steps=2 format=3]\n\n'
+                                    f'[ext_resource type="PackedScene" path="{base}" id="1_base"]\n\n'
+                                    '[node name="Child" instance=ExtResource("1_base")]\n', encoding="utf-8")
+    must("H12 rescan", mutate(host, "editor | call Reimport()"))
+    must("H12 open", mutate(host, f"editor | call OpenScene({q(child)})"))
+    must("H12 a property of a base node", mutate(host, 'godot.find("Eye") | set OmniRange = 6'))
+    for label, query_text, verb in (
+            ("Free", 'godot.find("Hat") | call Free()', "removed"),
+            ("rename", 'godot.find("Hat") | set name = "Cap"', "renamed"),
+            ("MoveChild", 'godot.find("Hat") | call MoveChild(0)', "reordered")):
+        fails(f"H12 {label} of a base node is refused", mutate(host, query_text), "inherits", base, verb)
+    must("H12 own node", mutate(host, 'root | call AddChild("Node3D", "Mine")'))
+    must("H12 own node can go", mutate(host, 'godot.find("Mine") | call Free()'))
+    must("H12 save", mutate(host, "editor | call SaveScene()"))
+    check("H12 the base override is saved", file_has(project, child, r"^omni_range = 6\.0$"), file_text(project, child))

@@ -87,8 +87,13 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   contains the edited one; `MoveResource` that changes the extension; `DeleteResource` of a file a scene or resource still
   uses, the edited scene's unsaved nodes included (`DeleteResource(path, true)` deletes anyway); moving or deleting
   `res://project.godot`, `res://.godot/` or this addon; `CallMethod` on a method of a non-`@tool` script (it does not run
-  in the editor) or with the wrong number of arguments. Paths stay inside the edited scene: the root's `parent` is null and
-  `godot.find("..")` finds nothing.
+  in the editor) or with the wrong number of arguments; `Free`, `Reparent`, `MoveChild`, `Duplicate` or a rename of a node
+  that belongs to a scene instance (Godot saves only property overrides of those; the Scene dock refuses the same edits).
+  Paths stay inside the edited scene: the root's `parent` is null and `godot.find("..")` finds nothing.
+- **Scene instances**: `InstantiateScene` instances like the Scene dock (`GenEditState.Instance`), so the `.tscn` stores only
+  the overrides and the instance keeps following its scene file (type, script, groups). A change to a node inside an
+  instance (a property, a group, a child added to it) turns on that instance's Editable Children, undoably, because Godot
+  saves changes inside an instance only then.
 - **Printed structs** are tidied for reading (components below 1e-6 print as 0, at most 7 significant digits, no
   exponent): float noise such as `-4.371139E-08` in a rotated basis never reaches the agent; comparisons and stored values
   stay exact. An object literal compares like the text form: `where Position == {x: 0, y: 1, z: 0}`.
