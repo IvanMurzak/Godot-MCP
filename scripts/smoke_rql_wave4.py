@@ -55,13 +55,13 @@ def array_elements(host: str, project: pathlib.Path, d: str) -> None:
 def undo_history(host: str, d: str) -> None:
     """editor | select undoHistory / redoHistory list what Undo() / Redo() would step, newest first."""
     must("W4U new scene", mutate(host, f'editor | call NewScene({q(d + "/w4_undo.tscn")}, "Node3D", "U")'))
-    must("W4U add", mutate(host, 'root | call AddChild("Node3D", "Alpha")'))
-    must("W4U rename", mutate(host, 'godot.find("Alpha") | set name = "Beta"'))
+    must("W4U add", mutate(host, 'root | call AddChild("Node3D", "W4UAlpha")'))
+    must("W4U rename", mutate(host, 'godot.find("W4UAlpha") | set name = "W4UBeta"'))
     text = must("W4U read history", query(host, "editor | select undoHistory"))
-    check("W4U newest first", 0 <= text.find("set name") < text.find("AddChild"), text)
+    check("W4U newest first", 0 <= text.find("W4UBeta") < text.find("AddChild"), text)
     must("W4U undo", mutate(host, "editor | call Undo()"))
-    has("W4U redo lists the undone rename", must("W4U read redo", query(host, "editor | select redoHistory")), "set name")
-    lacks("W4U undo no longer lists it", must("W4U read undo", query(host, "editor | select undoHistory")), "set name")
+    has("W4U redo lists the undone rename", must("W4U read redo", query(host, "editor | select redoHistory")), "W4UBeta")
+    lacks("W4U undo no longer lists it", must("W4U read undo", query(host, "editor | select undoHistory")), "W4UBeta")
 
 
 def file_references(host: str, project: pathlib.Path, d: str) -> None:
