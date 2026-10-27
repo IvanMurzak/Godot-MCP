@@ -116,6 +116,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 Status = status,
             };
 
+        /// <summary>The registered global classes whose script file is gone (see <see cref="StaleGlobalClass"/>); usually none.</summary>
+        internal static System.Collections.Generic.List<(string name, string path)> StaleClasses()
+        {
+            var classes = new System.Collections.Generic.List<(string, string)>();
+            foreach (var entry in ProjectSettings.GetGlobalClassList())
+                classes.Add((entry["class"].AsString(), entry["path"].AsString()));
+            return StaleGlobalClass.Stale(classes, FileAccess.FileExists);
+        }
+
+        /// <summary>
+        /// Why GDScript <paramref name="content"/> must not be parsed: it names the global class of a script file that is gone
+        /// (parsing it crashes the editor), or null. <paramref name="stale"/>: <see cref="StaleClasses"/> when already known.
+        /// </summary>
+        internal static string? StaleClassProblem(string content, System.Collections.Generic.List<(string name, string path)>? stale = null) =>
+            StaleGlobalClass.FindReference(content, stale ?? StaleClasses()) is { } hit ? StaleGlobalClass.Problem(hit.name, hit.path) : null;
+
         /// <summary>
         /// Best-effort pre-write syntax validation. For GDScript we can actually compile-check the source via
         /// <see cref="GDScript.Reload"/> on a parser-fed instance, so an obviously-broken <c>.gd</c> is
@@ -144,6 +160,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // source; a genuine syntax error surfaces as Error.ParseError. Other non-Ok results (a resolution
             // failure against project state the standalone probe can't see — extends/class_name/preload) are
             // NOT syntax errors, so we accept them best-effort rather than misclassify them as a parse failure.
+            if (StaleClassProblem(content) is { } stale)
+            {
+                error = stale;
+                return false;
+            }
             var probe = new GDScript { SourceCode = content };
             var err = probe.Reload(keepState: false);
             if (err == Error.ParseError)

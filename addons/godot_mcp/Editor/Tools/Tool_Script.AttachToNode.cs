@@ -71,6 +71,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         $"No script resource exists at '{resPath}'. Create it with '{ScriptCreateToolId}' first " +
                         "(and, for a new C# type, rebuild the project so the script compiles).", nameof(scriptPath));
 
+                // Loading a GDScript that names a deleted script's global class crashes the editor (StaleGlobalClass).
+                if (lang == ScriptLang.GDScript && StaleClassProblem(FileAccess.GetFileAsString(resPath)) is { } stale)
+                    throw new ArgumentException(stale, nameof(scriptPath));
                 var script = ResourceLoader.Load<Script>(resPath)
                     ?? throw new ArgumentException(
                         $"Resource at '{resPath}' is not a Godot Script.", nameof(scriptPath));

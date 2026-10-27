@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
@@ -19,10 +20,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     public sealed partial class RqlEditorApi
     {
-        [RqlCallable("create a scene file (res://….tscn) with a root node of a Godot class, save it and open it; returns the new root node")]
+        [RqlCallable("create a scene file (res://….tscn) with a root node of a Godot class, save it and open it; returns the new root node. " +
+            "A scene path as rootClass (\"res://enemies/enemy.tscn\") makes an inherited scene of it (Scene → New Inherited Scene)")]
         public Node NewScene(string path, string rootClass = "Node", string? rootName = null)
         {
             path = NewScenePath(path);
+            if (IsBaseScene(rootClass)) return NewInheritedScene(path, rootClass, rootName);
             var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(RootClass(rootClass), "rootClass", requireParentClass: "Node");
             if (!string.IsNullOrEmpty(rootName)) root.Name = rootName;
             try
@@ -38,6 +41,66 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RqlReimport.Register(path);
             EditorToolGuards.ReloadReplacedOpenScene(path);
             return OpenScene(path);
+        }
+
+        // An inherited scene is a scene whose root instances the base scene; the file is what the editor writes for one.
+        private Node NewInheritedScene(string path, string basePath, string? rootName)
+        {
+            basePath = BaseScenePath(basePath, path);
+            var name = string.IsNullOrWhiteSpace(rootName) ? BaseRootName(basePath) : rootName!;
+            if (NodeNameRules.Problem(name, _ => false) is { } problem) throw new ArgumentException(problem, nameof(rootName));
+            if (!path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"an inherited scene is written as text: give it a .tscn path, not '{path}'", nameof(path));
+            var uid = RqlGodot.UidOf(basePath);
+            var text = "[gd_scene load_steps=2 format=3]\n\n" +
+                       $"[ext_resource type=\"PackedScene\"{(uid != null ? $" uid=\"{uid}\"" : "")} path=\"{basePath.CEscape()}\" id=\"1_base\"]\n\n" +
+                       $"[node name=\"{name.CEscape()}\" instance=ExtResource(\"1_base\")]\n";
+            EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
+            using (var file = FileAccess.Open(path, FileAccess.ModeFlags.Write)
+                ?? throw new InvalidOperationException($"could not write '{path}': {FileAccess.GetOpenError()}"))
+                file.StoreString(text);
+            RqlReimport.Register(path);
+            EditorToolGuards.ReloadReplacedOpenScene(path);
+            return OpenScene(path);
+        }
+
+        private static bool IsBaseScene(string rootClass) =>
+            !string.IsNullOrWhiteSpace(rootClass) && (rootClass.Contains("://") || ResPathNormalizer.IsScenePath(rootClass.Trim()));
+
+        private static string BaseScenePath(string basePath, string path)
+        {
+            basePath = RequireScenePath(basePath);
+            EditorToolGuards.RequireResourceExists(basePath, "rootClass", $"no scene at '{basePath}' to inherit from");
+            if (basePath == path) throw new ArgumentException("a scene cannot inherit from itself", "rootClass");
+            return basePath;
+        }
+
+        // The base scene's root name (what the editor names an inherited scene's root).
+        private static string BaseRootName(string basePath)
+        {
+            var state = ResourceLoader.Load<PackedScene>(basePath)?.GetState();
+            return state != null && state.GetNodeCount() > 0 ? state.GetNodeName(0).ToString() : System.IO.Path.GetFileNameWithoutExtension(basePath);
+        }
+
+        [RqlCallable("reload a scene from its file, discarding its unsaved changes (Scene → Reload Saved Scene): the edited scene, or the " +
+            "scene at path (opened when it is not); returns its root node")]
+        public Node ReloadScene(string? path = null)
+        {
+            string target;
+            if (!string.IsNullOrWhiteSpace(path)) target = RequireScenePath(path!);
+            else
+            {
+                target = RqlGodot.EditedRoot()?.SceneFilePath ?? "";
+                if (target.Length == 0) throw new InvalidOperationException("no saved scene is being edited; pass a res:// scene path");
+            }
+            EditorToolGuards.RequireResourceExists(target, nameof(path), $"no scene at '{target}'");
+            if (Array.IndexOf(Ei.GetOpenScenes(), target) < 0) return OpenScene(target);
+            if (RqlGodot.EditedRoot()?.SceneFilePath != target) OpenScene(target);
+            EditorToolGuards.ReloadReplacedOpenScene(target); // replaces the cached PackedScene, then reloads the tab
+            var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"reloaded '{target}' but the editor has no edited scene");
+            if (root.SceneFilePath != target)
+                throw new InvalidOperationException($"reloaded '{target}' but the editor shows '{root.SceneFilePath}'");
+            return root;
         }
 
         [RqlCallable("open a scene file (res://….tscn) and make it the edited scene; returns its root node")]
@@ -93,11 +156,28 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return list;
         }
 
+        public string? ValidateReloadScene(string? path) => RqlGodot.Rejection(() =>
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                if (string.IsNullOrEmpty(RqlGodot.EditedRoot()?.SceneFilePath)) throw new InvalidOperationException("no saved scene is being edited; pass a res:// scene path");
+                return;
+            }
+            var target = RequireScenePath(path!);
+            EditorToolGuards.RequireResourceExists(target, nameof(path), $"no scene at '{target}'");
+        });
+
         // Call validator (RQL 0.2, run before the call, on dry runs too): nothing is created or opened when it rejects.
         public string? ValidateNewScene(string path, string rootClass, string? rootName) => RqlGodot.Rejection(() =>
         {
-            NewScenePath(path);
-            EditorToolGuards.CheckClassDbInstantiation(RootClass(rootClass), "rootClass", requireParentClass: "Node");
+            path = NewScenePath(path);
+            if (IsBaseScene(rootClass))
+            {
+                BaseScenePath(rootClass, path);
+                if (!path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException($"an inherited scene is written as text: give it a .tscn path, not '{path}'", nameof(path));
+            }
+            else EditorToolGuards.CheckClassDbInstantiation(RootClass(rootClass), "rootClass", requireParentClass: "Node");
         });
 
         private static string RootClass(string rootClass) => string.IsNullOrWhiteSpace(rootClass) ? "Node" : rootClass;

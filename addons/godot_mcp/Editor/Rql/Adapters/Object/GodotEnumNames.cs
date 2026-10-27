@@ -19,8 +19,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>
     /// Enum values written by name where Godot stores an int: an enum-hinted property (<c>grow_horizontal</c>, hint string
     /// <c>"Begin,End,Both"</c>) or a method argument of a class enum (<c>Control.LayoutPreset</c>). Accepts the name as the
-    /// inspector shows it (<c>"Both"</c>), the C++ / C# constant (<c>"GROW_DIRECTION_BOTH"</c>, <c>"PresetFullRect"</c>) or
-    /// the short form (<c>"FullRect"</c>). Pure managed: no Godot types (unit-tested).
+    /// inspector shows it (<c>"Both"</c>, also without a parenthesised note: <c>"PSSM 4 Splits"</c> for
+    /// <c>"PSSM 4 Splits (Quality)"</c>), the C++ / C# constant (<c>"GROW_DIRECTION_BOTH"</c>, <c>"PresetFullRect"</c>,
+    /// <c>"Parallel4Splits"</c>; setter constants need Godot 4.4+) or the short form (<c>"FullRect"</c>). Pure managed: no Godot types (unit-tested).
     /// </summary>
     internal static class GodotEnumNames
     {
@@ -56,6 +57,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (key.Length == 0) return false;
             foreach (var (name, v) in options)
                 if (string.Equals(name, text, StringComparison.OrdinalIgnoreCase) || Normalize(name) == key) { value = v; return true; }
+            // An inspector label with a note: "PSSM 4 Splits (Quality)" is also "PSSM 4 Splits".
+            var labels = options.Where(o => Normalize(WithoutNote(o.name)) == key).Select(o => o.value).Distinct().ToList();
+            if (labels.Count == 1) { value = labels[0]; return true; }
             // Whole words only (split at '_', spaces and camelCase): "GROW_DIRECTION_BOTH" ends with the word "both", "Rend"
             // does not end with "end".
             var words = Words(text);
@@ -69,7 +73,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static bool EndsWith(List<string> words, List<string> tail) =>
             tail.Count <= words.Count && words.Skip(words.Count - tail.Count).SequenceEqual(tail);
 
-        // "PRESET_FULL_RECT" / "PresetFullRect" / "full rect" -> [preset, full, rect]
+        // "Orthogonal (Fast)" -> "Orthogonal"; a name without a trailing note stays as it is.
+        private static string WithoutNote(string name)
+        {
+            var open = name.LastIndexOf(" (", StringComparison.Ordinal);
+            return open > 0 && name.EndsWith(")", StringComparison.Ordinal) ? name.Substring(0, open) : name;
+        }
+
+        // "PRESET_FULL_RECT" / "PresetFullRect" / "full rect" -> [preset, full, rect]; digits are a word of their own
+        // ("SHADOW_PARALLEL_4_SPLITS" / "Parallel4Splits" -> [..., parallel, 4, splits]).
         private static List<string> Words(string s)
         {
             var words = new List<string>();
@@ -78,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             foreach (var c in s ?? "")
             {
                 if (!char.IsLetterOrDigit(c)) { Flush(); prev = c; continue; }
-                if (char.IsUpper(c) && current.Length > 0 && (char.IsLower(prev) || char.IsDigit(prev))) Flush();
+                if (current.Length > 0 && ((char.IsUpper(c) && char.IsLower(prev)) || char.IsDigit(c) != char.IsDigit(prev))) Flush();
                 current.Append(char.ToLowerInvariant(c));
                 prev = c;
             }

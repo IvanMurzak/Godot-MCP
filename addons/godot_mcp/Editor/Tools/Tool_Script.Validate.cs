@@ -75,8 +75,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 };
 
                 var diagnostics = new List<ScriptDiagnostic>();
+                var stale = StaleClasses();
                 foreach (var path in targets)
-                    diagnostics.AddRange(ValidateOne(path));
+                    diagnostics.AddRange(ValidateOne(path, stale));
 
                 // Errors first, then warnings, each in scan order.
                 diagnostics.Sort((a, b) => a.Severity.CompareTo(b.Severity));
@@ -160,7 +161,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <see cref="GDScript.Reload"/>; on older versions only the <c>Reload()</c> <see cref="Error"/> code
         /// is available, yielding a single coarse diagnostic with line -1. Main-thread only (touches GDScript).
         /// </summary>
-        static List<ScriptDiagnostic> ValidateOne(string resPath)
+        static List<ScriptDiagnostic> ValidateOne(string resPath, List<(string name, string path)> staleClasses)
         {
             var diagnostics = new List<ScriptDiagnostic>();
 
@@ -176,6 +177,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     return diagnostics;
                 }
                 content = file.GetAsText();
+            }
+
+            // A reference to a deleted script's global class crashes Godot's parse: reported instead of parsed.
+            if (StaleClassProblem(content, staleClasses) is { } stale)
+            {
+                diagnostics.Add(new ScriptDiagnostic(resPath, -1, stale));
+                return diagnostics;
             }
 
             // Probe with a throwaway GDScript. Do NOT set ResourcePath to the REAL res:// path: Reload()

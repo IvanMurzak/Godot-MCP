@@ -119,7 +119,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             n.Name = v;
             if (n.Name.ToString() != v)
-                throw new InvalidOperationException($"another node of the same parent is already named '{v}' (node names are unique among siblings)");
+                throw new InvalidOperationException(NodeNameRules.Taken(v));
         }
 
         private static string? ScriptPath(Node n)

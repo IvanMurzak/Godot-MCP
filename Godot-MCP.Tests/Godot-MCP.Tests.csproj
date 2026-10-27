@@ -448,6 +448,10 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Value\CallableText.cs" Link="Source\Rql\Adapters\CallableText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\RotationUnits.cs" Link="Source\Rql\RotationUnits.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\HistoryStepText.cs" Link="Source\Rql\EditorApi\HistoryStepText.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\GameLogText.cs" Link="Source\Rql\EditorApi\GameLogText.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Tools\StaleGlobalClass.cs" Link="Source\StaleGlobalClass.cs" />
   </ItemGroup>
 
 </Project>

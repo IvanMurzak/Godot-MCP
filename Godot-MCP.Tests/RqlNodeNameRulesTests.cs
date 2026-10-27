@@ -53,7 +53,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ASiblingsNameFails()
         {
             var problem = NodeNameRules.Problem("Enemy", Siblings);
-            Assert.Equal("a sibling is already named 'Enemy' (node names are unique among siblings)", problem);
+            Assert.Equal("a sibling is already named 'Enemy' (node names are unique among siblings; to swap or renumber siblings, " +
+                         "rename them to temporary names first, then to the final names in a second call)", problem);
         }
     }
 }

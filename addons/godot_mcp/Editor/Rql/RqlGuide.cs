@@ -44,7 +44,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
             "selection, scenes (open scenes), files (every res:// file the editor knows), classes (Godot classes, ClassDB), " +
-            "console (captured editor log entries), editor (editor state and operations), project (project settings: " +
+            "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
+            "StackTrace), editor (editor state and operations), project (project settings: " +
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
             "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
             "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names). " +
@@ -74,7 +75,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "parent, owner, children (list), childCount, index, script (res:// path), groups (list) and id; signals, connections " +
             "(persistent: signal target method flags) and incoming are read on request (select connections, get connections). " +
             "Members are the C# properties " +
-            "(Position, Rotation, Scale, Visible, Text …), matched case-insensitively, so position works too. Every Godot property, " +
+            "(Position, Rotation, Scale, Visible, Text …), matched case-insensitively, so position works too; Rotation is in radians, " +
+            "RotationDegrees in degrees. Every Godot property, " +
             "including GDScript script variables (in the editor: @export ones, every one of a @tool script) and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
             "props[\"speed\"] on a scripted node). Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
             "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". A resource path \"res://…\" works wherever a resource is expected, " +
@@ -176,7 +178,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public const string MutateExamplesBlock =
             "Examples:\n" + MutateExampleText + "\n" +
-            "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene.\n";
+            "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
+            "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
+            "(returns the action); editor | call ReloadScene() reloads the edited scene from its file; " +
+            "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n";
 
         public const string QueryDescription =
             "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +

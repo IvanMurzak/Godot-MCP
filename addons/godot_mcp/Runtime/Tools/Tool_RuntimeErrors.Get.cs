@@ -69,7 +69,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     Ok = true,
                     Note = "Runtime error capture is not enabled in this game. Initialize the in-game runtime " +
                            "with GodotMcpRuntime.Initialize(b => b.WithRuntimeErrorCapture()) to capture in-game " +
-                           "runtime errors. (Absence of errors here does NOT mean the game is error-free.)",
+                           "runtime errors. (Absence of errors here does NOT mean the game is error-free.) A game run from " +
+                           "the Godot editor writes its output and errors to its log: the editor's rql-query gameLog source.",
                 };
             }
 

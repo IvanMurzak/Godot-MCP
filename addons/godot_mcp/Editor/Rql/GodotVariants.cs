@@ -163,6 +163,34 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             public Type ClrType => ClrType(Type, Hint, HintString);
         }
 
+        /// <summary>
+        /// A property scripts can read and write that is neither stored nor shown in the inspector (usage none), such as
+        /// Node3D <c>rotation_degrees</c> or <c>global_position</c>: reachable by name in <c>props["…"]</c> (not listed among its
+        /// keys); null when <paramref name="o"/> has no such property.
+        /// </summary>
+        public static GodotProperty? ScriptOnlyProperty(GodotObject o, string name) =>
+            !string.IsNullOrEmpty(name) && ScriptOnlyProperties(o).TryGetValue(name, out var info) ? info : (GodotProperty?)null;
+
+        // Script-only properties kept out of props: node plumbing with its own checked member (name: the sibling check), or
+        // none (owner, scene_file_path, multiplayer) — a raw write would skip the checks and the undo snapshot.
+        private static readonly HashSet<string> ScriptOnlyExcluded = new HashSet<string>(StringComparer.Ordinal)
+            { "name", "owner", "scene_file_path", "multiplayer", "unique_name_in_owner" };
+
+        // The script-only properties of an object by name, made once per query scope (like the props table).
+        private static Dictionary<string, GodotProperty> ScriptOnlyProperties(GodotObject o) => Scoped(("script-only", o.GetInstanceId()), () =>
+        {
+            var table = new Dictionary<string, GodotProperty>(StringComparer.Ordinal);
+            foreach (var info in o.GetPropertyList())
+            {
+                var usage = (PropertyUsageFlags)info["usage"].AsInt64();
+                var name = info["name"].AsString();
+                if (name.Length == 0 || IsHeader(usage) || IsExposed(usage, storageOnly: false) || table.ContainsKey(name)
+                    || ScriptOnlyExcluded.Contains(name) || name.StartsWith("process_thread_", StringComparison.Ordinal)) continue;
+                table[name] = new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
+            }
+            return table;
+        });
+
         /// <summary>The names of the properties <see cref="IsExposed"/> accepts, in the object's order.</summary>
         public static IEnumerable<string> PropertyNames(GodotObject o, bool storageOnly)
         {

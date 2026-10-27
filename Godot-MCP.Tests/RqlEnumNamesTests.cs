@@ -95,6 +95,40 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(GodotEnumNames.TryMatch(options, text, out _));
         }
 
+        // directional_shadow_mode: inspector labels with a note, and its setter's constants (DirectionalLight3D.ShadowMode).
+        private static readonly List<(string, long)> ShadowMode = new List<(string, long)>
+        {
+            ("Orthogonal (Fast)", 0), ("PSSM 2 Splits (Average)", 1), ("PSSM 4 Splits (Quality)", 2),
+            ("SHADOW_ORTHOGONAL", 0), ("SHADOW_PARALLEL_2_SPLITS", 1), ("SHADOW_PARALLEL_4_SPLITS", 2),
+        };
+
+        [Theory]
+        [InlineData("PSSM 4 Splits", 2)] // the label without its note (was refused: wave-3 agent run)
+        [InlineData("pssm 2 splits", 1)]
+        [InlineData("Orthogonal", 0)]
+        [InlineData("Parallel4Splits", 2)] // the C# enum name: digits are a word of their own (was refused)
+        [InlineData("Parallel2Splits", 1)]
+        [InlineData("SHADOW_PARALLEL_4_SPLITS", 2)]
+        [InlineData("PSSM 4 Splits (Quality)", 2)]
+        public void MatchesLabelsWithoutTheirNoteAndCSharpNamesWithDigits(string text, long expected)
+        {
+            Assert.True(GodotEnumNames.TryMatch(ShadowMode, text, out var value));
+            Assert.Equal(expected, value);
+        }
+
+        [Theory]
+        [InlineData("4 Splits")] // [4, splits] ends SHADOW_PARALLEL_4_SPLITS only
+        public void DigitWordsStillMatchWholeWords(string text)
+        {
+            Assert.True(GodotEnumNames.TryMatch(ShadowMode, text, out var value));
+            Assert.Equal(2, value);
+        }
+
+        [Theory]
+        [InlineData("Splits")] // ends PSSM 2, PSSM 4 and both constants: ambiguous
+        [InlineData("Parallel")]
+        public void AmbiguousDigitlessWordsAreRefused(string text) => Assert.False(GodotEnumNames.TryMatch(ShadowMode, text, out _));
+
         [Fact]
         public void DescribesTheOptions() =>
             Assert.Equal("one of: Left, Right, Both (or its number)", GodotEnumNames.Describe(Grow));

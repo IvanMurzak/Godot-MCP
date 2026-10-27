@@ -44,12 +44,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             m.Untyped.AddMixedMap("props",
                 o => GodotVariants.Properties((GodotObject)o).Keys,
                 // An enum-hinted int (grow_horizontal: "Begin,End,Both") also takes a name: typed object, converted on write.
-                (o, key) => GodotVariants.Properties((GodotObject)o).TryGetValue(key, out var info) ? (IsEnumInt(info) ? typeof(object) : info.ClrType) : typeof(object),
+                (o, key) => Property((GodotObject)o, key) is { } info ? (IsEnumInt(info) ? typeof(object) : info.ClrType) : typeof(object),
                 (o, key) => GodotVariants.ToClr(((GodotObject)o).Get(key)),
                 (o, key, value) => Set((GodotObject)o, key, EnumValue((GodotObject)o, key, value, out _)),
                 (o, key, value) => PropProblem((GodotObject)o, key, value),
                 "every Godot property by its snake_case name (GDScript script variables and GDExtension properties included)",
-                has: (o, key) => GodotVariants.Properties((GodotObject)o).ContainsKey(key));
+                // Script-only properties (rotation_degrees, global_position …) are reachable by name but not listed.
+                has: (o, key) => Property((GodotObject)o, key) != null);
             m.Untyped.AddMixedMap("layerNames",
                 o => Settings.RqlLayers.Properties((GodotObject)o),
                 (o, key) => typeof(object),
@@ -130,6 +131,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return null;
         }
 
+        // A listed property (stored or in the inspector), else a script-only one.
+        private static GodotVariants.GodotProperty? Property(GodotObject o, string key) =>
+            GodotVariants.Properties(o).TryGetValue(key, out var info) ? info : GodotVariants.ScriptOnlyProperty(o, key);
+
         private static bool IsEnumInt(GodotVariants.GodotProperty info) => info.Type == Variant.Type.Int && info.Hint == PropertyHint.Enum;
 
         private static string? PropProblem(GodotObject o, string key, object? value)
@@ -143,7 +148,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         private static object? EnumValue(GodotObject o, string key, object? value, out string? problem)
         {
             problem = null;
-            if (!GodotVariants.Properties(o).TryGetValue(key, out var info)) { problem = $"{o.GetClass()} has no property '{key}'"; return value; }
+            if (!(Property(o, key) is { } info)) { problem = $"{o.GetClass()} has no property '{key}'"; return value; }
             if (!IsEnumInt(info)) return value;
             switch (value)
             {

@@ -24,6 +24,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// <summary>The characters Godot does not allow in a node name (<c>String.get_invalid_node_name_characters</c>).</summary>
         public const string InvalidCharacters = ".:@/\"%";
 
+        /// <summary>
+        /// How to give siblings names some of them hold now (the auto names of Duplicate copies, a swap): the names are checked
+        /// against the siblings as they are before the set.
+        /// </summary>
+        public static string Taken(string name) =>
+            $"a sibling is already named '{name}' (node names are unique among siblings; to swap or renumber siblings, rename them " +
+            "to temporary names first, then to the final names in a second call)";
+
         /// <summary>Why <paramref name="name"/> cannot be a node's name (<paramref name="siblingHas"/>: a sibling has it); null when it can.</summary>
         public static string? Problem(string? name, Func<string, bool> siblingHas)
         {
@@ -34,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 return $"a node name cannot contain {string.Join(" ", bad)} (not allowed: {string.Join(" ", InvalidCharacters.ToCharArray())})";
             }
             if (siblingHas(name))
-                return $"a sibling is already named '{name}' (node names are unique among siblings)";
+                return Taken(name);
             return null;
         }
     }
