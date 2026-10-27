@@ -119,17 +119,54 @@ class GuardTests(unittest.TestCase):
         self.root.joinpath("Godot-MCP.csproj").write_text(textwrap.dedent("""\
             <Project Sdk="Godot.NET.Sdk/4.3.0">
               <PropertyGroup><RqlVersion>$(RqlBase)-dev.1</RqlVersion><RqlBase>0.3.0</RqlBase></PropertyGroup>
+              <PropertyGroup Condition="'$(Configuration)' == 'Debug'"><RqlVersion>0.2.0</RqlVersion></PropertyGroup>
               <ItemGroup>
-                <!-- <PackageReference Include="com.IvanMurzak.Rql" Version="9.9.9-comment" /> is ignored -->
                 <PackageReference Include="com.IvanMurzak.Rql" Version="$(RqlVersion)" />
                 <PackageReference Include="com.IvanMurzak.ReflectorNet"><Version>$(Missing)</Version></PackageReference>
               </ItemGroup>
             </Project>
             """), encoding="utf-8")
         problems = self.problems()
+        # A property set under different Conditions: every value it may take is checked.
         self.assertIn(("Godot-MCP.csproj", "com.IvanMurzak.Rql 0.3.0-dev.1 is a pre-release version"), problems)
         self.assertIn(("Godot-MCP.csproj", "com.IvanMurzak.ReflectorNet: cannot resolve version '$(Missing)'"), problems)
-        self.assertFalse(any("9.9.9" in m for _, m in problems))
+        # write-nuget-deps.mjs copies the csproj text: a `$(Prop)` version would ship literally.
+        self.assertIn(("Godot-MCP.csproj", "com.IvanMurzak.Rql: nuget-deps.json would ship the literal version "
+                                           "'$(RqlVersion)' (write-nuget-deps.mjs does not evaluate MSBuild)"), problems)
+
+    def test_commented_core_reference_ships_through_nuget_deps(self):
+        Fixture(self.root)
+        csproj = self.root / "Godot-MCP.csproj"
+        csproj.write_text(csproj.read_text(encoding="utf-8").replace(
+            "</Project>", '  <!-- <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.9" /> -->\n</Project>'),
+            encoding="utf-8")
+        self.assertEqual([("Godot-MCP.csproj", "com.IvanMurzak.Rql 0.3.0-dev.9 is a pre-release version")], self.problems())
+
+    def test_extension_json_project_outside_src_is_scanned(self):
+        fixture = Fixture(self.root)
+        fixture.write("extensions/Godot-AI-X/extension.json", json.dumps({"project": "extensions/Godot-AI-X/X.csproj"}))
+        fixture.write("extensions/Godot-AI-X/X.csproj", csproj(("com.IvanMurzak.Rql", "0.3.0-dev.3")))
+        self.assertEqual([("extensions/Godot-AI-X/X.csproj", "com.IvanMurzak.Rql 0.3.0-dev.3 is a pre-release version")],
+                         self.problems())
+        fixture.write("extensions/Godot-AI-Y/extension.json", json.dumps({"project": "extensions/Godot-AI-Y/missing.csproj"}))
+        self.assertIn(("extensions/Godot-AI-Y/missing.csproj",
+                       "expected file is missing (update scripts/release_dependency_guard.py)"), self.problems())
+
+    def test_version_override_and_package_download(self):
+        fixture = Fixture(self.root)
+        fixture.write("extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj", textwrap.dedent("""\
+            <Project Sdk="Godot.NET.Sdk/4.3.0">
+              <ItemGroup>
+                <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.13.1" VersionOverride="8.14.0-rc.1" />
+                <PackageDownload Include="com.IvanMurzak.ReflectorNet" Version="[5.6.0-beta]" />
+              </ItemGroup>
+            </Project>
+            """))
+        problems = self.problems()
+        self.assertIn(("extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj",
+                       "com.IvanMurzak.McpPlugin 8.14.0-rc.1 is a pre-release version"), problems)
+        self.assertIn(("extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj",
+                       "com.IvanMurzak.ReflectorNet 5.6.0-beta is a pre-release version"), problems)
 
     def test_central_package_versions_and_nuget_config_feed(self):
         fixture = Fixture(self.root)
@@ -147,10 +184,14 @@ class GuardTests(unittest.TestCase):
     def test_npm_prerelease_and_local_specs_fail(self):
         fixture = Fixture(self.root)
         fixture.write("cli/package.json", json.dumps(
-            {"dependencies": {"@baizor/gamedev-cli-core": "^0.8.0-dev.1", "local": "file:../core"}}))
+            {"dependencies": {"@baizor/gamedev-cli-core": "^0.8.0-dev.1", "local": "file:../core",
+                              "tagged": "next", "gh": "owner/repo#main", "ok": ">=1.2.0 <2"}}))
         problems = self.problems()
         self.assertIn(("cli/package.json", "@baizor/gamedev-cli-core ^0.8.0-dev.1 is a pre-release version"), problems)
         self.assertIn(("cli/package.json", "local: 'file:../core' is not a registry version"), problems)
+        self.assertIn(("cli/package.json", "tagged: 'next' is not a registry version"), problems)
+        self.assertIn(("cli/package.json", "gh: 'owner/repo#main' is not a registry version"), problems)
+        self.assertEqual(4, len(problems))
 
     def test_missing_shipped_file_fails(self):
         Fixture(self.root)
@@ -174,7 +215,9 @@ class VersionTests(unittest.TestCase):
 
     def test_ranges(self):
         self.assertEqual((["1.0.0"], None), guard.nuget_versions_in("[1.0.0]"))
-        self.assertEqual((["1.0", "2.0"], None), guard.nuget_versions_in("[1.0,2.0)"))
+        self.assertEqual((["1.0"], None), guard.nuget_versions_in("[1.0,2.0)"))  # exclusive upper bound need not exist
+        self.assertEqual((["1.0", "2.0"], None), guard.nuget_versions_in("[1.0,2.0]"))
+        self.assertEqual((["1.0"], None), guard.nuget_versions_in("[1.0, )"))
         self.assertEqual(([], "floating version '1.*' is not a pin"), guard.nuget_versions_in("1.*"))
 
 

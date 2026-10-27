@@ -43,13 +43,14 @@ ROOT = Path(__file__).resolve().parents[1]
 NUGET_INDEX_URL = "https://api.nuget.org/v3-flatcontainer/{id}/index.json"
 
 # MSBuild item types that pin a NuGet package version.
-PACKAGE_ITEMS = {"PackageReference", "PackageVersion", "GlobalPackageReference"}
+PACKAGE_ITEMS = {"PackageReference", "PackageVersion", "GlobalPackageReference", "PackageDownload"}
 # MSBuild properties that add NuGet restore sources.
 RESTORE_SOURCE_PROPERTIES = {"RestoreSources", "RestoreAdditionalProjectSources", "RestoreFallbackFolders"}
-SKIP_DIRS = {"bin", "obj", "node_modules", ".git", ".godot"}
+SKIP_DIRS = {"bin", "obj", "node_modules", "prerelease-packages"}
 PROPERTY_RE = re.compile(r"\$\(([A-Za-z_][A-Za-z0-9_.-]*)\)")
 NPM_PRERELEASE_RE = re.compile(r"\d+\.\d+\.\d+-")
-NPM_NON_REGISTRY_PREFIXES = ("file:", "link:", "git", "http:", "https:", "github:", "workspace:", "portal:")
+# A registry semver spec (`1.2.3`, `^1.2`, `~1`, `>=1 <2`, `v1.2.3`); dist-tags, paths, git and URLs are not.
+NPM_REGISTRY_SPEC_RE = re.compile(r"^\s*[0-9^~<>=v]")
 
 
 @dataclass(frozen=True)
@@ -145,8 +146,11 @@ def nuget_versions_in(spec: str) -> tuple[list[str], Optional[str]]:
     if spec[0] in "[(":
         if spec[-1] not in "])":
             return [], f"malformed version range '{spec}'"
-        bounds = [b.strip() for b in spec[1:-1].split(",")]
-        return [b for b in bounds if b], None
+        lower, _, upper = (b.strip() for b in spec[1:-1].partition(","))
+        if "," not in spec:  # `[1.2.3]`: exactly that version
+            return [lower], None
+        # The lower bound is what restore picks; an exclusive upper bound need not exist (yet).
+        return [b for b in (lower, upper if spec[-1] == "]" else "") if b], None
     return [spec], None
 
 
@@ -204,15 +208,16 @@ def walk(directory: Path) -> Iterable[Path]:
     """Files of a project's folder, not descending into build output or another project's folder."""
     for entry in sorted(directory.iterdir()):
         if entry.is_dir():
-            if entry.name not in SKIP_DIRS and not any(entry.glob("*.csproj")):
+            if entry.name not in SKIP_DIRS and not entry.name.startswith(".") and not any(entry.glob("*.csproj")):
                 yield from walk(entry)
         else:
             yield entry
 
 
-def read_properties(files: list[Path]) -> dict[str, str]:
-    """Static `<PropertyGroup>` values over the chain; later files win (MSBuild evaluation order)."""
-    properties: dict[str, str] = {}
+def read_properties(files: list[Path]) -> dict[str, list[str]]:
+    """Every static `<PropertyGroup>` definition over the chain (Conditions are not evaluated, so a
+    property set more than once keeps every value it may take)."""
+    properties: dict[str, list[str]] = {}
     for path in files:
         try:
             tree = ET.parse(path)
@@ -223,37 +228,53 @@ def read_properties(files: list[Path]) -> dict[str, str]:
                 continue
             for prop in group:
                 if isinstance(prop.tag, str) and prop.text is not None:
-                    properties[_local(prop.tag)] = prop.text.strip()
+                    values = properties.setdefault(_local(prop.tag), [])
+                    if prop.text.strip() not in values:
+                        values.append(prop.text.strip())
     return properties
 
 
-def resolve(value: str, properties: dict[str, str], file: Path) -> str:
-    """Expand `$(Name)` from static properties; unknown names stay as `$(Name)`."""
+def resolve(value: str, properties: dict[str, list[str]], file: Path) -> list[str]:
+    """Every expansion of the `$(Name)`s in `value` over the static definitions; an unknown name stays
+    as `$(Name)` (the caller reports it)."""
     builtins = {"MSBuildThisFileDirectory": str(file.parent) + os.sep, "MSBuildProjectDirectory": str(file.parent)}
-    for _ in range(16):
-        expanded = PROPERTY_RE.sub(
-            lambda m: builtins.get(m.group(1), properties.get(m.group(1), m.group(0))), value)
-        if expanded == value:
-            break
-        value = expanded
-    return value
+    results: set[str] = set()
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        match = PROPERTY_RE.search(current)
+        name = match.group(1) if match else ""
+        options = [builtins[name]] if name in builtins else properties.get(name)
+        if not match or not options or depth >= 16:
+            results.add(current)
+            continue
+        pending += [(current[:match.start()] + option + current[match.end():], depth + 1) for option in options]
+    return sorted(results)
 
 
 def is_url(source: str) -> bool:
     return re.match(r"^[a-z][a-z0-9+.-]*://", source, re.IGNORECASE) is not None and not source.lower().startswith("file:")
 
 
+def item_version(element: ET.Element) -> Optional[str]:
+    """The version an item pins; `VersionOverride` wins over `Version` (central package management)."""
+    for name in ("VersionOverride", "Version", "version"):
+        if element.get(name) is not None:
+            return element.get(name)
+    for name in ("VersionOverride", "Version"):
+        child = next((c for c in element if isinstance(c.tag, str) and _local(c.tag) == name), None)
+        if child is not None and child.text:
+            return child.text.strip()
+    return None
+
+
 def scan_msbuild(projects: list[Path], root: Path) -> tuple[list[Pin], list[Problem]]:
     pins: list[Pin] = []
     problems: list[Problem] = []
-    seen: set[Path] = set()
     for project in (p.resolve() for p in projects):
         chain = msbuild_chain(project, root)
         properties = read_properties(chain)
-        for path in chain:
-            if path in seen:
-                continue
-            seen.add(path)
+        for path in chain:  # a shared props file is read per project: its `$(X)` may differ per project
             text = path.read_text(encoding="utf-8-sig")
             try:
                 document = ET.fromstring(text)
@@ -266,28 +287,24 @@ def scan_msbuild(projects: list[Path], root: Path) -> tuple[list[Pin], list[Prob
                 name = _local(element.tag)
                 if name in PACKAGE_ITEMS or (name == "dependency" and path.suffix == ".nuspec"):
                     package = element.get("Include") or element.get("Update") or element.get("id")
-                    raw = element.get("Version") or element.get("VersionOverride") or element.get("version")
-                    if raw is None:
-                        child = next((c for c in element if isinstance(c.tag, str) and _local(c.tag) == "Version"), None)
-                        raw = child.text.strip() if child is not None and child.text else None
+                    raw = item_version(element)
                     if not package or raw is None:
                         continue  # a version-less reference takes its pin from a PackageVersion scanned here too
                     line = line_of(text, f'"{package}"', raw) or line_of(text, package, raw)
-                    version = resolve(raw, properties, path)
-                    if PROPERTY_RE.search(version):
-                        problems.append(Problem(path, line, f"{package}: cannot resolve version '{raw}'"))
-                        continue
-                    versions, error = nuget_versions_in(version)
-                    if error:
-                        problems.append(Problem(path, line, f"{package}: {error}"))
-                    pins.extend(Pin("nuget", package, v, path, line) for v in versions)
+                    for version in resolve(raw, properties, path):
+                        if PROPERTY_RE.search(version):
+                            problems.append(Problem(path, line, f"{package}: cannot resolve version '{raw}'"))
+                            continue
+                        versions, error = nuget_versions_in(version)
+                        if error:
+                            problems.append(Problem(path, line, f"{package}: {error}"))
+                        pins.extend(Pin("nuget", package, v, path, line) for v in versions)
                 elif name in RESTORE_SOURCE_PROPERTIES and element.text:
                     for entry in element.text.split(";"):
                         entry = entry.strip()
                         if not entry or entry == f"$({name})":
                             continue
-                        source = resolve(entry, properties, path)
-                        if not is_url(source):
+                        if not all(is_url(source) for source in resolve(entry, properties, path)):
                             problems.append(Problem(path, line_of(text, f"<{name}"),
                                                     f"{name} adds the local NuGet feed '{entry}' "
                                                     f"(a release must restore from nuget.org only; delete the "
@@ -335,7 +352,7 @@ def scan_package_json(path: Path) -> tuple[list[Pin], list[Problem]]:
     for section in ("dependencies", "optionalDependencies"):
         for package, spec in (data.get(section) or {}).items():
             line = line_of(text, f'"{package}"')
-            if spec.startswith(NPM_NON_REGISTRY_PREFIXES) or spec.startswith((".", "/")):
+            if not isinstance(spec, str) or not NPM_REGISTRY_SPEC_RE.match(spec):
                 problems.append(Problem(path, line, f"{package}: '{spec}' is not a registry version"))
             else:
                 pins.append(Pin("semver", package, spec, path, line))
@@ -374,18 +391,60 @@ def require(path: Path, problems: list[Problem]) -> bool:
 # --- this repository --------------------------------------------------------------------------
 
 ADDON_DEPS_RE = re.compile(r"\{\s*id:\s*'([^']+)',\s*version:\s*'([^']+)'")
+# scripts/write-nuget-deps.mjs builds the shipped addons/godot_mcp/nuget-deps.json from Godot-MCP.csproj TEXT
+# (comments included, versions literal) with these regexes, so what it ships is checked as it ships.
+GENERATOR_REFERENCE_RE = re.compile(r"<PackageReference\b[^>]*>", re.IGNORECASE)
+GENERATOR_INCLUDE_RE = re.compile(r'\bInclude\s*=\s*"([^"]+)"', re.IGNORECASE)
+GENERATOR_VERSION_RE = re.compile(r'\bVersion\s*=\s*"([^"]+)"', re.IGNORECASE)
+
+
+def scan_generator_pins(csproj: Path) -> tuple[list[Pin], list[Problem]]:
+    """The pins write-nuget-deps.mjs copies into the release zip's nuget-deps.json."""
+    text = csproj.read_text(encoding="utf-8-sig")
+    pins: list[Pin] = []
+    problems: list[Problem] = []
+    for match in GENERATOR_REFERENCE_RE.finditer(text):
+        package, version = GENERATOR_INCLUDE_RE.search(match.group(0)), GENERATOR_VERSION_RE.search(match.group(0))
+        if not package or not version:
+            continue
+        line = text.count("\n", 0, match.start()) + 1
+        if PROPERTY_RE.search(version.group(1)):
+            problems.append(Problem(csproj, line, f"{package.group(1)}: nuget-deps.json would ship the literal "
+                                                  f"version '{version.group(1)}' (write-nuget-deps.mjs does not evaluate MSBuild)"))
+        else:
+            pins.append(Pin("nuget", package.group(1), version.group(1), csproj, line))
+    return pins, problems
+
+
+def extension_projects(root: Path, problems: list[Problem]) -> list[Path]:
+    """The extension packages release_extensions.yml packs: each extension.json `project` (plus any
+    `extensions/*/src/*/*.csproj`, so an unlisted one is scanned too)."""
+    projects = set(root.glob("extensions/*/src/*/*.csproj"))
+    for descriptor in sorted(root.glob("extensions/*/extension.json")):
+        project = json.loads(descriptor.read_text(encoding="utf-8-sig")).get("project")
+        if project and require(root / project, problems):
+            projects.add(root / project)
+    return sorted(projects)
 
 
 def collect(root: Path) -> tuple[list[Pin], list[Problem]]:
     """Every dependency pin Godot-MCP's core and extension releases ship."""
     problems: list[Problem] = []
     core = root / "Godot-MCP.csproj"
-    projects = ([core] if require(core, problems) else []) + sorted(root.glob("extensions/*/src/*/*.csproj"))
+    projects = ([core] if require(core, problems) else []) + extension_projects(root, problems)
     pins, msbuild_problems = scan_msbuild(projects, root)
     problems += msbuild_problems + scan_nuget_configs(projects, root)
+    if core.is_file():
+        generator_pins, generator_problems = scan_generator_pins(core)
+        pins += generator_pins
+        problems += generator_problems
     addon_deps = root / "cli" / "src" / "utils" / "addon-deps.ts"
     if require(addon_deps, problems):
-        pins += scan_regex_pins(addon_deps, ADDON_DEPS_RE)
+        fallback = scan_regex_pins(addon_deps, ADDON_DEPS_RE)
+        if not fallback:
+            problems.append(Problem(addon_deps, 1, "no `{ id: '...', version: '...' }` pins found "
+                                                   "(update scripts/release_dependency_guard.py)"))
+        pins += fallback
     cli_package = root / "cli" / "package.json"
     if require(cli_package, problems):
         npm_pins, npm_problems = scan_package_json(cli_package)
@@ -398,6 +457,7 @@ def collect(root: Path) -> tuple[list[Pin], list[Problem]]:
 
 def run(root: Path, registry: NuGetRegistry) -> tuple[list[Pin], list[Problem]]:
     pins, problems = collect(root)
+    pins = list(dict.fromkeys(pins))
     problems += check_pins(pins, registry)
     unique = sorted(set(problems), key=lambda p: (rel(p.file, root), p.line, p.message))
     return pins, unique
