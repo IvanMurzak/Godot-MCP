@@ -1,0 +1,46 @@
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotEnumNames.cs
+  s_7bc72ecaebd05d::t_7f08ece128f5b7 59-62,69-94
+addons/godot_mcp/Editor/Rql/Adapters/Object/Godot_GodotObject_Adapter.cs
+  s_7bc72ecaebd05d::t_8c7f724e7c8a7a 199
+  s_7bc72ecaebd05d::t_2fe4ccb0f5d5a4 70
+  s_7bc72ecaebd05d::t_5cc61b011a4a04 215-218
+  s_7bc72ecaebd05d::t_4479d49a3018a3 150,156-157
+  s_7bc72ecaebd05d::t_cd9ec67f51bdfa 89-91,94-96,102-110,114,116,118-120,126-127,130
+  s_7bc72ecaebd05d::t_df98a0ff75d040 121-125
+  s_7bc72ecaebd05d::t_a0d065fb2b1138 186-188
+scripts/smoke_rql_values.py
+  s_7bc72ecaebd05d::t_5c9d6a569c6bc8 119-120,123-124
+  s_7bc72ecaebd05d::t_7479d850cc6419 138
+  s_7bc72ecaebd05d::t_8c141f51b231e4 104-106
+  s_7bc72ecaebd05d::t_9903e3e5e6bc7e 78-83
+  s_7bc72ecaebd05d::t_c7342545db0c8c 18,88,116
+  s_7bc72ecaebd05d::t_f555f2023b131f 95-96
+  s_7bc72ecaebd05d::t_2bc0d930584e9e 108-110
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotCallArguments.cs
+  s_7bc72ecaebd05d::t_85ae5fd228d7ef 59,65-66
+Godot-MCP.Tests/RqlEnumNamesTests.cs
+  s_7bc72ecaebd05d::t_c5fc684d39eb89 23-29,64-65,73
+  s_7bc72ecaebd05d::t_e218d4fbe8d3c1 48-49,56-63,66-72
+  s_7bc72ecaebd05d::t_b8e6ac8fcf6669 100
+  s_7bc72ecaebd05d::t_c0e103beb8fb85 40
+docs/rql.md
+  s_7bc72ecaebd05d::t_a15184e4db294d 94-96
+addons/godot_mcp/Editor/Rql/RqlGodot.cs
+  s_7bc72ecaebd05d::t_11bbd51b0ac8d7 165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b77a79fcbcf36bad8ddd828d9c03e2ec00be508b",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
