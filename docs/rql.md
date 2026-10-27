@@ -88,8 +88,14 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   uses, the edited scene's unsaved nodes included (`DeleteResource(path, true)` deletes anyway); moving or deleting
   `res://project.godot`, `res://.godot/` or this addon; `CallMethod` on a method of a non-`@tool` script (it does not run
   in the editor), with the wrong number of arguments or with an argument that does not convert to the type the method
-  declares; a multi-target `Connect` where one target lacks the signal or method. Paths stay inside the edited scene: the
-  root's `parent` is null and `godot.find("..")` finds nothing (a miss suggests similar node paths).
+  declares; a multi-target `Connect` where one target lacks the signal or method; `Free`, `Reparent`, `MoveChild`,
+  `Duplicate` or a rename of a node that belongs to a scene instance (Godot saves only property overrides of those; the
+  Scene dock refuses the same edits). Paths stay inside the edited scene: the root's `parent` is null and
+  `godot.find("..")` finds nothing (a miss suggests similar node paths).
+- **Scene instances**: `InstantiateScene` instances like the Scene dock (`GenEditState.Instance`), so the `.tscn` stores only
+  the overrides and the instance keeps following its scene file (type, script, groups). A change to a node inside an
+  instance (a property, a group, a child added to it) turns on that instance's Editable Children, undoably, because Godot
+  saves changes inside an instance only then.
 - **Values as an agent writes them**: `CallMethod` converts each argument like a `set` to the type the Godot method
   declares (`"(0, 5)"` for a Vector2i, `"res://…"` for a resource, an enum by name:
   `CallMethod("set_anchors_preset", ["FullRect"])`); an enum-hinted int property takes its inspector label

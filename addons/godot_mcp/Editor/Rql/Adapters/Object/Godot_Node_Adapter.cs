@@ -35,7 +35,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             // The C# Name is a StringName; the virtual name below reads and writes it as text.
             m.Hide("Name");
             m.Add<string>("name", n => n.Name.ToString(), (n, v) => Rename(n, v),
-                    validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, name => SiblingHas(n, name)), description: "node name")
+                    validate: (n, v) => v == n.Name.ToString() ? null : RqlGodot.ForeignRenameProblem(n) ?? NodeNameRules.Problem(v, name => SiblingHas(n, name)),
+                    description: "node name")
              .Add<string>("path", n => RqlGodot.PathOf(n), description: "path below the edited scene root (\".\" = the root)")
              .Add<Node?>("parent", n => n == RqlGodot.EditedRoot() ? null : n.GetParent(),
                     description: "parent node, null for the scene root (read-only: move a node with call Reparent(node))")

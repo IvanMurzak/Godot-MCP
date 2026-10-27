@@ -182,7 +182,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
-            "Object literals build values: set Position = {x: 1, y: 2, z: 3}. At most 20 targets per call.\n\n" +
+            "Object literals build values: set Position = {x: 1, y: 2, z: 3}. At most 20 targets per call. Nodes inside a scene " +
+            "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
+            "or moved in their own scene.\n\n" +
             QuerySyntaxShort;
 
         /// <summary>
