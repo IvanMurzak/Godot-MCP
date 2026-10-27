@@ -377,12 +377,35 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Refusal_RejectsNewWork()
+        public void Refusal_RejectsNewAwaitedWork_AndDropsFireAndForgetWork()
         {
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             MainThreadDispatcher.RefusalReason = AssemblyReloadGate.UnloadingMessage;
 
-            var ex = Assert.Throws<InvalidOperationException>(() => MainThreadDispatcher.Enqueue(() => { }));
+            var ex = Assert.Throws<InvalidOperationException>(() => MainThreadDispatcher.Enqueue(() => { }, _ => { }));
             Assert.Equal(AssemblyReloadGate.UnloadingMessage, ex.Message);
+
+            // Callers that checked "a dispatcher is live" before a fire-and-forget Enqueue must not get a throw (on a
+            // thread-pool callback that would terminate the editor).
+            var ran = false;
+            MainThreadDispatcher.Enqueue(() => ran = true);
+            MainThreadDispatcher.FlushQueued();
+            Assert.False(ran);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+        }
+
+        [Fact]
+        public void AwaitedWork_IsMarkedWhileItRuns()
+        {
+            bool? insideAwaited = null, insidePlain = null;
+            MainThreadDispatcher.Enqueue(() => insideAwaited = MainThreadDispatcher.IsRunningAwaitedWork, _ => { });
+            MainThreadDispatcher.Enqueue(() => insidePlain = MainThreadDispatcher.IsRunningAwaitedWork);
+
+            MainThreadDispatcher.FlushQueued();
+
+            Assert.True(insideAwaited);
+            Assert.False(insidePlain);
+            Assert.False(MainThreadDispatcher.IsRunningAwaitedWork);
         }
 
         [Fact]

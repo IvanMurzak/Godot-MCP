@@ -27,7 +27,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScriptBuildToolId,
             Title = "Script / Build"
         )]
-        [Description("Build the project's C# (dotnet build in Debug, what the editor's Build button runs) so C# scripts " +
+        [Description("Build the project's C# (dotnet build, Debug configuration like the editor's builds) so C# scripts " +
             "written with '" + ScriptCreateToolId + "' / '" + ScriptUpdateToolId + "' load: new [GlobalClass] types, changed " +
             "node scripts. The build runs in the background; when it succeeds Godot reloads the C# assembly and the plugin " +
             "reconnects, and the result (the warning count, or the compiler errors) is delivered after that reload through " +

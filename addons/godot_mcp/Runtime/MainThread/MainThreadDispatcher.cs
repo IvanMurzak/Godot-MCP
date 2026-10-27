@@ -62,9 +62,9 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         static volatile string? _refusalReason;
 
         /// <summary>
-        /// When set, no queued work runs any more: <see cref="Enqueue(Action, Action{Exception})"/> throws
-        /// <see cref="InvalidOperationException"/> with this message, and draining fails each queued awaiter with it (work
-        /// without an awaiter is dropped). The editor sets it when the C# assembly starts unloading, so a tool body queued
+        /// When set, no queued work runs any more: awaited work (<see cref="Enqueue(Action, Action{Exception})"/> with a
+        /// refusal callback) is refused with an <see cref="InvalidOperationException"/> carrying this message, at enqueue or
+        /// when drained, and fire-and-forget work is dropped (its callers expect a live dispatcher, not a throw). The editor sets it when the C# assembly starts unloading, so a tool body queued
         /// by a call in flight never runs inside the unload and its blocked caller returns at once. Null = run as usual.
         /// </summary>
         public static string? RefusalReason
@@ -73,8 +73,13 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             set => _refusalReason = value;
         }
 
-        /// <summary>True while a queued action runs (main thread): code reached from it is nested inside a tool body.</summary>
-        public static bool IsRunningAction => _draining;
+        /// <summary>
+        /// True while queued AWAITED work runs on the main thread (a tool call's body, through <c>GodotMainThread</c>): code
+        /// reached from it is nested inside that call.
+        /// </summary>
+        public static bool IsRunningAwaitedWork => _runningAwaited > 0;
+
+        static int _runningAwaited;
 
         /// <summary>
         /// The currently-installed dispatcher, or <c>null</c> when none is in the tree. <b>Marked
@@ -194,7 +199,11 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
                 throw new ArgumentNullException(nameof(action));
 
             if (_refusalReason is { } reason)
-                throw new InvalidOperationException(reason);
+            {
+                if (refuse != null)
+                    throw new InvalidOperationException(reason);
+                return;
+            }
 
             // No dispatcher currently in the tree: buffer if one has never booted yet (it will arrive and
             // drain — the #169 early-boot window), but fail fast if one booted and was torn down (nothing
@@ -370,8 +379,14 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             {
                 if (_refusalReason is { } reason)
                     item.Refuse?.Invoke(new InvalidOperationException(reason));
-                else
+                else if (item.Refuse == null)
                     item.Run.Invoke();
+                else
+                {
+                    _runningAwaited++;
+                    try { item.Run.Invoke(); }
+                    finally { _runningAwaited--; }
+                }
             }
             catch (Exception ex)
             {
@@ -443,6 +458,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             _instancePresentForTests = false;
             _hasEverEntered = false;
             _refusalReason = null;
+            _runningAwaited = 0;
             HoldWhile = null;
             _heldSinceMs = -1;
             MainThreadId = -1;

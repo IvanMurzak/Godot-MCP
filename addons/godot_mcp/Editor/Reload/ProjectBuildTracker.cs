@@ -12,6 +12,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.McpPlugin.Common.Model;
@@ -52,6 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         bool _processLookedUp;
         BuildOutcome? _outcome;
         ResponseCallTool? _result;
+        Task? _sending;
         DateTime? _finishedAt;
         DateTime? _goneAt;
         double _sincePoll = PollSeconds;
@@ -69,8 +71,10 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         /// <summary>Start a build for <paramref name="requestId"/> (main thread). Returns the "processing" message.</summary>
         public string Start(string requestId)
         {
-            if (_record != null && FindProcess(_record) is { HasExited: false })
-                throw new InvalidOperationException("A C# build started by script-build is still running; its result arrives when it ends.");
+            // One build at a time, and the previous one's result is delivered first (its request is still waiting for it).
+            if (_record != null)
+                throw new InvalidOperationException("The previous script-build has not delivered its result yet (its build is running, or " +
+                                                    "Godot is reloading the C# assembly); retry once it has.");
 
             var csproj = new Extensions.ConsumerProjectFile().Path
                 ?? throw new InvalidOperationException("This project has no C# project (.csproj) to build.");
@@ -85,17 +89,17 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            // What the editor's Build button builds (Debug), with no console output (it would go to the editor's stdout),
-            // a file log the tracker reads, and no build servers outliving the build.
+            // The editor's Debug configuration, with no console output (it would go to the editor's stdout), a file log the
+            // tracker reads (in English: its summary line is matched), and no build servers outliving the build. Godot's own
+            // builds drop a Developer Command Prompt's Platform variable too: it would change the output folder.
+            start.Environment["DOTNET_CLI_UI_LANGUAGE"] = "en";
+            start.Environment.Remove("Platform");
             foreach (var arg in new[] { "build", csproj, "-c", "Debug", "-nologo", "-noConsoleLogger", "--disable-build-servers",
                          $"-flp:LogFile={log};Verbosity=minimal;Summary" })
                 start.ArgumentList.Add(arg);
             var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start dotnet (is the .NET SDK installed and on PATH?).");
 
-            ResetBuild();
-            _process = process;
-            _processLookedUp = true;
-            _record = new BuildRecord
+            var record = new BuildRecord
             {
                 RequestId = requestId,
                 ProcessId = process.Id,
@@ -105,7 +109,18 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 LoadId = LoadId,
             };
-            File.WriteAllText(RecordPath, _record.Serialize());
+            try { File.WriteAllText(RecordPath, record.Serialize()); }
+            catch (Exception)
+            {
+                // Without its record the result could not be delivered after the reload: do not build at all.
+                try { process.Kill(entireProcessTree: true); } catch (Exception) { /* already gone */ }
+                process.Dispose();
+                throw;
+            }
+            ResetBuild();
+            _record = record;
+            _process = process;
+            _processLookedUp = true;
             GodotMcpLog.Info($"[Godot-MCP] script-build: dotnet build started (pid {process.Id}).");
             return "Building the project's C# (dotnet build) in the background. When it succeeds Godot reloads the C# assembly and the " +
                    "plugin reconnects; the result (the warning count, or the compiler errors) is delivered then. Tool calls made " +
@@ -123,19 +138,34 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             _sincePoll = 0;
             try
             {
-                _result ??= Evaluate(record);
+                if (_sending != null)
+                {
+                    // Polled, not continued: no callback of this assembly runs on a thread-pool thread.
+                    if (!_sending.IsCompleted)
+                        return;
+                    if (_sending.Status == TaskStatus.RanToCompletion)
+                    {
+                        GodotMcpLog.Info($"[Godot-MCP] script-build: result delivered ({_result?.Status}).");
+                        Forget();
+                        return;
+                    }
+                    _sending = null; // the send failed (connection dropped): send again once connected
+                }
+
+                try { _result ??= Evaluate(record); }
+                catch (Exception ex) { _result = ResponseCallTool.Error($"Tracking the C# build failed: {ex.Message}", ResponseErrorKind.Internal); }
                 if (_result == null || connection?.ConnectionStatus != ConnectionStatus.Connected || connection.Plugin?.McpManagerHub is not { } hub)
                     return;
-
-                var result = _result.SetRequestID(record.RequestId);
-                _ = hub.NotifyToolRequestCompleted(new RequestToolCompletedData { RequestId = record.RequestId, Result = result });
-                GodotMcpLog.Info($"[Godot-MCP] script-build: result delivered ({result.Status}).");
-                Forget();
+                _sending = hub.NotifyToolRequestCompleted(new RequestToolCompletedData
+                {
+                    RequestId = record.RequestId,
+                    Result = _result.SetRequestID(record.RequestId),
+                });
             }
             catch (Exception ex)
             {
-                GodotMcpLog.Error($"[Godot-MCP] script-build: tracking the build failed: {ex.Message}");
-                Forget();
+                GodotMcpLog.Error($"[Godot-MCP] script-build: delivering the result failed: {ex.Message}");
+                _sending = null;
             }
         }
 
@@ -214,6 +244,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             _record = null;
             _outcome = null;
             _result = null;
+            _sending = null;
             _finishedAt = null;
             _goneAt = null;
         }

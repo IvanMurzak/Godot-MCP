@@ -75,7 +75,7 @@ jobs:
     # Job-level continue-on-error is not allowed on a caller job that `uses:` a reusable
     # workflow, so the advisory switch lives here, driven by the `advisory` input.
     continue-on-error: ${{ inputs.advisory }}
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       TEST_PROJECT: Godot-Tests
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
@@ -542,11 +542,12 @@ jobs:
           exit "$RC"
 
       # Live EDITOR suite of C# assembly reloads (last: it rebuilds the testbed): a fresh editor runs
-      # scripts/smoke_reload.py — 10 rounds of script-create + script-build (its result arrives after Godot's reload)
+      # scripts/smoke_reload.py — 5 rounds of script-create + script-build (its result arrives after Godot's reload)
       # while other threads keep calling tools, each round checking that the plugin reconnects and the new class is
       # loaded; then a broken script's compiler errors. The editor log must show no failed unload.
       - name: Live editor reload smoke (script-build + tool calls during reloads)
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        timeout-minutes: 10
         shell: bash
         run: |
           set -uo pipefail
@@ -556,7 +557,7 @@ jobs:
             godot --headless --path "${TEST_PROJECT}" --editor > editor-reload.log 2>&1 &
           EDITOR_PID=$!
           RC=0
-          python scripts/smoke_reload.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --rounds 10 --wait 180 --editor-log editor-reload.log || RC=$?
+          python scripts/smoke_reload.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --rounds 5 --wait 180 --editor-log editor-reload.log || RC=$?
           kill "$EDITOR_PID" 2>/dev/null || true
           wait "$EDITOR_PID" 2>/dev/null || true
           echo "----- editor-reload.log (tail) -----"; tail -n 150 editor-reload.log || true

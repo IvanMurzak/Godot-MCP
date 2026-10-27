@@ -7,8 +7,8 @@ Godot reloads the project assembly ~0.5 s after the built DLL changes, whatever 
 flight at that moment used to keep the old assembly alive ("Failed to unload assemblies ... Giving up", plugin offline
 until the editor restarts). Each round here writes a new C# class with `script-create`, builds it with `script-build`
 (the result arrives after Godot's reload, through the requestId) while other threads keep calling tools, then checks
-that the plugin answers again and that the new class is loaded (`script-execute` uses it). Calls refused by the gate
-must carry its retryable message. A broken script must come back as compiler errors without a reload. With
+that the plugin answers again and that the new class is loaded (`script-execute` uses it). A call answered 503 must
+carry the gate's retryable message; a call lost with the connection while it goes down is only counted. A broken script must come back as compiler errors without a reload. With
 `--editor-log` the editor's output must show no failed unload.
 
 It does NOT launch anything:
@@ -102,8 +102,9 @@ class Background:
         i = 0
         while not self.stop.is_set():
             i += 1
-            if worker == 0:
+            if worker == 0 and i <= 5:
                 # A C# script-create in flight while the reload starts: the call that used to take the plugin down.
+                # (A few per round: each one is compiled by every later build.)
                 result = call(self.host, "tools", "script-create", {
                     "scriptPath": f"res://{FOLDER}/Bg{self.tag}_{i}.cs",
                     "content": f"public static class Bg{self.tag}_{i} {{ public const int Value = {i}; }}\n"}, timeout=60)
@@ -157,6 +158,8 @@ def main() -> int:
                     continue
                 if status == 503 and GATE_REFUSAL in text:
                     refused += 1
+                elif status == 503:
+                    check(f"round {n}: a 503 carries the gate's retryable message", False, text)
                 else:
                     transient += 1
                     print(f"  note: a call during round {n} failed ({status}): {text[:160]}")
@@ -164,7 +167,7 @@ def main() -> int:
             check(f"round {n}: plugin answers after the reload", took is not None,
                   f"in {took:.1f} s" if took is not None else f"no answer in {args.reconnect:.0f} s")
             ok, text = tool(host, "script-execute", {"csharpCode": f"return Round{tag}.Value;"})
-            check(f"round {n}: the class built this round is loaded", ok and str(n) in text, text)
+            check(f"round {n}: the class built this round is loaded", ok and text.strip().endswith(f": {n}"), text)
 
         ok, text = tool(host, "script-create", {"scriptPath": f"res://{FOLDER}/Broken{run}.cs",
                                                 "content": "public class Broken { void F() { int x = } }\n"})

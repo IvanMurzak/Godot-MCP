@@ -41,6 +41,9 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         /// <summary>The main thread waits at most this long at teardown for the calls in flight to return.</summary>
         static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(3);
 
+        /// <summary>How long the drain lets the answers of the calls it waited for leave before the connection stops.</summary>
+        const int AnswerSendMs = 150;
+
         const string WatcherNodeName = "HotReloadAssemblyWatcher";
 
         Timer? _watcherTimer;
@@ -148,22 +151,23 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         }
 
         /// <summary>
-        /// Teardown, main thread, before the connection goes away: refuse every new call and wait (bounded) until the calls
-        /// in flight have returned their answers. On a <paramref name="reload"/> the queued main-thread bodies are refused
-        /// too: Godot has already detached the dispatcher's script, so nothing else would ever settle them. (On a plain
-        /// shutdown they still run, and the dispatcher's own <c>_ExitTree</c> drains the rest as before.) A call whose body
-        /// is running below this teardown on the main thread (Godot started the reload from inside it) cannot return
-        /// before it; it is not waited for, and <see cref="AssemblyReloadGate.Drained"/> cleans up after it instead.
+        /// Teardown, main thread, before the connection goes away: refuse every new call. On a <paramref name="reload"/>
+        /// also refuse the queued main-thread bodies (Godot has already detached the dispatcher's script, so nothing else
+        /// would ever settle them) and wait, bounded, until the calls in flight have returned their answers. A plain
+        /// shutdown (editor closing, plugin disabled) only refuses new calls: the dispatcher's own <c>_ExitTree</c> drains
+        /// the queue as before. A call whose body is running below this teardown on the main thread (Godot started the
+        /// reload from inside it) cannot return before it; it is not waited for, and
+        /// <see cref="AssemblyReloadGate.Drained"/> cleans up after it instead.
         /// </summary>
         public void DrainForUnload(Func<int> inFlight, bool reload)
         {
-            var reason = reload ? AssemblyReloadGate.UnloadingMessage : AssemblyReloadGate.ShutdownMessage;
-            Gate.BeginUnload(reason);
-            if (reload)
-                MainThreadDispatcher.RefusalReason = reason;
+            Gate.BeginUnload(reload ? AssemblyReloadGate.UnloadingMessage : AssemblyReloadGate.ShutdownMessage);
             SetHold(false);
+            if (!reload)
+                return;
+            MainThreadDispatcher.RefusalReason = AssemblyReloadGate.UnloadingMessage;
 
-            var nested = MainThreadDispatcher.IsRunningAction ? 1 : 0;
+            var nested = MainThreadDispatcher.IsRunningAwaitedWork ? 1 : 0;
             // McpPlugin's count also covers system tools, prompts and resources, which are not gated.
             int Running() => Math.Max(inFlight(), Gate.InFlight) - nested;
             var initial = Running();
@@ -177,6 +181,9 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                     System.Threading.Thread.Sleep(10);
             }
             MainThreadDispatcher.FlushQueued();
+            // The count drops when an answer is ready, before SignalR has sent it: give the refusals a moment to go out.
+            if (initial > 0 && running <= 0)
+                System.Threading.Thread.Sleep(AnswerSendMs);
             if (nested > 0)
                 GodotMcpLog.Warning("[Godot-MCP] the C# assembly started unloading inside a running tool call; Godot's first unload attempt may fail and is retried once it returns.");
             if (running > 0)

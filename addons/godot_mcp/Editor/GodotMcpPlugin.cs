@@ -222,10 +222,18 @@ namespace com.IvanMurzak.Godot.MCP
 
             // The reload gate before the connection: BootMcp wraps the tools in it. Its Drained hook clears the caches a
             // tool call that outlived the teardown filled again (see Teardown), so Godot's retried unload can succeed.
-            _reloadGate = ReloadGateDriver.Install();
-            _reloadGate.Gate.Drained = ClearReflectionCaches;
-            _buildTracker = new ProjectBuildTracker(_reloadGate.DllPath);
-            ProjectBuildTracker.Current = _buildTracker;
+            try
+            {
+                _reloadGate = ReloadGateDriver.Install();
+                _reloadGate.Gate.Drained = ClearReflectionCaches;
+                _buildTracker = new ProjectBuildTracker(_reloadGate.DllPath);
+                ProjectBuildTracker.Current = _buildTracker;
+            }
+            catch (System.Exception ex)
+            {
+                // The gate is a safeguard: without it the editor still works, as it did before the gate existed.
+                LogError($"[Godot-MCP] the C# reload gate could not start: {ex.Message}");
+            }
 
             Log("[Godot-MCP] plugin loaded");
 
