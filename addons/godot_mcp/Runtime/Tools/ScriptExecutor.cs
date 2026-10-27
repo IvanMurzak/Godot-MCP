@@ -158,12 +158,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>The serialized result and its compact text (null for a scalar), made before the snippet unloads.</summary>
-        sealed class ConvertedValue
-        {
-            public ConvertedValue(SerializedMember member, string? text) { Member = member; Text = text; }
-            public SerializedMember Member { get; }
-            public string? Text { get; }
-        }
+        sealed record ConvertedValue(SerializedMember Member, string? Text);
 
         /// <summary>Runs on the main thread before the snippet unloads: nothing of the snippet may outlive this.</summary>
         static object? Serialize(object? value)
@@ -172,7 +167,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             var type = value.GetType();
             if (value is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
-                return new ConvertedValue(Text(type, $"<freed {type.Name}>"), null);
+                return new ConvertedValue(Text(type, Freed(godotObject)), null);
             // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items.
             if (ScriptExecuteSource.IsLazySequence(type))
                 value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, AsItem);
@@ -192,9 +187,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string? text;
             try { text = ScriptResultText.Format(value, EngineValueText); }
             catch (Exception) { return null; } // a member that cannot be read this way: the serialized form stays
-            return text == null || text.Length <= ScriptExecuteSource.MaxValueChars
-                ? text
-                : OutputLimits.Clip(text, ScriptExecuteSource.MaxValueChars, "return a count, a summary or a slice");
+            return text == null ? null : ScriptExecuteSource.CapText(text);
         }
 
         // Nodes and resources the way rql-query prints them (Node3D#123(Geometry/Floor), PlaneMesh#45(res://m.tres)),
@@ -204,9 +197,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             switch (value)
             {
                 case Variant v:
-                    return ScriptResultText.Value(v.Obj, EngineValueText, 0, quoteStrings: true);
+                    return ScriptResultText.Value(v.Obj, EngineValueText, 0);
                 case GodotObject o when !GodotObject.IsInstanceValid(o):
-                    return $"<freed {o.GetType().Name}>";
+                    return Freed(o);
                 case Node n:
                     return $"{n.GetClass()}#{n.GetInstanceId()}({(n.Owner != null && n.Owner.IsAncestorOf(n) ? n.Owner.GetPathTo(n).ToString() : n.Name.ToString())})";
                 case Resource r:
@@ -216,14 +209,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 case StringName or NodePath:
                     return value.ToString();
             }
+            // Every Godot struct (Vector3, Color, Basis …) by its text, not only the IsGodotTextValue ones: here the text is
+            // the whole output, while the serialized form keeps the struct's members where it has a converter.
             var type = value.GetType();
             return type.IsValueType && type.Namespace == "Godot" ? value.ToString() : null;
         }
 
+        static string Freed(GodotObject o) => $"<freed {o.GetType().Name}>";
+
         // An item of an enumerated sequence: the same text rules as a top-level value (a freed object, a Godot struct).
         static object? AsItem(object? item) => item switch
         {
-            GodotObject o when !GodotObject.IsInstanceValid(o) => $"<freed {o.GetType().Name}>",
+            GodotObject o when !GodotObject.IsInstanceValid(o) => Freed(o),
             not null when ScriptExecuteSource.IsGodotTextValue(item.GetType()) => item.ToString(),
             _ => item,
         };

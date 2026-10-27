@@ -134,6 +134,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (efs != null && !IsKnownFolder(efs, resDir)) FullScan();
         }
 
+        /// <summary>Whether the editor filesystem has scanned the folder <paramref name="resDir"/>. Main-thread only.</summary>
+        internal static bool IsKnownFolder(string resDir) =>
+            EditorInterface.Singleton.GetResourceFilesystem() is { } efs && IsKnownFolder(efs, resDir);
+
         static bool IsKnownFolder(EditorFileSystem efs, string resDir) =>
             efs.GetFilesystemPath(Tools.ResPathNormalizer.NormalizeDir(resDir)) != null;
 

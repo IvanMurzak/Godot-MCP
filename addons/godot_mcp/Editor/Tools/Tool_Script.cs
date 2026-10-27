@@ -82,14 +82,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // consistent state. We do NOT block on the actual MSBuild here — Godot rebuilds the C# assembly
             // out-of-band (on focus / explicit Build) and a headless editor may never run it; settling the
             // filesystem scan is the bounded, reliable signal we can observe.
-            if (removed || efs.GetFilesystemPath(ResPathNormalizer.ParentDir(resPath)) == null)
-            {
-                efs.Scan(); // a removal, or a file in a folder the editor never scanned (ReimportFiles would not see it)
-            }
-            else
-            {
+            if (removed)
+                efs.Scan();
+            else if (Editor.Rql.RqlReimport.IsKnownFolder(ResPathNormalizer.ParentDir(resPath)))
                 efs.ReimportFiles(new[] { resPath });
-            }
+            else
+                Editor.Rql.RqlReimport.Register(resPath); // a folder the editor never scanned: ReimportFiles would not see the file
 
             var waits = 0;
             while (efs.IsScanning() && waits < SettleMaxWaits)

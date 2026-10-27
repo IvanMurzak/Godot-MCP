@@ -36,14 +36,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             finally { root.Free(); }
             RqlReimport.Register(path);
-            // A scene of that path may still be open in a background tab (its file was deleted while another scene was
-            // edited): opening the path would switch to that tab and show the old nodes. The cached PackedScene is
-            // replaced by the new file first, or the reload would read the old one again.
-            if (Array.IndexOf(Ei.GetOpenScenes(), path) >= 0)
-            {
-                ResourceLoader.Load(path, null, ResourceLoader.CacheMode.Replace);
-                Ei.ReloadSceneFromPath(path);
-            }
+            EditorToolGuards.ReloadReplacedOpenScene(path);
             return OpenScene(path);
         }
 

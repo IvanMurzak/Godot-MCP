@@ -65,20 +65,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         internal static void Route(GodotLogType logType, string message)
         {
-            // The framework's echo of every tool call and its response is printed to the Output but not collected: the
-            // agent already has both, and in the console source / console-get-logs they buried real errors (and pushed
-            // them out of the bounded buffer) after a few hundred calls.
-            var collect = !GodotMcpLogger.IsToolTraffic(message);
             switch (logType)
             {
                 case GodotLogType.Error:
-                    Emit(logType, message, () => GD.PushError(message), collect);
+                    Emit(logType, message, () => GD.PushError(message));
                     break;
                 case GodotLogType.Warning:
-                    Emit(logType, message, () => GD.PushWarning(message), collect);
+                    Emit(logType, message, () => GD.PushWarning(message));
                     break;
                 default:
-                    Emit(logType, message, () => GD.Print(message), collect);
+                    Emit(logType, message, () => GD.Print(message));
                     break;
             }
         }
@@ -96,14 +92,17 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// editor-reload, and the collector append must never escape into a teardown / unload path). This
         /// internal try/catch is what lets every call site drop its own defensive wrapper.
         /// </summary>
-        static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
+        static void Emit(GodotLogType logType, string message, Action gd)
         {
             _emitting = true;
             try { gd(); }
             catch { /* GD may be unavailable mid editor-reload; swallow */ }
             finally { _emitting = false; }
 
-            if (!collect) return;
+            // The framework's echo of every tool call and its response is printed to the Output but not collected: the
+            // agent already has both, and in the console source / console-get-logs they buried real errors (and pushed
+            // them out of the bounded buffer) after a few hundred calls.
+            if (GodotMcpLogger.IsToolTraffic(message)) return;
             try { GodotLogCollector.Current?.Append(logType, message); }
             catch { /* a diagnostic must never throw */ }
         }

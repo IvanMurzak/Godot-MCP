@@ -44,48 +44,54 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static string? Format(object? value, Func<object, string?> special)
         {
             if (value == null || IsScalar(value.GetType())) return null;
-            return TypeName(value.GetType()) + ": " + Value(value, special, 0, quoteStrings: true);
+            return TypeName(value.GetType()) + ": " + Value(value, special, 0);
         }
 
         /// <summary>The value's text: collections as [..], maps and objects as {k: v}, tuples as (a, b).</summary>
-        public static string Value(object? value, Func<object, string?> special, int depth, bool quoteStrings)
+        public static string Value(object? value, Func<object, string?> special, int depth)
         {
             switch (value)
             {
                 case null: return "null";
-                case string s: return quoteStrings ? Quote(s) : s;
+                case string s: return Quote(s);
                 case bool b: return b ? "true" : "false";
-                case char c: return quoteStrings ? Quote(c.ToString()) : c.ToString();
+                case char c: return Quote(c.ToString());
                 case Enum e: return e.ToString();
                 case IFormattable f when IsNumber(value.GetType()): return f.ToString(null, CultureInfo.InvariantCulture);
             }
             if (special(value) is { } text) return text;
             if (depth >= MaxDepth) return "…";
             var type = value.GetType();
-            if (value is IDictionary map)
-                return "{" + Join(Entries(map).Select(kv => Key(kv.Key, special) + ": " + Value(kv.Value, special, depth + 1, true)), map.Count) + "}";
             if (value is ITuple tuple)
-                return "(" + string.Join(", ", Enumerable.Range(0, tuple.Length).Select(i => Value(tuple[i], special, depth + 1, true))) + ")";
+                return "(" + string.Join(", ", Enumerable.Range(0, tuple.Length).Select(i => Value(tuple[i], special, depth + 1))) + ")";
             if (value is IEnumerable items)
             {
-                // A generic-only map (IDictionary<K, V>, e.g. Godot.Collections.Dictionary) enumerates KeyValuePairs.
-                var isMap = type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
-                                                                             || i.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+                // A map enumerates DictionaryEntry (IDictionary) or KeyValuePair (IDictionary<K, V>, e.g. Godot.Collections.Dictionary).
+                var isMap = value is IDictionary || type.GetInterfaces().Any(i => i.IsGenericType
+                    && (i.GetGenericTypeDefinition() == typeof(IDictionary<,>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+                var known = value is ICollection collection ? collection.Count : (int?)null;
                 var list = new List<string>();
                 var count = 0;
                 foreach (var item in items)
                 {
-                    if (count++ < MaxItems)
-                        list.Add(isMap && item != null && KeyValue(item) is { } kv
-                            ? Key(kv.key ?? "null", special) + ": " + Value(kv.value, special, depth + 1, true)
-                            : Value(item, special, depth + 1, true));
-                    if (count > MaxItems * 100) break; // a huge or endless sequence: stop counting
+                    if (count++ >= MaxItems)
+                    {
+                        // The size is known: no need to walk the rest; a huge or endless sequence: stop counting.
+                        if (known != null || count > MaxItems * 100) break;
+                        continue;
+                    }
+                    list.Add(isMap && item != null && KeyValue(item) is { } kv
+                        ? Key(kv.key, special) + ": " + Value(kv.value, special, depth + 1)
+                        : Value(item, special, depth + 1));
                 }
-                return isMap ? "{" + Join(list, count) + "}" : "[" + Join(list, count) + "]";
+                var shown = string.Join(", ", list);
+                var total = known ?? count;
+                if (total > list.Count) shown += $", … ({total} items)";
+                return isMap ? "{" + shown + "}" : "[" + shown + "]";
             }
             var members = Members(type).ToList();
             if (members.Count == 0) return value.ToString() ?? type.Name;
-            return "{" + string.Join(", ", members.Select(m => m.Name + ": " + Value(Read(m, value), special, depth + 1, true))) + "}";
+            return "{" + string.Join(", ", members.Select(m => m.Name + ": " + Value(Read(m, value), special, depth + 1))) + "}";
         }
 
         /// <summary>A C#-style type name: <c>List&lt;Vector3&gt;</c>, <c>Dictionary&lt;string, int&gt;</c>, <c>int[]</c>, <c>anonymous</c>.</summary>
@@ -116,30 +122,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         static bool IsAnonymous(Type t) =>
             t.Name.Contains("AnonymousType", StringComparison.Ordinal) && t.IsDefined(typeof(CompilerGeneratedAttribute), false);
 
-        static IEnumerable<KeyValuePair<object, object?>> Entries(IDictionary map)
-        {
-            var i = 0;
-            foreach (DictionaryEntry e in map)
-            {
-                if (i++ >= MaxItems) yield break;
-                yield return new KeyValuePair<object, object?>(e.Key, e.Value);
-            }
-        }
-
-        static string Join(IEnumerable<string> shown, int total)
-        {
-            var list = shown.ToList();
-            var text = string.Join(", ", list);
-            return total > list.Count ? text + $", … ({total} items)" : text;
-        }
-
         // A key reads bare unless it could be confused with the separators.
-        static string Key(object key, Func<object, string?> special)
+        static string Key(object? key, Func<object, string?> special)
         {
-            var text = Value(key, special, MaxDepth - 1, quoteStrings: false);
-            return text.Length == 0 || text.IndexOfAny(new[] { ',', '{', '}', '[', ']', '"' }) >= 0 || text.Contains(": ", StringComparison.Ordinal)
+            var text = key is string or char ? key.ToString()! : Value(key, special, MaxDepth - 1);
+            return text.Length == 0 || text.IndexOfAny(KeySeparators) >= 0 || text.Contains(": ", StringComparison.Ordinal)
                 ? Quote(text) : text;
         }
+
+        static readonly char[] KeySeparators = { ',', '{', '}', '[', ']', '"' };
 
         static string Quote(string s)
         {
@@ -166,9 +157,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 .Cast<MemberInfo>()
                 .Concat(type.GetFields(BindingFlags.Public | BindingFlags.Instance));
 
-        // The Key and Value of a KeyValuePair<K, V> (any K, V), or null for another item.
+        // The Key and Value of a DictionaryEntry or a KeyValuePair<K, V> (any K, V), or null for another item.
         static (object? key, object? value)? KeyValue(object item)
         {
+            if (item is DictionaryEntry e) return (e.Key, e.Value);
             var t = item.GetType();
             if (!t.IsGenericType || t.GetGenericTypeDefinition() != typeof(KeyValuePair<,>)) return null;
             return (t.GetProperty("Key")!.GetValue(item), t.GetProperty("Value")!.GetValue(item));

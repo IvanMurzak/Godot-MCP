@@ -86,6 +86,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         internal const string SkillParameters =
             "## Parameters\n\n" +
             "Parameters become the snippet's variables (or the method's arguments, in order); each has `name`, `typeName` and a value.";
+        /// <summary>The csharpCode description after the tool's snippet example (editor and in-game tools).</summary>
+        internal const string CodeDescriptionTail =
+            " (System, LINQ and Godot are imported; the last expression is the result, so no ';' after it). " +
+            "Full: 'using Godot;\\npublic class Script { public static int Main() { return 42; } }' (full code brings its own usings).";
         internal const string ClassNameDescription = "Full mode: the class whose static method runs (namespace-qualified or not).";
         internal const string MethodNameDescription = "Full mode: the static method to run.";
         internal const string ParametersDescription = "Parameters, each with 'name' and 'typeName': the snippet's variables or the method's arguments in order. " +
@@ -179,10 +183,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 try { full = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
                 catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
             }
-            return full.Length <= MaxValueChars
-                ? member
-                : TextMember(member.name, member.typeName, OutputLimits.Clip(full, MaxValueChars, "return a count, a summary or a slice"));
+            return full.Length <= MaxValueChars ? member : TextMember(member.name, member.typeName, CapText(full));
         }
+
+        /// <summary><paramref name="text"/>, clipped to <see cref="MaxValueChars"/> the way Code-Exec clips its output.</summary>
+        public static string CapText(string text) =>
+            text.Length <= MaxValueChars ? text : OutputLimits.Clip(text, MaxValueChars, "return a count, a summary or a slice");
 
         /// <summary>A result member holding <paramref name="text"/> as its value.</summary>
         public static SerializedMember TextMember(string? name, string typeName, string? text) =>
