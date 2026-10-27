@@ -9,6 +9,7 @@ Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
+import re
 import secrets
 
 from smoke_rql_lib import check, must, mutate, q, query, tool
@@ -42,7 +43,13 @@ def console(host: str) -> None:
     must("C1 an engine error", tool(host, "script-execute", {"csharpCode": f'GD.PushError("feedback-probe-{tag}"); 1'}))
     text = must("C1 recent console", query(host, "console | sort Sequence desc | first 200 | select LogType Message"))
     lacks("C1 no tool-call echo", text, "McpToolManager: Run tool", "Response to AI", f"NoSuchNode{tag}")
-    check("C1 the engine error once", text.count(f"feedback-probe-{tag}") == 1, text)
+    # An engine error reaches the console through the engine logger (OS.AddLogger, Godot 4.5+): there exactly once;
+    # older engines do not capture it at all, so there it must just not be doubled.
+    version = must("C1 version", tool(host, "script-execute", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}))
+    match = re.search(r"(\d+)\.(\d+)", version)
+    engine_logger = not match or (int(match[1]), int(match[2])) >= (4, 5)
+    count = text.count(f"feedback-probe-{tag}")
+    check("C1 the engine error once", count == 1 if engine_logger else count <= 1, text)
 
 
 def new_folders(host: str, d: str) -> None:
