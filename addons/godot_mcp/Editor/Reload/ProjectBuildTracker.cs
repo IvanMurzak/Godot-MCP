@@ -71,8 +71,9 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         /// <summary>Start a build for <paramref name="requestId"/> (main thread). Returns the "processing" message.</summary>
         public string Start(string requestId)
         {
-            // One build at a time, and the previous one's result is delivered first (its request is still waiting for it).
-            if (_record != null)
+            // One build at a time, and the previous one's result is handed to the server first (its request still waits for
+            // it). Once that send has started, the agent may already have the result and ask again: let it.
+            if (_record != null && _sending == null)
                 throw new InvalidOperationException("The previous script-build has not delivered its result yet (its build is running, or " +
                                                     "Godot is reloading the C# assembly); retry once it has.");
 
