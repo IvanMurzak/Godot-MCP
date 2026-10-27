@@ -292,7 +292,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         internal static string ScriptAwareClass(string className, string baseClass, string paramName, out Script? script)
         {
             script = null;
-            var kind = baseClass == "Node" ? "node" : "resource";
+            var kind = baseClass == "Node" ? "node" : baseClass == "Resource" ? "resource" : "Godot";
             if (string.IsNullOrWhiteSpace(className))
                 throw new ArgumentException($"a {kind} class is required, e.g. \"{(baseClass == "Node" ? "Node3D" : "StandardMaterial3D")}\"");
             var native = className;

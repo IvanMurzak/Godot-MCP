@@ -88,7 +88,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 if (!ClassDB.CanInstantiate(className)) { reason = $"Godot class '{className}' cannot be instantiated (abstract); name a concrete class"; return AdapterOutcome.Failed; }
                 if (key == "$type") return AdapterOutcome.NotHandled;
                 // {class: …}: the same as "$type" with the C# type (CSGBox3D's is CsgBox3D).
-                var clr = GodotTypes.Candidates(className).FirstOrDefault(t => typeof(GodotObject).IsAssignableFrom(t));
+                var clr = GodotTypes.GodotClassType(className);
                 if (clr == null) { reason = $"no C# type for Godot class '{className}'"; return AdapterOutcome.Failed; }
                 var renamed = new ObjectValue();
                 foreach (var kv in literal) if (kv.Key != "class") renamed[kv.Key] = kv.Value;
@@ -109,7 +109,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 if (!props.TryGetValue(name, out var info)) { reason = $"{className} has no property '{kv.Key}'"; return AdapterOutcome.Failed; }
                 var value = EnumValue(built, name, kv.Value, out var problem);
                 if (problem != null) { reason = $"'{kv.Key}': {problem}"; return AdapterOutcome.Failed; }
-                if (!kernel.TryCoerce(value, IsEnumInt(info) ? typeof(long) : info.ClrType, out var converted, out var why)) { reason = $"'{kv.Key}': {why}"; return AdapterOutcome.Failed; }
+                if (!kernel.TryCoerce(value, info.ClrType, out var converted, out var why)) { reason = $"'{kv.Key}': {why}"; return AdapterOutcome.Failed; }
                 built.Set(name, GodotVariants.ToVariant(converted));
             }
             result = built;
@@ -120,21 +120,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 
         private static string? PropProblem(GodotObject o, string key, object? value)
         {
-            if (!GodotVariants.Properties(o).ContainsKey(key)) return $"{o.GetClass()} has no property '{key}'";
             EnumValue(o, key, value, out var problem);
             return problem;
         }
 
-        // The value an enum-hinted int property is written with: a name becomes its number; other values pass as given. A name
-        // or value that is not a number sets `problem`.
+        // The value property `key` is written with: an enum-hinted int's name becomes its number; other values pass as given.
+        // An unknown property, or an enum name / value that is not a number, sets `problem`.
         private static object? EnumValue(GodotObject o, string key, object? value, out string? problem)
         {
             problem = null;
-            if (!GodotVariants.Properties(o).TryGetValue(key, out var info) || !IsEnumInt(info)) return value;
+            if (!GodotVariants.Properties(o).TryGetValue(key, out var info)) { problem = $"{o.GetClass()} has no property '{key}'"; return value; }
+            if (!IsEnumInt(info)) return value;
             switch (value)
             {
                 case string text:
-                    var options = GodotCallArguments.PropertyEnumOptions(o, key, info.HintString);
+                    var options = GodotEnumOptions.OfProperty(o, key, info.HintString);
                     if (GodotEnumNames.TryMatch(options, text, out var v)) return v;
                     problem = $"\"{text}\" is not {GodotEnumNames.Describe(options)}";
                     return value;
@@ -178,24 +178,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (!ClassDB.ClassHasMethod(o.GetClass(), method) && o.GetScript().As<Script>() is { } script && !script.IsTool())
                 throw new InvalidOperationException($"'{method}' is a method of the non-tool script {script.ResourcePath}, which does not run in the editor; " +
                     "add @tool at the top of a GDScript (or [Tool] on a C# class) to call it here");
-            var given = args?.Values.Count ?? 0;
-            if (ArgumentProblem(o, method, given) is { } problem) throw new ArgumentException(problem);
-            return GodotCallArguments.Convert(o, method, args);
+            var entry = GodotCallArguments.FindMethod(o, method);
+            if (ArgumentProblem(entry, method, args?.Values.Count ?? 0) is { } problem) throw new ArgumentException(problem);
+            return GodotCallArguments.Convert(entry, method, args);
         }
 
         // A wrong argument count makes Godot print an error and return null, which would read as a successful call.
-        private static string? ArgumentProblem(GodotObject o, string method, int given)
+        private static string? ArgumentProblem(global::Godot.Collections.Dictionary? entry, string method, int given)
         {
-            foreach (var entry in o.GetMethodList())
-            {
-                if (entry["name"].AsString() != method) continue;
-                if ((entry["flags"].AsInt32() & (int)MethodFlags.Vararg) != 0) return null;
-                var max = entry["args"].AsGodotArray().Count;
-                var min = max - entry["default_args"].AsGodotArray().Count;
-                if (given >= min && given <= max) return null;
-                return $"{method} takes {(min == max ? $"{max}" : $"{min} to {max}")} argument(s), got {given}";
-            }
-            return null;
+            if (entry == null || (entry["flags"].AsInt32() & (int)MethodFlags.Vararg) != 0) return null;
+            var max = entry["args"].AsGodotArray().Count;
+            var min = max - entry["default_args"].AsGodotArray().Count;
+            return given >= min && given <= max ? null : $"{method} takes {(min == max ? $"{max}" : $"{min} to {max}")} argument(s), got {given}";
         }
 
         /// <summary>

@@ -56,10 +56,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// declares; throws <see cref="ArgumentException"/> naming the argument that does not convert. Vararg extras and
         /// untyped (Variant) arguments pass as given.
         /// </summary>
-        public static Variant[] Convert(GodotObject o, string method, ArgumentList? args)
+        public static Variant[] Convert(global::Godot.Collections.Dictionary? methodInfo, string method, ArgumentList? args)
         {
             var values = args?.Values ?? Array.Empty<object?>();
-            var declared = Declared(o, method);
+            var declared = methodInfo?["args"].AsGodotArray<global::Godot.Collections.Dictionary>();
             var result = new Variant[values.Count];
             for (var i = 0; i < values.Count; i++)
                 result[i] = declared != null && i < declared.Count
@@ -68,11 +68,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return result;
         }
 
-        private static global::Godot.Collections.Array<global::Godot.Collections.Dictionary>? Declared(GodotObject o, string method)
+        /// <summary>The method list entry (name, args, default_args, flags …) of <paramref name="method"/>, or null.</summary>
+        public static global::Godot.Collections.Dictionary? FindMethod(GodotObject o, string method)
         {
             foreach (var entry in o.GetMethodList())
-                if (entry["name"].AsString() == method)
-                    return entry["args"].AsGodotArray<global::Godot.Collections.Dictionary>();
+                if (entry["name"].AsString() == method) return entry;
             return null;
         }
 
@@ -84,11 +84,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var className = arg["class_name"].AsString();
             var label = $"{method} argument {index + 1} ({arg["name"].AsString()}: {(className.Length > 0 ? className : type.ToString())})";
             if (type == Variant.Type.Nil) return GodotVariants.ToVariant(value);
-            if (type == Variant.Type.Int && value is string text && EnumOptions(className, hint, hintString) is { Count: > 0 } options)
+            if (type == Variant.Type.Int && value is string text && GodotEnumOptions.Of(className, hint, hintString) is { Count: > 0 } options)
                 return GodotEnumNames.TryMatch(options, text, out var enumValue)
                     ? Variant.From(enumValue)
                     : throw new ArgumentException($"{label}: \"{text}\" is not {GodotEnumNames.Describe(options)}");
-            var target = type == Variant.Type.Object ? ObjectType(className) : GodotVariants.ClrType(type, hint, hintString);
+            var target = type == Variant.Type.Object ? GodotTypes.GodotObjectType(className) : GodotVariants.ClrType(type, hint, hintString);
             if (!kernel.TryCoerce(value, target, out var converted, out var why))
             {
                 // Godot arrays / dictionaries take any list / object literal (the elements are checked by Godot).
@@ -100,30 +100,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return GodotVariants.ToVariant(converted);
         }
 
-        /// <summary>
-        /// The names an enum-hinted int property takes: its hint labels ("Top,Bottom,Both") and, when its setter's argument is a
-        /// class enum, that enum's constants (GROW_DIRECTION_BEGIN …), which can differ from the labels.
-        /// </summary>
-        public static List<(string name, long value)> PropertyEnumOptions(GodotObject o, string property, string hintString)
-        {
-            var options = GodotEnumNames.ParseHint(hintString);
-            // ClassDB.class_get_property_setter is Godot 4.4+ (the addon's floor is 4.3): called by name when it exists.
-            var classDb = Engine.GetSingleton("ClassDB");
-            if (classDb == null || !classDb.HasMethod("class_get_property_setter")) return options;
-            var setter = classDb.Call("class_get_property_setter", o.GetClass(), property).AsString();
-            if (setter.Length == 0) return options;
-            foreach (var entry in o.GetMethodList())
-            {
-                if (entry["name"].AsString() != setter) continue;
-                var args = entry["args"].AsGodotArray<global::Godot.Collections.Dictionary>();
-                if (args.Count > 0 && EnumOptions(args[0]["class_name"].AsString(), PropertyHint.None, "") is { } constants) options.AddRange(constants);
-                break;
-            }
-            return options;
-        }
+    }
 
-        // A class enum ("Control.LayoutPreset") or an enum hint ("Begin,End,Both"): its names and values.
-        private static List<(string name, long value)>? EnumOptions(string className, PropertyHint hint, string hintString)
+    /// <summary>The names and values of a Godot enum: a class enum, an enum hint, or an enum-hinted property.</summary>
+    internal static class GodotEnumOptions
+    {
+        /// <summary>A class enum ("Control.LayoutPreset") or an enum hint ("Begin,End,Both"): its names and values, or null.</summary>
+        public static List<(string name, long value)>? Of(string className, PropertyHint hint, string hintString)
         {
             var dot = className.LastIndexOf('.');
             if (dot > 0 && ClassDB.ClassExists(className.Substring(0, dot)))
@@ -135,10 +118,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return hint == PropertyHint.Enum ? GodotEnumNames.ParseHint(hintString) : null;
         }
 
-        // The C# type of a Godot class argument (Texture2D, Node …), so a res:// path or node path converts; any object otherwise.
-        private static Type ObjectType(string className) =>
-            className.Length == 0 ? typeof(GodotObject)
-            : GodotTypes.Candidates(className).FirstOrDefault(t => typeof(GodotObject).IsAssignableFrom(t)) ?? typeof(GodotObject);
+        /// <summary>
+        /// The names an enum-hinted int property takes: its hint labels ("Top,Bottom,Both") and, when its setter's argument is a
+        /// class enum, that enum's constants (GROW_DIRECTION_BEGIN …), which can differ from the labels.
+        /// </summary>
+        public static List<(string name, long value)> OfProperty(GodotObject o, string property, string hintString)
+        {
+            var options = GodotEnumNames.ParseHint(hintString);
+            // ClassDB.class_get_property_setter is Godot 4.4+ (the addon's floor is 4.3): called by name when it exists.
+            var classDb = Engine.GetSingleton("ClassDB");
+            if (classDb == null || !classDb.HasMethod("class_get_property_setter")) return options;
+            var setter = classDb.Call("class_get_property_setter", o.GetClass(), property).AsString();
+            var args = setter.Length > 0 ? GodotCallArguments.FindMethod(o, setter)?["args"].AsGodotArray<global::Godot.Collections.Dictionary>() : null;
+            if (args is { Count: > 0 } && Of(args[0]["class_name"].AsString(), PropertyHint.None, "") is { } constants) options.AddRange(constants);
+            return options;
+        }
     }
 }
 #endif

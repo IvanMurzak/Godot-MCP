@@ -222,21 +222,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (ResourceLoader.Load(path) is { } resource) yield return resource;
         }
 
-        // The files of the requested type: the type check runs once per distinct file type (ClassDB lookups), not per file.
-        private static IEnumerable<string> ResourceFiles(EditorFileSystemDirectory dir, string type)
-        {
-            var matches = new Dictionary<string, bool>(StringComparer.Ordinal);
-            var typeIsClass = type.Length > 0 && ClassDB.ClassExists(type);
-            return MatchingFiles(dir, type, typeIsClass, matches);
-        }
-
         // Resources of a script class (GDScript class_name, C# [GlobalClass]) or a class deriving from it: the editor reports a
-        // resource file's native type only ("Resource"), so the files of that type are loaded and their script chain checked.
+        // scripted resource file's native type only ("Resource"), so the files of exactly that type are loaded (not every
+        // resource deriving from it) and their script chain checked.
         private static IEnumerable<Resource> ScriptClassResources(EditorFileSystemDirectory dir, string type)
         {
-            var entry = ProjectSettings.GetGlobalClassList().First(e => e["class"].AsString() == type);
-            var native = ResourceLoader.Load<Script>(entry["path"].AsString())?.GetInstanceBaseType().ToString() ?? "Resource";
-            return LoadResources(ResourceFiles(dir, native)).Where(r => HasScriptClass(r, type));
+            string native;
+            try { native = ScriptAwareClass(type, "Resource", "type", out _); }
+            catch (ArgumentException) { return Enumerable.Empty<Resource>(); }
+            return LoadResources(ResourceFiles(dir, native, exact: true)).Where(r => HasScriptClass(r, type));
         }
 
         private static bool HasScriptClass(GodotObject o, string type)
@@ -246,8 +240,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return false;
         }
 
-        private static IEnumerable<string> MatchingFiles(EditorFileSystemDirectory dir, string type, bool typeIsClass, Dictionary<string, bool> matches)
+        // The files of the requested type (exact: that type only, not its subclasses): the type check runs once per distinct
+        // file type (ClassDB lookups), not per file.
+        private static IEnumerable<string> ResourceFiles(EditorFileSystemDirectory dir, string type, bool exact = false)
         {
+            var matches = new Dictionary<string, bool>(StringComparer.Ordinal);
+            var typeIsClass = !exact && type.Length > 0 && ClassDB.ClassExists(type);
             foreach (var (path, fileType) in WalkFiles(dir))
             {
                 if (!matches.TryGetValue(fileType, out var match))
