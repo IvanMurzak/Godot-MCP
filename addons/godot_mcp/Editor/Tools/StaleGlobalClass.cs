@@ -32,7 +32,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static (string name, string path)? FindReference(string? source, IReadOnlyList<(string name, string path)> stale)
         {
             if (string.IsNullOrEmpty(source) || stale.Count == 0) return null;
-            var match = Regex.Match(source, @"(?<![\w])(?:" + string.Join("|", stale.Select(c => Regex.Escape(c.name))) + @")(?![\w])");
+            // Code only: string literals and # comments blanked; $Player / %Player are node paths, not the class.
+            var code = Regex.Replace(source!, @"""""""[\s\S]*?""""""|""(?:\\.|[^""\\\n])*""|'(?:\\.|[^'\\\n])*'|#[^\n]*", " ");
+            var match = Regex.Match(code, @"(?<![\w$%])(?:" + string.Join("|", stale.Select(c => Regex.Escape(c.name))) + @")(?![\w])");
             return match.Success ? stale.First(c => c.name == match.Value) : ((string, string)?)null;
         }
 

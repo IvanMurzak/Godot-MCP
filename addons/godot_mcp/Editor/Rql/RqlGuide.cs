@@ -180,8 +180,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Examples:\n" + MutateExampleText + "\n" +
             "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
             "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
-            "(returns the action); editor | call ReloadScene() reloads the edited scene from its file; editor | call BuildProject() " +
-            "builds the C# project (after script-create / script-update of a .cs file); " +
+            "(returns the action); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n";
 
         public const string QueryDescription =

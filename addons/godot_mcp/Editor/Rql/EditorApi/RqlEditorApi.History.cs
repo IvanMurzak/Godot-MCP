@@ -51,7 +51,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var before = Snapshot();
             menu.EmitSignal(PopupMenu.SignalName.IdPressed, id);
             RqlGodot.InvalidateGroups(); // the step may change groups behind RQL
-            return HistoryStepText.Describe(undo, before, Snapshot());
+            var text = HistoryStepText.Describe(undo, before, Snapshot());
+            if (!HistoryStepText.IsPart(text)) return text;
+            // One mutation that changed scene nodes and files committed two actions: step the other part too.
+            before = Snapshot();
+            menu.EmitSignal(PopupMenu.SignalName.IdPressed, id);
+            RqlGodot.InvalidateGroups();
+            try { return text + "; " + HistoryStepText.Describe(undo, before, Snapshot()); }
+            catch (InvalidOperationException) { return text; }
         }
 
         private static (PopupMenu menu, int id)? FindMenuItem(string shortcutName)
@@ -79,8 +86,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             for (int i = 0; i < popup.ItemCount; i++)
                 if (popup.GetItemShortcut(i)?.ResourceName == shortcutName) return popup.GetItemId(i);
+            var keys = shortcutName == "Undo" ? "Ctrl+Z" : "Ctrl+Shift+Z";
             for (int i = 0; i < popup.ItemCount; i++)
-                if (popup.GetItemText(i) == shortcutName) return popup.GetItemId(i);
+                if (popup.GetItemText(i) == shortcutName || popup.GetItemShortcut(i)?.GetAsText() == keys) return popup.GetItemId(i);
             return null;
         }
     }

@@ -400,9 +400,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else
             {
                 var name = HistoryStepText.ActionName(query);
-                Commit(undo, _sceneUndo, EditedRoot(), name);
                 AddResaveSteps(_otherUndo, _toSave);
-                Commit(undo, _otherUndo, GlobalHistoryContext, name);
+                // Split over the two histories: the parts are named so editor | call Undo() / Redo() step both.
+                var split = _sceneUndo.Count > 0 && _otherUndo.Count > 0;
+                Commit(undo, _sceneUndo, EditedRoot(), split ? name + HistoryStepText.ScenePart : name);
+                Commit(undo, _otherUndo, GlobalHistoryContext, split ? name + HistoryStepText.GlobalPart : name);
             }
             _removed.Clear();
             _snapshots.Clear();

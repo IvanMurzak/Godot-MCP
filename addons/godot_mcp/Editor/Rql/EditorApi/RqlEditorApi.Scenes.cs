@@ -49,10 +49,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             basePath = BaseScenePath(basePath, path);
             var name = string.IsNullOrWhiteSpace(rootName) ? BaseRootName(basePath) : rootName!;
             if (NodeNameRules.Problem(name, _ => false) is { } problem) throw new ArgumentException(problem, nameof(rootName));
+            if (!path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"an inherited scene is written as text: give it a .tscn path, not '{path}'", nameof(path));
             var uid = RqlGodot.UidOf(basePath);
             var text = "[gd_scene load_steps=2 format=3]\n\n" +
-                       $"[ext_resource type=\"PackedScene\"{(uid != null ? $" uid=\"{uid}\"" : "")} path=\"{basePath}\" id=\"1_base\"]\n\n" +
-                       $"[node name=\"{name}\" instance=ExtResource(\"1_base\")]\n";
+                       $"[ext_resource type=\"PackedScene\"{(uid != null ? $" uid=\"{uid}\"" : "")} path=\"{basePath.CEscape()}\" id=\"1_base\"]\n\n" +
+                       $"[node name=\"{name.CEscape()}\" instance=ExtResource(\"1_base\")]\n";
             EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
             using (var file = FileAccess.Open(path, FileAccess.ModeFlags.Write)
                 ?? throw new InvalidOperationException($"could not write '{path}': {FileAccess.GetOpenError()}"))
@@ -154,11 +156,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return list;
         }
 
+        public string? ValidateReloadScene(string? path) => RqlGodot.Rejection(() =>
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                if (string.IsNullOrEmpty(RqlGodot.EditedRoot()?.SceneFilePath)) throw new InvalidOperationException("no saved scene is being edited; pass a res:// scene path");
+                return;
+            }
+            var target = RequireScenePath(path!);
+            EditorToolGuards.RequireResourceExists(target, nameof(path), $"no scene at '{target}'");
+        });
+
         // Call validator (RQL 0.2, run before the call, on dry runs too): nothing is created or opened when it rejects.
         public string? ValidateNewScene(string path, string rootClass, string? rootName) => RqlGodot.Rejection(() =>
         {
             path = NewScenePath(path);
-            if (IsBaseScene(rootClass)) BaseScenePath(rootClass, path);
+            if (IsBaseScene(rootClass))
+            {
+                BaseScenePath(rootClass, path);
+                if (!path.EndsWith(".tscn", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException($"an inherited scene is written as text: give it a .tscn path, not '{path}'", nameof(path));
+            }
             else EditorToolGuards.CheckClassDbInstantiation(RootClass(rootClass), "rootClass", requireParentClass: "Node");
         });
 

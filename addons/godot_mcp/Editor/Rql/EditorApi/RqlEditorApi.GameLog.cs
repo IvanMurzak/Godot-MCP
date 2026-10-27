@@ -32,7 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static List<GameLogEntry> GameLog()
         {
-            if (!ProjectSettings.GetSettingWithOverride("debug/file_logging/enable_file_logging").AsBool())
+            if (!FileLogging())
                 throw new InvalidOperationException("the project's file logging is off (debug/file_logging/enable_file_logging), so the game writes no log; " +
                     "turn it on with project | set settings[\"debug/file_logging/enable_file_logging\"] = true and run the game again");
             var path = GameLogPath();
@@ -50,6 +50,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             var entries = GameLogText.Parse(text);
             return entries.Count > MaxGameLogEntries ? entries.GetRange(entries.Count - MaxGameLogEntries, MaxGameLogEntries) : entries;
+        }
+
+        // Whether the game writes a log on this desktop: the base setting or its .pc override (on by default), which the
+        // editor process itself may not apply.
+        private static bool FileLogging()
+        {
+            const string key = "debug/file_logging/enable_file_logging";
+            return ProjectSettings.GetSettingWithOverride(key).AsBool()
+                   || (ProjectSettings.HasSetting(key + ".pc") ? ProjectSettings.GetSetting(key + ".pc").AsBool() : ProjectSettings.GetSetting(key).AsBool());
         }
 
         /// <summary>The absolute path of the game's log file.</summary>

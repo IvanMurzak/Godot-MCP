@@ -59,7 +59,7 @@ def schema_checks(host: str) -> None:
     check("S2 lists the Godot props of the class", "props of Godot class OmniLight3D" in text and "omni_range" in text, text)
     text = must("S3 rql-schema editor", tool(host, "rql-schema", {"type": "editor"}))
     check("S3 lists the editor calls", "NewScene" in text and "SaveScene" in text and "Reimport" in text, text)
-    check("S3 lists Undo, Redo, ReloadScene, BuildProject", all(c in text for c in ("Undo()", "Redo()", "ReloadScene(", "BuildProject()")), text)
+    check("S3 lists Undo, Redo, ReloadScene", all(c in text for c in ("Undo()", "Redo()", "ReloadScene(")), text)
 
 
 def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:

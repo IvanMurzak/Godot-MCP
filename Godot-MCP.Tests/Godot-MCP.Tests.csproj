@@ -451,7 +451,6 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RotationUnits.cs" Link="Source\Rql\RotationUnits.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\HistoryStepText.cs" Link="Source\Rql\EditorApi\HistoryStepText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\GameLogText.cs" Link="Source\Rql\EditorApi\GameLogText.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\BuildOutputText.cs" Link="Source\Rql\EditorApi\BuildOutputText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Tools\StaleGlobalClass.cs" Link="Source\StaleGlobalClass.cs" />
   </ItemGroup>
 

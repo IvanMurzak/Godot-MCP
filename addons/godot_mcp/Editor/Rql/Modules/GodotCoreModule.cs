@@ -38,7 +38,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                    "Sequence LogType Message StackTrace (the console source is the editor's own log)")
                .AddSource("editor", () => RqlEditorApi.Instance,
                    "editor state (isPlaying, playingScene, editedScene, selection, godotVersion) and operations: NewScene, OpenScene, ReloadScene, SaveScene, " +
-                   "SaveAllScenes, PlayScene, StopScene, Undo, Redo, BuildProject, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
+                   "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
                    "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
                    "godot.find(name): the node with that unique name or path below the scene root (\"Level/Player\"), e.g. call Reparent(godot.find(\"Props\"))")

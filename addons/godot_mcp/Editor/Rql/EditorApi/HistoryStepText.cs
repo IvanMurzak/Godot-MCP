@@ -29,6 +29,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     public static class HistoryStepText
     {
+        /// <summary>Suffixes of the two actions one rql-mutate commits when it changed scene nodes and global objects (files, settings).</summary>
+        public const string ScenePart = " [scene part]";
+        public const string GlobalPart = " [file part]";
+
+        /// <summary>Whether a step that undid / redid <paramref name="action"/> must step once more: the other part of the same mutation.</summary>
+        public static bool IsPart(string action) => action.EndsWith(ScenePart, StringComparison.Ordinal) || action.EndsWith(GlobalPart, StringComparison.Ordinal);
+
         /// <summary>The undo-redo action name of an rql-mutate: "RQL: " and its query on one line, cut to a readable length.</summary>
         public static string ActionName(string? query, int max = 120)
         {

@@ -11,6 +11,7 @@ Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
+import re
 import time
 
 from smoke_rql_lib import file_text, must, mutate, q, query, tool
@@ -64,7 +65,10 @@ def script_only_props(host: str) -> None:
 def enum_names(host: str) -> None:
     """Enum-hinted ints take an inspector label without its "(note)" and the C# enum name with digits."""
     has("AE label without its note", must("AE set", mutate(host, 'godot.find("Sun") | set props["directional_shadow_mode"] = "PSSM 4 Splits"')), "|2")
-    has("AE C# name with a digit", must("AE set 2", mutate(host, 'godot.find("Sun") | set props["directional_shadow_mode"] = "Parallel2Splits"')), "|1")
+    version = re.search(r"(\d+)\.(\d+)", must("AE version", query(host, "editor | select godotVersion")))
+    # The setter's constants (SHADOW_PARALLEL_2_SPLITS) need ClassDB.class_get_property_setter: Godot 4.4+.
+    if version and (int(version.group(1)), int(version.group(2))) >= (4, 4):
+        has("AE C# name with a digit", must("AE set 2", mutate(host, 'godot.find("Sun") | set props["directional_shadow_mode"] = "Parallel2Splits"')), "|1")
 
 
 def rename_hint(host: str) -> None:
@@ -107,8 +111,8 @@ def game_log(host: str, d: str) -> None:
     text = ""
     for _ in range(40):
         time.sleep(0.5)
-        ok, text = query(host, "gameLog | select LogType Message StackTrace")
-        if ok and f"agent-error-{tag}" in text:
+        text = must("AG gameLog answers", query(host, "gameLog | select LogType Message StackTrace"))
+        if f"agent-error-{tag}" in text:
             break
     must("AG stop", mutate(host, "editor | call StopScene()"))
     if f"agent-log-{tag}" not in text:

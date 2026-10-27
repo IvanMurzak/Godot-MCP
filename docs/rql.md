@@ -22,7 +22,7 @@ The addon itself stays Apache-2.0.
 | `filesystem-list`, `filesystem-reimport` | the `files` source (`path name dir ext type uid`), `editor \| call Reimport(files?)`, `CreateFolder` |
 | `editor-application-get-state` / `-set-state` | `editor` members `isPlaying` (writable), `playingScene`, `editedScene`, `godotVersion`; `call PlayScene / StopScene`; what the game run from the editor prints and its errors: the `gameLog` source (`Sequence LogType Message StackTrace`, read from the game's log file, `debug/file_logging/log_path`) |
 | — | `editor \| call Undo()` / `Redo()`: the editor's own Undo / Redo (the Scene menu items behind Ctrl+Z), returning the action (`undone: RQL: <query>`; an rql-mutate's undo action is named after its query); an error when there is nothing to undo / redo |
-| — | `editor \| call ReloadScene(path?)` (Scene → Reload Saved Scene: unsaved changes dropped), `NewScene(path, "res://base.tscn", name?)` (an inherited scene of a base scene), `BuildProject()` (`dotnet build` of the project's C#, so a C# script written with script-create loads; the editor reloads the assembly a few seconds later; fails with the compiler errors) |
+| — | `editor \| call ReloadScene(path?)` (Scene → Reload Saved Scene: unsaved changes dropped), `NewScene(path, "res://base.tscn", name?)` (an inherited scene of a base scene) |
 | `editor-selection-get` / `-set` | `editor` member `selection` (writable), the `selection` source |
 | `console-get-logs`, `console-clear-logs` (editor) | the `console` source (`where LogType == "Error"`, `Sequence > N`; the framework's echo of each tool call is printed to the Output but not captured, and a plugin error is captured once), `editor \| call ClearConsole()` |
 | `reflection-method-find`, `reflection-method-call` (editor) | `call CallMethod("name", [args])` on any Godot object, node / resource calls, `rql-schema` |
@@ -124,7 +124,7 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   (`set Rotation = "(-45, 30, 0)"`) is applied as given, and the receipt warns (`radians`) with the `RotationDegrees` write that
   was probably meant. Script-only Godot properties (usage none, such as `rotation_degrees`, `global_position`) are reachable
   by name in `props["…"]` (not listed among its keys). An enum-hinted int also takes its label without the note
-  (`"PSSM 4 Splits"` for `"PSSM 4 Splits (Quality)"`) and its C# enum name (`"Parallel4Splits"`).
+  (`"PSSM 4 Splits"` for `"PSSM 4 Splits (Quality)"`) and (Godot 4.4+) its C# enum name (`"Parallel4Splits"`).
 - **Printed structs** are tidied for reading (components below 1e-6 print as 0, at most 7 significant digits, no
   exponent): float noise such as `-4.371139E-08` in a rotated basis never reaches the agent; comparisons and stored values
   stay exact. An object literal compares like the text form: `where Position == {x: 0, y: 1, z: 0}`.

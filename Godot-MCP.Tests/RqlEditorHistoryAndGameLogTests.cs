@@ -119,6 +119,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void ABannerWithoutRendererLineKeepsTheEntries()
+        {
+            // A headless game: the version line, then its prints at once (no renderer line, no blank line).
+            var e = GameLogText.Parse("Godot Engine v4.5.1.stable.mono.official - https://godotengine.org\nfirst print\nERROR: x\n");
+            Assert.Equal(new[] { "first print", "x" }, e.Select(x => x.Message));
+        }
+
+        [Fact]
+        public void SplitMutationPartsAreRecognized()
+        {
+            Assert.True(HistoryStepText.IsPart("undone: RQL: q" + HistoryStepText.ScenePart));
+            Assert.True(HistoryStepText.IsPart("redone: RQL: q" + HistoryStepText.GlobalPart));
+            Assert.False(HistoryStepText.IsPart("undone: RQL: q"));
+        }
+
+        [Fact]
         public void IndentedPrintsStayPrints()
         {
             // Only an error / warning collects indented lines; a print may itself start with spaces.

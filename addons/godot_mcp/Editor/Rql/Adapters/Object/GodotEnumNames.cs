@@ -21,7 +21,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <c>"Begin,End,Both"</c>) or a method argument of a class enum (<c>Control.LayoutPreset</c>). Accepts the name as the
     /// inspector shows it (<c>"Both"</c>, also without a parenthesised note: <c>"PSSM 4 Splits"</c> for
     /// <c>"PSSM 4 Splits (Quality)"</c>), the C++ / C# constant (<c>"GROW_DIRECTION_BOTH"</c>, <c>"PresetFullRect"</c>,
-    /// <c>"Parallel4Splits"</c>) or the short form (<c>"FullRect"</c>). Pure managed: no Godot types (unit-tested).
+    /// <c>"Parallel4Splits"</c>; setter constants need Godot 4.4+) or the short form (<c>"FullRect"</c>). Pure managed: no Godot types (unit-tested).
     /// </summary>
     internal static class GodotEnumNames
     {

@@ -56,11 +56,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var entries = new List<GameLogEntry>();
             var lines = (text ?? "").Replace("\r\n", "\n").Split('\n');
             int i = 0;
-            // The banner: "Godot Engine v4.5.1.stable…", the renderer line, then a blank line.
+            // The banner: "Godot Engine v4.5.1.stable…", the renderer line(s) ("Vulkan 1.4 - Forward+ - Using Device …"), a blank line.
             if (lines.Length > 0 && lines[0].StartsWith("Godot Engine v", StringComparison.Ordinal))
             {
-                while (i < lines.Length && lines[i].Length > 0) i++;
-                if (i < lines.Length) i++;
+                i = 1;
+                while (i < lines.Length && IsRendererLine(lines[i])) i++;
+                if (i < lines.Length && lines[i].Length == 0) i++;
             }
             string? type = null, message = null;
             var trace = new StringBuilder();
@@ -94,6 +95,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Flush();
             return entries;
         }
+
+        private static bool IsRendererLine(string line) =>
+            System.Text.RegularExpressions.Regex.IsMatch(line, @"^(Vulkan|OpenGL|D3D12|Metal|Dummy)\b.* - ");
 
         private static (string prefix, string type)? Kind(string line)
         {

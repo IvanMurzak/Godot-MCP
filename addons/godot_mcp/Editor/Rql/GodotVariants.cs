@@ -171,6 +171,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static GodotProperty? ScriptOnlyProperty(GodotObject o, string name) =>
             !string.IsNullOrEmpty(name) && ScriptOnlyProperties(o).TryGetValue(name, out var info) ? info : (GodotProperty?)null;
 
+        // Script-only properties kept out of props: node plumbing with its own checked member (name: the sibling check), or
+        // none (owner, scene_file_path, multiplayer) — a raw write would skip the checks and the undo snapshot.
+        private static readonly HashSet<string> ScriptOnlyExcluded = new HashSet<string>(StringComparer.Ordinal)
+            { "name", "owner", "scene_file_path", "multiplayer", "unique_name_in_owner" };
+
         // The script-only properties of an object by name, made once per query scope (like the props table).
         private static Dictionary<string, GodotProperty> ScriptOnlyProperties(GodotObject o) => Scoped(("script-only", o.GetInstanceId()), () =>
         {
@@ -179,7 +184,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 var usage = (PropertyUsageFlags)info["usage"].AsInt64();
                 var name = info["name"].AsString();
-                if (name.Length == 0 || IsHeader(usage) || IsExposed(usage, storageOnly: false) || table.ContainsKey(name)) continue;
+                if (name.Length == 0 || IsHeader(usage) || IsExposed(usage, storageOnly: false) || table.ContainsKey(name)
+                    || ScriptOnlyExcluded.Contains(name) || name.StartsWith("process_thread_", StringComparison.Ordinal)) continue;
                 table[name] = new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
             }
             return table;

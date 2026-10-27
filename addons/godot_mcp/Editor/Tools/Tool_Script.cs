@@ -99,7 +99,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var settled = !efs.IsScanning();
             var verb = removed ? "removed" : "written";
             return settled
-                ? $"C# script {verb}; filesystem settled (build it to load the new assembly: rql-mutate editor | call BuildProject())."
+                ? $"C# script {verb}; filesystem settled (rebuild the project to load the new assembly)."
                 : $"C# script {verb}; filesystem still scanning after {SettleMaxWaits * SettleSleepMs}ms " +
                   $"(progress={efs.GetScanningProgress():0.00}).";
         }
