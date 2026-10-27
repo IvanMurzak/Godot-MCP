@@ -126,7 +126,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"   move a node\n" +
             "  nodes | where class == \"OmniLight3D\" | set props[\"light_energy\"] = props[\"light_energy\"] * 2, props[\"light_color\"] = \"#ffcc88\"   Godot properties by their snake_case name\n" +
             "  nodes | where name starts-with \"Enemy\" | set Visible = false   hide every enemy\n" +
-            "  nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2   spread the matches along X ($index = position in the stream entering set)\n" +
+            "  nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2   spread the matches along X\n" +
             "  godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"   edit a resource file (saved to disk)\n" +
             "  root | call AddChild(\"Node3D\", \"Props\")   new child node of a class; the receipt's result column holds its $ref\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
@@ -191,7 +191,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             MutateStages + MutateExamplesBlock +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
-            "At most 20 targets per call (split bigger edits with first 20 / skip 20). Nodes inside a scene " +
+            "At most 20 targets per call (narrow the where, or first 20 per call). Nodes inside a scene " +
             "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
             "or moved in their own scene.\n\n" +
             QuerySyntaxShort;

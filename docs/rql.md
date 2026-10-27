@@ -103,7 +103,7 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   runs included; a refusal is `invalid-value`): a `Free()` of a node inside a scene instance is refused up front unless
   an ancestor is freed by the same call (`godot.find("Enemy") | recurse children | call Free()` removes the instance with
   its nodes). Hints never advise `budgets.*` (the tools take no budgets) and a `ref("Name")` hint names `godot.find("…")`.
-- **Targets and map entries** (RQL main 602ce7c): `$index` / `$path` in a `set` value or `call` argument are the
+- **Targets and map entries**: `$index` / `$path` in a `set` value or `call` argument are the
   target's (`nodes | where name starts-with "Enemy" | sort name | set Position.X = $index * 2`); a `set` on the entries
   `get` streams from a map writes through it (`godot.resource("res://ui/theme.tres") | get colors | where Key
   starts-with "Button/" | set Value = "#ffffff"` is the key-path write `colors["Button/…"]`, undo and save included).

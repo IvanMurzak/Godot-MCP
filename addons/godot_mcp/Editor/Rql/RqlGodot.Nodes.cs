@@ -102,12 +102,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (record.Method?.Name == "Free" && record.Item is Node node) freed.Add(node);
             if (freed.Count == 0 || !(EditedRoot() is { } root)) return null;
             foreach (var node in freed)
-            {
-                var removedWithAncestor = false;
-                for (var parent = node.GetParent(); parent != null && !removedWithAncestor; parent = parent.GetParent())
-                    removedWithAncestor = freed.Contains(parent);
-                if (!removedWithAncestor && Rejection(() => RequireOwnNode(node, root, "removed")) is { } reason) return reason;
-            }
+                if (!freed.Any(ancestor => ancestor.IsAncestorOf(node)) && Rejection(() => RequireOwnNode(node, root, "removed")) is { } reason)
+                    return reason;
             return null;
         }
 
@@ -295,14 +291,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>
         /// Remove <paramref name="node"/> from the scene, undoably (the node stays alive in the undo history). A node whose
         /// ancestor this mutation already removed went with it: a no-op, so <c>… | call Free()</c> over a node and its
-        /// descendants does not fail half-way.
+        /// descendants does not fail half-way, in any order. Nodes of an instance are refused by <see cref="ValidateBatch"/>
+        /// before the first call, unless their instance goes in the same call.
         /// </summary>
         public static void Remove(Node node)
         {
             var root = RequireEditedRoot();
             if (WasRemoved(node)) return;
             CheckRemove(node, root);
-            RequireOwnNode(node, root, "removed");
             var parent = node.GetParent()!;
             var index = node.GetIndex(includeInternal: false);
             var owners = new List<(Node node, Node? owner)>();
