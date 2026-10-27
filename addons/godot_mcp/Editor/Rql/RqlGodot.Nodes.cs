@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
+using Rql.Execution;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
@@ -85,9 +86,30 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             InstantiableScene(path, root);
         });
 
-        // A node of an instance is refused by Remove itself, after WasRemoved: freeing an instance together with its descendants
-        // (… | recurse children | call Free()) removes them with it, and the validator cannot see the other targets.
-        public static string? ValidateRemove(Node node) => WasRemoved(node) ? null : Rejection(() => CheckRemove(node, RequireEditedRoot()));
+        // A node of an instance is refused by ValidateBatch, which sees every target: freeing an instance together with its
+        // descendants (… | recurse children | call Free()) removes them with it.
+        public static string? ValidateRemove(Node node) => Rejection(() => CheckRemove(node, RequireEditedRoot()));
+
+        /// <summary>
+        /// The batch check of every set / call stage (RQL <see cref="MutationPolicy.ValidateBatch"/>, dry runs too): a
+        /// <c>Free()</c> target that is part of an instance (or of an inherited scene) is refused up front unless one of its
+        /// ancestors is freed by the same call, which removes it with the ancestor.
+        /// </summary>
+        internal static string? ValidateBatch(IReadOnlyList<MutationRecord> records)
+        {
+            var freed = new HashSet<Node>();
+            foreach (var record in records)
+                if (record.Method?.Name == "Free" && record.Item is Node node) freed.Add(node);
+            if (freed.Count == 0 || !(EditedRoot() is { } root)) return null;
+            foreach (var node in freed)
+            {
+                var removedWithAncestor = false;
+                for (var parent = node.GetParent(); parent != null && !removedWithAncestor; parent = parent.GetParent())
+                    removedWithAncestor = freed.Contains(parent);
+                if (!removedWithAncestor && Rejection(() => RequireOwnNode(node, root, "removed")) is { } reason) return reason;
+            }
+            return null;
+        }
 
         // Throws for a node Remove may not take out: outside the edited scene, or the root.
         private static void CheckRemove(Node node, Node root)
