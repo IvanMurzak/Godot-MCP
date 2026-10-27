@@ -118,6 +118,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return hint == PropertyHint.Enum ? GodotEnumNames.ParseHint(hintString) : null;
         }
 
+        private static bool? _hasSetterApi;
+
+        /// <summary>
+        /// The setter method of a class's property ("" when it has none), or null before Godot 4.4: ClassDB.class_get_property_setter
+        /// is 4.4+ (the addon's floor is 4.3), so it is called by name when it exists (checked once per session).
+        /// </summary>
+        public static string? PropertySetter(string godotClass, string property)
+        {
+            var classDb = Engine.GetSingleton("ClassDB");
+            _hasSetterApi ??= classDb != null && classDb.HasMethod("class_get_property_setter");
+            return _hasSetterApi == true ? classDb!.Call("class_get_property_setter", godotClass, property).AsString() : null;
+        }
+
         /// <summary>
         /// The names an enum-hinted int property takes: its hint labels ("Top,Bottom,Both") and, when its setter's argument is a
         /// class enum, that enum's constants (GROW_DIRECTION_BEGIN …), which can differ from the labels.
@@ -125,10 +138,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public static List<(string name, long value)> OfProperty(GodotObject o, string property, string hintString)
         {
             var options = GodotEnumNames.ParseHint(hintString);
-            // ClassDB.class_get_property_setter is Godot 4.4+ (the addon's floor is 4.3): called by name when it exists.
-            var classDb = Engine.GetSingleton("ClassDB");
-            if (classDb == null || !classDb.HasMethod("class_get_property_setter")) return options;
-            var setter = classDb.Call("class_get_property_setter", o.GetClass(), property).AsString();
+            if (PropertySetter(o.GetClass(), property) is not { } setter) return options;
             var args = setter.Length > 0 ? GodotCallArguments.FindMethod(o, setter)?["args"].AsGodotArray<global::Godot.Collections.Dictionary>() : null;
             if (args is { Count: > 0 } && Of(args[0]["class_name"].AsString(), PropertyHint.None, "") is { } constants) options.AddRange(constants);
             return options;

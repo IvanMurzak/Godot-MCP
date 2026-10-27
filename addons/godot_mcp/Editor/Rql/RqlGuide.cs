@@ -64,6 +64,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count\n" +
             "Expressions: == != < <= > >= and or not + - * / %; contains, starts-with, ends-with (case-insensitive); " +
             "matches \"regex\"; x in [a, b]; x is null; x is not null; $ is Node3D (includes subclasses); has(member). " +
+            "Conditional: cond ? a : b or if(cond, a, b) (only the taken branch runs; inside select wrap it in parentheses: " +
+            "select name kind=($ is MeshInstance3D ? \"mesh\" : \"other\")). " +
             "Text: replace(s, from, to) (case-insensitive), replace-regex(s, pattern, repl) ($1 = group 1), substring(s, start[, length]), " +
             "split(s, sep), trim(s), pad(v, width[, fill]) — also as methods: name.replace(\"Old\", \"New\"), name.substring(0, 4). " +
             "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}.\n" +
@@ -91,7 +93,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Navigate with paths or get; select only " +
             "projects output columns.\n" +
             "Results come back as compact rows (header line, then col|col). Long results are truncated — refine with where/first or use count. " +
-            "Unknown members produce warnings with suggestions; rql-schema(type) lists a type's members and Godot properties.";
+            "Unknown members produce warnings with suggestions (in rql-mutate a misspelt member that leaves no target is an error); " +
+            "rql-schema(type) lists a type's members and Godot properties.";
 
         /// <summary>
         /// rql-query examples, one per line ("  &lt;query&gt;"); run in order by the live CI smoke against its fixture scene.
@@ -118,7 +121,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]\n" +
             "  layers | where kind == \"3d_physics\" and name != \"\" | select index name\n" +
             "  godot.resources(\"MeshLibrary\") | get items | select id name mesh\n" +
-            "  nodes | group-by class, scripted=(script is not null)";
+            "  nodes | group-by class, scripted=(script is not null)\n" +
+            "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")";
 
         /// <summary>
         /// rql-mutate examples, one per line ("  &lt;query&gt;   &lt;what it does&gt;", at least three spaces before the note);
@@ -196,7 +200,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             MutateStages + MutateExamplesBlock +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
-            "At most 20 targets per call (narrow the where, or first 20 per call). Nodes inside a scene " +
+            "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +
+            "1000): still one all-or-nothing, undoable call. Nodes inside a scene " +
             "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
             "or moved in their own scene.\n\n" +
             QuerySyntaxShort;
@@ -208,8 +213,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string QuerySyntaxShort =
             "Query part: the RQL of rql-query (full guide and the sources in its description); godot.resources(\"Texture2D\"), " +
             "godot.resource(path), godot.find(\"Name\"), ref(\"Node3D#1234\"). Stages: where, select, sort, first N, get <path>, " +
-            "recurse children. Operators: == != < > and or not, contains, starts-with, $ is Node3D. Paths a.b.c, list[0], " +
+            "recurse children. Operators: == != < > and or not, contains, starts-with, $ is Node3D, cond ? a : b. Paths a.b.c, list[0], " +
             "props[\"key\"]. Vectors/colors as \"(1, 2, 3)\" or \"#ff8800\"; enums as strings.";
+
+        /// <summary>rql-mutate's max_targets argument (the numbers are <see cref="RqlTargetLimit"/>'s, checked by a test).</summary>
+        public const string MaxTargetsDescription =
+            "Most objects the set / call stage may change (default 200, at most 1000). Raise it to the match count for an intended " +
+            "bulk change of more objects: the call stays all-or-nothing and one undo step.";
 
         public const string SchemaDescription =
             "Without a type: RQL sources, functions, and the node classes present in the edited scene (with counts), plus the " +

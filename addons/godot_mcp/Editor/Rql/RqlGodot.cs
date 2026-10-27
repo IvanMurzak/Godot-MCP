@@ -59,10 +59,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public static RqlEngine Create()
         {
-            // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; a ref("Name") hint names
-            // the finder.
-            var engine = new RqlEngine(AccessorMode.Compiled) { RuntimeName = "godot", FindHint = "godot.find(\"…\")" };
+            // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; hints name the finder
+            // (ref("Name")) and the schema tool. Enum aliases and known members: RqlGodot.Names.cs; target limit: RqlTargetLimit.
+            var engine = new RqlEngine(AccessorMode.Compiled)
+            {
+                RuntimeName = "godot",
+                FindHint = "godot.find(\"…\")",
+                SchemaHint = Tool_Rql.SchemaToolId,
+                EnumAliases = EnumAliases,
+            };
             engine.Defaults.BudgetsAdjustable = false;
+            RqlTargetLimit.Configure(engine.Mutations);
+            var knownMembers = new Lazy<HashSet<string>>(() => KnownMemberNames(engine), System.Threading.LazyThreadSafetyMode.PublicationOnly);
+            engine.IsKnownMember = name => knownMembers.Value.Contains(name);
             engine.ResolveStableRef = ResolveStableRef;
 
             engine.Mutations.Enabled = true;

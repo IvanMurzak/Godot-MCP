@@ -5,7 +5,8 @@ editor: undo of a Reparent that kept the global transform, renames Godot would s
 parent and ".." paths reaching the editor's own UI, deleting a file that is still used, protected project files,
 save-as onto another scene, a scene instancing itself, undo of a resource file edit, a non-tool script's method, a
 script attached to the wrong node class, comparing a struct to an object literal, float noise in printed structs,
-calls refused before any runs (RQL 0.2 call validators: dry runs report them, multi-target calls are all-or-nothing), and
+calls refused before any runs (RQL 0.2 call validators: dry runs report them, multi-target calls are all-or-nothing), the
+per-stage target limit (max_targets) and typo vs polymorphic no-match mutations, and
 scene instances (overrides only, Editable Children for changes inside an instance, no edits Godot would not save).
 
 Every change is checked where it cannot lie: the .tscn / .tres / project.godot text Godot wrote, plus a read-back query.
@@ -31,6 +32,7 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     scripts(host, d)
     structs(host, d)
     call_validators(host, d)
+    target_limit(host, d)
     instances(host, project, d)
     instance_copies(host, project, d)
     inherited(host, project, d)
@@ -174,6 +176,29 @@ def structs(host: str, d: str) -> None:
     has("H8 tidy basis", text, "(0, 0, -2, 0, 2, 0, 2, 0, 0, 0, 3, 0)")
     must("H8 hex color", mutate(host, f'{node("Glow")} | set LightColor = "#ff8800"'))
     has("H8 color tidy", must("H8 color read", query(host, f'{node("Glow")} | select LightColor')), "(1, 0.533333, 0, 1)")  # RQL 0.2 tuple display: 6 significant digits
+
+
+def target_limit(host: str, d: str) -> None:
+    """The per-stage target limit: 200 by default, max_targets raises it up to 1000 (RQL spec §8; the 20-target cap made
+    agents batch 300 edits into dozens of calls); a typo that empties a mutation is an error, a polymorphic no-match is not."""
+    new_scene(host, f"{d}/hz_limit.tscn", "Node3D", "LimitRoot", [("MeshInstance3D", "Cube")])
+
+    def mutate_max(query_text: str, max_targets: int) -> tuple[bool, str]:
+        return tool(host, "rql-mutate", {"query": query_text, "max_targets": max_targets})
+
+    for i in range(9):  # 1 -> 512 cubes
+        must(f"TL duplicate round {i + 1}", mutate_max('nodes | where $ is MeshInstance3D | call Duplicate()', 1000))
+    cubes = 'nodes | where $ is MeshInstance3D'
+    has("TL 512 cubes", must("TL count", query(host, f"{cubes} | count")), "512")
+    fails("TL 300 targets over the default limit", mutate(host, f"{cubes} | first 300 | set Visible = false"),
+          "mutation-limit", "limit of 200", "max_targets = 300")
+    must("TL max_targets = 300 changes all 300", mutate_max(f"{cubes} | first 300 | set Visible = false", 300))
+    has("TL 300 hidden", must("TL read", query(host, f"{cubes} | where Visible == false | count")), "300")
+    fails("TL max_targets above the ceiling", mutate_max(f"{cubes} | set Visible = true", 1001), "invalid-value", "between 1 and 1000")
+    fails("TL a typo that empties a mutation", mutate(host, f"{cubes} | where Visibel == false | set Visible = true"),
+          "unknown-member", "nothing was changed")
+    must("TL a polymorphic no-match stays ok", mutate(host, 'nodes | where $ is Light3D | set LightEnergy = 2'))
+    must("TL a member of an absent class stays ok", mutate(host, 'root | where LightEnergy > 1 | set Visible = false'))
 
 
 def call_validators(host: str, d: str) -> None:
