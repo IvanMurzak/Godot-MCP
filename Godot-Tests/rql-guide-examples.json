@@ -20,17 +20,19 @@
     "godot.resource(\"res://materials/water.tres\") | get uniforms | select name type default value overridden",
     "nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]",
     "layers | where kind == \"3d_physics\" and name != \"\" | select index name",
-    "godot.resources(\"MeshLibrary\") | get items | select id name mesh"
+    "godot.resources(\"MeshLibrary\") | get items | select id name mesh",
+    "nodes | group-by class, scripted=(script is not null)"
   ],
   "mutate": [
     "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",
     "nodes | where class == \"OmniLight3D\" | set props[\"light_energy\"] = props[\"light_energy\"] * 2, props[\"light_color\"] = \"#ffcc88\"",
     "nodes | where name starts-with \"Enemy\" | set Visible = false",
+    "nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2",
     "godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"",
     "root | call AddChild(\"Node3D\", \"Props\")",
     "nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")",
     "nodes | where name == \"Crate\" | call Duplicate()",
-    "nodes | where name == \"Floor\" | set Mesh = {\"$type\": \"PlaneMesh\", Size: \"(20, 20)\"}",
+    "nodes | where name == \"Floor\" | set Mesh = {$type: \"PlaneMesh\", Size: \"(20, 20)\"}",
     "nodes | where name == \"Crate\" | call Reparent(godot.find(\"Props\"))",
     "nodes | where name == \"Crate\" | call MoveChild(0)",
     "nodes | where name == \"Old\" | call Free()",
@@ -56,6 +58,7 @@
     "layers | where kind == \"3d_physics\" and index == 2 | set name = \"enemies\"",
     "nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]",
     "godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"",
-    "godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")"
+    "godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")",
+    "nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")"
   ]
 }

@@ -99,6 +99,14 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   `Duplicate` or a rename of a node that belongs to a scene instance (Godot saves only property overrides of those; the
   Scene dock refuses the same edits). Paths stay inside the edited scene: the root's `parent` is null and
   `godot.find("..")` finds nothing (a miss suggests similar node paths).
+- **Batch checks** (RQL `MutationPolicy.ValidateBatch`, run on every `set` / `call` stage before anything changes, dry
+  runs included; a refusal is `invalid-value`): a `Free()` of a node inside a scene instance is refused up front unless
+  an ancestor is freed by the same call (`godot.find("Enemy") | recurse children | call Free()` removes the instance with
+  its nodes). Hints never advise `budgets.*` (the tools take no budgets) and a `ref("Name")` hint names `godot.find("…")`.
+- **Targets and map entries**: `$index` / `$path` in a `set` value or `call` argument are the
+  target's (`nodes | where name starts-with "Enemy" | sort name | set Position.X = $index * 2`); a `set` on the entries
+  `get` streams from a map writes through it (`godot.resource("res://ui/theme.tres") | get colors | where Key
+  starts-with "Button/" | set Value = "#ffffff"` is the key-path write `colors["Button/…"]`, undo and save included).
 - **Scene instances**: `InstantiateScene` instances like the Scene dock (`GenEditState.Instance`), so the `.tscn` stores only
   the overrides and the instance keeps following its scene file (type, script, groups). A change to a node inside an
   instance (a property, a group, a child added to it) turns on that instance's Editable Children, undoably, because Godot

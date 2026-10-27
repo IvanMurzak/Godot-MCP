@@ -59,9 +59,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  first N | skip N | count\n" +
             "  get <path>   replace each item by a member (lists are flattened)\n" +
             "  recurse children [max-depth=N] [include-self=false]   walk the scene tree (input items included by default)\n" +
-            "  distinct [expr] | group-by expr | sum expr | min expr | max expr | avg expr\n" +
+            "  distinct [expr] | sum expr | min expr | max expr | avg expr\n" +
+            "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count\n" +
             "Expressions: == != < <= > >= and or not + - * / %; contains, starts-with, ends-with (case-insensitive); " +
             "matches \"regex\"; x in [a, b]; x is null; x is not null; $ is Node3D (includes subclasses); has(member). " +
+            "Text: replace(s, from, to) (case-insensitive), replace-regex(s, pattern, repl) ($1 = group 1), substring(s, start[, length]), " +
+            "split(s, sep), trim(s), pad(v, width[, fill]) — also as methods: name.replace(\"Old\", \"New\"), name.substring(0, 4). " +
             "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}.\n" +
             "Paths: a.b.c, list[0], map[\"key\"]; .member on a list maps over its elements. List methods: .any(pred) .all(pred) " +
             ".count([pred]) .sum(e) .min(e) .max(e) .first([pred]); inside them bare names refer to the element, falling back to the outer item.\n" +
@@ -112,7 +115,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  godot.resource(\"res://materials/water.tres\") | get uniforms | select name type default value overridden\n" +
             "  nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]\n" +
             "  layers | where kind == \"3d_physics\" and name != \"\" | select index name\n" +
-            "  godot.resources(\"MeshLibrary\") | get items | select id name mesh";
+            "  godot.resources(\"MeshLibrary\") | get items | select id name mesh\n" +
+            "  nodes | group-by class, scripted=(script is not null)";
 
         /// <summary>
         /// rql-mutate examples, one per line ("  &lt;query&gt;   &lt;what it does&gt;", at least three spaces before the note);
@@ -122,11 +126,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"   move a node\n" +
             "  nodes | where class == \"OmniLight3D\" | set props[\"light_energy\"] = props[\"light_energy\"] * 2, props[\"light_color\"] = \"#ffcc88\"   Godot properties by their snake_case name\n" +
             "  nodes | where name starts-with \"Enemy\" | set Visible = false   hide every enemy\n" +
+            "  nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2   spread the matches along X\n" +
             "  godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"   edit a resource file (saved to disk)\n" +
             "  root | call AddChild(\"Node3D\", \"Props\")   new child node of a class; the receipt's result column holds its $ref\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
             "  nodes | where name == \"Crate\" | call Duplicate()   copy next to it (returns the copy)\n" +
-            "  nodes | where name == \"Floor\" | set Mesh = {\"$type\": \"PlaneMesh\", Size: \"(20, 20)\"}   a new embedded resource (mesh, shape, material, environment …) of a concrete class, with its members; a script class_name works too\n" +
+            "  nodes | where name == \"Floor\" | set Mesh = {$type: \"PlaneMesh\", Size: \"(20, 20)\"}   a new embedded resource (mesh, shape, material, environment …) of a concrete class, with its members; a script class_name works too\n" +
             "  nodes | where name == \"Crate\" | call Reparent(godot.find(\"Props\"))   reparent (keeps the global transform)\n" +
             "  nodes | where name == \"Crate\" | call MoveChild(0)   reorder among its siblings (-1 = last)\n" +
             "  nodes | where name == \"Old\" | call Free()   remove a node (undoable, like Delete in the Scene dock)\n" +
@@ -152,7 +157,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  layers | where kind == \"3d_physics\" and index == 2 | set name = \"enemies\"   name a layer (saved to project.godot)\n" +
             "  nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]   a layer mask by layer names (numbers for unnamed layers)\n" +
             "  godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"   shader uniforms of a ShaderMaterial (null or call ClearParam(name) reverts one)\n" +
-            "  godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")   add a MeshLibrary item (set its shapes, navigationMesh … on the returned row)";
+            "  godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")   add a MeshLibrary item (set its shapes, navigationMesh … on the returned row)\n" +
+            "  nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")   bulk rename (replace, replace-regex, substring, pad …)";
 
         /// <summary>The queries of <see cref="QueryExampleText"/>, in order.</summary>
         public static string[] QueryExamples => Examples(QueryExampleText);
@@ -164,7 +170,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             text.Split('\n').Select(l => Regex.Split(l.Trim(), @"\s{3,}")[0]).Where(l => l.Length > 0).ToArray();
 
         public const string MutateStages =
-            "  set path = expr, ...   assign members (paths may go through structs: set Position.Y = Position.Y + 1)\n" +
+            "  set path = expr, ...   assign members (paths may go through structs: set Position.Y = Position.Y + 1); values see each " +
+            "target: $ and $index (its position in the stream entering set / call)\n" +
             "  call Method(args)   invoke a method the tools expose\n";
 
         public const string MutateExamplesBlock =
@@ -182,7 +189,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
-            "Object literals build values: set Position = {x: 1, y: 2, z: 3}. At most 20 targets per call. Nodes inside a scene " +
+            "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
+            "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
+            "At most 20 targets per call (narrow the where, or first 20 per call). Nodes inside a scene " +
             "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
             "or moved in their own scene.\n\n" +
             QuerySyntaxShort;

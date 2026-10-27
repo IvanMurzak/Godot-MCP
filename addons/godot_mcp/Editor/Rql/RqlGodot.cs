@@ -59,10 +59,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public static RqlEngine Create()
         {
-            var engine = new RqlEngine(AccessorMode.Compiled) { RuntimeName = "godot" };
+            // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; a ref("Name") hint names
+            // the finder.
+            var engine = new RqlEngine(AccessorMode.Compiled) { RuntimeName = "godot", FindHint = "godot.find(\"…\")" };
+            engine.Defaults.BudgetsAdjustable = false;
             engine.ResolveStableRef = ResolveStableRef;
 
             engine.Mutations.Enabled = true;
+            // Rules that span the targets of one set / call stage, checked before anything runs (dry runs too).
+            engine.Mutations.ValidateBatch = ValidateBatch;
             // One undo action per mutation: BeforeWrite snapshots the Godot properties of every object about to change,
             // Committed turns the differences into do/undo properties (structural calls such as AddChild / Free register
             // their own do/undo methods); Mutate commits the action once the query finished (RqlGodot.Save.cs).

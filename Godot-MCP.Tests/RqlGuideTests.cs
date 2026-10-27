@@ -48,9 +48,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
-            Assert.Equal(20, RqlGuide.QueryExamples.Length);
-            Assert.Equal(34, RqlGuide.MutateExamples.Length);
+            Assert.Equal(21, RqlGuide.QueryExamples.Length);
+            Assert.Equal(36, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
+        }
+
+        [Fact]
+        public void TheGuideTeachesTheStringFunctionsGroupByKeysAndTargetScope()
+        {
+            foreach (var function in new[] { "replace(", "replace-regex(", "substring(", "split(", "trim(", "pad(" })
+                Assert.Contains(function, RqlGuide.Language);
+            Assert.Contains("group-by a, b", RqlGuide.Language);
+            Assert.Contains("$index", RqlGuide.MutateStages);
+            Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("$index") && e.Contains("set "));
+            Assert.Contains(RqlGuide.MutateExamples, e => e.Contains(".replace("));
+            Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("group-by class, "));
         }
 
         [Fact]

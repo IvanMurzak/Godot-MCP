@@ -1,0 +1,7 @@
+<Project>
+  <!-- TEMPORARY pre-release RQL feed for every project in this repo; see "TEMPORARY PRE-RELEASE PIN" in Godot-MCP.csproj.
+       Delete this file and prerelease-packages/ when the pins return to a published version. -->
+  <PropertyGroup>
+    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MSBuildThisFileDirectory)prerelease-packages</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+</Project>

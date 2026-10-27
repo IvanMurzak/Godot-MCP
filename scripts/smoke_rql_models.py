@@ -763,6 +763,12 @@ def themes(host: str, project: pathlib.Path, d: str) -> None:
                           ("font", r'^Label/fonts/font = ExtResource\("[^"]+"\)$'),
                           ("icon", r'^CheckBox/icons/checked = ExtResource\("[^"]+"\)$')):
         check(f"TH file has {name}", re.search(pattern, content, re.M) is not None, content)
+    # Map entries streamed by get are targets: each writes through the Theme (the key-path write colors["Button/…"]).
+    text = must("TH8 entries written through the map", mutate(host, f'{th} | get colors | where Key starts-with "Button/" | set Value = "#00ff00"'))
+    has("TH8 the receipt names the key path", text, 'colors["Button/font_color"]')
+    has("TH8 read back", must("TH8 read", query(host, f'{th} | select c=(colors["Button/font_color"])')), "(0, 1, 0, 1)")
+    check("TH8 saved to the file", re.search(r"^Button/colors/font_color = Color\(0, 1, 0, 1\)$", file_text(project, theme), re.M) is not None,
+          file_text(project, theme))
     fails("TH4 key without a type", mutate(host, f'{th} | set colors["font_color"] = "#00ff00"'), "ControlType/item")
     fails("TH4 wrong value type", mutate(host, f'{th} | set constants["HBoxContainer/separation"] = "wide"'))
     fails("TH4 not a stylebox", mutate(host, f'{th} | set styleboxes["Button/hover"] = {q(font)}'))
@@ -786,6 +792,10 @@ def themes(host: str, project: pathlib.Path, d: str) -> None:
         undo(host, "global")
         text = must("TH7 read new", query(host, f"{th} | select types"))
         lacks("TH7 undo removed the new item (and its type)", text, "Panel")
+        must("TH7 entry write for undo", mutate(host, f'{th} | get constants | where Key == "HBoxContainer/separation" | set Value = 40'))
+        undo(host, "global")
+        text = must("TH7 read entry", query(host, f'{th} | select k=(constants["HBoxContainer/separation"])'))
+        has("TH7 undo restored the entry write", text, "12")
         must("TH7 clear for undo", mutate(host, f'{th} | call ClearType("HBoxContainer")'))
         undo(host, "global")
         text = must("TH7 read clear", query(host, f'{th} | select k=(constants["HBoxContainer/separation"])'))

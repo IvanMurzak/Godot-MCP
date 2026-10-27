@@ -289,6 +289,14 @@ def instance_copies(host: str, project: pathlib.Path, d: str) -> None:
     check("H11 a node moved into an instance is saved there", file_has(project, level, r'^\[node name="Holder" type="Node3D" parent="Closed/Hat"'), text)
     must("H11 Free an instance with all its nodes", mutate(host, 'godot.find("A2") | recurse children | call Free()'))
     fails("H11 Free of an inner node alone", mutate(host, 'godot.find("A/Hat") | call Free()'), "instance", "removed")
+    # The batch check sees every target before the first call (dry runs too): an own node first in the stream is not freed
+    # when a later target is an inner node of an instance.
+    must("H11 own node for the batch", mutate(host, 'root | call AddChild("Node3D", "Mine11")'))
+    batch = 'nodes | where name == "Mine11" or path == "A/Hat" | sort name desc | call Free()'
+    fails("H11 a dry run refuses the batch", mutate(host, batch, dry_run=True), "invalid-value", "instance")
+    fails("H11 the batch is refused whole", mutate(host, batch), "invalid-value", "instance")
+    has("H11 the own node was not freed", must("H11 read own node", query(host, 'nodes | where name == "Mine11" | count')), "1")
+    must("H11 own node removed", mutate(host, 'godot.find("Mine11") | call Free()'))
     text = must("H11 read", query(host, "root | get children | select name"))
     lacks("H11 A2 is gone", text, "A2")
     has("H11 A kept", text, "A")
