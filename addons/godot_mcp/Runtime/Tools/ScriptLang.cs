@@ -88,12 +88,26 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// success. Layers the script-extension contract on top of
         /// <see cref="ResPathNormalizer.RequireResFilePath"/> so the two share one set of res:// guards.
         /// </summary>
+        /// <summary>
+        /// Where a scene or resource file is read instead (agents reach for the script tools to read a .tscn / .tres), or empty
+        /// for any other file.
+        /// </summary>
+        public static string NotAScriptHint(string path)
+        {
+            var dot = path.LastIndexOf('.');
+            var ext = dot < 0 ? "" : path.Substring(dot).ToLowerInvariant();
+            return ext is ".tscn" or ".tres" or ".scn" or ".res"
+                ? " A scene or resource is not a script: query its nodes and properties with rql-query (godot.resource(\"" + path +
+                  "\") | select props, or editor | call OpenScene for a scene), or read its text with script-execute (FileAccess.GetFileAsString)."
+                : "";
+        }
+
         public static string RequireScriptResPath(string? path, string paramName, out ScriptLang lang)
         {
             var p = ResPathNormalizer.RequireResFilePath(path, paramName);
             if (!TryGetLang(p, out lang))
                 throw new ArgumentException(
-                    $"Script path must end with '{CSharpExtension}' (C#) or '{GDScriptExtension}' (GDScript); got '{path}'.",
+                    $"Script path must end with '{CSharpExtension}' (C#) or '{GDScriptExtension}' (GDScript); got '{path}'." + NotAScriptHint(p),
                     paramName);
             return p;
         }

@@ -90,6 +90,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 () => ScriptLang_.RequireScriptResPath("res://scenes/main.tscn", "scriptPath", out _));
             Assert.Contains(".cs", ex.Message);
             Assert.Contains(".gd", ex.Message);
+            // A scene / resource names where it is read instead (wave-4 agents tried script-read on .tscn / .tres first).
+            Assert.Contains("rql-query", ex.Message);
+            Assert.Contains("godot.resource(\"res://scenes/main.tscn\")", ex.Message);
+            Assert.Equal("", ScriptLang_.NotAScriptHint("res://notes/readme.txt"));
         }
 
         [Fact]
