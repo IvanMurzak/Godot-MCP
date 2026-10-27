@@ -65,7 +65,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     "instance the scene at a res:// path as a new child and return it",
                     (o, a) => RqlGodot.ValidateInstantiateScene((Node)o, (string)a[0]!))
                 .AddMethod("Duplicate", Array.Empty<CallableParameter>(), typeof(Node), (o, a) => RqlGodot.Duplicate((Node)o),
-                    "copy this node (with its children) next to it and return the copy")
+                    "copy this node (with its children) next to it and return the copy",
+                    (o, a) => RqlGodot.ValidateDuplicate((Node)o))
                 .AddMethod("Free", Array.Empty<CallableParameter>(), typeof(void), (o, a) => { RqlGodot.Remove((Node)o); return null; },
                     "remove this node from the scene (undoable, like Delete in the Scene dock)",
                     (o, a) => RqlGodot.ValidateRemove((Node)o))
@@ -75,7 +76,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     (o, a) => RqlGodot.ValidateReparent((Node)o, a[0] as Node))
                 .AddMethod("MoveChild", new[] { new CallableParameter("index", typeof(int)) },
                     typeof(int), (o, a) => RqlGodot.MoveChild((Node)o, (int)a[0]!),
-                    "move this node to a position among its siblings (0 = first, -1 = last); returns the resulting index")
+                    "move this node to a position among its siblings (0 = first, -1 = last); returns the resulting index",
+                    (o, a) => RqlGodot.ValidateMoveChild((Node)o))
                 .AddMethod("Connect", new[]
                     {
                         new CallableParameter("signal", typeof(string)), new CallableParameter("target", typeof(Node)), new CallableParameter("method", typeof(string)),

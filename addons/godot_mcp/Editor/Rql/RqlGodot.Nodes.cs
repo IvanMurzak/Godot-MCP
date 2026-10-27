@@ -89,6 +89,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
         });
 
+        public static string? ValidateDuplicate(Node node) => Rejection(() => DuplicateParent(node, RequireEditedRoot()));
+
+        public static string? ValidateMoveChild(Node node) => Rejection(() => MoveChildParent(node));
+
+        // The parent a Duplicate copies into; throws for the root or a node outside the edited scene.
+        private static Node DuplicateParent(Node node, Node root)
+        {
+            RequireInEditedScene(node, "node");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
+            return node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
+        }
+
+        // The parent whose children MoveChild reorders; throws for the root or a node outside the edited scene.
+        private static Node MoveChildParent(Node node)
+        {
+            RequireInEditedScene(node, "node");
+            if (node == EditedRoot() || !(node.GetParent() is { } parent))
+                throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            return parent;
+        }
+
         public static string? ValidateReparent(Node node, Node? newParent) => Rejection(() => CheckReparent(node, newParent, RequireEditedRoot()));
 
         internal static string? Rejection(Action check)
@@ -127,9 +148,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static Node Duplicate(Node node)
         {
             var root = RequireEditedRoot();
-            RequireInEditedScene(node, "node");
-            if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
-            var parent = node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
+            var parent = DuplicateParent(node, root);
             var copy = node.Duplicate() as Node ?? throw new InvalidOperationException($"could not duplicate '{node.Name}'");
             Attach(parent, copy, root);
             var index = node.GetIndex(includeInternal: false) + 1;
@@ -204,9 +223,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Move <paramref name="node"/> to <paramref name="index"/> among its siblings (negative counts from the end, clamped).</summary>
         public static int MoveChild(Node node, int index)
         {
-            RequireInEditedScene(node, "node");
-            if (node == EditedRoot() || !(node.GetParent() is { } parent))
-                throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            var parent = MoveChildParent(node);
             var oldIndex = node.GetIndex(includeInternal: false);
             var target = NodeIndexResolver.Resolve(index, parent.GetChildCount(includeInternal: false));
             parent.MoveChild(node, target);

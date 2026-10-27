@@ -15,13 +15,12 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
     /// <summary>Vector3I (grid cells): compact "(x, y, z)" output; whole numbers only.</summary>
-    public sealed class Godot_Vector3I_Adapter : NumericTupleAdapter<Vector3I>
+    public sealed class Godot_Vector3I_Adapter : GodotIntTupleAdapter<Vector3I>
     {
         public override string Description => "Vector3I: write as \"(x, y, z)\" or [x, y, z] with whole numbers";
         protected override string Expected => "(x, y, z) or [x, y, z] with whole numbers";
         protected override int Width => 3;
-        protected override float Part(Vector3I v, int index) => index switch { 0 => v.X, 1 => v.Y, _ => v.Z };
-        protected override float Tolerance => 0;
+        protected override int Whole(Vector3I v, int index) => index switch { 0 => v.X, 1 => v.Y, _ => v.Z };
 
         protected override Vector3I? Make(float[] f) => WholeNumbers.Of(f, 3) is { } i ? new Vector3I(i[0], i[1], i[2]) : (Vector3I?)null;
     }

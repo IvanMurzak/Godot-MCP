@@ -181,6 +181,11 @@ def call_validators(host: str, d: str) -> None:
     fails("H9 a multi-target Reparent is all-or-nothing",
           mutate(host, 'nodes | where name == "A" or name == "B" | call Reparent(godot.find("B"))'), "invalid-value", "under itself")
     lacks("H9 A stayed under the root", must("H9 read A", query(host, 'nodes | where name == "A" | select path')), "B/A")
+    # Sorted by name, A comes before the root: without the validator A would already be last when the root is refused.
+    fails("H9 a multi-target MoveChild is all-or-nothing",
+          mutate(host, 'nodes | where name == "A" or name == "ValRoot" | sort name | call MoveChild(-1)'), "invalid-value", "no siblings")
+    has("H9 A kept its place", must("H9 read order", query(host, "root | get children | select name index")), "A|0", "B|1")
+    fails("H9 a dry run reports a refused Duplicate", mutate(host, "root | call Duplicate()", dry_run=True), "invalid-value", "cannot be duplicated")
     fails("H9 NewScene onto an existing file", mutate(host, f'editor | call NewScene({q(d + "/hz_validate.tscn")})', dry_run=True),
           "invalid-value", "already exists")
     fails("H9 DeleteResource of a missing file", mutate(host, f'editor | call DeleteResource({q(d + "/hz_nothing.tres")})', dry_run=True),

@@ -114,6 +114,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(new Vector3I(7, 8, 9), _items[0].Cell);
         }
 
+        // RQL's tuple adapter prints 6 significant digits and compares with a relative tolerance: whole numbers must not.
+        [Fact]
+        public void IntegerVectorsPrintAndCompareExactly()
+        {
+            _items[0].Cell = new Vector3I(1234567, 100000, -3);
+            var text = Text(Query("items | where name == \"a\" | select Cell"));
+            Assert.Contains("(1234567, 100000, -3)", text);
+            Assert.Equal(new[] { "a" }, Rows(Query("items | where Cell == \"(1234567, 100000, -3)\" | select name")));
+            Assert.Empty(Rows(Query("items | where Cell == \"(1234567, 100001, -3)\" | select name")));
+            Assert.Empty(Rows(Query("items | where Cell == [1234567, 100001, -3] | select name")));
+        }
+
         [Fact]
         public void ColorsAcceptHexAndTuples()
         {
