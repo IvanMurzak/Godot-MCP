@@ -31,6 +31,8 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     structs(host, d)
     call_validators(host, d)
     instances(host, project, d)
+    instance_copies(host, project, d)
+    inherited(host, project, d)
 
 
 def reparent_undo(host: str, d: str) -> None:
@@ -253,3 +255,53 @@ def instances(host: str, project: pathlib.Path, d: str) -> None:
     must("H10 save after E3 undo", mutate(host, "editor | call SaveScene()"))
     check("H10 undo turns Editable Children off again", not file_has(project, level, r'^\[editable path="E3"\]$')
           and file_has(project, level, r'^\[node name="E3"'), file_text(project, level))
+
+
+def instance_copies(host: str, project: pathlib.Path, d: str) -> None:
+    """Duplicate of an instance stays an instance with the original's overrides; Free over an instance and its nodes works."""
+    base, level = f"{d}/hz_inst_base.tscn", f"{d}/hz_copies.tscn"  # the base scene instances() saved
+    new_scene(host, level, "Node3D", "Copies", [("Node3D", "Holder")])
+    must("H11 instance", mutate(host, f'root | call InstantiateScene({q(base)}, "A")'))
+    must("H11 overrides", mutate(host, 'godot.find("A") | set props["health"] = 7, Position = "(1, 0, 0)"'))
+    must("H11 inner override", mutate(host, 'godot.find("A/Eye") | set OmniRange = 4'))
+    must("H11 own child inside", mutate(host, 'godot.find("A/Hat") | call AddChild("Node3D", "Pin")'))
+    must("H11 duplicate", mutate(host, 'godot.find("A") | call Duplicate()'))
+    must("H11 no-op set inside another instance", mutate(host, f'root | call InstantiateScene({q(base)}, "Closed")'))
+    must("H11 same value", mutate(host, 'godot.find("Closed/Eye") | set Visible = true'))
+    must("H11 own node into an inner node", mutate(host, 'godot.find("Holder") | call Reparent(godot.find("Closed/Hat"))'))
+    must("H11 save", mutate(host, "editor | call SaveScene()"))
+    text = file_text(project, level)
+    check("H11 the copy is a plain instance (no pinned type, groups or script)",
+          file_has(project, level, r'^\[node name="A2" parent="\." instance=ExtResource\("[^"]+"\)\]$'), text)
+    check("H11 the copy keeps the overrides", file_has(project, level, r'^\[node name="Eye" parent="A2"[^\n]*\]\nomni_range = 4\.0$')
+          and text.count("health = 7") == 2, text)
+    check("H11 the copy keeps the node added inside", file_has(project, level, r'^\[node name="Pin" type="Node3D" parent="A2/Hat"'), text)
+    check("H11 the copy is editable", file_has(project, level, r'^\[editable path="A2"\]$'), text)
+    check("H11 the inner node is not re-saved whole", "light_color" not in text, text)
+    check("H11 a node moved into an instance is saved there", file_has(project, level, r'^\[node name="Holder" type="Node3D" parent="Closed/Hat"'), text)
+    must("H11 Free an instance with all its nodes", mutate(host, 'godot.find("A2") | recurse children | call Free()'))
+    fails("H11 Free of an inner node alone", mutate(host, 'godot.find("A/Hat") | call Free()'), "instance", "removed")
+    text = must("H11 read", query(host, "root | get children | select name"))
+    lacks("H11 A2 is gone", text, "A2")
+    has("H11 A kept", text, "A")
+
+
+def inherited(host: str, project: pathlib.Path, d: str) -> None:
+    """Nodes an inherited scene takes from its base: properties can change, structural edits are refused."""
+    base, child = f"{d}/hz_inst_base.tscn", f"{d}/hz_inherited.tscn"
+    # What Scene > New Inherited Scene saves: a root that instances the base scene.
+    disk(project, child).write_text('[gd_scene load_steps=2 format=3]\n\n'
+                                    f'[ext_resource type="PackedScene" path="{base}" id="1_base"]\n\n'
+                                    '[node name="Child" instance=ExtResource("1_base")]\n', encoding="utf-8")
+    must("H12 rescan", mutate(host, "editor | call Reimport()"))
+    must("H12 open", mutate(host, f"editor | call OpenScene({q(child)})"))
+    must("H12 a property of a base node", mutate(host, 'godot.find("Eye") | set OmniRange = 6'))
+    for label, query_text, verb in (
+            ("Free", 'godot.find("Hat") | call Free()', "removed"),
+            ("rename", 'godot.find("Hat") | set name = "Cap"', "renamed"),
+            ("MoveChild", 'godot.find("Hat") | call MoveChild(0)', "reordered")):
+        fails(f"H12 {label} of a base node is refused", mutate(host, query_text), "inherits", base, verb)
+    must("H12 own node", mutate(host, 'root | call AddChild("Node3D", "Mine")'))
+    must("H12 own node can go", mutate(host, 'godot.find("Mine") | call Free()'))
+    must("H12 save", mutate(host, "editor | call SaveScene()"))
+    check("H12 the base override is saved", file_has(project, child, r"^omni_range = 6\.0$"), file_text(project, child))
