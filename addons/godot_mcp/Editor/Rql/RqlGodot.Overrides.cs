@@ -56,7 +56,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     }
                     var value = GodotVariants.ToClr(current);
                     var original = GodotVariants.ToClr(template);
-                    if (!(OverrideDiff.ApproxSame(value, original) ?? Same(current, template)))
+                    if ((value != null || original != null) && !(OverrideDiff.ApproxSame(value, original) ?? Same(current, template)))
                         list.Add(new RqlOverride(shown, name, value, original));
                 }
             }
