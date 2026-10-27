@@ -15,7 +15,7 @@ import pathlib
 import re
 
 from smoke_rql_lib import check, file_has, file_text, must, mutate, q, query, tool
-from smoke_rql_models import fails, has, lacks, new_scene, node
+from smoke_rql_models import fails, has, lacks, new_scene, node, result_is
 
 
 def run(host: str, project: pathlib.Path, d: str) -> None:
@@ -75,18 +75,25 @@ def enum_props(host: str, project: pathlib.Path, d: str) -> None:
 def literals(host: str, project: pathlib.Path, d: str) -> None:
     """Object literals naming a class build embedded sub-resources; an abstract class is refused."""
     sc = f"{d}/v_literals.tscn"
-    new_scene(host, sc, "Node3D", "LitRoot", [("CollisionShape3D", "Col"), ("MeshInstance3D", "Mesh"), ("WorldEnvironment", "Env")])
+    new_scene(host, sc, "Node3D", "LitRoot", [("CollisionShape3D", "Col"), ("MeshInstance3D", "Mesh"), ("WorldEnvironment", "Env"),
+                                              ("MeshInstance3D", "Over")])
+    # A nested value of the target's own type (Material in a Material) and a literal as a CallMethod argument.
+    must("V3 same-type nesting", mutate(host, f'{node("Over")} | set MaterialOverride = {{class: "StandardMaterial3D", '
+                                              'NextPass: {class: "StandardMaterial3D", AlbedoColor: "#00ff00"}}'))
+    must("V3 literal argument", mutate(host, f'{node("Over")} | call CallMethod("set_mesh", [{{"$type": "SphereMesh", Radius: 2}}])'))
     fails("V3 abstract class refused", mutate(host, f'{node("Col")} | set Shape = {{"$type": "Shape3D"}}'), "cannot be instantiated")
     must("V3 $type", mutate(host, f'{node("Col")} | set Shape = {{"$type": "BoxShape3D", Size: "(1, 2, 1)"}}'))
     must("V3 class + nested", mutate(host, f'{node("Mesh")} | set Mesh = {{class: "BoxMesh", Material: {{class: "StandardMaterial3D", AlbedoColor: "#ff0000"}}}}'))
     must("V3 concrete property type", mutate(host, f'{node("Env")} | set Environment = {{BackgroundMode: "Sky", Sky: {{SkyMaterial: {{"$type": "ProceduralSkyMaterial"}}}}}}'))
-    fails("V3 unrelated class refused", mutate(host, f'{node("Col")} | set Shape = {{class: "BoxMesh"}}'), "Shape")
+    fails("V3 unrelated class refused", mutate(host, f'{node("Col")} | set Shape = {{class: "BoxMesh"}}'), "BoxMesh")
     must("V3 save", mutate(host, "editor | call SaveScene()"))
     text = file_text(project, sc)
     check("V3 box shape saved", re.search(r'^\[sub_resource type="BoxShape3D" id="[^"]+"\]\nsize = Vector3\(1, 2, 1\)$', text, re.M) is not None, text)
     check("V3 nested material saved", re.search(r'^\[sub_resource type="StandardMaterial3D" id="[^"]+"\]\nalbedo_color = Color\(1, 0, 0, 1\)$', text, re.M) is not None
           and "material = SubResource(" in text, text)
     check("V3 environment saved", "background_mode = 2" in text and 'type="ProceduralSkyMaterial"' in text, text)
+    check("V3 nested same-type material saved", "next_pass = SubResource(" in text and "albedo_color = Color(0, 1, 0, 1)" in text, text)
+    check("V3 literal argument saved", re.search(r'^\[sub_resource type="SphereMesh" id="[^"]+"\]\nradius = 2\.0$', text, re.M) is not None, text)
 
 
 def script_class_resources(host: str, project: pathlib.Path, d: str) -> None:
@@ -94,21 +101,27 @@ def script_class_resources(host: str, project: pathlib.Path, d: str) -> None:
     cls = "HzItem" + re.sub(r"\D", "", d)[-9:]  # class_name is global: one per run
     gd, item, sc = f"{d}/v_item.gd", f"{d}/v_item.tres", f"{d}/v_holder.tscn"
     holder_gd = f"{d}/v_holder.gd"
+    # The run folder must be known to the editor filesystem before the class_name script lands in it, or Godot never
+    # registers the class; a scan before script-create (never after it: that hung Godot 4.4, see smoke_rql_models).
+    must("V4 scan the run folder", mutate(host, "editor | call Reimport()"))
     must("V4 class script", tool(host, "script-create", {"scriptPath": gd, "content":
-         f"@tool\nclass_name {cls}\nextends Resource\n@export var price: int = 10\n@export var label: String = \"\"\n"}))
+         f"@tool\nclass_name {cls}\nextends Resource\n@export var price: int = 10\n@export var label: String = \"\"\n@export var icon: Resource\n"}))
+    tex = f"{d}/v_icon.tres"
+    must("V4 icon file", mutate(host, f'editor | call CreateResource({q(tex)}, "GradientTexture2D")'))
     must("V4 holder script", tool(host, "script-create", {"scriptPath": holder_gd, "content": "@tool\nextends Node\n@export var item: Resource\n"}))
-    must("V4 rescan", mutate(host, "editor | call Reimport()"))
     must("V4 CreateResource of a class_name", mutate(host, f"editor | call CreateResource({q(item)}, {q(cls)})"))
     must("V4 edit it", mutate(host, f'godot.resource({q(item)}) | set props["price"] = 25, props["label"] = "Sword"'))
     check("V4 saved with its script", file_has(project, item, r'^script = ExtResource\(') and file_has(project, item, r"^price = 25$"),
           file_text(project, item))
-    has("V4 godot.resources by class_name", must("V4 find", query(host, f"godot.resources({q(cls)}) | select path props[\"price\"]")), item, "25")
+    has("V4 godot.resources by class_name", must("V4 find", query(host, f"godot.resources({q(cls)}) | select path props[\"price\"]")), f"{item}|25")
     new_scene(host, sc, "Node", "HolderRoot", [("Node", "Holder")])
     must("V4 attach", tool(host, "script-attach-to-node", {"nodeRef": "Holder", "scriptPath": holder_gd}))
-    must("V4 literal of a class_name", mutate(host, f'{node("Holder")} | set props["item"] = {{class: {q(cls)}, price: 9, Label: "Dagger"}}'))
+    # icon is a Resource like item itself: the res:// path must still load (no re-entry skip of the adapter).
+    must("V4 literal of a class_name", mutate(host, f'{node("Holder")} | set props["item"] = {{class: {q(cls)}, price: 9, Label: "Dagger", icon: {q(tex)}}}'))
     must("V4 save", mutate(host, "editor | call SaveScene()"))
     text = file_text(project, sc)
-    check("V4 embedded script resource saved", "price = 9" in text and 'label = "Dagger"' in text and "item = SubResource(" in text, text)
+    check("V4 embedded script resource saved", "price = 9" in text and 'label = "Dagger"' in text and "item = SubResource(" in text
+          and re.search(r"^icon = ExtResource\(", text, re.M) is not None, text)
     fails("V4 unknown property of the class", mutate(host, f'{node("Holder")} | set props["item"] = {{class: {q(cls)}, nope: 1}}'), "no property")
 
 
@@ -122,7 +135,7 @@ def connect_validator(host: str, d: str) -> None:
     fails("V5 multi-target Connect is all-or-nothing",
           mutate(host, 'nodes | where name == "A" or name == "B" | call Connect("pressed", godot.find("Target"), "_on_pressed")'),
           "invalid-value", "no signal 'pressed'")
-    has("V5 A not connected", must("V5 read", query(host, 'godot.find("A") | select connections.count()')), "0")
+    result_is("V5 A not connected", must("V5 read", query(host, 'godot.find("A") | select name n=(connections.count())')), "0")
     fails("V5 dry run reports a missing method", mutate(host, 'godot.find("A") | call Connect("pressed", godot.find("Target"), "_nope")', dry_run=True),
           "invalid-value", "no method")
 

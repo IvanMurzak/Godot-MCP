@@ -91,8 +91,9 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   declares; a multi-target `Connect` where one target lacks the signal or method. Paths stay inside the edited scene: the
   root's `parent` is null and `godot.find("..")` finds nothing (a miss suggests similar node paths).
 - **Values as an agent writes them**: `CallMethod` converts each argument like a `set` to the type the Godot method
-  declares (`"(0, 5)"` for a Vector2i, `"res://…"` for a resource, an enum by name: `set_anchors_preset("FullRect")`); an
-  enum-hinted int property takes its inspector label or constant (`props["grow_horizontal"] = "Both"`); an object literal
+  declares (`"(0, 5)"` for a Vector2i, `"res://…"` for a resource, an enum by name:
+  `CallMethod("set_anchors_preset", ["FullRect"])`); an enum-hinted int property takes its inspector label
+  (`props["grow_horizontal"] = "Both"`), its number, or (Godot 4.4+) its setter's enum constant (`"GROW_DIRECTION_BOTH"`); an object literal
   naming a class builds a new embedded resource: `set Shape = {"$type": "BoxShape3D", Size: "(1, 2, 1)"}` (or
   `{class: "BoxShape3D", …}`; a class Godot cannot instantiate is refused). Script classes (GDScript `class_name`) work in
   those literals, in `CreateResource(path, "ItemData")` and in `godot.resources("ItemData")`.

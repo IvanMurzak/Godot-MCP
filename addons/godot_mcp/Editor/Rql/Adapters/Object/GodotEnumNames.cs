@@ -56,11 +56,40 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (key.Length == 0) return false;
             foreach (var (name, v) in options)
                 if (string.Equals(name, text, StringComparison.OrdinalIgnoreCase) || Normalize(name) == key) { value = v; return true; }
-            var hits = options.Where(o => Normalize(o.name) is { Length: > 0 } n && (key.EndsWith(n, StringComparison.Ordinal) || n.EndsWith(key, StringComparison.Ordinal)))
+            // Whole words only (split at '_', spaces and camelCase): "GROW_DIRECTION_BOTH" ends with the word "both", "Rend"
+            // does not end with "end".
+            var words = Words(text);
+            var hits = options.Where(o => Words(o.name) is { Count: > 0 } n && (EndsWith(words, n) || EndsWith(n, words)))
                               .Select(o => o.value).Distinct().ToList();
             if (hits.Count != 1) return false;
             value = hits[0];
             return true;
+        }
+
+        private static bool EndsWith(List<string> words, List<string> tail) =>
+            tail.Count <= words.Count && words.Skip(words.Count - tail.Count).SequenceEqual(tail);
+
+        // "PRESET_FULL_RECT" / "PresetFullRect" / "full rect" -> [preset, full, rect]
+        private static List<string> Words(string s)
+        {
+            var words = new List<string>();
+            var current = new System.Text.StringBuilder();
+            char prev = '\0';
+            foreach (var c in s ?? "")
+            {
+                if (!char.IsLetterOrDigit(c)) { Flush(); prev = c; continue; }
+                if (char.IsUpper(c) && current.Length > 0 && (char.IsLower(prev) || char.IsDigit(prev))) Flush();
+                current.Append(char.ToLowerInvariant(c));
+                prev = c;
+            }
+            Flush();
+            return words;
+
+            void Flush()
+            {
+                if (current.Length > 0) words.Add(current.ToString());
+                current.Clear();
+            }
         }
 
         /// <summary>"one of: Begin, End, Both" for an error message.</summary>

@@ -162,7 +162,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             // Suggest nodes whose name is close to the last path segment (a typo, a missing parent folder).
             var leaf = key.Substring(key.LastIndexOf('/') + 1);
-            var near = leaf.Length == 0 ? new List<string>()
+            var near = leaf.Length < 3 ? new List<string>() // a one- or two-letter name is "similar" to every short name
                 : AllNodes().Where(n => n != root && IsSimilar(n.Name.ToString(), leaf)).Select(PathOf).Take(5).ToList();
             error = ("not-found", $"no node at '{key}' in the edited scene '{root.Name}'" + (near.Count > 0 ? $" (similar: {string.Join(", ", near)})" : ""));
             return false;

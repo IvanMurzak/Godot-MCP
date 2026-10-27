@@ -56,14 +56,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// declares; throws <see cref="ArgumentException"/> naming the argument that does not convert. Vararg extras and
         /// untyped (Variant) arguments pass as given.
         /// </summary>
-        public static Variant[] Convert(global::Godot.Collections.Dictionary? methodInfo, string method, ArgumentList? args)
+        public static Variant[] Convert(global::Godot.Collections.Dictionary? methodInfo, string method, ArgumentList? args, bool build = true)
         {
             var values = args?.Values ?? Array.Empty<object?>();
             var declared = methodInfo?["args"].AsGodotArray<global::Godot.Collections.Dictionary>();
             var result = new Variant[values.Count];
             for (var i = 0; i < values.Count; i++)
-                result[i] = declared != null && i < declared.Count
-                    ? ConvertOne(values[i], declared[i], args!.Kernel, method, i)
+                result[i] = !build && values[i] is ObjectValue ? default // not built while validating
+                    : declared != null && i < declared.Count ? ConvertOne(values[i], declared[i], args!.Kernel, method, i)
                     : GodotVariants.ToVariant(values[i]);
             return result;
         }

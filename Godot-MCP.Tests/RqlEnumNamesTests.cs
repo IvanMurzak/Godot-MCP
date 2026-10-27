@@ -20,7 +20,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class RqlEnumNamesTests
     {
-        private static readonly List<(string, long)> Grow = GodotEnumNames.ParseHint("Begin,End,Both");
+        // grow_horizontal's real hint labels; its setter's enum constants (Control.GrowDirection) differ from them.
+        private static readonly List<(string, long)> Grow = GodotEnumNames.ParseHint("Left,Right,Both");
+
+        private static readonly List<(string, long)> GrowConstants = new List<(string, long)>
+        {
+            ("Left", 0), ("Right", 1), ("Both", 2), ("GROW_DIRECTION_BEGIN", 0), ("GROW_DIRECTION_END", 1), ("GROW_DIRECTION_BOTH", 2),
+        };
 
         private static readonly List<(string, long)> Preset = new List<(string, long)>
         {
@@ -31,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ParsesImplicitAndExplicitValues()
         {
-            Assert.Equal(new List<(string, long)> { ("Begin", 0), ("End", 1), ("Both", 2) }, Grow);
+            Assert.Equal(new List<(string, long)> { ("Left", 0), ("Right", 1), ("Both", 2) }, Grow);
             Assert.Equal(new List<(string, long)> { ("Off", 0), ("On", 5), ("Auto", 6), ("Max", 10) }, GodotEnumNames.ParseHint("Off,On:5,Auto, Max:10"));
             Assert.Empty(GodotEnumNames.ParseHint(""));
         }
@@ -39,14 +45,31 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Theory]
         [InlineData("Both", 2)]
         [InlineData("both", 2)]
-        [InlineData("GROW_DIRECTION_BOTH", 2)]
-        [InlineData("GrowDirectionEnd", 1)]
-        [InlineData("GROW_DIRECTION_BEGIN", 0)]
+        [InlineData("RIGHT", 1)]
+        [InlineData("GROW_DIRECTION_BOTH", 2)] // ends with the label's word
         public void MatchesHintNames(string text, long expected)
         {
             Assert.True(GodotEnumNames.TryMatch(Grow, text, out var value));
             Assert.Equal(expected, value);
         }
+
+        [Theory]
+        [InlineData("GROW_DIRECTION_BEGIN", 0)]
+        [InlineData("GrowDirectionEnd", 1)]
+        [InlineData("Begin", 0)]
+        [InlineData("Left", 0)]
+        public void MatchesSetterConstantsBesideTheLabels(string text, long expected)
+        {
+            Assert.True(GodotEnumNames.TryMatch(GrowConstants, text, out var value));
+            Assert.Equal(expected, value);
+        }
+
+        [Theory]
+        [InlineData("GROW_DIRECTION_BEGIN")] // the labels alone do not know the constant (Godot 4.3 has no setter lookup)
+        [InlineData("h")]
+        [InlineData("Rend")]
+        [InlineData("oth")]
+        public void SuffixesMatchWholeWordsOnly(string text) => Assert.False(GodotEnumNames.TryMatch(Grow, text, out _));
 
         [Theory]
         [InlineData("PRESET_FULL_RECT", 15)]
@@ -74,6 +97,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         [Fact]
         public void DescribesTheOptions() =>
-            Assert.Equal("one of: Begin, End, Both (or its number)", GodotEnumNames.Describe(Grow));
+            Assert.Equal("one of: Left, Right, Both (or its number)", GodotEnumNames.Describe(Grow));
     }
 }
