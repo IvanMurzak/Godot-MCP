@@ -1,0 +1,71 @@
+addons/godot_mcp/Editor/Rql/RqlGodot.Signals.cs
+  s_7bc72ecaebd05d::t_5c835ce01f010d 83-88,103
+  s_7bc72ecaebd05d::t_3a69aac1c64cd8 69-82,149
+  s_7bc72ecaebd05d::t_f9230eb88168f1 141,145-148
+addons/godot_mcp/Editor/Rql/Adapters/Object/Godot_Node_Adapter.cs
+  s_7bc72ecaebd05d::t_062a9c936cbe79 90-91
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Resources.cs
+  s_7bc72ecaebd05d::t_bc39cc79c09857 45
+  s_7bc72ecaebd05d::t_7dcbf79a1519af 27,31
+docs/rql.md
+  s_7bc72ecaebd05d::t_a5d08800c0b526 90,99-104
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotCallArguments.cs
+  s_7bc72ecaebd05d::t_224f8fab5a46ed 103-109,115-124
+  s_7bc72ecaebd05d::t_d844b517f57fac 110-114
+  s_7bc72ecaebd05d::t_c00cc6a661e123 1-102,125-144
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_a4128e4eb82083 446
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotEnumNames.cs
+  s_7bc72ecaebd05d::t_952d741c163eb4 1-74
+scripts/smoke_rql.py
+  s_7bc72ecaebd05d::t_512f54117001a0 37,232,254,292
+Godot-MCP.Tests/RqlEnumNamesTests.cs
+  s_7bc72ecaebd05d::t_a8284f1fad8b85 1-79
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7bc72ecaebd05d::t_eab7e566ceaa95 135
+  s_7bc72ecaebd05d::t_36885390243321 129
+scripts/smoke_rql_values.py
+  s_7bc72ecaebd05d::t_332437b69d4e23 1-49,51,54-63,68-78,80-136
+  s_7bc72ecaebd05d::t_e0732fefd2c132 50,52-53
+  s_7bc72ecaebd05d::t_617fe2b5e4f917 79
+  s_7bc72ecaebd05d::t_e71730dc06d6db 64-67
+addons/godot_mcp/Editor/Rql/Adapters/Object/Godot_GodotObject_Adapter.cs
+  s_7bc72ecaebd05d::t_b48dbf91936b7f 121-127
+  s_7bc72ecaebd05d::t_92ad30960d7e6a 209
+  s_7bc72ecaebd05d::t_944c2055bcb319 73-118
+  s_7bc72ecaebd05d::t_24bceb4818fde8 50
+  s_7bc72ecaebd05d::t_97590a12df1b2e 46-47,49
+  s_7bc72ecaebd05d::t_944664dce9b455 137
+  s_7bc72ecaebd05d::t_b2c85081ff7a5d 65,67-72
+  s_7bc72ecaebd05d::t_0a7f8ed49ef20c 168-172
+  s_7bc72ecaebd05d::t_a6a16a618d1cc2 181,183
+  s_7bc72ecaebd05d::t_1160b340f4cf45 119-120,128-136,138-146
+addons/godot_mcp/Editor/Rql/RqlGodot.Nodes.cs
+  s_7bc72ecaebd05d::t_942b873e8abf92 393-402,404-408,410,414,417,420-422,427,432-433
+addons/godot_mcp/Editor/Rql/Modules/GodotCoreModule.cs
+  s_7bc72ecaebd05d::t_e6961a478254d2 64
+addons/godot_mcp/Editor/Rql/RqlGodot.cs
+  s_7bc72ecaebd05d::t_154194e0a30bca 204-207
+  s_7bc72ecaebd05d::t_65e367f89d3c51 233-246
+  s_7bc72ecaebd05d::t_2cd8988bbfbf2b 163-167,230-232,247-250
+Godot-MCP.Tests/RqlGuideTests.cs
+  s_7bc72ecaebd05d::t_669d94e4810979 52
+Godot-Tests/rql-guide-examples.json
+  s_7bc72ecaebd05d::t_73a4c94cdf6cec 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b764ed432a8a2d3f5025eac474f81e54f02b1af7",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
