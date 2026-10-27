@@ -48,8 +48,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
-            Assert.Equal(22, RqlGuide.QueryExamples.Length);
-            Assert.Equal(36, RqlGuide.MutateExamples.Length);
+            Assert.Equal(26, RqlGuide.QueryExamples.Length);
+            Assert.Equal(37, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
 

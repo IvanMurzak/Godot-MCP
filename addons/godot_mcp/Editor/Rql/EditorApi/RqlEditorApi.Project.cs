@@ -14,6 +14,7 @@ using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
 using Rql;
+using Rql.Execution;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
@@ -24,10 +25,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// The <c>files</c> source: every file the editor filesystem knows, depth-first, at most
         /// <see cref="RqlGodot.MaxFiles"/>; lazy, so <c>files | first 5</c> walks only that far.
         /// </summary>
-        public static IEnumerable<RqlFile> Files() =>
-            RqlGodot.WalkFiles(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem())
-                .Select(f => new RqlFile(f.path, f.type))
+        public static IEnumerable<RqlFile> Files()
+        {
+            var references = new FileReferences(); // one per query: deps read once, the usedBy index built on first use
+            return RqlGodot.WalkFiles(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem())
+                .Select(f => new RqlFile(f.path, f.type, references))
                 .Take(RqlGodot.MaxFiles);
+        }
 
         /// <summary>The <c>classes</c> source: every Godot class (ClassDB), sorted by name (the list is read once per session).</summary>
         public static List<RqlClass> Classes() => GodotTypes.GodotClasses().Select(c => new RqlClass(c)).ToList();
@@ -36,7 +40,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// <summary>One file of the project (the <c>files</c> source).</summary>
     public sealed class RqlFile
     {
-        public RqlFile(string path, string type) { this.path = path; this.type = type; }
+        private readonly FileReferences _references;
+
+        internal RqlFile(string path, string type, FileReferences references)
+        {
+            this.path = path;
+            this.type = type;
+            _references = references;
+        }
 
         [RqlDescription("res:// path")]
         public string path { get; }
@@ -55,6 +66,118 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         [RqlDescription("uid:// of the file, or null")]
         public string? uid => RqlGodot.UidOf(path);
+
+        [RqlDescription("res:// paths this file loads (a material's textures, a scene's sub-scenes, scripts and resources …), as saved on disk")]
+        public List<string> deps => _references.DepsOf(path);
+
+        [RqlDescription("dependencies whose file no longer exists: broken references")]
+        public List<string> missingDeps => deps.Where(d => !FileReferences.Exists(d)).ToList();
+
+        [RqlDescription("files whose deps include this one (saved files only, unsaved edits are not seen); empty: nothing references it")]
+        public List<string> usedBy => _references.UsedBy(path);
+    }
+
+    /// <summary>A file's references are read on request only (<c>select deps</c>, <c>where usedBy.count() == 0</c>): reading them loads files.</summary>
+    public sealed class RqlFile_Adapter : RqlTypeAdapter<RqlFile>
+    {
+        protected override void Members(MemberTable<RqlFile> m)
+        {
+            m.Untyped.AddMixedMap("importSettings",
+                o => ImportSettings.Keys(((RqlFile)o).path),
+                (o, key) => ImportSettings.TypeOf(((RqlFile)o).path, key),
+                (o, key) => ImportSettings.Get(((RqlFile)o).path, key),
+                (o, key, value) => ImportSettings.Set(((RqlFile)o).path, key, value),
+                (o, key, value) => ImportSettings.Problem(((RqlFile)o).path, key),
+                "an imported file's import options (the [params] of its .import: \"edit/loop_mode\" of a .wav, \"compress/mode\" of a " +
+                "texture …); set one to change it and re-import the file (like the Import dock: not undoable)",
+                // Every key reaches validate, which names the file's options.
+                has: (o, key) => true);
+            m.Untyped.ExplicitOnly("deps", "missingDeps", "usedBy", "importSettings");
+        }
+    }
+
+    /// <summary>The import options of an imported file: the <c>[params]</c> section of its <c>.import</c> sidecar.</summary>
+    internal static class ImportSettings
+    {
+        private const string Section = "params";
+
+        private static ConfigFile? Load(string path)
+        {
+            var config = new ConfigFile();
+            return FileAccess.FileExists(path + ".import") && config.Load(path + ".import") == Error.Ok ? config : null;
+        }
+
+        public static IEnumerable<string> Keys(string path) =>
+            Load(path) is { } c && c.HasSection(Section) ? c.GetSectionKeys(Section) : System.Array.Empty<string>();
+
+        public static System.Type TypeOf(string path, string key) =>
+            Load(path) is { } c && c.HasSectionKey(Section, key) ? GodotVariants.ClrType(c.GetValue(Section, key).VariantType) : typeof(object);
+
+        public static object? Get(string path, string key) =>
+            Load(path) is { } c && c.HasSectionKey(Section, key) ? GodotVariants.ToClr(c.GetValue(Section, key)) : null;
+
+        public static string? Problem(string path, string key)
+        {
+            if (Load(path) is not { } c) return $"'{path}' is not an imported file (it has no .import sidecar)";
+            if (c.HasSectionKey(Section, key)) return null;
+            return $"'{path}' has no import option '{key}'; its options: {string.Join(", ", Keys(path))}";
+        }
+
+        public static void Set(string path, string key, object? value)
+        {
+            var config = Load(path) ?? throw new System.InvalidOperationException(Problem(path, key));
+            config.SetValue(Section, key, GodotVariants.ToVariant(value));
+            var error = config.Save(path + ".import");
+            if (error != Error.Ok) throw new System.InvalidOperationException($"could not write '{path}.import': {error}");
+            Tools.EditorToolGuards.GetResourceFileSystemOrThrow().ReimportFiles(new[] { path });
+        }
+    }
+
+    /// <summary>
+    /// Which file loads which, from <see cref="ResourceLoader.GetDependencies"/> (what the saved file references); one instance per
+    /// <c>files</c> query, so a file's dependencies are read once and the reverse index (<see cref="UsedBy"/>) is built on first use.
+    /// </summary>
+    internal sealed class FileReferences
+    {
+        private readonly Dictionary<string, List<string>> _deps = new();
+        private Dictionary<string, List<string>>? _usedBy;
+
+        public List<string> DepsOf(string path)
+        {
+            if (!_deps.TryGetValue(path, out var deps))
+                _deps[path] = deps = ResourceLoader.GetDependencies(path)
+                    .Select(entry => Resolve(DependencyText.PathOf(entry)))
+                    .Where(p => p.Length > 0)
+                    .Distinct()
+                    .ToList();
+            return deps;
+        }
+
+        public List<string> UsedBy(string path)
+        {
+            if (_usedBy == null)
+            {
+                _usedBy = new Dictionary<string, List<string>>();
+                foreach (var (file, _) in RqlGodot.WalkFiles(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem()).Take(RqlGodot.MaxFiles))
+                    foreach (var dep in DepsOf(file))
+                    {
+                        if (!_usedBy.TryGetValue(dep, out var users)) _usedBy[dep] = users = new List<string>();
+                        users.Add(file);
+                    }
+            }
+            return _usedBy.TryGetValue(path, out var found) ? found : new List<string>();
+        }
+
+        /// <summary>A file or an imported resource exists at <paramref name="path"/>.</summary>
+        public static bool Exists(string path) => FileAccess.FileExists(path) || ResourceLoader.Exists(path);
+
+        // A uid:// that still names a file becomes its path; an unknown uid stays as written (it cannot be resolved).
+        private static string Resolve(string path)
+        {
+            if (!path.StartsWith("uid://", System.StringComparison.Ordinal)) return path;
+            var id = ResourceUid.TextToId(path);
+            return id != ResourceUid.InvalidId && ResourceUid.HasId(id) ? ResourceUid.GetIdPath(id) : path;
+        }
     }
 
     /// <summary>One Godot class (the <c>classes</c> source).</summary>

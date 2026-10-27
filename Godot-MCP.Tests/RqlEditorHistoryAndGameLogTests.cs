@@ -42,6 +42,35 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         private static List<HistoryState> States(params (ulong v, string a)[] s) => s.Select(x => new HistoryState(x.v, x.a)).ToList();
 
+        // ---------------------------------------------------------------- files: deps / usedBy
+
+        [Theory]
+        [InlineData("uid://b1x::Texture2D::res://art/a.png", "res://art/a.png")]
+        [InlineData("uid://b1x::::res://art/a.png", "res://art/a.png")]
+        [InlineData("res://scenes/house.tscn", "res://scenes/house.tscn")]
+        [InlineData("res://scenes/house.tscn::PackedScene", "res://scenes/house.tscn")]
+        [InlineData("uid://b1x::Texture2D::", "uid://b1x")]
+        [InlineData("", "")]
+        [InlineData(null, "")]
+        public void DependencyEntriesGiveTheirPath(string? entry, string expected) => Assert.Equal(expected, DependencyText.PathOf(entry));
+
+        [Fact]
+        public void PendingUndoListsTheCurrentActionFirst()
+        {
+            var names = new[] { "a", "b", "c", "d" };
+            Assert.Equal(new[] { "c", "b", "a" }, HistoryStepText.Pending(undo: true, current: 2, count: 4, i => names[i]).ToArray());
+            Assert.Equal(new[] { "d (global)" }, HistoryStepText.Pending(undo: false, current: 2, count: 4, i => names[i], " (global)").ToArray());
+        }
+
+        [Fact]
+        public void PendingIsEmptyAtTheEndsAndCapped()
+        {
+            Assert.Empty(HistoryStepText.Pending(undo: true, current: -1, count: 3, i => "x"));
+            Assert.Empty(HistoryStepText.Pending(undo: false, current: 2, count: 3, i => "x"));
+            Assert.Equal(new[] { "x9", "x8" }, HistoryStepText.Pending(undo: true, current: 9, count: 10, i => "x" + i, max: 2).ToArray());
+            Assert.Equal(new[] { "(unnamed action)" }, HistoryStepText.Pending(undo: false, current: -1, count: 1, i => "").ToArray());
+        }
+
         [Fact]
         public void UndoNamesTheActionTheMovedHistoryHadBefore()
         {

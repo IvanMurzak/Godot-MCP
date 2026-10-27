@@ -464,6 +464,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(""));
         }
 
+        // ---- WithoutClassNames (script-update's probe of a class_name script it updates) ----------
+
+        [Fact]
+        public void WithoutClassNamesBlanksOnlyTheNamedDeclarations()
+        {
+            const string src = "@tool\nclass_name Item\nextends Resource\n# class_name Item\nvar x: Item\n";
+            var stripped = ScriptDiagnosticsFilter.WithoutClassNames(src, new[] { "Item" });
+            Assert.Equal("@tool\n               \nextends Resource\n# class_name Item\nvar x: Item\n", stripped);
+            Assert.Equal(src, ScriptDiagnosticsFilter.WithoutClassNames(src, new[] { "Other" }));
+            Assert.Empty(ScriptDiagnosticsFilter.ExtractClassNames(stripped));
+        }
+
         // ---- IsGlobalClassSelfHide ---------------------------------------------------------------
 
         [Theory]

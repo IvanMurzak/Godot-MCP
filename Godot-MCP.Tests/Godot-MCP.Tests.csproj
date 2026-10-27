@@ -440,6 +440,8 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlSetStageBuffer.cs" Link="Source\Rql\RqlSetStageBuffer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\ConvertingList.cs" Link="Source\Rql\ConvertingList.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\OverrideDiff.cs" Link="Source\Rql\OverrideDiff.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlHostNames.cs" Link="Source\Rql\RqlHostNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
@@ -454,6 +456,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RotationUnits.cs" Link="Source\Rql\RotationUnits.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\HistoryStepText.cs" Link="Source\Rql\EditorApi\HistoryStepText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\GameLogText.cs" Link="Source\Rql\EditorApi\GameLogText.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\DependencyText.cs" Link="Source\Rql\EditorApi\DependencyText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Tools\StaleGlobalClass.cs" Link="Source\StaleGlobalClass.cs" />
   </ItemGroup>
 

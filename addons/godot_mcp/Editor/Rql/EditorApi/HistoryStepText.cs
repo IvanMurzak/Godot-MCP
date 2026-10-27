@@ -45,6 +45,24 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return "RQL: " + text;
         }
 
+        /// <summary>How many actions <see cref="Pending"/> lists per history.</summary>
+        public const int MaxListed = 20;
+
+        /// <summary>
+        /// The actions one history can still undo (newest first: the current action, then older ones) or redo (next first), at most
+        /// <paramref name="max"/>; <paramref name="tag"/> is appended to each name (" (global)" for the global history).
+        /// <paramref name="current"/> is the history's current action index (-1 when nothing is done), <paramref name="count"/> its size.
+        /// </summary>
+        public static IEnumerable<string> Pending(bool undo, int current, int count, Func<int, string> name, string tag = "", int max = MaxListed)
+        {
+            var listed = 0;
+            for (int i = undo ? current : current + 1; i >= 0 && i < count && listed < max; i += undo ? -1 : 1, listed++)
+            {
+                var text = name(i);
+                yield return (string.IsNullOrEmpty(text) ? "(unnamed action)" : text) + tag;
+            }
+        }
+
         public static string Describe(bool undo, IReadOnlyList<HistoryState> before, IReadOnlyList<HistoryState> after)
         {
             for (int i = 0; i < before.Count && i < after.Count; i++)
