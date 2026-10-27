@@ -34,7 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "create one. GDScript content is syntax-validated before write (invalid '.gd' is rejected and the " +
             "existing file is left untouched); C# is accepted as-is (no in-editor compiler) and the post-write " +
             "build settle surfaces compile errors. For a '.cs' file the editor filesystem reimports and " +
-            "BOUNDED-settles before returning (a project rebuild then loads the changed type); a '.gd' file " +
+            "BOUNDED-settles before returning (then '" + ScriptBuildToolId + "' loads the changed type); a '.gd' file " +
             "only needs a filesystem update so the editor re-parses it. Use '" + ScriptReadToolId + "' to " +
             "inspect the current content first. Returns a structured ScriptInfo.")]
         public ScriptInfo Update

@@ -26,8 +26,8 @@
 #      stub degradation (no engine logger; frames null) while the C# channel still
 #      captures.
 #
-# Then two live EDITOR smokes against the same server: RQL (scripts/smoke_rql.py) and
-# script-execute (scripts/smoke_script_execute.py).
+# Then three live EDITOR smokes against the same server: RQL (scripts/smoke_rql.py),
+# script-execute (scripts/smoke_script_execute.py) and C# reloads (scripts/smoke_reload.py).
 #
 # Called once per matrix version by test_pull_request.yml.
 name: Test Godot Runtime Harness
@@ -541,6 +541,30 @@ jobs:
           fi
           exit "$RC"
 
+      # Live EDITOR suite of C# assembly reloads (last: it rebuilds the testbed): a fresh editor runs
+      # scripts/smoke_reload.py — 10 rounds of script-create + script-build (its result arrives after Godot's reload)
+      # while other threads keep calling tools, each round checking that the plugin reconnects and the new class is
+      # loaded; then a broken script's compiler errors. The editor log must show no failed unload.
+      - name: Live editor reload smoke (script-build + tool calls during reloads)
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          GODOT_MCP_CONNECTION_MODE=Custom \
+          GODOT_MCP_HOST="http://localhost:${SERVER_PORT}" \
+          GODOT_MCP_AUTH_OPTION=None \
+            godot --headless --path "${TEST_PROJECT}" --editor > editor-reload.log 2>&1 &
+          EDITOR_PID=$!
+          RC=0
+          python scripts/smoke_reload.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --rounds 10 --wait 180 --editor-log editor-reload.log || RC=$?
+          kill "$EDITOR_PID" 2>/dev/null || true
+          wait "$EDITOR_PID" 2>/dev/null || true
+          echo "----- editor-reload.log (tail) -----"; tail -n 150 editor-reload.log || true
+          if [ "$RC" != "0" ]; then
+            echo "::error::the live editor reload smoke (scripts/smoke_reload.py) failed on Godot ${{ inputs.godotVersion }} — see the FAIL lines above."
+          fi
+          exit "$RC"
+
       # Review aid ONLY, and only when there is something to review (fixture-missing / contract-change):
       # fresh.jsonl to commit + diff.txt. A green leg uploads nothing, and a chain run uploads only its
       # JSON leg record (owner artifact rule) — its verdict and meta line are in the job log.
@@ -575,6 +599,7 @@ jobs:
             game.log
             editor-rql.log
             editor-exec.log
+            editor-reload.log
             server.log
             harness-result.json
           if-no-files-found: ignore

@@ -64,6 +64,8 @@ addons/godot_mcp/
     ├── Connection/                   # editor server lifecycle (GodotMcpServerManager), device-auth
     │   └── DevControl/               #   the dev-only HttpListener control bridge
     ├── Extensions/                   # ConsumerProjectFile (editor file IO)
+    ├── Reload/                       # the C# reload gate (AssemblyReloadGate + ReloadGateDriver, GatedRunTool)
+    │                                 #   and script-build's detached build (ProjectBuildTracker)
     ├── Rql/                          # the RQL data layer (docs/rql.md): engine (RqlGodot), editor source,
     │                                 #   adapters, modules, schema, guide, tool binding (ToolFormat/)
     ├── Tools/                        # the 3 EDITOR tool families: Tool_Rql* (rql-query / -mutate / -schema),

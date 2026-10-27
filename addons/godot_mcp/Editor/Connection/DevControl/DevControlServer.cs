@@ -282,7 +282,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection.DevControl
             {
                 try { tcs.TrySetResult(work()); }
                 catch (Exception ex) { tcs.TrySetException(ex); }
-            });
+            }, refuse: ex => tcs.TrySetException(ex));
 
             if (!tcs.Task.Wait(MainThreadTimeout))
                 throw new TimeoutException("editor main-thread hop timed out (dispatcher stalled).");

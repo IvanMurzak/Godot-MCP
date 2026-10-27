@@ -107,7 +107,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
                 {
                     tcs.SetException(ex);
                 }
-            });
+            }, refuse: ex => tcs.TrySetException(ex));
 
             return tcs.Task;
         }
