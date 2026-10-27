@@ -33,6 +33,7 @@ import time
 
 from smoke_rql_lib import FAILURES, ROOT, check, disk, file_has, file_text, must, mutate, node_line, q, query, tool  # noqa: F401
 import smoke_rql_adapters
+import smoke_rql_feedback
 import smoke_rql_hazards
 import smoke_rql_values
 import smoke_rql_models
@@ -290,6 +291,7 @@ def main() -> int:
     smoke_rql_adapters.run(host, project, d)
     smoke_rql_hazards.run(host, project, d)
     smoke_rql_values.run(host, project, d)
+    smoke_rql_feedback.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var error = ResourceSaver.Save(resource, resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not save the new resource to '{resPath}': {error}");
             resource.TakeOverPath(resPath);
-            Ei.GetResourceFilesystem()?.UpdateFile(resPath);
+            RqlReimport.Register(resPath);
             return resource;
         }
 
@@ -157,7 +157,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var dir = ResPathNormalizer.NormalizeDir(path);
             EditorToolGuards.EnsureDirectoryExists(dir);
-            Ei.GetResourceFilesystem()?.Scan();
+            RqlReimport.RegisterFolder(dir);
             return dir;
         }
 

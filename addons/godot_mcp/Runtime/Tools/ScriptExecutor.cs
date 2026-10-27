@@ -112,9 +112,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (!result.Success)
                 throw new Exception(ScriptExecuteSource.Describe(result));
 
+            var converted = result.Value as ConvertedValue;
             return new ScriptExecuteResult
             {
-                Result = result.Value as SerializedMember ?? NoValue(result.ReturnType),
+                Result = converted?.Member ?? NoValue(result.ReturnType),
+                Text = converted?.Text,
                 Logs = result.Logs.Count > 0 ? ScriptExecuteSource.LogLines(result.Logs) : null,
             };
         }
@@ -155,6 +157,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             });
         }
 
+        /// <summary>The serialized result and its compact text (null for a scalar), made before the snippet unloads.</summary>
+        sealed record ConvertedValue(SerializedMember Member, string? Text);
+
         /// <summary>Runs on the main thread before the snippet unloads: nothing of the snippet may outlive this.</summary>
         static object? Serialize(object? value)
         {
@@ -162,23 +167,75 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             var type = value.GetType();
             if (value is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
-                return Text(type, $"<freed {type.Name}>");
+                return new ConvertedValue(Text(type, Freed(godotObject)), null);
+            // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items: enumerated once, its
+            // text names the element type (the materialized list is a List<object>), the serialized form gets the item rules.
+            string? text;
+            if (ScriptExecuteSource.IsLazySequence(type))
+            {
+                var items = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value);
+                text = CompactText(items, "IEnumerable<" + ScriptResultText.TypeName(ElementType(type)) + ">");
+                value = items.Select(AsItem).ToList();
+            }
+            else
+            {
+                text = CompactText(value);
+            }
             // Godot structs without a reflection converter (Basis, Transform3D …) and StringName serialize as "{}": their text.
             if (ScriptExecuteSource.IsSnippetType(type) || ScriptExecuteSource.IsGodotTextValue(type))
-                return Text(type, value.ToString());
-            // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items.
-            if (ScriptExecuteSource.IsLazySequence(type))
-                value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, AsItem);
+                return new ConvertedValue(Text(type, value.ToString()), text);
             var member = GodotMcpReflector.GetOrCreate().Serialize(obj: value);
             if (string.IsNullOrEmpty(member.name))
                 member.name = JsonSchema.Result;
-            return ScriptExecuteSource.CapValue(member);
+            return new ConvertedValue(ScriptExecuteSource.CapValue(member), text);
         }
+
+        // The RQL format's text of the value, capped like the serialized value; null for a scalar.
+        static string? CompactText(object? value, string? typeName = null)
+        {
+            string? text;
+            try { text = ScriptResultText.Format(value, EngineValueText, Unwrap, typeName); }
+            catch (Exception) { return null; } // a member that cannot be read this way: the serialized form stays
+            return text == null ? null : ScriptExecuteSource.CapText(text);
+        }
+
+        // A Variant (an item of a Godot collection) is read as the value it holds.
+        static object? Unwrap(object value) => value is Variant v ? v.Obj : value;
+
+        // The element type of a sequence (IEnumerable<T>), object when it has none.
+        static Type ElementType(Type sequence) =>
+            (sequence.IsGenericType && sequence.GetGenericTypeDefinition() == typeof(IEnumerable<>) ? sequence : sequence.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>)))?.GetGenericArguments()[0] ?? typeof(object);
+
+        // Nodes and resources the way rql-query prints them (Node3D#123(Geometry/Floor), PlaneMesh#45(res://m.tres)),
+        // Godot structs by their text.
+        static string? EngineValueText(object value)
+        {
+            switch (value)
+            {
+                case GodotObject o when !GodotObject.IsInstanceValid(o):
+                    return Freed(o);
+                case Node n:
+                    return $"{n.GetClass()}#{n.GetInstanceId()}({(n.Owner != null && n.Owner.IsAncestorOf(n) ? n.Owner.GetPathTo(n).ToString() : n.Name.ToString())})";
+                case Resource r:
+                    return $"{r.GetClass()}#{r.GetInstanceId()}({r.ResourcePath})";
+                case GodotObject o:
+                    return $"{o.GetClass()}#{o.GetInstanceId()}";
+                case StringName or NodePath:
+                    return value.ToString();
+            }
+            // Every Godot struct (Vector3, Color, Basis …) by its text, not only the IsGodotTextValue ones: here the text is
+            // the whole output, while the serialized form keeps the struct's members where it has a converter.
+            var type = value.GetType();
+            return type.IsValueType && type.Namespace == "Godot" ? value.ToString() : null;
+        }
+
+        static string Freed(GodotObject o) => $"<freed {o.GetType().Name}>";
 
         // An item of an enumerated sequence: the same text rules as a top-level value (a freed object, a Godot struct).
         static object? AsItem(object? item) => item switch
         {
-            GodotObject o when !GodotObject.IsInstanceValid(o) => $"<freed {o.GetType().Name}>",
+            GodotObject o when !GodotObject.IsInstanceValid(o) => Freed(o),
             not null when ScriptExecuteSource.IsGodotTextValue(item.GetType()) => item.ToString(),
             _ => item,
         };

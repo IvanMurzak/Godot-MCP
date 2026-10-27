@@ -47,8 +47,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "Returns the result and the printed output (Console; GD.Print on Godot 4.5+).")]
         public Task<ScriptExecuteResult> Execute
         (
-            [Description("C# code. Snippet: 'var root = EditorInterface.Singleton.GetEditedSceneRoot();\\nroot.GetChildCount()'. " +
-                "Full: 'public class Script { public static int Main() { return 42; } }'.")]
+            [Description("C# code. Snippet: 'var root = EditorInterface.Singleton.GetEditedSceneRoot();\\nroot.GetChildCount()'" +
+                ScriptExecuteSource.CodeDescriptionTail)]
             string csharpCode,
             [Description(ScriptExecuteSource.ClassNameDescription)]
             string className = "Script",

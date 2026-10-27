@@ -193,13 +193,29 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>
         /// Close the edited scene when its file was just deleted, so the next save cannot recreate it (the editor
         /// keeps the open scene's path). Uses <c>close_scene</c> (Godot 4.4+, called by name: the addon compiles
-        /// against 4.3); on 4.3, and for scenes open in background tabs, nothing can be done from a tool.
+        /// against 4.3); on 4.3, and for scenes open in background tabs, nothing can be done from a tool (switching to
+        /// such a tab and closing it crashed Godot 4.5 while class_name scripts were registering), see
+        /// <see cref="ReloadReplacedOpenScene"/>.
         /// </summary>
         internal static void CloseDeletedScene(string deletedPath)
         {
             var editor = EditorInterface.Singleton;
             if (editor.GetEditedSceneRoot()?.SceneFilePath == deletedPath.SimplifyPath() && editor.HasMethod("close_scene"))
                 editor.Call("close_scene");
+        }
+
+        /// <summary>
+        /// A new file was just written at <paramref name="scenePath"/> while a scene of that path is still open in a tab
+        /// (its file was deleted while another scene was edited): opening the path would switch to that tab and show the
+        /// old nodes. The cached PackedScene is replaced by the new file first, or the reload would read the old one again.
+        /// </summary>
+        internal static void ReloadReplacedOpenScene(string scenePath)
+        {
+            var editor = EditorInterface.Singleton;
+            scenePath = scenePath.SimplifyPath();
+            if (Array.IndexOf(editor.GetOpenScenes(), scenePath) < 0) return;
+            ResourceLoader.Load(scenePath, null, ResourceLoader.CacheMode.Replace);
+            editor.ReloadSceneFromPath(scenePath);
         }
 
         /// <summary>

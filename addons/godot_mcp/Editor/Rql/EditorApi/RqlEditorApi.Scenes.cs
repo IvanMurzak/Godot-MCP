@@ -35,7 +35,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (saveError != Error.Ok) throw new InvalidOperationException($"could not save the new scene to '{path}': {saveError}");
             }
             finally { root.Free(); }
-            Ei.GetResourceFilesystem()?.UpdateFile(path);
+            RqlReimport.Register(path);
+            EditorToolGuards.ReloadReplacedOpenScene(path);
             return OpenScene(path);
         }
 
@@ -45,7 +46,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             path = RequireScenePath(path);
             EditorToolGuards.RequireResourceExists(path, nameof(path), $"no scene at '{path}'");
             Ei.OpenSceneFromPath(path);
-            return RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
+            var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
+            if (root.SceneFilePath != path)
+                throw new InvalidOperationException($"opened '{path}' but the editor shows '{root.SceneFilePath}'");
+            return root;
         }
 
         [RqlCallable("save the edited scene to its file, or to a new res://….tscn path (save as); returns the saved path")]
@@ -60,6 +64,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     throw new ArgumentException($"a file already exists at '{path}'; save to a new path, or delete that file first with DeleteResource");
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
                 Ei.SaveSceneAs(path);
+                RqlReimport.Register(path!);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;
                 if (saved != path) throw new InvalidOperationException($"save-as to '{path}' did not take effect (the scene path is '{saved ?? "none"}')");
                 return path!;
@@ -109,7 +114,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             if (!ResPathNormalizer.IsScenePath(p)) throw new ArgumentException($"'{path}' is not a scene path ending in .tscn or .scn");
-            return p;
+            return p.SimplifyPath(); // the form Godot stores as scene_file_path ('res://a/./b.tscn' -> 'res://a/b.tscn')
         }
     }
 

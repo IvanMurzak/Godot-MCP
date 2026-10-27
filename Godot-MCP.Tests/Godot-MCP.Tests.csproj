@@ -213,6 +213,7 @@
          (Tool_Script.Execute.cs) and the GD.Print capture are #if TOOLS and verified via the headless Godot smoke. The
          idle-shutdown timer (CLI-started editors) is pure as well. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptExecuteSource.cs" Link="Source\ScriptExecuteSource.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\ScriptResultText.cs" Link="Source\ScriptResultText.cs" />
     <!-- In-game script-execute (GODOT_MCP_CODE_EXEC_IN_GAME, defined above): the tool's registration (which runner wins
          the name) is unit-tested; running a snippet needs the Godot main thread, so the executor and the engine log
          capture are compiled in only so the tool's references resolve (the live run is the runtime harness). -->

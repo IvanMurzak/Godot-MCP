@@ -328,7 +328,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                     return ResponseCallTool.Success(Render(member));
                 case ScriptExecuteResult script:
                     // script-execute: the value as a member, then what the code printed.
-                    var shown = script.Result != null ? Render(script.Result) : "null";
+                    var shown = script.Text ?? (script.Result != null ? Render(script.Result) : "null");
                     if (script.Logs is { Count: > 0 } logs)
                         shown += "\nlogs:\n" + string.Join("\n", logs);
                     return ResponseCallTool.Success(shown);
