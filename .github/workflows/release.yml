@@ -20,6 +20,8 @@
 #
 # Guards (first job, `check-version-tag`):
 #   * ref guard     — a non-dry run on any ref other than `refs/heads/main` FAILS.
+#   * dependency guard — scripts/release_dependency_guard.py: a pre-release or unpublished
+#                     dependency pin, or a local NuGet feed, FAILS every run (dry runs too).
 #   * version guard — the version is read from addons/godot_mcp/plugin.cfg (the SINGLE
 #                     source of truth — see docs/RELEASING.md) at the dispatched commit.
 #                     If tag `v<version>` already exists a real run FAILS (a dispatch
@@ -92,6 +94,12 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # Dependency guard: every NuGet pin the addon, its extensions and godot-cli ship must be a
+      # published nuget.org release, restored without a local feed. FAILS (dry runs included) while
+      # main consumes a pre-release dependency, e.g. RQL from prerelease-packages/.
+      - name: Release dependency guard (no pre-release / unpublished pins)
+        run: python3 scripts/release_dependency_guard.py
 
       # Single-source the harness server version from the addon's authoritative constant
       # (GodotMcpServerView.ServerVersion) so the advisory runtime-harness legs download the

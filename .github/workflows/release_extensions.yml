@@ -32,6 +32,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      # Every pin the extension packages (and the core they build against) ship must be a
+      # published nuget.org release, restored without a local feed; dry runs fail too.
+      - name: Release dependency guard (no pre-release / unpublished pins)
+        run: python scripts/release_dependency_guard.py
       - name: Validate selection and main-branch publication
         env:
           SELECTION: ${{ inputs.extensions }}

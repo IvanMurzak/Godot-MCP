@@ -71,7 +71,11 @@ trigger of its own, so the only path to a publish is a dispatch of `release.yml`
    `gh workflow run release.yml -R IvanMurzak/Godot-MCP --ref main -f dry_run=false`. `release.yml`:
    - `check-version-tag` fails a non-dry run on any ref other than `refs/heads/main`, reads `version`
      from `plugin.cfg`, and **fails** if `v<version>` already exists (a dispatch never "succeeds"
-     having done nothing). It also warns if the pinned GameDev-MCP-Server release is missing;
+     having done nothing). It also warns if the pinned GameDev-MCP-Server release is missing, and
+     `scripts/release_dependency_guard.py` **fails** every run (dry runs too) while a shipped NuGet pin
+     (`Godot-MCP.csproj`, the extension csprojs, `cli/src/utils/addon-deps.ts`) is a pre-release or not
+     on nuget.org, or a local feed such as `prerelease-packages/` is a restore source. `release_extensions.yml`
+     runs the same guard first;
    - the test gate runs — the .NET build+test, the `godot-cli` node tests (`test_cli.yml`), and the
      Godot 4.3 → 4.7 matrix (addon-load smoke, dock-reload guard, from-scratch e2e install). The
      runtime-harness legs run too but are advisory (not in the publish `needs:`);
