@@ -29,10 +29,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description("RQL query ending with a set or call stage, e.g. nodes | where name == \"Player\" | set Visible = false")]
             string query,
             [Description("true = preview the receipt without changing anything")]
-            bool dry_run = false
+            bool dry_run = false,
+            [Description(RqlGuide.MaxTargetsDescription)]
+            int max_targets = RqlTargetLimit.Default
         )
         {
-            return Run(() => RqlGodot.Mutate(query, dry_run));
+            return Run(() => RqlGodot.Mutate(query, dry_run, max_targets));
         }
     }
 }

@@ -69,6 +69,10 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 
 - **All-or-nothing.** Every target and value is checked before anything is written; a failure changes nothing.
   `dry_run: true` returns the receipt (`$ref member old new`) without changing anything.
+- **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
+  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). A misspelt member
+  that leaves a mutation with no target is an `unknown-member` error; a member some Godot type declares (a polymorphic
+  `nodes` stream with no node of that type) stays a warning (`RqlGodot.Names.cs`, the engine's `IsKnownMember`).
 - **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` (Ctrl+Z): a `set` snapshots the stored Godot properties
   of every changed object and records the differences as do/undo properties. The changed object is the nearest node,
   resource or project-settings object enclosing the write; a plain `Object` held by a node property is snapshotted

@@ -21,7 +21,8 @@
     "nodes | where class == \"StaticBody3D\" | select name layerNames[\"collision_layer\"] layerNames[\"collision_mask\"]",
     "layers | where kind == \"3d_physics\" and name != \"\" | select index name",
     "godot.resources(\"MeshLibrary\") | get items | select id name mesh",
-    "nodes | group-by class, scripted=(script is not null)"
+    "nodes | group-by class, scripted=(script is not null)",
+    "nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")"
   ],
   "mutate": [
     "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",

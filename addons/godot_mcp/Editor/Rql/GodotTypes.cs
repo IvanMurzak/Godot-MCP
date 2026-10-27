@@ -62,6 +62,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Every indexed short name (for "did you mean" suggestions).</summary>
         public static IReadOnlyCollection<string> ShortNames() => Index().Keys.Where(k => k.IndexOf('.') < 0).ToList();
 
+        /// <summary>Every indexed Godot object type (Godot classes, the project's script classes, extensions), once each.</summary>
+        public static IEnumerable<Type> GodotObjectTypes() =>
+            Index().Values.SelectMany(t => t).Where(t => typeof(GodotObject).IsAssignableFrom(t)).Distinct();
+
         private static Dictionary<string, Type[]> Index()
         {
             if (_index != null) return _index;

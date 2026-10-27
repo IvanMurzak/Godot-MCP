@@ -52,6 +52,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var used = _engine != null;
             _engine = null;
+            _knownMembers = null;
             RqlToolBinding.Instance.Reset();
             ResetState();
             return used;
@@ -59,10 +60,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public static RqlEngine Create()
         {
-            // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; a ref("Name") hint names
-            // the finder.
-            var engine = new RqlEngine(AccessorMode.Compiled) { RuntimeName = "godot", FindHint = "godot.find(\"…\")" };
+            // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; hints name the finder
+            // (ref("Name")) and the schema tool. EnumAliases accepts Godot's names for C# enum entries (PRESET_FULL_RECT,
+            // inspector labels); IsKnownMember knows the members of every Godot object type (node and resource streams are
+            // polymorphic), so a mutation that matched no item of a type is not reported as a typo (RqlGodot.Names.cs).
+            var engine = new RqlEngine(AccessorMode.Compiled)
+            {
+                RuntimeName = "godot",
+                FindHint = "godot.find(\"…\")",
+                SchemaHint = Tool_Rql.SchemaToolId,
+                EnumAliases = EnumAliases,
+            };
             engine.Defaults.BudgetsAdjustable = false;
+            // rql-mutate's max_targets raises the per-stage target limit (default 200, at most 1000).
+            RqlTargetLimit.Configure(engine.Mutations);
+            engine.IsKnownMember = name => IsKnownMember(engine, name);
             engine.ResolveStableRef = ResolveStableRef;
 
             engine.Mutations.Enabled = true;
