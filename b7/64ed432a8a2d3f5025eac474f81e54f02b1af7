@@ -9,6 +9,7 @@ addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Resources.cs
   s_7bc72ecaebd05d::t_7dcbf79a1519af 27,31
 docs/rql.md
   s_7bc72ecaebd05d::t_a5d08800c0b526 90,99-104
+  s_7bc72ecaebd05d::t_a9a13d96bf66cb 91-94
 addons/godot_mcp/Editor/Rql/Adapters/Object/GodotCallArguments.cs
   s_7bc72ecaebd05d::t_224f8fab5a46ed 103-109,115-124
   s_7bc72ecaebd05d::t_d844b517f57fac 110-114
