@@ -93,6 +93,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return declaredClassNames.Any(n => ContainsWholeIdentifier(message!, n));
         }
 
+        /// <summary>
+        /// <paramref name="source"/> with the <c>class_name</c> declarations of <paramref name="names"/> blanked (same line count), for a
+        /// parse probe that must not re-declare a global class the file itself registers.
+        /// </summary>
+        public static string WithoutClassNames(string source, IReadOnlyCollection<string> names) =>
+            ClassNameDeclPattern.Replace(source, m => names.Contains(m.Groups[1].Value) ? new string(' ', m.Length) : m.Value);
+
         /// <summary>Convenience overload: extract the class names from <paramref name="source"/> and test the
         /// message against them in one call (the shape the editor validator uses).</summary>
         public static bool IsGlobalClassSelfHide(string? message, string? source)

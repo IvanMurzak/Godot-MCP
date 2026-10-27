@@ -42,6 +42,37 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         private static List<HistoryState> States(params (ulong v, string a)[] s) => s.Select(x => new HistoryState(x.v, x.a)).ToList();
 
+        // ---------------------------------------------------------------- files: deps / usedBy
+
+        [Theory]
+        [InlineData("uid://b1x::Texture2D::res://art/a.png", "uid://b1x", "res://art/a.png")]
+        [InlineData("uid://b1x::::res://art/a.png", "uid://b1x", "res://art/a.png")]
+        [InlineData("res://scenes/house.tscn", null, "res://scenes/house.tscn")]
+        [InlineData("res://scenes/house.tscn::PackedScene", null, "res://scenes/house.tscn")]
+        [InlineData("uid://b1x::Texture2D::", "uid://b1x", null)]
+        [InlineData("", null, null)]
+        [InlineData(null, null, null)]
+        public void DependencyEntriesGiveTheirUidAndPath(string? entry, string? uid, string? path) =>
+            Assert.Equal((uid, path), com.IvanMurzak.Godot.MCP.Tools.ResPathNormalizer.DependencyParts(entry));
+
+        [Fact]
+        public void PendingUndoListsTheCurrentActionFirst()
+        {
+            var names = new[] { "a", "b", "c", "d" };
+            Assert.Equal(new[] { "c", "b", "a" }, HistoryStepText.Pending(undo: true, current: 2, count: 4, i => names[i]).ToArray());
+            Assert.Equal(new[] { "d (global)" }, HistoryStepText.Pending(undo: false, current: 2, count: 4, i => names[i], " (global)").ToArray());
+        }
+
+        [Fact]
+        public void PendingIsEmptyAtTheEndsAndCapped()
+        {
+            Assert.Empty(HistoryStepText.Pending(undo: true, current: -1, count: 3, i => "x"));
+            Assert.Empty(HistoryStepText.Pending(undo: false, current: 2, count: 3, i => "x"));
+            Assert.Equal(HistoryStepText.MaxListed, HistoryStepText.Pending(undo: true, current: 99, count: 100, i => "x" + i).Count());
+            Assert.Equal("x99", HistoryStepText.Pending(undo: true, current: 99, count: 100, i => "x" + i).First());
+            Assert.Equal(new[] { "(unnamed action)" }, HistoryStepText.Pending(undo: false, current: -1, count: 1, i => "").ToArray());
+        }
+
         [Fact]
         public void UndoNamesTheActionTheMovedHistoryHadBefore()
         {

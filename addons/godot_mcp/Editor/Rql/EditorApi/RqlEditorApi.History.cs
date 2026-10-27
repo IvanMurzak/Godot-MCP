@@ -31,10 +31,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         [RqlCallable("redo the last undone action, like Ctrl+Shift+Z; returns the redone action. Fails when there is nothing to redo")]
         public string Redo() => EditorHistory.Step(undo: false);
+
+        // "20" is HistoryStepText.MaxListed (an attribute argument cannot format an int constant).
+        [RqlDescription("what Undo() can step back: the edited scene's actions newest first, then the global history's (files, project " +
+            "settings) marked \"(global)\", at most 20 each; Undo() steps whichever history changed last")]
+        public string[] undoHistory => EditorHistory.Pending(undo: true);
+
+        [RqlDescription("what Redo() can step forward, next first, in the same form as undoHistory (a new change clears it)")]
+        public string[] redoHistory => EditorHistory.Pending(undo: false);
     }
 
     internal static class EditorHistory
     {
+        /// <summary>The pending undo / redo actions of the edited scene's history, then of the global one.</summary>
+        public static string[] Pending(bool undo)
+        {
+            var scene = RqlGodot.UndoHistory(global: false);
+            var global = RqlGodot.UndoHistory(global: true);
+            IEnumerable<string> Of(UndoRedo? h, string tag) => h == null || !GodotObject.IsInstanceValid(h)
+                ? Enumerable.Empty<string>()
+                : HistoryStepText.Pending(undo, h.GetCurrentAction(), h.GetHistoryCount(), h.GetActionName, tag);
+            return Of(scene, "").Concat(Of(global, " (global)")).ToArray();
+        }
+
         // The Scene menu (a PopupMenu of the editor's MenuBar) found last; looked up again when it is gone.
         private static ulong _menuId;
 

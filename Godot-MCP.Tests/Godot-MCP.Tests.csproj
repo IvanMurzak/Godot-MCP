@@ -440,6 +440,8 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlSetStageBuffer.cs" Link="Source\Rql\RqlSetStageBuffer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\ConvertingList.cs" Link="Source\Rql\ConvertingList.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\OverrideDiff.cs" Link="Source\Rql\OverrideDiff.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlHostNames.cs" Link="Source\Rql\RqlHostNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />

@@ -22,7 +22,11 @@
     "layers | where kind == \"3d_physics\" and name != \"\" | select index name",
     "godot.resources(\"MeshLibrary\") | get items | select id name mesh",
     "nodes | group-by class, scripted=(script is not null)",
-    "nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")"
+    "nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")",
+    "files | where type contains \"Material\" and usedBy.count() == 0 | select path",
+    "files | where missingDeps.count() > 0 | select path missingDeps",
+    "nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides",
+    "editor | select undoHistory redoHistory"
   ],
   "mutate": [
     "nodes | where name == \"Player\" | set Position = \"(0, 1, 0)\"",
@@ -60,6 +64,7 @@
     "nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]",
     "godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"",
     "godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")",
-    "nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")"
+    "nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")",
+    "files | where path == \"res://tiles/terrain.png\" | set importSettings[\"mipmaps/generate\"] = true"
   ]
 }

@@ -81,6 +81,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => lang == ScriptLang.GDScript ? GDScriptExtension : CSharpExtension;
 
         /// <summary>
+        /// Where a scene or resource file is read instead (agents reach for the script tools to read a .tscn / .tres), or empty
+        /// for any other file.
+        /// </summary>
+        public static string NotAScriptHint(string path) => ReimportClassifier.ExtensionOf(path) switch
+        {
+            "tscn" or "scn" => " A scene is not a script: open it with rql-mutate editor | call OpenScene(\"" + path + "\"), then query its nodes " +
+                               "with rql-query nodes | …, or read its text with script-execute (FileAccess.GetFileAsString).",
+            "tres" or "res" => " A resource is not a script: query it with rql-query godot.resource(\"" + path + "\") | select props, or read " +
+                               "its text with script-execute (FileAccess.GetFileAsString).",
+            _ => "",
+        };
+
+        /// <summary>
         /// Validate that <paramref name="path"/> is a <c>res://</c> script file path (a file under
         /// <c>res://</c>, not the bare root or a directory, with no <c>..</c> segment, ending in
         /// <c>.cs</c>/<c>.gd</c>), throwing <see cref="ArgumentException"/> (with
@@ -93,7 +106,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var p = ResPathNormalizer.RequireResFilePath(path, paramName);
             if (!TryGetLang(p, out lang))
                 throw new ArgumentException(
-                    $"Script path must end with '{CSharpExtension}' (C#) or '{GDScriptExtension}' (GDScript); got '{path}'.",
+                    $"Script path must end with '{CSharpExtension}' (C#) or '{GDScriptExtension}' (GDScript); got '{path}'." + NotAScriptHint(p),
                     paramName);
             return p;
         }

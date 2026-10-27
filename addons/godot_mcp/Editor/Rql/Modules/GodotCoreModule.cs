@@ -30,14 +30,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("root", RqlGodot.Roots, "the root node of the edited scene")
                .AddSource("selection", RqlGodot.SelectedNodes, "nodes selected in the editor")
                .AddSource("scenes", RqlEditorApi.OpenScenes, "scenes open in the editor: path name active root; calls Open, Save")
-               .AddSource("files", RqlEditorApi.Files, $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid")
+               .AddSource("files", RqlEditorApi.Files,
+                   $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request deps (what it loads), " +
+                   "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)")
                .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")
                .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace")
                .AddSource("gameLog", RqlEditorApi.GameLog,
                    $"what the game run from the editor (PlayScene / isPlaying) printed, its errors and warnings, oldest first (last {RqlEditorApi.MaxGameLogEntries}): " +
                    "Sequence LogType Message StackTrace (the console source is the editor's own log)")
                .AddSource("editor", () => RqlEditorApi.Instance,
-                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion) and operations: NewScene, OpenScene, ReloadScene, SaveScene, " +
+                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion, undoHistory, redoHistory) and operations: NewScene, OpenScene, ReloadScene, SaveScene, " +
                    "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
                    "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
@@ -80,6 +82,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
             // Values
             ctx.AddAdapter(new Godot_Variant_Adapter())
+               .AddAdapter(new Godot_Array_Adapter())
+               .AddAdapter(new RqlFile_Adapter())
                .AddAdapter(new Godot_StringName_Adapter())
                .AddAdapter(new Godot_NodePath_Adapter())
                .AddAdapter(new Godot_Callable_Adapter())

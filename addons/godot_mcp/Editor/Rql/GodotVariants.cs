@@ -24,8 +24,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     internal static class GodotVariants
     {
-        /// <summary>The CLR value of a Variant (null for Nil).</summary>
-        public static object? ToClr(Variant v) => v.VariantType == Variant.Type.Nil ? null : v.Obj;
+        /// <summary>The CLR value of a Variant (null for Nil); a Godot array reads as a live view of the values its Variants hold.</summary>
+        public static object? ToClr(Variant v) => v.VariantType switch
+        {
+            Variant.Type.Nil => null,
+            Variant.Type.Array => Elements(v.AsGodotArray()),
+            _ => v.Obj,
+        };
+
+        /// <summary>
+        /// A Godot array as RQL lists it: the held values instead of Variant structs (whose only members are VariantType and Obj),
+        /// so <c>get props["items"] | select props["name"]</c> reaches the elements (read-only: assign the whole list to change it).
+        /// </summary>
+        public static ConvertingList<Variant> Elements(global::Godot.Collections.Array array) => new ConvertingList<Variant>(array, ToClr);
 
         /// <summary>A Variant holding <paramref name="value"/>; RQL lists / object literals become Godot arrays / dictionaries.</summary>
         public static Variant ToVariant(object? value)
@@ -66,6 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 case NodePath x: return x;
                 case GodotObject x: return x;
                 case global::Godot.Collections.Array x: return x;
+                case ConvertingList<Variant> { Inner: global::Godot.Collections.Array x }: return x.Duplicate();
                 case global::Godot.Collections.Dictionary x: return x;
                 case byte[] x: return x;
                 case int[] x: return x;

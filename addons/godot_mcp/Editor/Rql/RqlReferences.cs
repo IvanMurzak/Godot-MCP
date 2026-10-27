@@ -26,6 +26,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     {
         private static readonly HashSet<string> DependentExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "tscn", "scn", "tres", "res" };
 
+        /// <summary>Whether the file at <paramref name="path"/> can reference other files (a scene or resource).</summary>
+        internal static bool CanDepend(string path) => DependentExtensions.Contains(System.IO.Path.GetExtension(path).TrimStart('.'));
+
         /// <summary>The users of <paramref name="resPath"/>: "res://…" files, then "node 'Path' of the edited scene" entries.</summary>
         public static List<string> UsersOf(string resPath)
         {
@@ -35,7 +38,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (EditorInterface.Singleton.GetResourceFilesystem()?.GetFilesystem() is { } dir)
                 foreach (var (path, _) in RqlGodot.WalkFiles(dir))
                 {
-                    if (string.Equals(path, resPath, StringComparison.OrdinalIgnoreCase) || !DependentExtensions.Contains(System.IO.Path.GetExtension(path).TrimStart('.'))) continue;
+                    if (string.Equals(path, resPath, StringComparison.OrdinalIgnoreCase) || !CanDepend(path)) continue;
                     if (ResourceLoader.GetDependencies(path).Any(d => ResPathNormalizer.DependencyNames(d, resPath, uid))) users.Add(path);
                 }
             if (RqlGodot.EditedRoot() is { } root)

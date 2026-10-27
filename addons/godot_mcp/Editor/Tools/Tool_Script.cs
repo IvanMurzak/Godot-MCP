@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using System;
+using System.Linq;
 using System.Threading;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
@@ -150,7 +151,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// best-effort (parallel to the C# path) and the real load is left to the editor's full re-parse.
         /// </para>
         /// </summary>
-        static bool ValidateSyntax(string content, ScriptLang lang, out string? error)
+        static bool ValidateSyntax(string content, ScriptLang lang, string resPath, out string? error)
         {
             error = null;
             if (lang != ScriptLang.GDScript)
@@ -165,14 +166,54 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 error = stale;
                 return false;
             }
-            var probe = new GDScript { SourceCode = content };
-            var err = probe.Reload(keepState: false);
-            if (err == Error.ParseError)
+            var capture = ScriptErrorCapture.Current;
+            var err = Probe(content, resPath, capture, out var rows);
+            if (err != Error.ParseError)
+                return true;
+
+            // The probe is a second script declaring the class_name this very file registers, so Godot reports
+            // 'Class "X" hides a global script class.' for an update of any class_name script (the same false
+            // positive script-validate drops, issue #194). Only the file's own registration is exempt: a name
+            // another file registers is a real conflict.
+            var own = ScriptDiagnosticsFilter.ExtractClassNames(content).Where(name => Editor.Rql.RqlGodot.GlobalClassPath(name) == resPath).ToList();
+            if (rows.Length > 0)
             {
-                error = $"GDScript failed to parse ({err}). Fix the syntax and retry.";
+                var real = rows.Where(d => !ScriptDiagnosticsFilter.IsGlobalClassSelfHide(d.Message, own)).ToList();
+                if (real.Count == 0)
+                {
+                    // The analyzer may stop at the self-hide error: probe once more without the declaration.
+                    if (Probe(ScriptDiagnosticsFilter.WithoutClassNames(content, own), resPath, capture, out var again) != Error.ParseError)
+                        return true;
+                    real = again.ToList();
+                }
+                error = "GDScript failed to parse: " +
+                        string.Join("; ", real.Take(3).Select(d => d.Line > 0 ? $"line {d.Line}: {d.Message}" : d.Message)) +
+                        ". Fix it and retry.";
                 return false;
             }
-            return true;
+            // No engine rows (Godot < 4.5): probe again without the declaration the file owns.
+            if (own.Count > 0 && Probe(ScriptDiagnosticsFilter.WithoutClassNames(content, own), resPath, null, out _) != Error.ParseError)
+                return true;
+            error = $"GDScript failed to parse ({err}). Fix the syntax and retry.";
+            return false;
+        }
+
+        // Reload a throwaway GDScript holding the source (never registered under the real path); the engine's script errors of
+        // that reload when a capture is installed (Godot 4.5+).
+        static Error Probe(string content, string resPath, ScriptErrorCapture? capture, out ScriptDiagnostic[] rows)
+        {
+            rows = Array.Empty<ScriptDiagnostic>();
+            capture?.BeginSession(resPath);
+            try
+            {
+                using var probe = new GDScript { SourceCode = content };
+                return probe.Reload(keepState: false);
+            }
+            finally
+            {
+                if (capture != null)
+                    rows = capture.EndSession();
+            }
         }
 
         /// <summary>

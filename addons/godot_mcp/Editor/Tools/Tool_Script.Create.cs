@@ -57,7 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         $"A file already exists at '{resPath}'. Use '{ScriptUpdateToolId}' to overwrite it, " +
                         $"or '{ScriptDeleteToolId}' to remove it first.", nameof(scriptPath));
 
-                if (!ValidateSyntax(content, lang, out var syntaxError))
+                if (!ValidateSyntax(content, lang, resPath, out var syntaxError))
                     throw new ArgumentException(syntaxError, nameof(content));
 
                 return WriteScript(resPath, lang, content, "created");

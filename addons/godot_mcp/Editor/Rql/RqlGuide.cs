@@ -43,9 +43,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string Language =
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
-            "selection, scenes (open scenes), files (every res:// file the editor knows), classes (Godot classes, ClassDB), " +
+            "selection, scenes (open scenes), files (every res:// file the editor knows; on request deps, missingDeps, usedBy (scenes / resources that load it) and " +
+            "importSettings[\"option\"]), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
-            "StackTrace), editor (editor state and operations), project (project settings: " +
+            "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
             "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
             "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names). " +
@@ -75,12 +76,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "== on strings is case-sensitive.\n" +
             "Godot: every node has name, path (below the scene root, \".\" = root), class (the Godot class, e.g. \"OmniLight3D\"), " +
             "parent, owner, children (list), childCount, index, script (res:// path), groups (list) and id; signals, connections " +
-            "(persistent: signal target method flags) and incoming are read on request (select connections, get connections). " +
+            "(persistent: signal target method flags), incoming and overrides (how a scene instance differs from its scene file: node " +
+            "property value template) are read on request (select connections, get overrides). " +
             "Members are the C# properties " +
             "(Position, Rotation, Scale, Visible, Text …), matched case-insensitively, so position works too; Rotation is in radians, " +
             "RotationDegrees in degrees. Every Godot property, " +
             "including GDScript script variables (in the editor: @export ones, every one of a @tool script) and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
-            "props[\"speed\"] on a scripted node). Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
+            "props[\"speed\"] on a scripted node); a Godot array lists the values it holds (get props[\"items\"] | where props[\"price\"] > 10). " +
+            "Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
             "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". A resource path \"res://…\" works wherever a resource is expected, " +
             "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +
             "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
@@ -122,7 +125,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  layers | where kind == \"3d_physics\" and name != \"\" | select index name\n" +
             "  godot.resources(\"MeshLibrary\") | get items | select id name mesh\n" +
             "  nodes | group-by class, scripted=(script is not null)\n" +
-            "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")";
+            "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")\n" +
+            "  files | where type contains \"Material\" and usedBy.count() == 0 | select path\n" +
+            "  files | where missingDeps.count() > 0 | select path missingDeps\n" +
+            "  nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides\n" +
+            "  editor | select undoHistory redoHistory";
 
         /// <summary>
         /// rql-mutate examples, one per line ("  &lt;query&gt;   &lt;what it does&gt;", at least three spaces before the note);
@@ -164,7 +171,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where name == \"Wall\" | set layerNames[\"collision_mask\"] = [1, \"enemies\"]   a layer mask by layer names (numbers for unnamed layers)\n" +
             "  godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"   shader uniforms of a ShaderMaterial (null or call ClearParam(name) reverts one)\n" +
             "  godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")   add a MeshLibrary item (set its shapes, navigationMesh … on the returned row)\n" +
-            "  nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")   bulk rename (replace, replace-regex, substring, pad …)";
+            "  nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")   bulk rename (replace, replace-regex, substring, pad …)\n" +
+            "  files | where path == \"res://tiles/terrain.png\" | set importSettings[\"mipmaps/generate\"] = true   change an import option (re-imports the file; a .wav loops with edit/loop_mode = 2)";
 
         /// <summary>The queries of <see cref="QueryExampleText"/>, in order.</summary>
         public static string[] QueryExamples => Examples(QueryExampleText);
@@ -184,7 +192,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Examples:\n" + MutateExampleText + "\n" +
             "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
             "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
-            "(returns the action); editor | call ReloadScene() reloads the edited scene from its file; " +
+            "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n";
 
         public const string QueryDescription =

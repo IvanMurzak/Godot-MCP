@@ -122,6 +122,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
+        /// The uid:// and the res:// path of one <c>ResourceLoader.GetDependencies</c> entry (<c>"uid://…::Type::res://path"</c>, any slice
+        /// may be empty, or a bare path); null for a part the entry does not have. Godot loads by the uid first, the path is its fallback.
+        /// </summary>
+        public static (string? uid, string? path) DependencyParts(string? entry)
+        {
+            var parts = (entry ?? "").Split(new[] { "::" }, StringSplitOptions.None).Select(p => p.Trim()).ToArray();
+            return (parts.FirstOrDefault(p => p.StartsWith("uid://", StringComparison.Ordinal)),
+                    parts.LastOrDefault(p => p.StartsWith(ResScheme, StringComparison.Ordinal)));
+        }
+
+        /// <summary>
         /// Whether a <c>ResourceLoader.GetDependencies</c> entry names the file <paramref name="resPath"/> (or its
         /// <paramref name="uid"/>). Entries are <c>uid://…::Type::res://path</c> (Godot 4.x), <c>res://path::Type</c> or a bare path.
         /// </summary>

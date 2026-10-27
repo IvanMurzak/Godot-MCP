@@ -57,7 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         $"No script file exists at '{resPath}'. Use '{ScriptCreateToolId}' to create it.",
                         nameof(scriptPath));
 
-                if (!ValidateSyntax(content, lang, out var syntaxError))
+                if (!ValidateSyntax(content, lang, resPath, out var syntaxError))
                     throw new ArgumentException(syntaxError, nameof(content));
 
                 return WriteScript(resPath, lang, content, "updated");
