@@ -41,6 +41,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     public static partial class RqlGodot
     {
         private static int _mutating;
+        // The query of the running (outermost) mutation: its undo action is named after it ("RQL: nodes | … | set …").
+        private static string? _query;
 
         /// <summary>One undoable step: the operations that redo it and the ones that undo it (either may be null).</summary>
         private readonly struct UndoStep
@@ -60,6 +62,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly HashSet<Resource> _toSaveSet = new HashSet<Resource>();
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
         private static bool _settingsChanged;
+        // Receipt warnings of the running mutation (a radians rotation written with degree-sized angles).
+        private static readonly List<string> _warnings = new List<string>();
         // Objects whose change registered its own do/undo (structural edits such as adding a TileSet source or a Theme
         // item): their property snapshot is not turned into undo properties (setting a removed entry to null does not
         // remove it again), they are only marked changed / saved.
@@ -95,6 +99,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _toSaveSet.Clear();
             _removed.Clear();
             _settingsChanged = false;
+            _warnings.Clear();
             _explicitUndo.Clear();
             _setStages.Clear();
         }
@@ -105,7 +110,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static QueryResult Mutate(string query, bool dryRun = false)
         {
-            if (_mutating == 0) ResetState();
+            if (_mutating == 0) { ResetState(); _query = query; }
             _mutating++;
             QueryResult result;
             try
@@ -119,6 +124,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 _setStages.DiscardAbove(_mutating);
                 if (_mutating == 0) CommitUndo();
             }
+            if (_mutating == 0)
+                foreach (var warning in _warnings.Distinct())
+                    result.Diagnostics.Add(Diagnostic.Warning("radians", warning));
             if (_mutating > 0 || dryRun) return result;
 
             List<string> problems;
@@ -183,6 +191,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static void BeforeWrite(IReadOnlyList<MutationRecord> records)
         {
             _setStages.BeforeWrite(records, _mutating);
+            foreach (var r in records)
+                if (r.Method == null && r.Owner is Node && RotationUnits.IsRadiansMember(r.Member)
+                    && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning && !_warnings.Contains(warning))
+                    _warnings.Add(warning);
             foreach (var owner in MutatedObjects(records))
                 if (!_snapshots.ContainsKey(owner))
                     _snapshots[owner] = StoredProperties(owner);
@@ -266,6 +278,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             if (sceneChanged) MarkSceneUnsaved();
         }
+
+        // The numbers of a written rotation: a Vector3 / Vector2 or one angle.
+        private static double[] Components(object? value) => value switch
+        {
+            Vector3 v => new double[] { v.X, v.Y, v.Z },
+            Vector2 v => new double[] { v.X, v.Y },
+            float f => new double[] { f },
+            double d => new[] { d },
+            _ => Array.Empty<double>(),
+        };
 
         // The Godot object whose snapshot covers each change (see RqlMutationOwner.Nearest).
         private static List<GodotObject> MutatedObjects(IReadOnlyList<MutationRecord> records)
@@ -403,7 +425,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (steps.Count == 0) return;
             try
             {
-                undo.CreateAction("RQL mutation", global::Godot.UndoRedo.MergeMode.Disable, context);
+                undo.CreateAction(HistoryStepText.ActionName(_query), global::Godot.UndoRedo.MergeMode.Disable, context);
                 // Every step joins the context's history: a built-in or path-less resource would otherwise be guessed into
                 // another one ("UndoRedo history mismatch").
                 undo.ForceFixedHistory();

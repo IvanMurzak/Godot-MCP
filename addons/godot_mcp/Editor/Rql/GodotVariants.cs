@@ -163,6 +163,24 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             public Type ClrType => ClrType(Type, Hint, HintString);
         }
 
+        /// <summary>
+        /// A property scripts can read and write that is neither stored nor shown in the inspector (usage none), such as
+        /// Node3D <c>rotation_degrees</c> or <c>global_position</c>: reachable by name in <c>props["…"]</c> (not listed among its
+        /// keys); null when <paramref name="o"/> has no such property.
+        /// </summary>
+        public static GodotProperty? ScriptOnlyProperty(GodotObject o, string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            foreach (var info in o.GetPropertyList())
+            {
+                if (info["name"].AsString() != name) continue;
+                var usage = (PropertyUsageFlags)info["usage"].AsInt64();
+                if (IsHeader(usage) || IsExposed(usage, storageOnly: false)) return null;
+                return new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
+            }
+            return null;
+        }
+
         /// <summary>The names of the properties <see cref="IsExposed"/> accepts, in the object's order.</summary>
         public static IEnumerable<string> PropertyNames(GodotObject o, bool storageOnly)
         {

@@ -178,6 +178,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 content = file.GetAsText();
             }
 
+            // A reference to a deleted script's global class crashes Godot's parse: reported instead of parsed.
+            if (StaleClassProblem(content) is { } stale)
+            {
+                diagnostics.Add(new ScriptDiagnostic(resPath, -1, stale));
+                return diagnostics;
+            }
+
             // Probe with a throwaway GDScript. Do NOT set ResourcePath to the REAL res:// path: Reload()
             // would then register/replace this throwaway in Godot's global class registry and resource cache,
             // perturbing the live cached script. Leaving ResourcePath unset keeps the probe out of the cache;

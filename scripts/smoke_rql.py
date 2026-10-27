@@ -33,6 +33,7 @@ import time
 
 from smoke_rql_lib import FAILURES, ROOT, check, disk, file_has, file_text, must, mutate, node_line, q, query, tool  # noqa: F401
 import smoke_rql_adapters
+import smoke_rql_agent
 import smoke_rql_feedback
 import smoke_rql_hazards
 import smoke_rql_values
@@ -51,13 +52,14 @@ def wait_ready(host: str, timeout: float) -> bool:
 
 def schema_checks(host: str) -> None:
     text = must("S1 rql-schema overview", tool(host, "rql-schema", {}))
-    for source in ("nodes", "root", "selection", "scenes", "files", "classes", "console", "editor"):
+    for source in ("nodes", "root", "selection", "scenes", "files", "classes", "console", "gameLog", "editor"):
         check(f"S1 schema lists source '{source}'", f"  {source} —" in text, text[:400])
     check("S1 schema lists godot.find", "godot.find(" in text, text[:400])
     text = must("S2 rql-schema OmniLight3D", tool(host, "rql-schema", {"type": "OmniLight3D"}))
     check("S2 lists the Godot props of the class", "props of Godot class OmniLight3D" in text and "omni_range" in text, text)
     text = must("S3 rql-schema editor", tool(host, "rql-schema", {"type": "editor"}))
     check("S3 lists the editor calls", "NewScene" in text and "SaveScene" in text and "Reimport" in text, text)
+    check("S3 lists Undo, Redo, ReloadScene, BuildProject", all(c in text for c in ("Undo()", "Redo()", "ReloadScene(", "BuildProject()")), text)
 
 
 def property_round_trips(host: str, project: pathlib.Path, d: str) -> None:
@@ -292,6 +294,7 @@ def main() -> int:
     smoke_rql_hazards.run(host, project, d)
     smoke_rql_values.run(host, project, d)
     smoke_rql_feedback.run(host, project, d)
+    smoke_rql_agent.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

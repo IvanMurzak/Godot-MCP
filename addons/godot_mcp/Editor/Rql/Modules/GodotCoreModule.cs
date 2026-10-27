@@ -33,9 +33,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("files", RqlEditorApi.Files, $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid")
                .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")
                .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace")
+               .AddSource("gameLog", RqlEditorApi.GameLog,
+                   $"what the game run from the editor (PlayScene / isPlaying) printed, its errors and warnings, oldest first (last {RqlEditorApi.MaxGameLogEntries}): " +
+                   "Sequence LogType Message StackTrace (the console source is the editor's own log)")
                .AddSource("editor", () => RqlEditorApi.Instance,
-                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion) and operations: NewScene, OpenScene, SaveScene, " +
-                   "SaveAllScenes, PlayScene, StopScene, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
+                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion) and operations: NewScene, OpenScene, ReloadScene, SaveScene, " +
+                   "SaveAllScenes, PlayScene, StopScene, Undo, Redo, BuildProject, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
                    "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
                    "godot.find(name): the node with that unique name or path below the scene root (\"Level/Player\"), e.g. call Reparent(godot.find(\"Props\"))")

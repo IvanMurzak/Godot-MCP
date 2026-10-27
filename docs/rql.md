@@ -20,7 +20,9 @@ The addon itself stays Apache-2.0.
 | `resource-find`, `resource-get-data`, `resource-modify` | `godot.resources("Texture2D", "res://art")`, `godot.resource("res://…")` + `set` (the file is saved) |
 | `resource-create`, `resource-move`, `resource-delete` | `editor \| call CreateResource / MoveResource / DeleteResource` (`.import` / `.uid` sidecars follow the file) |
 | `filesystem-list`, `filesystem-reimport` | the `files` source (`path name dir ext type uid`), `editor \| call Reimport(files?)`, `CreateFolder` |
-| `editor-application-get-state` / `-set-state` | `editor` members `isPlaying` (writable), `playingScene`, `editedScene`, `godotVersion`; `call PlayScene / StopScene` |
+| `editor-application-get-state` / `-set-state` | `editor` members `isPlaying` (writable), `playingScene`, `editedScene`, `godotVersion`; `call PlayScene / StopScene`; what the game run from the editor prints and its errors: the `gameLog` source (`Sequence LogType Message StackTrace`, read from the game's log file, `debug/file_logging/log_path`) |
+| — | `editor \| call Undo()` / `Redo()`: the editor's own Undo / Redo (the Scene menu items behind Ctrl+Z), returning the action (`undone: RQL: <query>`; an rql-mutate's undo action is named after its query); an error when there is nothing to undo / redo |
+| — | `editor \| call ReloadScene(path?)` (Scene → Reload Saved Scene: unsaved changes dropped), `NewScene(path, "res://base.tscn", name?)` (an inherited scene of a base scene), `BuildProject()` (`dotnet build` of the project's C#, so a C# script written with script-create loads; the editor reloads the assembly a few seconds later; fails with the compiler errors) |
 | `editor-selection-get` / `-set` | `editor` member `selection` (writable), the `selection` source |
 | `console-get-logs`, `console-clear-logs` (editor) | the `console` source (`where LogType == "Error"`, `Sequence > N`; the framework's echo of each tool call is printed to the Output but not captured, and a plugin error is captured once), `editor \| call ClearConsole()` |
 | `reflection-method-find`, `reflection-method-call` (editor) | `call CallMethod("name", [args])` on any Godot object, node / resource calls, `rql-schema` |
@@ -118,6 +120,11 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   naming a class builds a new embedded resource: `set Shape = {"$type": "BoxShape3D", Size: "(1, 2, 1)"}` (or
   `{class: "BoxShape3D", …}`; a class Godot cannot instantiate is refused). Script classes (GDScript `class_name`) work in
   those literals, in `CreateResource(path, "ItemData")` and in `godot.resources("ItemData")`.
+- **Rotation is radians** (`Rotation`, `GlobalRotation` of Node3D, Node2D, Control): a written angle beyond a full turn
+  (`set Rotation = "(-45, 30, 0)"`) is applied as given, and the receipt warns (`radians`) with the `RotationDegrees` write that
+  was probably meant. Script-only Godot properties (usage none, such as `rotation_degrees`, `global_position`) are reachable
+  by name in `props["…"]` (not listed among its keys). An enum-hinted int also takes its label without the note
+  (`"PSSM 4 Splits"` for `"PSSM 4 Splits (Quality)"`) and its C# enum name (`"Parallel4Splits"`).
 - **Printed structs** are tidied for reading (components below 1e-6 print as 0, at most 7 significant digits, no
   exponent): float noise such as `-4.371139E-08` in a rotated basis never reaches the agent; comparisons and stored values
   stay exact. An object literal compares like the text form: `where Position == {x: 0, y: 1, z: 0}`.
@@ -185,6 +192,9 @@ the reload still unloads.
   MeshLibrary items and the Projection / RID / Callable values. `scripts/smoke_rql_hazards.py` covers the edits that used
   to corrupt data or answer misleadingly (the refusals above, undo of a transform-keeping Reparent, undo of a resource
   file edit, object-literal compares, tidy struct text).
+- `scripts/smoke_rql_agent.py` (run by `smoke_rql.py`): what agent runs could not do or got wrong — editor Undo / Redo, the
+  radians warning, script-only props, enum labels, the sibling-rename hint, inherited scenes and ReloadScene, the `gameLog`
+  of a game run from the editor (skipped where the runner cannot start the game).
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 
