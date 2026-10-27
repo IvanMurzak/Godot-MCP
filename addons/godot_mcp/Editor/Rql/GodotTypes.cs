@@ -48,6 +48,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 ? hits.OrderBy(t => t.Name == name || t.FullName == name ? 0 : 1).ThenBy(t => IsGodot(t) ? 0 : 1).ToList()
                 : (IReadOnlyList<Type>)Array.Empty<Type>();
 
+        /// <summary>
+        /// The C# type of a Godot class name (CSGBox3D → CsgBox3D), or null; GodotObject for an empty name is the caller's
+        /// choice, see <see cref="GodotObjectType"/>.
+        /// </summary>
+        public static Type? GodotClassType(string className) =>
+            Candidates(className).FirstOrDefault(t => typeof(GodotObject).IsAssignableFrom(t));
+
+        /// <summary>The C# type a value for a Godot class slot converts to (Texture2D, Node …); GodotObject when unknown.</summary>
+        public static Type GodotObjectType(string className) =>
+            className.Length == 0 ? typeof(GodotObject) : GodotClassType(className) ?? typeof(GodotObject);
+
         /// <summary>Every indexed short name (for "did you mean" suggestions).</summary>
         public static IReadOnlyCollection<string> ShortNames() => Index().Keys.Where(k => k.IndexOf('.') < 0).ToList();
 

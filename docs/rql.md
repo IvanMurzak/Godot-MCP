@@ -87,13 +87,22 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   contains the edited one; `MoveResource` that changes the extension; `DeleteResource` of a file a scene or resource still
   uses, the edited scene's unsaved nodes included (`DeleteResource(path, true)` deletes anyway); moving or deleting
   `res://project.godot`, `res://.godot/` or this addon; `CallMethod` on a method of a non-`@tool` script (it does not run
-  in the editor) or with the wrong number of arguments; `Free`, `Reparent`, `MoveChild`, `Duplicate` or a rename of a node
-  that belongs to a scene instance (Godot saves only property overrides of those; the Scene dock refuses the same edits).
-  Paths stay inside the edited scene: the root's `parent` is null and `godot.find("..")` finds nothing.
+  in the editor), with the wrong number of arguments or with an argument that does not convert to the type the method
+  declares; a multi-target `Connect` where one target lacks the signal or method; `Free`, `Reparent`, `MoveChild`,
+  `Duplicate` or a rename of a node that belongs to a scene instance (Godot saves only property overrides of those; the
+  Scene dock refuses the same edits). Paths stay inside the edited scene: the root's `parent` is null and
+  `godot.find("..")` finds nothing (a miss suggests similar node paths).
 - **Scene instances**: `InstantiateScene` instances like the Scene dock (`GenEditState.Instance`), so the `.tscn` stores only
   the overrides and the instance keeps following its scene file (type, script, groups). A change to a node inside an
   instance (a property, a group, a child added to it) turns on that instance's Editable Children, undoably, because Godot
   saves changes inside an instance only then.
+- **Values as an agent writes them**: `CallMethod` converts each argument like a `set` to the type the Godot method
+  declares (`"(0, 5)"` for a Vector2i, `"res://…"` for a resource, an enum by name:
+  `CallMethod("set_anchors_preset", ["FullRect"])`); an enum-hinted int property takes its inspector label
+  (`props["grow_horizontal"] = "Both"`), its number, or (Godot 4.4+) its setter's enum constant (`"GROW_DIRECTION_BOTH"`); an object literal
+  naming a class builds a new embedded resource: `set Shape = {"$type": "BoxShape3D", Size: "(1, 2, 1)"}` (or
+  `{class: "BoxShape3D", …}`; a class Godot cannot instantiate is refused). Script classes (GDScript `class_name`) work in
+  those literals, in `CreateResource(path, "ItemData")` and in `godot.resources("ItemData")`.
 - **Printed structs** are tidied for reading (components below 1e-6 print as 0, at most 7 significant digits, no
   exponent): float noise such as `-4.371139E-08` in a rotated basis never reaches the agent; comparisons and stored values
   stay exact. An object literal compares like the text form: `where Position == {x: 0, y: 1, z: 0}`.

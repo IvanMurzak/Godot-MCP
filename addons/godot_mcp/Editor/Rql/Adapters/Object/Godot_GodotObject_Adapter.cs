@@ -43,10 +43,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
              .Add<string>("class", o => o.GetClass(), description: "Godot class name, e.g. \"OmniLight3D\" (GDExtension classes too)");
             m.Untyped.AddMixedMap("props",
                 o => GodotVariants.Properties((GodotObject)o).Keys,
-                (o, key) => GodotVariants.Properties((GodotObject)o).TryGetValue(key, out var info) ? info.ClrType : typeof(object),
+                // An enum-hinted int (grow_horizontal: "Begin,End,Both") also takes a name: typed object, converted on write.
+                (o, key) => GodotVariants.Properties((GodotObject)o).TryGetValue(key, out var info) ? (IsEnumInt(info) ? typeof(object) : info.ClrType) : typeof(object),
                 (o, key) => GodotVariants.ToClr(((GodotObject)o).Get(key)),
-                (o, key, value) => Set((GodotObject)o, key, value),
-                (o, key, value) => GodotVariants.Properties((GodotObject)o).ContainsKey(key) ? null : $"{((GodotObject)o).GetClass()} has no property '{key}'",
+                (o, key, value) => Set((GodotObject)o, key, EnumValue((GodotObject)o, key, value, out _)),
+                (o, key, value) => PropProblem((GodotObject)o, key, value),
                 "every Godot property by its snake_case name (GDScript script variables and GDExtension properties included)",
                 has: (o, key) => GodotVariants.Properties((GodotObject)o).ContainsKey(key));
             m.Untyped.AddMixedMap("layerNames",
@@ -61,10 +62,103 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 has: (o, key) => true);
             m.ExplicitOnly("layerNames");
             m.Untyped.AddMethod("CallMethod",
-                new[] { new CallableParameter("method", typeof(string)), new CallableParameter("args", typeof(List<object?>), hasDefault: true, defaultValue: null) },
+                new[] { new CallableParameter("method", typeof(string)), new CallableParameter("args", typeof(ArgumentList), hasDefault: true, defaultValue: null) },
                 typeof(object),
-                (o, a) => CallMethod((GodotObject)o, (string)a[0]!, a[1] as List<object?>),
-                "call any Godot method (GDScript ones too) by name with a list of arguments; returns its result");
+                (o, a) => CallMethod((GodotObject)o, (string)a[0]!, a[1] as ArgumentList),
+                "call any Godot method (GDScript ones too) by name with a list of arguments, each converted to the type the method " +
+                "declares (\"(1, 2)\" for a Vector2i, \"res://…\" for a resource, an enum by name); returns its result",
+                (o, a) => RqlGodot.Rejection(() => Prepare((GodotObject)o, (string)a[0]!, a[1] as ArgumentList, build: false)));
+        }
+
+        /// <summary>
+        /// A new Godot object from an object literal naming its class — <c>{"$type": "BoxShape3D", Size: "(1, 2, 1)"}</c>, or
+        /// <c>{class: "BoxShape3D", …}</c> (the member every Godot object reads as): an embedded sub-resource for a property
+        /// (shape, mesh, material, environment …). A Godot class goes to RQL's own construction (C# members); a class Godot
+        /// cannot instantiate is refused (C# would build a useless abstract Mesh); a script class (GDScript <c>class_name</c>)
+        /// is built here, its other keys written as Godot properties (snake_case or the C#-style name).
+        /// </summary>
+        private static AdapterOutcome TryBuild(ObjectValue literal, Type target, RqlKernel kernel, out object? result, out string? reason)
+        {
+            result = null;
+            reason = null;
+            var key = literal.ContainsKey("$type") ? "$type" : literal.ContainsKey("class") ? "class" : null;
+            if (key == null || !(literal[key] is string className) || className.Length == 0) return AdapterOutcome.NotHandled;
+            if (ClassDB.ClassExists(className))
+            {
+                if (!ClassDB.CanInstantiate(className)) { reason = $"Godot class '{className}' cannot be instantiated (abstract); name a concrete class"; return AdapterOutcome.Failed; }
+                // RQL builds it from "$type" with the C# type (CSGBox3D's is CsgBox3D, ORMMaterial3D's OrmMaterial3D). Rewritten in
+                // place and left to RQL rather than built through the kernel here: a nested value of the same target type would
+                // then skip this adapter (the kernel's re-entry guard) and lose res:// paths and nested literals.
+                var clr = GodotTypes.GodotClassType(className);
+                if (clr == null) { reason = $"no C# type for Godot class '{className}'"; return AdapterOutcome.Failed; }
+                literal.Remove("class");
+                literal["$type"] = clr.FullName;
+                return AdapterOutcome.NotHandled;
+            }
+            if (!RqlGodot.IsGlobalScriptClass(className)) return AdapterOutcome.NotHandled;
+            GodotObject built;
+            try { built = RqlGodot.Instantiate<GodotObject>(className, typeof(Resource).IsAssignableFrom(target) ? "Resource" : "Object", "class"); }
+            catch (ArgumentException e) { reason = e.Message; return AdapterOutcome.Failed; }
+            reason = target.IsInstanceOfType(built) ? SetScriptProperties(built, className, key, literal, kernel) : $"a {className} is not a {target.Name}";
+            if (reason == null) { result = built; return AdapterOutcome.Ok; }
+            if (!(built is RefCounted)) built.Free(); // a failed build of a Node / Object script class is not kept
+            return AdapterOutcome.Failed;
+        }
+
+        // The literal's other keys as Godot properties of a script-class object (snake_case or the C#-style name); the problem.
+        private static string? SetScriptProperties(GodotObject built, string className, string classKey, ObjectValue literal, RqlKernel kernel)
+        {
+            var props = GodotVariants.Properties(built);
+            foreach (var kv in literal)
+            {
+                if (kv.Key == classKey) continue;
+                var name = props.ContainsKey(kv.Key) ? kv.Key : kv.Key.ToSnakeCase();
+                if (!props.TryGetValue(name, out var info)) return $"{className} has no property '{kv.Key}'";
+                var value = EnumValue(built, name, kv.Value, out var problem);
+                if (problem != null) return $"'{kv.Key}': {problem}";
+                // A Godot-object property (a texture path, a nested literal) is coerced here first: through the kernel it could
+                // skip this adapter (re-entry guard of the same target type).
+                object? converted = null;
+                string? why = null;
+                var outcome = typeof(GodotObject).IsAssignableFrom(info.ClrType)
+                    ? CoerceObject(value, info.ClrType, kernel, out converted, out why)
+                    : AdapterOutcome.NotHandled;
+                if (outcome == AdapterOutcome.NotHandled && !kernel.TryCoerce(value, info.ClrType, out converted, out why)) outcome = AdapterOutcome.Failed;
+                if (outcome == AdapterOutcome.Failed) return $"'{kv.Key}': {why}";
+                built.Set(name, GodotVariants.ToVariant(converted));
+            }
+            return null;
+        }
+
+        private static bool IsEnumInt(GodotVariants.GodotProperty info) => info.Type == Variant.Type.Int && info.Hint == PropertyHint.Enum;
+
+        private static string? PropProblem(GodotObject o, string key, object? value)
+        {
+            EnumValue(o, key, value, out var problem);
+            return problem;
+        }
+
+        // The value property `key` is written with: an enum-hinted int's name becomes its number; other values pass as given.
+        // An unknown property, or an enum name / value that is not a number, sets `problem`.
+        private static object? EnumValue(GodotObject o, string key, object? value, out string? problem)
+        {
+            problem = null;
+            if (!GodotVariants.Properties(o).TryGetValue(key, out var info)) { problem = $"{o.GetClass()} has no property '{key}'"; return value; }
+            if (!IsEnumInt(info)) return value;
+            switch (value)
+            {
+                case string number when long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed): return parsed;
+                case string text:
+                    var options = GodotEnumOptions.OfProperty(o, key, info.HintString);
+                    if (GodotEnumNames.TryMatch(options, text, out var v)) return v;
+                    problem = $"\"{text}\" is not {GodotEnumNames.Describe(options)}";
+                    return value;
+                case double d when d == Math.Floor(d) && !double.IsInfinity(d): return (long)d;
+                case int or long or Enum: return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+                default:
+                    problem = $"expected a name ({GodotEnumNames.Describe(GodotEnumNames.ParseHint(info.HintString))}), got {value ?? "null"}";
+                    return value;
+            }
         }
 
         private static void Set(GodotObject o, string key, object? value)
@@ -86,7 +180,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             o.Set(key, variant);
         }
 
-        private static object? CallMethod(GodotObject o, string method, List<object?>? args)
+        private static object? CallMethod(GodotObject o, string method, ArgumentList? args) =>
+            GodotVariants.ToClr(o.Call(method, Prepare(o, method, args)));
+
+        // Every check of a call and its converted arguments; the call validator runs it for every target first (dry runs too),
+        // with build false: object literals are not built there (a Node built per target would never be freed).
+        private static Variant[] Prepare(GodotObject o, string method, ArgumentList? args, bool build = true)
         {
             if (string.IsNullOrWhiteSpace(method)) throw new ArgumentException("CallMethod needs a method name");
             if (!o.HasMethod(method)) throw new ArgumentException($"{o.GetClass()} has no method '{method}'");
@@ -95,35 +194,32 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (!ClassDB.ClassHasMethod(o.GetClass(), method) && o.GetScript().As<Script>() is { } script && !script.IsTool())
                 throw new InvalidOperationException($"'{method}' is a method of the non-tool script {script.ResourcePath}, which does not run in the editor; " +
                     "add @tool at the top of a GDScript (or [Tool] on a C# class) to call it here");
-            var given = args?.Count ?? 0;
-            if (ArgumentProblem(o, method, given) is { } problem) throw new ArgumentException(problem);
-            var variants = (args ?? new List<object?>()).Select(GodotVariants.ToVariant).ToArray();
-            return GodotVariants.ToClr(o.Call(method, variants));
+            var entry = GodotCallArguments.FindMethod(o, method);
+            if (ArgumentProblem(entry, method, args?.Values.Count ?? 0) is { } problem) throw new ArgumentException(problem);
+            return GodotCallArguments.Convert(entry, method, args, build);
         }
 
         // A wrong argument count makes Godot print an error and return null, which would read as a successful call.
-        private static string? ArgumentProblem(GodotObject o, string method, int given)
+        private static string? ArgumentProblem(global::Godot.Collections.Dictionary? entry, string method, int given)
         {
-            foreach (var entry in o.GetMethodList())
-            {
-                if (entry["name"].AsString() != method) continue;
-                if ((entry["flags"].AsInt32() & (int)MethodFlags.Vararg) != 0) return null;
-                var max = entry["args"].AsGodotArray().Count;
-                var min = max - entry["default_args"].AsGodotArray().Count;
-                if (given >= min && given <= max) return null;
-                return $"{method} takes {(min == max ? $"{max}" : $"{min} to {max}")} argument(s), got {given}";
-            }
-            return null;
+            if (entry == null || (entry["flags"].AsInt32() & (int)MethodFlags.Vararg) != 0) return null;
+            var max = entry["args"].AsGodotArray().Count;
+            var min = max - entry["default_args"].AsGodotArray().Count;
+            return given >= min && given <= max ? null : $"{method} takes {(min == max ? $"{max}" : $"{min} to {max}")} argument(s), got {given}";
         }
 
         /// <summary>
         /// Text where a Godot object is expected: a <c>res://</c> / <c>uid://</c> path loads the resource, a node path or name
         /// finds the node in the edited scene (<c>godot.find</c> rules).
         /// </summary>
-        public override AdapterOutcome TryCoerce(object? value, Type target, RqlKernel kernel, out object? result, out string? reason)
+        public override AdapterOutcome TryCoerce(object? value, Type target, RqlKernel kernel, out object? result, out string? reason) =>
+            CoerceObject(value, target, kernel, out result, out reason);
+
+        private static AdapterOutcome CoerceObject(object? value, Type target, RqlKernel kernel, out object? result, out string? reason)
         {
             result = null;
             reason = null;
+            if (value is ObjectValue literal) return TryBuild(literal, target, kernel, out result, out reason);
             if (!(value is string text) || text.Length == 0) return AdapterOutcome.NotHandled;
             var wantsResource = typeof(Resource).IsAssignableFrom(target) || target.IsAssignableFrom(typeof(Resource));
             var wantsNode = typeof(Node).IsAssignableFrom(target) || target.IsAssignableFrom(typeof(Node));
