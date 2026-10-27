@@ -126,8 +126,12 @@ def class_name_update(host: str, project: pathlib.Path, d: str) -> None:
     must("W4S update keeps the class_name",
          tool(host, "script-update", {"scriptPath": path, "content": f"class_name {name}\nextends Resource\n\n@export var price: float = 1.0\n"}))
     check("W4S written", file_has(project, path, r"price: float = 1\.0"), file_text(project, path))
-    fails("W4S a real error is refused with its line",
-          tool(host, "script-update", {"scriptPath": path, "content": f"class_name {name}\nextends Resource\n\nfunc broken(:\n"}), "line 4")
+    # Godot 4.5+ reports the engine's script errors (line and message); older versions only the error code.
+    version = re.search(r"(\d+)\.(\d+)", must("W4S version", query(host, "editor | select godotVersion")))
+    precise = version is not None and (int(version.group(1)), int(version.group(2))) >= (4, 5)
+    fails("W4S a real error is refused" + (" with its line" if precise else ""),
+          tool(host, "script-update", {"scriptPath": path, "content": f"class_name {name}\nextends Resource\n\nfunc broken(:\n"}),
+          *(("line 4",) if precise else ("parse",)))
     check("W4S file untouched by the refused update", file_has(project, path, r"price: float = 1\.0"), file_text(project, path))
 
 
