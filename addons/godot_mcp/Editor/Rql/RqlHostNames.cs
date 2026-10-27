@@ -60,9 +60,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static IReadOnlyDictionary<string, string>? EnumAliases(Type enumType, IEnumerable<(string name, long value)> names)
         {
             if (!enumType.IsEnum) return null;
-            var entries = new HashSet<string>(Enum.GetNames(enumType), StringComparer.OrdinalIgnoreCase);
+            var entryNames = Enum.GetNames(enumType);
+            var entries = new HashSet<string>(entryNames, StringComparer.OrdinalIgnoreCase);
             var byValue = new Dictionary<long, string>();
-            foreach (var entry in Enum.GetNames(enumType))
+            foreach (var entry in entryNames)
             {
                 long value;
                 try { value = Convert.ToInt64(Enum.Parse(enumType, entry)); }
@@ -78,7 +79,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 else aliases[name] = entry;
             }
             foreach (var name in ambiguous) aliases.Remove(name);
-            return aliases.Count == 0 ? null : new ReadOnlyDictionary<string, string>(aliases.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal));
+            return aliases.Count == 0 ? null : new ReadOnlyDictionary<string, string>(aliases);
         }
     }
 }
