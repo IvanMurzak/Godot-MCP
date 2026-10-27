@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("extends EnemyData")]
         public void AReferenceToADeletedScriptsClassIsFound(string source)
         {
-            var hit = StaleGlobalClass.FindReference(source, Classes, Exists);
+            var hit = StaleGlobalClass.FindReference(source, StaleGlobalClass.Stale(Classes, Exists));
             Assert.Equal(("EnemyData", "res://scripts/EnemyData.cs"), hit);
         }
 
@@ -99,7 +99,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("var enemy_data_count := 3")]         // a different word
         [InlineData("class_name EnemyDataTable")]         // a longer identifier
         [InlineData("")]
-        public void OtherSourcesPass(string source) => Assert.Null(StaleGlobalClass.FindReference(source, Classes, Exists));
+        public void OtherSourcesPass(string source) => Assert.Null(StaleGlobalClass.FindReference(source, StaleGlobalClass.Stale(Classes, Exists)));
+
+        [Fact]
+        public void OnlyMissingFilesAreStale() =>
+            Assert.Equal(new[] { ("EnemyData", "res://scripts/EnemyData.cs") }, StaleGlobalClass.Stale(Classes, Exists));
 
         [Fact]
         public void TheProblemNamesTheClassTheFileAndTheWayOut()

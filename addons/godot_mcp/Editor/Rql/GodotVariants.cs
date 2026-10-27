@@ -168,18 +168,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// Node3D <c>rotation_degrees</c> or <c>global_position</c>: reachable by name in <c>props["…"]</c> (not listed among its
         /// keys); null when <paramref name="o"/> has no such property.
         /// </summary>
-        public static GodotProperty? ScriptOnlyProperty(GodotObject o, string name)
+        public static GodotProperty? ScriptOnlyProperty(GodotObject o, string name) =>
+            !string.IsNullOrEmpty(name) && ScriptOnlyProperties(o).TryGetValue(name, out var info) ? info : (GodotProperty?)null;
+
+        // The script-only properties of an object by name, made once per query scope (like the props table).
+        private static Dictionary<string, GodotProperty> ScriptOnlyProperties(GodotObject o) => Scoped(("script-only", o.GetInstanceId()), () =>
         {
-            if (string.IsNullOrEmpty(name)) return null;
+            var table = new Dictionary<string, GodotProperty>(StringComparer.Ordinal);
             foreach (var info in o.GetPropertyList())
             {
-                if (info["name"].AsString() != name) continue;
                 var usage = (PropertyUsageFlags)info["usage"].AsInt64();
-                if (IsHeader(usage) || IsExposed(usage, storageOnly: false)) return null;
-                return new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
+                var name = info["name"].AsString();
+                if (name.Length == 0 || IsHeader(usage) || IsExposed(usage, storageOnly: false) || table.ContainsKey(name)) continue;
+                table[name] = new GodotProperty((Variant.Type)info["type"].AsInt64(), (PropertyHint)info["hint"].AsInt64(), info["hint_string"].AsString());
             }
-            return null;
-        }
+            return table;
+        });
 
         /// <summary>The names of the properties <see cref="IsExposed"/> accepts, in the object's order.</summary>
         public static IEnumerable<string> PropertyNames(GodotObject o, bool storageOnly)

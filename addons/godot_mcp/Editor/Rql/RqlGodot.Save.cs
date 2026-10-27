@@ -41,8 +41,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     public static partial class RqlGodot
     {
         private static int _mutating;
-        // The query of the running (outermost) mutation: its undo action is named after it ("RQL: nodes | … | set …").
-        private static string? _query;
 
         /// <summary>One undoable step: the operations that redo it and the ones that undo it (either may be null).</summary>
         private readonly struct UndoStep
@@ -110,7 +108,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static QueryResult Mutate(string query, bool dryRun = false)
         {
-            if (_mutating == 0) { ResetState(); _query = query; }
+            if (_mutating == 0) ResetState();
             _mutating++;
             QueryResult result;
             try
@@ -122,10 +120,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 _mutating--;
                 // A set stage of this query that never committed was rolled back: its setters' undo steps go with it.
                 _setStages.DiscardAbove(_mutating);
-                if (_mutating == 0) CommitUndo();
+                if (_mutating == 0) CommitUndo(query);
             }
             if (_mutating == 0)
-                foreach (var warning in _warnings.Distinct())
+                foreach (var warning in _warnings)
                     result.Diagnostics.Add(Diagnostic.Warning("radians", warning));
             if (_mutating > 0 || dryRun) return result;
 
@@ -192,8 +190,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             _setStages.BeforeWrite(records, _mutating);
             foreach (var r in records)
-                if (r.Method == null && r.Owner is Node && RotationUnits.IsRadiansMember(r.Member)
-                    && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning && !_warnings.Contains(warning))
+                if (r.Method == null && r.Owner is Node && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning
+                    && !_warnings.Contains(warning))
                     _warnings.Add(warning);
             foreach (var owner in MutatedObjects(records))
                 if (!_snapshots.ContainsKey(owner))
@@ -375,7 +373,20 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         internal static Func<EditorUndoRedoManager?>? UndoRedo { get; set; }
 
-        private static void CommitUndo()
+        /// <summary>
+        /// The global undo history, or the edited scene's (null without an undo manager, or without a scene for the scene
+        /// history): what an rql-mutate commits to, Undo / Redo step and the test hooks drive.
+        /// </summary>
+        internal static global::Godot.UndoRedo? UndoHistory(bool global)
+        {
+            var manager = UndoRedo?.Invoke();
+            if (manager == null || !GodotObject.IsInstanceValid(manager)) return null;
+            if (global) return manager.GetHistoryUndoRedo(0); // EditorUndoRedoManager.SpecialHistory.Global
+            return EditedRoot() is { } root ? manager.GetHistoryUndoRedo(manager.GetObjectHistoryId(root)) : null;
+        }
+
+        // The undo action is named after the mutation's query ("RQL: nodes | … | set …").
+        private static void CommitUndo(string query)
         {
             var undo = UndoRedo?.Invoke();
             if (undo == null || !GodotObject.IsInstanceValid(undo))
@@ -388,9 +399,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             else
             {
-                Commit(undo, _sceneUndo, EditedRoot());
+                var name = HistoryStepText.ActionName(query);
+                Commit(undo, _sceneUndo, EditedRoot(), name);
                 AddResaveSteps(_otherUndo, _toSave);
-                Commit(undo, _otherUndo, GlobalHistoryContext);
+                Commit(undo, _otherUndo, GlobalHistoryContext, name);
             }
             _removed.Clear();
             _snapshots.Clear();
@@ -420,12 +432,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             steps.Add(new UndoStep(ur => Save(ur.AddDoMethod), null));
         }
 
-        private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context)
+        private static void Commit(EditorUndoRedoManager undo, List<UndoStep> steps, GodotObject? context, string name)
         {
             if (steps.Count == 0) return;
             try
             {
-                undo.CreateAction(HistoryStepText.ActionName(_query), global::Godot.UndoRedo.MergeMode.Disable, context);
+                undo.CreateAction(name, global::Godot.UndoRedo.MergeMode.Disable, context);
                 // Every step joins the context's history: a built-in or path-less resource would otherwise be guessed into
                 // another one ("UndoRedo history mismatch").
                 undo.ForceFixedHistory();

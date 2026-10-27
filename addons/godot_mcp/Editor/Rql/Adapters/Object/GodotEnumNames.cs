@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             foreach (var c in s ?? "")
             {
                 if (!char.IsLetterOrDigit(c)) { Flush(); prev = c; continue; }
-                if (current.Length > 0 && ((char.IsUpper(c) && (char.IsLower(prev) || char.IsDigit(prev))) || char.IsDigit(c) != char.IsDigit(prev))) Flush();
+                if (current.Length > 0 && ((char.IsUpper(c) && char.IsLower(prev)) || char.IsDigit(c) != char.IsDigit(prev))) Flush();
                 current.Append(char.ToLowerInvariant(c));
                 prev = c;
             }

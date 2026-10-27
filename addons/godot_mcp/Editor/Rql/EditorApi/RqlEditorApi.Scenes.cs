@@ -84,15 +84,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "scene at path (opened when it is not); returns its root node")]
         public Node ReloadScene(string? path = null)
         {
-            var target = string.IsNullOrWhiteSpace(path)
-                ? RqlGodot.EditedRoot()?.SceneFilePath is { Length: > 0 } edited ? edited
-                    : throw new InvalidOperationException("no saved scene is being edited; pass a res:// scene path")
-                : RequireScenePath(path!);
+            string target;
+            if (!string.IsNullOrWhiteSpace(path)) target = RequireScenePath(path!);
+            else
+            {
+                target = RqlGodot.EditedRoot()?.SceneFilePath ?? "";
+                if (target.Length == 0) throw new InvalidOperationException("no saved scene is being edited; pass a res:// scene path");
+            }
             EditorToolGuards.RequireResourceExists(target, nameof(path), $"no scene at '{target}'");
-            var open = Array.IndexOf(Ei.GetOpenScenes(), target) >= 0;
-            if (!open) return OpenScene(target);
+            if (Array.IndexOf(Ei.GetOpenScenes(), target) < 0) return OpenScene(target);
             if (RqlGodot.EditedRoot()?.SceneFilePath != target) OpenScene(target);
-            Ei.ReloadSceneFromPath(target);
+            EditorToolGuards.ReloadReplacedOpenScene(target); // replaces the cached PackedScene, then reloads the tab
             var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"reloaded '{target}' but the editor has no edited scene");
             if (root.SceneFilePath != target)
                 throw new InvalidOperationException($"reloaded '{target}' but the editor shows '{root.SceneFilePath}'");

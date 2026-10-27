@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -23,16 +24,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class StaleGlobalClass
     {
-        /// <summary>The first registered class (name, path) whose file does not exist and that <paramref name="source"/> names as a word.</summary>
-        public static (string name, string path)? FindReference(string? source, IEnumerable<(string name, string path)> classes, Func<string, bool> fileExists)
+        /// <summary>The registered classes (name, path) whose file does not exist.</summary>
+        public static List<(string name, string path)> Stale(IEnumerable<(string name, string path)> classes, Func<string, bool> fileExists) =>
+            classes.Where(c => !string.IsNullOrEmpty(c.name) && !fileExists(c.path)).ToList();
+
+        /// <summary>The first of the <paramref name="stale"/> classes that <paramref name="source"/> names as a word.</summary>
+        public static (string name, string path)? FindReference(string? source, IReadOnlyList<(string name, string path)> stale)
         {
-            if (string.IsNullOrEmpty(source)) return null;
-            foreach (var (name, path) in classes)
-            {
-                if (string.IsNullOrEmpty(name) || fileExists(path)) continue;
-                if (Regex.IsMatch(source, @"(?<![\w])" + Regex.Escape(name) + @"(?![\w])")) return (name, path);
-            }
-            return null;
+            if (string.IsNullOrEmpty(source) || stale.Count == 0) return null;
+            var match = Regex.Match(source, @"(?<![\w])(?:" + string.Join("|", stale.Select(c => Regex.Escape(c.name))) + @")(?![\w])");
+            return match.Success ? stale.First(c => c.name == match.Value) : ((string, string)?)null;
         }
 
         /// <summary>Why a script naming the stale class is refused, and what to do.</summary>

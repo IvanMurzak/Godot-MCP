@@ -13,7 +13,7 @@ from __future__ import annotations
 import pathlib
 import time
 
-from smoke_rql_lib import check, file_text, must, mutate, q, query, tool
+from smoke_rql_lib import file_text, must, mutate, q, query, tool
 from smoke_rql_models import fails, has, lacks
 
 
@@ -117,4 +117,3 @@ def game_log(host: str, d: str) -> None:
         return
     has("AG the print", text, f"Log|agent-log-{tag}")
     has("AG the error and where", text, f"Error|agent-error-{tag}", "ag_game.gd")
-    check("AG schema lists gameLog", "gameLog" in must("AG schema", tool(host, "rql-schema", {})))

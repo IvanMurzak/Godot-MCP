@@ -39,9 +39,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (!IsRadiansMember(member) || !components.Any(c => Math.Abs(c) > FullTurn)) return null;
             var head = member.Split('.')[0];
             var degrees = char.ToUpperInvariant(head[0]) + head.Substring(1) + "Degrees" + member.Substring(head.Length);
-            string Join(Func<double, double> f) => string.Join(", ", components.Select(c => f(c).ToString("0.##", CultureInfo.InvariantCulture)));
-            var written = components.Length == 1 ? Join(c => c) : "(" + Join(c => c) + ")";
-            var asDegrees = components.Length == 1 ? Join(c => c * 180 / Math.PI) + "°" : "(" + Join(c => c * 180 / Math.PI) + ")°";
+            string Format(Func<double, double> f)
+            {
+                var list = string.Join(", ", components.Select(c => f(c).ToString("0.##", CultureInfo.InvariantCulture)));
+                return components.Length == 1 ? list : "(" + list + ")";
+            }
+            var written = Format(c => c);
+            var asDegrees = Format(c => c * 180 / Math.PI) + "°";
             return $"{member} is in radians: {written} turns by {asDegrees}. For degrees set {degrees} = {written} instead";
         }
     }

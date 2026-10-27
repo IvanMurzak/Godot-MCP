@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Rql;
 
@@ -34,34 +35,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
     internal static class EditorHistory
     {
-        // EditorUndoRedoManager.SpecialHistory.Global.
-        private const int GlobalHistory = 0;
-
         // The Scene menu (a PopupMenu of the editor's MenuBar) found last; looked up again when it is gone.
         private static ulong _menuId;
 
         public static string Step(bool undo)
         {
-            var manager = RqlGodot.UndoRedo?.Invoke();
-            if (manager == null || !GodotObject.IsInstanceValid(manager))
+            if (RqlGodot.UndoHistory(global: true) == null)
                 throw new InvalidOperationException("the editor's undo history is not available (the plugin is not installed)");
             var command = undo ? "Undo" : "Redo";
             var (menu, id) = FindMenuItem(command)
                 ?? throw new InvalidOperationException($"the editor's {command} menu item was not found");
 
-            var histories = new List<UndoRedo>();
-            if (manager.GetHistoryUndoRedo(GlobalHistory) is { } global) histories.Add(global);
-            if (RqlGodot.EditedRoot() is { } root && manager.GetHistoryUndoRedo(manager.GetObjectHistoryId(root)) is { } scene)
-                histories.Add(scene);
-            var before = new List<HistoryState>();
-            foreach (var h in histories) before.Add(new HistoryState(h.GetVersion(), h.GetCurrentActionName()));
-
+            var histories = new[] { RqlGodot.UndoHistory(global: true), RqlGodot.UndoHistory(global: false) }.OfType<UndoRedo>().ToList();
+            List<HistoryState> Snapshot() => histories.Select(h => new HistoryState(h.GetVersion(), h.GetCurrentActionName())).ToList();
+            var before = Snapshot();
             menu.EmitSignal(PopupMenu.SignalName.IdPressed, id);
             RqlGodot.InvalidateGroups(); // the step may change groups behind RQL
-
-            var after = new List<HistoryState>();
-            foreach (var h in histories) after.Add(new HistoryState(h.GetVersion(), h.GetCurrentActionName()));
-            return HistoryStepText.Describe(undo, before, after);
+            return HistoryStepText.Describe(undo, before, Snapshot());
         }
 
         private static (PopupMenu menu, int id)? FindMenuItem(string shortcutName)

@@ -30,10 +30,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static string Summarize(int exitCode, string? output, string projectDir = "")
         {
             var lines = (output ?? "").Replace("\r\n", "\n").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-            var errors = Distinct(lines.Where(l => Diagnostic.Match(l) is { Success: true } m && m.Groups[1].Value == "error"), projectDir);
-            var warnings = Distinct(lines.Where(l => Diagnostic.Match(l) is { Success: true } m && m.Groups[1].Value == "warning"), projectDir);
+            var errors = Diagnostics(lines, "error", projectDir);
             if (exitCode == 0)
-                return $"build succeeded ({warnings.Count} warning{(warnings.Count == 1 ? "" : "s")}); the editor reloads the C# assembly next — " +
+                return $"build succeeded ({Count(Diagnostics(lines, "warning", projectDir).Count, "warning")}); the editor reloads the C# assembly next — " +
                        "new or changed C# scripts and [GlobalClass] types are usable a few seconds later";
             if (errors.Count == 0)
             {
@@ -43,21 +42,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             var shown = errors.Take(MaxErrors).ToList();
             var more = errors.Count > shown.Count ? $"\n… and {errors.Count - shown.Count} more" : "";
-            throw new InvalidOperationException($"build failed with {errors.Count} error{(errors.Count == 1 ? "" : "s")}:\n" + string.Join("\n", shown) + more);
+            throw new InvalidOperationException($"build failed with {Count(errors.Count, "error")}:\n" + string.Join("\n", shown) + more);
         }
 
-        // "C:\proj\Player.cs(3,5): error CS1002: ; expected [C:\proj\Game.csproj]" -> "Player.cs(3,5): error CS1002: ; expected"
-        private static List<string> Distinct(IEnumerable<string> lines, string projectDir)
+        private static readonly Regex ProjectSuffix = new Regex(@"\s*\[[^\[\]]+\.csproj\]$", RegexOptions.Compiled);
+
+        private static string Count(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
+
+        // The distinct diagnostics of a kind, in order: "C:\proj\Player.cs(3,5): error CS1002: ; expected [C:\proj\Game.csproj]"
+        // -> "Player.cs(3,5): error CS1002: ; expected".
+        private static List<string> Diagnostics(List<string> lines, string kind, string projectDir)
         {
             var dir = projectDir.Replace('\\', '/').TrimEnd('/');
-            var seen = new List<string>();
-            foreach (var raw in lines)
-            {
-                var line = Regex.Replace(raw, @"\s*\[[^\[\]]+\.csproj\]$", "").Replace('\\', '/');
-                if (dir.Length > 0 && line.StartsWith(dir + "/", StringComparison.OrdinalIgnoreCase)) line = line.Substring(dir.Length + 1);
-                if (!seen.Contains(line)) seen.Add(line);
-            }
-            return seen;
+            return lines.Where(l => Diagnostic.Match(l) is { Success: true } m && m.Groups[1].Value == kind)
+                .Select(raw =>
+                {
+                    var line = ProjectSuffix.Replace(raw, "").Replace('\\', '/');
+                    return dir.Length > 0 && line.StartsWith(dir + "/", StringComparison.OrdinalIgnoreCase) ? line.Substring(dir.Length + 1) : line;
+                })
+                .Distinct().ToList();
         }
     }
 }

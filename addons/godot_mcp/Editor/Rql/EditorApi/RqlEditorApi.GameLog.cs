@@ -21,6 +21,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Most entries the <c>gameLog</c> source returns (the last ones).</summary>
         public const int MaxGameLogEntries = 2000;
 
+        /// <summary>Most bytes of the game's log file read (its end).</summary>
+        private const long MaxGameLogBytes = 4 * 1024 * 1024;
+
         /// <summary>
         /// The <c>gameLog</c> source: what the game run from the editor (PlayScene, isPlaying) printed, its errors and warnings,
         /// read from the log file Godot's file logger writes for the game (<c>debug/file_logging/log_path</c>,
@@ -38,7 +41,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // The running game keeps the file open for writing.
             using (var stream = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             using (var reader = new StreamReader(stream))
+            {
+                // A game that prints every frame writes megabytes: only the tail is read, from its first whole line.
+                var cut = stream.Length > MaxGameLogBytes;
+                if (cut) stream.Seek(-MaxGameLogBytes, SeekOrigin.End);
+                if (cut) reader.ReadLine();
                 text = reader.ReadToEnd();
+            }
             var entries = GameLogText.Parse(text);
             return entries.Count > MaxGameLogEntries ? entries.GetRange(entries.Count - MaxGameLogEntries, MaxGameLogEntries) : entries;
         }

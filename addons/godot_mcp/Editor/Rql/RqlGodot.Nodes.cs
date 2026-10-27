@@ -443,7 +443,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 var entry = ProjectSettings.GetGlobalClassList().FirstOrDefault(e => e["class"].AsString() == className)
                             ?? throw new ArgumentException($"unknown {kind} class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, baseClass)), className));
-                script = ResourceLoader.Load<Script>(entry["path"].AsString())
+                var path = entry["path"].AsString();
+                // Loading a missing script, or a GDScript naming a deleted script's class, crashes the editor (StaleGlobalClass).
+                if (!FileAccess.FileExists(path))
+                    throw new ArgumentException(Tools.StaleGlobalClass.Problem(className, path));
+                if (path.EndsWith(".gd", StringComparison.OrdinalIgnoreCase) && Tools.Tool_Script.StaleClassProblem(FileAccess.GetFileAsString(path)) is { } stale)
+                    throw new ArgumentException(stale);
+                script = ResourceLoader.Load<Script>(path)
                          ?? throw new ArgumentException($"the script of '{className}' failed to load");
                 native = script.GetInstanceBaseType().ToString();
             }

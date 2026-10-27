@@ -32,7 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "types load; the editor reloads the assembly a few seconds later. Returns the outcome; fails with the compiler errors")]
         public string BuildProject()
         {
-            var csproj = ProjectCsproj() ?? throw new InvalidOperationException("this project has no C# project (.csproj) to build");
+            var csproj = new Extensions.ConsumerProjectFile().Path ?? throw new InvalidOperationException("this project has no C# project (.csproj) to build");
             var dir = Path.GetDirectoryName(csproj)!;
             var start = new ProcessStartInfo("dotnet")
             {
@@ -53,16 +53,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             process.WaitForExit(); // flush the redirected streams
             return BuildOutputText.Summarize(process.ExitCode, stdout.Result + "\n" + stderr.Result, dir);
-        }
-
-        // <assembly name>.csproj in the project folder (Godot's own choice), else the only .csproj there.
-        private static string? ProjectCsproj()
-        {
-            var dir = ProjectSettings.GlobalizePath("res://");
-            var name = ProjectSettings.GetSetting("dotnet/project/assembly_name", "").AsString();
-            if (name.Length > 0 && File.Exists(Path.Combine(dir, name + ".csproj"))) return Path.GetFullPath(Path.Combine(dir, name + ".csproj"));
-            var all = Directory.GetFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly);
-            return all.Length == 1 ? Path.GetFullPath(all[0]) : null;
         }
     }
 }

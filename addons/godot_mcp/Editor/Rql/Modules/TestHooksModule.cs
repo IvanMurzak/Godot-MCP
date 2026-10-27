@@ -29,9 +29,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
     {
         public const string EnvVar = "GODOT_MCP_RQL_TEST_HOOKS";
 
-        // EditorUndoRedoManager.SpecialHistory.Global.
-        private const int GlobalHistory = 0;
-
         public int Order => 100;
 
         public void Configure(RqlModuleContext ctx)
@@ -64,17 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
             return true;
         }
 
-        private static UndoRedo? History(object?[] args)
-        {
-            var manager = RqlGodot.UndoRedo?.Invoke();
-            if (manager == null || !GodotObject.IsInstanceValid(manager)) return null;
-            var which = args.Length > 0 && args[0] is string s ? s : "scene";
-            int id;
-            if (string.Equals(which, "global", StringComparison.OrdinalIgnoreCase)) id = GlobalHistory;
-            else if (RqlGodot.EditedRoot() is { } root) id = manager.GetObjectHistoryId(root);
-            else return null;
-            return manager.GetHistoryUndoRedo(id);
-        }
+        private static UndoRedo? History(object?[] args) =>
+            RqlGodot.UndoHistory(global: args.Length > 0 && args[0] is string s && string.Equals(s, "global", StringComparison.OrdinalIgnoreCase));
     }
 }
 #endif
