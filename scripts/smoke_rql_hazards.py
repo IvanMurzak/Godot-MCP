@@ -15,6 +15,7 @@ Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
+import re
 
 from smoke_rql_lib import check, disk, file_has, file_text, must, mutate, q, query, tool
 from smoke_rql_models import HOOKS, fails, has, lacks, new_scene, node, redo, skip_undo, undo
@@ -196,6 +197,13 @@ def call_validators(host: str, d: str) -> None:
           "invalid-value", "no file")
 
 
+def plain_instance(project: pathlib.Path, path: str, name: str) -> bool:
+    """The scene file's entry for instance `name` stores only overrides: no pinned type=, groups= or script (Godot 4.6+ adds unique_id=)."""
+    m = re.search(rf'^(\[node name="{re.escape(name)}"[^\n]*\])\n(.*?)(?=^\[|\Z)', file_text(project, path), re.M | re.S)
+    return bool(m) and "instance=ExtResource(" in m.group(1) and " type=" not in m.group(1) \
+        and "groups=" not in m.group(1) and "script = " not in m.group(2)
+
+
 def instances(host: str, project: pathlib.Path, d: str) -> None:
     """
     Scene instances: InstantiateScene saves only overrides (no pinned type / script / groups); a change inside an instance
@@ -216,7 +224,7 @@ def instances(host: str, project: pathlib.Path, d: str) -> None:
     must("H10 save", mutate(host, "editor | call SaveScene()"))
     text = file_text(project, level)
     check("H10 instance saved without a pinned type, groups or script",
-          file_has(project, level, r'^\[node name="E2" parent="\." instance=ExtResource\("[^"]+"\)\]$')
+          plain_instance(project, level, "E2")
           and "script = " not in text, text)
     check("H10 the override is saved", file_has(project, level, r"^health = 50$"), text)
     # A property inside an instance: saved because the instance becomes editable.
@@ -272,7 +280,7 @@ def instance_copies(host: str, project: pathlib.Path, d: str) -> None:
     must("H11 save", mutate(host, "editor | call SaveScene()"))
     text = file_text(project, level)
     check("H11 the copy is a plain instance (no pinned type, groups or script)",
-          file_has(project, level, r'^\[node name="A2" parent="\." instance=ExtResource\("[^"]+"\)\]$'), text)
+          plain_instance(project, level, "A2"), text)
     check("H11 the copy keeps the overrides", file_has(project, level, r'^\[node name="Eye" parent="A2"[^\n]*\]\nomni_range = 4\.0$')
           and text.count("health = 7") == 2, text)
     check("H11 the copy keeps the node added inside", file_has(project, level, r'^\[node name="Pin" type="Node3D" parent="A2/Hat"'), text)
