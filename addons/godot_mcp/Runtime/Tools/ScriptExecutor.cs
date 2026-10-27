@@ -168,10 +168,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var type = value.GetType();
             if (value is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
                 return new ConvertedValue(Text(type, Freed(godotObject)), null);
-            // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items.
+            // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items: enumerated once, its
+            // text names the element type (the materialized list is a List<object>), the serialized form gets the item rules.
+            string? text;
             if (ScriptExecuteSource.IsLazySequence(type))
-                value = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, AsItem);
-            var text = CompactText(value);
+            {
+                var items = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value);
+                text = CompactText(items, "IEnumerable<" + ScriptResultText.TypeName(ElementType(type)) + ">");
+                value = items.Select(AsItem).ToList();
+            }
+            else
+            {
+                text = CompactText(value);
+            }
             // Godot structs without a reflection converter (Basis, Transform3D …) and StringName serialize as "{}": their text.
             if (ScriptExecuteSource.IsSnippetType(type) || ScriptExecuteSource.IsGodotTextValue(type))
                 return new ConvertedValue(Text(type, value.ToString()), text);
@@ -182,22 +191,28 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         // The RQL format's text of the value, capped like the serialized value; null for a scalar.
-        static string? CompactText(object? value)
+        static string? CompactText(object? value, string? typeName = null)
         {
             string? text;
-            try { text = ScriptResultText.Format(value, EngineValueText); }
+            try { text = ScriptResultText.Format(value, EngineValueText, Unwrap, typeName); }
             catch (Exception) { return null; } // a member that cannot be read this way: the serialized form stays
             return text == null ? null : ScriptExecuteSource.CapText(text);
         }
 
+        // A Variant (an item of a Godot collection) is read as the value it holds.
+        static object? Unwrap(object value) => value is Variant v ? v.Obj : value;
+
+        // The element type of a sequence (IEnumerable<T>), object when it has none.
+        static Type ElementType(Type sequence) =>
+            (sequence.IsGenericType && sequence.GetGenericTypeDefinition() == typeof(IEnumerable<>) ? sequence : sequence.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>)))?.GetGenericArguments()[0] ?? typeof(object);
+
         // Nodes and resources the way rql-query prints them (Node3D#123(Geometry/Floor), PlaneMesh#45(res://m.tres)),
-        // Godot structs by their text, a Variant by its value.
+        // Godot structs by their text.
         static string? EngineValueText(object value)
         {
             switch (value)
             {
-                case Variant v:
-                    return ScriptResultText.Value(v.Obj, EngineValueText, 0);
                 case GodotObject o when !GodotObject.IsInstanceValid(o):
                     return Freed(o);
                 case Node n:

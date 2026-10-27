@@ -30,20 +30,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     {
         readonly Func<GodotMcpLogLevel> _levelProvider;
         readonly GodotLogSink _sink;
+        readonly GodotLogSink? _echoSink;
 
         /// <summary>
         /// Construct the provider.
         /// </summary>
         /// <param name="levelProvider">Reads the LIVE configured threshold on every log call.</param>
         /// <param name="sink">Routes a formatted line to the Godot Output + log collector.</param>
-        public GodotMcpLoggerProvider(Func<GodotMcpLogLevel> levelProvider, GodotLogSink sink)
+        /// <param name="echoSink">Routes the framework's tool-call echo (printed, not collected); null = <paramref name="sink"/>.</param>
+        public GodotMcpLoggerProvider(Func<GodotMcpLogLevel> levelProvider, GodotLogSink sink, GodotLogSink? echoSink = null)
         {
             _levelProvider = levelProvider ?? throw new ArgumentNullException(nameof(levelProvider));
             _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+            _echoSink = echoSink;
         }
 
         public ILogger CreateLogger(string categoryName) =>
-            new GodotMcpLogger(categoryName, _levelProvider, _sink);
+            new GodotMcpLogger(categoryName, _levelProvider, _sink, _echoSink);
 
         public void Dispose() { /* No resources to dispose. */ }
     }

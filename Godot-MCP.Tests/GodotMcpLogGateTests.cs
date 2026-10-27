@@ -169,28 +169,67 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         // --- Tool traffic (printed, not collected for the console source) ---
 
-        [Theory]
-        [InlineData("com.IvanMurzak.McpPlugin.McpToolManager", true)]
-        [InlineData("com.IvanMurzak.McpPlugin.ToolRunnerCollection", true)]
-        [InlineData("com.IvanMurzak.McpPlugin.HubConnection", false)]
-        [InlineData("McpManagerClientHub", false)]
-        public void IsToolTraffic_MatchesTheToolCallEchoCategoriesOnly(string category, bool expected)
+        static (List<string> collected, List<string> echoed) Route(string category, System.Action<ILogger> log)
         {
-            var captured = new List<(GodotLogType Type, string Message)>();
-            var logger = new GodotMcpLogger(category, () => GodotMcpLogLevel.Trace, (type, msg) => captured.Add((type, msg)));
+            var collected = new List<string>();
+            var echoed = new List<string>();
+            var logger = new GodotMcpLogger(category, () => GodotMcpLogLevel.Trace,
+                (_, msg) => collected.Add(msg), (_, msg) => echoed.Add(msg));
+            log(logger);
+            return (collected, echoed);
+        }
 
-            logger.LogInformation("Run tool 'rql-query' with parameters[1]");
-            logger.LogError("Error Response to AI:\nerror unknown-member");
+        [Fact]
+        public void ToolCallEcho_GoesToTheEchoSink()
+        {
+            var (collected, echoed) = Route("com.IvanMurzak.McpPlugin.McpToolManager", l =>
+            {
+                l.LogInformation("Run tool 'rql-query' with parameters[1]");
+                l.LogInformation("Success Response to AI:\n1 result");
+                l.LogError("Error Response to AI:\nerror unknown-member");
+            });
+            Assert.Empty(collected);
+            Assert.Equal(3, echoed.Count);
+        }
 
-            Assert.Equal(2, captured.Count);
-            Assert.All(captured, line => Assert.Equal(expected, GodotMcpLogger.IsToolTraffic(line.Message)));
+        [Fact]
+        public void ToolFailuresAndOtherManagerLines_AreCollected()
+        {
+            var (collected, echoed) = Route("com.IvanMurzak.McpPlugin.McpToolManager", l =>
+            {
+                l.LogError(new System.InvalidOperationException("boom"), "Error Response to AI:\nFailed to run tool 'x'");
+                l.LogWarning("Tool with Name 'x' already exists. Skipping addition.");
+            });
+            Assert.Equal(2, collected.Count);
+            Assert.Empty(echoed);
+            Assert.Contains("boom", collected[0]);
+
+            (collected, echoed) = Route("com.IvanMurzak.McpPlugin.ToolRunnerCollection", l =>
+                l.LogError(new System.NullReferenceException(), "Tool execution failed for 'x': Object reference not set"));
+            Assert.Single(collected);
+            Assert.Empty(echoed);
         }
 
         [Theory]
-        [InlineData("McpToolManager: Run tool 'x'")] // no [McpPlugin] prefix: not a framework line
-        [InlineData("[Godot-MCP] plugin loaded")]
-        [InlineData("")]
-        public void IsToolTraffic_IgnoresOtherLines(string message) => Assert.False(GodotMcpLogger.IsToolTraffic(message));
+        [InlineData("McpToolManager", "Run tool 'x' with no parameters.", true)]
+        [InlineData("McpToolManager", "Processing Response to AI:\n…", true)]
+        [InlineData("McpToolManager", "Failed to run tool 'x'", false)]
+        [InlineData("ToolRunnerCollection", "Run tool 'x'", false)]
+        [InlineData("HubConnection", "Success Response to AI", false)]
+        public void IsToolTraffic_MatchesTheEchoShapesOnly(string category, string text, bool expected)
+        {
+            Assert.Equal(expected, GodotMcpLogger.IsToolTraffic(category, text, null));
+            Assert.False(GodotMcpLogger.IsToolTraffic(category, text, new System.Exception("x")));
+        }
+
+        [Fact]
+        public void WithoutAnEchoSink_EverythingGoesToTheSink()
+        {
+            var captured = new List<string>();
+            var logger = new GodotMcpLogger("McpToolManager", () => GodotMcpLogLevel.Trace, (_, msg) => captured.Add(msg));
+            logger.LogInformation("Run tool 'x' with no parameters.");
+            Assert.Single(captured);
+        }
 
         static readonly MicrosoftLogLevel[] EmittableLevels =
         {

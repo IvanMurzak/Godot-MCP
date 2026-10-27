@@ -43,17 +43,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public const string Prefix = "[McpPlugin] ";
 
         /// <summary>
-        /// Whether a routed line is the framework's echo of a tool call (McpToolManager's "Run tool …" / "… Response to
-        /// AI" and ToolRunnerCollection's "Tool execution failed …"): printed, but not collected for the console.
+        /// Whether a line is the framework's echo of a tool call: McpToolManager's "Run tool '…'" and "… Response to AI"
+        /// without an exception. Those go to the echo sink (printed, not collected for the console source: the agent
+        /// already has both). A line with an exception, a tool failure logged by ToolRunnerCollection (its stack trace is
+        /// recorded nowhere else) and every other McpToolManager line (e.g. a duplicate tool name) stay collected.
         /// </summary>
-        public static bool IsToolTraffic(string message) =>
-            message != null
-            && (message.StartsWith(Prefix + "McpToolManager:", StringComparison.Ordinal)
-                || message.StartsWith(Prefix + "ToolRunnerCollection:", StringComparison.Ordinal));
+        public static bool IsToolTraffic(string category, string text, Exception? exception) =>
+            exception == null && category == "McpToolManager" && text != null
+            && (text.StartsWith("Run tool '", StringComparison.Ordinal)
+                || text.StartsWith("Success Response to AI", StringComparison.Ordinal)
+                || text.StartsWith("Error Response to AI", StringComparison.Ordinal)
+                || text.StartsWith("Processing Response to AI", StringComparison.Ordinal));
 
         readonly string _categoryName;
         readonly Func<GodotMcpLogLevel> _levelProvider;
         readonly GodotLogSink _sink;
+        readonly GodotLogSink _echoSink;
 
         /// <summary>
         /// Construct a logger for <paramref name="categoryName"/>.
@@ -61,7 +66,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <param name="categoryName">The DI category (typically a framework type name); the short name is shown.</param>
         /// <param name="levelProvider">Reads the LIVE configured threshold on every call (dropdown takes effect without rebuild).</param>
         /// <param name="sink">Routes a formatted line to the Godot Output + log collector. Injected so the core stays pure-managed.</param>
-        public GodotMcpLogger(string categoryName, Func<GodotMcpLogLevel> levelProvider, GodotLogSink sink)
+        /// <param name="echoSink">Routes the tool-call echo (<see cref="IsToolTraffic"/>); null = <paramref name="sink"/>.</param>
+        public GodotMcpLogger(string categoryName, Func<GodotMcpLogLevel> levelProvider, GodotLogSink sink, GodotLogSink? echoSink = null)
         {
             // Short category (drop the namespace) for a compact Output line, mirroring UnityLogger.
             _categoryName = categoryName != null && categoryName.Contains('.')
@@ -69,6 +75,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 : categoryName ?? string.Empty;
             _levelProvider = levelProvider ?? throw new ArgumentNullException(nameof(levelProvider));
             _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+            _echoSink = echoSink ?? sink;
         }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -110,7 +117,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 _ => GodotLogType.Log
             };
 
-            _sink(godotType, message);
+            (IsToolTraffic(_categoryName, text, exception) ? _echoSink : _sink)(godotType, message);
         }
     }
 

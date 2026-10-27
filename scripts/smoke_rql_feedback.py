@@ -41,7 +41,7 @@ def console(host: str) -> None:
     fails("C1 a failing query (its error is echoed by the framework)", query(host, f'godot.find("NoSuchNode{tag}")'), "no node")
     must("C1 an engine error", tool(host, "script-execute", {"csharpCode": f'GD.PushError("feedback-probe-{tag}"); 1'}))
     text = must("C1 recent console", query(host, "console | sort Sequence desc | first 200 | select LogType Message"))
-    lacks("C1 no tool-call echo", text, "McpToolManager:", "ToolRunnerCollection:", f"NoSuchNode{tag}")
+    lacks("C1 no tool-call echo", text, "McpToolManager: Run tool", "Response to AI", f"NoSuchNode{tag}")
     check("C1 the engine error once", text.count(f"feedback-probe-{tag}") == 1, text)
 
 

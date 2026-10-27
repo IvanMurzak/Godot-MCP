@@ -84,7 +84,8 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   scene unsaved. Problems saving become `not-saved` warnings on the receipt. A file written into a folder the editor
   filesystem never scanned (`NewScene`, `CreateResource`, `SaveScene(path)`, `CreateFolder`, `script-create`) triggers a
   full scan after the write (`RqlReimport.Register`): `UpdateFile` ignores such a file, so the `files` source,
-  `godot.resources(type, folder)` and a new GDScript `class_name` would not see it. `NewScene` onto the path of a scene
+  `godot.resources(type, folder)` and a new GDScript `class_name` would not see it (a second such file in the same
+  frame is registered when that scan lands; a `.gdignore` or dot-named folder is never scanned for). `NewScene` onto the path of a scene
   that is still open in a background tab (its file was deleted while another scene was edited) replaces the cached
   scene and reloads that tab, so the new scene is shown, not the old nodes; `OpenScene` fails when the editor ends up
   on another scene than the one asked for.

@@ -466,7 +466,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // rebuild). Without a provider these framework logs are invisible — they are the diagnostic for
             // the "Connecting…" hang. The provider/logger are pure-managed; the only Godot dependency is the
             // injected GD.* + log-collector sink below.
-            var loggerProvider = new GodotMcpLoggerProvider(() => _config.ActiveLogLevel, RouteFrameworkLog);
+            var loggerProvider = new GodotMcpLoggerProvider(() => _config.ActiveLogLevel, RouteFrameworkLog,
+                (logType, message) => GodotMcpLog.Route(logType, message, collect: false));
 
             // OPT IN to McpPlugin's bounded reconnect + fast connect timeout. The Godot editor addon lives in a
             // COLLECTIBLE AssemblyLoadContext, so an UNREACHABLE server retried forever would keep a negotiate

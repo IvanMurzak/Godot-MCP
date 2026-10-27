@@ -114,7 +114,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             if (!ResPathNormalizer.IsScenePath(p)) throw new ArgumentException($"'{path}' is not a scene path ending in .tscn or .scn");
-            return p;
+            return p.SimplifyPath(); // the form Godot stores as scene_file_path ('res://a/./b.tscn' -> 'res://a/b.tscn')
         }
     }
 

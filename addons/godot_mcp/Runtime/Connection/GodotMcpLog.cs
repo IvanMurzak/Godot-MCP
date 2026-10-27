@@ -63,18 +63,19 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Trace are not flattened to Log). Replaces the former <c>GodotMcpConnection.RouteFrameworkLog</c>
         /// body, so framework logs and ad-hoc diagnostics share this one path.
         /// </summary>
-        internal static void Route(GodotLogType logType, string message)
+        /// <param name="collect">false = printed only (the framework's tool-call echo, see <see cref="GodotMcpLogger.IsToolTraffic"/>).</param>
+        internal static void Route(GodotLogType logType, string message, bool collect = true)
         {
             switch (logType)
             {
                 case GodotLogType.Error:
-                    Emit(logType, message, () => GD.PushError(message));
+                    Emit(logType, message, () => GD.PushError(message), collect);
                     break;
                 case GodotLogType.Warning:
-                    Emit(logType, message, () => GD.PushWarning(message));
+                    Emit(logType, message, () => GD.PushWarning(message), collect);
                     break;
                 default:
-                    Emit(logType, message, () => GD.Print(message));
+                    Emit(logType, message, () => GD.Print(message), collect);
                     break;
             }
         }
@@ -92,17 +93,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// editor-reload, and the collector append must never escape into a teardown / unload path). This
         /// internal try/catch is what lets every call site drop its own defensive wrapper.
         /// </summary>
-        static void Emit(GodotLogType logType, string message, Action gd)
+        static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
         {
+            var outer = _emitting;
             _emitting = true;
             try { gd(); }
             catch { /* GD may be unavailable mid editor-reload; swallow */ }
-            finally { _emitting = false; }
+            finally { _emitting = outer; }
 
-            // The framework's echo of every tool call and its response is printed to the Output but not collected: the
-            // agent already has both, and in the console source / console-get-logs they buried real errors (and pushed
-            // them out of the bounded buffer) after a few hundred calls.
-            if (GodotMcpLogger.IsToolTraffic(message)) return;
+            if (!collect) return;
             try { GodotLogCollector.Current?.Append(logType, message); }
             catch { /* a diagnostic must never throw */ }
         }

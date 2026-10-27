@@ -163,6 +163,11 @@ def main() -> int:
                 True, "(SmokeRoot)", "(Kid)", "Node3D#")
     if "/root/" in text or "instanceId" in text:
         FAILURES.append(f"nodes like rql-query: an editor path or reflector field leaked: {text}")
+    case(host, "Godot dictionary keys bare", {"csharpCode": 'Json.ParseString("{\\"a\\": 1}").AsGodotDictionary()'}, True, "{a: 1}")
+    case(host, "lazy sequence names its element type", {"csharpCode": "Enumerable.Range(0, 2).Select(i => new Vector3(i, 0, 0))"},
+         True, "IEnumerable<Vector3>: [(0, 0, 0), (1, 0, 0)]")
+    # A Godot collection that holds itself crashed the editor (stack overflow in the Variant converter).
+    case(host, "self-containing Godot array", {"csharpCode": "var a = new Godot.Collections.Array(); a.Add(a); a"}, True, "Array")
     for i in range(20):
         execute(host, {"csharpCode": f"var v{i} = {i};\nv{i} + 1"})
     case(host, "unload (0 live snippet contexts besides this one)", {"csharpCode":

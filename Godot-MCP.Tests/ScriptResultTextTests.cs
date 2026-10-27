@@ -98,6 +98,64 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void AThrowingMemberIsNamedNotFatal() =>
             Assert.Equal("Throwing: {Ok: 1, Bad: \"<InvalidOperationException>\"}", ScriptResultText.Format(new Throwing(), NoEngine));
 
+        // Stands in for a Godot Variant: a wrapper the caller unwraps to the value it holds.
+        private sealed class Boxed { public Boxed(object? value) { Value = value; } public object? Value { get; } }
+
+        private static object? Unbox(object o) => o is Boxed b ? b.Value : o;
+
+        [Fact]
+        public void AWrappedCollectionThatHoldsItselfStops()
+        {
+            var list = new List<object>();
+            list.Add(new Boxed(list));
+            Assert.Equal("List<object>: [[[[…]]]]", ScriptResultText.Format(list, NoEngine, Unbox));
+        }
+
+        [Fact]
+        public void WrappedStringKeysReadBare() =>
+            Assert.Equal("Dictionary<Boxed, int>: {a: 1}",
+                ScriptResultText.Format(new Dictionary<Boxed, int> { [new Boxed("a")] = 1 }, NoEngine, Unbox));
+
+        [Fact]
+        public void TypesWithTheirOwnTextAndReflectionObjectsAreLeaves()
+        {
+            var when = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            Assert.Equal($"List<object>: [{when.ToString(System.Globalization.CultureInfo.InvariantCulture)}, System.String, 1.2.3]",
+                ScriptResultText.Format(new List<object> { when, typeof(string), new Version(1, 2, 3) }, NoEngine));
+        }
+
+        [Fact]
+        public void AGenericOnlyCollectionIsCountedBySize()
+        {
+            var text = ScriptResultText.Format(new HashSet<int>(Enumerable.Range(0, 50_000)), NoEngine)!;
+            Assert.EndsWith(", … (50000 items)]", text);
+        }
+
+        [Fact]
+        public void AnEndlessSequenceIsCountedUpToALimit()
+        {
+            var text = ScriptResultText.Format(new Endless(), NoEngine)!;
+            Assert.EndsWith($", … ({ScriptResultText.MaxItems * 100}+ items)]", text);
+        }
+
+        [Fact]
+        public void TheCallerCanNameTheType() =>
+            Assert.Equal("IEnumerable<int>: [1, 2]", ScriptResultText.Format(new List<object> { 1, 2 }, NoEngine, typeName: "IEnumerable<int>"));
+
+        [Fact]
+        public void AWideTreeStopsAtTheValueBudget()
+        {
+            var wide = Enumerable.Range(0, 100).Select(_ => Enumerable.Range(0, 100).Select(_ => new List<int> { 1 }).ToList()).ToList();
+            var text = ScriptResultText.Format(wide, NoEngine)!;
+            Assert.Contains("…", text);
+            Assert.True(text.Length < 200_000, $"{text.Length} characters");
+        }
+
+        private sealed class Endless : System.Collections.IEnumerable
+        {
+            public System.Collections.IEnumerator GetEnumerator() { while (true) yield return 1; }
+        }
+
         private sealed class ReadOnlyMap : IReadOnlyDictionary<string, int>
         {
             private readonly Dictionary<string, int> _d = new Dictionary<string, int> { ["k"] = 7 };

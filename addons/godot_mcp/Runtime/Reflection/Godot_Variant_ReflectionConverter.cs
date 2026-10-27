@@ -307,7 +307,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
             }
         }
 
-        /// <summary>Thrown when a variant holds more values than the caller's budget allows.</summary>
+        /// <summary>Thrown when a variant holds more values than the caller's budget allows, or nests deeper than
+        /// <see cref="MaxNesting"/> (a collection that contains itself overflowed the stack long before the value budget ran out).</summary>
         sealed class BudgetExceededException : Exception { }
 
         static void Spend(ref int budget, int count)
@@ -317,9 +318,11 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 throw new BudgetExceededException();
         }
 
-        static GodotVariantPayload ToPayload(global::Godot.Variant variant, ref int budget)
+        static GodotVariantPayload ToPayload(global::Godot.Variant variant, ref int budget, int depth = 0)
         {
             Spend(ref budget, 1);
+            if (depth > MaxNesting)
+                throw new BudgetExceededException();
             switch (variant.VariantType)
             {
                 case VariantType.Nil:
@@ -398,7 +401,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     var source = variant.AsGodotArray();
                     var items = new GodotVariantPayload[source.Count];
                     for (var i = 0; i < items.Length; i++)
-                        items[i] = ToPayload(source[i], ref budget);
+                        items[i] = ToPayload(source[i], ref budget, depth + 1);
                     return GodotVariantPayload.FromItems(VariantType.Array, items);
                 }
                 case VariantType.Dictionary:
@@ -406,7 +409,7 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                     var entries = new List<KeyValuePair<GodotVariantPayload, GodotVariantPayload>>();
                     foreach (var entry in variant.AsGodotDictionary())
                         entries.Add(new KeyValuePair<GodotVariantPayload, GodotVariantPayload>(
-                            ToPayload(entry.Key, ref budget), ToPayload(entry.Value, ref budget)));
+                            ToPayload(entry.Key, ref budget, depth + 1), ToPayload(entry.Value, ref budget, depth + 1)));
                     return GodotVariantPayload.FromEntries(entries);
                 }
                 case VariantType.PackedByteArray:
@@ -492,7 +495,8 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
                 // Summarize instead of rendering a (possibly multi-MB) collection to text just to cut it.
                 node[ValueKey] = CollectionSummary(variant);
                 node[NoteKey] =
-                    $"Not inlined because it holds more than the {MaxInlineNodes} values inlined in a reply; it cannot " +
+                    $"Not inlined because it holds more than the {MaxInlineNodes} values inlined in a reply (or nests more " +
+                    $"than {MaxNesting} levels deep, e.g. contains itself); it cannot " +
                     "be sent back as a Godot.Variant argument. " + GodotVariantPayload.WireFormatHelp;
                 return node;
             }
@@ -528,6 +532,9 @@ namespace com.IvanMurzak.Godot.MCP.Reflection
 
         /// <summary>Largest collection (in nested values) written out in full; bigger ones get a note instead.</summary>
         const int MaxInlineNodes = 4096;
+
+        /// <summary>Deepest nesting of arrays / dictionaries written out (deeper, or a collection holding itself, is summarized).</summary>
+        const int MaxNesting = 64;
 
         /// <summary>Longest string rendering kept for a variant that is not written out in full.</summary>
         const int MaxRenderedChars = 256;
