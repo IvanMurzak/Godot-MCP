@@ -52,8 +52,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
              .Add<List<RqlConnection>>("incoming", n => RqlGodot.IncomingConnectionsOf(n),
                     description: "persistent connections whose method is on this node: source signal method")
              .Add<List<RqlOverride>>("overrides", n => RqlGodot.OverridesOf(n),
-                    description: "for a scene instance, how it differs from its scene file: node property value template (a transform " +
-                                 "as position / rotation_degrees / scale); set the property to template to revert one");
+                    description: "for a scene instance, how it differs from its scene file: node property value template (a Node3D " +
+                                 "transform as position / rotation_degrees / scale; the root's position, its placement, is left out); revert one " +
+                                 "with set props[\"<property>\"] = <template> on that node");
             m.Reference("parent", "Owner");
             m.ExplicitOnly("signals", "connections", "incoming", "overrides");
             m.Hide("Multiplayer");

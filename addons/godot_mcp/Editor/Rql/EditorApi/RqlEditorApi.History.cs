@@ -33,8 +33,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public string Redo() => EditorHistory.Step(undo: false);
 
         // "20" is HistoryStepText.MaxListed (an attribute argument cannot format an int constant).
-        [RqlDescription("what Undo() can step back, newest first: the edited scene's actions, then the global history's (files, project " +
-            "settings) marked \"(global)\" (at most 20 each); empty when there is nothing to undo")]
+        [RqlDescription("what Undo() can step back: the edited scene's actions newest first, then the global history's (files, project " +
+            "settings) marked \"(global)\", at most 20 each; Undo() steps whichever history changed last")]
         public string[] undoHistory => EditorHistory.Pending(undo: true);
 
         [RqlDescription("what Redo() can step forward, next first, in the same form as undoHistory (a new change clears it)")]

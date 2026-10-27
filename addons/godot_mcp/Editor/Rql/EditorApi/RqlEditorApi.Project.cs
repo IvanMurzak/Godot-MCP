@@ -73,7 +73,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("dependencies whose file no longer exists: broken references")]
         public List<string> missingDeps => deps.Where(d => !FileReferences.Exists(d)).ToList();
 
-        [RqlDescription("files whose deps include this one (saved files only, unsaved edits are not seen); empty: nothing references it")]
+        [RqlDescription("the scenes and resources whose deps include this one, as saved (scripts' load / preload, project settings such as " +
+            "the main scene, icon or autoloads, and unsaved edits are not seen); the first usedBy of a query scans the project")]
         public List<string> usedBy => _references.UsedBy(path);
     }
 
@@ -127,7 +128,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             null => $"'{path}' is not an imported file (it has no .import sidecar)",
             var c when c.HasSectionKey(Section, key) => null,
-            var c => $"'{path}' has no import option '{key}'; its options: {string.Join(", ", KeysOf(c))}",
+            var c => KeysOf(c).Length == 0
+                ? $"'{path}' has no import options"
+                : $"'{path}' has no import option '{key}'; its options: {string.Join(", ", KeysOf(c))}",
         };
 
         public static void Set(string path, string key, object? value)
@@ -154,7 +157,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             if (!_deps.TryGetValue(path, out var deps))
                 _deps[path] = deps = ResourceLoader.GetDependencies(path)
-                    .Select(entry => Resolve(ResPathNormalizer.DependencyPath(entry)))
+                    .Select(entry => Resolve(ResPathNormalizer.DependencyParts(entry)))
                     .Where(p => p.Length > 0)
                     .Distinct()
                     .ToList();
@@ -183,12 +186,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>A file or an imported resource exists at <paramref name="path"/>.</summary>
         public static bool Exists(string path) => FileAccess.FileExists(path) || ResourceLoader.Exists(path);
 
-        // A uid:// that still names a file becomes its path; an unknown uid stays as written (it cannot be resolved).
-        private static string Resolve(string path)
+        // Godot loads a dependency by its uid first: a uid that still names a file gives its current path (the file may have moved);
+        // else the entry's fallback path, else the unresolved uid as written.
+        private static string Resolve((string? uid, string? path) dep)
         {
-            if (!path.StartsWith("uid://", System.StringComparison.Ordinal)) return path;
-            var id = ResourceUid.TextToId(path);
-            return id != ResourceUid.InvalidId && ResourceUid.HasId(id) ? ResourceUid.GetIdPath(id) : path;
+            if (dep.uid != null)
+            {
+                var id = ResourceUid.TextToId(dep.uid);
+                if (id != ResourceUid.InvalidId && ResourceUid.HasId(id)) return ResourceUid.GetIdPath(id);
+            }
+            return dep.path ?? dep.uid ?? "";
         }
     }
 

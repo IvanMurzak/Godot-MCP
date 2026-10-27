@@ -21,46 +21,54 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     {
         /// <summary>
         /// How a scene instance differs from its scene file: for the instance root and every node of the instanced scene, each stored
-        /// property whose live value is not the template's (the value in the scene file, else the class default). Empty for a node
-        /// that is not a scene instance. Transforms are told as position / rotation_degrees / scale.
+        /// property whose live value is not the one a fresh instance of the file has (so nested instances, inherited scenes and script
+        /// variables compare with their real defaults). A Node3D transform is told as position / rotation_degrees / scale; the
+        /// instance root's position (its placement) is left out. Empty for a node that is not a scene instance.
         /// </summary>
         public static List<RqlOverride> OverridesOf(Node instance)
         {
             var list = new List<RqlOverride>();
             if (string.IsNullOrEmpty(instance.SceneFilePath) || instance == EditedRoot()) return list;
             if (ResourceLoader.Load<PackedScene>(instance.SceneFilePath) is not { } scene) return list;
-            var state = scene.GetState();
-            for (int i = 0; i < state.GetNodeCount(); i++)
+            var fresh = scene.Instantiate(PackedScene.GenEditState.Instance);
+            try
             {
-                var nodePath = state.GetNodePath(i).ToString();
-                if (instance.GetNodeOrNull(nodePath) is not { } live) continue;
-                var stored = new Dictionary<string, Variant>();
-                for (int j = 0; j < state.GetNodePropertyCount(i); j++) stored[state.GetNodePropertyName(i, j)] = state.GetNodePropertyValue(i, j);
-                var cls = live.GetClass();
-                var shown = nodePath == "." ? "." : nodePath.StartsWith("./", StringComparison.Ordinal) ? nodePath.Substring(2) : nodePath;
-                foreach (var name in GodotVariants.PropertyNames(live, storageOnly: true))
+                foreach (var template in WithDescendants(fresh))
                 {
-                    if (name == "script" || name.StartsWith("metadata/", StringComparison.Ordinal)) continue;
-                    var template = stored.TryGetValue(name, out var s) ? s : ClassDB.ClassGetPropertyDefaultValue(cls, name);
-                    var current = live.Get(name);
-                    var parts = name != "transform" ? null : (current.VariantType, template.VariantType) switch
+                    var nodePath = fresh.GetPathTo(template).ToString();
+                    if (instance.GetNodeOrNull(nodePath) is not { } live) continue;
+                    foreach (var name in GodotVariants.PropertyNames(live, storageOnly: true))
                     {
-                        (Variant.Type.Transform3D, Variant.Type.Transform3D) => OverrideDiff.Transform(current.AsTransform3D(), template.AsTransform3D()),
-                        (Variant.Type.Transform2D, Variant.Type.Transform2D) => OverrideDiff.Transform(current.AsTransform2D(), template.AsTransform2D()),
-                        _ => null,
-                    };
-                    if (parts != null)
-                    {
-                        list.AddRange(parts.Select(d => new RqlOverride(shown, d.property, d.live, d.template)));
-                        continue;
+                        if (name == "script" || name.StartsWith("metadata/", StringComparison.Ordinal)) continue;
+                        var current = live.Get(name);
+                        var original = template.Get(name);
+                        if (name == "transform" && current.VariantType == Variant.Type.Transform3D && original.VariantType == Variant.Type.Transform3D)
+                        {
+                            list.AddRange(OverrideDiff.Transform(current.AsTransform3D(), original.AsTransform3D())
+                                .Where(d => nodePath != "." || d.property != "position")
+                                .Select(d => new RqlOverride(nodePath, d.property, d.live, d.template)));
+                            continue;
+                        }
+                        var value = GodotVariants.ToClr(current);
+                        var old = GodotVariants.ToClr(original);
+                        if ((value != null || old != null) && !(OverrideDiff.ApproxSame(value, old) ?? Same(current, original)))
+                            list.Add(new RqlOverride(nodePath, name, value, old));
                     }
-                    var value = GodotVariants.ToClr(current);
-                    var original = GodotVariants.ToClr(template);
-                    if ((value != null || original != null) && !(OverrideDiff.ApproxSame(value, original) ?? Same(current, template)))
-                        list.Add(new RqlOverride(shown, name, value, original));
                 }
             }
+            finally
+            {
+                fresh.Free();
+            }
             return list;
+        }
+
+        private static IEnumerable<Node> WithDescendants(Node node)
+        {
+            yield return node;
+            foreach (var child in node.GetChildren(includeInternal: false))
+                foreach (var n in WithDescendants(child))
+                    yield return n;
         }
     }
 
@@ -78,13 +86,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("the node inside the instance (\".\" = the instance root, \"Body\" = its child Body)")]
         public string node { get; }
 
-        [RqlDescription("Godot property name (a transform is told as position, rotation_degrees and scale)")]
+        [RqlDescription("Godot property name, snake_case (a Node3D transform is told as position, rotation_degrees and scale)")]
         public string property { get; }
 
         [RqlDescription("the instance's value")]
         public object? value { get; }
 
-        [RqlDescription("the scene file's value: set the property to it to revert the override")]
+        [RqlDescription("the scene file's value: revert with set props[\"<property>\"] = <template> on that node")]
         public object? template { get; }
     }
 }

@@ -84,11 +84,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Where a scene or resource file is read instead (agents reach for the script tools to read a .tscn / .tres), or empty
         /// for any other file.
         /// </summary>
-        public static string NotAScriptHint(string path) =>
-            ReimportClassifier.ExtensionOf(path) is "tscn" or "tres" or "scn" or "res"
-                ? " A scene or resource is not a script: query its nodes and properties with rql-query (godot.resource(\"" + path +
-                  "\") | select props, or editor | call OpenScene for a scene), or read its text with script-execute (FileAccess.GetFileAsString)."
-                : "";
+        public static string NotAScriptHint(string path) => ReimportClassifier.ExtensionOf(path) switch
+        {
+            "tscn" or "scn" => " A scene is not a script: open it with rql-mutate editor | call OpenScene(\"" + path + "\"), then query its nodes " +
+                               "with rql-query nodes | …, or read its text with script-execute (FileAccess.GetFileAsString).",
+            "tres" or "res" => " A resource is not a script: query it with rql-query godot.resource(\"" + path + "\") | select props, or read " +
+                               "its text with script-execute (FileAccess.GetFileAsString).",
+            _ => "",
+        };
 
         /// <summary>
         /// Validate that <paramref name="path"/> is a <c>res://</c> script file path (a file under

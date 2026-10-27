@@ -34,9 +34,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>
         /// A Godot array as RQL lists it: the held values instead of Variant structs (whose only members are VariantType and Obj),
-        /// so <c>get props["items"] | select props["name"]</c> reaches the elements; index writes go into the array.
+        /// so <c>get props["items"] | select props["name"]</c> reaches the elements (read-only: assign the whole list to change it).
         /// </summary>
-        public static ConvertingList<Variant> Elements(global::Godot.Collections.Array array) => new ConvertingList<Variant>(array, ToClr, ToVariant);
+        public static ConvertingList<Variant> Elements(global::Godot.Collections.Array array) => new ConvertingList<Variant>(array, ToClr);
 
         /// <summary>A Variant holding <paramref name="value"/>; RQL lists / object literals become Godot arrays / dictionaries.</summary>
         public static Variant ToVariant(object? value)
@@ -77,7 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 case NodePath x: return x;
                 case GodotObject x: return x;
                 case global::Godot.Collections.Array x: return x;
-                case ConvertingList<Variant> { Inner: global::Godot.Collections.Array x }: return x;
+                case ConvertingList<Variant> { Inner: global::Godot.Collections.Array x }: return x.Duplicate();
                 case global::Godot.Collections.Dictionary x: return x;
                 case byte[] x: return x;
                 case int[] x: return x;

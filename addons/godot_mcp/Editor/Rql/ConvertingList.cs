@@ -16,45 +16,37 @@ using System.Collections.Generic;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     /// <summary>
-    /// A live view of a list whose elements are read and written through converters. A Godot array holds Variants, which RQL
-    /// would stream as Variant structs (members VariantType and Obj only): <c>get props["items"] | where props["price"] &gt; 10</c>
-    /// found nothing. Through this view the elements are the values the Variants hold (a Resource, a number, a nested array), and
-    /// an index write goes into the underlying array. Pure (no Godot API): unit-tested over a plain list.
+    /// A read-only view of a list whose elements are read through a converter. A Godot array holds Variants, which RQL would
+    /// stream as Variant structs (members VariantType and Obj only): <c>get props["items"] | where props["price"] &gt; 10</c> found
+    /// nothing. Through this view the elements are the values the Variants hold (a Resource, a number, a nested array); writes
+    /// through an element object (its props) work, while an index write is refused like before: it would change the shared array
+    /// behind the property's setter, so no undo step and no save. Assign the whole list instead. Pure: unit-tested.
     /// </summary>
     public sealed class ConvertingList<T> : IList, IReadOnlyList<object?>
     {
         private readonly Func<T, object?> _read;
-        private readonly Func<object?, T> _write;
 
-        public ConvertingList(IList<T> inner, Func<T, object?> read, Func<object?, T> write)
+        public ConvertingList(IList<T> inner, Func<T, object?> read)
         {
             Inner = inner;
             _read = read;
-            _write = write;
         }
 
-        /// <summary>The list the view reads and writes.</summary>
+        /// <summary>The list the view reads.</summary>
         public IList<T> Inner { get; }
 
         public object? this[int index]
         {
             get => _read(Inner[index]);
-            set => Inner[index] = _write(value);
+            set => throw ReadOnly();
         }
 
         public int Count => Inner.Count;
-        public bool IsReadOnly => Inner.IsReadOnly;
-        public bool IsFixedSize => false;
+        public bool IsReadOnly => true;
+        public bool IsFixedSize => true;
         bool ICollection.IsSynchronized => false;
         object ICollection.SyncRoot => this;
 
-        public int Add(object? value)
-        {
-            Inner.Add(_write(value));
-            return Inner.Count - 1;
-        }
-
-        public void Clear() => Inner.Clear();
         public bool Contains(object? value) => IndexOf(value) >= 0;
 
         public int IndexOf(object? value)
@@ -63,16 +55,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (Equals(_read(Inner[i]), value)) return i;
             return -1;
         }
-
-        public void Insert(int index, object? value) => Inner.Insert(index, _write(value));
-
-        public void Remove(object? value)
-        {
-            var i = IndexOf(value);
-            if (i >= 0) Inner.RemoveAt(i);
-        }
-
-        public void RemoveAt(int index) => Inner.RemoveAt(index);
 
         public void CopyTo(Array array, int index)
         {
@@ -85,6 +67,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        int IList.Add(object? value) => throw ReadOnly();
+        void IList.Clear() => throw ReadOnly();
+        void IList.Insert(int index, object? value) => throw ReadOnly();
+        void IList.Remove(object? value) => throw ReadOnly();
+        void IList.RemoveAt(int index) => throw ReadOnly();
+
+        private static NotSupportedException ReadOnly() =>
+            new NotSupportedException("a Godot array is changed by assigning the whole list (set props[\"name\"] = [...]), not element by element");
     }
 }
 #endif

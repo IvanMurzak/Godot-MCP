@@ -180,7 +180,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 var real = rows.Where(d => !ScriptDiagnosticsFilter.IsGlobalClassSelfHide(d.Message, own)).ToList();
                 if (real.Count == 0)
-                    return true;
+                {
+                    // The analyzer may stop at the self-hide error: probe once more without the declaration.
+                    if (Probe(ScriptDiagnosticsFilter.WithoutClassNames(content, own), resPath, capture, out var again) != Error.ParseError)
+                        return true;
+                    real = again.ToList();
+                }
                 error = "GDScript failed to parse: " +
                         string.Join("; ", real.Take(3).Select(d => d.Line > 0 ? $"line {d.Line}: {d.Message}" : d.Message)) +
                         ". Fix it and retry.";

@@ -23,7 +23,7 @@
     "godot.resources(\"MeshLibrary\") | get items | select id name mesh",
     "nodes | group-by class, scripted=(script is not null)",
     "nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")",
-    "files | where (type contains \"Material\" or type contains \"Texture\") and usedBy.count() == 0 | select path",
+    "files | where type contains \"Material\" and usedBy.count() == 0 | select path",
     "files | where missingDeps.count() > 0 | select path missingDeps",
     "nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides",
     "editor | select undoHistory redoHistory"
@@ -65,6 +65,6 @@
     "godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"",
     "godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")",
     "nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")",
-    "files | where path == \"res://audio/wind.wav\" | set importSettings[\"edit/loop_mode\"] = 2"
+    "files | where path == \"res://tiles/terrain.png\" | set importSettings[\"mipmaps/generate\"] = true"
   ]
 }

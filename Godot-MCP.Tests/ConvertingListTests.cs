@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,56 +18,40 @@ using Xunit;
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// The view RQL gets of a Godot array (<see cref="GodotVariants.Elements"/>): elements are the held values, writes go into the
-    /// array. Here over a list of boxed strings standing in for Variants; the live smoke covers a real Godot array.
+    /// The view RQL gets of a Godot array (<see cref="GodotVariants.Elements"/>): elements are the held values; the view is
+    /// read-only. Here over a list of boxed values standing in for Variants; the live smoke covers a real Godot array.
     /// </summary>
     public class ConvertingListTests
     {
         private sealed class Box { public Box(object? v) { V = v; } public object? V { get; } }
 
-        private static (List<Box> inner, ConvertingList<Box> view) Make(params object?[] values)
-        {
-            var inner = values.Select(v => new Box(v)).ToList();
-            return (inner, new ConvertingList<Box>(inner, b => b.V, v => new Box(v)));
-        }
+        private static ConvertingList<Box> Make(params object?[] values) =>
+            new ConvertingList<Box>(values.Select(v => new Box(v)).ToList(), b => b.V);
 
         [Fact]
         public void ElementsAreTheHeldValues()
         {
-            var (_, view) = Make("a", 2L, null);
+            var view = Make("a", 2L, null);
             Assert.Equal(new object?[] { "a", 2L, null }, view.ToArray());
             Assert.Equal(3, view.Count);
             Assert.Equal(2L, view[1]);
+            Assert.Equal(1, view.IndexOf(2L));
+            Assert.True(view.Contains("a"));
             Assert.Equal(new object?[] { "a", 2L, null }, ((IEnumerable)view).Cast<object?>().ToArray());
-        }
-
-        [Fact]
-        public void WritesGoIntoTheUnderlyingList()
-        {
-            var (inner, view) = Make("a", "b");
-            view[1] = "B";
-            view.Add("c");
-            view.Insert(0, "z");
-            view.Remove("a");
-            Assert.Equal(new object?[] { "z", "B", "c" }, inner.Select(b => b.V).ToArray());
-            Assert.Equal(1, view.IndexOf("B"));
-            Assert.True(view.Contains("c"));
-            view.RemoveAt(0);
-            Assert.Equal(new object?[] { "B", "c" }, inner.Select(b => b.V).ToArray());
-            var copy = new object?[3];
+            var copy = new object?[4];
             view.CopyTo(copy, 1);
-            Assert.Equal(new object?[] { null, "B", "c" }, copy);
-            view.Clear();
-            Assert.Empty(inner);
+            Assert.Equal(new object?[] { null, "a", 2L, null }, copy);
         }
 
         [Fact]
-        public void IsAListOfObjectsForRql()
+        public void IsAReadOnlyListOfObjectsForRql()
         {
-            var (_, view) = Make(1L);
-            Assert.IsAssignableFrom<IList>(view);
+            IList view = Make(1L);
             Assert.IsAssignableFrom<IReadOnlyList<object?>>(view);
-            Assert.False(view.IsFixedSize);
+            Assert.True(view.IsReadOnly); // RQL refuses an index write into it, as it did for the Godot array itself
+            Assert.Throws<NotSupportedException>(() => view[0] = 2L);
+            Assert.Throws<NotSupportedException>(() => view.Add(3L));
+            Assert.Equal(1L, view[0]);
         }
     }
 }

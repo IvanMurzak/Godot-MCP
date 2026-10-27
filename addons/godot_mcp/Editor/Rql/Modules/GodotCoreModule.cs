@@ -32,7 +32,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("scenes", RqlEditorApi.OpenScenes, "scenes open in the editor: path name active root; calls Open, Save")
                .AddSource("files", RqlEditorApi.Files,
                    $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request deps (what it loads), " +
-                   "missingDeps (broken references), usedBy (what loads it; empty = unused) and importSettings[\"option\"] (writable)")
+                   "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)")
                .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")
                .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace")
                .AddSource("gameLog", RqlEditorApi.GameLog,
@@ -82,6 +82,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
             // Values
             ctx.AddAdapter(new Godot_Variant_Adapter())
+               .AddAdapter(new Godot_Array_Adapter())
                .AddAdapter(new RqlFile_Adapter())
                .AddAdapter(new Godot_StringName_Adapter())
                .AddAdapter(new Godot_NodePath_Adapter())

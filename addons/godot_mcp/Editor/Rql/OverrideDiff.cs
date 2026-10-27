@@ -28,20 +28,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static IEnumerable<(string property, object live, object template)> Transform(Transform3D live, Transform3D template)
         {
             if (!Near(live.Origin, template.Origin)) yield return ("position", live.Origin, template.Origin);
-            var liveRot = Degrees(live.Basis.GetEuler());
-            var templateRot = Degrees(template.Basis.GetEuler());
+            // A scaled basis gives wrong Euler angles: take them from the rotation part only.
+            var liveRot = Degrees(live.Basis.Orthonormalized().GetEuler());
+            var templateRot = Degrees(template.Basis.Orthonormalized().GetEuler());
             if (!Near(liveRot, templateRot)) yield return ("rotation_degrees", liveRot, templateRot);
             if (!Near(live.Basis.Scale, template.Basis.Scale)) yield return ("scale", live.Basis.Scale, template.Basis.Scale);
-        }
-
-        /// <inheritdoc cref="Transform(Transform3D, Transform3D)"/>
-        public static IEnumerable<(string property, object live, object template)> Transform(Transform2D live, Transform2D template)
-        {
-            if (!Near(live.Origin, template.Origin)) yield return ("position", live.Origin, template.Origin);
-            var liveRot = Mathf.RadToDeg(live.Rotation);
-            var templateRot = Mathf.RadToDeg(template.Rotation);
-            if (Math.Abs(liveRot - templateRot) > 1e-3f) yield return ("rotation_degrees", liveRot, templateRot);
-            if (!Near(live.Scale, template.Scale)) yield return ("scale", live.Scale, template.Scale);
         }
 
         /// <summary>

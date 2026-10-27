@@ -45,8 +45,11 @@ def array_elements(host: str, project: pathlib.Path, d: str) -> None:
     text = must("W4A read elements", query(host, f'godot.resource({q(sc)}) | get props["events"] | select k=(props["keycode"])'))
     lacks("W4A no Variant warning", text, "on Variant")
     has("W4A element members", text, "65", "66")
-    has("W4A filter on an element member",
-        must("W4A where", query(host, f'godot.resource({q(sc)}) | get props["events"] | where props["keycode"] == 66 | count')), "1")
+    text = must("W4A where", query(host, f'godot.resource({q(sc)}) | get props["events"] | where props["keycode"] == 66 | count'))
+    check("W4A filter on an element member", re.search(r"^1$", text, re.M) is not None, text)
+    fails("W4A an index write is refused (it would skip undo and saving)",
+          mutate(host, f'godot.resource({q(sc)}) | set props["events"][0] = null'), "")
+    must("W4A copy the whole list into another property", mutate(host, f'godot.resource({q(sc)}) | set props["events"] = props["events"]'))
     must("W4A write through an element",
          mutate(host, f'godot.resource({q(sc)}) | get props["events"] | where props["keycode"] == 66 | set props["keycode"] = 67'))
     check("W4A saved", file_has(project, sc, r"^keycode = 67$") and file_has(project, sc, r"^keycode = 65$"), file_text(project, sc))
@@ -104,6 +107,7 @@ def instance_overrides(host: str, project: pathlib.Path, d: str) -> None:
     must("W4O material H3", mutate(host, f'nodes | where path == "H3/Body" | set MaterialOverride = {q(mat_b)}'))
     text = must("W4O read", query(host, 'nodes | where SceneFilePath != "" | get overrides | select node property value template'))
     has("W4O scale override", text, ".|scale|(1.2, 1.2, 1.2)|(1, 1, 1)")
+    lacks("W4O the root's placement is not an override", text, ".|position|")
     has("W4O child material override", text, f"Body|material_override|")
     has("W4O template value", text, mat_a)
     text = must("W4O H1", query(host, f'{node("H1")} | get overrides | select node property'))
@@ -137,7 +141,8 @@ def import_settings(host: str, project: pathlib.Path, d: str) -> None:
     path.write_bytes(b"RIFF" + struct.pack("<I", 36 + len(samples)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) +
                      b"data" + struct.pack("<I", len(samples)) + samples)
     must("W4I import", mutate(host, f"editor | call Reimport([{q(wav)}])"))
-    has("W4I read an option", must("W4I read", query(host, f'files | where path == {q(wav)} | select importSettings["edit/loop_mode"]')), "0")
+    text = must("W4I read", query(host, f'files | where path == {q(wav)} | select importSettings["edit/loop_mode"]'))
+    check("W4I read an option", re.search(r"^0$", text, re.M) is not None, text)
     must("W4I set loop mode", mutate(host, f'files | where path == {q(wav)} | set importSettings["edit/loop_mode"] = 2'))
     check("W4I .import written", file_has(project, wav + ".import", r"^edit/loop_mode=2$"), file_text(project, wav + ".import"))
     has("W4I re-imported", must("W4I loop", query(host, f"godot.resource({q(wav)}) | select LoopMode")), "Forward")

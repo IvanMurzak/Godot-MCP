@@ -36,11 +36,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void A2DTransformDiffersTheSameWay()
+        public void ARotatedAndScaledTransformKeepsItsAngle()
         {
-            var template = new Transform2D(0, Vector2.Zero);
-            var diff = OverrideDiff.Transform(new Transform2D(Mathf.DegToRad(45), new Vector2(2, 0)), template).Select(d => d.property).ToArray();
-            Assert.Equal(new[] { "position", "rotation_degrees" }, diff);
+            var template = new Transform3D(Basis.Identity, Vector3.Zero);
+            var basis = new Basis(Vector3.Right, Mathf.DegToRad(60)).Scaled(new Vector3(1.2f, 1.2f, 1.2f));
+            var rot = OverrideDiff.Transform(new Transform3D(basis, Vector3.Zero), template).Single(d => d.property == "rotation_degrees");
+            Assert.Equal(60, ((Vector3)rot.live).X, 2);
         }
 
         [Fact]

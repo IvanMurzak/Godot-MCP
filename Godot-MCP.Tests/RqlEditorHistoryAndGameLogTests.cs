@@ -45,14 +45,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // ---------------------------------------------------------------- files: deps / usedBy
 
         [Theory]
-        [InlineData("uid://b1x::Texture2D::res://art/a.png", "res://art/a.png")]
-        [InlineData("uid://b1x::::res://art/a.png", "res://art/a.png")]
-        [InlineData("res://scenes/house.tscn", "res://scenes/house.tscn")]
-        [InlineData("res://scenes/house.tscn::PackedScene", "res://scenes/house.tscn")]
-        [InlineData("uid://b1x::Texture2D::", "uid://b1x")]
-        [InlineData("", "")]
-        [InlineData(null, "")]
-        public void DependencyEntriesGiveTheirPath(string? entry, string expected) => Assert.Equal(expected, com.IvanMurzak.Godot.MCP.Tools.ResPathNormalizer.DependencyPath(entry));
+        [InlineData("uid://b1x::Texture2D::res://art/a.png", "uid://b1x", "res://art/a.png")]
+        [InlineData("uid://b1x::::res://art/a.png", "uid://b1x", "res://art/a.png")]
+        [InlineData("res://scenes/house.tscn", null, "res://scenes/house.tscn")]
+        [InlineData("res://scenes/house.tscn::PackedScene", null, "res://scenes/house.tscn")]
+        [InlineData("uid://b1x::Texture2D::", "uid://b1x", null)]
+        [InlineData("", null, null)]
+        [InlineData(null, null, null)]
+        public void DependencyEntriesGiveTheirUidAndPath(string? entry, string? uid, string? path) =>
+            Assert.Equal((uid, path), com.IvanMurzak.Godot.MCP.Tools.ResPathNormalizer.DependencyParts(entry));
 
         [Fact]
         public void PendingUndoListsTheCurrentActionFirst()

@@ -91,8 +91,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(".cs", ex.Message);
             Assert.Contains(".gd", ex.Message);
             // A scene / resource names where it is read instead (wave-4 agents tried script-read on .tscn / .tres first).
-            Assert.Contains("rql-query", ex.Message);
-            Assert.Contains("godot.resource(\"res://scenes/main.tscn\")", ex.Message);
+            Assert.Contains("OpenScene(\"res://scenes/main.tscn\")", ex.Message);
+            Assert.Contains("godot.resource(\"res://data/items.tres\")", ScriptLang_.NotAScriptHint("res://data/items.tres"));
             Assert.Equal("", ScriptLang_.NotAScriptHint("res://notes/readme.txt"));
         }
 
