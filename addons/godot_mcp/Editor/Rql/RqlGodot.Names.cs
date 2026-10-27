@@ -53,28 +53,53 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>
         /// <c>RqlEngine.EnumAliases</c>: the names Godot shows for the entries of a C# class enum — its ClassDB constants
         /// (<c>PRESET_FULL_RECT</c> for <c>Control.LayoutPreset.FullRect</c>, what the docs and GDScript use) and the inspector
-        /// labels of the class's properties of that enum (<c>"Per-Pixel"</c> for <c>BaseMaterial3D.ShadingModeEnum.PerPixel</c>).
-        /// Global enums (Key, Error …) have no ClassDB entry and keep their C# names.
+        /// labels of the class's properties of that enum (<c>"Double-Sided"</c> for
+        /// <c>GeometryInstance3D.ShadowCastingSetting.DoubleSided</c>). Global enums (Key, Error …) have no ClassDB entry and keep
+        /// their C# names. Never throws: a failure means no aliases.
         /// </summary>
         internal static IReadOnlyDictionary<string, string>? EnumAliases(Type enumType)
         {
+            try { return GodotEnumAliases(enumType); }
+            catch (Exception) { return null; }
+        }
+
+        private static IReadOnlyDictionary<string, string>? GodotEnumAliases(Type enumType)
+        {
             if (enumType.Namespace != "Godot" || enumType.DeclaringType is not { } owner) return null;
-            var classes = GodotTypes.GodotClasses();
-            var godotClass = classes.FirstOrDefault(c => string.Equals(c, owner.Name, StringComparison.OrdinalIgnoreCase));
+            var godotClass = GodotTypes.GodotClasses().FirstOrDefault(c => string.Equals(c, owner.Name, StringComparison.OrdinalIgnoreCase));
             if (godotClass == null) return null;
             // The C# binding appends "Enum" where the enum's name is also a property's (BaseMaterial3D.ShadingModeEnum).
-            var enumName = ClassDB.ClassHasEnum(godotClass, enumType.Name, noInheritance: true) ? enumType.Name
-                : enumType.Name.EndsWith("Enum", StringComparison.Ordinal) && ClassDB.ClassHasEnum(godotClass, enumType.Name.Substring(0, enumType.Name.Length - 4), noInheritance: true)
-                    ? enumType.Name.Substring(0, enumType.Name.Length - 4) : null;
-            if (enumName == null) return null;
+            var enumName = enumType.Name;
+            if (!ClassDB.ClassHasEnum(godotClass, enumName, noInheritance: true))
+            {
+                if (!enumName.EndsWith("Enum", StringComparison.Ordinal)) return null;
+                enumName = enumName.Substring(0, enumName.Length - 4);
+                if (!ClassDB.ClassHasEnum(godotClass, enumName, noInheritance: true)) return null;
+            }
             var names = new List<(string, long)>();
             foreach (var constant in ClassDB.ClassGetEnumConstants(godotClass, enumName, noInheritance: true))
                 names.Add((constant, ClassDB.ClassGetIntegerConstant(godotClass, constant)));
+            // ClassDB's property list leaves class_name empty for enum properties; the enum is the setter's argument type.
             var qualified = godotClass + "." + enumName;
+            var setterArgs = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var method in ClassDB.ClassGetMethodList(godotClass, noInheritance: true))
+                if (method["args"].AsGodotArray<global::Godot.Collections.Dictionary>() is { Count: 1 } args)
+                    setterArgs[method["name"].AsString()] = args[0]["class_name"].AsString();
             foreach (var info in ClassDB.ClassGetPropertyList(godotClass, noInheritance: true))
-                if ((PropertyHint)info["hint"].AsInt64() == PropertyHint.Enum && info["class_name"].AsString() == qualified)
+                if ((PropertyHint)info["hint"].AsInt64() == PropertyHint.Enum
+                    && setterArgs.TryGetValue(PropertySetter(godotClass, info["name"].AsString()), out var argClass) && argClass == qualified)
                     names.AddRange(GodotEnumNames.ParseHint(info["hint_string"].AsString()));
             return RqlHostNames.EnumAliases(enumType, names);
+        }
+
+        // ClassDB.class_get_property_setter is Godot 4.4+ (the addon's floor is 4.3): called by name when it exists, else the
+        // set_<property> convention.
+        private static string PropertySetter(string godotClass, string property)
+        {
+            var classDb = global::Godot.Engine.GetSingleton("ClassDB");
+            return classDb != null && classDb.HasMethod("class_get_property_setter")
+                ? classDb.Call("class_get_property_setter", godotClass, property).AsString()
+                : "set_" + property;
         }
     }
 }
