@@ -22,9 +22,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlCallable("create a scene file (res://….tscn) with a root node of a Godot class, save it and open it; returns the new root node")]
         public Node NewScene(string path, string rootClass = "Node", string? rootName = null)
         {
-            path = RequireScenePath(path);
-            if (FileAccess.FileExists(path)) throw new ArgumentException($"a file already exists at '{path}' (open it with OpenScene)");
-            var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(string.IsNullOrWhiteSpace(rootClass) ? "Node" : rootClass, "rootClass");
+            path = NewScenePath(path);
+            var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(RootClass(rootClass), "rootClass");
             if (!string.IsNullOrEmpty(rootName)) root.Name = rootName;
             try
             {
@@ -90,6 +89,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>The trimmed path when it names a res:// scene file (.tscn / .scn); throws otherwise.</summary>
+        // Call validator (RQL 0.2, run before the call, on dry runs too): nothing is created or opened when it rejects.
+        public string? ValidateNewScene(string path, string rootClass, string? rootName) => RqlGodot.Rejection(() =>
+        {
+            NewScenePath(path);
+            EditorToolGuards.CheckClassDbInstantiation(RootClass(rootClass), "rootClass", requireParentClass: "Node");
+        });
+
+        private static string RootClass(string rootClass) => string.IsNullOrWhiteSpace(rootClass) ? "Node" : rootClass;
+
+        private static string NewScenePath(string path)
+        {
+            path = RequireScenePath(path);
+            if (FileAccess.FileExists(path)) throw new ArgumentException($"a file already exists at '{path}' (open it with OpenScene)");
+            return path;
+        }
+
         private static string RequireScenePath(string path)
         {
             var p = ResPathNormalizer.RequireResFilePath(path, nameof(path));

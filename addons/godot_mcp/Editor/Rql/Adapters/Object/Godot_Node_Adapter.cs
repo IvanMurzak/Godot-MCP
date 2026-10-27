@@ -58,17 +58,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             m.Untyped
                 .AddMethod("AddChild", new[] { new CallableParameter("class", typeof(string)), new CallableParameter("name", typeof(string), hasDefault: true, defaultValue: null) },
                     typeof(Node), (o, a) => RqlGodot.AddChild((Node)o, (string)a[0]!, a[1] as string),
-                    "add a new child node of a Godot class (e.g. \"Node3D\", \"Sprite2D\", a GDScript class_name) and return it")
+                    "add a new child node of a Godot class (e.g. \"Node3D\", \"Sprite2D\", a GDScript class_name) and return it",
+                    (o, a) => RqlGodot.ValidateAddChild((Node)o, (string)a[0]!))
                 .AddMethod("InstantiateScene", new[] { new CallableParameter("path", typeof(string)), new CallableParameter("name", typeof(string), hasDefault: true, defaultValue: null) },
                     typeof(Node), (o, a) => RqlGodot.InstantiateScene((Node)o, (string)a[0]!, a[1] as string),
-                    "instance the scene at a res:// path as a new child and return it")
+                    "instance the scene at a res:// path as a new child and return it",
+                    (o, a) => RqlGodot.ValidateInstantiateScene((Node)o, (string)a[0]!))
                 .AddMethod("Duplicate", Array.Empty<CallableParameter>(), typeof(Node), (o, a) => RqlGodot.Duplicate((Node)o),
                     "copy this node (with its children) next to it and return the copy")
                 .AddMethod("Free", Array.Empty<CallableParameter>(), typeof(void), (o, a) => { RqlGodot.Remove((Node)o); return null; },
-                    "remove this node from the scene (undoable, like Delete in the Scene dock)")
+                    "remove this node from the scene (undoable, like Delete in the Scene dock)",
+                    (o, a) => RqlGodot.ValidateRemove((Node)o))
                 .AddMethod("Reparent", new[] { new CallableParameter("parent", typeof(Node)), new CallableParameter("keepGlobalTransform", typeof(bool), hasDefault: true, defaultValue: true) },
                     typeof(void), (o, a) => { RqlGodot.Reparent((Node)o, a[0] as Node, a[1] is bool keep ? keep : true); return null; },
-                    "move this node under another node, keeping its global transform unless keepGlobalTransform is false")
+                    "move this node under another node, keeping its global transform unless keepGlobalTransform is false",
+                    (o, a) => RqlGodot.ValidateReparent((Node)o, a[0] as Node))
                 .AddMethod("MoveChild", new[] { new CallableParameter("index", typeof(int)) },
                     typeof(int), (o, a) => RqlGodot.MoveChild((Node)o, (int)a[0]!),
                     "move this node to a position among its siblings (0 = first, -1 = last); returns the resulting index")

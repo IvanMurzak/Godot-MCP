@@ -15,7 +15,7 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
     /// <summary>Vector2I (tile coordinates, sizes): compact "(x, y)" output; whole numbers only.</summary>
-    public sealed class Godot_Vector2I_Adapter : GodotTupleAdapter<Vector2I>
+    public sealed class Godot_Vector2I_Adapter : NumericTupleAdapter<Vector2I>
     {
         public override string Description => "Vector2I: write as \"(x, y)\" or [x, y] with whole numbers";
         protected override string Expected => "(x, y) or [x, y] with whole numbers";

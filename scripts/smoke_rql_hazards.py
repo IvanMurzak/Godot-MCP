@@ -4,7 +4,8 @@ Live cases of edits that used to corrupt data or answer misleadingly, run by scr
 editor: undo of a Reparent that kept the global transform, renames Godot would silently change, the scene root's
 parent and ".." paths reaching the editor's own UI, deleting a file that is still used, protected project files,
 save-as onto another scene, a scene instancing itself, undo of a resource file edit, a non-tool script's method, a
-script attached to the wrong node class, comparing a struct to an object literal, and float noise in printed structs.
+script attached to the wrong node class, comparing a struct to an object literal, float noise in printed structs, and
+calls refused before any runs (RQL 0.2 call validators: dry runs report them, multi-target calls are all-or-nothing).
 
 Every change is checked where it cannot lie: the .tscn / .tres / project.godot text Godot wrote, plus a read-back query.
 Undo uses the test-only test.undo / test.redo (GODOT_MCP_RQL_TEST_HOOKS=1); without them those checks print SKIP.
@@ -27,6 +28,7 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     resource_undo_saves(host, project, d)
     scripts(host, d)
     structs(host, d)
+    call_validators(host, d)
 
 
 def reparent_undo(host: str, d: str) -> None:
@@ -166,4 +168,20 @@ def structs(host: str, d: str) -> None:
     lacks("H8 no exponent noise", text, "E-0")
     has("H8 tidy basis", text, "(0, 0, -2, 0, 2, 0, 2, 0, 0, 0, 3, 0)")
     must("H8 hex color", mutate(host, f'{node("Glow")} | set LightColor = "#ff8800"'))
-    has("H8 color tidy", must("H8 color read", query(host, f'{node("Glow")} | select LightColor')), "(1, 0.5333334, 0, 1)")
+    has("H8 color tidy", must("H8 color read", query(host, f'{node("Glow")} | select LightColor')), "(1, 0.533333, 0, 1)")  # RQL 0.2 tuple display: 6 significant digits
+
+
+def call_validators(host: str, d: str) -> None:
+    """RQL 0.2 call validators: a call that would fail is refused for every target before the first one runs, dry runs too."""
+    new_scene(host, f"{d}/hz_validate.tscn", "Node3D", "ValRoot", [("Node3D", "A"), ("Node3D", "B")])
+    fails("H9 a dry run reports a refused Free", mutate(host, "root | call Free()", dry_run=True), "invalid-value", "scene root")
+    fails("H9 a dry run reports an unknown class", mutate(host, 'root | call AddChild("NoSuchNodeClass")', dry_run=True),
+          "invalid-value", "unknown node class")
+    # A (first in the scene) could move under B, B cannot move under itself: without the validator A would already have moved.
+    fails("H9 a multi-target Reparent is all-or-nothing",
+          mutate(host, 'nodes | where name == "A" or name == "B" | call Reparent(godot.find("B"))'), "invalid-value", "under itself")
+    lacks("H9 A stayed under the root", must("H9 read A", query(host, 'nodes | where name == "A" | select path')), "B/A")
+    fails("H9 NewScene onto an existing file", mutate(host, f'editor | call NewScene({q(d + "/hz_validate.tscn")})', dry_run=True),
+          "invalid-value", "already exists")
+    fails("H9 DeleteResource of a missing file", mutate(host, f'editor | call DeleteResource({q(d + "/hz_nothing.tres")})', dry_run=True),
+          "invalid-value", "no file")

@@ -15,7 +15,7 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
     /// <summary>Vector4I: compact "(x, y, z, w)" output; whole numbers only.</summary>
-    public sealed class Godot_Vector4I_Adapter : GodotTupleAdapter<Vector4I>
+    public sealed class Godot_Vector4I_Adapter : NumericTupleAdapter<Vector4I>
     {
         public override string Description => "Vector4I: write as \"(x, y, z, w)\" or [x, y, z, w] with whole numbers";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w] with whole numbers";
