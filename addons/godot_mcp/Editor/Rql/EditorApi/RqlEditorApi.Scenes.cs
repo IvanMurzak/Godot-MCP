@@ -36,6 +36,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             finally { root.Free(); }
             RqlReimport.Register(path);
+            // A scene of that path may still be open in a background tab (its file was deleted while another scene was
+            // edited): opening the path would switch to that tab and show the old nodes. The cached PackedScene is
+            // replaced by the new file first, or the reload would read the old one again.
+            if (Array.IndexOf(Ei.GetOpenScenes(), path) >= 0)
+            {
+                ResourceLoader.Load(path, null, ResourceLoader.CacheMode.Replace);
+                Ei.ReloadSceneFromPath(path);
+            }
             return OpenScene(path);
         }
 
@@ -45,7 +53,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             path = RequireScenePath(path);
             EditorToolGuards.RequireResourceExists(path, nameof(path), $"no scene at '{path}'");
             Ei.OpenSceneFromPath(path);
-            return RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
+            var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
+            if (root.SceneFilePath != path)
+                throw new InvalidOperationException($"opened '{path}' but the editor shows '{root.SceneFilePath}'");
+            return root;
         }
 
         [RqlCallable("save the edited scene to its file, or to a new res://….tscn path (save as); returns the saved path")]

@@ -18,6 +18,21 @@ from smoke_rql_models import fails, has, lacks
 def run(host: str, project: pathlib.Path, d: str) -> None:
     console(host)
     new_folders(host, d)
+    recreated_scene(host, d)
+
+
+def recreated_scene(host: str, d: str) -> None:
+    """NewScene onto the path of a deleted scene that is still open shows the new scene, not the old tab."""
+    path = f"{d}/fb_recreated.tscn"
+    must("R1 first scene", mutate(host, f'editor | call NewScene({q(path)}, "Node3D", "First")'))
+    must("R1 old child", mutate(host, 'root | call AddChild("Node3D", "OldChild")'))
+    must("R1 save", mutate(host, "editor | call SaveScene()"))
+    # The old scene stays open in a background tab (like a tab the editor restored at startup).
+    must("R1 another scene", mutate(host, f'editor | call NewScene({q(d + "/fb_other.tscn")}, "Node3D", "Other")'))
+    must("R1 delete the open scene's file", mutate(host, f"editor | call DeleteResource({q(path)}, true)"))
+    must("R1 new scene at the same path", mutate(host, f'editor | call NewScene({q(path)}, "Node2D", "Second")'))
+    text = must("R1 read", query(host, "root | select name class childCount"))
+    has("R1 the new root, no old child", text, "Second|Node2D|0")
 
 
 def console(host: str) -> None:
