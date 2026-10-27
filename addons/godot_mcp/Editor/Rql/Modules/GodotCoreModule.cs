@@ -61,6 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
             // Godot objects
             ctx.AddAdapter(new Godot_GodotObject_Adapter())
+               .AddAdapter(new Godot_ArgumentList_Adapter())
                .AddAdapter(new Godot_Node_Adapter())
                .AddAdapter(new Godot_Node2D_Adapter())
                .AddAdapter(new Godot_Node3D_Adapter())

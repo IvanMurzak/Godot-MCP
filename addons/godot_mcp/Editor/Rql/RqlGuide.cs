@@ -126,12 +126,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  root | call AddChild(\"Node3D\", \"Props\")   new child node of a class; the receipt's result column holds its $ref\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
             "  nodes | where name == \"Crate\" | call Duplicate()   copy next to it (returns the copy)\n" +
+            "  nodes | where name == \"Floor\" | set Mesh = {\"$type\": \"PlaneMesh\", Size: \"(20, 20)\"}   a new embedded resource (mesh, shape, material, environment …) of a concrete class, with its members; a script class_name works too\n" +
             "  nodes | where name == \"Crate\" | call Reparent(godot.find(\"Props\"))   reparent (keeps the global transform)\n" +
             "  nodes | where name == \"Crate\" | call MoveChild(0)   reorder among its siblings (-1 = last)\n" +
             "  nodes | where name == \"Old\" | call Free()   remove a node (undoable, like Delete in the Scene dock)\n" +
             "  editor | set selection = [godot.find(\"Player\")]   change the editor selection\n" +
             "  editor | call SaveScene()   write the edited scene to its .tscn\n" +
-            "  editor | call CreateResource(\"res://materials/blue.tres\", \"StandardMaterial3D\")   new resource file\n" +
+            "  editor | call CreateResource(\"res://materials/blue.tres\", \"StandardMaterial3D\")   new resource file (a Godot class or a script class_name)\n" +
             "  editor | call MoveResource(\"res://materials/blue.tres\", \"res://materials/old/blue.tres\")   move / rename a file (its .import / .uid sidecars move with it)\n" +
             "  editor | call DeleteResource(\"res://materials/old/blue.tres\")   delete a file and its sidecars\n" +
             "  editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")   create, save and open a scene (path, root class, root name)\n" +
@@ -181,7 +182,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
-            "Object literals build values: set Position = {x: 1, y: 2, z: 3}. At most 20 targets per call.\n\n" +
+            "Object literals build values: set Position = {x: 1, y: 2, z: 3}. At most 20 targets per call. Nodes inside a scene " +
+            "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
+            "or moved in their own scene.\n\n" +
             QuerySyntaxShort;
 
         /// <summary>

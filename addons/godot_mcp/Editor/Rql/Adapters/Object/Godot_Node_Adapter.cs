@@ -35,7 +35,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             // The C# Name is a StringName; the virtual name below reads and writes it as text.
             m.Hide("Name");
             m.Add<string>("name", n => n.Name.ToString(), (n, v) => Rename(n, v),
-                    validate: (n, v) => v == n.Name.ToString() ? null : NodeNameRules.Problem(v, name => SiblingHas(n, name)), description: "node name")
+                    validate: (n, v) => v == n.Name.ToString() ? null : RqlGodot.ForeignRenameProblem(n) ?? NodeNameRules.Problem(v, name => SiblingHas(n, name)),
+                    description: "node name")
              .Add<string>("path", n => RqlGodot.PathOf(n), description: "path below the edited scene root (\".\" = the root)")
              .Add<Node?>("parent", n => n == RqlGodot.EditedRoot() ? null : n.GetParent(),
                     description: "parent node, null for the scene root (read-only: move a node with call Reparent(node))")
@@ -86,7 +87,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     },
                     typeof(RqlConnection),
                     (o, a) => RqlGodot.Connect((Node)o, (string)a[0]!, (Node)a[1]!, (string)a[2]!, a[3] is true, a[4] is true),
-                    "connect one of this node's signals to a method of a target node (persistent: saved with the scene, like the Node dock); the method must exist in the target's script")
+                    "connect one of this node's signals to a method of a target node (persistent: saved with the scene, like the Node dock); the method must exist in the target's script",
+                    (o, a) => RqlGodot.ValidateConnect((Node)o, (string)a[0]!, a[1] as Node, (string)a[2]!))
                 .AddMethod("Disconnect", new[] { new CallableParameter("signal", typeof(string)), new CallableParameter("target", typeof(Node)), new CallableParameter("method", typeof(string)) },
                     typeof(void), (o, a) => { RqlGodot.Disconnect((Node)o, (string)a[0]!, (Node)a[1]!, (string)a[2]!); return null; },
                     "remove a connection from one of this node's signals")

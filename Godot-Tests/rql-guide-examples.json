@@ -30,6 +30,7 @@
     "root | call AddChild(\"Node3D\", \"Props\")",
     "nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")",
     "nodes | where name == \"Crate\" | call Duplicate()",
+    "nodes | where name == \"Floor\" | set Mesh = {\"$type\": \"PlaneMesh\", Size: \"(20, 20)\"}",
     "nodes | where name == \"Crate\" | call Reparent(godot.find(\"Props\"))",
     "nodes | where name == \"Crate\" | call MoveChild(0)",
     "nodes | where name == \"Old\" | call Free()",

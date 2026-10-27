@@ -24,11 +24,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     public sealed partial class RqlEditorApi
     {
-        [RqlCallable("create a resource file (res://….tres / .res) of a Godot class (default Resource); returns the new resource")]
+        [RqlCallable("create a resource file (res://….tres / .res) of a Godot class or a script class_name (default Resource); returns the new resource")]
         public Resource CreateResource(string path, string className = "Resource")
         {
             var resPath = NewResourcePath(path);
-            var resource = EditorToolGuards.ValidateClassDbInstantiation<Resource>(ResourceClass(className), nameof(className), requireParentClass: "Resource");
+            var resource = RqlGodot.Instantiate<Resource>(ResourceClass(className), "Resource", nameof(className));
             EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(resPath));
             var error = ResourceSaver.Save(resource, resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not save the new resource to '{resPath}': {error}");
@@ -42,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public string? ValidateCreateResource(string path, string className) => RqlGodot.Rejection(() =>
         {
             NewResourcePath(path);
-            EditorToolGuards.CheckClassDbInstantiation(ResourceClass(className), nameof(className), requireParentClass: "Resource");
+            RqlGodot.ScriptAwareClass(ResourceClass(className), "Resource", nameof(className), out _);
         });
 
         public string? ValidateMoveResource(string path, string newPath) => RqlGodot.Rejection(() => MovePaths(path, newPath));
