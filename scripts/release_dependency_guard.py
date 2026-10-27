@@ -46,7 +46,6 @@ NUGET_INDEX_URL = "https://api.nuget.org/v3-flatcontainer/{id}/index.json"
 PACKAGE_ITEMS = {"PackageReference", "PackageVersion", "GlobalPackageReference"}
 # MSBuild properties that add NuGet restore sources.
 RESTORE_SOURCE_PROPERTIES = {"RestoreSources", "RestoreAdditionalProjectSources", "RestoreFallbackFolders"}
-NUGET_CONFIG_NAMES = {"nuget.config"}
 SKIP_DIRS = {"bin", "obj", "node_modules", ".git", ".godot"}
 PROPERTY_RE = re.compile(r"\$\(([A-Za-z_][A-Za-z0-9_.-]*)\)")
 NPM_PRERELEASE_RE = re.compile(r"\d+\.\d+\.\d+-")
@@ -57,7 +56,7 @@ NPM_NON_REGISTRY_PREFIXES = ("file:", "link:", "git", "http:", "https:", "github
 class Pin:
     """One dependency version as written in a shipped file."""
 
-    ecosystem: str  # "nuget" (pre-release + nuget.org check) or "npm" (pre-release + registry-spec check)
+    ecosystem: str  # "nuget": pre-release + nuget.org check; "semver": pre-release check only
     package: str
     version: str
     file: Path
@@ -80,16 +79,22 @@ class NuGetRegistry:
 
     def __init__(self, fetch: Optional[Callable[[str], Optional[bytes]]] = None) -> None:
         self._fetch = fetch or _http_get
-        self._cache: dict[str, Optional[set[str]]] = {}
+        self._cache: dict[str, Optional[set[str]] | RegistryError] = {}
 
     def versions(self, package: str) -> Optional[set[str]]:
         key = package.lower()
         if key not in self._cache:
-            body = self._fetch(NUGET_INDEX_URL.format(id=key))
-            self._cache[key] = None if body is None else {
-                normalize_nuget_version(v) for v in json.loads(body.decode("utf-8")).get("versions", [])
-            }
-        return self._cache[key]
+            try:
+                body = self._fetch(NUGET_INDEX_URL.format(id=key))
+                self._cache[key] = None if body is None else {
+                    normalize_nuget_version(v) for v in json.loads(body.decode("utf-8")).get("versions", [])
+                }
+            except RegistryError as error:  # remembered: one retry cycle per package, not per pin
+                self._cache[key] = error
+        cached = self._cache[key]
+        if isinstance(cached, RegistryError):
+            raise cached
+        return cached
 
 
 def _http_get(url: str) -> Optional[bytes]:
@@ -105,7 +110,8 @@ def _http_get(url: str) -> Optional[bytes]:
             last = error
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             last = error
-        time.sleep(2 ** attempt)
+        if attempt < 2:
+            time.sleep(2 ** attempt)
     raise RegistryError(f"{url}: {last}")
 
 
@@ -250,11 +256,11 @@ def scan_msbuild(projects: list[Path], root: Path) -> tuple[list[Pin], list[Prob
             seen.add(path)
             text = path.read_text(encoding="utf-8-sig")
             try:
-                tree = ET.ElementTree(ET.fromstring(text))
+                document = ET.fromstring(text)
             except ET.ParseError as error:
                 problems.append(Problem(path, 1, f"cannot parse MSBuild/nuspec XML: {error}"))
                 continue
-            for element in tree.getroot().iter():
+            for element in document.iter():
                 if not isinstance(element.tag, str):
                     continue
                 name = _local(element.tag)
@@ -294,7 +300,7 @@ def scan_nuget_configs(projects: list[Path], root: Path) -> list[Problem]:
     directories = {d for project in projects for d in ancestors(project.parent, root)}
     for directory in sorted(directories):
         for entry in directory.iterdir():
-            if entry.is_file() and entry.name.lower() in NUGET_CONFIG_NAMES:
+            if entry.is_file() and entry.name.lower() == "nuget.config":
                 text = entry.read_text(encoding="utf-8-sig")
                 try:
                     tree = ET.fromstring(text)
@@ -313,10 +319,10 @@ def scan_nuget_configs(projects: list[Path], root: Path) -> list[Problem]:
 # --- other pin sources ------------------------------------------------------------------------
 
 
-def scan_regex_pins(path: Path, pattern: re.Pattern[str], ecosystem: str = "nuget") -> list[Pin]:
-    """Pins written as code (`pattern` captures the package id and the version)."""
+def scan_regex_pins(path: Path, pattern: re.Pattern[str]) -> list[Pin]:
+    """NuGet pins written as code (`pattern` captures the package id and the version)."""
     text = path.read_text(encoding="utf-8-sig")
-    return [Pin(ecosystem, m.group(1), m.group(2), path, text.count("\n", 0, m.start()) + 1)
+    return [Pin("nuget", m.group(1), m.group(2), path, text.count("\n", 0, m.start()) + 1)
             for m in pattern.finditer(text)]
 
 
@@ -332,7 +338,7 @@ def scan_package_json(path: Path) -> tuple[list[Pin], list[Problem]]:
             if spec.startswith(NPM_NON_REGISTRY_PREFIXES) or spec.startswith((".", "/")):
                 problems.append(Problem(path, line, f"{package}: '{spec}' is not a registry version"))
             else:
-                pins.append(Pin("npm", package, spec, path, line))
+                pins.append(Pin("semver", package, spec, path, line))
     return pins, problems
 
 
@@ -373,8 +379,8 @@ ADDON_DEPS_RE = re.compile(r"\{\s*id:\s*'([^']+)',\s*version:\s*'([^']+)'")
 def collect(root: Path) -> tuple[list[Pin], list[Problem]]:
     """Every dependency pin Godot-MCP's core and extension releases ship."""
     problems: list[Problem] = []
-    projects = [p for p in [root / "Godot-MCP.csproj"] if require(p, problems)]
-    projects += sorted(root.glob("extensions/*/src/*/*.csproj"))
+    core = root / "Godot-MCP.csproj"
+    projects = ([core] if require(core, problems) else []) + sorted(root.glob("extensions/*/src/*/*.csproj"))
     pins, msbuild_problems = scan_msbuild(projects, root)
     problems += msbuild_problems + scan_nuget_configs(projects, root)
     addon_deps = root / "cli" / "src" / "utils" / "addon-deps.ts"
