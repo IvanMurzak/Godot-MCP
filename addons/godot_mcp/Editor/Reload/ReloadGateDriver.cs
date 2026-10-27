@@ -43,21 +43,20 @@ namespace com.IvanMurzak.Godot.MCP.Reload
 
         const string WatcherNodeName = "HotReloadAssemblyWatcher";
 
-        readonly string? _dllPath;
         Timer? _watcherTimer;
         bool _holding;
         double _sincePoll = PollSeconds;
 
         ReloadGateDriver(string? dllPath)
         {
-            _dllPath = dllPath;
+            DllPath = dllPath;
             Gate.SetBaseline(WriteTime(dllPath));
         }
 
         public AssemblyReloadGate Gate { get; } = new AssemblyReloadGate();
 
         /// <summary>The DLL Godot reloads this assembly from (null when there is none).</summary>
-        public string? DllPath => _dllPath;
+        public string? DllPath { get; }
 
         /// <summary>Main thread, at plugin boot. Also clears a refusal a previous teardown in this assembly left behind.</summary>
         public static ReloadGateDriver Install()
@@ -68,26 +67,25 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             // A previous instance may have died holding the timer (never leave Godot's reload switched off).
             if (driver._watcherTimer != null && GodotObject.IsInstanceValid(driver._watcherTimer))
                 driver._watcherTimer.Paused = false;
-            if (driver._dllPath == null)
+            if (driver.DllPath == null)
                 GodotMcpLog.Warning("[Godot-MCP] reload gate: the built project assembly was not found; C# reloads are not anticipated.");
             return driver;
         }
 
-        /// <summary>The project assembly as Godot's editor builds it (the Debug configuration).</summary>
-        static string? BuiltAssemblyPath()
-        {
-            var name = typeof(ReloadGateDriver).Assembly.GetName().Name;
-            if (string.IsNullOrEmpty(name))
-                return null;
-            var path = Path.Combine(ProjectSettings.GlobalizePath("res://.godot/mono/temp/bin/Debug"), name + ".dll");
-            return File.Exists(path) ? path : null;
-        }
+        /// <summary>The project assembly as Godot's editor builds it (the Debug configuration, which the helper prefers).</summary>
+        static string? BuiltAssemblyPath() => Tools.ScriptExecuteSource.BuiltAssemblyPath(
+            ProjectSettings.GlobalizePath("res://.godot/mono/temp/bin"), typeof(ReloadGateDriver).Assembly.GetName().Name);
 
-        static DateTime? WriteTime(string? path)
+        /// <summary>The write time of <paramref name="path"/>, or null when it is missing (one file-system call: polled 10 times a second).</summary>
+        internal static DateTime? WriteTime(string? path)
         {
             if (path == null)
                 return null;
-            try { return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : (DateTime?)null; }
+            try
+            {
+                var time = File.GetLastWriteTimeUtc(path);
+                return time.Year <= 1601 ? null : time; // a missing file reads as 1601-01-01
+            }
             catch (Exception) { return null; }
         }
 
@@ -117,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 return;
             _sincePoll = 0;
             var now = (long)Time.GetTicksMsec();
-            switch (Gate.Observe(WriteTime(_dllPath), now))
+            switch (Gate.Observe(WriteTime(DllPath), now))
             {
                 case AssemblyReloadGate.Observation.BecamePending:
                     GodotMcpLog.Info($"[Godot-MCP] the project's C# assembly was rebuilt; new tool calls wait for Godot's reload ({Gate.InFlight} running).");
@@ -150,18 +148,23 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         }
 
         /// <summary>
-        /// Teardown, main thread, before the connection goes away: refuse every new call and every queued main-thread
-        /// body, then wait (bounded) until the calls in flight have returned their answers. A call whose body is running
-        /// below this teardown on the main thread (Godot started the reload from inside it) cannot return before it; it is
-        /// not waited for, and <see cref="AssemblyReloadGate.Drained"/> cleans up after it instead.
+        /// Teardown, main thread, before the connection goes away: refuse every new call and wait (bounded) until the calls
+        /// in flight have returned their answers. On a <paramref name="reload"/> the queued main-thread bodies are refused
+        /// too: Godot has already detached the dispatcher's script, so nothing else would ever settle them. (On a plain
+        /// shutdown they still run, and the dispatcher's own <c>_ExitTree</c> drains the rest as before.) A call whose body
+        /// is running below this teardown on the main thread (Godot started the reload from inside it) cannot return
+        /// before it; it is not waited for, and <see cref="AssemblyReloadGate.Drained"/> cleans up after it instead.
         /// </summary>
-        public void DrainForUnload(Func<int> inFlight, string reason)
+        public void DrainForUnload(Func<int> inFlight, bool reload)
         {
+            var reason = reload ? AssemblyReloadGate.UnloadingMessage : AssemblyReloadGate.ShutdownMessage;
             Gate.BeginUnload(reason);
-            MainThreadDispatcher.RefusalReason = reason;
+            if (reload)
+                MainThreadDispatcher.RefusalReason = reason;
             SetHold(false);
 
             var nested = MainThreadDispatcher.IsRunningAction ? 1 : 0;
+            // McpPlugin's count also covers system tools, prompts and resources, which are not gated.
             int Running() => Math.Max(inFlight(), Gate.InFlight) - nested;
             var initial = Running();
             var clock = Stopwatch.StartNew();

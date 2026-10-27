@@ -177,6 +177,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             }
         }
 
-        static long ToSeconds(DateTime utc) => new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds();
+        /// <summary>Whole Unix seconds, the resolution Godot compares DLL write times at.</summary>
+        public static long ToSeconds(DateTime utc) => new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeSeconds();
     }
 }

@@ -81,13 +81,11 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
     return ok
 
 
-def build(host: str, name: str, *expected: str) -> str:
+def build(host: str, name: str, *expected: str) -> None:
     """script-build, which answers after the build (and Godot's reload when the DLL changed)."""
     started = time.monotonic()
-    ok, text = tool(host, "script-build", {}, timeout=300)
-    missing = [e for e in expected if e not in text]
-    check(f"{name} ({time.monotonic() - started:.1f} s)", not missing, text)
-    return text
+    _, text = tool(host, "script-build", {}, timeout=300)
+    check(f"{name} ({time.monotonic() - started:.1f} s)", all(e in text for e in expected), text)
 
 
 class Background:

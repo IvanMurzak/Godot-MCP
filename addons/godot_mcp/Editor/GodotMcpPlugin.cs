@@ -493,8 +493,7 @@ namespace com.IvanMurzak.Godot.MCP
             //    running keeps a thread inside this assembly and refills the caches cleared below: Godot's unload fails.
             try
             {
-                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0,
-                    fromReload ? AssemblyReloadGate.UnloadingMessage : AssemblyReloadGate.ShutdownMessage);
+                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload);
             }
             catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
 

@@ -53,10 +53,10 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         {
             if (string.IsNullOrWhiteSpace(text))
                 return null;
-            var values = text!.Split('\n')
-                .Select(line => line.TrimEnd('\r'))
-                .Where(line => line.IndexOf('=') > 0)
-                .ToDictionary(line => line.Substring(0, line.IndexOf('=')), line => line.Substring(line.IndexOf('=') + 1));
+            var values = new Dictionary<string, string>();
+            foreach (var line in text!.Split('\n'))
+                if (line.TrimEnd('\r').Split(new[] { '=' }, 2) is { Length: 2 } pair && pair[0].Length > 0)
+                    values[pair[0]] = pair[1];
             string Get(string key) => values.TryGetValue(key, out var v) ? v : "";
             long Long(string key) => long.TryParse(Get(key), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : 0;
             var record = new BuildRecord

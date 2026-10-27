@@ -27,16 +27,15 @@ namespace com.IvanMurzak.Godot.MCP.Reload
     /// </summary>
     public sealed class GatedRunTool : IRunTool
     {
-        readonly IRunTool _inner;
         readonly AssemblyReloadGate _gate;
 
         public GatedRunTool(IRunTool inner, AssemblyReloadGate gate)
         {
-            _inner = inner;
+            Inner = inner;
             _gate = gate;
         }
 
-        public IRunTool Inner => _inner;
+        public IRunTool Inner { get; }
 
         /// <summary>Wrap every tool of <paramref name="tools"/> (already wrapped ones are left as they are), keeping their order.</summary>
         public static int WrapAll(IToolManager? tools, AssemblyReloadGate gate)
@@ -61,7 +60,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 return Refused(refusal, requestId);
             try
             {
-                var result = await _inner.Run(requestId, namedParameters, cancellationToken).ConfigureAwait(false);
+                var result = await Inner.Run(requestId, namedParameters, cancellationToken).ConfigureAwait(false);
                 // A body the unloading gate refused on the main thread fails the tool with the refusal wrapped in its error
                 // ("Tool execution failed ... One or more errors occurred. (<refusal>)"): answer with the refusal itself.
                 return result.Status == ResponseStatus.Error && _gate.Refusal is { } late && result.GetMessage()?.Contains(late) == true
@@ -77,21 +76,21 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         static ResponseCallTool Refused(string? refusal, string requestId)
             => ResponseCallTool.Error(refusal, ResponseErrorKind.Unavailable).SetRequestID(requestId);
 
-        public bool Enabled { get => _inner.Enabled; set => _inner.Enabled = value; }
-        public string Name => _inner.Name;
-        public string? Title => _inner.Title;
-        public string? Description => _inner.Description;
-        public string? SkillDescription => _inner.SkillDescription;
-        public string? SkillBody => _inner.SkillBody;
-        public JsonNode? InputSchema => _inner.InputSchema;
-        public JsonNode? OutputSchema => _inner.OutputSchema;
-        public McpToolType ToolType => _inner.ToolType;
-        public bool? ReadOnlyHint => _inner.ReadOnlyHint;
-        public bool? DestructiveHint => _inner.DestructiveHint;
-        public bool? IdempotentHint => _inner.IdempotentHint;
-        public bool? OpenWorldHint => _inner.OpenWorldHint;
-        public int TokenCount => _inner.TokenCount;
-        public int SkillMetadataTokenCount => _inner.SkillMetadataTokenCount;
+        public bool Enabled { get => Inner.Enabled; set => Inner.Enabled = value; }
+        public string Name => Inner.Name;
+        public string? Title => Inner.Title;
+        public string? Description => Inner.Description;
+        public string? SkillDescription => Inner.SkillDescription;
+        public string? SkillBody => Inner.SkillBody;
+        public JsonNode? InputSchema => Inner.InputSchema;
+        public JsonNode? OutputSchema => Inner.OutputSchema;
+        public McpToolType ToolType => Inner.ToolType;
+        public bool? ReadOnlyHint => Inner.ReadOnlyHint;
+        public bool? DestructiveHint => Inner.DestructiveHint;
+        public bool? IdempotentHint => Inner.IdempotentHint;
+        public bool? OpenWorldHint => Inner.OpenWorldHint;
+        public int TokenCount => Inner.TokenCount;
+        public int SkillMetadataTokenCount => Inner.SkillMetadataTokenCount;
     }
 }
 #endif

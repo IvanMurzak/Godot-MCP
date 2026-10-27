@@ -41,13 +41,16 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         const double PollSeconds = 0.25;
         static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(5);
         /// <summary>How long a build whose output Godot did not reload waits (from its end) before it is reported anyway.</summary>
-        static readonly TimeSpan ReloadTimeout = TimeSpan.FromMilliseconds(AssemblyReloadGate.PendingTimeoutMs + 5_000);
+        static readonly TimeSpan ReloadTimeout = TimeSpan.FromSeconds(30);
         /// <summary>A build process gone without its log summary is reported after this grace (the log is flushed last).</summary>
         static readonly TimeSpan LogGrace = TimeSpan.FromSeconds(2);
 
         readonly string? _dllPath;
-        Process? _process;
         BuildRecord? _record;
+        /// <summary>The build process of <see cref="_record"/> once found (null: not looked up yet, or gone).</summary>
+        Process? _process;
+        bool _processLookedUp;
+        BuildOutcome? _outcome;
         ResponseCallTool? _result;
         DateTime? _finishedAt;
         DateTime? _goneAt;
@@ -56,6 +59,8 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         public ProjectBuildTracker(string? dllPath)
         {
             _dllPath = dllPath;
+            // Only Start (this load) or a load before the last reload writes a record, so the file is read once here.
+            _record = BuildRecord.Parse(ReadText(RecordPath));
         }
 
         static string StateDir => ProjectSettings.GlobalizePath("res://.godot/godot_mcp");
@@ -64,8 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         /// <summary>Start a build for <paramref name="requestId"/> (main thread). Returns the "processing" message.</summary>
         public string Start(string requestId)
         {
-            var running = _record ?? ReadRecord();
-            if (running != null && IsAlive(running))
+            if (_record != null && FindProcess(_record) is { HasExited: false })
                 throw new InvalidOperationException("A C# build started by script-build is still running; its result arrives when it ends.");
 
             var csproj = new Extensions.ConsumerProjectFile().Path
@@ -88,21 +92,19 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 start.ArgumentList.Add(arg);
             var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start dotnet (is the .NET SDK installed and on PATH?).");
 
-            _process?.Dispose();
+            ResetBuild();
             _process = process;
+            _processLookedUp = true;
             _record = new BuildRecord
             {
                 RequestId = requestId,
                 ProcessId = process.Id,
                 LogPath = log,
                 ProjectDir = projectDir,
-                DllWriteTicksAtStart = WriteTicks(_dllPath),
+                DllWriteTicksAtStart = ReloadGateDriver.WriteTime(_dllPath)?.Ticks ?? 0,
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 LoadId = LoadId,
             };
-            _result = null;
-            _finishedAt = null;
-            _goneAt = null;
             File.WriteAllText(RecordPath, _record.Serialize());
             GodotMcpLog.Info($"[Godot-MCP] script-build: dotnet build started (pid {process.Id}).");
             return "Building the project's C# (dotnet build) in the background. When it succeeds Godot reloads the C# assembly and the " +
@@ -113,15 +115,14 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         /// <summary>Main-thread tick: settle the build once it ended and report it over a connected plugin.</summary>
         public void Tick(double delta, GodotMcpConnection? connection)
         {
+            if (_record is not { } record)
+                return;
             _sincePoll += delta;
             if (_sincePoll < PollSeconds)
                 return;
             _sincePoll = 0;
             try
             {
-                var record = _record ??= ReadRecord();
-                if (record == null)
-                    return;
                 _result ??= Evaluate(record);
                 if (_result == null || connection?.ConnectionStatus != ConnectionStatus.Connected || connection.Plugin?.McpManagerHub is not { } hub)
                     return;
@@ -142,25 +143,32 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         ResponseCallTool? Evaluate(BuildRecord record)
         {
             var now = DateTime.UtcNow;
-            var outcome = BuildOutcome.FromLog(ReadText(record.LogPath), record.ProjectDir);
-            if (outcome == null)
+            if (_outcome == null)
             {
-                if (IsAlive(record))
+                // The summary is the log's last line: read it only once the build process is gone.
+                if (FindProcess(record) is { HasExited: false })
                 {
                     if (now - new DateTime(record.StartedUtcTicks, DateTimeKind.Utc) < BuildTimeout)
                         return null;
-                    Kill(record);
+                    try { _process?.Kill(entireProcessTree: true); } catch (Exception) { /* already gone */ }
                     return ResponseCallTool.Error($"The C# build did not finish in {BuildTimeout.TotalMinutes:0} minutes and was stopped.", ResponseErrorKind.Timeout);
                 }
-                _goneAt ??= now;
-                return now - _goneAt < LogGrace
-                    ? null
-                    : ResponseCallTool.Error($"The C# build ended without a result; see its log: {record.LogPath}", ResponseErrorKind.Internal);
+                _outcome = BuildOutcome.FromLog(ReadText(record.LogPath), record.ProjectDir);
+                if (_outcome == null)
+                {
+                    _goneAt ??= now;
+                    return now - _goneAt < LogGrace
+                        ? null
+                        : ResponseCallTool.Error($"The C# build ended without a result; see its log: {record.LogPath}", ResponseErrorKind.Internal);
+                }
             }
+            var outcome = _outcome;
             if (!outcome.Succeeded)
                 return ResponseCallTool.Error(outcome.FailureText(), ResponseErrorKind.BadRequest);
 
-            if (ToSeconds(WriteTicks(_dllPath)) <= ToSeconds(record.DllWriteTicksAtStart))
+            var dllNow = ReloadGateDriver.WriteTime(_dllPath);
+            var dllAtStart = record.DllWriteTicksAtStart > 0 ? AssemblyReloadGate.ToSeconds(new DateTime(record.DllWriteTicksAtStart, DateTimeKind.Utc)) : 0;
+            if (dllNow == null || AssemblyReloadGate.ToSeconds(dllNow.Value) <= dllAtStart)
                 return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}); the assembly was already up to date, so there was nothing to reload.");
             if (record.LoadId != LoadId)
                 return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}) and Godot reloaded the C# assembly: new and changed C# " +
@@ -172,24 +180,49 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                                            "reload may be off): focus the editor window or restart the editor to load it.");
         }
 
+        /// <summary>
+        /// The build process of <paramref name="record"/> (looked up once per load: after a reload the process id comes from
+        /// the record, checked against its start time so a later process with the same id is not taken for it), or null.
+        /// </summary>
+        Process? FindProcess(BuildRecord record)
+        {
+            if (_processLookedUp)
+                return _process;
+            _processLookedUp = true;
+            try
+            {
+                var process = Process.GetProcessById(record.ProcessId);
+                if (Math.Abs((process.StartTime.ToUniversalTime() - new DateTime(record.StartedUtcTicks, DateTimeKind.Utc)).TotalSeconds) < 10)
+                    return _process = process;
+                process.Dispose();
+            }
+            catch (Exception) { /* exited, or not ours to inspect */ }
+            return null;
+        }
+
         /// <summary>Plugin teardown: let go of the process handle; the build itself keeps running and the next load reports it.</summary>
         public void Release()
         {
             _process?.Dispose();
             _process = null;
+            _processLookedUp = false;
+        }
+
+        void ResetBuild()
+        {
+            Release();
+            _record = null;
+            _outcome = null;
+            _result = null;
+            _finishedAt = null;
+            _goneAt = null;
         }
 
         void Forget()
         {
-            _record = null;
-            _result = null;
-            _finishedAt = null;
-            _goneAt = null;
-            Release();
+            ResetBuild();
             try { File.Delete(RecordPath); } catch (Exception) { /* a stale record is re-evaluated and reported once more at worst */ }
         }
-
-        static BuildRecord? ReadRecord() => BuildRecord.Parse(ReadText(RecordPath));
 
         static string? ReadText(string path)
         {
@@ -197,7 +230,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             {
                 if (!File.Exists(path))
                     return null;
-                // The build still writes its log: open it shared.
+                // The build may still hold its log open: open it shared.
                 using var stream = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                 using var reader = new StreamReader(stream);
                 return reader.ReadToEnd();
@@ -205,43 +238,6 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             catch (IOException) { return null; }
             catch (UnauthorizedAccessException) { return null; }
         }
-
-        bool IsAlive(BuildRecord record)
-        {
-            if (_process != null && _process.Id == record.ProcessId)
-                return !_process.HasExited;
-            try
-            {
-                using var process = Process.GetProcessById(record.ProcessId);
-                // Not some later process that got the same id.
-                return !process.HasExited &&
-                       Math.Abs((process.StartTime.ToUniversalTime() - new DateTime(record.StartedUtcTicks, DateTimeKind.Utc)).TotalSeconds) < 10;
-            }
-            catch (Exception) { return false; }
-        }
-
-        void Kill(BuildRecord record)
-        {
-            try
-            {
-                if (_process != null && _process.Id == record.ProcessId)
-                    _process.Kill(entireProcessTree: true);
-                else
-                {
-                    using var process = Process.GetProcessById(record.ProcessId);
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch (Exception) { /* already gone */ }
-        }
-
-        static long WriteTicks(string? path)
-        {
-            try { return path != null && File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0; }
-            catch (Exception) { return 0; }
-        }
-
-        static long ToSeconds(long utcTicks) => utcTicks <= 0 ? 0 : new DateTimeOffset(utcTicks, TimeSpan.Zero).ToUnixTimeSeconds();
     }
 }
 #endif
