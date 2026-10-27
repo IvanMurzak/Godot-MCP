@@ -32,6 +32,13 @@ namespace com.IvanMurzak.Godot.MCP.Data
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string>? Logs { get; set; }
 
+        /// <summary>
+        /// The value as compact text ("Dictionary&lt;string, int&gt;: {a: 1}") for the RQL tool format, or null when the
+        /// serialized <see cref="Result"/> reads well as it is (a scalar). Not serialized: the Json format keeps Result.
+        /// </summary>
+        [JsonIgnore]
+        internal string? Text { get; set; }
+
         public ScriptExecuteResult() { }
 
         public override string ToString() => Result?.ToString() ?? "null";

@@ -238,8 +238,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
             }
 
-            // Passive capture: surface a path:line prefix so console-get-logs is self-describing.
-            LogSink?.Invoke(logType, FormatLogLine(kind, effectivePath, line, text));
+            // Passive capture: surface a path:line prefix so console-get-logs is self-describing. The plugin's own
+            // diagnostics (GodotMcpLog, which raises this callback through GD.PushError on the same thread) are already
+            // in the collector: a second "[Error] …GodotMcpLog.cs:71 — …" copy would double every plugin error.
+            if (!Connection.GodotMcpLog.IsEmitting)
+                LogSink?.Invoke(logType, FormatLogLine(kind, effectivePath, line, text));
 
             // Structured capture (in-game runtime): forward the full origin + deep backtrace so
             // runtime-errors-get can return file/line/function/type AND the multi-frame stack, not just a

@@ -112,6 +112,31 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return DrainScan(efs, plan.Describe(outcomes));
         }
 
+        /// <summary>
+        /// Make the editor filesystem know a file just written to <paramref name="resPath"/>: <c>UpdateFile</c> when its
+        /// folder is known, else a full scan (settled). <c>UpdateFile</c> ignores a file in a folder the editor never scanned
+        /// (the <c>files</c> source, <c>godot.resources(type, folder)</c> and a GDScript <c>class_name</c> then never saw it),
+        /// and a scan made before the write would not help: its result replaces the folder's listing a frame later.
+        /// Main-thread only.
+        /// </summary>
+        internal static void Register(string resPath)
+        {
+            var efs = EditorInterface.Singleton.GetResourceFilesystem();
+            if (efs == null) return;
+            if (IsKnownFolder(efs, Tools.ResPathNormalizer.ParentDir(resPath))) efs.UpdateFile(resPath);
+            else FullScan();
+        }
+
+        /// <summary>A folder created on disk becomes known to the editor filesystem (a full scan, settled, if it is not yet).</summary>
+        internal static void RegisterFolder(string resDir)
+        {
+            var efs = EditorInterface.Singleton.GetResourceFilesystem();
+            if (efs != null && !IsKnownFolder(efs, resDir)) FullScan();
+        }
+
+        static bool IsKnownFolder(EditorFileSystem efs, string resDir) =>
+            efs.GetFilesystemPath(Tools.ResPathNormalizer.NormalizeDir(resDir)) != null;
+
         static string FullScan()
         {
             var efs = Tools.EditorToolGuards.GetResourceFileSystemOrThrow();

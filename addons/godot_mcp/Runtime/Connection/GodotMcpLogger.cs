@@ -42,6 +42,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>Prefix prepended to every routed line so framework logs are attributable in the Output.</summary>
         public const string Prefix = "[McpPlugin] ";
 
+        /// <summary>
+        /// Whether a routed line is the framework's echo of a tool call (McpToolManager's "Run tool …" / "… Response to
+        /// AI" and ToolRunnerCollection's "Tool execution failed …"): printed, but not collected for the console.
+        /// </summary>
+        public static bool IsToolTraffic(string message) =>
+            message != null
+            && (message.StartsWith(Prefix + "McpToolManager:", StringComparison.Ordinal)
+                || message.StartsWith(Prefix + "ToolRunnerCollection:", StringComparison.Ordinal));
+
         readonly string _categoryName;
         readonly Func<GodotMcpLogLevel> _levelProvider;
         readonly GodotLogSink _sink;

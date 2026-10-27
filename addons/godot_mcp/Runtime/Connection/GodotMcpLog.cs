@@ -65,19 +65,30 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         internal static void Route(GodotLogType logType, string message)
         {
+            // The framework's echo of every tool call and its response is printed to the Output but not collected: the
+            // agent already has both, and in the console source / console-get-logs they buried real errors (and pushed
+            // them out of the bounded buffer) after a few hundred calls.
+            var collect = !GodotMcpLogger.IsToolTraffic(message);
             switch (logType)
             {
                 case GodotLogType.Error:
-                    Emit(logType, message, () => GD.PushError(message));
+                    Emit(logType, message, () => GD.PushError(message), collect);
                     break;
                 case GodotLogType.Warning:
-                    Emit(logType, message, () => GD.PushWarning(message));
+                    Emit(logType, message, () => GD.PushWarning(message), collect);
                     break;
                 default:
-                    Emit(logType, message, () => GD.Print(message));
+                    Emit(logType, message, () => GD.Print(message), collect);
                     break;
             }
         }
+
+        // Set while a GD writer of Emit runs: the engine-error logger is called back synchronously on this thread for a
+        // PushError / PushWarning and must not collect the same line a second time (ScriptErrorCapture.Route).
+        [ThreadStatic] static bool _emitting;
+
+        /// <summary>Whether this thread is inside one of the plugin's own diagnostics (its GD writer).</summary>
+        internal static bool IsEmitting => _emitting;
 
         /// <summary>
         /// The one sanctioned native sink: invoke the <see cref="GD"/> writer, then append to the collector.
@@ -85,11 +96,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// editor-reload, and the collector append must never escape into a teardown / unload path). This
         /// internal try/catch is what lets every call site drop its own defensive wrapper.
         /// </summary>
-        static void Emit(GodotLogType logType, string message, Action gd)
+        static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
         {
+            _emitting = true;
             try { gd(); }
             catch { /* GD may be unavailable mid editor-reload; swallow */ }
+            finally { _emitting = false; }
 
+            if (!collect) return;
             try { GodotLogCollector.Current?.Append(logType, message); }
             catch { /* a diagnostic must never throw */ }
         }

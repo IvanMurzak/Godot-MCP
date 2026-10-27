@@ -22,7 +22,7 @@ The addon itself stays Apache-2.0.
 | `filesystem-list`, `filesystem-reimport` | the `files` source (`path name dir ext type uid`), `editor \| call Reimport(files?)`, `CreateFolder` |
 | `editor-application-get-state` / `-set-state` | `editor` members `isPlaying` (writable), `playingScene`, `editedScene`, `godotVersion`; `call PlayScene / StopScene` |
 | `editor-selection-get` / `-set` | `editor` member `selection` (writable), the `selection` source |
-| `console-get-logs`, `console-clear-logs` (editor) | the `console` source (`where LogType == "Error"`, `Sequence > N`), `editor \| call ClearConsole()` |
+| `console-get-logs`, `console-clear-logs` (editor) | the `console` source (`where LogType == "Error"`, `Sequence > N`; the framework's echo of each tool call is printed to the Output but not captured, and a plugin error is captured once), `editor \| call ClearConsole()` |
 | `reflection-method-find`, `reflection-method-call` (editor) | `call CallMethod("name", [args])` on any Godot object, node / resource calls, `rql-schema` |
 | — | `rql-schema`: sources, functions, the node classes in the edited scene; one type's members, methods and Godot properties (ClassDB) |
 
@@ -81,7 +81,10 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   with `editor | call SaveScene()` (like Ctrl+S; `node-modify` did not save either); a change to a resource stored in
   its own file (`res://….tres`) is saved to that file after the mutation, like `resource-modify` (only when a property
   actually changed), and undo / redo of that change save the file again. Built-in (scene-embedded) resources mark the
-  scene unsaved. Problems saving become `not-saved` warnings on the receipt.
+  scene unsaved. Problems saving become `not-saved` warnings on the receipt. A file written into a folder the editor
+  filesystem never scanned (`NewScene`, `CreateResource`, `SaveScene(path)`, `CreateFolder`, `script-create`) triggers a
+  full scan after the write (`RqlReimport.Register`): `UpdateFile` ignores such a file, so the `files` source,
+  `godot.resources(type, folder)` and a new GDScript `class_name` would not see it.
 - **Refused instead of silently changed**: a rename Godot would alter (a character it does not allow in node names,
   `. : @ / " %`, or a sibling's name); `SaveScene(path)` onto another existing file; `InstantiateScene` of a scene that
   contains the edited one; `MoveResource` that changes the extension; `DeleteResource` of a file a scene or resource still

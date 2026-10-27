@@ -73,7 +73,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (removed)
                     efs.Scan();
                 else
-                    efs.UpdateFile(resPath);
+                    Editor.Rql.RqlReimport.Register(resPath); // a new folder: a full scan (UpdateFile ignores it, class_name too)
                 return removed ? "GDScript removed; filesystem rescanned." : "GDScript written; filesystem updated.";
             }
 
@@ -82,9 +82,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // consistent state. We do NOT block on the actual MSBuild here — Godot rebuilds the C# assembly
             // out-of-band (on focus / explicit Build) and a headless editor may never run it; settling the
             // filesystem scan is the bounded, reliable signal we can observe.
-            if (removed)
+            if (removed || efs.GetFilesystemPath(ResPathNormalizer.ParentDir(resPath)) == null)
             {
-                efs.Scan();
+                efs.Scan(); // a removal, or a file in a folder the editor never scanned (ReimportFiles would not see it)
             }
             else
             {

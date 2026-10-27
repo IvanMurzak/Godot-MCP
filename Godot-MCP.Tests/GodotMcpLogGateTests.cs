@@ -167,6 +167,31 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("second", captured[0].Message);
         }
 
+        // --- Tool traffic (printed, not collected for the console source) ---
+
+        [Theory]
+        [InlineData("com.IvanMurzak.McpPlugin.McpToolManager", true)]
+        [InlineData("com.IvanMurzak.McpPlugin.ToolRunnerCollection", true)]
+        [InlineData("com.IvanMurzak.McpPlugin.HubConnection", false)]
+        [InlineData("McpManagerClientHub", false)]
+        public void IsToolTraffic_MatchesTheToolCallEchoCategoriesOnly(string category, bool expected)
+        {
+            var captured = new List<(GodotLogType Type, string Message)>();
+            var logger = new GodotMcpLogger(category, () => GodotMcpLogLevel.Trace, (type, msg) => captured.Add((type, msg)));
+
+            logger.LogInformation("Run tool 'rql-query' with parameters[1]");
+            logger.LogError("Error Response to AI:\nerror unknown-member");
+
+            Assert.Equal(2, captured.Count);
+            Assert.All(captured, line => Assert.Equal(expected, GodotMcpLogger.IsToolTraffic(line.Message)));
+        }
+
+        [Theory]
+        [InlineData("McpToolManager: Run tool 'x'")] // no [McpPlugin] prefix: not a framework line
+        [InlineData("[Godot-MCP] plugin loaded")]
+        [InlineData("")]
+        public void IsToolTraffic_IgnoresOtherLines(string message) => Assert.False(GodotMcpLogger.IsToolTraffic(message));
+
         static readonly MicrosoftLogLevel[] EmittableLevels =
         {
             MicrosoftLogLevel.Trace,

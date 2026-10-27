@@ -35,7 +35,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (saveError != Error.Ok) throw new InvalidOperationException($"could not save the new scene to '{path}': {saveError}");
             }
             finally { root.Free(); }
-            Ei.GetResourceFilesystem()?.UpdateFile(path);
+            RqlReimport.Register(path);
             return OpenScene(path);
         }
 
@@ -60,6 +60,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     throw new ArgumentException($"a file already exists at '{path}'; save to a new path, or delete that file first with DeleteResource");
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
                 Ei.SaveSceneAs(path);
+                RqlReimport.Register(path!);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;
                 if (saved != path) throw new InvalidOperationException($"save-as to '{path}' did not take effect (the scene path is '{saved ?? "none"}')");
                 return path!;

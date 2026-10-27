@@ -460,7 +460,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var path = resource.ResourcePath;
             var error = ResourceSaver.Save(resource, path);
             if (error != Error.Ok) return $"resource '{path}' could not be saved: {error}";
-            EditorInterface.Singleton.GetResourceFilesystem()?.UpdateFile(path);
+            RqlReimport.Register(path);
             return null;
         }
 
