@@ -383,6 +383,7 @@ describe('addAddonPackageReferences — in-game code execution opt-in (GodotMcpC
     for (const ref of inGameRefs) {
       expect(text).toContain(`<PackageReference Include="${ref.id}" Version="${ref.version}" ${inGame} />`);
     }
-    expect(text).toContain(`Include="com.IvanMurzak.Rql" Version="0.1.1" ${editorOnly}`);
+    const rql = ADDON_PACKAGE_REFERENCES.find((r) => r.id === 'com.IvanMurzak.Rql');
+    expect(text).toContain(`Include="com.IvanMurzak.Rql" Version="${rql?.version}" ${editorOnly}`);
   });
 });

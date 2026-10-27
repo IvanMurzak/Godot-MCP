@@ -71,15 +71,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string className, string paramName, string? requireParentClass = null)
             where T : GodotObject
         {
+            CheckClassDbInstantiation(className, paramName, requireParentClass);
+            return ClassDB.Instantiate(className).As<T>()
+                ?? throw new ArgumentException($"Godot class '{className}' did not instantiate to a {typeof(T).Name}.", paramName);
+        }
+
+        /// <summary>The checks of <see cref="ValidateClassDbInstantiation{T}"/> without creating an instance (call validators).</summary>
+        internal static void CheckClassDbInstantiation(string className, string paramName, string? requireParentClass = null)
+        {
             if (!ClassDB.ClassExists(className))
                 throw new ArgumentException($"Unknown Godot class '{className}'.", paramName);
             if (!ClassDB.CanInstantiate(className))
                 throw new ArgumentException($"Godot class '{className}' cannot be instantiated (abstract/virtual).", paramName);
             if (requireParentClass != null && !ClassDB.IsParentClass(className, requireParentClass))
                 throw new ArgumentException($"Godot class '{className}' does not derive from {requireParentClass}.", paramName);
-
-            return ClassDB.Instantiate(className).As<T>()
-                ?? throw new ArgumentException($"Godot class '{className}' did not instantiate to a {typeof(T).Name}.", paramName);
         }
 
         /// <summary>

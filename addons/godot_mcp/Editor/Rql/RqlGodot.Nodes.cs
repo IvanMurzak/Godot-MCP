@@ -49,15 +49,87 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var root = RequireEditedRoot();
             RequireInEditedScene(parent, "parent");
+            var node = InstantiableScene(path, root).Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
+            if (!string.IsNullOrEmpty(name)) node.Name = name;
+            return Attach(parent, node, root);
+        }
+
+        // The PackedScene at path, when the edited scene (root) may instance it.
+        private static PackedScene InstantiableScene(string path, Node root)
+        {
             if (!TryLoadResource(path, out var resource, out var reason)) throw new ArgumentException(reason);
             if (!(resource is PackedScene packed)) throw new ArgumentException($"'{path}' is a {resource!.GetClass()}, not a scene (PackedScene)");
             // Like the Scene dock: a scene cannot contain itself (Godot would then fail to save it, keeping only the root).
             if (!string.IsNullOrEmpty(root.SceneFilePath) && (SamePath(packed.ResourcePath, root.SceneFilePath) || Contains(packed, root.SceneFilePath, new HashSet<string>(StringComparer.OrdinalIgnoreCase))))
                 throw new InvalidOperationException($"cannot instance '{path}' in '{root.SceneFilePath}': the edited scene would contain itself");
-            var node = packed.Instantiate() ?? throw new InvalidOperationException($"could not instantiate '{path}'");
-            if (!string.IsNullOrEmpty(name)) node.Name = name;
-            return Attach(parent, node, root);
+            return packed;
         }
+
+        // ---- call validators (RQL 0.2): why a planned call would fail, checked for every target before the first call (dry
+        // runs too), so a multi-target call is all-or-nothing. They only read; the calls repeat the checks.
+
+        public static string? ValidateAddChild(Node parent, string className) => Rejection(() =>
+        {
+            RequireEditedRoot();
+            RequireInEditedScene(parent, "parent");
+            NodeClass(className, out _);
+        });
+
+        public static string? ValidateInstantiateScene(Node parent, string path) => Rejection(() =>
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(parent, "parent");
+            InstantiableScene(path, root);
+        });
+
+        public static string? ValidateRemove(Node node) => WasRemoved(node) ? null : Rejection(() =>
+        {
+            var root = RequireEditedRoot();
+            RequireInEditedScene(node, "node");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be removed; open or create another scene instead");
+        });
+
+        public static string? ValidateDuplicate(Node node) => Rejection(() => DuplicateParent(node, RequireEditedRoot()));
+
+        public static string? ValidateMoveChild(Node node) => Rejection(() => MoveChildParent(node));
+
+        // The parent a Duplicate copies into; throws for the root or a node outside the edited scene.
+        private static Node DuplicateParent(Node node, Node root)
+        {
+            RequireInEditedScene(node, "node");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
+            return node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
+        }
+
+        // The parent whose children MoveChild reorders; throws for the root or a node outside the edited scene.
+        private static Node MoveChildParent(Node node)
+        {
+            RequireInEditedScene(node, "node");
+            if (node == EditedRoot() || !(node.GetParent() is { } parent))
+                throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            return parent;
+        }
+
+        public static string? ValidateReparent(Node node, Node? newParent) => Rejection(() => CheckReparent(node, newParent, RequireEditedRoot()));
+
+        internal static string? Rejection(Action check)
+        {
+            try { check(); return null; }
+            catch (ArgumentException e) { return e.Message; }
+            catch (InvalidOperationException e) { return e.Message; }
+        }
+
+        private static void CheckReparent(Node node, [System.Diagnostics.CodeAnalysis.NotNull] Node? newParent, Node root)
+        {
+            if (newParent == null)
+                throw new ArgumentException("Reparent needs the new parent node, e.g. call Reparent(godot.find(\"Props\")) or godot.find(\".\") for the scene root");
+            RequireInEditedScene(node, "node");
+            RequireInEditedScene(newParent, "new parent");
+            if (node == root) throw new InvalidOperationException("the scene root cannot be reparented");
+            if (node == newParent || node.IsAncestorOf(newParent))
+                throw new InvalidOperationException($"'{node.Name}' cannot be moved under itself or one of its descendants");
+        }
+
 
         // Paths compared case-insensitively (Windows / macOS): a false match only refuses an instance, never allows a cycle.
         private static bool SamePath(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
@@ -76,9 +148,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static Node Duplicate(Node node)
         {
             var root = RequireEditedRoot();
-            RequireInEditedScene(node, "node");
-            if (node == root) throw new InvalidOperationException("the scene root cannot be duplicated");
-            var parent = node.GetParent() ?? throw new InvalidOperationException($"'{node.Name}' has no parent");
+            var parent = DuplicateParent(node, root);
             var copy = node.Duplicate() as Node ?? throw new InvalidOperationException($"could not duplicate '{node.Name}'");
             Attach(parent, copy, root);
             var index = node.GetIndex(includeInternal: false) + 1;
@@ -130,13 +200,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static void Reparent(Node node, Node? newParent, bool keepGlobalTransform)
         {
             var root = RequireEditedRoot();
-            if (newParent == null)
-                throw new ArgumentException("Reparent needs the new parent node, e.g. call Reparent(godot.find(\"Props\")) or godot.find(\".\") for the scene root");
-            RequireInEditedScene(node, "node");
-            RequireInEditedScene(newParent, "new parent");
-            if (node == root) throw new InvalidOperationException("the scene root cannot be reparented");
-            if (node == newParent || node.IsAncestorOf(newParent))
-                throw new InvalidOperationException($"'{node.Name}' cannot be moved under itself or one of its descendants");
+            CheckReparent(node, newParent, root);
             var oldParent = node.GetParent()!;
             var oldIndex = node.GetIndex(includeInternal: false);
             if (oldParent == newParent) return;
@@ -159,9 +223,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Move <paramref name="node"/> to <paramref name="index"/> among its siblings (negative counts from the end, clamped).</summary>
         public static int MoveChild(Node node, int index)
         {
-            RequireInEditedScene(node, "node");
-            if (node == EditedRoot() || !(node.GetParent() is { } parent))
-                throw new InvalidOperationException("the scene root has no siblings to reorder among");
+            var parent = MoveChildParent(node);
             var oldIndex = node.GetIndex(includeInternal: false);
             var target = NodeIndexResolver.Resolve(index, parent.GetChildCount(includeInternal: false));
             parent.MoveChild(node, target);
@@ -205,26 +267,35 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         private static Node Instantiate(string className)
         {
+            var native = NodeClass(className, out var script);
+            var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
+            if (script == null) return node;
+            var id = node.GetInstanceId();
+            node.SetScript(script);
+            // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
+            return GodotObject.InstanceFromId(id) as Node ?? node;
+        }
+
+        /// <summary>
+        /// The native class <see cref="Instantiate"/> creates for <paramref name="className"/> (and the global script class to
+        /// attach, if any), after every check it makes; creates nothing, so call validators use it too.
+        /// </summary>
+        private static string NodeClass(string className, out Script? script)
+        {
+            script = null;
             if (string.IsNullOrWhiteSpace(className)) throw new ArgumentException("a node class is required, e.g. \"Node3D\"");
-            if (ClassDB.ClassExists(className))
+            var native = className;
+            if (!ClassDB.ClassExists(className))
             {
-                if (!ClassDB.IsParentClass(className, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                return EditorToolGuards.ValidateClassDbInstantiation<Node>(className, "class");
+                var entry = ProjectSettings.GetGlobalClassList().FirstOrDefault(e => e["class"].AsString() == className)
+                            ?? throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
+                script = ResourceLoader.Load<Script>(entry["path"].AsString())
+                         ?? throw new ArgumentException($"the script of '{className}' failed to load");
+                native = script.GetInstanceBaseType().ToString();
             }
-            foreach (var entry in ProjectSettings.GetGlobalClassList())
-            {
-                if (entry["class"].AsString() != className) continue;
-                var script = ResourceLoader.Load<Script>(entry["path"].AsString())
-                             ?? throw new ArgumentException($"the script of '{className}' failed to load");
-                var native = script.GetInstanceBaseType().ToString();
-                if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
-                var node = EditorToolGuards.ValidateClassDbInstantiation<Node>(native, "class");
-                var id = node.GetInstanceId();
-                node.SetScript(script);
-                // Attaching a C# script replaces the managed wrapper: look the object up again by its instance id.
-                return GodotObject.InstanceFromId(id) as Node ?? node;
-            }
-            throw new ArgumentException($"unknown node class '{className}'" + Similar(ClassDB.GetClassList().Where(c => ClassDB.IsParentClass(c, "Node")), className));
+            if (!ClassDB.IsParentClass(native, "Node")) throw new ArgumentException($"'{className}' is not a Node class");
+            EditorToolGuards.CheckClassDbInstantiation(native, "class");
+            return native;
         }
     }
 }

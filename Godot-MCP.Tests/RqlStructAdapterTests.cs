@@ -114,6 +114,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(new Vector3I(7, 8, 9), _items[0].Cell);
         }
 
+        // RQL's tuple adapter prints 6 significant digits and compares with a relative tolerance: whole numbers must not.
+        [Fact]
+        public void IntegerVectorsPrintAndCompareExactly()
+        {
+            _items[0].Cell = new Vector3I(1234567, 100000, -3);
+            var text = Text(Query("items | where name == \"a\" | select Cell"));
+            Assert.Contains("(1234567, 100000, -3)", text);
+            Assert.Equal(new[] { "a" }, Rows(Query("items | where Cell == \"(1234567, 100000, -3)\" | select name")));
+            Assert.Empty(Rows(Query("items | where Cell == \"(1234567, 100001, -3)\" | select name")));
+            Assert.Empty(Rows(Query("items | where Cell == [1234567, 100001, -3] | select name")));
+        }
+
         [Fact]
         public void ColorsAcceptHexAndTuples()
         {
@@ -161,29 +173,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             _items[0].Tint = Color.FromHtml("#ff8800");
             _items[0].Position = new Vector3(0.1f, 1e-7f, -1234567.8f);
             var text = Text(Query("items | where name == \"a\" | select Basis Tint Position"));
+            // RQL's tuple display (0.2+): 6 significant digits, noise below 1e-6 as 0, -0 as 0.
             Assert.DoesNotContain("E-", text);
-            Assert.DoesNotContain("E+", text);
             Assert.Contains("(0, 0, -2, 0, 2, 0, 2, 0, 0)", text);
-            Assert.Contains("(1, 0.5333334, 0, 1)", text);
-            Assert.Contains("(0.1, 0, -1234568)", text);
+            Assert.Contains("(1, 0.533333, 0, 1)", text);
+            Assert.Contains("(0.1, 0, -1.23457E+06)", text);
             // The exact value still compares and stays stored.
             Assert.Equal(new[] { "a" }, Rows(Query("items | where Tint == \"#ff8800\" | select name")));
             Assert.NotEqual(0f, _items[0].Basis.X.X);
         }
-
-        [Theory]
-        [InlineData(0f, "0")]
-        [InlineData(-4.371139E-08f, "0")]
-        [InlineData(1.5707964f, "1.570796")]
-        [InlineData(0.1f, "0.1")]
-        [InlineData(100000.5f, "100000.5")]
-        [InlineData(3e7f, "30000000")]
-        [InlineData(2.5e-6f, "0.0000025")]
-        [InlineData(float.NaN, "NaN")]
-        public void Tidy(float value, string expected) => Assert.Equal(expected, GodotFloatTupleAdapter<Vector3>.Tidy(value));
-
-        [Fact]
-        public void TidyNegativeZero() => Assert.Equal("0", GodotFloatTupleAdapter<Vector3>.Tidy(-0f)); // xUnit dedupes -0f with 0f in InlineData
 
         private static string[] Rows(QueryResult r) =>
             Text(r).Split('\n').Skip(2).Where(l => l.Length > 0).ToArray();

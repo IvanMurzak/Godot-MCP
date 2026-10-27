@@ -27,14 +27,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlCallable("create a resource file (res://….tres / .res) of a Godot class (default Resource); returns the new resource")]
         public Resource CreateResource(string path, string className = "Resource")
         {
-            var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
-            RequireUnprotected(resPath);
-            if (!resPath.EndsWith(".tres", StringComparison.OrdinalIgnoreCase) && !resPath.EndsWith(".res", StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException($"a resource path must end with .tres or .res; got '{path}'");
-            if (FileAccess.FileExists(resPath) || ResourceLoader.Exists(resPath))
-                throw new ArgumentException($"a resource already exists at '{resPath}' (edit it with godot.resource(\"{resPath}\") | set …)");
-            var resource = EditorToolGuards.ValidateClassDbInstantiation<Resource>(
-                string.IsNullOrWhiteSpace(className) ? "Resource" : className, nameof(className), requireParentClass: "Resource");
+            var resPath = NewResourcePath(path);
+            var resource = EditorToolGuards.ValidateClassDbInstantiation<Resource>(ResourceClass(className), nameof(className), requireParentClass: "Resource");
             EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(resPath));
             var error = ResourceSaver.Save(resource, resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not save the new resource to '{resPath}': {error}");
@@ -43,8 +37,33 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return resource;
         }
 
-        [RqlCallable("move or rename a file (its .import / .uid sidecars move with it); returns the new path")]
-        public string MoveResource(string path, string newPath)
+        // ---- call validators (RQL 0.2): run before the call, on dry runs too; nothing changes when they reject.
+
+        public string? ValidateCreateResource(string path, string className) => RqlGodot.Rejection(() =>
+        {
+            NewResourcePath(path);
+            EditorToolGuards.CheckClassDbInstantiation(ResourceClass(className), nameof(className), requireParentClass: "Resource");
+        });
+
+        public string? ValidateMoveResource(string path, string newPath) => RqlGodot.Rejection(() => MovePaths(path, newPath));
+
+        public string? ValidateDeleteResource(string path, bool force) => RqlGodot.Rejection(() => DeletablePath(path, force));
+
+        private static string ResourceClass(string className) => string.IsNullOrWhiteSpace(className) ? "Resource" : className;
+
+        private static string NewResourcePath(string path)
+        {
+            var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            RequireUnprotected(resPath);
+            if (!resPath.EndsWith(".tres", StringComparison.OrdinalIgnoreCase) && !resPath.EndsWith(".res", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException($"a resource path must end with .tres or .res; got '{path}'");
+            if (FileAccess.FileExists(resPath) || ResourceLoader.Exists(resPath))
+                throw new ArgumentException($"a resource already exists at '{resPath}' (edit it with godot.resource(\"{resPath}\") | set …)");
+            return resPath;
+        }
+
+        // The normalized source and destination of a move, and whether it is a case-only rename of the same file.
+        private static (string src, string dst, bool caseOnly) MovePaths(string path, string newPath)
         {
             var src = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             var dst = ResPathNormalizer.RequireResFilePath(newPath, nameof(newPath));
@@ -60,6 +79,24 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 && !DirAccess.GetFilesAt(ResPathNormalizer.ParentDir(dst)).Contains(System.IO.Path.GetFileName(dst));
             if (FileAccess.FileExists(dst) && !caseOnly)
                 throw new ArgumentException($"a file already exists at '{dst}'");
+            return (src, dst, caseOnly);
+        }
+
+        private static string DeletablePath(string path, bool force)
+        {
+            var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
+            RequireUnprotected(resPath);
+            if (!FileAccess.FileExists(resPath)) throw new ArgumentException($"no file exists at '{resPath}'");
+            if (!force && RqlReferences.UsersOf(resPath) is { Count: > 0 } users)
+                throw new InvalidOperationException($"'{resPath}' is still used by {RqlReferences.Describe(users)}; deleting it would break " +
+                    $"those references. Point them elsewhere first, or delete anyway with DeleteResource(\"{resPath}\", true)");
+            return resPath;
+        }
+
+        [RqlCallable("move or rename a file (its .import / .uid sidecars move with it); returns the new path")]
+        public string MoveResource(string path, string newPath)
+        {
+            var (src, dst, caseOnly) = MovePaths(path, newPath);
 
             // Stale sidecars at the destination go.
             if (!caseOnly)
@@ -90,12 +127,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "(the edited scene's unsaved changes included) still uses the file, unless force is true")]
         public string DeleteResource(string path, bool force = false)
         {
-            var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
-            RequireUnprotected(resPath);
-            if (!FileAccess.FileExists(resPath)) throw new ArgumentException($"no file exists at '{resPath}'");
-            if (!force && RqlReferences.UsersOf(resPath) is { Count: > 0 } users)
-                throw new InvalidOperationException($"'{resPath}' is still used by {RqlReferences.Describe(users)}; deleting it would break " +
-                    $"those references. Point them elsewhere first, or delete anyway with DeleteResource(\"{resPath}\", true)");
+            var resPath = DeletablePath(path, force);
             var error = DirAccess.RemoveAbsolute(resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not delete '{resPath}': {error}");
             try
