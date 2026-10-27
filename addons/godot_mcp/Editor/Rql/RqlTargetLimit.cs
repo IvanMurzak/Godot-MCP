@@ -43,8 +43,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static string? Problem(int maxTargets) =>
             maxTargets < 1 || maxTargets > Ceiling ? $"{Argument} must be between 1 and {Ceiling} (got {maxTargets}); nothing was changed" : null;
 
-        public static string ProblemHint =>
-            $"change more objects in batches: … | first {Ceiling} | set …, then … | skip {Ceiling} | first {Ceiling} | set …";
+        /// <summary>What to do instead of a refused <see cref="Argument"/> value.</summary>
+        public static string ProblemHint(int maxTargets) =>
+            maxTargets < 1
+                ? $"pass a value from 1 to {Ceiling}, or leave {Argument} out for the default {Default}"
+                : $"change more objects in batches: repeat … | first {Ceiling} | set … while the where still matches unchanged objects, or page " +
+                  $"with … | skip {Ceiling} | first {Ceiling} | set … when the change does not affect the where";
     }
 }
 #endif

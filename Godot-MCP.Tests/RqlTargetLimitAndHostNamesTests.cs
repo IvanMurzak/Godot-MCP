@@ -84,6 +84,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Null(RqlTargetLimit.Problem(RqlTargetLimit.Ceiling));
             Assert.Contains("between 1 and 1000", RqlTargetLimit.Problem(1001));
             Assert.NotNull(RqlTargetLimit.Problem(0));
+            Assert.Contains("leave max_targets out", RqlTargetLimit.ProblemHint(0));
+            Assert.Contains("first 1000", RqlTargetLimit.ProblemHint(1001));
         }
 
         [Fact]

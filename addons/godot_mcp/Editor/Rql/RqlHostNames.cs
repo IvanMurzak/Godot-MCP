@@ -46,7 +46,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             foreach (var t in types)
             {
-                if (t.IsAbstract || !typeof(RqlTypeAdapter).IsAssignableFrom(t)) continue;
+                if (t.IsAbstract || t.ContainsGenericParameters || !typeof(RqlTypeAdapter).IsAssignableFrom(t)) continue;
                 for (var b = t.BaseType; b != null; b = b.BaseType)
                     if (b.IsGenericType && b.GetGenericTypeDefinition() == typeof(RqlTypeAdapter<>)) { yield return b.GetGenericArguments()[0]; break; }
             }

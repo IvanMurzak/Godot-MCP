@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using Godot;
@@ -40,7 +41,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 .Where(a => !GodotAssemblyUtils.IsSkippedForDiscovery(a, typeof(RqlGodot).Assembly))
                 .SelectMany(a => TypeModel.LoadableTypes(a));
             foreach (var target in RqlHostNames.AdapterTargets(adapterTypes).Distinct())
-                foreach (var member in engine.Types.Info(target).Members) known.Add(member.Name);
+            {
+                try { foreach (var member in engine.Types.Info(target).Members) known.Add(member.Name); }
+                catch (Exception ex) { GodotMcpLog.Warning($"[Godot-MCP] RQL known members: {target.Name} skipped: {ex.Message}"); }
+            }
             return known;
         }
 
@@ -60,19 +64,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static IReadOnlyDictionary<string, string>? GodotEnumAliases(Type enumType)
         {
             if (enumType.Namespace != "Godot" || enumType.DeclaringType is not { } owner) return null;
-            var godotClass = GodotTypes.GodotClasses().FirstOrDefault(c => string.Equals(c, owner.Name, StringComparison.OrdinalIgnoreCase));
+            // The C# binding renames some classes (GodotObject is Object, CsgBox3D is CSGBox3D) and enums (Viewport.MSAA is
+            // Msaa, BaseMaterial3D.ShadingMode is ShadingModeEnum where a property has the same name).
+            var ownerName = owner == typeof(GodotObject) ? "Object" : owner.Name;
+            var godotClass = GodotTypes.GodotClasses().FirstOrDefault(c => string.Equals(c, ownerName, StringComparison.OrdinalIgnoreCase));
             if (godotClass == null) return null;
-            // The C# binding appends "Enum" where the enum's name is also a property's (BaseMaterial3D.ShadingModeEnum).
-            var enumName = enumType.Name;
-            if (!ClassDB.ClassHasEnum(godotClass, enumName, noInheritance: true))
-            {
-                if (!enumName.EndsWith("Enum", StringComparison.Ordinal)) return null;
-                enumName = enumName.Substring(0, enumName.Length - 4);
-                if (!ClassDB.ClassHasEnum(godotClass, enumName, noInheritance: true)) return null;
-            }
+            var csName = enumType.Name.EndsWith("Enum", StringComparison.Ordinal) ? enumType.Name.Substring(0, enumType.Name.Length - 4) : null;
+            var enums = ClassDB.ClassGetEnumList(godotClass, noInheritance: true);
+            var enumName = enums.FirstOrDefault(n => string.Equals(n, enumType.Name, StringComparison.OrdinalIgnoreCase))
+                ?? (csName == null ? null : enums.FirstOrDefault(n => string.Equals(n, csName, StringComparison.OrdinalIgnoreCase)));
+            if (enumName == null) return null;
             var qualified = godotClass + "." + enumName;
             var names = GodotEnumOptions.Of(qualified, PropertyHint.None, "") ?? new List<(string name, long value)>();
-            // ClassDB's property list leaves class_name empty for enum properties; the enum is the setter's argument type.
+            // ClassDB's property list leaves class_name empty for enum properties; the enum is the setter's argument type. Before
+            // Godot 4.4 the setter is guessed as set_<property>: labels of a property whose setter is named otherwise are missed
+            // there (constants always work).
             var setterArgs = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var method in ClassDB.ClassGetMethodList(godotClass, noInheritance: true))
                 if (method["args"].AsGodotArray<global::Godot.Collections.Dictionary>() is { Count: 1 } args)

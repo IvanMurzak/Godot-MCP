@@ -109,7 +109,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static QueryResult Mutate(string query, bool dryRun = false, int maxTargets = RqlTargetLimit.Default)
         {
             if (RqlTargetLimit.Problem(maxTargets) is { } refused)
-                return QueryResult.Fail(new[] { new Diagnostic(DiagnosticSeverity.Error, "invalid-value", refused, null, RqlTargetLimit.ProblemHint) });
+                return QueryResult.Fail(new[] { new Diagnostic(DiagnosticSeverity.Error, "invalid-value", refused, null, RqlTargetLimit.ProblemHint(maxTargets)) });
             if (_mutating == 0) ResetState();
             _mutating++;
             QueryResult result;
