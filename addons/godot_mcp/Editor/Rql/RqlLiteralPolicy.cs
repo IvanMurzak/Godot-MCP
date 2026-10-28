@@ -27,6 +27,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>true for a Godot Resource type; null (RQL's default) for anything else.</summary>
         public static bool? CanConstruct(Type type) => typeof(Resource).IsAssignableFrom(type) ? true : (bool?)null;
+
+        /// <summary>
+        /// The refusal of a literal naming (or written to) a non-Resource Godot class, for the checks the addon makes before RQL
+        /// would: script classes it builds itself and the call validators (dry runs fail like the real call).
+        /// </summary>
+        public static string Refusal(string className) =>
+            $"{className} is an engine object and cannot be built from an object literal; pass an existing one " +
+            $"(e.g. ref(\"{className}#…\") or a node path) or create it with AddChild / editor.CreateNode";
     }
 }
 #endif

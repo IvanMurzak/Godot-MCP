@@ -219,8 +219,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +
             "its path or ref(\"Node3D#…\"); the scene root by default) and Godot properties of the new node (position, rotation_degrees, " +
             "scale, mesh, visible …; local, not global_*). Every item is checked before the first node is made; all of them are one " +
-            "undo step.\n" +
-            "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
+            "undo step. By name, the options stay one object: call editor.CreateNode({className: \"Node3D\", options: {name: \"Pivot\"}}).\n" +
+            "Object literals build values and resources (meshes, shapes, materials …), never nodes (AddChild / CreateNode create " +
+            "those): set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
             "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +
             "1000): still one all-or-nothing, undoable call. Nodes inside a scene " +

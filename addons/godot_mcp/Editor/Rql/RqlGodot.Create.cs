@@ -105,7 +105,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         // Every check of a new node that reads only: its name among the parent's children, and each property (it exists on the
-        // class or scene, its value converts). Object literals of non-resource values are built only by the call itself.
+        // class or scene, its value converts). An object literal for a non-resource property is refused here (RQL never builds
+        // an engine object from a literal), so a dry run fails like the call.
         private static void CheckNewNode(Node parent, NodeOptions? options, string tableKey, Func<Node> instantiate)
         {
             if (options == null) return;
@@ -114,9 +115,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             foreach (var kv in options.Properties)
             {
                 var info = PropertyEntry(table, kv.Key, tableKey);
-                if (kv.Value is IDictionary<string, object?> && (Variant.Type)info.Value["type"].AsInt32() == Variant.Type.Object
-                    && !typeof(Resource).IsAssignableFrom(GodotCallArguments.ObjectType(GodotCallArguments.ObjectClasses(info.Value["class_name"].AsString()))))
-                    continue;
+                if (kv.Value is IDictionary<string, object?> literal && (Variant.Type)info.Value["type"].AsInt32() == Variant.Type.Object)
+                {
+                    var target = GodotCallArguments.ObjectType(GodotCallArguments.ObjectClasses(info.Value["class_name"].AsString()));
+                    if (!typeof(Resource).IsAssignableFrom(target))
+                    {
+                        if (LiteralRefusal(literal, target) is { } refusal) throw new ArgumentException($"{kv.Key}: {refusal}");
+                        continue; // a literal naming a resource class for a property typed Object: built by the call
+                    }
+                }
                 ConvertProperty(kv.Value, info, options);
             }
         }

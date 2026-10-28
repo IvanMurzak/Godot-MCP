@@ -50,7 +50,7 @@ def bulk_create(host: str) -> None:
         f'range(0, {GRID}) | call editor.CreateNode("MeshInstance3D", {{name: "Cube" + $, '
         'position: [($ % 15) * 2, 0, floor($ / 15) * 2], mesh: {class: "BoxMesh"}})', GRID))
     # RQL compact receipt (table format, 2+ rows): total in the header, the shared method once, 50 created nodes, the rest counted.
-    check("BC compact receipt", receipt.startswith(f"{GRID} results") and "method: CreateNode(" in receipt
+    check("BC compact receipt", re.search(rf"^{GRID} results$", receipt, re.M) is not None and "method: CreateNode(" in receipt
           and len(re.findall(r"MeshInstance3D#\d+", receipt)) == 50 and f"{GRID - 50} more row(s) not shown" in receipt,
           receipt[:400])
     check("BC 300 cubes in the scene", count(host, 'name starts-with "Cube"') == GRID)
@@ -82,6 +82,10 @@ def validated_first(host: str) -> None:
     dry = must("BC dry run", tool(host, "rql-mutate", {"query": 'range(0, 2) | call editor.CreateNode("Node3D", {name: "Dry" + $})', "dry_run": True}))
     has("BC dry run receipt", dry, "(dry-run)")
     check("BC dry run created nothing", count(host, 'name starts-with "Dry"') == 0)
+    # RQL never builds an engine object from a literal; the validator refuses a node literal before the call (dry runs too).
+    fails("BC a node literal refused on a dry run", mutate(host, 'godot.find("Cube0") | call CallMethod("add_child", [{class: "Node3D"}])',
+          dry_run=True), "engine object")
+    check("BC the node literal made nothing", count(host, 'parent.name == "Cube0"') == 0)
 
 
 def instantiate(host: str, coin: str) -> None:

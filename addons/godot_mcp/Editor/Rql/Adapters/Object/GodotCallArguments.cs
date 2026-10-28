@@ -62,9 +62,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var declared = methodInfo?["args"].AsGodotArray<global::Godot.Collections.Dictionary>();
             var result = new Variant[values.Count];
             for (var i = 0; i < values.Count; i++)
-                result[i] = !build && values[i] is ObjectValue ? default // not built while validating
-                    : declared != null && i < declared.Count ? ConvertOne(values[i], declared[i], args!.Kernel, method, i)
+            {
+                if (!build && values[i] is ObjectValue literal)
+                {
+                    // Not built while validating; a literal for a non-resource object argument is refused now, as the call would.
+                    if (declared != null && i < declared.Count && (Variant.Type)declared[i]["type"].AsInt32() == Variant.Type.Object
+                        && RqlGodot.LiteralRefusal(literal, ObjectType(ObjectClasses(declared[i]["class_name"].AsString()))) is { } refusal)
+                        throw new ArgumentException($"{method} argument {i + 1} ({declared[i]["name"].AsString()}): {refusal}");
+                    result[i] = default;
+                    continue;
+                }
+                result[i] = declared != null && i < declared.Count ? ConvertOne(values[i], declared[i], args!.Kernel, method, i)
                     : GodotVariants.ToVariant(values[i]);
+            }
             return result;
         }
 

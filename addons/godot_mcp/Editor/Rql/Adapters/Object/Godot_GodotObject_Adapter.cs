@@ -76,7 +76,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// <c>{class: "BoxShape3D", …}</c> (the member every Godot object reads as): an embedded sub-resource for a property
         /// (shape, mesh, material, environment …). A Godot class goes to RQL's own construction (C# members); a class Godot
         /// cannot instantiate is refused (C# would build a useless abstract Mesh); a script class (GDScript <c>class_name</c>)
-        /// is built here, its other keys written as Godot properties (snake_case or the C#-style name).
+        /// is built here only when it is a Resource (a Node script class is an engine object), its other keys written as Godot properties (snake_case or the C#-style name).
         /// </summary>
         private static AdapterOutcome TryBuild(ObjectValue literal, Type target, RqlKernel kernel, out object? result, out string? reason)
         {
@@ -97,8 +97,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 return AdapterOutcome.NotHandled;
             }
             if (!RqlGodot.IsGlobalScriptClass(className)) return AdapterOutcome.NotHandled;
+            // Only a script Resource is built from a literal: RQL refuses engine objects (a Node script class included), and an
+            // overload check runs this adapter without keeping its result, so a built Node would leak.
+            if (RqlGodot.LiteralRefusal(literal, target) is { } refusal) { reason = refusal; return AdapterOutcome.Failed; }
             GodotObject built;
-            try { built = RqlGodot.Instantiate<GodotObject>(className, typeof(Resource).IsAssignableFrom(target) ? "Resource" : "Object", "class"); }
+            try { built = RqlGodot.Instantiate<GodotObject>(className, "Resource", "class"); }
             catch (ArgumentException e) { reason = e.Message; return AdapterOutcome.Failed; }
             reason = target.IsInstanceOfType(built) ? SetScriptProperties(built, className, key, literal, kernel) : $"a {className} is not a {target.Name}";
             if (reason == null) { result = built; return AdapterOutcome.Ok; }
