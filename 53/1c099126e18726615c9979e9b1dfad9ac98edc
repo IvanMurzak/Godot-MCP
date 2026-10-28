@@ -1,0 +1,81 @@
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_385638672d9a72 3
+Godot-MCP.Tests/AssemblyReloadGateTests.cs
+  s_7bc72ecaebd05d::t_b4e42f32491146 300
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_c743e881632de1 52-53
+Godot-MCP.Tests/GodotMcpRuntimeBuilderTests.cs
+  s_7bc72ecaebd05d::t_1098092fc67780 56-61
+Godot-MCP.Tests/RqlBulkCreateOptionsTests.cs
+  s_7bc72ecaebd05d::t_856e6036ae1ebf 31-33,95-104
+Godot-MCP.Tests/ScriptExecuteTests.cs
+  s_7bc72ecaebd05d::t_d322334844918e 51-59
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_2a4aa50c2b1a41 33,44-45
+Godot-Tests/Godot-Tests.csproj
+  s_7bc72ecaebd05d::t_75ac1aaabb7fe2 15,43-44
+Godot-Tests/README.md
+  s_7bc72ecaebd05d::t_9c156a6dab8511 15
+README.md
+  s_7bc72ecaebd05d::t_11ca539470f9b3 322-323,338-339,473,670-671
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_7bc72ecaebd05d::t_32d283e07fd9a4 504-506
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotCallArguments.cs
+  s_7bc72ecaebd05d::t_c9cdd3929f9a23 102-103,110-112,116-129
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Create.cs
+  s_7be60963fe3603::t_57166449be9036 20
+addons/godot_mcp/Editor/Rql/RqlGodot.Create.cs
+  s_7bc72ecaebd05d::t_73f0c8cf479b63 118,157-160,195-202,205-206
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7be60963fe3603::t_d9893cef8d00f2 87-88,220-222
+addons/godot_mcp/Runtime/GodotMcpRuntimeHandle.cs
+  s_7bc72ecaebd05d::t_b7965e58768c39 51-53,57-58,60-75,100,102-103
+addons/godot_mcp/Runtime/Tools/ScriptExecuteSource.cs
+  s_7bc72ecaebd05d::t_4255c9fa734404 36-40,44-49
+addons/godot_mcp/Runtime/Tools/ScriptExecutor.cs
+  s_7bc72ecaebd05d::t_6a0e2a165c665b 70-71,93,96-97,109-110
+cli/CHANGELOG.md
+  s_7be60963fe3603::t_f7e76e23339a21 7-11
+cli/README.md
+  s_7bc72ecaebd05d::t_2adf839f969831 293-295
+cli/src/lib/install-plugin.ts
+  s_7bc72ecaebd05d::t_a9f156b6e020b2 332
+cli/src/utils/addon-deps.ts
+  s_7bc72ecaebd05d::t_721f3d48f318f1 87-88
+cli/src/utils/csproj-deps.ts
+  s_7bc72ecaebd05d::t_65d9dcf40300d8 375-377,381-397,400-404,407
+cli/tests/csproj-deps.test.ts
+  s_7bc72ecaebd05d::t_737e0a6ac8cfa4 414-433
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_efb37be2401303 274
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_f76a9d43e82cbc 72-73
+docs/runtime-security.md
+  s_7bc72ecaebd05d::t_13eb6441e55b91 112
+scripts/smoke_rql_bulk.py
+  s_7bc72ecaebd05d::t_b664107fd47311 14,31-33,70-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "531c099126e18726615c9979e9b1dfad9ac98edc",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
