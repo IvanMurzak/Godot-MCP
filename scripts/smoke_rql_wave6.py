@@ -49,6 +49,7 @@ def folders(host: str, project: pathlib.Path, d: str) -> None:
     has("W6F empty folder reads empty", rows, "w6_empty/|true")
     has("W6F folder with a file reads not empty", rows, "w6_full/|false")
     fails("W6F a non-empty folder is refused", mutate(host, f"editor | call DeleteFolder({q(full)})"), "not empty")
+    fails("W6F DeleteResource on a folder names DeleteFolder", mutate(host, f"editor | call DeleteResource({q(empty + '/')})"), "DeleteFolder")
     fails("W6F a missing folder is refused", mutate(host, f'editor | call DeleteFolder({q(d + "/w6_nope")})'), "no folder")
     must("W6F dry run", tool(host, "rql-mutate", {"query": f"editor | call DeleteFolder({q(empty)})", "dry_run": True}))
     check("W6F dry run keeps it", (project / empty.replace("res://", "")).is_dir())

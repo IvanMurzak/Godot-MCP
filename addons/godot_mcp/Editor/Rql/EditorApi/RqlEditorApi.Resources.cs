@@ -84,6 +84,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static string DeletablePath(string path, bool force)
         {
+            // A folder (wave 6: agents tried DeleteResource("res://empty_folder/")): name the operation that deletes one.
+            if (path != null && path.StartsWith("res://", StringComparison.Ordinal) && path.Trim().TrimEnd('/').Length > "res:/".Length
+                && DirAccess.DirExistsAbsolute(path.Trim().TrimEnd('/')))
+                throw new ArgumentException($"'{path}' is a folder; delete an empty folder with editor | call DeleteFolder(\"{path.Trim().TrimEnd('/')}\")");
             var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             RequireUnprotected(resPath);
             if (!FileAccess.FileExists(resPath)) throw new ArgumentException($"no file exists at '{resPath}'");
