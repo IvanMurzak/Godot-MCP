@@ -255,6 +255,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return diagnostics;
         }
 
+        static readonly StringName SettingsChangedSignal = "settings_changed";
+
         /// <summary>
         /// The GDScript warnings (unused variables, shadowing …) of the <paramref name="files"/> that have no error, which Godot
         /// shows only in the script editor: the Warn-level warning settings are raised to Error in memory for one probe of
@@ -281,6 +283,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     ProjectSettings.SetSetting(name, 2);
                     raisedSoFar.Add(name);
                 }
+                // Godot 4.6+ caches the warning levels and refreshes them on settings_changed, which ProjectSettings emits
+                // deferred (next frame): emit it now so this frame's probes see the raised levels (4.5 reads them directly).
+                RqlProject.Instance.EmitSignal(SettingsChangedSignal);
                 foreach (var (path, content) in files)
                 {
                     if (skipAddons && path.StartsWith("res://addons/", StringComparison.Ordinal))
@@ -298,6 +303,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 foreach (var name in raisedSoFar)
                     ProjectSettings.SetSetting(name, 1);
+                if (raisedSoFar.Count > 0)
+                    RqlProject.Instance.EmitSignal(SettingsChangedSignal);
             }
             return found;
         }
