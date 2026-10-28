@@ -29,7 +29,7 @@
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
     TEMPORARY PRE-RELEASE PINS (owner rule: between test waves RQL, Code-Exec and McpPlugin are not released; plugins consume
-    their main commits): com.IvanMurzak.Rql 0.3.0-dev.0f1bf94 is packed from RQL main 0f1bf94, com.IvanMurzak.CodeExec + .Roslyn
+    their main commits): com.IvanMurzak.Rql 0.3.0-dev.2877579 is packed from RQL main 2877579, com.IvanMurzak.CodeExec + .Roslyn
     0.4.0-dev.2b784e4 from Code-Exec main 2b784e4, com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the
     server build) 8.14.0-dev.e8985d5 from MCP-Plugin-dotnet main e8985d5 (the McpPlugin pin above; same build as
     GameDev-MCP-Server), all committed under prerelease-packages/; the
@@ -42,7 +42,7 @@
     <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.0f1bf94" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2877579" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2b784e4" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />

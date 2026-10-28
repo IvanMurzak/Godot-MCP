@@ -74,6 +74,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             };
             engine.Defaults.BudgetsAdjustable = false;
             RqlTargetLimit.Configure(engine.Mutations);
+            RqlLiteralPolicy.Configure(engine.Mutations); // literals build Resources (sub-resources), never Nodes
             var knownMembers = new Lazy<HashSet<string>>(() => KnownMemberNames(engine), System.Threading.LazyThreadSafetyMode.PublicationOnly);
             engine.IsKnownMember = name => knownMembers.Value.Contains(name);
             engine.ResolveStableRef = ResolveStableRef;

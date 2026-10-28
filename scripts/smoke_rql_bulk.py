@@ -2,8 +2,9 @@
 """
 Live cases of the RQL 0.3 features the editor adopts, run by scripts/smoke_rql.py against a running editor: bulk create
 (range(0, 300) | call editor.CreateNode(...) and a list literal | call editor.InstantiateScene(...): every item checked before
-the first node is made, one undo step, a receipt row with each node's $ref), component-wise vector arithmetic
-(set Scale = Scale * 1.5), absent property-map keys reading null, and distinct merging scales that print alike.
+the first node is made, one undo step, a compact receipt: the method once, the first 50 created nodes, a count of the rest),
+arguments by name, component-wise vector arithmetic (set Scale = Scale * 1.5), absent property-map keys reading null, and
+distinct merging scales that print alike.
 Pure stdlib, Python 3.8+.
 """
 from __future__ import annotations
@@ -44,11 +45,14 @@ def mutate_max(host: str, text: str, max_targets: int) -> tuple[bool, str]:
 
 
 def bulk_create(host: str) -> None:
-    """300 cubes on a 15-wide grid in one call: one receipt row per node with its $ref, one undo step."""
+    """300 cubes on a 15-wide grid in one call (a compact receipt), one undo step; a node created with named arguments."""
     receipt = must("BC create 300 cubes", mutate_max(host,
         f'range(0, {GRID}) | call editor.CreateNode("MeshInstance3D", {{name: "Cube" + $, '
         'position: [($ % 15) * 2, 0, floor($ / 15) * 2], mesh: {class: "BoxMesh"}})', GRID))
-    check("BC receipt has a $ref row per node", len(re.findall(r"MeshInstance3D#\d+", receipt)) >= GRID, receipt[:400])
+    # RQL compact receipt (table format, 2+ rows): total in the header, the shared method once, 50 created nodes, the rest counted.
+    check("BC compact receipt", receipt.startswith(f"{GRID} results") and "method: CreateNode(" in receipt
+          and len(re.findall(r"MeshInstance3D#\d+", receipt)) == 50 and f"{GRID - 50} more row(s) not shown" in receipt,
+          receipt[:400])
     check("BC 300 cubes in the scene", count(host, 'name starts-with "Cube"') == GRID)
     value_is("BC the last cube sits on the grid", must("BC read Cube299",
         query(host, 'nodes | where name == "Cube299" | select Position')), "(28, 0, 38)")
@@ -57,6 +61,10 @@ def bulk_create(host: str) -> None:
     check("BC one undo removes all 300", count(host, 'name starts-with "Cube"') == 0)
     must("BC redo", mutate(host, "editor | call Redo()"))
     check("BC redo brings all 300 back", count(host, 'name starts-with "Cube"') == GRID)
+    named = must("BC create by name", mutate(host,
+        'editor | call CreateNode({className: "Node3D", options: {name: "NamedArgs", position: [1, 2, 3]}})'))
+    has("BC named arguments create the node", named, "(NamedArgs)")
+    must("BC drop the named node", mutate(host, 'nodes | where name == "NamedArgs" | call Free()'))
 
 
 def validated_first(host: str) -> None:

@@ -147,7 +147,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2   spread the matches along X\n" +
             "  godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"   edit a resource file (saved to disk)\n" +
             "  root | call AddChild(\"Node3D\", \"Props\")   new child node of a class; the receipt's result column holds its $ref\n" +
-            "  range(0, 100) | call editor.CreateNode(\"MeshInstance3D\", {name: \"Cube\" + $, parent: \"Props\", position: [($ % 10) * 2, 0, floor($ / 10) * 2], mesh: {class: \"BoxMesh\"}})   bulk create: a 10 x 10 grid of cubes in one call and one undo step (one receipt row per node, with its $ref)\n" +
+            "  range(0, 100) | call editor.CreateNode(\"MeshInstance3D\", {name: \"Cube\" + $, parent: \"Props\", position: [($ % 10) * 2, 0, floor($ / 10) * 2], mesh: {class: \"BoxMesh\"}})   bulk create: a 10 x 10 grid of cubes in one call and one undo step (one receipt row per node with its $ref; a long receipt lists the first 50 and counts the rest)\n" +
             "  [[\"CoinA\", 0], [\"CoinB\", 3]] | call editor.InstantiateScene(\"res://scenes/enemy.tscn\", {name: $[0], parent: \"Props\", position: [$[1], 1, 0]})   one scene instance per list entry\n" +
             "  nodes | where name starts-with \"Cube\" | set Scale = Scale * 1.5   vectors and colors compute component-wise\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
