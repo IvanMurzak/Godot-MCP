@@ -15,7 +15,8 @@ It does NOT launch anything. Start the editor with godot-cli (it sets DOTNET_Thr
 dotnet/runtime#135441 mitigation, see README "Known issue"), or by hand with that variable:
 
     godot-cli open <project> --headless
-    DOTNET_ThreadPool_ThreadsToKeepAlive=-1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080         godot --headless --path <project> --editor &
+    DOTNET_ThreadPool_ThreadsToKeepAlive=-1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\
+        godot --headless --path <project> --editor &
     python scripts/smoke_reload.py --host http://localhost:8080 --project <project> --rounds 10
 
 `--project` gets `res://SmokeReload/*.cs` files (removed again at the end, followed by one more build). Use a

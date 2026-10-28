@@ -372,7 +372,7 @@ export interface LaunchEditorCallbacks {
 }
 
 /**
- * .NET runtime setting every editor the CLI starts gets (unless the user already set it): idle thread-pool threads stay
+ * .NET runtime setting every editor the CLI starts gets (unless the user set a non-empty value): idle thread-pool threads stay
  * alive. Works around dotnet/runtime#135441: on .NET 10, a thread that exits after a C# assembly reload can free a
  * handle in the wrong collectible load context and corrupt a live static of the reloaded plugin (crash or hang on
  * reload). Fixed on the runtime's main branch (dotnet/runtime#134983); the .NET 10 servicing fix is
@@ -381,7 +381,7 @@ export interface LaunchEditorCallbacks {
 export const DOTNET_THREADS_TO_KEEP_ALIVE_ENV = 'DOTNET_ThreadPool_ThreadsToKeepAlive';
 
 export function dotnetRuntimeWorkaroundEnv(processEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return processEnv[DOTNET_THREADS_TO_KEEP_ALIVE_ENV] === undefined ? { [DOTNET_THREADS_TO_KEEP_ALIVE_ENV]: '-1' } : {};
+  return processEnv[DOTNET_THREADS_TO_KEEP_ALIVE_ENV]?.trim() ? {} : { [DOTNET_THREADS_TO_KEEP_ALIVE_ENV]: '-1' };
 }
 
 /**

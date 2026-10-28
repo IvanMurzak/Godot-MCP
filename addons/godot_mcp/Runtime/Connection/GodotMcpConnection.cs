@@ -1006,12 +1006,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Count summary (enabled, total, enabledTokenCount) for a feature kind, or null when the
+        /// Count summary (visible, total, visibleTokenCount) for a feature kind, or null when the
         /// plugin/managers are not yet available (the panel shows the "—" placeholder then). Only the
         /// <see cref="GodotMcpFeatureKind.Tools"/> kind reports a non-zero token count
         /// (<c>VisibleToolsTokenCount</c>); prompts/resources have no token analog.
         /// </summary>
-        public (int Enabled, int Total, int EnabledTokenCount)? GetFeatureCounts(GodotMcpFeatureKind kind)
+        public (int Visible, int Total, int VisibleTokenCount)? GetFeatureCounts(GodotMcpFeatureKind kind)
         {
             var manager = FeatureManager(kind, _plugin);
             return manager?.GetCounts();

@@ -315,9 +315,7 @@ describe('launchEditor', () => {
     expect(args).toEqual(['--editor', '--path', path.resolve('/my/project')]);
     expect(opts).toMatchObject({ detached: true, stdio: 'ignore' });
     expect((opts as { env: Record<string, string> }).env['GODOT_MCP_HOST']).toBe('http://localhost:9000');
-    expect((opts as { env: Record<string, string> }).env['DOTNET_ThreadPool_ThreadsToKeepAlive']).toBe(
-      process.env.DOTNET_ThreadPool_ThreadsToKeepAlive ?? '-1',
-    );
+    expect((opts as { env: Record<string, string> }).env).toMatchObject(dotnetRuntimeWorkaroundEnv());
     expect(unref).toHaveBeenCalledTimes(1);
     expect(child).toBe(fakeChild);
   });
@@ -328,7 +326,8 @@ describe('dotnetRuntimeWorkaroundEnv (dotnet/runtime#135441)', () => {
     expect(dotnetRuntimeWorkaroundEnv({})).toEqual({ DOTNET_ThreadPool_ThreadsToKeepAlive: '-1' });
   });
 
-  it('leaves a value the user set alone', () => {
+  it('leaves a value the user set alone, and treats an empty one as unset', () => {
     expect(dotnetRuntimeWorkaroundEnv({ DOTNET_ThreadPool_ThreadsToKeepAlive: '4' })).toEqual({});
+    expect(dotnetRuntimeWorkaroundEnv({ DOTNET_ThreadPool_ThreadsToKeepAlive: ' ' })).toEqual({ DOTNET_ThreadPool_ThreadsToKeepAlive: '-1' });
   });
 });

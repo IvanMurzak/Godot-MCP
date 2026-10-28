@@ -81,14 +81,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
         }
 
-        // Threads inside a GD writer of Emit (managed thread id -> nesting depth): the engine-error logger is called back
+        // Threads inside a GD writer of Emit (keyed by managed thread id): the engine-error logger is called back
         // synchronously on that thread for a PushError / PushWarning and must not collect the same line a second time
         // (ScriptErrorCapture.Route). Deliberately NOT a thread-static field: thread statics of an assembly in Godot's reloadable
         // context can corrupt a live static of the reloaded plugin on .NET 10 (dotnet/runtime#135441).
-        static readonly ConcurrentDictionary<int, int> EmittingDepth = new();
+        static readonly ConcurrentDictionary<int, byte> EmittingThreads = new();
 
         /// <summary>Whether this thread is inside one of the plugin's own diagnostics (its GD writer).</summary>
-        internal static bool IsEmitting => EmittingDepth.ContainsKey(System.Environment.CurrentManagedThreadId);
+        internal static bool IsEmitting => !EmittingThreads.IsEmpty && EmittingThreads.ContainsKey(System.Environment.CurrentManagedThreadId);
 
         /// <summary>
         /// The one sanctioned native sink: invoke the <see cref="GD"/> writer, then append to the collector.
@@ -98,17 +98,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         internal static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
         {
+            // The outermost Emit of a thread owns its entry; a nested one finds it present and leaves it alone.
             var thread = System.Environment.CurrentManagedThreadId;
-            EmittingDepth.AddOrUpdate(thread, 1, static (_, depth) => depth + 1);
+            var owner = EmittingThreads.TryAdd(thread, 0);
             try { gd(); }
             catch { /* GD may be unavailable mid editor-reload; swallow */ }
             finally
             {
-                // Only this thread touches its own entry, so the read-then-write below cannot race.
-                if (EmittingDepth.TryGetValue(thread, out var depth) && depth > 1)
-                    EmittingDepth[thread] = depth - 1;
-                else
-                    EmittingDepth.TryRemove(thread, out _);
+                if (owner)
+                    EmittingThreads.TryRemove(thread, out _);
             }
 
             if (!collect) return;

@@ -34,10 +34,6 @@ function buildAction(
   return { enableNames: enable, disableNames: disable, enableAll, disableAll };
 }
 
-function snapshotFeatures(config: GodotMcpFeaturesConfig, key: 'tools' | 'prompts' | 'resources'): McpFeature[] {
-  return readFeatures(config[key]);
-}
-
 export const configureCommand = new Command('configure')
   .description(
     'Configure an AI agent for the project (--agent <id> proxies to the managed gamedev-mcp-server binary, writing that client\'s MCP config with the derived pin + port), OR list / show / hide MCP tools, prompts, and resources in the project-local .godot-mcp/features.json (visibility only decides what MCP clients see listed; a hidden tool still runs when called by name)',
@@ -158,9 +154,9 @@ export const configureCommand = new Command('configure')
           }
         };
 
-        printFeatures('Tools', snapshotFeatures(config, 'tools'));
-        printFeatures('Prompts', snapshotFeatures(config, 'prompts'));
-        printFeatures('Resources', snapshotFeatures(config, 'resources'));
+        printFeatures('Tools', readFeatures(config.tools));
+        printFeatures('Prompts', readFeatures(config.prompts));
+        printFeatures('Resources', readFeatures(config.resources));
         return;
       }
 

@@ -85,11 +85,6 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
-        /// Finalize a <see cref="GodotMcpRuntimeBuilder"/>: build the reused MCP plugin (reflector +
-        /// opted-in tools + resolved config), bootstrap the main-thread dispatcher, and return the handle.
-        /// Called by <see cref="GodotMcpRuntimeBuilder.Build"/>; not invoked directly.
-        /// </summary>
-        /// <summary>
         /// The game's connection config: a fresh <see cref="GodotMcpConfig"/> with the developer's <c>WithConfig</c>
         /// mutations applied, declared as a <see cref="ClientRole.Runtime"/> connection. The role is set after those
         /// mutations so a game can never register as the editor: the server keeps one editor and one runtime
@@ -103,6 +98,11 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             return config;
         }
 
+        /// <summary>
+        /// Finalize a <see cref="GodotMcpRuntimeBuilder"/>: build the reused MCP plugin (reflector +
+        /// opted-in tools + resolved config), bootstrap the main-thread dispatcher, and return the handle.
+        /// Called by <see cref="GodotMcpRuntimeBuilder.Build"/>; not invoked directly.
+        /// </summary>
         internal static GodotMcpRuntimeHandle Build(GodotMcpRuntimeBuilder builder)
         {
             if (builder == null)
