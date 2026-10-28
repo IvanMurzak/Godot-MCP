@@ -16,13 +16,10 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     /// <summary>
-    /// Which Godot types an object literal may build (RQL spec §4.5, <see cref="MutationPolicy.CanConstructFromLiteral"/>).
-    /// Since RQL 2877579 a type with an identity or liveness adapter is an engine object and is never built from a literal; the
-    /// GodotObject adapter gives every Godot object both, which would refuse <c>set Mesh = {$type: "BoxMesh", …}</c>. A
-    /// Resource built from a literal is what the editor's inspector does for "New BoxMesh": an embedded sub-resource with no
-    /// side effect until it is assigned, so Resources stay constructible. Nodes (and other objects) keep RQL's default refusal:
-    /// they are created through AddChild / editor.CreateNode, which add them to the scene with an undo step.
-    /// Pure (no Godot API call): unit-tested.
+    /// Which Godot types an object literal may build (<see cref="MutationPolicy.CanConstructFromLiteral"/>). RQL refuses to
+    /// build a type with an identity or liveness adapter, and the GodotObject adapter gives every Godot object both. A
+    /// Resource literal is an embedded sub-resource (like the inspector's "New BoxMesh"), so Resources stay constructible;
+    /// Nodes keep the refusal (AddChild / editor.CreateNode add them to the scene with an undo step). Pure: unit-tested.
     /// </summary>
     internal static class RqlLiteralPolicy
     {

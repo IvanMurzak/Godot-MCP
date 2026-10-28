@@ -16,12 +16,7 @@ using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
-    /// <summary>
-    /// RQL 2877579 never builds an engine object (a type with an identity / liveness adapter, i.e. every GodotObject) from an
-    /// object literal unless the host says so: Resources (embedded meshes, shapes, materials …) must stay constructible,
-    /// Nodes keep the refusal. The live CI smoke builds such literals in the editor; here only the decision (no native type
-    /// is instantiated).
-    /// </summary>
+    /// <summary>The literal policy's decision only (no native type is instantiated); the live smoke builds the literals.</summary>
     public class RqlLiteralPolicyTests
     {
         [Theory]
