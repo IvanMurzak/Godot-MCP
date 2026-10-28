@@ -1,0 +1,21 @@
+scripts/dock_reload_harness.py
+  s_7bc72ecaebd05d::t_07e5bfba100f69 140-141
+scripts/extension_live.py
+  s_7bc72ecaebd05d::t_539ca16d82c777 203-204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43ea0adf5b169450379f951627128e4522107742",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
