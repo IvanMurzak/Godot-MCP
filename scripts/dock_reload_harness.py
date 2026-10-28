@@ -135,6 +135,10 @@ def main() -> int:
         return 2
 
     env = dict(os.environ)
+    # dotnet/runtime#135441: keep idle thread-pool threads alive so a thread exiting after a C# reload cannot corrupt the
+    # reloaded plugin (.NET 10 until dotnet/runtime#136481 ships).
+    if not env.get("DOTNET_ThreadPool_ThreadsToKeepAlive", "").strip():  # an empty value counts as unset, as in godot-cli
+        env["DOTNET_ThreadPool_ThreadsToKeepAlive"] = "-1"
     env["GODOT_MCP_DEV_CONTROL"] = "1"
     env["GODOT_MCP_DEV_CONTROL_PORT"] = str(args.port)
 

@@ -15,7 +15,7 @@ import {
 } from '@baizor/gamedev-cli-core';
 import { buildProject } from './build.js';
 import { runSystemTool } from './run-tool.js';
-import { findGodotBinary } from '../utils/godot-editor.js';
+import { dotnetRuntimeWorkaroundEnv, findGodotBinary } from '../utils/godot-editor.js';
 import { findGodotProcess } from '../utils/godot-process.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import {
@@ -72,6 +72,7 @@ export interface GodotSession {
  */
 export function sessionEditorEnv(url: string, token: string | undefined): Record<string, string> {
   return {
+    ...dotnetRuntimeWorkaroundEnv(),
     [ENV_CONNECTION_MODE]: SESSION_CONNECTION_MODE,
     [ENV_HOST]: url,
     [ENV_START_SERVER]: 'true',

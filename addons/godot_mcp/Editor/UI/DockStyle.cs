@@ -631,14 +631,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>
         /// Build the per-row "card" <see cref="StyleBoxFlat"/> for a feature item: rounded
         /// (<see cref="DockTheme.RowCornerRadius"/>), padded (<see cref="DockTheme.RowContentPadding"/>), and tinted
-        /// by enabled-state — soft green when <paramref name="enabled"/>, soft red otherwise
+        /// by visibility — soft green when <paramref name="visible"/>, soft red otherwise
         /// (<see cref="DockTheme.RowTint"/>).
         /// </summary>
-        public static StyleBoxFlat RowStyleBox(bool enabled)
+        public static StyleBoxFlat RowStyleBox(bool visible)
         {
             var box = new StyleBoxFlat
             {
-                BgColor = Rgba(DockTheme.RowTint(enabled))
+                BgColor = Rgba(DockTheme.RowTint(visible))
             };
             box.SetCornerRadiusAll(DockTheme.RowCornerRadius);
             box.ContentMarginLeft = DockTheme.RowContentPadding;
@@ -650,13 +650,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         /// <summary>
         /// Wrap a feature row's <paramref name="content"/> in a tinted, rounded <see cref="PanelContainer"/> card
-        /// (<see cref="RowStyleBox"/>) whose tint reflects <paramref name="enabled"/>. The caller adds the returned
+        /// (<see cref="RowStyleBox"/>) whose tint reflects <paramref name="visible"/>. The caller adds the returned
         /// panel to the list; the content is reparented INTO the card.
         /// </summary>
-        public static PanelContainer RowCard(Control content, string name, bool enabled)
+        public static PanelContainer RowCard(Control content, string name, bool visible)
         {
             var panel = new PanelContainer { Name = name, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-            panel.AddThemeStyleboxOverride("panel", RowStyleBox(enabled));
+            panel.AddThemeStyleboxOverride("panel", RowStyleBox(visible));
             panel.AddChild(content);
             return panel;
         }

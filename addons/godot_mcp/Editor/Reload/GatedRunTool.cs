@@ -75,20 +75,18 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         }
 
         /// <summary>
-        /// HTTP 503 tells the server nothing of the call ran, so it re-sends it once the editor is back (GameDev-MCP-Server's
-        /// "not executed" contract). Only the gate's own refusal qualifies: the call never reached the tool.
+        /// McpPlugin's "not executed" answer (Unavailable, HTTP 503) tells the server nothing of the call ran, so it re-sends it
+        /// once the editor is back. Only the gate's own refusal qualifies: the call never reached the tool.
         /// </summary>
-        public const int NotStartedStatusCode = 503;
-
         static ResponseCallTool NotStarted(string? refusal, string requestId)
-            => ResponseCallTool.Error(refusal, ResponseErrorKind.Unavailable, httpStatusCode: NotStartedStatusCode).SetRequestID(requestId);
+            => ResponseCallTool.NotExecuted(refusal ?? AssemblyReloadGate.UnloadingMessage).SetRequestID(requestId);
 
         // A body refused on the main thread after the tool began (its off-thread part may have run): retryable, but no 503, so
         // the server reports it instead of re-sending a call that may have started.
         static ResponseCallTool Refused(string? refusal, string requestId)
             => ResponseCallTool.Error(refusal, ResponseErrorKind.Unavailable).SetRequestID(requestId);
 
-        public bool Enabled { get => Inner.Enabled; set => Inner.Enabled = value; }
+        public bool Visible { get => Inner.Visible; set => Inner.Visible = value; }
         public string Name => Inner.Name;
         public string? Title => Inner.Title;
         public string? Description => Inner.Description;

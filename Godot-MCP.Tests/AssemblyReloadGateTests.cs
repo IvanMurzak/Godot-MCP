@@ -219,7 +219,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             public FakeTool(string name) => Name = name;
             public int Calls;
             public TaskCompletionSource<ResponseCallTool>? Pending;
-            public bool Enabled { get; set; } = true;
+            public bool Visible { get; set; } = true;
             public string Name { get; }
             public string? Title => Name + " title";
             public string? Description => Name + " description";
@@ -261,8 +261,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(ResponseErrorKind.Unavailable, result.ErrorKind);
             Assert.Equal("req-1", result.RequestID);
             Assert.Contains(AssemblyReloadGate.UnloadingMessage, result.GetMessage());
-            // Nothing ran: 503 lets the server re-send the call once the editor is back.
-            Assert.Equal(503, result.HttpStatusCode);
+            // Nothing ran: McpPlugin's "not executed" answer (503) lets the server re-send the call once the editor is back.
+            Assert.Equal(ResponseCallTool.NotExecutedStatusCode, result.HttpStatusCode);
         }
 
         [Fact]
@@ -324,7 +324,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Wrapper_ForwardsTheToolDefinition_AndEnabledState()
+        public void Wrapper_ForwardsTheToolDefinition_AndVisibility()
         {
             var inner = new FakeTool("script-read");
             var gated = new GatedRunTool(inner, OpenGate());
@@ -337,8 +337,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(inner.TokenCount, gated.TokenCount);
             Assert.Equal(McpToolType.Standard, gated.ToolType);
 
-            gated.Enabled = false;
-            Assert.False(inner.Enabled);
+            gated.Visible = false;
+            Assert.False(inner.Visible);
         }
 
         [Fact]

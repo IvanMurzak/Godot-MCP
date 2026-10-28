@@ -11,9 +11,12 @@ that the plugin answers again and that the new class is loaded (`script-execute`
 carry the gate's retryable message; a call lost with the connection while it goes down is only counted. A broken script must come back as compiler errors without a reload. With
 `--editor-log` the editor's output must show no failed unload.
 
-It does NOT launch anything:
+It does NOT launch anything. Start the editor with godot-cli (it sets DOTNET_ThreadPool_ThreadsToKeepAlive=-1, the
+dotnet/runtime#135441 mitigation, see README "Known issue"), or by hand with that variable:
 
-    GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 godot --headless --path <project> --editor &
+    godot-cli open <project> --headless
+    DOTNET_ThreadPool_ThreadsToKeepAlive=-1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\
+        godot --headless --path <project> --editor &
     python scripts/smoke_reload.py --host http://localhost:8080 --project <project> --rounds 10
 
 `--project` gets `res://SmokeReload/*.cs` files (removed again at the end, followed by one more build). Use a

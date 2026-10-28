@@ -7,6 +7,7 @@ import * as path from 'path';
 import { EditorSessionError, readSessionLease, type EditorSession, type EnsureResult, type SessionLease } from '@baizor/gamedev-cli-core';
 import { buildScriptExecuteInput, execCode, readToolResponse, toolErrorText } from '../src/lib/exec.js';
 import { createGodotSession, ensureEditor, godotSessionAdapter, sessionEditorEnv } from '../src/lib/session.js';
+import { dotnetRuntimeWorkaroundEnv } from '../src/utils/godot-editor.js';
 import { runSystemTool } from '../src/lib/run-tool.js';
 import { findGodotProcess } from '../src/utils/godot-process.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from '../src/lib/types.js';
@@ -126,6 +127,7 @@ describe('toolErrorText', () => {
 describe('sessionEditorEnv', () => {
   it('connects the started editor to its local server, which it starts itself', () => {
     expect(sessionEditorEnv('http://localhost:5000', undefined)).toEqual({
+      ...dotnetRuntimeWorkaroundEnv(),
       GODOT_MCP_CONNECTION_MODE: 'Custom',
       GODOT_MCP_HOST: 'http://localhost:5000',
       GODOT_MCP_START_SERVER: 'true',

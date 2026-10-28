@@ -4,6 +4,13 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Editors the CLI starts get `DOTNET_ThreadPool_ThreadsToKeepAlive=-1`** (`open`, `open --headless`, `exec`; a value
+  you set is kept). Works around the .NET 10 runtime bug dotnet/runtime#135441 (crash or hang after a C# assembly
+  reload) until the servicing fix dotnet/runtime#136481 ships.
+- **`configure`: tools are shown or hidden, not enabled or disabled.** The flag only decides what MCP clients see listed;
+  a hidden tool still runs when called by name. `.godot-mcp/features.json` entries are written as `{ name, visible }`
+  (a file with the old `enabled` key is still read); `--list` prints `[visible]` / `[hidden]`. Flag names are unchanged.
+- **McpPlugin 8.14.0-dev.e8985d5 (temporary pre-release pin).** The `install-plugin` fallback pins follow the addon.
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.

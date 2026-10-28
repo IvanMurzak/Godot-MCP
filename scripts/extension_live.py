@@ -199,6 +199,9 @@ def live(plan, godot, server, output):
            'NUGET_PACKAGES': plan['nugetCache'], 'GODOT_MCP_CONNECTION_MODE': 'Custom',
            'GODOT_MCP_HOST': url, 'GODOT_MCP_AUTH_OPTION': 'None', 'ASPNETCORE_URLS': url}
     env.pop('GODOT_MCP_TOKEN', None)
+    # dotnet/runtime#135441 (.NET 10 until dotnet/runtime#136481 ships): idle thread-pool threads stay alive in the editors.
+    if not env.get('DOTNET_ThreadPool_ThreadsToKeepAlive', '').strip():  # an empty value counts as unset, as in godot-cli
+        env['DOTNET_ThreadPool_ThreadsToKeepAlive'] = '-1'
     processes, handles, identities = [], [], []
     def launch(name, args):
         handle = (output / (name + '.log')).open('w', encoding='utf-8')

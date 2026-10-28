@@ -331,6 +331,10 @@ namespace com.IvanMurzak.Godot.MCP
                 // single source of the first-load config; a resolve failure must not block dock/boot.
                 _connection.ResolveConfig();
 
+                // The editor's connection role (the McpPlugin default, stated so it never depends on it): the server
+                // routes agents to the editor and uses an in-game runtime only while no editor is connected.
+                _connection.Config.ClientRole = com.IvanMurzak.McpPlugin.Common.ClientRole.Editor;
+
                 // Publish the editor-side host the `godot-skill-*` SYSTEM tools delegate to, and clear it in
                 // Teardown, so a stale host can never pin the collectible ALC across a C# hot-reload — the
                 // same discipline GodotLogCollector.Current follows. (The dock's Skills card does NOT read

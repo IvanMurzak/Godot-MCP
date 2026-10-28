@@ -5,15 +5,36 @@ import * as path from 'path';
  * Project-local feature-override config the CLI manages. Godot's plugin
  * persists its live config in `user://godot-mcp-config.json` (outside the
  * project tree), which the CLI cannot reliably reach. This file is the CLI's
- * own in-project surface for declaring which tools/prompts/resources should be
- * enabled/disabled — a small, explicit, version-controllable override list a
- * user can commit alongside the project.
+ * own in-project surface for declaring which tools/prompts/resources are
+ * visible (listed to MCP clients) or hidden — a small, explicit,
+ * version-controllable override list a user can commit alongside the project.
+ * Visibility is not an access control: a hidden tool still runs through
+ * tools/call. Entries are written as `{ name, visible }`; a file written before
+ * the rename (`{ name, enabled }`) is still read.
  */
 export const CONFIG_RELATIVE_PATH = '.godot-mcp/features.json';
 
 export interface McpFeature {
   name: string;
-  enabled: boolean;
+  visible: boolean;
+}
+
+/**
+ * The well-formed entries of a feature group, as `{ name, visible }`. Accepts the pre-rename key `enabled`;
+ * `visible` wins when both are present. Anything else (non-objects, a non-string name, no boolean flag) is dropped.
+ */
+export function readFeatures(raw: unknown): McpFeature[] {
+  if (!Array.isArray(raw)) return [];
+  const features: McpFeature[] = [];
+  for (const entry of raw as unknown[]) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const { name, visible, enabled } = entry as { name?: unknown; visible?: unknown; enabled?: unknown };
+    if (typeof name !== 'string') continue;
+    const flag = typeof visible === 'boolean' ? visible : typeof enabled === 'boolean' ? enabled : undefined;
+    if (flag === undefined) continue;
+    features.push({ name, visible: flag });
+  }
+  return features;
 }
 
 export interface GodotMcpFeaturesConfig {
@@ -71,8 +92,8 @@ export function getOrCreateConfig(projectPath: string): GodotMcpFeaturesConfig {
 
 /**
  * Update a feature group (tools / prompts / resources) in the config.
- *   - enableNames: set these to enabled=true
- *   - disableNames: set these to enabled=false
+ *   - enableNames: set these to visible=true
+ *   - disableNames: set these to visible=false (hidden)
  *   - enableAll / disableAll: override every feature already present
  */
 export function updateFeatures(
@@ -85,22 +106,16 @@ export function updateFeatures(
     disableAll?: boolean;
   },
 ): void {
-  const rawFeatures = config[featureType];
-  const features: McpFeature[] = Array.isArray(rawFeatures)
-    ? rawFeatures.filter(
-        (f): f is McpFeature =>
-          typeof f === 'object' && f !== null && typeof f.name === 'string' && typeof f.enabled === 'boolean',
-      )
-    : [];
+  const features = readFeatures(config[featureType]);
 
   if (options.enableAll) {
-    for (const f of features) f.enabled = true;
+    for (const f of features) f.visible = true;
     config[featureType] = features;
     return;
   }
 
   if (options.disableAll) {
-    for (const f of features) f.enabled = false;
+    for (const f of features) f.visible = false;
     config[featureType] = features;
     return;
   }
@@ -108,16 +123,16 @@ export function updateFeatures(
   if (options.enableNames) {
     for (const name of options.enableNames) {
       const existing = features.find((f) => f.name === name);
-      if (existing) existing.enabled = true;
-      else features.push({ name, enabled: true });
+      if (existing) existing.visible = true;
+      else features.push({ name, visible: true });
     }
   }
 
   if (options.disableNames) {
     for (const name of options.disableNames) {
       const existing = features.find((f) => f.name === name);
-      if (existing) existing.enabled = false;
-      else features.push({ name, enabled: false });
+      if (existing) existing.visible = false;
+      else features.push({ name, visible: false });
     }
   }
 

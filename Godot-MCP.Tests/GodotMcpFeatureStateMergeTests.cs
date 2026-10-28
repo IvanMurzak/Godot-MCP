@@ -17,7 +17,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// Pins the pure-managed MCP-feature enable-map merge/capture logic (<see cref="GodotMcpFeatureStateMerge"/>):
-    /// the boot REAPPLY (saved-map ⊕ live-names → explicit SetEnabled calls), the CAPTURE (live → persistable
+    /// the boot REAPPLY (saved-map ⊕ live-names → explicit SetVisible calls), the CAPTURE (live → persistable
     /// list), and the single-item UPSERT used on a user toggle. These rules are the unit-testable core behind the
     /// <c>#if TOOLS</c> editor wiring that talks to the live managers; the wiring itself is verified via the
     /// headless Godot smoke (test.md Suite 3), not here.
@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ComputeReapply_default_empty_map_disables_nothing()
         {
-            // DEFAULT-EMPTY = ALL-ENABLED: with no saved entries, no explicit SetEnabled calls are emitted, so
+            // DEFAULT-EMPTY = ALL-VISIBLE: with no saved entries, no explicit SetVisible calls are emitted, so
             // every live item stays at the manager default (enabled).
             var live = new[] { "a", "b", "c" };
             var result = GodotMcpFeatureStateMerge.ComputeReapply(live, new List<GodotMcpFeatureState>());
@@ -98,9 +98,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Equal(3, captured.Count);
             Assert.Equal("a", captured[0].Name);
-            Assert.True(captured[0].Enabled);
+            Assert.True(captured[0].Visible);
             Assert.Equal("b", captured[1].Name);
-            Assert.False(captured[1].Enabled);
+            Assert.False(captured[1].Visible);
         }
 
         [Fact]
@@ -112,14 +112,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Single(captured);
             Assert.Equal("a", captured[0].Name);
-            Assert.True(captured[0].Enabled); // first "a" wins (dedupe keeps first)
+            Assert.True(captured[0].Visible); // first "a" wins (dedupe keeps first)
         }
 
         [Fact]
         public void Capture_then_ComputeReapply_round_trips_disabled_state()
         {
             // A user disables "b"; capturing then reapplying restores exactly that disable.
-            var live = new (string Name, bool Enabled)[] { ("a", true), ("b", false), ("c", true) };
+            var live = new (string Name, bool Visible)[] { ("a", true), ("b", false), ("c", true) };
             var saved = GodotMcpFeatureStateMerge.Capture(live);
 
             var reapply = GodotMcpFeatureStateMerge.ComputeReapply(live.Select(x => x.Name), saved);
@@ -138,7 +138,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Single(saved);
             Assert.Equal("a", saved[0].Name);
-            Assert.False(saved[0].Enabled);
+            Assert.False(saved[0].Visible);
         }
 
         [Fact]
@@ -149,8 +149,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpFeatureStateMerge.Upsert(saved, "a", false);
 
             Assert.Equal(2, saved.Count); // no new entry added
-            Assert.False(saved.Single(s => s.Name == "a").Enabled);
-            Assert.True(saved.Single(s => s.Name == "b").Enabled);
+            Assert.False(saved.Single(s => s.Name == "a").Visible);
+            Assert.True(saved.Single(s => s.Name == "b").Visible);
         }
 
         [Fact]

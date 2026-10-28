@@ -23,7 +23,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             SkillsCreateToolId,
             Title = "Skill (Tool) / Create",
             DestructiveHint = false,
-            Enabled = false,
+            Visible = false,
             ToolType = McpToolType.System
         )]
         [AiSkillDescription("Create a new skill (MCP tool) for the Godot Editor by writing a C# (.cs) file " +

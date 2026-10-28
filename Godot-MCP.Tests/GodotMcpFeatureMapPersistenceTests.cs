@@ -74,10 +74,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.NotNull(loaded);
             Assert.Equal(2, loaded!.Features.Tools.Count);
-            Assert.False(loaded.Features.Tools.Single(t => t.Name == "ping").Enabled);
-            Assert.True(loaded.Features.Tools.Single(t => t.Name == "node-find").Enabled);
-            Assert.False(loaded.Features.Prompts.Single(p => p.Name == "greet").Enabled);
-            Assert.False(loaded.Features.Resources.Single(r => r.Name == "res-a").Enabled);
+            Assert.False(loaded.Features.Tools.Single(t => t.Name == "ping").Visible);
+            Assert.True(loaded.Features.Tools.Single(t => t.Name == "node-find").Visible);
+            Assert.False(loaded.Features.Prompts.Single(p => p.Name == "greet").Visible);
+            Assert.False(loaded.Features.Resources.Single(r => r.Name == "res-a").Visible);
         }
 
         [Fact]
@@ -105,7 +105,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             GodotMcpConfigStore.ApplyPersisted(target, persisted);
 
             Assert.Single(target.Features.Tools);
-            Assert.False(target.Features.Tools[0].Enabled);
+            Assert.False(target.Features.Tools[0].Visible);
         }
 
         [Fact]

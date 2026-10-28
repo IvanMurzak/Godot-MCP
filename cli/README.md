@@ -39,7 +39,7 @@ The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/u
 - :white_check_mark: **Install plugin** — install the `godot_mcp` addon end-to-end (download release, add NuGet pins + catalog, enable)
 - :white_check_mark: **Install extensions** — add optional Godot-MCP extension packages (RQL modules) to a project
 - :white_check_mark: **Remove plugin** — disable the `godot_mcp` addon in `project.godot`
-- :white_check_mark: **Configure** — enable/disable MCP tools, prompts, and resources
+- :white_check_mark: **Configure** — show/hide MCP tools, prompts, and resources (what MCP clients see listed)
 - :white_check_mark: **Status check** — detect a running Godot editor and probe MCP-server health
 - :white_check_mark: **Run tools** — execute MCP and system tools directly over the server's HTTP API
 - :white_check_mark: **Setup MCP** — write AI-agent MCP-client config for any supported agent
@@ -96,7 +96,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key. |
 | `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
-| `configure [path]` | List / enable / disable tools, prompts, and resources in the project-local `.godot-mcp/features.json`. |
+| `configure [path]` | List / show / hide tools, prompts, and resources in the project-local `.godot-mcp/features.json` (`--enable-*` shows, `--disable-*` hides; a hidden tool still runs when called by name). |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). `--owned-only` closes only an editor `godot-cli` started (`exec` / `open --headless`). |
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
 | `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |

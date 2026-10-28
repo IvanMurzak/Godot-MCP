@@ -140,7 +140,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // copy the boot path would always re-seed ON and silently drop a user's OFF. The skills card writes this
             // (+ Save) when toggled; SkillsPath/ProjectRootPath are runtime-only (swap-and-restore) and not persisted.
             target.GenerateSkillFiles = persisted.GenerateSkillFiles;
-            // The persisted feature enable-map (tools/prompts/resources). A missing `features` key in an older
+            // The persisted feature visibility map (tools/prompts/resources). A missing `features` key in an older
             // config file deserializes to a non-null empty map (the property initializer), so this is always safe.
             target.Features = persisted.Features ?? new GodotMcpFeatureMap();
             // The dock's selected AI-agent id (pure presentation state). A missing key in an older config file

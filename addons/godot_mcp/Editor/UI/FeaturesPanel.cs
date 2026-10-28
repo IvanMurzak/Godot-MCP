@@ -151,8 +151,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            var (enabled, total, tokenCount) = counts.Value;
-            row.ShowCounts(enabled, total, tokenCount);
+            var (visible, total, tokenCount) = counts.Value;
+            row.ShowCounts(visible, total, tokenCount);
         }
 
         /// <summary>Forwarded from <see cref="GodotMcpDock.Refresh"/>. Re-reads counts. Safe to call repeatedly.</summary>
