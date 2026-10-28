@@ -35,8 +35,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// <see cref="GodotMcpServerView.ServerVersion"/> from the GameDev-MCP-Server GitHub release, caches it
     /// under the project's <c>.godot/mcp-server/&lt;rid&gt;/</c>
     /// folder (gitignored), unzips it, marks it executable on Unix, launches it as a child process, monitors
-    /// the ~5s startup window, persists the PID so an editor recompile can reconnect to a still-running
-    /// server, and stops it gracefully (then force-kills) on request or editor quit.
+    /// the ~5s startup window, keeps the server running across a C# assembly reload (handed to the reloaded
+    /// plugin through <see cref="GodotMcpLocalServerHandoff"/>), and stops it gracefully (then force-kills) on
+    /// request or editor quit.
     ///
     /// <para>
     /// This makes Godot-MCP able to HOST its own MCP server (not just connect to an external one). All the
@@ -61,6 +62,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         readonly Action<string> _logWarning;
         readonly Action<string> _logError;
         readonly object _processMutex = new();
+
+        // Cancelled when the server is handed over at a reload, so no delayed task of this assembly outlives it.
+        readonly CancellationTokenSource _lifetime = new();
 
         Process? _serverProcess;
         GodotMcpServerStatus _status = GodotMcpServerStatus.Stopped;
@@ -87,6 +91,64 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _log = log;
             _logWarning = logWarning;
             _logError = logError;
+            AdoptParkedServer();
+        }
+
+        /// <summary>
+        /// Take over the server that the plugin instance before the last C# assembly reload left running
+        /// (<see cref="DetachForReload"/>): no new launch, and the agents' sessions on it survive the rebuild.
+        /// </summary>
+        void AdoptParkedServer()
+        {
+            var process = GodotMcpLocalServerHandoff.TakeParked();
+            if (process == null)
+                return;
+
+            lock (_processMutex)
+            {
+                _serverProcess = process;
+                _status = GodotMcpServerStatus.Running;
+            }
+            process.Exited += OnProcessExited;
+            _log($"[Godot-MCP] re-attached to the local server process (PID {process.Id}) after the C# assembly reload.");
+
+            // Exited is not raised for a handler added after the exit.
+            if (process.HasExited)
+                OnProcessExited(process, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// At a C# assembly reload: let go of the running server WITHOUT stopping it, and park it for the reloaded
+        /// plugin. Removes this assembly's handler from the process first: a live <see cref="Process"/> holding it would
+        /// keep the collectible assembly loaded and fail the reload. Raises no status change (the dock is going away).
+        /// </summary>
+        public void DetachForReload()
+        {
+            _lifetime.Cancel();
+
+            Process? process;
+            bool stopping;
+            lock (_processMutex)
+            {
+                process = _serverProcess;
+                stopping = _status == GodotMcpServerStatus.Stopping;
+                _serverProcess = null;
+                _status = GodotMcpServerStatus.Stopped;
+            }
+            if (process == null)
+                return;
+
+            process.Exited -= OnProcessExited;
+            if (stopping)
+            {
+                // The user stopped it: finish that instead of handing a dying server over (ScheduleForceKill ends).
+                try { process.Kill(); } catch { /* already exited */ }
+                return;
+            }
+
+            // TakeParked drops it should it exit before the reloaded plugin takes it.
+            GodotMcpLocalServerHandoff.Park(process);
+            _log($"[Godot-MCP] local server process (PID {process.Id}) handed over to the reloaded plugin.");
         }
 
         // --- Cache paths ---------------------------------------------------------------------------------
@@ -555,6 +617,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             lock (_processMutex)
             {
+                // Handed over at a reload (e.g. the download finished during it): a server launched now would have no
+                // owner, and its Exited handler would keep the unloading assembly alive. The reloaded plugin starts one.
+                if (_lifetime.IsCancellationRequested)
+                    return false;
+
                 if (_status is GodotMcpServerStatus.Running or GodotMcpServerStatus.Starting or GodotMcpServerStatus.Stopping)
                 {
                     _logWarning($"[Godot-MCP] local server is already {_status}.");
@@ -598,28 +665,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
                     process.Exited += OnProcessExited;
 
-                    // DRAIN the redirected stdout/stderr so a verbose server cannot fill the ~4KB OS pipe
-                    // buffer and BLOCK on a write nothing is reading. The handlers DISCARD every line —
-                    // they MUST NOT log the content, because the server echoes its own launch arguments
-                    // (including the secret token) to stdout. We keep redirect=true (so that token-bearing
-                    // echo never reaches the editor console) and simply throw the drained lines away.
-                    process.OutputDataReceived += DiscardServerOutput;
-                    process.ErrorDataReceived += DiscardServerOutput;
-
                     if (!process.Start())
                     {
                         _logError("[Godot-MCP] failed to start local server process.");
-                        process.OutputDataReceived -= DiscardServerOutput;
-                        process.ErrorDataReceived -= DiscardServerOutput;
+                        process.Exited -= OnProcessExited;
                         process.Dispose();
                         SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
                         return false;
                     }
 
-                    // Begin async draining now that the process is running; pairs with the detach +
-                    // CancelOutputRead/CancelErrorRead in CleanupProcess.
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
+                    // DRAIN the redirected stdout/stderr so a verbose server cannot fill the OS pipe buffer and
+                    // BLOCK on a write nothing is reading. Redirected (not inherited) because the server echoes its
+                    // launch arguments, the secret token included, so that output must never reach the editor
+                    // console; it is discarded. BCL-only, so it outlives a C# reload without pinning this assembly.
+                    GodotMcpLocalServerHandoff.Drain(process);
 
                     _serverProcess = process;
                     _log($"[Godot-MCP] local server process started (PID {process.Id}, port {port}); verifying…");
@@ -671,11 +730,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 {
                     if (!process.HasExited)
                         process.WaitForExit(5000);
-                    CleanupProcess();
+                    CleanupProcess(process);
                 }
                 else if (process.HasExited)
                 {
-                    CleanupProcess();
+                    CleanupProcess(process);
                 }
                 else
                 {
@@ -687,7 +746,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             catch (Exception ex)
             {
                 _logError($"[Godot-MCP] error stopping local server: {ex.Message}");
-                CleanupProcess();
+                CleanupProcess(process);
                 return false;
             }
         }
@@ -703,7 +762,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(StartupVerificationSeconds));
+                    await Task.Delay(TimeSpan.FromSeconds(StartupVerificationSeconds), _lifetime.Token);
 
                     bool exitedEarly;
                     try { exitedEarly = process.HasExited; }
@@ -718,7 +777,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     if (exitedEarly)
                     {
                         _logError("[Godot-MCP] local server exited early within the startup window (port in use?).");
-                        CleanupProcess();
+                        CleanupProcess(process);
                     }
                     else
                     {
@@ -726,6 +785,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         _log("[Godot-MCP] local server verified and running.");
                     }
                 }
+                catch (OperationCanceledException) { /* handed over at a reload; the reloaded plugin re-attaches */ }
                 catch (Exception ex)
                 {
                     _logWarning($"[Godot-MCP] startup verification error: {ex.Message}");
@@ -748,7 +808,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 }
                 catch (InvalidOperationException) { /* already exited/disposed */ }
 
-                CleanupProcess();
+                CleanupProcess(process);
             });
         }
 
@@ -826,56 +886,39 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         void OnProcessExited(object? sender, EventArgs e)
         {
             _log("[Godot-MCP] local server process exited.");
+            if (sender is not Process process)
+                return;
             // Process.Exited fires on a thread-pool thread; marshal cleanup onto the editor main thread so
             // the status push (which the dock observes) is raised there.
             if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(CleanupProcess);
+                MainThreadDispatcher.Enqueue(() => CleanupProcess(process));
             else
-                CleanupProcess();
+                CleanupProcess(process);
         }
 
-        void CleanupProcess()
+        /// <summary>
+        /// Forget and dispose <paramref name="process"/> and report Stopped — only while it is still the managed
+        /// server: a late call for a process already cleaned up, handed over, or replaced must not drop a newer one.
+        /// </summary>
+        void CleanupProcess(Process process)
         {
-            Process? toDispose;
             lock (_processMutex)
             {
-                toDispose = _serverProcess;
+                if (!ReferenceEquals(_serverProcess, process))
+                    return;
                 _serverProcess = null;
                 SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
             }
 
-            if (toDispose != null)
+            Task.Run(() =>
             {
-                Task.Run(() =>
+                try
                 {
-                    try
-                    {
-                        toDispose.Exited -= OnProcessExited;
-
-                        // Stop draining + detach the discard handlers before dispose (mirrors the attach in
-                        // StartServer); CancelOutputRead/CancelErrorRead are best-effort (no-op if reading
-                        // never started or already stopped).
-                        try { toDispose.CancelOutputRead(); } catch { }
-                        try { toDispose.CancelErrorRead(); } catch { }
-                        toDispose.OutputDataReceived -= DiscardServerOutput;
-                        toDispose.ErrorDataReceived -= DiscardServerOutput;
-
-                        toDispose.Dispose();
-                    }
-                    catch (Exception ex) { _log($"[Godot-MCP] error disposing server process: {ex.Message}"); }
-                });
-            }
-        }
-
-        /// <summary>
-        /// Drain handler for the server's redirected stdout/stderr: DISCARDS every received line. This exists
-        /// solely so the OS pipe buffer cannot fill and block the child process — it MUST NOT log the line
-        /// content, because the server echoes its own launch arguments (including the secret token) to stdout.
-        /// Throwing the lines away keeps the token off every log surface while still draining the pipe.
-        /// </summary>
-        static void DiscardServerOutput(object sender, DataReceivedEventArgs e)
-        {
-            // Intentionally empty: read-and-discard. Do NOT log e.Data — it may contain the token.
+                    process.Exited -= OnProcessExited;
+                    process.Dispose();
+                }
+                catch (Exception ex) { _log($"[Godot-MCP] error disposing server process: {ex.Message}"); }
+            });
         }
 
         /// <summary>
