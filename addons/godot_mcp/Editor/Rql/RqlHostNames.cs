@@ -25,6 +25,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     internal static class RqlHostNames
     {
+        /// <summary>
+        /// The public C# property of <paramref name="type"/> that a Godot snake_case property name stands for ("albedo_color"
+        /// → AlbedoColor, "sky_material" → SkyMaterial), or null (no underscore, or no such property). Object literals of
+        /// Godot classes are built from C# members, and agents write the Godot names they know from the docs.
+        /// </summary>
+        public static string? CSharpMember(Type type, string snakeName)
+        {
+            if (snakeName.IndexOf('_') < 0) return null;
+            var pascal = string.Concat(snakeName.Split(new[] { '_' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => char.ToUpperInvariant(part[0]) + part.Substring(1)));
+            if (pascal.Length == 0) return null;
+            try { return type.GetProperty(pascal, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)?.Name; }
+            catch (AmbiguousMatchException) { return null; }
+        }
+
         /// <summary>The public instance properties and fields of <paramref name="types"/>, case-insensitive.</summary>
         public static HashSet<string> MemberNames(IEnumerable<Type> types)
         {
