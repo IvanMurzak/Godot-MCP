@@ -17,7 +17,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     public sealed partial class RqlEditorApi
     {
         [RqlCallable("add a new node of a Godot class (or a script class_name) to the edited scene and return it; options: name, parent (a " +
-            "node, path or ref; the scene root by default) and any Godot property (position, rotation_degrees, scale, mesh …). Once per " +
+            "node, its path or ref(\"Node3D#…\"); the scene root by default) and Godot properties (position, rotation_degrees, scale, mesh …). Once per " +
             "item: range(0, 100) | call editor.CreateNode(\"MeshInstance3D\", {name: \"Cube\" + $, position: [$ * 2, 0, 0]}) is one undo step")]
         public Node CreateNode(string className, NodeOptions? options = null) => RqlGodot.CreateNode(className, options);
 

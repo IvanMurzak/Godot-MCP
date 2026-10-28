@@ -69,8 +69,8 @@ project's .csproj must declare the six NuGet package references the addon depend
   com.IvanMurzak.ReflectorNet     version 5.5.0
   com.IvanMurzak.McpPlugin        version 8.13.1
   com.IvanMurzak.Rql              version 0.3.0-dev.0f1bf94
-  com.IvanMurzak.CodeExec         version 0.4.0-dev.21dd065
-  com.IvanMurzak.CodeExec.Roslyn  version 0.4.0-dev.21dd065
+  com.IvanMurzak.CodeExec         version 0.4.0-dev.2b784e4
+  com.IvanMurzak.CodeExec.Roslyn  version 0.4.0-dev.2b784e4
   Microsoft.CodeAnalysis.CSharp   version 4.12.0
 The last four are editor-only: give them
 Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" so exported games ship

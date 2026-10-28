@@ -297,7 +297,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(AssemblyReloadGate.UnloadingMessage, result.GetMessage());
             Assert.DoesNotContain("Tool execution failed", result.GetMessage());
             // The tool had started: no 503, so the server reports the refusal instead of re-sending a call that may have run.
-            Assert.NotEqual(503, result.HttpStatusCode);
+            Assert.Null(result.HttpStatusCode);
         }
 
         [Fact]

@@ -84,8 +84,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "including GDScript script variables (in the editor: @export ones, every one of a @tool script) and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
             "props[\"speed\"] on a scripted node); a Godot array lists the values it holds (get props[\"items\"] | where props[\"price\"] > 10). " +
             "Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
-            "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". Vector2/3/4, their integer variants and Color compute component-wise " +
-            "(set Scale = Scale * 1.5, Position + [0, 1, 0]); Quaternion, Basis and transforms do not. A resource path \"res://…\" works wherever a resource is expected, " +
+            "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". Vector2/3/4, their integer variants (whole results only) and Color compute " +
+            "component-wise (set Scale = Scale * 1.5, Position + [0, 1, 0]); Quaternion, Basis and transforms do not. A resource path \"res://…\" works wherever a resource is expected, " +
             "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +
             "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
             "(id kind atlas texture tileCount), physicsLayers, terrainSets, customDataLayers; an atlas source has tiles (coords size data). " +
@@ -217,8 +217,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             MutateStages + MutateExamplesBlock +
             "Bulk create: range(start, end) or a list literal streams items, and call editor.CreateNode(class, {…}) / " +
             "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +
-            "path or ref; the scene root by default) and any Godot property of the new node (position, rotation_degrees, scale, mesh, " +
-            "visible …). Every item is checked before the first node is made; all of them are one undo step.\n" +
+            "its path or ref(\"Node3D#…\"); the scene root by default) and Godot properties of the new node (position, rotation_degrees, " +
+            "scale, mesh, visible …; local, not global_*). Every item is checked before the first node is made; all of them are one " +
+            "undo step.\n" +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
             "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +

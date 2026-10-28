@@ -109,6 +109,7 @@ The runtime config (`GodotMcpConfig`) reads these `GODOT_MCP_*` variables live (
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
 | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
 | `GODOT_MCP_LOG_LEVEL` | `Trace` / `Debug` / `Info` / `Warning` / `Error` / `None` | Log-verbosity threshold. |
+| `GODOT_MCP_EDITOR_PID` | process id | Set by the editor plugin in the editor process, so every process the editor starts inherits it. While that editor runs, the runtime's `Connect()` stays offline in a process that carries it (unless opted in below). |
 | `GODOT_MCP_RUNTIME_FROM_EDITOR` | `1` / `true` | Process env only. Lets the runtime connect in a game started from the Godot editor (default: it stays offline there, because the game inherits the editor's `GODOT_MCP_*` settings); same as `builder.ConnectWhenRunFromEditor()`. |
 
 ## Editor-side surfaces (accepted posture)

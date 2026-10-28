@@ -319,8 +319,8 @@ package assemblies are not copied next to the game assembly):
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.0f1bf94" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.21dd065" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.21dd065" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
@@ -335,8 +335,8 @@ package assemblies are not copied next to the game assembly):
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.0` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.13.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.0f1bf94` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.21dd065` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.21dd065` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.2b784e4` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.2b784e4` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
 
 The four editor-only packages carry a `Condition` that leaves them out of Godot's export builds: only editor
@@ -470,7 +470,7 @@ use the **Local server** row:
   with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`. A server built on McpPlugin 8.11.0+
   sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself after
   4 minutes, the tool timeout minus a minute: an endless loop returns a `Timeout` error and runaway recursion a
-  "Recursion too deep" error, the editor keeps running). Older servers, including the currently pinned one, ignore `tool-timeout`: they re-send a call every
+  "Recursion too deep" error, the editor keeps running). Older servers ignore `tool-timeout`: they re-send a call every
   10 s and give up after about 110 s; the addon runs each re-sent call only once.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
@@ -667,7 +667,8 @@ plugin the agent talks to. Exported games and games started outside the editor c
 run from the editor too, opt in with `builder.ConnectWhenRunFromEditor()` or the process environment variable
 `GODOT_MCP_RUNTIME_FROM_EDITOR=1`. A GameDev-MCP-Server with plugin roles then keeps both connections (the game
 registers as `Godot <version> (runtime)`) and routes tool calls to the editor while it is connected. The editor
-plugin marks the games it runs with `GODOT_MCP_EDITOR_PID`.
+plugin sets `GODOT_MCP_EDITOR_PID` in its process, so every process it starts inherits it; it counts only while that
+editor runs, and the plugin clears it when it unloads.
 
 ## Capturing in-game runtime errors
 

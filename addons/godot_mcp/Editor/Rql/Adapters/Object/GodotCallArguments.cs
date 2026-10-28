@@ -99,16 +99,32 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 return GodotEnumNames.TryMatch(options, text, out var enumValue)
                     ? Variant.From(enumValue)
                     : throw new ArgumentException($"{label}: \"{text}\" is not {GodotEnumNames.Describe(options)}");
-            var target = type == Variant.Type.Object ? GodotTypes.GodotObjectType(className) : GodotVariants.ClrType(type, hint, hintString);
+            var classes = ObjectClasses(className);
+            var target = type == Variant.Type.Object ? ObjectType(classes) : GodotVariants.ClrType(type, hint, hintString);
             if (!kernel.TryCoerce(value, target, out var converted, out var why))
             {
                 // Godot arrays / dictionaries take any list / object literal (the elements are checked by Godot).
                 if (type == Variant.Type.Array || type == Variant.Type.Dictionary) return GodotVariants.ToVariant(value);
                 throw new ArgumentException($"{label}: {why}");
             }
-            if (converted is GodotObject go && className.Length > 0 && ClassDB.ClassExists(className) && !go.IsClass(className))
-                throw new ArgumentException($"{label}: got a {go.GetClass()}");
+            var known = classes.Where(c => ClassDB.ClassExists(c)).ToList();
+            if (converted is GodotObject go && known.Count > 0 && !known.Any(c => go.IsClass(c)))
+                throw new ArgumentException($"{label}: got a {go.GetClass()}, expected {string.Join(" or ", known)}");
             return GodotVariants.ToVariant(converted);
+        }
+
+        /// <summary>
+        /// The classes an object argument or property accepts: one ("Mesh"), or several for a property that takes more than one
+        /// resource type ("BaseMaterial3D,ShaderMaterial" on material_override); none when it declares no class.
+        /// </summary>
+        public static string[] ObjectClasses(string className) =>
+            className.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).Where(c => c.Length > 0).ToArray();
+
+        /// <summary>The C# type a value for <paramref name="classes"/> is coerced to: the class's own, Resource for a list of resource classes.</summary>
+        public static Type ObjectType(string[] classes)
+        {
+            if (classes.Length == 1) return GodotTypes.GodotObjectType(classes[0]);
+            return classes.Length > 0 && classes.All(c => typeof(Resource).IsAssignableFrom(GodotTypes.GodotObjectType(c))) ? typeof(Resource) : typeof(GodotObject);
         }
 
     }

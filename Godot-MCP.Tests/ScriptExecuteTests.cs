@@ -48,6 +48,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(ScriptExecuteSource.RunTimeoutMs > 0);
         }
 
+        // A snippet that waited (compile, an earlier snippet) gets what is left of the call's budget, never 0 (= the default).
+        [Theory]
+        [InlineData(0L, ScriptExecuteSource.RunTimeoutMs)]
+        [InlineData(1_000L, ScriptExecuteSource.RunTimeoutMs - 1_000)]
+        [InlineData(ScriptExecuteSource.RunTimeoutMs + 5_000L, 1)]
+        [InlineData(-5L, ScriptExecuteSource.RunTimeoutMs)]
+        public void RemainingRunTimeout_CountsFromTheCallsArrival(long elapsedMs, int expected)
+            => Assert.Equal(expected, ScriptExecuteSource.RemainingRunTimeoutMs(elapsedMs));
+
         static CodeRunner GuardedRunner(int defaultTimeoutMs) => new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
         {
             DefaultUsings = ScriptExecuteSource.DefaultUsings,

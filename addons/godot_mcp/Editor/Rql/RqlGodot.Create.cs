@@ -115,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 var info = PropertyEntry(table, kv.Key, tableKey);
                 if (kv.Value is IDictionary<string, object?> && (Variant.Type)info.Value["type"].AsInt32() == Variant.Type.Object
-                    && !typeof(Resource).IsAssignableFrom(GodotTypes.GodotObjectType(info.Value["class_name"].AsString())))
+                    && !typeof(Resource).IsAssignableFrom(GodotCallArguments.ObjectType(GodotCallArguments.ObjectClasses(info.Value["class_name"].AsString()))))
                     continue;
                 ConvertProperty(kv.Value, info, options);
             }
@@ -154,7 +154,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // A name Godot would change (a character it does not allow, a sibling's name) is refused, like a rename.
         private static void CheckNewName(Node parent, string? name)
         {
-            if (name != null && NodeNameRules.Problem(name, n => parent.GetNodeOrNull(n) != null) is { } problem)
+            if (name == null) return;
+            if (parent.GetNodeOrNull(name) != null)
+                throw new ArgumentException($"name: '{PathOf(parent)}' already has a child named '{name}'; pick another name");
+            if (NodeNameRules.Problem(name, _ => false) is { } problem)
                 throw new ArgumentException($"name: {problem}");
         }
 
@@ -189,12 +192,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static KeyValuePair<string, global::Godot.Collections.Dictionary> PropertyEntry(
             Dictionary<string, global::Godot.Collections.Dictionary> table, string key, string tableKey)
         {
-            if (table.TryGetValue(key, out var entry)) return new KeyValuePair<string, global::Godot.Collections.Dictionary>(key, entry);
-            var snake = key.ToSnakeCase();
-            if (table.TryGetValue(snake, out entry)) return new KeyValuePair<string, global::Godot.Collections.Dictionary>(snake, entry);
+            var name = table.ContainsKey(key) ? key : key.ToSnakeCase();
+            // A global transform set before the node has a parent would be taken as its local one; a script set here would
+            // replace the C# wrapper the call still holds.
+            if (name.StartsWith("global_", StringComparison.Ordinal))
+                throw new ArgumentException($"'{key}' cannot be set on a node being created (it has no parent yet); use '{name.Substring(7)}', which is relative to the parent");
+            if (name == "script")
+                throw new ArgumentException("'script' cannot be set on a node being created; create the script class itself (CreateNode(\"<class_name>\")) or set script on the node afterwards");
+            if (table.TryGetValue(name, out var entry)) return new KeyValuePair<string, global::Godot.Collections.Dictionary>(name, entry);
             var what = tableKey.StartsWith("scene:", StringComparison.Ordinal) ? $"the root of {tableKey.Substring(6)}" : $"a {tableKey.Substring(6)}";
             throw new ArgumentException($"{what} has no property '{key}'" + Similar(table.Keys, key) +
-                $"; the options are {NodeOptions.NameKey}, {NodeOptions.ParentKey} and Godot properties (snake_case, as in props[\"…\"])");
+                $"; the options are {NodeOptions.NameKey}, {NodeOptions.ParentKey} and Godot properties of a new {tableKey.Substring(6)} (snake_case, " +
+                "as in props[\"…\"]); a property that appears only once another one is set (a mesh's surface materials) takes a set on the returned nodes");
         }
     }
 }

@@ -290,7 +290,9 @@ It performs four steps:
 3. **Embed the extension catalog** (`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json"
    LogicalName="Godot-MCP.extensions.catalog.json" />`) into the project's `.csproj`, idempotently. Without
    it the addon's extension registry reads no catalog at editor runtime and the **Extensions panel is
-   empty**. Single-sourced + parity-tested against the addon csproj alongside the pins.
+   empty**. Single-sourced + parity-tested against the addon csproj alongside the pins. It also sets
+   `<EnableDynamicLoading>true</EnableDynamicLoading>` (Godot's template has it; without it a game run from the editor
+   cannot instantiate C# scripts).
 4. **Enable the plugin** in `project.godot` `[editor_plugins]`.
 
 It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public

@@ -48,16 +48,31 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         internal const string RunFromEditorMessage =
-            "[Godot-MCP] runtime: not connecting: this game was started from the Godot editor, which is connected itself (the game " +
-            "inherits its GODOT_MCP_* settings). To connect the game too, call ConnectWhenRunFromEditor() on the runtime builder " +
-            "or set " + GodotMcpEnv.RuntimeFromEditor + "=1.";
+            "[Godot-MCP] runtime: not connecting: this game was started from the Godot editor and inherits its GODOT_MCP_* settings, " +
+            "so it would join the editor's MCP server. To connect the game too, call ConnectWhenRunFromEditor() on the runtime " +
+            "builder or set " + GodotMcpEnv.RuntimeFromEditor + "=1.";
 
         /// <summary>
         /// Whether <see cref="Connect"/> stays offline: a game the editor started (<paramref name="editorPid"/> is the editor
-        /// plugin's marker, inherited from the editor process) connects only when the developer opted in. Pure (unit-tested).
+        /// plugin's marker, inherited from the editor process, and that editor still runs) connects only when the developer opted
+        /// in. A marker an IDE or the Project Manager inherited from an editor that has quit does not count. Pure (unit-tested).
         /// </summary>
-        internal static bool StaysOfflineWhenRunFromEditor(string? editorPid, bool isEditorProcess, bool optedIn, string? optInEnv) =>
-            !isEditorProcess && !string.IsNullOrEmpty(editorPid) && !optedIn && !IsTrue(optInEnv);
+        internal static bool StaysOfflineWhenRunFromEditor(string? editorPid, bool isEditorProcess, bool optedIn, string? optInEnv,
+            Func<string, bool> editorRunning) =>
+            !isEditorProcess && !string.IsNullOrEmpty(editorPid) && !optedIn && !IsTrue(optInEnv) && editorRunning(editorPid!);
+
+        /// <summary>Whether the process <paramref name="pid"/> runs (the editor that set the marker).</summary>
+        static bool ProcessRuns(string pid)
+        {
+            if (!int.TryParse(pid, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id))
+                return false;
+            try
+            {
+                using var process = System.Diagnostics.Process.GetProcessById(id);
+                return !process.HasExited;
+            }
+            catch (Exception) { return false; } // gone, or not ours to inspect
+        }
 
         static bool IsTrue(string? value) =>
             GodotMcpConfig.NormalizeEnv(value) is { } v && (v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
@@ -82,9 +97,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         public Task<bool> Connect(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
+            // IsEditorHint: true in the editor only (OS.HasFeature("editor") is also true in a game run from it).
             if (StaysOfflineWhenRunFromEditor(System.Environment.GetEnvironmentVariable(GodotMcpEnv.EditorPid),
-                    global::Godot.OS.HasFeature("editor"), _connectWhenRunFromEditor,
-                    System.Environment.GetEnvironmentVariable(GodotMcpEnv.RuntimeFromEditor)))
+                    global::Godot.Engine.IsEditorHint(), _connectWhenRunFromEditor,
+                    System.Environment.GetEnvironmentVariable(GodotMcpEnv.RuntimeFromEditor), ProcessRuns))
             {
                 GodotMcpLog.Info(RunFromEditorMessage);
                 return Task.FromResult(false);

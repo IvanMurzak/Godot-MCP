@@ -28,6 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Created.Add((className, options));
             return className + Created.Count;
         }
+
+        public string? ValidateCreateNode(string className, NodeOptions? options) =>
+            options?.Name == "Reject" ? "a rejected name" : null;
     }
 
     /// <summary>
@@ -86,6 +89,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var r = Mutate(query);
             Assert.False(r.Ok);
             Assert.Contains(expected, Text(r));
+            Assert.Empty(_editor.Created);
+        }
+
+        // The host's check runs for every item before the first call: item 2 failing leaves items 0 and 1 uncreated.
+        [Fact]
+        public void ARejectedItemStopsTheCallBeforeAnyNodeIsMade()
+        {
+            var r = Mutate("range(0, 3) | call editor.CreateNode(\"Node3D\", {name: ($ == 2 ? \"Reject\" : \"N\" + $)})");
+            Assert.False(r.Ok);
+            Assert.Contains("a rejected name", Text(r));
             Assert.Empty(_editor.Created);
         }
 

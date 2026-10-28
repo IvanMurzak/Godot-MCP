@@ -411,3 +411,23 @@ describe('ensureEnableDynamicLoading — package DLLs copied to .godot/mono/temp
     expect(result.text).toBe(`${sdk}\n  <PropertyGroup>\n    <EnableDynamicLoading>true</EnableDynamicLoading>\n  </PropertyGroup>\n</Project>\n`);
   });
 });
+
+describe('ensureEnableDynamicLoading — comments, conditions, self-closing', () => {
+  const sdk = '<Project Sdk="Godot.NET.Sdk/4.3.0">';
+  it('ignores a commented-out property and a Condition-ed group', () => {
+    const text = `${sdk}\n  <!-- <EnableDynamicLoading>true</EnableDynamicLoading> -->\n  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">\n    <EnableDynamicLoading>true</EnableDynamicLoading>\n  </PropertyGroup>\n  <PropertyGroup Label="Main">\n    <TargetFramework>net8.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n`;
+    const result = ensureEnableDynamicLoading(text);
+    expect(result.changed).toBe(true);
+    expect(result.text).toContain('<PropertyGroup Label="Main">\n    <EnableDynamicLoading>true</EnableDynamicLoading>\n    <TargetFramework>');
+  });
+  it('replaces a self-closing or empty element', () => {
+    for (const el of ['<EnableDynamicLoading />', '<EnableDynamicLoading></EnableDynamicLoading>']) {
+      const result = ensureEnableDynamicLoading(`${sdk}<PropertyGroup>${el}</PropertyGroup></Project>`);
+      expect(result.text).toBe(`${sdk}<PropertyGroup><EnableDynamicLoading>true</EnableDynamicLoading></PropertyGroup></Project>`);
+    }
+  });
+  it('uses the last unconditional value, as MSBuild does', () => {
+    const text = `${sdk}<PropertyGroup><EnableDynamicLoading>true</EnableDynamicLoading></PropertyGroup><PropertyGroup><EnableDynamicLoading>false</EnableDynamicLoading></PropertyGroup></Project>`;
+    expect(ensureEnableDynamicLoading(text).text).not.toContain('false');
+  });
+});

@@ -501,6 +501,9 @@ namespace com.IvanMurzak.Godot.MCP
                 return;
             _torndown = true;
 
+            // Games run from now on are not this plugin's (a reload's boot sets the marker again).
+            OS.SetEnvironment(GodotMcpEnv.EditorPid, "");
+
             // 0) Reload gate: refuse new calls; on a reload also stop receiving, fail the queued main-thread bodies of calls in
             //    flight (never run them inside the unload) and wait, bounded, until those calls have left this assembly. A
             //    call left running keeps a thread inside it and refills the caches cleared below: Godot's unload fails.

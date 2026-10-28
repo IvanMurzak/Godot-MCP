@@ -53,7 +53,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("", false, false, null, false)]
         [InlineData("1234", true, false, null, false)]   // the editor process itself
         public void Connect_StaysOfflineInAGameRunFromTheEditor_UnlessOptedIn(string? editorPid, bool isEditor, bool optedIn, string? optInEnv, bool offline)
-            => Assert.Equal(offline, GodotMcpRuntimeHandle.StaysOfflineWhenRunFromEditor(editorPid, isEditor, optedIn, optInEnv));
+            => Assert.Equal(offline, GodotMcpRuntimeHandle.StaysOfflineWhenRunFromEditor(editorPid, isEditor, optedIn, optInEnv, _ => true));
+
+        // An IDE or the Project Manager inherited the marker from an editor that has quit: its games connect as usual.
+        [Fact]
+        public void Connect_IgnoresTheMarkerOfAnEditorThatQuit()
+            => Assert.False(GodotMcpRuntimeHandle.StaysOfflineWhenRunFromEditor("1234", false, false, null, pid => pid != "1234"));
 
         [Fact]
         public void ConnectWhenRunFromEditor_IsOffByDefault_AndChains()

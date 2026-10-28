@@ -11,7 +11,7 @@ from __future__ import annotations
 import pathlib
 import re
 
-from smoke_rql_lib import check, must, mutate, q, query, tool
+from smoke_rql_lib import check, file_has, must, mutate, q, query, tool
 from smoke_rql_models import fails, has, value_is
 
 GRID = 300
@@ -28,6 +28,9 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     absent_keys(host)
     distinct_scales(host)
     must("BC save", mutate(host, "editor | call SaveScene()"))
+    scene = f"{d}/bulk.tscn"
+    check("BC the saved scene has the cubes and their mesh", file_has(project, scene, 'name="Cube299" type="MeshInstance3D" parent="."')
+          and file_has(project, scene, 'type="BoxMesh"'))
 
 
 def count(host: str, where: str) -> int:
@@ -64,7 +67,9 @@ def validated_first(host: str) -> None:
           "position")
     fails("BC unknown class refused", mutate(host, 'range(0, 3) | call editor.CreateNode("NoSuchNode3D", {name: "Bad" + $})'), "unknown node class")
     fails("BC duplicate names refused", mutate(host, 'range(0, 2) | call editor.CreateNode("Node3D", {name: "Bad"})'), "several items")
-    fails("BC a taken name refused", mutate(host, 'range(0, 1) | call editor.CreateNode("Node3D", {name: "Cube0"})'), "already named")
+    fails("BC a global transform refused", mutate(host, 'range(0, 2) | call editor.CreateNode("Node3D", {name: "Bad" + $, global_position: [1, 0, 0]})'),
+          "global_position", "position")
+    fails("BC a taken name refused", mutate(host, 'range(0, 1) | call editor.CreateNode("Node3D", {name: "Cube0"})'), "already has a child named")
     check("BC nothing was created", count(host, 'name starts-with "Bad"') == 0)
     dry = must("BC dry run", tool(host, "rql-mutate", {"query": 'range(0, 2) | call editor.CreateNode("Node3D", {name: "Dry" + $})', "dry_run": True}))
     has("BC dry run receipt", dry, "(dry-run)")

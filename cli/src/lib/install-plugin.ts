@@ -329,7 +329,7 @@ function patchConsumerCsproj(
     fs.writeFileSync(csprojPath, loadingPatched.text);
     emitProgress(onProgress, {
       phase: 'csproj-patched',
-      message: `Added addon PackageReferences + EmbeddedResource to ${csprojPath}`,
+      message: `Updated ${csprojPath} for the addon (PackageReferences, EmbeddedResource, EnableDynamicLoading)`,
       csprojPath,
     });
   }
