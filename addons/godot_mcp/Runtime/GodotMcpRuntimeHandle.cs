@@ -60,7 +60,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             !isEditorProcess && !string.IsNullOrEmpty(editorPid) && !optedIn && !IsTrue(optInEnv);
 
         static bool IsTrue(string? value) =>
-            value != null && (value.Trim() == "1" || value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
+            GodotMcpConfig.NormalizeEnv(value) is { } v && (v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>The resolved connection config (host / token / mode) this handle connects with.</summary>
         public GodotMcpConfig Config => _config;

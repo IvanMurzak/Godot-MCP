@@ -11,7 +11,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Rql.Execution;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
@@ -82,10 +81,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (name != null && !seen.Add((parent, name))) return name;
             return null;
         }
-
-        public override string ToString() =>
-            "{" + string.Join(", ", new[] { Name != null ? $"name: {Name}" : null, Parent != null ? "parent: …" : null }
-                .Concat(Properties.Select(p => p.Key)).Where(s => s != null)) + "}";
     }
 
     /// <summary>Takes an object literal as <see cref="NodeOptions"/>.</summary>

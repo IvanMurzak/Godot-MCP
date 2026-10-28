@@ -109,8 +109,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static void CheckNewNode(Node parent, NodeOptions? options, string tableKey, Func<Node> instantiate)
         {
             if (options == null) return;
-            if (options.Name != null && NodeNameRules.Problem(options.Name, n => parent.GetNodeOrNull(n) != null) is { } problem)
-                throw new ArgumentException($"name: {problem}");
+            CheckNewName(parent, options.Name);
             var table = PropertyTable(tableKey, instantiate);
             foreach (var kv in options.Properties)
             {
@@ -130,8 +129,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             {
                 if (options?.Name != null)
                 {
-                    if (NodeNameRules.Problem(options.Name, n => parent.GetNodeOrNull(n) != null) is { } problem)
-                        throw new ArgumentException($"name: {problem}");
+                    CheckNewName(parent, options.Name);
                     node.Name = options.Name;
                 }
                 if (options != null && options.Properties.Count > 0)
@@ -151,6 +149,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             EnsureEditable(parent, root);
             return Attach(parent, node, root);
+        }
+
+        // A name Godot would change (a character it does not allow, a sibling's name) is refused, like a rename.
+        private static void CheckNewName(Node parent, string? name)
+        {
+            if (name != null && NodeNameRules.Problem(name, n => parent.GetNodeOrNull(n) != null) is { } problem)
+                throw new ArgumentException($"name: {problem}");
         }
 
         private static Variant ConvertProperty(object? value, KeyValuePair<string, global::Godot.Collections.Dictionary> info, NodeOptions options)
