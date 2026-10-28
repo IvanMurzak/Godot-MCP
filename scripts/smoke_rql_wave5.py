@@ -52,7 +52,7 @@ def autoload_registry(host: str, d: str) -> None:
     must("W5A add the autoload", mutate(host, f"project | call AddAutoload({q(name)}, {q(singleton)})"))
     must("W5A a script using it", tool(host, "script-create", {"scriptPath": user, "content": f"extends Node\n\nfunc _ready() -> void:\n{TAB}print({name}.ping())\n"}))
     text = must("W5A validate", tool(host, "script-validate", {"scriptPath": user}))
-    lacks("W5A the singleton resolves", text, "not found", "not declared")
+    check("W5A the singleton resolves", "ErrorCount:0" in text, text)
     must("W5A undo the autoload", mutate(host, "editor | call Undo()"))
     text = must("W5A validate after undo", tool(host, "script-validate", {"scriptPath": user}))
     # Godot < 4.5 has no error text (Coarse fidelity): the parse error itself is the evidence there.
@@ -60,5 +60,5 @@ def autoload_registry(host: str, d: str) -> None:
     check("W5A undone: the singleton is unknown again", unknown, text)
     must("W5A redo", mutate(host, "editor | call Redo()"))
     text = must("W5A validate after redo", tool(host, "script-validate", {"scriptPath": user}))
-    lacks("W5A redone: the singleton resolves again", text, "not found", "not declared")
+    check("W5A redone: the singleton resolves again", "ErrorCount:0" in text, text)
     must("W5A remove the autoload", mutate(host, f"project | call RemoveAutoload({q(name)})"))
