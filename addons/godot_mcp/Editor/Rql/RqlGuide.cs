@@ -45,7 +45,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
             "selection, scenes (open scenes), files (every res:// file the editor knows; on request deps, missingDeps, usedBy (scenes / resources that load it) and " +
-            "importSettings[\"option\"]), classes (Godot classes, ClassDB), " +
+            "importSettings[\"option\"]), folders (path fileCount folderCount empty), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
             "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +

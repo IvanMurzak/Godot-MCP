@@ -33,6 +33,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("files", RqlEditorApi.Files,
                    $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request deps (what it loads), " +
                    "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)")
+               .AddSource("folders", RqlEditorApi.Folders, "every folder the editor filesystem knows: path name fileCount folderCount empty " +
+                   "(empty folders: folders | where empty; delete one with editor | call DeleteFolder(path))")
                .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")
                .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace")
                .AddSource("gameLog", RqlEditorApi.GameLog,
@@ -41,7 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("editor", () => RqlEditorApi.Instance,
                    "editor state (isPlaying, playingScene, editedScene, selection, godotVersion, undoHistory, redoHistory) and operations: CreateNode, InstantiateScene " +
                    "(bulk create: range(0, N) | call editor.CreateNode(class, {name, parent, position …})), NewScene, OpenScene, ReloadScene, SaveScene, " +
-                   "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
+                   "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, DeleteFolder, Reimport, ClearConsole " +
                    "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
                    "godot.find(name): the node with that unique name or path below the scene root (\"Level/Player\"), e.g. call Reparent(godot.find(\"Props\"))")

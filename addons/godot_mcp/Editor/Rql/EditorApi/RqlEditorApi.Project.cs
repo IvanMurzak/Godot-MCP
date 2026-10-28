@@ -33,8 +33,51 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 .Take(RqlGodot.MaxFiles);
         }
 
+        /// <summary>
+        /// The <c>folders</c> source: every folder the editor filesystem knows (res:// first, depth-first) with its direct file and
+        /// subfolder counts, so empty folders are found with <c>folders | where empty</c> (the <c>files</c> source lists files only).
+        /// </summary>
+        public static IEnumerable<RqlFolder> Folders()
+        {
+            var stack = new Stack<EditorFileSystemDirectory>();
+            stack.Push(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem());
+            while (stack.Count > 0)
+            {
+                var dir = stack.Pop();
+                yield return new RqlFolder(dir.GetPath(), dir.GetName(), dir.GetFileCount(), dir.GetSubdirCount());
+                for (var i = dir.GetSubdirCount() - 1; i >= 0; i--) stack.Push(dir.GetSubdir(i));
+            }
+        }
+
         /// <summary>The <c>classes</c> source: every Godot class (ClassDB), sorted by name (the list is read once per session).</summary>
         public static List<RqlClass> Classes() => GodotTypes.GodotClasses().Select(c => new RqlClass(c)).ToList();
+    }
+
+    /// <summary>One folder of the project (the <c>folders</c> source).</summary>
+    public sealed class RqlFolder
+    {
+        internal RqlFolder(string path, string name, int fileCount, int folderCount)
+        {
+            this.path = path;
+            this.name = name;
+            this.fileCount = fileCount;
+            this.folderCount = folderCount;
+        }
+
+        [RqlDescription("res:// path of the folder (with a trailing /)")]
+        public string path { get; }
+
+        [RqlDescription("folder name")]
+        public string name { get; }
+
+        [RqlDescription("files directly in it (the editor's view: imported sidecars are not counted)")]
+        public int fileCount { get; }
+
+        [RqlDescription("subfolders directly in it")]
+        public int folderCount { get; }
+
+        [RqlDescription("no files and no subfolders (delete it with editor | call DeleteFolder(path))")]
+        public bool empty => fileCount == 0 && folderCount == 0;
     }
 
     /// <summary>One file of the project (the <c>files</c> source).</summary>

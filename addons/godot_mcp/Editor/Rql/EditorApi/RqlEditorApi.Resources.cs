@@ -161,6 +161,36 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return dir;
         }
 
+        [RqlCallable("delete an EMPTY folder, e.g. \"res://old/textures\" (no files, no subfolders; delete those first with " +
+            "DeleteResource / DeleteFolder); returns its path")]
+        public string DeleteFolder(string path)
+        {
+            var dir = DeletableFolder(path);
+            var error = DirAccess.RemoveAbsolute(dir);
+            if (error != Error.Ok) throw new InvalidOperationException($"could not delete the folder '{dir}': {error}");
+            Ei.GetResourceFilesystem()?.Scan();
+            return dir;
+        }
+
+        public string? ValidateDeleteFolder(string path) => RqlGodot.Rejection(() => DeletableFolder(path));
+
+        // The folder DeleteFolder removes, after every check: inside res://, not the root, not a protected folder, existing, empty.
+        private static string DeletableFolder(string path)
+        {
+            var dir = ResPathNormalizer.NormalizeDir(path).TrimEnd('/');
+            if (dir == "res:" || dir.Length <= "res://".Length) throw new ArgumentException("the project root cannot be deleted");
+            RequireUnprotected(dir + "/");
+            if (!DirAccess.DirExistsAbsolute(dir)) throw new ArgumentException($"no folder exists at '{dir}'");
+            using var d = DirAccess.Open(dir) ?? throw new ArgumentException($"the folder '{dir}' cannot be opened");
+            d.IncludeHidden = true;
+            var files = d.GetFiles();
+            var dirs = d.GetDirectories();
+            if (files.Length > 0 || dirs.Length > 0)
+                throw new ArgumentException($"the folder '{dir}' is not empty ({files.Length} file(s), {dirs.Length} folder(s)" +
+                    (files.Length > 0 ? ", e.g. " + files[0] : dirs.Length > 0 ? ", e.g. " + dirs[0] + "/" : "") + "); only empty folders are deleted");
+            return dir;
+        }
+
         [RqlCallable("re-import files (res:// paths) after they changed on disk, verifying each import; no argument: a full filesystem scan. Returns a status (files NOT imported are listed first)")]
         public string Reimport(string[]? files = null) => RqlReimport.Run(files);
     }
