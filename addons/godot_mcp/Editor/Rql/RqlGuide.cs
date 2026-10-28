@@ -203,7 +203,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
             "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
-            "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n";
+            "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
+            "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
+            "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
         public const string QueryDescription =
             "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
