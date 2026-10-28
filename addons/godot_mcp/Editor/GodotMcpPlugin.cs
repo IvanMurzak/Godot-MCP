@@ -14,6 +14,7 @@ using Godot;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Connection.DevControl;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
+using com.IvanMurzak.Godot.MCP.Reload;
 using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
 
@@ -61,10 +62,18 @@ namespace com.IvanMurzak.Godot.MCP
         // Armed only for editors the CLI started with an idle timeout (AIGD_SESSION_IDLE_SECONDS); see IdleShutdown.
         IdleShutdown? _idleShutdown;
 
+        // Tool-call admission around Godot's C# assembly reload (see ReloadGateDriver / AssemblyReloadGate).
+        ReloadGateDriver? _reloadGate;
+
+        // script-build's detached build and its deferred result (see ProjectBuildTracker).
+        ProjectBuildTracker? _buildTracker;
+
         public override void _Process(double delta)
         {
             if (_torndown)
                 return;
+            _reloadGate?.Tick(delta);
+            _buildTracker?.Tick(delta, _connection);
             _connection?.PollReconnect(delta);
             if (_idleShutdown != null && _idleShutdown.Tick(_connection, delta))
                 _idleShutdown = null;
@@ -211,6 +220,21 @@ namespace com.IvanMurzak.Godot.MCP
             // Route ReflectorNet's MainThread.Instance through the dispatcher.
             GodotMainThread.Install();
 
+            // The reload gate before the connection: BootMcp wraps the tools in it. Its Drained hook clears the caches a
+            // tool call that outlived the teardown filled again (see Teardown), so Godot's retried unload can succeed.
+            try
+            {
+                _reloadGate = ReloadGateDriver.Install();
+                _reloadGate.Gate.Drained = ClearReflectionCaches;
+                _buildTracker = new ProjectBuildTracker(_reloadGate.DllPath);
+                ProjectBuildTracker.Current = _buildTracker;
+            }
+            catch (System.Exception ex)
+            {
+                // The gate is a safeguard: without it the editor still works, as it did before the gate existed.
+                LogError($"[Godot-MCP] the C# reload gate could not start: {ex.Message}");
+            }
+
             Log("[Godot-MCP] plugin loaded");
 
             // Build the connection, register the dock (wired to it), and boot the MCP connection. All three
@@ -279,6 +303,15 @@ namespace com.IvanMurzak.Godot.MCP
             System.Action<com.IvanMurzak.McpPlugin.IMcpPlugin, GodotMcpConfig>? configurePlugin = null;
             try { configurePlugin = Editor.Rql.RqlInstaller.Install(() => GodotObject.IsInstanceValid(this) ? GetUndoRedo() : null); }
             catch (System.Exception ex) { LogError($"[Godot-MCP] failed to install the RQL data layer: {ex.Message}"); }
+
+            // Then every tool passes the reload gate (wrapped last, so the RQL binding sees the plain tools).
+            var configureRql = configurePlugin;
+            var reloadGate = _reloadGate;
+            configurePlugin = (plugin, config) =>
+            {
+                try { configureRql?.Invoke(plugin, config); }
+                finally { reloadGate?.Configure(plugin); }
+            };
 
             try
             {
@@ -463,6 +496,20 @@ namespace com.IvanMurzak.Godot.MCP
                 return;
             _torndown = true;
 
+            // 0) Reload gate: refuse new calls; on a reload also stop receiving, fail the queued main-thread bodies of calls in
+            //    flight (never run them inside the unload) and wait, bounded, until those calls have left this assembly. A
+            //    call left running keeps a thread inside it and refills the caches cleared below: Godot's unload fails.
+            try
+            {
+                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload, () =>
+                {
+                    // Stop receiving and join that disposal now, so a connect attempt racing it cannot leave it un-joined.
+                    _connection?.DisconnectImmediate();
+                    _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
+                });
+            }
+            catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
+
             // 1) Stop the dev-control listener FIRST — releases its bound socket + joins the accept thread.
             try
             {
@@ -481,6 +528,16 @@ namespace com.IvanMurzak.Godot.MCP
             //     half-disposed connection. Pure-managed, so it runs on every teardown path.
             try { SkillsToolHost.Current = null; }
             catch (System.Exception ex) { TryLogTeardownError("skills-host clear", ex); }
+
+            // 1c) Same for script-build's tracker; the build itself keeps running and the reloaded plugin reports it.
+            try
+            {
+                if (ReferenceEquals(ProjectBuildTracker.Current, _buildTracker))
+                    ProjectBuildTracker.Current = null;
+                _buildTracker?.Release();
+                _buildTracker = null;
+            }
+            catch (System.Exception ex) { TryLogTeardownError("build tracker release", ex); }
 
             // 2) Reload-safe disconnect that DRAINS (joins) the connection's background threads — THE key fix.
             //    A bare DisconnectImmediate() only cancels + fire-and-forgets HubConnection.DisposeAsync(), so
@@ -568,15 +625,40 @@ namespace com.IvanMurzak.Godot.MCP
             }
             catch { /* swallow during unload */ }
 
+            // Drop the RQL engine and release RQL's process-wide Type-keyed caches (RQL lives in the Default ALC, like
+            // ReflectorNet): after a query touched an addon type they would pin this collectible assembly.
+            try { UninstallRql(); } catch (System.Exception ex) { TryLogTeardownError("rql reset", ex); }
+
+            ClearReflectionCaches();
+
+            // Release the static reload hook so a torn-down instance is not reachable from the resolver and
+            // can be collected. Only clear if WE are the current owner (a newer _EnterTree may already have
+            // claimed it).
+            try
+            {
+                if (ReferenceEquals(Current, this))
+                {
+                    Current = null;
+                    GodotMcpAssemblyResolver.ReloadTeardown = null;
+                }
+            }
+            catch { /* swallow during unload */ }
+        }
+
+        /// <summary>
+        /// Clear the process-wide caches (System.Text.Json, RQL, ReflectorNet) that hold this collectible assembly's types.
+        /// Run by <see cref="Teardown"/>, and again by the reload gate when a tool call that outlived the teardown returns
+        /// (it serialized its result after the first clear). Pure-managed statics, safe on any thread; never throws.
+        /// </summary>
+        static void ClearReflectionCaches()
+        {
             // Flush System.Text.Json's process-wide reflection caches — BOTH families (member-accessor AND every
             // options' type-info cache); either alone keeps the ALC pinned (godot#78513), so do NOT narrow this to
-            // an accessor-only clear. Rationale: GodotMcpStjReflectionCache. Runs after the connection drain
-            // (step 2); a straggler thread from a timed-out drain can still re-populate the caches afterwards.
+            // an accessor-only clear. Rationale: GodotMcpStjReflectionCache.
             try { GodotMcpStjReflectionCache.Clear(); } catch { /* swallow during unload */ }
 
-            // Drop the RQL engine and release RQL's process-wide Type-keyed caches (RQL lives in the Default ALC, like
-            // ReflectorNet below): after a query touched an addon type they would pin this collectible assembly.
-            try { UninstallRql(); } catch (System.Exception ex) { TryLogTeardownError("rql reset", ex); }
+            // RQL's Type-keyed caches (UninstallRql cleared them at teardown; a late call fills them again).
+            try { ClearRqlCaches(); } catch { /* swallow during unload */ }
 
             // Drop ReflectorNet's process-wide static reflection caches. They live in the NON-collectible Default
             // ALC (the resolver loads ReflectorNet there) but, during tool registration / parameter-schema build /
@@ -594,19 +676,6 @@ namespace com.IvanMurzak.Godot.MCP
             try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearAssemblyTypeCache(); } catch { /* swallow during unload */ }
             try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearExactAssemblyTypeCache(); } catch { /* swallow during unload */ }
             try { com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearEnumerableItemTypeCache(); } catch { /* swallow during unload */ }
-
-            // Release the static reload hook so a torn-down instance is not reachable from the resolver and
-            // can be collected. Only clear if WE are the current owner (a newer _EnterTree may already have
-            // claimed it).
-            try
-            {
-                if (ReferenceEquals(Current, this))
-                {
-                    Current = null;
-                    GodotMcpAssemblyResolver.ReloadTeardown = null;
-                }
-            }
-            catch { /* swallow during unload */ }
         }
 
         /// <summary>
@@ -687,6 +756,9 @@ namespace com.IvanMurzak.Godot.MCP
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void UninstallRql() => Editor.Rql.RqlInstaller.Uninstall();
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void ClearRqlCaches() => Editor.Rql.RqlStaticCaches.Clear();
 
         /// <summary>
         /// Free a still-live Node referenced by <paramref name="node"/> and null the reference, so the

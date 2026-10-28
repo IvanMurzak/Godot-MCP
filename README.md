@@ -43,7 +43,7 @@ Godot-MCP is the Godot counterpart of [Unity-MCP](https://github.com/IvanMurzak/
 ## ![Features](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
 
 - ✔️ **AI agents** — Use the best agents from **Anthropic**, **OpenAI**, **Google**, or any other provider with no vendor lock-in
-- ✔️ **23 built-in Tools** — [MCP Tools](#tools-reference) across 9 families for operating the Godot Editor, led by [RQL](docs/rql.md): one query language for the whole editor
+- ✔️ **24 built-in Tools** — [MCP Tools](#tools-reference) across 9 families for operating the Godot Editor, led by [RQL](docs/rql.md): one query language for the whole editor
 - ✔️ **C# & GDScript** — Read, create, and update both `.cs` and `.gd` scripts, and attach them to nodes
 - ✔️ **Scene & Node control** — Query and edit the scene tree, Godot properties (GDScript variables included), `.tscn` scenes and `.tres`/`.res` resources with RQL — bulk, all-or-nothing, undoable
 - ✔️ **Visual feedback** — Capture viewport, camera, and isolated-node screenshots the LLM can inspect
@@ -128,7 +128,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 # Tools Reference
 
-Godot-MCP ships **23 built-in tools** grouped into **9 families**. The editor's data layer is
+Godot-MCP ships **24 built-in tools** grouped into **9 families**. The editor's data layer is
 [RQL](docs/rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` and `rql-schema` read and change scene
 nodes, Godot properties, resources, files, scenes and editor state in one query instead of one tool per operation
 (they replace the former `node-*`, `scene-*`, `resource-*`, `filesystem-*` and `editor-*` tools; in the editor also
@@ -143,7 +143,7 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `classes`, `console`, `editor`, `project`, `settings`, `inputActions`, `autoloads`, `groups`, `layers` sources; `godot.find` / `godot.group` / `godot.resources` / `godot.resource` / `godot.callable`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free / Connect / Disconnect / AddToGroup / RemoveFromGroup; project settings, input map, autoloads, layer names, TileSets, Themes, ShaderMaterial parameters and MeshLibraries; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-execute` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, attaching a script to a node, validating GDScript, and running C# in the editor ([Code-Exec](https://github.com/IvanMurzak/Code-Exec)). |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, attaching a script to a node, validating GDScript, building the project's C# (the result arrives after Godot's assembly reload), and running C# in the editor ([Code-Exec](https://github.com/IvanMurzak/Code-Exec)). |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). In the editor, the RQL `console` source. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods (static/instance, public/private) across every loaded assembly via ReflectorNet. In the editor, RQL `call` / `CallMethod` and `rql-schema`. |
@@ -174,6 +174,10 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `script-delete` — Delete a script file.
 - `script-attach-to-node` — Attach a script to a node.
 - `script-validate` — Validate GDScript (.gd) files and return structured parse/compile diagnostics.
+- `script-build` — Build the project's C# (`dotnet build`, Debug) so scripts written with `script-create` /
+  `script-update` load. The build runs in the background; when it succeeds Godot reloads the C# assembly, the plugin
+  reconnects and the result (warning count, or the compiler errors) is delivered after the reload through the
+  request's `requestId`. See [C# assembly reloads](#c-assembly-reloads).
 - `script-execute` — Compile and run C# in the editor (Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
   plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a
   static method. The game's compiled types are visible; `include` adds helper `.cs` files from
@@ -532,6 +536,21 @@ public partial class Tool_MyFeature
 Return a structured data model (ReflectorNet-serialized) or `void` for side-effect-only ops — never ad-hoc
 string formatting for parseable output. Use `string? optional = null` parameters (nullable + default) to
 mark them as optional for the LLM.
+
+## C# assembly reloads
+
+Godot reloads the project's C# assembly about half a second after the built DLL changes (`script-build`, the
+editor's Build button, or a `dotnet build` in a terminal), whatever the plugin is doing. The plugin is part of that
+assembly, so it is torn down, rebuilt and reconnects (a few seconds). A tool call still running at that moment would
+keep the old assembly alive and Godot's unload would fail, so the plugin gates tool calls around a reload:
+
+- once the rebuilt DLL is on disk, new tool calls are refused with a retryable error ("Godot is about to reload the
+  project's C# assembly … Retry in a few seconds"); calls already running finish first, and Godot's reload waits for
+  them (at most 10 s);
+- when the unload starts, the plugin stops receiving calls, refuses main-thread work still queued for a call instead
+  of running it, and waits for those calls to finish (a call caught there is reported by the server as lost with the
+  connection: retry it too);
+- after the reload the plugin reconnects by itself, and `script-build` delivers its result.
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 

@@ -34,8 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "## Modes\n\n" +
             "- **Snippet** (default): plain statements. The last expression is the result " +
             "(`EditorInterface.Singleton.GetEditedSceneRoot().Name`)." + ScriptExecuteSource.SkillSnippetModeTail +
-            "The code runs on the editor main thread; Godot APIs and the game's compiled C# types are available (rebuild the " +
-            "project to see new game code). Compile errors point at your own lines (`snippet.cs(2,5)`). Nothing is kept between " +
+            "The code runs on the editor main thread; Godot APIs and the game's compiled C# types are available (build with " +
+            "script-build to see new game code). Compile errors point at your own lines (`snippet.cs(2,5)`). Nothing is kept between " +
             "calls: use `include` for shared helpers. Edits the code makes are not in the editor's undo history; for undoable " +
             "edits use `EditorInterface.Singleton.GetEditorUndoRedo()` or rql-mutate.\n\n" +
             ScriptExecuteSource.SkillOutputAndUsings +
