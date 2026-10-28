@@ -136,18 +136,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (process == null)
                 return;
 
+            // TakeParked drops it should it exit before the reloaded plugin takes it.
             process.Exited -= OnProcessExited;
-            bool exited;
-            try { exited = process.HasExited; }
-            catch (InvalidOperationException) { exited = true; }
-            if (exited)
-            {
-                process.Dispose();
-                return;
-            }
-
             GodotMcpLocalServerHandoff.Park(process);
-            _log($"[Godot-MCP] local server process (PID {process.Id}) left running for the reloaded plugin.");
+            _log($"[Godot-MCP] local server process (PID {process.Id}) handed over to the reloaded plugin.");
         }
 
         // --- Cache paths ---------------------------------------------------------------------------------
