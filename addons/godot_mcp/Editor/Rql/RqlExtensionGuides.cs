@@ -50,11 +50,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var text = markdown.TrimStart();
             var end = text.IndexOf(". ", StringComparison.Ordinal);
+            while (end > 0 && (EndsWith(text, end, "e.g") || EndsWith(text, end, "i.e"))) end = text.IndexOf(". ", end + 2, StringComparison.Ordinal);
             var newline = text.IndexOf('\n');
             if (newline >= 0 && (end < 0 || newline < end)) end = newline - 1;
             var sentence = (end >= 0 ? text.Substring(0, end + 1) : text).Replace("`", "").Trim();
             return sentence.Length <= SummaryLength ? sentence : sentence.Substring(0, SummaryLength - 1).TrimEnd() + "…";
         }
+
+        private static bool EndsWith(string text, int end, string abbreviation) =>
+            end >= abbreviation.Length && string.CompareOrdinal(text, end - abbreviation.Length, abbreviation, 0, abbreviation.Length) == 0;
 
         private static string Normalize(string name) => new string(name.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToLowerInvariant();
     }

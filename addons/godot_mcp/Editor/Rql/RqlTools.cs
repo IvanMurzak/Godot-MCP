@@ -37,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("the first sentence of the tool's description")]
         public string description { get; }
 
-        [RqlDescription("listed by tools/list; a hidden tool (false) still runs when called by its name")]
+        [RqlDescription("offered to MCP clients; false = hidden: not offered to this client, ask the user to show it in the dock")]
         public bool visible { get; }
     }
 
@@ -51,7 +51,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public const string Description =
             "every MCP tool of this editor, hidden ones included: name title visible description; a tool with visible false is " +
-            "not in the client's tool list but still runs when called by its name";
+            "not offered to this client: to use it, ask the user to show it in the AI Game Developer dock (or godot-cli configure)";
 
         internal static IToolManager? Manager { get; set; }
 

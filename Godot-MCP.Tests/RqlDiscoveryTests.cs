@@ -65,6 +65,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Summary_does_not_stop_at_an_abbreviation() =>
+            Assert.Equal("Adds nodes, e.g. a camera, i.e. Camera3D.", RqlExtensionGuides.Summary("Adds nodes, e.g. a camera, i.e. Camera3D. More."));
+
+        [Fact]
         public void A_tool_row_keeps_the_first_sentence_and_the_visibility()
         {
             var row = new RqlToolRow("godot-skill-generate", "Skills / Generate", "Regenerate every SKILL.md. Writes files.", visible: false);

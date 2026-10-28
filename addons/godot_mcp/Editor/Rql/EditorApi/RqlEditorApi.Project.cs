@@ -76,7 +76,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("subfolders directly in it")]
         public int folderCount { get; }
 
-        [RqlDescription("no files and no subfolders (delete it with editor | call DeleteFolder(path))")]
+        [RqlDescription("no files and no subfolders in the editor's view (delete it with editor | call DeleteFolder(path), which " +
+            "also refuses files the editor does not list)")]
         public bool empty => fileCount == 0 && folderCount == 0;
     }
 

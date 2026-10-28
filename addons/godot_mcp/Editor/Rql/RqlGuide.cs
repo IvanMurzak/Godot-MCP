@@ -51,7 +51,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
             "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
             "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names), tools (every MCP tool of this " +
-            "editor, hidden ones included: name title visible description; a hidden tool still runs when called by its name). " +
+            "editor, hidden ones included: name title visible description; a hidden tool is not offered to this client: " +
+            "to use one, ask the user to show it in the AI Game Developer dock). " +
             "Resources: godot.resources(\"StandardMaterial3D\") or godot.resources(\"Texture2D\", \"res://art\"), " +
             "godot.resource(\"res://materials/red.tres\"). ref(\"Node3D#1234\") resolves a $ref; godot.find(\"Player\") or " +
             "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group; " +

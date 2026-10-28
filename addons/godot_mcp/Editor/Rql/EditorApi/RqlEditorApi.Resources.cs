@@ -168,7 +168,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var dir = DeletableFolder(path);
             var error = DirAccess.RemoveAbsolute(dir);
             if (error != Error.Ok) throw new InvalidOperationException($"could not delete the folder '{dir}': {error}");
-            Ei.GetResourceFilesystem()?.Scan();
+            RqlReimport.Run(null); // a settled scan: the folders source no longer lists it
             return dir;
         }
 

@@ -71,6 +71,10 @@ def groups_without_errors(host: str, d: str) -> None:
     must("W6E child", mutate(host, 'godot.find("Holder") | call AddChild("Node3D", "Kid")'))
     must("W6E group", mutate(host, 'godot.find("Holder") | call AddToGroup("w6")'))
     must("W6E save", mutate(host, "editor | call SaveScene()"))
+    version = must("W6E version", query(host, "editor | select godotVersion"))
+    if re.search(r"4\.[34]\.", version):
+        print("[SKIP] W6E the console captures engine errors from Godot 4.5 on (OS.AddLogger)", flush=True)
+        return
     must("W6E clear console", mutate(host, "editor | call ClearConsole()"))
     has("W6E groups read", must("W6E groups", query(host, 'godot.find("Holder") | select groups')), "w6")
     must("W6E groups source", query(host, "groups | select name count"))
