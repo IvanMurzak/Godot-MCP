@@ -8,7 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
-using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
@@ -17,13 +17,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     public class NodeRefParseTests
     {
         [Theory]
-        [InlineData("Camera3D#2990639514705", "Camera3D", 2990639514705UL)]
-        [InlineData("GPUParticles3D#42", "GPUParticles3D", 42UL)]
-        [InlineData("My_Node#7", "My_Node", 7UL)]
-        public void A_ref_gives_class_and_instance_id(string text, string cls, ulong id)
+        [InlineData("Camera3D#2990639514705", 2990639514705UL)]
+        [InlineData("GPUParticles3D#42", 42UL)]
+        [InlineData("CoinRush.Player#7", 7UL)]
+        public void A_ref_gives_its_instance_id(string text, ulong id)
         {
-            Assert.True(NodeRef.TryParseRef(text, out var c, out var i));
-            Assert.Equal(cls, c);
+            Assert.True(CallableText.TryParseRef(text, out var i));
             Assert.Equal(id, i);
         }
 
@@ -38,6 +37,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("Camera3D#-5")]
         [InlineData("Level/Cam#12")]
         [InlineData("3D#12")]
-        public void Paths_and_malformed_refs_are_not_refs(string? text) => Assert.False(NodeRef.TryParseRef(text, out _, out _));
+        public void Paths_and_malformed_refs_are_not_refs(string? text) => Assert.False(CallableText.TryParseRef(text, out _));
     }
 }

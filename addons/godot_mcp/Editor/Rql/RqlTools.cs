@@ -42,10 +42,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     }
 
     /// <summary>
-    /// The <c>tools</c> RQL source: every MCP tool the editor registered, hidden ones included. MCP clients see only the
-    /// visible tools in tools/list, so without this an agent cannot find a hidden tool, which still runs when called by name.
-    /// Listing only: showing or hiding stays a user decision (the dock, godot-cli configure). The tool manager is the one the
-    /// plugin configuration received (<see cref="RqlInstaller"/>); null before the plugin connected and after a reload.
+    /// The <c>tools</c> RQL source: every MCP tool the editor registered, hidden ones included. Listing only; the tool manager is
+    /// the one the plugin configuration received (<see cref="RqlInstaller"/>), null before the plugin connected.
     /// </summary>
     public static class RqlTools
     {
@@ -57,12 +55,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         internal static IToolManager? Manager { get; set; }
 
-        public static List<RqlToolRow> All() => Rows(Manager?.GetAllTools() ?? Enumerable.Empty<IRunTool>());
-
-        /// <summary>The rows of <paramref name="tools"/>, by name.</summary>
-        internal static List<RqlToolRow> Rows(IEnumerable<IRunTool> tools) =>
-            tools.Select(t => new RqlToolRow(t.Name, t.Title, t.Description, t.Visible))
-                 .OrderBy(r => r.name, StringComparer.Ordinal).ToList();
+        public static List<RqlToolRow> All() =>
+            (Manager?.GetAllTools() ?? Enumerable.Empty<IRunTool>())
+                .Select(t => new RqlToolRow(t.Name, t.Title, t.Description, t.Visible))
+                .OrderBy(r => r.name, StringComparer.Ordinal).ToList();
     }
 }
 #endif

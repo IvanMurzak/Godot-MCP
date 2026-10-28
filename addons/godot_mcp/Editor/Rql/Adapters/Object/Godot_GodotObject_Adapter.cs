@@ -13,7 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using Godot;
 using Rql.Execution;
 
@@ -99,8 +98,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     literal["$type"] = clr.FullName;
                     // Godot property names ("albedo_color") name the C# members RQL builds from (AlbedoColor).
                     foreach (var k in literal.Keys.Where(k => k != "$type").ToList())
-                        if (clr.GetProperty(k, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase) == null
-                            && RqlHostNames.CSharpMember(clr, k) is { } member && !literal.ContainsKey(member))
+                        if (RqlHostNames.CSharpMember(clr, k) is { } member && !literal.ContainsKey(member))
                         {
                             literal[member] = literal[k];
                             literal.Remove(k);

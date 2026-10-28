@@ -80,28 +80,6 @@ namespace com.IvanMurzak.Godot.MCP.Data
             return false;
         }
 
-        /// <summary>
-        /// Whether <paramref name="text"/> is an RQL <c>$ref</c> such as "Camera3D#2990639514705" (a class name, '#', the
-        /// instance id): agents copy them from rql-query rows into a node argument. Gives the class and the id.
-        /// </summary>
-        public static bool TryParseRef(string? text, out string className, out ulong instanceId)
-        {
-            className = "";
-            instanceId = 0;
-            if (string.IsNullOrEmpty(text)) return false;
-            var hash = text!.LastIndexOf('#');
-            if (hash <= 0 || hash == text.Length - 1) return false;
-            for (var i = 0; i < hash; i++)
-            {
-                var c = text[i];
-                if (!(char.IsLetterOrDigit(c) || c == '_') || (i == 0 && char.IsDigit(c))) return false;
-            }
-            if (!ulong.TryParse(text.Substring(hash + 1), System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out instanceId) || instanceId == 0) return false;
-            className = text.Substring(0, hash);
-            return true;
-        }
-
         public override string ToString()
         {
             if (InstanceId != 0)

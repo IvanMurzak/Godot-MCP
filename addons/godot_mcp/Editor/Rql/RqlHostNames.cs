@@ -33,10 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static string? CSharpMember(Type type, string snakeName)
         {
             if (snakeName.IndexOf('_') < 0) return null;
-            var pascal = string.Concat(snakeName.Split(new[] { '_' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(part => char.ToUpperInvariant(part[0]) + part.Substring(1)));
-            if (pascal.Length == 0) return null;
-            try { return type.GetProperty(pascal, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)?.Name; }
+            try { return type.GetProperty(snakeName.Replace("_", ""), BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)?.Name; }
             catch (AmbiguousMatchException) { return null; }
         }
 

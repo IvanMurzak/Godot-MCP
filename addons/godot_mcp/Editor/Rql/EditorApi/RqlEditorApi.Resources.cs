@@ -178,7 +178,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static string DeletableFolder(string path)
         {
             var dir = ResPathNormalizer.NormalizeDir(path).TrimEnd('/');
-            if (dir == "res:" || dir.Length <= "res://".Length) throw new ArgumentException("the project root cannot be deleted");
+            if (dir.Length <= "res://".Length) throw new ArgumentException("the project root cannot be deleted");
             RequireUnprotected(dir + "/");
             if (!DirAccess.DirExistsAbsolute(dir)) throw new ArgumentException($"no folder exists at '{dir}'");
             using var d = DirAccess.Open(dir) ?? throw new ArgumentException($"the folder '{dir}' cannot be opened");
@@ -187,7 +187,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var dirs = d.GetDirectories();
             if (files.Length > 0 || dirs.Length > 0)
                 throw new ArgumentException($"the folder '{dir}' is not empty ({files.Length} file(s), {dirs.Length} folder(s)" +
-                    (files.Length > 0 ? ", e.g. " + files[0] : dirs.Length > 0 ? ", e.g. " + dirs[0] + "/" : "") + "); only empty folders are deleted");
+                    ", e.g. " + files.Concat(dirs.Select(x => x + "/")).First() + "); only empty folders are deleted");
             return dir;
         }
 

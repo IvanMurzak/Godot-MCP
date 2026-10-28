@@ -28,6 +28,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// <summary>A reference to any object, as RQL's <c>$ref</c> writes it: <c>Class#instance id</c>.</summary>
         public static readonly Regex Reference = new Regex(@"^(?<type>[A-Za-z_][A-Za-z0-9_.]*)#(?<id>\d+)$", RegexOptions.CultureInvariant);
 
+        /// <summary>The instance id of an RQL <c>$ref</c> such as "Camera3D#2990639514705"; false for any other text (or id 0).</summary>
+        public static bool TryParseRef(string? text, out ulong instanceId)
+        {
+            instanceId = 0;
+            var m = Reference.Match(text ?? "");
+            return m.Success && ulong.TryParse(m.Groups["id"].Value, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out instanceId) && instanceId != 0;
+        }
+
         public static string Format(string target, string method) => target + Separator + method;
 
         /// <summary>Split <paramref name="text"/> into its target and method; false (with the reason) when it is not that form.</summary>
