@@ -127,17 +127,26 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _lifetime.Cancel();
 
             Process? process;
+            bool stopping;
             lock (_processMutex)
             {
                 process = _serverProcess;
+                stopping = _status == GodotMcpServerStatus.Stopping;
                 _serverProcess = null;
                 _status = GodotMcpServerStatus.Stopped;
             }
             if (process == null)
                 return;
 
-            // TakeParked drops it should it exit before the reloaded plugin takes it.
             process.Exited -= OnProcessExited;
+            if (stopping)
+            {
+                // The user stopped it: finish that instead of handing a dying server over (ScheduleForceKill ends).
+                try { process.Kill(); } catch { /* already exited */ }
+                return;
+            }
+
+            // TakeParked drops it should it exit before the reloaded plugin takes it.
             GodotMcpLocalServerHandoff.Park(process);
             _log($"[Godot-MCP] local server process (PID {process.Id}) handed over to the reloaded plugin.");
         }
@@ -608,6 +617,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             lock (_processMutex)
             {
+                // Handed over at a reload (e.g. the download finished during it): a server launched now would have no
+                // owner, and its Exited handler would keep the unloading assembly alive. The reloaded plugin starts one.
+                if (_lifetime.IsCancellationRequested)
+                    return false;
+
                 if (_status is GodotMcpServerStatus.Running or GodotMcpServerStatus.Starting or GodotMcpServerStatus.Stopping)
                 {
                     _logWarning($"[Godot-MCP] local server is already {_status}.");
@@ -716,11 +730,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 {
                     if (!process.HasExited)
                         process.WaitForExit(5000);
-                    CleanupProcess();
+                    CleanupProcess(process);
                 }
                 else if (process.HasExited)
                 {
-                    CleanupProcess();
+                    CleanupProcess(process);
                 }
                 else
                 {
@@ -732,7 +746,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             catch (Exception ex)
             {
                 _logError($"[Godot-MCP] error stopping local server: {ex.Message}");
-                CleanupProcess();
+                CleanupProcess(process);
                 return false;
             }
         }
@@ -763,7 +777,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     if (exitedEarly)
                     {
                         _logError("[Godot-MCP] local server exited early within the startup window (port in use?).");
-                        CleanupProcess();
+                        CleanupProcess(process);
                     }
                     else
                     {
@@ -794,7 +808,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 }
                 catch (InvalidOperationException) { /* already exited/disposed */ }
 
-                CleanupProcess();
+                CleanupProcess(process);
             });
         }
 
@@ -872,36 +886,39 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         void OnProcessExited(object? sender, EventArgs e)
         {
             _log("[Godot-MCP] local server process exited.");
+            if (sender is not Process process)
+                return;
             // Process.Exited fires on a thread-pool thread; marshal cleanup onto the editor main thread so
             // the status push (which the dock observes) is raised there.
             if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(CleanupProcess);
+                MainThreadDispatcher.Enqueue(() => CleanupProcess(process));
             else
-                CleanupProcess();
+                CleanupProcess(process);
         }
 
-        void CleanupProcess()
+        /// <summary>
+        /// Forget and dispose <paramref name="process"/> and report Stopped — only while it is still the managed
+        /// server: a late call for a process already cleaned up, handed over, or replaced must not drop a newer one.
+        /// </summary>
+        void CleanupProcess(Process process)
         {
-            Process? toDispose;
             lock (_processMutex)
             {
-                toDispose = _serverProcess;
+                if (!ReferenceEquals(_serverProcess, process))
+                    return;
                 _serverProcess = null;
                 SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
             }
 
-            if (toDispose != null)
+            Task.Run(() =>
             {
-                Task.Run(() =>
+                try
                 {
-                    try
-                    {
-                        toDispose.Exited -= OnProcessExited;
-                        toDispose.Dispose();
-                    }
-                    catch (Exception ex) { _log($"[Godot-MCP] error disposing server process: {ex.Message}"); }
-                });
-            }
+                    process.Exited -= OnProcessExited;
+                    process.Dispose();
+                }
+                catch (Exception ex) { _log($"[Godot-MCP] error disposing server process: {ex.Message}"); }
+            });
         }
 
         /// <summary>

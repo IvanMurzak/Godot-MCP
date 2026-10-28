@@ -37,7 +37,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ServerWithPluginHandlers_PinsTheCollectibleContextUntilItExits()
         {
             // The shape before the fix (Exited + OutputDataReceived handlers and async line reads): the running process
-            // holds the handlers, so the context cannot unload while the server runs. This is the reload failure.
+            // holds the handlers, so the context cannot unload while the server runs. This is the reload failure. It
+            // relies on how the runtime's Process keeps them (pending pipe reads, the exit wait); should a future .NET
+            // stop doing so, this negative control fails loudly rather than the handoff test passing for nothing.
             var alcRef = StartFromCollectibleContext(nameof(ServerProcessProbe.StartWithPluginHandlers), out var pid);
             using var server = Process.GetProcessById(pid);
             try
@@ -78,13 +80,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void TakeParked_ReturnsNull_WhenNothingIsParkedOrTheProcessExited()
         {
             ClearSlot();
-            Assert.Null(GodotMcpLocalServerHandoff.TakeParked());
+            try
+            {
+                Assert.Null(GodotMcpLocalServerHandoff.TakeParked());
 
-            var process = Process.Start(ServerProcessProbe.Chatty(seconds: 60))!;
-            Kill(process);
-            GodotMcpLocalServerHandoff.Park(process);
-            Assert.Null(GodotMcpLocalServerHandoff.TakeParked());
-            Assert.Null(AppDomain.CurrentDomain.GetData(GodotMcpLocalServerHandoff.ParkedProcessKey));
+                var process = Process.Start(ServerProcessProbe.Chatty(seconds: 60))!;
+                Kill(process);
+                GodotMcpLocalServerHandoff.Park(process);
+                Assert.Null(GodotMcpLocalServerHandoff.TakeParked());
+                Assert.Null(AppDomain.CurrentDomain.GetData(GodotMcpLocalServerHandoff.ParkedProcessKey));
+            }
+            finally
+            {
+                ClearSlot();
+            }
         }
 
         [Fact]
