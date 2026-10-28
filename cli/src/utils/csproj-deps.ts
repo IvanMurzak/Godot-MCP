@@ -360,3 +360,53 @@ function findItemGroupCloseContaining(text: string, childTagRe: RegExp): number 
   }
   return -1;
 }
+
+export interface CsprojPropertyResult {
+  /** The new csproj text (identical to input when nothing changed). */
+  text: string;
+  /** True when the text was modified. */
+  changed: boolean;
+}
+
+/**
+ * Make sure the consumer `.csproj` has `<EnableDynamicLoading>true</EnableDynamicLoading>`, as Godot's own C# project
+ * template does. Without it the build does not copy the NuGet package assemblies (the addon's packages, and the Debug
+ * configuration's GodotSharpEditor reference) into `.godot/mono/temp/bin/<config>/`, and a game run from the editor cannot
+ * instantiate any C# script. Pure (csproj TEXT in, text out). Only unconditional `<PropertyGroup>`s count (comments are
+ * ignored): a value there other than `true` (an empty or self-closing element included) becomes `true`; without one the
+ * property is added to the first unconditional `<PropertyGroup>`, or to a new one after `<Project …>`.
+ */
+export function ensureEnableDynamicLoading(csprojText: string): CsprojPropertyResult {
+  const element = '<EnableDynamicLoading>true</EnableDynamicLoading>';
+  // Comments blanked out (same length, so indices stay valid in the original text).
+  const masked = csprojText.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\r\n]/g, ' '));
+  const groupRe = /<PropertyGroup\b([^>]*)>([\s\S]*?)<\/PropertyGroup>/gi;
+  const propertyRe = /<EnableDynamicLoading\b[^>]*?(?:\/>|>([^<]*)<\/EnableDynamicLoading>)/i;
+  let firstGroup: { index: number; open: string } | undefined;
+  let last: { index: number; text: string; value: string } | undefined;
+  for (let g = groupRe.exec(masked); g !== null; g = groupRe.exec(masked)) {
+    if (/\bCondition\s*=/i.test(g[1])) continue;
+    const bodyStart = g.index + g[0].indexOf('>') + 1;
+    firstGroup ??= { index: g.index, open: masked.slice(g.index, bodyStart) };
+    const p = propertyRe.exec(g[2]);
+    if (p) last = { index: bodyStart + p.index, text: p[0], value: (p[1] ?? '').trim() };
+  }
+  // MSBuild takes the last unconditional assignment.
+  if (last) {
+    if (last.value.toLowerCase() === 'true') return { text: csprojText, changed: false };
+    return { text: csprojText.slice(0, last.index) + element + csprojText.slice(last.index + last.text.length), changed: true };
+  }
+  const eol = detectEol(csprojText);
+  if (firstGroup) {
+    const lineStart = csprojText.lastIndexOf('\n', firstGroup.index) + 1;
+    const groupIndent = /^[ \t]*/.exec(csprojText.slice(lineStart, firstGroup.index))?.[0] ?? '';
+    const indent = `${groupIndent}${groupIndent || '  '}`;
+    const insertAt = firstGroup.index + firstGroup.open.length;
+    return { text: `${csprojText.slice(0, insertAt)}${eol}${indent}${element}${csprojText.slice(insertAt)}`, changed: true };
+  }
+  const project = /<Project\b[^>]*>/i.exec(masked);
+  if (!project) return { text: csprojText, changed: false };
+  const insertAt = project.index + project[0].length;
+  const block = `${eol}  <PropertyGroup>${eol}    ${element}${eol}  </PropertyGroup>`;
+  return { text: `${csprojText.slice(0, insertAt)}${block}${csprojText.slice(insertAt)}`, changed: true };
+}

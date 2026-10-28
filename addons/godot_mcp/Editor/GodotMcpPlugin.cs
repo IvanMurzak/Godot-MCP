@@ -154,6 +154,11 @@ namespace com.IvanMurzak.Godot.MCP
             // the plugin's own logging path (Log/LogWarning/LogError helpers) — see GodotLogCollector.
             GodotLogCollector.Current = new GodotLogCollector();
 
+            // Games run from this editor inherit its environment (GODOT_MCP_HOST included): the marker keeps their in-game
+            // runtime offline unless the developer opts in (GodotMcpRuntimeBuilder.ConnectWhenRunFromEditor). OS.SetEnvironment
+            // writes the native environment, which the game process inherits (.NET's own setter does not on Linux / macOS).
+            OS.SetEnvironment(GodotMcpEnv.EditorPid, OS.GetProcessId().ToString(System.Globalization.CultureInfo.InvariantCulture));
+
             // Tap the engine's global error stream (Godot 4.5+ OS.AddLogger) so engine-wide GDScript parse
             // errors land in 'console-get-logs' passively AND can be harvested on demand by 'script-validate'.
             // A no-op on Godot < 4.5 (the bridge's #else stub returns null) — script-validate then falls back
@@ -495,6 +500,9 @@ namespace com.IvanMurzak.Godot.MCP
             if (_torndown)
                 return;
             _torndown = true;
+
+            // Games run from now on are not this plugin's (a reload's boot sets the marker again).
+            OS.SetEnvironment(GodotMcpEnv.EditorPid, "");
 
             // 0) Reload gate: refuse new calls; on a reload also stop receiving, fail the queued main-thread bodies of calls in
             //    flight (never run them inside the unload) and wait, bounded, until those calls have left this assembly. A

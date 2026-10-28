@@ -111,6 +111,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _warnings.Clear();
             _explicitUndo.Clear();
             _setStages.Clear();
+            _propertyTables.Clear();
         }
 
         /// <summary>

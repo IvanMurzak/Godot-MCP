@@ -22,7 +22,8 @@ namespace com.IvanMurzak.Godot.MCP.Reload
 {
     /// <summary>
     /// A tool whose calls pass the <see cref="AssemblyReloadGate"/>: refused with a retryable
-    /// <see cref="ResponseErrorKind.Unavailable"/> error while a reload is pending or running, counted while they run.
+    /// <see cref="ResponseErrorKind.Unavailable"/> error while a reload is pending or running (HTTP 503 when the gate refused
+    /// the call before it started, so the server may re-send it), counted while they run.
     /// Everything else is the wrapped tool's, so the tool list, schemas and enable states are unchanged.
     /// </summary>
     public sealed class GatedRunTool : IRunTool
@@ -57,7 +58,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         public async Task<ResponseCallTool> Run(string requestId, IReadOnlyDictionary<string, JsonElement>? namedParameters, CancellationToken cancellationToken = default)
         {
             if (!_gate.TryEnter(out var refusal))
-                return Refused(refusal, requestId);
+                return NotStarted(refusal, requestId);
             try
             {
                 var result = await Inner.Run(requestId, namedParameters, cancellationToken).ConfigureAwait(false);
@@ -73,6 +74,17 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             }
         }
 
+        /// <summary>
+        /// HTTP 503 tells the server nothing of the call ran, so it re-sends it once the editor is back (GameDev-MCP-Server's
+        /// "not executed" contract). Only the gate's own refusal qualifies: the call never reached the tool.
+        /// </summary>
+        public const int NotStartedStatusCode = 503;
+
+        static ResponseCallTool NotStarted(string? refusal, string requestId)
+            => ResponseCallTool.Error(refusal, ResponseErrorKind.Unavailable, httpStatusCode: NotStartedStatusCode).SetRequestID(requestId);
+
+        // A body refused on the main thread after the tool began (its off-thread part may have run): retryable, but no 503, so
+        // the server reports it instead of re-sending a call that may have started.
         static ResponseCallTool Refused(string? refusal, string requestId)
             => ResponseCallTool.Error(refusal, ResponseErrorKind.Unavailable).SetRequestID(requestId);
 

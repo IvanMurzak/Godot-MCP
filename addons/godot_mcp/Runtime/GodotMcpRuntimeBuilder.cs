@@ -219,6 +219,22 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
+        /// Let <see cref="GodotMcpRuntimeHandle.Connect"/> connect in a game started from the Godot editor (Play) too. Off by
+        /// default: such a game inherits the editor's <c>GODOT_MCP_*</c> settings (its host, its token) and would join the
+        /// editor's server as a second plugin. The server keeps one editor and one runtime connection (GameDev-MCP-Server with
+        /// plugin roles) and routes tool calls to the editor while it is connected. Same as the env var
+        /// <c>GODOT_MCP_RUNTIME_FROM_EDITOR=1</c>. Exported games and games started outside the editor are not affected.
+        /// Returns <c>this</c> for chaining.
+        /// </summary>
+        public GodotMcpRuntimeBuilder ConnectWhenRunFromEditor(bool connect = true)
+        {
+            ConnectsWhenRunFromEditor = connect;
+            return this;
+        }
+
+        internal bool ConnectsWhenRunFromEditor { get; private set; }
+
+        /// <summary>
         /// Enable in-game runtime ERROR CAPTURE: at <see cref="Build"/> the runtime installs the engine 4.5+
         /// <c>OS.AddLogger</c> hook (capturing GDScript runtime errors, <c>push_error</c>/<c>push_warning</c>,
         /// and shader errors raised in the RUNNING game) plus the C# <c>AppDomain.UnhandledException</c> /

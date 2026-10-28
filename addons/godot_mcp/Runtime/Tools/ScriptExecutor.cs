@@ -67,6 +67,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         static async Task<ScriptExecuteResult> Run(string csharpCode, string className, string methodName,
             SerializedMemberList? parameters, bool isMethodBody, string[]? usings, string[]? include)
         {
+            // The time budget counts from the call's arrival: compiling and waiting for an earlier snippet use it up too.
+            var arrived = System.Diagnostics.Stopwatch.StartNew();
             var runner = Runner();
             // Only the parameter TYPES are needed to compile; the values are deserialized on the main thread.
             var request = new ExecuteRequest
@@ -88,10 +90,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 throw new Exception(ScriptExecuteSource.Describe(runner.Run(prepared))); // a failed Prepare runs nothing
 
             // Awaits inside the snippet resume on the main thread (Godot's synchronization context).
-            return await MainThread.Instance.RunAsync(() => RunOnMainThread(runner, prepared, parameters)).Unwrap();
+            return await MainThread.Instance.RunAsync(() => RunOnMainThread(runner, request, prepared, parameters, arrived)).Unwrap();
         }
 
-        static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, PreparedSnippet prepared, SerializedMemberList? parameters)
+        static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, ExecuteRequest request, PreparedSnippet prepared,
+            SerializedMemberList? parameters, System.Diagnostics.Stopwatch arrived)
         {
             if (parameters != null)
             {
@@ -103,6 +106,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             await _runGate.WaitAsync();
             try
             {
+                // Code-Exec reads the budget when the run starts (the prepared snippet holds this request).
+                request.TimeoutMs = ScriptExecuteSource.RemainingRunTimeoutMs(arrived.ElapsedMilliseconds);
                 result = await runner.RunAsync(prepared);
             }
             finally
@@ -154,6 +159,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),
                 ValueConverter = Serialize,
                 LogCaptures = new List<ILogCapture> { new ConsoleLogCapture(), new GodotPrintLogCapture() },
+                // Code-Exec's guards (recursion, loops) stop a runaway snippet with a Runtime / Timeout result instead of a stack
+                // overflow that kills the editor or a loop that freezes it; the budget ends before the server's tool timeout.
+                DefaultTimeoutMs = ScriptExecuteSource.RunTimeoutMs,
+                ExecutionGuards = true,
             });
         }
 

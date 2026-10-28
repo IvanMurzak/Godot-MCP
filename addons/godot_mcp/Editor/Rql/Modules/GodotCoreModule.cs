@@ -39,7 +39,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                    $"what the game run from the editor (PlayScene / isPlaying) printed, its errors and warnings, oldest first (last {RqlEditorApi.MaxGameLogEntries}): " +
                    "Sequence LogType Message StackTrace (the console source is the editor's own log)")
                .AddSource("editor", () => RqlEditorApi.Instance,
-                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion, undoHistory, redoHistory) and operations: NewScene, OpenScene, ReloadScene, SaveScene, " +
+                   "editor state (isPlaying, playingScene, editedScene, selection, godotVersion, undoHistory, redoHistory) and operations: CreateNode, InstantiateScene " +
+                   "(bulk create: range(0, N) | call editor.CreateNode(class, {name, parent, position …})), NewScene, OpenScene, ReloadScene, SaveScene, " +
                    "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, Reimport, ClearConsole " +
                    "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
@@ -67,6 +68,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
             // Godot objects
             ctx.AddAdapter(new Godot_GodotObject_Adapter())
                .AddAdapter(new Godot_ArgumentList_Adapter())
+               .AddAdapter(new Godot_NodeOptions_Adapter())
                .AddAdapter(new Godot_Node_Adapter())
                .AddAdapter(new Godot_Node2D_Adapter())
                .AddAdapter(new Godot_Node3D_Adapter())

@@ -42,6 +42,34 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class GodotMcpRuntimeBuilderTests
     {
+        // A game started with Play inherits the editor's GODOT_MCP_HOST: its runtime stays offline unless the developer opts in.
+        [Theory]
+        [InlineData("1234", false, false, null, true)]   // run from the editor: offline
+        [InlineData("1234", false, true, null, false)]   // ConnectWhenRunFromEditor()
+        [InlineData("1234", false, false, "1", false)]   // GODOT_MCP_RUNTIME_FROM_EDITOR=1
+        [InlineData("1234", false, false, "TRUE", false)]
+        [InlineData("1234", false, false, "0", true)]
+        [InlineData(null, false, false, null, false)]    // started outside the editor, or an exported game
+        [InlineData("", false, false, null, false)]
+        [InlineData("1234", true, false, null, false)]   // the editor process itself
+        public void Connect_StaysOfflineInAGameRunFromTheEditor_UnlessOptedIn(string? editorPid, bool isEditor, bool optedIn, string? optInEnv, bool offline)
+            => Assert.Equal(offline, GodotMcpRuntimeHandle.StaysOfflineWhenRunFromEditor(editorPid, isEditor, optedIn, optInEnv, _ => true));
+
+        // An IDE or the Project Manager inherited the marker from an editor that has quit: its games connect as usual.
+        [Fact]
+        public void Connect_IgnoresTheMarkerOfAnEditorThatQuit()
+            => Assert.False(GodotMcpRuntimeHandle.StaysOfflineWhenRunFromEditor("1234", false, false, null, pid => pid != "1234"));
+
+        [Fact]
+        public void ConnectWhenRunFromEditor_IsOffByDefault_AndChains()
+        {
+            Assert.False(GodotMcpRuntime.Initialize().ConnectsWhenRunFromEditor);
+            var builder = GodotMcpRuntime.Initialize(b => b.ConnectWhenRunFromEditor());
+            Assert.True(builder.ConnectsWhenRunFromEditor);
+            Assert.False(builder.ConnectWhenRunFromEditor(false).ConnectsWhenRunFromEditor);
+            Assert.Contains(GodotMcpEnv.RuntimeFromEditor, GodotMcpRuntimeHandle.RunFromEditorMessage);
+        }
+
         [Fact]
         public void Initialize_WithNullConfigure_ReturnsBuilder_WithNoTools()
         {

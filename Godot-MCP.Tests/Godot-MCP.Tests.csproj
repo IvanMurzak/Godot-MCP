@@ -48,9 +48,9 @@
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.13.1" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.c5fed20" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.3.1" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.3.1" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.0f1bf94" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2b784e4" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
@@ -454,6 +454,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\LayerNames.cs" Link="Source\Rql\Settings\LayerNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\ShaderUniformDefaults.cs" Link="Source\Rql\Adapters\ShaderUniformDefaults.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\NodeNameRules.cs" Link="Source\Rql\Adapters\NodeNameRules.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\NodeOptions.cs" Link="Source\Rql\NodeOptions.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\GodotEnumNames.cs" Link="Source\Rql\Adapters\GodotEnumNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Value\CallableText.cs" Link="Source\Rql\Adapters\CallableText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />

@@ -29,8 +29,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class ScriptExecuteSource
     {
-        /// <summary>How long one snippet may run (ms); below the server's <c>GodotMcpServerView.ToolTimeoutMs</c>.</summary>
-        public const int RunTimeoutMs = 120_000;
+        /// <summary>Room for compiling and answering between the end of a snippet's time budget and the server's tool timeout.</summary>
+        public const int ToolTimeoutMarginMs = 60_000;
+
+        /// <summary>
+        /// How long one script-execute call may take (ms): McpPlugin's default tool timeout (300 s, which the local server's
+        /// <c>GodotMcpServerView.ToolTimeoutMs</c> keeps) minus <see cref="ToolTimeoutMarginMs"/>, so Code-Exec's guard stops an
+        /// endless loop with a Timeout result before the server gives up on the call. It is the runner's <c>DefaultTimeoutMs</c>;
+        /// each request gets what is left of it when its snippet starts (<see cref="RemainingRunTimeoutMs"/>), never 0 (since
+        /// Code-Exec 0.4 that means the host default; before, no bound).
+        /// </summary>
+        public const int RunTimeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultToolTimeoutMs - ToolTimeoutMarginMs;
+
+        /// <summary>
+        /// The time budget of a snippet that starts <paramref name="elapsedMs"/> after its call arrived (compiling, waiting for the
+        /// main thread or for an earlier snippet): the rest of <see cref="RunTimeoutMs"/>, at least 1 ms (0 would mean the default).
+        /// </summary>
+        public static int RemainingRunTimeoutMs(long elapsedMs) => (int)Math.Max(1, Math.Min(RunTimeoutMs, RunTimeoutMs - elapsedMs));
 
         /// <summary>Usings every snippet gets; Godot's namespace on top of Unity-MCP's System set.</summary>
         public static readonly IReadOnlyList<string> DefaultUsings = new[]

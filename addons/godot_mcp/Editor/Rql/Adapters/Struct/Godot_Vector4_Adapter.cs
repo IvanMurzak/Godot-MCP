@@ -20,6 +20,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Vector4: write as \"(x, y, z, w)\" or [x, y, z, w]";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w]";
         protected override int Width => 4;
+        // Component-wise arithmetic (RQL spec §4.2): Scale * 1.5, Position + [0, 1, 0], -Velocity.
+        protected override bool Arithmetic => true;
         protected override float Component(Vector4 v, int index) => index switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
         protected override Vector4? Make(float[] f) => f.Length == 4 ? new Vector4(f[0], f[1], f[2], f[3]) : (Vector4?)null;
     }

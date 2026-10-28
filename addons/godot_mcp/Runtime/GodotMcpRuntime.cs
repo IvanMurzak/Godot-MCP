@@ -180,7 +180,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             return InstallCaptureThenBuildHandle(
                 captureRequested: builder.CaptureRuntimeErrors,
                 buildHandle: captured => new GodotMcpRuntimeHandle(
-                    plugin, config, uninstallErrorCaptureOnDispose: captured));
+                    plugin, config, uninstallErrorCaptureOnDispose: captured, connectWhenRunFromEditor: builder.ConnectsWhenRunFromEditor));
         }
 
         /// <summary>

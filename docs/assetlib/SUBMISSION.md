@@ -68,9 +68,9 @@ Important install note: Godot compiles every .cs file under your project into on
 project's .csproj must declare the six NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet     version 5.5.0
   com.IvanMurzak.McpPlugin        version 8.13.1
-  com.IvanMurzak.Rql              version 0.3.0-dev.c5fed20
-  com.IvanMurzak.CodeExec         version 0.3.1
-  com.IvanMurzak.CodeExec.Roslyn  version 0.3.1
+  com.IvanMurzak.Rql              version 0.3.0-dev.0f1bf94
+  com.IvanMurzak.CodeExec         version 0.4.0-dev.2b784e4
+  com.IvanMurzak.CodeExec.Roslyn  version 0.4.0-dev.2b784e4
   Microsoft.CodeAnalysis.CSharp   version 4.12.0
 The last four are editor-only: give them
 Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" so exported games ship

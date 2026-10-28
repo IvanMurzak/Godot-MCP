@@ -5,7 +5,7 @@ import {
   projectGodotPath as resolveProjectGodotPath,
   togglePluginInText,
 } from '../utils/project-godot.js';
-import { addAddonPackageReferences, addAddonEmbeddedResources } from '../utils/csproj-deps.js';
+import { addAddonPackageReferences, addAddonEmbeddedResources, ensureEnableDynamicLoading } from '../utils/csproj-deps.js';
 import { resolveAddonNugetDeps } from '../utils/addon-nuget-deps.js';
 import {
   addonDownloadUrl,
@@ -322,12 +322,14 @@ function patchConsumerCsproj(
   const before = fs.readFileSync(csprojPath, 'utf-8');
   const pkgPatched = addAddonPackageReferences(before, deps.refs);
   const embedPatched = addAddonEmbeddedResources(pkgPatched.text);
-  const changed = pkgPatched.changed || embedPatched.changed;
+  // Godot's template has it; without it a game run from the editor cannot instantiate C# scripts (package DLLs not copied).
+  const loadingPatched = ensureEnableDynamicLoading(embedPatched.text);
+  const changed = pkgPatched.changed || embedPatched.changed || loadingPatched.changed;
   if (changed) {
-    fs.writeFileSync(csprojPath, embedPatched.text);
+    fs.writeFileSync(csprojPath, loadingPatched.text);
     emitProgress(onProgress, {
       phase: 'csproj-patched',
-      message: `Added addon PackageReferences + EmbeddedResource to ${csprojPath}`,
+      message: `Updated ${csprojPath} for the addon (PackageReferences, EmbeddedResource, EnableDynamicLoading)`,
       csprojPath,
     });
   }

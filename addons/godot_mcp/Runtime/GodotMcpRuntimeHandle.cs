@@ -36,13 +36,46 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         readonly bool _uninstallErrorCaptureOnDispose;
         int _disposed;
 
+        readonly bool _connectWhenRunFromEditor;
+
         internal GodotMcpRuntimeHandle(IMcpPlugin plugin, GodotMcpConfig config,
-            bool uninstallErrorCaptureOnDispose = false)
+            bool uninstallErrorCaptureOnDispose = false, bool connectWhenRunFromEditor = false)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _uninstallErrorCaptureOnDispose = uninstallErrorCaptureOnDispose;
+            _connectWhenRunFromEditor = connectWhenRunFromEditor;
         }
+
+        internal const string RunFromEditorMessage =
+            "[Godot-MCP] runtime: not connecting: this game was started from the Godot editor and inherits its GODOT_MCP_* settings, " +
+            "so it would join the editor's MCP server. To connect the game too, call ConnectWhenRunFromEditor() on the runtime " +
+            "builder or set " + GodotMcpEnv.RuntimeFromEditor + "=1.";
+
+        /// <summary>
+        /// Whether <see cref="Connect"/> stays offline: a game the editor started (<paramref name="editorPid"/> is the editor
+        /// plugin's marker, inherited from the editor process, and that editor still runs) connects only when the developer opted
+        /// in. A marker an IDE or the Project Manager inherited from an editor that has quit does not count. Pure (unit-tested).
+        /// </summary>
+        internal static bool StaysOfflineWhenRunFromEditor(string? editorPid, bool isEditorProcess, bool optedIn, string? optInEnv,
+            Func<string, bool> editorRunning) =>
+            !isEditorProcess && !string.IsNullOrEmpty(editorPid) && !optedIn && !IsTrue(optInEnv) && editorRunning(editorPid!);
+
+        /// <summary>Whether the process <paramref name="pid"/> runs (the editor that set the marker).</summary>
+        static bool ProcessRuns(string pid)
+        {
+            if (!int.TryParse(pid, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id))
+                return false;
+            try
+            {
+                using var process = System.Diagnostics.Process.GetProcessById(id);
+                return !process.HasExited;
+            }
+            catch (Exception) { return false; } // gone, or not ours to inspect
+        }
+
+        static bool IsTrue(string? value) =>
+            GodotMcpConfig.NormalizeEnv(value) is { } v && (v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>The resolved connection config (host / token / mode) this handle connects with.</summary>
         public GodotMcpConfig Config => _config;
@@ -55,10 +88,23 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// guards re-entry; when <see cref="GodotMcpConfig.KeepConnected"/> is true the client also re-arms
         /// its own auto-reconnect intent here. Returns <c>true</c> when the initial connect succeeded
         /// (the client keeps retrying afterwards if <c>KeepConnected</c>).
+        /// <para>
+        /// In a game started from the Godot editor (Play) it does not connect and returns <c>false</c>: that game inherits the
+        /// editor's <c>GODOT_MCP_HOST</c>, so it would join the editor's server as a second plugin. Opt in with
+        /// <see cref="GodotMcpRuntimeBuilder.ConnectWhenRunFromEditor"/> or <c>GODOT_MCP_RUNTIME_FROM_EDITOR=1</c>.
+        /// </para>
         /// </summary>
         public Task<bool> Connect(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
+            // IsEditorHint: true in the editor only (OS.HasFeature("editor") is also true in a game run from it).
+            if (StaysOfflineWhenRunFromEditor(System.Environment.GetEnvironmentVariable(GodotMcpEnv.EditorPid),
+                    global::Godot.Engine.IsEditorHint(), _connectWhenRunFromEditor,
+                    System.Environment.GetEnvironmentVariable(GodotMcpEnv.RuntimeFromEditor), ProcessRuns))
+            {
+                GodotMcpLog.Info(RunFromEditorMessage);
+                return Task.FromResult(false);
+            }
             return _plugin.Connect(cancellationToken);
         }
 
