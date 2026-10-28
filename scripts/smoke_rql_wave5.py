@@ -10,7 +10,7 @@ from __future__ import annotations
 import pathlib
 
 from smoke_rql_lib import check, must, mutate, q, query, tool
-from smoke_rql_models import fails, has, lacks, value_is
+from smoke_rql_models import has, lacks, value_is
 
 TAB = "\t"
 
@@ -22,9 +22,11 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
 
 
 def missing_query(host: str) -> None:
-    """A call without its query names the argument instead of an internal ArgumentNullException."""
-    fails("W5Q rql-query without a query", tool(host, "rql-query", {}), "missing-argument", "query")
-    fails("W5Q rql-mutate without a query", tool(host, "rql-mutate", {}), "missing-argument", "query")
+    """A call without its query names the argument instead of an internal ArgumentNullException. A GameDev-MCP-Server that
+    checks arguments against the input schema refuses it first ([invalid_params]), which is as good."""
+    for name in ("rql-query", "rql-mutate"):
+        ok, text = tool(host, name, {})
+        check(f"W5Q {name} without a query", not ok and "query" in text and ("missing-argument" in text or "[invalid_params]" in text), text)
 
 
 def gdscript_warnings(host: str, d: str) -> None:
