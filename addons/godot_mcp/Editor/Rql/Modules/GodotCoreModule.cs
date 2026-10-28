@@ -58,6 +58,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description")
                .AddSource("layers", Settings.RqlLayers.All,
                    "the project's layers (Project Settings → Layer Names): kind index bit name setting; set name renames one (objects read and write their masks by these names in layerNames[\"…\"])")
+               .AddSource(RqlTools.SourceName, RqlTools.All, RqlTools.Description)
                .AddFunction("godot.callable", Godot_Callable_Adapter.Function,
                    "godot.callable(target, method): a Callable of a method on a node (path or node), a resource (res://) or Class#id, e.g. godot.callable(\"Player\", \"_on_hit\")");
 

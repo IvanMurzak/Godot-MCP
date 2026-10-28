@@ -38,6 +38,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             sb.Append("functions:\n");
             foreach (var f in engine.Functions.Keys.OrderBy(k => k, StringComparer.Ordinal))
                 sb.Append("  ").Append(engine.FunctionDescriptions.TryGetValue(f, out var d) ? d : f + "(…)").Append('\n');
+            sb.Append(RqlExtensionGuides.Overview(engine.Guides));
 
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var node in RqlGodot.AllNodes())
@@ -90,8 +91,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static string RenderType(RqlEngine engine, string typeName)
         {
+            // An extension's guide topic ("Particles", "Tilemap"): its guide, then the type of that name when there is one.
+            var guide = RqlExtensionGuides.Find(engine.Guides, typeName);
             var candidates = SourceTypes(engine, typeName).Concat(GodotTypes.Candidates(typeName)).Distinct().Take(3).ToList();
             var godotClass = ClassDbClass(typeName, candidates);
+            if (guide != null)
+                return candidates.Count == 0 && godotClass == null ? guide : guide + "\n" + RenderTypeSchema(engine, candidates, godotClass);
             if (candidates.Count == 0 && godotClass == null)
             {
                 // Types only reachable through sources (e.g. an extension's view objects): RQL's own schema walk finds them.
@@ -100,6 +105,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     ? AgentFormat.UnknownTypeError(typeName, GodotTypes.ShortNames())
                     : reachable;
             }
+            return RenderTypeSchema(engine, candidates, godotClass);
+        }
+
+        // The members of each candidate type, then the Godot class's props.
+        private static string RenderTypeSchema(RqlEngine engine, IReadOnlyList<Type> candidates, string? godotClass)
+        {
             var sb = new StringBuilder();
             foreach (var t in candidates)
             {

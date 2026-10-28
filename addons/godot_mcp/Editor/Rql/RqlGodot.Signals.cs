@@ -194,11 +194,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (_persistentGroups != null) return run();
             _persistentGroups = new Dictionary<ulong, HashSet<string>?>();
             try { return run(); }
-            finally { _persistentGroups = null; }
+            finally { _persistentGroups = null; _editedSceneState = null; }
         }
 
         internal static void InvalidateGroups(Node? node = null)
         {
+            _editedSceneState = null;
             if (node == null) _persistentGroups?.Clear();
             else _persistentGroups?.Remove(node.GetInstanceId());
         }
@@ -206,6 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         // A persistent membership of node changed: keep its cached set (when packed) in step instead of re-packing it.
         private static void UpdatePersistentGroup(Node node, string group, bool persistent)
         {
+            _editedSceneState = null; // the packed scene no longer matches
             if (_persistentGroups == null || !_persistentGroups.TryGetValue(node.GetInstanceId(), out var set) || set == null) return;
             if (persistent) set.Add(group);
             else set.Remove(group);
@@ -222,21 +224,57 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var id = node.GetInstanceId();
             if (_persistentGroups != null && _persistentGroups.TryGetValue(id, out var cached)) return cached;
-            using var scene = new PackedScene();
-            var state = scene.Pack(node) == Error.Ok ? scene.GetState() : null;
+            // A node the edited scene owns is read from the packed edited scene (packed once per query): packing such a node
+            // on its own, when its children belong to the scene root, makes Godot log "!is_ancestor_of" errors into the
+            // editor console agents read (SceneState checks each child's owner against the packed node).
+            var root = EditedRoot();
             HashSet<string>? groups = null;
-            if (state != null && state.GetNodeCount() > 0)
+            var state = root != null && node != root && node.Owner == root ? EditedSceneState(root) : null;
+            var index = state == null ? -1 : NodeIndex(state, "./" + root!.GetPathTo(node));
+            if (index >= 0) groups = GroupsAt(state!, index);
+            else
             {
-                groups = new HashSet<string>(state.GetNodeGroups(0), StringComparer.Ordinal);
-                // An inherited root's node 0 instance is its base scene (null for any other packed node).
-                for (int depth = 0; depth < 32 && state.GetNodeInstance(0) is { } baseScene && baseScene.GetState() is { } baseState
-                         && baseState.GetNodeCount() > 0; depth++)
-                {
-                    state = baseState;
-                    groups.UnionWith(state.GetNodeGroups(0));
-                }
+                using var scene = new PackedScene();
+                var own = scene.Pack(node) == Error.Ok ? scene.GetState() : null;
+                groups = own != null && own.GetNodeCount() > 0 ? GroupsAt(own, 0) : null;
             }
             if (_persistentGroups != null) _persistentGroups[id] = groups;
+            return groups;
+        }
+
+        // The edited scene packed once per query (RunQuery's scope; outside a query every call packs it again).
+        private static SceneState? _editedSceneState;
+        private static ulong _editedSceneStateRoot;
+
+        private static SceneState? EditedSceneState(Node root)
+        {
+            if (_persistentGroups != null && _editedSceneState != null && _editedSceneStateRoot == root.GetInstanceId()) return _editedSceneState;
+            using var scene = new PackedScene();
+            var state = scene.Pack(root) == Error.Ok ? scene.GetState() : null;
+            if (_persistentGroups != null) { _editedSceneState = state; _editedSceneStateRoot = root.GetInstanceId(); }
+            return state;
+        }
+
+        // The index of the scene state's node at a path below its root ("./Player", "./Coins/Coin_01": the state's form), or -1.
+        private static int NodeIndex(SceneState state, string path)
+        {
+            for (var i = 0; i < state.GetNodeCount(); i++)
+                if (state.GetNodePath(i).ToString() == path) return i;
+            return -1;
+        }
+
+        // The groups of a scene state's node, plus those of the scene it instances (an instanced or inherited node's base
+        // scene keeps its own persistent groups).
+        private static HashSet<string> GroupsAt(SceneState state, int index)
+        {
+            var groups = new HashSet<string>(state.GetNodeGroups(index), StringComparer.Ordinal);
+            for (int depth = 0; depth < 32 && state.GetNodeInstance(index) is { } baseScene && baseScene.GetState() is { } baseState
+                     && baseState.GetNodeCount() > 0; depth++)
+            {
+                state = baseState;
+                index = 0;
+                groups.UnionWith(state.GetNodeGroups(0));
+            }
             return groups;
         }
 
