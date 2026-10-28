@@ -307,6 +307,9 @@
          them (ExecutableFullPath / IsVersionMatches / KillOrphanedServerProcesses, GodotMcpServerManager.cs,
          #if TOOLS) all reach ProjectSettings.GlobalizePath and cannot run in this binary-less host. -->
     <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotMcpServerPathOverride.cs" Link="Source\GodotMcpServerPathOverride.cs" />
+    <!-- Local-server handoff across a C# reload — pure BCL (#if TOOLS || GODOT_MCP_UNIT_TESTS): tested against a real
+         collectible load context and real child processes (GodotMcpLocalServerHandoffTests). -->
+    <Compile Include="..\addons\godot_mcp\Editor\Connection\GodotMcpLocalServerHandoff.cs" Link="Source\GodotMcpLocalServerHandoff.cs" />
     <!-- Segmented-control state model — pure-managed (no Godot native types, no #if TOOLS): the
          value→index / selected-predicate / clamp rules for the reusable segmented control (Custom|Cloud,
          none|required). The editor builder (DockStyle.SegmentedControl, #if TOOLS) consumes these and is

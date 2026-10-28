@@ -553,6 +553,16 @@ namespace com.IvanMurzak.Godot.MCP
             }
             catch (System.Exception ex) { TryLogTeardownError("build tracker release", ex); }
 
+            // 1d) On a reload, keep the local server this plugin started running and hand it to the reloaded plugin.
+            //     Its Process held this assembly's handlers, which kept the collectible assembly loaded (the unload
+            //     failed whenever the plugin had started its own server); stopping it instead would drop the agents'
+            //     sessions on every rebuild. Pure-managed. Plugin disable / editor quit still stop it (panel predelete).
+            if (fromReload)
+            {
+                try { _dock?.DetachLocalServerForReload(); }
+                catch (System.Exception ex) { TryLogTeardownError("local server handoff", ex); }
+            }
+
             // 2) Reload-safe disconnect that DRAINS (joins) the connection's background threads — THE key fix.
             //    A bare DisconnectImmediate() only cancels + fire-and-forgets HubConnection.DisposeAsync(), so
             //    the SignalR receive loop + an in-flight HTTP reconnect kept running inside the collectible ALC

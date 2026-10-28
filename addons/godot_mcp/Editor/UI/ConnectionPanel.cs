@@ -811,6 +811,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
+        /// At a C# assembly reload: let go of the local server without stopping it; the reloaded plugin's panel
+        /// re-attaches to it (<see cref="GodotMcpServerManager.DetachForReload"/>).
+        /// </summary>
+        public void DetachLocalServerForReload() => _serverManager.DetachForReload();
+
+        /// <summary>
         /// Start the local server unless it is already running or starting — the Start half of
         /// <see cref="OnServerStartStopPressed"/>, also used by the plugin when <c>GODOT_MCP_START_SERVER</c> asks for
         /// it (CLI-launched headless editors).

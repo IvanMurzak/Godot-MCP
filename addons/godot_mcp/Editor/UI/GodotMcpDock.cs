@@ -370,6 +370,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             return true;
         }
 
+        /// <summary>At a C# assembly reload: keep the local server running for the reloaded plugin.</summary>
+        public void DetachLocalServerForReload() => _connectionPanel?.DetachLocalServerForReload();
+
         /// <summary>
         /// Re-render the dock from current state. No-op in this foundation scaffold — there is no dynamic
         /// state to show yet. The later connection task fills this in (status line, mode indicator) and
