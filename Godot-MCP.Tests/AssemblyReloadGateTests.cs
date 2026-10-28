@@ -178,6 +178,28 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Refusals_AreLoggedWithoutAnErrorBacktrace_OtherErrorsAreNot()
+        {
+            var captured = new List<(Data.GodotLogType Type, string Message)>();
+            var logger = new Connection.GodotMcpLogger("McpToolManager", () => Connection.GodotMcpLogLevel.Trace, (t, m) => captured.Add((t, m)));
+            Connection.GodotMcpLogger.IsExpectedError = AssemblyReloadGate.IsRefusal;
+            try
+            {
+                Microsoft.Extensions.Logging.LoggerExtensions.LogError(logger, "Error Response to AI:\n" + AssemblyReloadGate.PendingMessage);
+                Microsoft.Extensions.Logging.LoggerExtensions.LogError(logger, "Error Response to AI:\nno such file");
+            }
+            finally
+            {
+                Connection.GodotMcpLogger.IsExpectedError = null;
+            }
+
+            Assert.Equal(Data.GodotLogType.Log, captured[0].Type);
+            Assert.Equal(Data.GodotLogType.Error, captured[1].Type);
+            Assert.False(AssemblyReloadGate.IsRefusal(null));
+            Assert.True(AssemblyReloadGate.IsRefusal("x " + AssemblyReloadGate.ShutdownMessage));
+        }
+
+        [Fact]
         public void ConcurrentCalls_AreCountedExactly()
         {
             var gate = GateLoadedAt(Loaded);

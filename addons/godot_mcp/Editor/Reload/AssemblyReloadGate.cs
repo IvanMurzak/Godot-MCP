@@ -56,6 +56,10 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         public const string ShutdownMessage =
             "The Godot-MCP plugin is shutting down (the editor is closing or the plugin was disabled), so this call was not run.";
 
+        /// <summary>Whether <paramref name="text"/> carries one of the gate's refusals.</summary>
+        public static bool IsRefusal(string? text) =>
+            text != null && (text.Contains(PendingMessage) || text.Contains(UnloadingMessage) || text.Contains(ShutdownMessage));
+
         public enum GatePhase { Open, Pending, Unloading }
 
         public enum Observation { None, BecamePending, PendingExpired }

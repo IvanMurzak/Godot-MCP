@@ -547,8 +547,9 @@ keep the old assembly alive and Godot's unload would fail, so the plugin gates t
 - once the rebuilt DLL is on disk, new tool calls are refused with a retryable error ("Godot is about to reload the
   project's C# assembly … Retry in a few seconds"); calls already running finish first, and Godot's reload waits for
   them (at most 10 s);
-- when the unload starts, main-thread work still queued for a call is refused instead of run, and the plugin waits for
-  those calls to answer before it disconnects;
+- when the unload starts, the plugin stops receiving calls, refuses main-thread work still queued for a call instead
+  of running it, and waits for those calls to finish (a call caught there is reported by the server as lost with the
+  connection: retry it too);
 - after the reload the plugin reconnects by itself, and `script-build` delivers its result.
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)

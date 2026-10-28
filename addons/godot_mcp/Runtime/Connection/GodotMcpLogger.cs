@@ -55,6 +55,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 || text.StartsWith("Error Response to AI", StringComparison.Ordinal)
                 || text.StartsWith("Processing Response to AI", StringComparison.Ordinal));
 
+        /// <summary>
+        /// Optional: true for an error line that is expected and needs no backtrace, written at info severity instead. The
+        /// editor sets it for the reload gate's refusals: an agent hammering calls during a reload produced hundreds of
+        /// <c>GD.PushError</c> backtraces a second, slowing the editor's main thread enough to delay the reload itself.
+        /// </summary>
+        public static Func<string, bool>? IsExpectedError { get; set; }
+
         readonly string _categoryName;
         readonly Func<GodotMcpLogLevel> _levelProvider;
         readonly GodotLogSink _sink;
@@ -116,6 +123,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 MicrosoftLogLevel.Warning => GodotLogType.Warning,
                 _ => GodotLogType.Log
             };
+            if (godotType == GodotLogType.Error && exception == null && IsExpectedError?.Invoke(text) == true)
+                godotType = GodotLogType.Log;
 
             (IsToolTraffic(_categoryName, text, exception) ? _echoSink : _sink)(godotType, message);
         }

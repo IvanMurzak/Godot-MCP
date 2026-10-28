@@ -496,12 +496,13 @@ namespace com.IvanMurzak.Godot.MCP
                 return;
             _torndown = true;
 
-            // 0) Reload gate: refuse new calls, fail the queued main-thread bodies of calls in flight (never run them inside
-            //    the unload) and wait, bounded, until those calls have answered over the still-open connection. A call left
-            //    running keeps a thread inside this assembly and refills the caches cleared below: Godot's unload fails.
+            // 0) Reload gate: refuse new calls; on a reload also stop receiving, fail the queued main-thread bodies of calls in
+            //    flight (never run them inside the unload) and wait, bounded, until those calls have left this assembly. A
+            //    call left running keeps a thread inside it and refills the caches cleared below: Godot's unload fails.
             try
             {
-                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload);
+                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload,
+                    () => _connection?.DisconnectImmediate());
             }
             catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
 
