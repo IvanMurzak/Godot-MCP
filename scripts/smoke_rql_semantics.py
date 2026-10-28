@@ -11,10 +11,9 @@ Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
-import re
 
 from smoke_rql_lib import check, must, mutate, query, tool
-from smoke_rql_models import fails, has, lacks, new_scene, node
+from smoke_rql_models import fails, has, lacks, new_scene, node, value_is
 
 
 def run(host: str, project: pathlib.Path, d: str) -> None:
@@ -37,8 +36,7 @@ def boolean_conditions(host: str) -> None:
     fails("SB where mesh is a type-mismatch", query(host, "nodes | where mesh | select name"),
           "type-mismatch", "not a boolean", "mesh != null", "has(mesh)")
     has("SB where Mesh != null", must("SB explicit test", query(host, "nodes | where Mesh != null | select name")), "Box")
-    text = must("SB null is false", query(host, "nodes | where name == \"SemRoot\" | where parent | count"))
-    check("SB a null condition keeps nothing", re.search(r"^0$", text, re.M) is not None, text)
+    value_is("SB a null condition keeps nothing", must("SB null is false", query(host, 'nodes | where name == "SemRoot" | where parent | count')), "0")
 
 
 def class_names(host: str) -> None:
@@ -47,11 +45,9 @@ def class_names(host: str) -> None:
     has("SC GPUParticles3D found, $type is the Godot name", text, "Sparks|GPUParticles3D")
     lacks("SC no C# name", text, "GpuParticles3D")
     for spelling in ("GPUParticles3D", "GpuParticles3D"):
-        text = must(f"SC is {spelling}", query(host, f"nodes | where $ is {spelling} | count"))
-        check(f"SC $ is {spelling} matches", re.search(r"^1$", text, re.M) is not None, text)
+        value_is(f"SC $ is {spelling} matches", must(f"SC is {spelling}", query(host, f"nodes | where $ is {spelling} | count")), "1")
     has("SC $ref of a CSG node", must("SC ref", query(host, f'{node("Crate")} | select $ref')), "CSGBox3D#")
-    text = must("SC $type comparison", query(host, 'nodes | where $type == "CSGBox3D" | count'))
-    check("SC $type == CSGBox3D", re.search(r"^1$", text, re.M) is not None, text)
+    value_is("SC $type == CSGBox3D", must("SC $type comparison", query(host, 'nodes | where $type == "CSGBox3D" | count')), "1")
 
 
 def mutate_hints(host: str) -> None:
@@ -78,11 +74,10 @@ def list_equality(host: str) -> None:
 
 
 def target_range(host: str) -> None:
-    """max_targets outside 1 … 1000 is refused before anything runs; omitted, the default applies."""
-    for value in (0, 1001):
-        fails(f"SR max_targets = {value} refused",
-              tool(host, "rql-mutate", {"query": f'{node("Lamp2")} | set Visible = false', "max_targets": value}),
-              "invalid-value", "from 1 to 1000")
+    """max_targets = 0 (never "unset") is refused before anything runs (above the ceiling: smoke_rql_hazards target_limit)."""
+    fails("SR max_targets = 0 refused",
+          tool(host, "rql-mutate", {"query": f'{node("Lamp2")} | set Visible = false', "max_targets": 0}),
+          "invalid-value", "from 1 to 1000")
     text = must("SR still visible", query(host, f'{node("Lamp2")} | select Visible'))
     has("SR nothing ran", text, "true")
 

@@ -59,11 +59,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static IReadOnlyDictionary<string, string>? GodotEnumAliases(Type enumType)
         {
             if (enumType.Namespace != "Godot" || enumType.DeclaringType is not { } owner) return null;
-            // The C# binding renames some classes (GodotObject is Object, CsgBox3D is CSGBox3D) and enums (Viewport.MSAA is
-            // Msaa, BaseMaterial3D.ShadingMode is ShadingModeEnum where a property has the same name).
-            var ownerName = owner == typeof(GodotObject) ? "Object" : owner.Name;
-            var godotClass = GodotTypes.GodotClasses().FirstOrDefault(c => string.Equals(c, ownerName, StringComparison.OrdinalIgnoreCase));
-            if (godotClass == null) return null;
+            // The C# binding renames some classes (GodotObject is Object, CsgBox3D is CSGBox3D: [GodotClassName]) and enums
+            // (Viewport.MSAA is Msaa, BaseMaterial3D.ShadingMode is ShadingModeEnum where a property has the same name).
+            var godotClass = RqlHostNames.GodotClassName(owner) ?? owner.Name;
+            if (!ClassDB.ClassExists(godotClass)) return null;
             var csName = enumType.Name.EndsWith("Enum", StringComparison.Ordinal) ? enumType.Name.Substring(0, enumType.Name.Length - 4) : null;
             var enums = ClassDB.ClassGetEnumList(godotClass, noInheritance: true);
             var enumName = enums.FirstOrDefault(n => string.Equals(n, enumType.Name, StringComparison.OrdinalIgnoreCase))
