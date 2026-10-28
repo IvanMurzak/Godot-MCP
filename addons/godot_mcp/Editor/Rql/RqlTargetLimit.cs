@@ -37,7 +37,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             mutations.LimitArgument = Argument;
         }
 
-        /// <summary>The request budgets for a <see cref="Argument"/> value: none when it was not given (never 0 for "unset").</summary>
+        /// <summary>
+        /// The limit a rql-mutate <see cref="Argument"/> requests: null (not given, the host default applies) for
+        /// <see cref="Default"/>, which the tool's plain int argument defaults to (an int? would put a $defs reference into the
+        /// tool's MCP input schema); any other value, 0 included, goes to RQL, which refuses one outside 1 … <see cref="Ceiling"/>.
+        /// </summary>
+        public static int? Requested(int argument) => argument == Default ? (int?)null : argument;
+
+        /// <summary>The request budgets for a requested limit: none when it was not given (never 0 for "unset").</summary>
         public static Budgets? BudgetsFor(int? maxTargets) => maxTargets is int n ? new Budgets { MaxMutationTargets = n } : null;
     }
 }

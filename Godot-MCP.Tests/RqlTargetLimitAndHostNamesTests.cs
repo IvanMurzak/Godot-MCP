@@ -96,6 +96,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void AnOmittedMaxTargetsSendsNoBudget()
         {
             Assert.Null(RqlTargetLimit.BudgetsFor(null));
+            Assert.Null(RqlTargetLimit.Requested(RqlTargetLimit.Default)); // the tool argument's default: not given
+            Assert.Equal(0, RqlTargetLimit.Requested(0)); // passed on, so RQL refuses it
+            Assert.Equal(300, RqlTargetLimit.Requested(300));
             Assert.Equal(5, RqlTargetLimit.BudgetsFor(5)!.MaxMutationTargets);
         }
 

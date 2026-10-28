@@ -72,8 +72,8 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   `dry_run: true` returns the receipt (`$ref member old new`) without changing anything. The receipt leaves out
   assignments that found the value already set; they are counted (`N unchanged assignment(s) not listed`).
 - **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
-  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). Omitted, no budget
-  is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member
+  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). Omitted (or 200), no
+  budget is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member
   that leaves a mutation with no target is an `unknown-member` error; a member some Godot type declares (a polymorphic
   `nodes` stream with no node of that type) stays a warning (`RqlGodot.Names.cs`, the engine's `IsKnownMember`, which
   adds the members of the engine's registered `Adapters`).
