@@ -635,7 +635,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     return false;
                 }
 
-                SetStatus(GodotMcpServerStatus.Starting, marshalled: false);
+                SetStatus(GodotMcpServerStatus.Starting);
 
                 // Free the port from any orphaned server WE previously left behind for THIS project
                 // (scoped to this project's cache dir — never cross-kills another project's server).
@@ -670,7 +670,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         _logError("[Godot-MCP] failed to start local server process.");
                         process.Exited -= OnProcessExited;
                         process.Dispose();
-                        SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
+                        SetStatus(GodotMcpServerStatus.Stopped);
                         return false;
                     }
 
@@ -689,7 +689,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 catch (Exception ex)
                 {
                     _logError($"[Godot-MCP] failed to start local server: {ex.Message}");
-                    SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
+                    SetStatus(GodotMcpServerStatus.Stopped);
                     return false;
                 }
             }
@@ -711,11 +711,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
                 if (_serverProcess == null)
                 {
-                    SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
+                    SetStatus(GodotMcpServerStatus.Stopped);
                     return true;
                 }
 
-                SetStatus(GodotMcpServerStatus.Stopping, marshalled: false);
+                SetStatus(GodotMcpServerStatus.Stopping);
                 process = _serverProcess;
             }
 
@@ -781,7 +781,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     }
                     else
                     {
-                        SetStatus(GodotMcpServerStatus.Running, marshalled: true);
+                        SetStatus(GodotMcpServerStatus.Running);
                         _log("[Godot-MCP] local server verified and running.");
                     }
                 }
@@ -907,7 +907,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 if (!ReferenceEquals(_serverProcess, process))
                     return;
                 _serverProcess = null;
-                SetStatus(GodotMcpServerStatus.Stopped, marshalled: false);
+                SetStatus(GodotMcpServerStatus.Stopped);
             }
 
             Task.Run(() =>
@@ -923,20 +923,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Set + raise the new status. Must be called holding <see cref="_processMutex"/> for the status
-        /// field write (the public callers do). The <paramref name="marshalled"/> flag records whether the
-        /// raise came from a thread-pool hop (true) so the manager hops to the main thread before raising;
-        /// when false the caller is already on the main thread (a UI click / inline path).
+        /// field write (the public callers do). The raise runs on the editor main thread (inline when already
+        /// there; dropped off-thread once the dispatcher is torn down, e.g. a server exit during teardown).
         /// </summary>
-        void SetStatus(GodotMcpServerStatus status, bool marshalled)
+        void SetStatus(GodotMcpServerStatus status)
         {
             _status = status;
-
-            void Raise() => StatusChanged?.Invoke(status);
-
-            if (marshalled)
-                MainThreadDispatcher.RunOnMainThread(Raise);
-            else
-                Raise();
+            MainThreadDispatcher.RunOnMainThread(() => StatusChanged?.Invoke(status));
         }
 
         // --- Filesystem helpers --------------------------------------------------------------------------

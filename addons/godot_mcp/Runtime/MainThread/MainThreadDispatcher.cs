@@ -232,11 +232,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
                 return;
             }
 
-            if (!InstancePresent && _hasEverEntered)
-                return;
-
             try { Enqueue(action); }
-            catch (InvalidOperationException) { } // torn down between the check and the enqueue: drop
+            catch (InvalidOperationException) { } // the dispatcher was torn down: nothing will drain it, drop
         }
 
         public override void _EnterTree()

@@ -710,10 +710,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     if (!_disposed && !_recoverySuspended && _config.KeepConnected && ReferenceEquals(_plugin, plugin) && _account.IsSignedIn)
                         Reconnect();
                 }
-                if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                    MainThreadDispatcher.Enqueue(ReconnectIfStillWanted);
-                else
-                    ReconnectIfStillWanted();
+                MainThreadDispatcher.RunOnMainThread(ReconnectIfStillWanted);
             }
             catch (Exception ex)
             {
@@ -1040,12 +1037,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Raise <see cref="FeaturesUpdated"/> on the editor main thread, mirroring the same dispatcher-guard
-        /// the managers' <c>On*Updated</c> subscription uses (see <see cref="SubscribeToFeatureUpdates"/>): hop
-        /// to the main thread when off it (and a dispatcher is in the tree), else invoke inline. The toggle
-        /// path (<see cref="SetFeatureVisible"/>) already runs on the editor main thread, so it takes the inline
-        /// branch — but routing through the same guard keeps the event's "always marshalled onto the main
-        /// thread" contract true regardless of which thread a future caller raises from.
+        /// Raise <see cref="FeaturesUpdated"/> on the editor main thread via
+        /// <see cref="MainThreadDispatcher.RunOnMainThread"/>, whichever thread the caller is on.
         /// </summary>
         void RaiseFeaturesUpdated()
         {
