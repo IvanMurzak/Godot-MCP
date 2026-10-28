@@ -55,21 +55,24 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group; " +
             "godot.callable(\"Player\", \"_on_hit\") a Callable.\n" +
             "Stages:\n" +
-            "  where <predicate>   filter\n" +
+            "  where <predicate>   filter; a condition must be a boolean: where Mesh != null, where has(Mesh), where Text != \"\", " +
+            "where children.count() > 0 (a bare object, number, string or list is a type-mismatch; null counts as false)\n" +
             "  select a b.c alias=(expr)   project columns (wrap computed expressions in parentheses)\n" +
             "  sort <expr> [desc], ...   stable sort\n" +
             "  first N | skip N | count\n" +
             "  get <path>   replace each item by a member (lists are flattened)\n" +
             "  recurse children [max-depth=N] [include-self=false]   walk the scene tree (input items included by default)\n" +
             "  distinct [expr] | sum expr | min expr | max expr | avg expr\n" +
-            "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count\n" +
+            "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count; each group's items " +
+            "are in items: group-by class | select key, count, avgY = items.avg(Position.Y)\n" +
             "Expressions: == != < <= > >= and or not + - * / %; contains, starts-with, ends-with (case-insensitive); " +
             "matches \"regex\"; x in [a, b]; x is null; x is not null; $ is Node3D (includes subclasses); has(member). " +
             "Conditional: cond ? a : b or if(cond, a, b) (only the taken branch runs; inside select wrap it in parentheses: " +
             "select name kind=($ is MeshInstance3D ? \"mesh\" : \"other\")). " +
             "Text: replace(s, from, to) (case-insensitive), replace-regex(s, pattern, repl) ($1 = group 1), substring(s, start[, length]), " +
             "split(s, sep), trim(s), pad(v, width[, fill]) — also as methods: name.replace(\"Old\", \"New\"), name.substring(0, 4). " +
-            "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}.\n" +
+            "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}. Lists compare by value: " +
+            "groups == [\"enemies\"], and equal lists form one group in distinct / group-by.\n" +
             "Paths: a.b.c, list[0], map[\"key\"]; .member on a list maps over its elements. List methods: .any(pred) .all(pred) " +
             ".count([pred]) .sum(e) .min(e) .max(e) .first([pred]); inside them bare names refer to the element, falling back to the outer item.\n" +
             "Meta: $ (current item), $ref (stable id such as Node3D#1234), $type, $path, $index, $depth. Enums compare to strings; " +
@@ -125,6 +128,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  layers | where kind == \"3d_physics\" and name != \"\" | select index name\n" +
             "  godot.resources(\"MeshLibrary\") | get items | select id name mesh\n" +
             "  nodes | group-by class, scripted=(script is not null)\n" +
+            "  nodes | where $ is Node3D | group-by class | select key, count, avgY = items.avg(Position.Y)\n" +
             "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")\n" +
             "  files | where type contains \"Material\" and usedBy.count() == 0 | select path\n" +
             "  files | where missingDeps.count() > 0 | select path missingDeps\n" +
@@ -203,7 +207,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Change the live Godot editor with an RQL query whose last stage is set or call. All-or-nothing: every target and " +
             "value is checked before anything is written; a failure changes nothing. Undoable in the editor (Ctrl+Z). Scene " +
             "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
-            "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. Do " +
+            "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
+            "lists only assignments that changed a value; the others are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
@@ -221,7 +226,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string QuerySyntaxShort =
             "Query part: the RQL of rql-query (full guide and the sources in its description); godot.resources(\"Texture2D\"), " +
             "godot.resource(path), godot.find(\"Name\"), ref(\"Node3D#1234\"). Stages: where, select, sort, first N, get <path>, " +
-            "recurse children. Operators: == != < > and or not, contains, starts-with, $ is Node3D, cond ? a : b. Paths a.b.c, list[0], " +
+            "recurse children. Operators: == != < > and or not, contains, starts-with, $ is Node3D, cond ? a : b; conditions are " +
+            "booleans (where Mesh != null, has(Mesh)). Paths a.b.c, list[0], " +
             "props[\"key\"]. Vectors/colors as \"(1, 2, 3)\" or \"#ff8800\"; enums as strings.";
 
         /// <summary>rql-mutate's max_targets argument (the numbers are <see cref="RqlTargetLimit"/>'s, checked by a test).</summary>

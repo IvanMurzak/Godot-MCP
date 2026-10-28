@@ -14,7 +14,6 @@ using System.Collections.Generic;
 using System.Linq;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
-using com.IvanMurzak.Godot.MCP.Reflection;
 using Godot;
 using Rql.Execution;
 
@@ -35,12 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var known = RqlHostNames.MemberNames(GodotTypes.GodotObjectTypes());
             // Adapter members (props, params, colors …) come from the engine's type model: only the adapted types are built
-            // there (building every Godot class would compile thousands of getters). RQL keeps its adapter registry internal,
-            // so the adapter classes are found by reflection.
-            var adapterTypes = GodotAssemblyUtils.AllAssemblies
-                .Where(a => !GodotAssemblyUtils.IsSkippedForDiscovery(a, typeof(RqlGodot).Assembly))
-                .SelectMany(a => TypeModel.LoadableTypes(a));
-            foreach (var target in RqlHostNames.AdapterTargets(adapterTypes).Distinct())
+            // there (building every Godot class would compile thousands of getters).
+            foreach (var target in engine.Adapters.Select(a => a.Target).Distinct())
             {
                 try { foreach (var member in engine.Types.Info(target).Members) known.Add(member.Name); }
                 catch (Exception ex) { GodotMcpLog.Warning($"[Godot-MCP] RQL known members: {target.Name} skipped: {ex.Message}"); }

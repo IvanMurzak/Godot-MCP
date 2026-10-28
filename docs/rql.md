@@ -69,11 +69,17 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 ## Writes: undo and saving
 
 - **All-or-nothing.** Every target and value is checked before anything is written; a failure changes nothing.
-  `dry_run: true` returns the receipt (`$ref member old new`) without changing anything.
+  `dry_run: true` returns the receipt (`$ref member old new`) without changing anything. The receipt lists only
+  assignments that changed a value; the others are counted (`N unchanged assignment(s) not listed`).
 - **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
-  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). A misspelt member
+  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). Omitted, no budget
+  is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member
   that leaves a mutation with no target is an `unknown-member` error; a member some Godot type declares (a polymorphic
-  `nodes` stream with no node of that type) stays a warning (`RqlGodot.Names.cs`, the engine's `IsKnownMember`).
+  `nodes` stream with no node of that type) stays a warning (`RqlGodot.Names.cs`, the engine's `IsKnownMember`, which
+  adds the members of the engine's registered `Adapters`).
+- **Godot names.** `$type`, `$ref`, schemas and hints show Godot's class names (`GPUParticles3D`, `CSGBox3D`, `Object`),
+  taken from the C# binding's `[GodotClassName]` (the engine's `TypeDisplayName`); `is` and `ref()` accept the C# names
+  too. Hints name the tools: `rql-schema` (`SchemaHint`) and `rql-mutate` (`MutateHint`).
 - **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` (Ctrl+Z): a `set` snapshots the stored Godot properties
   of every changed object and records the differences as do/undo properties. The changed object is the nearest node,
   resource or project-settings object enclosing the write; a plain `Object` held by a node property is snapshotted
@@ -200,6 +206,8 @@ the reload still unloads.
 - `scripts/smoke_rql_agent.py` (run by `smoke_rql.py`): what agent runs could not do or got wrong — editor Undo / Redo, the
   radians warning, script-only props, enum labels, the sibling-rename hint, inherited scenes and ReloadScene, the `gameLog`
   of a game run from the editor (skipped where the runner cannot start the game).
+- `scripts/smoke_rql_semantics.py` (run by `smoke_rql.py`): boolean conditions, Godot class names in `$type` / `$ref` /
+  `is`, hints naming `rql-mutate`, group `items`, list equality, the `max_targets` range and `unchanged` receipts.
 - The extension suite (`test_extensions.yml`, `scripts/extension_live.py`) runs every extension's live manifest in
   the default `Rql` format: each module's guide examples in order, read-backs, and rejected values (`expectFailure`).
 

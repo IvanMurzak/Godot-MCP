@@ -21,9 +21,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// <summary>
     /// The types an agent names (rql-schema "Node3D"): the Godot C# API (GodotSharp / GodotSharpEditor) plus the Godot
     /// object types and public structs / enums of the project assembly (and anything else loaded beside it, extensions
-    /// included). One index per editor session, built on first use; lookups by short or full name, case-insensitive (the C#
-    /// binding writes some Godot classes differently, e.g. CsgBox3D for CSGBox3D), best match first (exact case, then the
-    /// Godot namespace, then project types).
+    /// included). One index per editor session, built on first use; lookups by short or full name or Godot class name
+    /// (Object for GodotObject), case-insensitive (the C# binding writes some Godot classes differently, e.g. CsgBox3D for
+    /// CSGBox3D), best match first (exact case, then the Godot namespace, then project types).
     /// </summary>
     public static class GodotTypes
     {
@@ -73,7 +73,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             void Add(Type t)
             {
                 if (!t.IsVisible || t.IsGenericTypeDefinition) return;
-                foreach (var key in new[] { t.Name, t.FullName })
+                foreach (var key in new[] { t.Name, t.FullName, RqlHostNames.GodotClassName(t) })
                 {
                     if (key == null) continue;
                     if (!byName.TryGetValue(key, out var list)) byName[key] = list = new List<Type>(1);

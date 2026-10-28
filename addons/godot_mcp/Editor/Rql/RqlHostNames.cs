@@ -14,14 +14,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
-using Rql.Execution;
+using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     /// <summary>
-    /// The pure halves of two RQL host hooks (the Godot halves are in <c>RqlGodot.Names.cs</c>): the member names the host's
-    /// types declare (<c>RqlEngine.IsKnownMember</c>) and the alias names of an enum's entries (<c>RqlEngine.EnumAliases</c>).
-    /// No Godot API: unit-tested with plain types.
+    /// The pure halves of three RQL host hooks (the Godot halves are in <c>RqlGodot.Names.cs</c>): the member names the host's
+    /// types declare (<c>RqlEngine.IsKnownMember</c>), the Godot names of C# binding types (<c>RqlEngine.TypeDisplayName</c>)
+    /// and the alias names of an enum's entries (<c>RqlEngine.EnumAliases</c>). No Godot engine calls: unit-tested.
     /// </summary>
     internal static class RqlHostNames
     {
@@ -41,16 +41,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return names;
         }
 
-        /// <summary>The types the concrete <c>RqlTypeAdapter&lt;T&gt;</c> classes among <paramref name="types"/> adapt (their T).</summary>
-        public static IEnumerable<Type> AdapterTargets(IEnumerable<Type> types)
-        {
-            foreach (var t in types)
-            {
-                if (t.IsAbstract || t.ContainsGenericParameters || !typeof(RqlTypeAdapter).IsAssignableFrom(t)) continue;
-                for (var b = t.BaseType; b != null; b = b.BaseType)
-                    if (b.IsGenericType && b.GetGenericTypeDefinition() == typeof(RqlTypeAdapter<>)) { yield return b.GetGenericArguments()[0]; break; }
-            }
-        }
+        /// <summary>
+        /// <c>RqlEngine.TypeDisplayName</c>: the Godot (ClassDB) name of a Godot class whose C# binding is spelt differently,
+        /// from the binding's <see cref="GodotClassNameAttribute"/> (GPUParticles3D for GpuParticles3D, CSGBox3D for CsgBox3D,
+        /// Object for GodotObject); null keeps the C# name (Node3D, project script classes).
+        /// </summary>
+        public static string? GodotClassName(Type type) =>
+            type.GetCustomAttribute<GodotClassNameAttribute>(inherit: false)?.Name is { Length: > 0 } name && name != type.Name ? name : null;
 
         /// <summary>
         /// Alias → entry name for <paramref name="enumType"/> from other names of its values (Godot's constants

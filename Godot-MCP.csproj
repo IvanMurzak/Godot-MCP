@@ -29,7 +29,7 @@
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
     TEMPORARY PRE-RELEASE PIN (owner rule: between test waves RQL is not released; plugins consume its main commit):
-    com.IvanMurzak.Rql 0.3.0-dev.7dd3b29 is packed from RQL main 7dd3b29 and committed under prerelease-packages/; the
+    com.IvanMurzak.Rql 0.3.0-dev.c5fed20 is packed from RQL main c5fed20 and committed under prerelease-packages/; the
     repo-root Directory.Build.props adds that folder as a restore source for every project in this repo (core, tests,
     Godot-Tests, extensions, templates and the consumers CI scaffolds inside the checkout). Every csproj pin, the CLI
     fallback (cli/src/utils/addon-deps.ts) and the pin docs move together. At the cascade release: set the published
@@ -39,7 +39,7 @@
     <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.7dd3b29" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.c5fed20" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.3.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.3.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />

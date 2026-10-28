@@ -106,10 +106,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// Run a set / call query, then commit its undo action and save the edited resource files (see the class summary).
         /// Saving problems become <c>not-saved</c> warnings on the receipt, never a tool error: the change is applied.
         /// </summary>
-        public static QueryResult Mutate(string query, bool dryRun = false, int maxTargets = RqlTargetLimit.Default)
+        public static QueryResult Mutate(string query, bool dryRun = false, int? maxTargets = null)
         {
-            if (RqlTargetLimit.Problem(maxTargets) is { } refused)
-                return QueryResult.Fail(new[] { new Diagnostic(DiagnosticSeverity.Error, "invalid-value", refused, null, RqlTargetLimit.ProblemHint(maxTargets)) });
             if (_mutating == 0) ResetState();
             _mutating++;
             QueryResult result;

@@ -60,13 +60,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static RqlEngine Create()
         {
             // rql-query / rql-mutate take no budgets argument, so hints never advise raising budgets.*; hints name the finder
-            // (ref("Name")) and the schema tool. Enum aliases and known members: RqlGodot.Names.cs; target limit: RqlTargetLimit.
+            // (ref("Name")), the schema tool and the mutation tool. $type, $ref, schemas and hints show Godot's class names
+            // (GPUParticles3D, not the C# GpuParticles3D; `is` accepts both). Enum aliases and known members: RqlGodot.Names.cs;
+            // target limit: RqlTargetLimit.
             var engine = new RqlEngine(AccessorMode.Compiled)
             {
                 RuntimeName = "godot",
                 FindHint = "godot.find(\"…\")",
                 SchemaHint = Tool_Rql.SchemaToolId,
+                MutateHint = Tool_Rql.MutateToolId,
                 EnumAliases = EnumAliases,
+                TypeDisplayName = RqlHostNames.GodotClassName,
             };
             engine.Defaults.BudgetsAdjustable = false;
             RqlTargetLimit.Configure(engine.Mutations);
