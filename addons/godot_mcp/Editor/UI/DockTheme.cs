@@ -324,7 +324,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public static readonly (float R, float G, float B) ResourceMimeType = (221f / 255f, 160f / 255f, 221f / 255f);
 
         /// <summary>
-        /// Map a feature row's enabled-state to its card tint: enabled → soft green, disabled → soft red. Pure-managed
+        /// Map a feature row's visibility to its card tint: visible → soft green, hidden → soft red. Pure-managed
         /// (no Godot types) so the row-tint rule is unit-testable; the editor maps the returned tuple onto a
         /// Godot <c>Color</c> / <c>StyleBoxFlat</c>.
         /// </summary>

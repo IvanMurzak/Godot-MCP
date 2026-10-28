@@ -372,6 +372,19 @@ export interface LaunchEditorCallbacks {
 }
 
 /**
+ * .NET runtime setting every editor the CLI starts gets (unless the user already set it): idle thread-pool threads stay
+ * alive. Works around dotnet/runtime#135441: on .NET 10, a thread that exits after a C# assembly reload can free a
+ * handle in the wrong collectible load context and corrupt a live static of the reloaded plugin (crash or hang on
+ * reload). Fixed on the runtime's main branch (dotnet/runtime#134983); the .NET 10 servicing fix is
+ * dotnet/runtime#136481. Remove once that ships.
+ */
+export const DOTNET_THREADS_TO_KEEP_ALIVE_ENV = 'DOTNET_ThreadPool_ThreadsToKeepAlive';
+
+export function dotnetRuntimeWorkaroundEnv(processEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  return processEnv[DOTNET_THREADS_TO_KEEP_ALIVE_ENV] === undefined ? { [DOTNET_THREADS_TO_KEEP_ALIVE_ENV]: '-1' } : {};
+}
+
+/**
  * Spawn the Godot editor binary opening the given project, optionally with
  * `GODOT_MCP_*` connection environment variables. Mirrors the Unity CLI's
  * `launchEditor`: spawns detached, with `stdio: 'ignore'`, and `unref()`s so
@@ -394,7 +407,7 @@ export function launchEditor(
   const child = spawn(editorPath, args, {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...dotnetRuntimeWorkaroundEnv(), ...env },
   });
 
   child.on('spawn', () => {

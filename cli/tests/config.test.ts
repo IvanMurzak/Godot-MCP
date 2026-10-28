@@ -6,6 +6,7 @@ import {
   getConfigPath,
   getOrCreateConfig,
   readConfig,
+  readFeatures,
   updateFeatures,
   writeConfig,
   type GodotMcpFeaturesConfig,
@@ -39,25 +40,25 @@ describe('features config', () => {
     const cfg: GodotMcpFeaturesConfig = { tools: [], prompts: [], resources: [] };
     updateFeatures(cfg, 'tools', { enableNames: ['a', 'b'] });
     expect(cfg.tools).toEqual([
-      { name: 'a', enabled: true },
-      { name: 'b', enabled: true },
+      { name: 'a', visible: true },
+      { name: 'b', visible: true },
     ]);
     updateFeatures(cfg, 'tools', { disableNames: ['a'] });
-    expect(cfg.tools).toContainEqual({ name: 'a', enabled: false });
-    expect(cfg.tools).toContainEqual({ name: 'b', enabled: true });
+    expect(cfg.tools).toContainEqual({ name: 'a', visible: false });
+    expect(cfg.tools).toContainEqual({ name: 'b', visible: true });
   });
 
   it('updateFeatures enableAll / disableAll flips every present feature', () => {
     const cfg: GodotMcpFeaturesConfig = {
       tools: [
-        { name: 'a', enabled: false },
-        { name: 'b', enabled: false },
+        { name: 'a', visible: false },
+        { name: 'b', visible: false },
       ],
     };
     updateFeatures(cfg, 'tools', { enableAll: true });
-    expect(cfg.tools?.every((f) => f.enabled)).toBe(true);
+    expect(cfg.tools?.every((f) => f.visible)).toBe(true);
     updateFeatures(cfg, 'tools', { disableAll: true });
-    expect(cfg.tools?.every((f) => !f.enabled)).toBe(true);
+    expect(cfg.tools?.every((f) => !f.visible)).toBe(true);
   });
 
   it('round-trips through write/read', () => {
@@ -65,6 +66,24 @@ describe('features config', () => {
     updateFeatures(cfg, 'resources', { enableNames: ['res-a'] });
     writeConfig(tmpDir, cfg);
     const reread = readConfig(tmpDir);
-    expect(reread?.resources).toContainEqual({ name: 'res-a', enabled: true });
+    expect(reread?.resources).toContainEqual({ name: 'res-a', visible: true });
+  });
+});
+
+describe('features.json written before the Enabled -> Visible rename', () => {
+  it('reads the old enabled key, and visible wins when both are present', () => {
+    expect(readFeatures([{ name: 'a', enabled: false }, { name: 'b', enabled: true, visible: false }])).toEqual([
+      { name: 'a', visible: false },
+      { name: 'b', visible: false },
+    ]);
+  });
+
+  it('writes visible when it updates an old file', () => {
+    const cfg: GodotMcpFeaturesConfig = { tools: [{ name: 'a', enabled: false } as never] };
+    updateFeatures(cfg, 'tools', { enableNames: ['b'] });
+    expect(cfg.tools).toEqual([
+      { name: 'a', visible: false },
+      { name: 'b', visible: true },
+    ]);
   });
 });

@@ -14,6 +14,7 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.Common;
 using com.IvanMurzak.ReflectorNet;
 using Godot;
 using McpVersion = com.IvanMurzak.McpPlugin.Common.Version;
@@ -88,6 +89,20 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// opted-in tools + resolved config), bootstrap the main-thread dispatcher, and return the handle.
         /// Called by <see cref="GodotMcpRuntimeBuilder.Build"/>; not invoked directly.
         /// </summary>
+        /// <summary>
+        /// The game's connection config: a fresh <see cref="GodotMcpConfig"/> with the developer's <c>WithConfig</c>
+        /// mutations applied, declared as a <see cref="ClientRole.Runtime"/> connection. The role is set after those
+        /// mutations so a game can never register as the editor: the server keeps one editor and one runtime
+        /// connection side by side and routes agents to the editor.
+        /// </summary>
+        internal static GodotMcpConfig ResolveConfig(GodotMcpRuntimeBuilder builder)
+        {
+            var config = new GodotMcpConfig();
+            builder.ApplyConfig(config);
+            config.ClientRole = ClientRole.Runtime;
+            return config;
+        }
+
         internal static GodotMcpRuntimeHandle Build(GodotMcpRuntimeBuilder builder)
         {
             if (builder == null)
@@ -98,8 +113,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             //    config still reads GODOT_MCP_* process env + project .env LIVE in its getters, so a game can
             //    be configured out-of-band without code. Then apply the developer's WithConfig mutations on
             //    top (highest-precedence in-code layer).
-            var config = new GodotMcpConfig();
-            builder.ApplyConfig(config);
+            var config = ResolveConfig(builder);
 
             // 2) Guarantee a main-thread dispatcher in the running SceneTree (unless the developer owns one),
             //    and route ReflectorNet's MainThread.Instance through it, so tool handlers can marshal Godot
@@ -119,7 +133,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             {
                 Api = com.IvanMurzak.McpPlugin.Common.Consts.ApiVersion,
                 Plugin = ResolvePluginVersion(),
-                Environment = $"Godot {Engine.GetVersionInfo()["string"]} (runtime)"
+                Environment = $"Godot {Engine.GetVersionInfo()["string"]}"
             };
 
             var mcpBuilder = new McpPluginBuilder(version)

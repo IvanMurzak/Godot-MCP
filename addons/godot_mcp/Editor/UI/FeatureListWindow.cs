@@ -17,14 +17,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
 {
     /// <summary>
     /// A nested editor <see cref="Window"/> listing every item of one <see cref="GodotMcpFeatureKind"/>, with a
-    /// live TEXT filter + an All/Enabled/Disabled STATUS filter + a "Filtered: X, Total: Y" stat + an empty-state
+    /// live TEXT filter + an All/Visible/Hidden STATUS filter + a "Filtered: X, Total: Y" stat + an empty-state
     /// + per-row "card" styling — the Godot analog of Unity-MCP's <c>McpListWindowBase</c> (and its
     /// tools/prompts/resources subclasses), collapsed to ONE reusable class parameterized by kind. Each row is a
-    /// tinted rounded card (soft green when enabled, soft red when disabled) showing the title + id + the
+    /// tinted rounded card (soft green when visible, soft red when hidden) showing the title + id + the
     /// kind-specific metadata (Tools: "~N tokens" + an "Input arguments (N)" foldout; Prompts: "Role: X" + an
     /// "Arguments (N)" foldout; Resources: the URI + "MimeType: …") + a Description foldout + a per-row
     /// enable/disable <see cref="CheckButton"/>. Toggling pushes the change to the live manager AND persists it via
-    /// <see cref="GodotMcpConnection.SetFeatureEnabled"/> (the enable-map in <see cref="GodotMcpConfig"/>), then
+    /// <see cref="GodotMcpConnection.SetFeatureVisible"/> (the visibility map in <see cref="GodotMcpConfig"/>), then
     /// re-filters so a toggle under a non-All status hides/shows the row. A "Close" button (and the window-manager
     /// close request) frees the window — no leaks.
     ///
@@ -151,8 +151,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _statusOption = new OptionButton { Name = "Status" };
             // Order matches the FeatureStatusFilter enum so the selected index IS the enum value.
             _statusOption.AddItem("All", (int)FeatureStatusFilter.All);
-            _statusOption.AddItem("Enabled", (int)FeatureStatusFilter.Enabled);
-            _statusOption.AddItem("Disabled", (int)FeatureStatusFilter.Disabled);
+            _statusOption.AddItem("Visible", (int)FeatureStatusFilter.Visible);
+            _statusOption.AddItem("Hidden", (int)FeatureStatusFilter.Hidden);
             _statusOption.Select((int)FeatureStatusFilter.All);
             DockStyle.ApplyOptionButton(_statusOption);
             _statusOption.Connect(OptionButton.SignalName.ItemSelected, new Callable(this, MethodName.OnStatusItemSelected));
@@ -231,7 +231,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplyRowTitle(titleLabel);
             headerLine.AddChild(titleLabel);
 
-            var toggle = new DockCheckToggle { Name = "Toggle", ButtonPressed = item.Enabled };
+            var toggle = new DockCheckToggle { Name = "Toggle", ButtonPressed = item.Visible };
             string itemName = item.Name;
             // Object+method Callable on the toggle: it stores the per-row action (no delegate Callable enters the
             // ManagedCallable registry) and invokes it from its own OnToggled instance method.
@@ -265,7 +265,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 content.AddChild(foldout);
             }
 
-            return DockStyle.RowCard(content, $"Item_{item.Name}", item.Enabled);
+            return DockStyle.RowCard(content, $"Item_{item.Name}", item.Visible);
         }
 
         /// <summary>Append the kind-specific metadata labels / argument foldouts to a row's content box.</summary>
@@ -343,19 +343,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
             content.AddChild(foldout);
         }
 
-        void OnItemToggled(string name, bool enabled)
+        void OnItemToggled(string name, bool visible)
         {
-            // Push to the live manager AND persist into the enable-map (survives restart).
-            _connection.SetFeatureEnabled(_kind, name, enabled);
+            // Push to the live manager AND persist into the visibility map (survives restart).
+            _connection.SetFeatureVisible(_kind, name, visible);
 
-            // Reflect the new enabled-state in the cached item set so a re-filter sees it, then re-filter — under a
+            // Reflect the new visibility in the cached item set so a re-filter sees it, then re-filter — under a
             // non-All status this hides/shows the just-toggled row; the row tint also updates on rebuild.
             for (int i = 0; i < _allItems.Count; i++)
             {
                 if (_allItems[i].Name == name)
                 {
                     var updated = new List<FeatureRowItem>(_allItems);
-                    updated[i] = updated[i] with { Enabled = enabled };
+                    updated[i] = updated[i] with { Visible = visible };
                     _allItems = updated;
                     break;
                 }

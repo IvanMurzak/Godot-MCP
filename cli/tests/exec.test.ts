@@ -126,6 +126,7 @@ describe('toolErrorText', () => {
 describe('sessionEditorEnv', () => {
   it('connects the started editor to its local server, which it starts itself', () => {
     expect(sessionEditorEnv('http://localhost:5000', undefined)).toEqual({
+      ...(process.env.DOTNET_ThreadPool_ThreadsToKeepAlive === undefined ? { DOTNET_ThreadPool_ThreadsToKeepAlive: '-1' } : {}),
       GODOT_MCP_CONNECTION_MODE: 'Custom',
       GODOT_MCP_HOST: 'http://localhost:5000',
       GODOT_MCP_START_SERVER: 'true',

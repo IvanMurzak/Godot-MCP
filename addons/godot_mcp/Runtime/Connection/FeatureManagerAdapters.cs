@@ -18,7 +18,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// <summary>
     /// A uniform view over one of the reused McpPlugin feature managers (<see cref="IToolManager"/> /
     /// <see cref="IPromptManager"/> / <see cref="IResourceManager"/>). The three managers expose the same
-    /// shape (enumerate / count / is-enabled / set-enabled) under different method names; this collapses them
+    /// shape (enumerate / count / is-visible / set-visible) under different method names; this collapses them
     /// to one surface so <see cref="GodotMcpConnection"/> and the dock's features UI can address any kind
     /// generically via <see cref="GodotMcpFeatureKind"/>. Pure-managed and runtime-agnostic (outside
     /// <c>#if TOOLS</c>): it depends only on the reused McpPlugin client types — present in both the editor
@@ -37,16 +37,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// Live items as pure-managed <see cref="FeatureRowItem"/> view-models — the common
-        /// name/title/description/enabled plus the kind-specific metadata (tools: token count + input args;
+        /// name/title/description/visibility plus the kind-specific metadata (tools: token count + input args;
         /// prompts: role + arguments; resources: uri + mimetype).
         /// </summary>
         IEnumerable<FeatureRowItem> GetItems();
 
-        /// <summary>(enabled, total, enabledTokenCount) — token count is non-zero only for tools.</summary>
-        (int Enabled, int Total, int EnabledTokenCount) GetCounts();
+        /// <summary>(visible, total, visibleTokenCount) — token count is non-zero only for tools.</summary>
+        (int Visible, int Total, int VisibleTokenCount) GetCounts();
 
-        /// <summary>Set one item's enabled-state on the live manager.</summary>
-        void SetEnabled(string name, bool enabled);
+        /// <summary>Show or hide one item on the live manager (listing only, not an access control).</summary>
+        void SetVisible(string name, bool visible);
     }
 
     /// <summary>Adapter over <see cref="IToolManager"/> (the only kind with a token count + input-schema args).</summary>
@@ -65,15 +65,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     Name = t.Name,
                     Title = t.Title,
                     Description = t.Description,
-                    Enabled = _manager.IsToolEnabled(t.Name),
+                    Visible = _manager.IsToolVisible(t.Name),
                     TokenCount = t.TokenCount,
                     Inputs = FeatureFilter.ParseSchemaArguments(t.InputSchema)
                 });
 
-        public (int Enabled, int Total, int EnabledTokenCount) GetCounts() =>
-            (_manager.EnabledToolsCount, _manager.TotalToolsCount, _manager.EnabledToolsTokenCount);
+        public (int Visible, int Total, int VisibleTokenCount) GetCounts() =>
+            (_manager.VisibleToolsCount, _manager.TotalToolsCount, _manager.VisibleToolsTokenCount);
 
-        public void SetEnabled(string name, bool enabled) => _manager.SetToolEnabled(name, enabled);
+        public void SetVisible(string name, bool visible) => _manager.SetToolVisible(name, visible);
     }
 
     /// <summary>Adapter over <see cref="IPromptManager"/> (role + prompt arguments; no token count → reports 0).</summary>
@@ -92,15 +92,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     Name = p.Name,
                     Title = p.Title,
                     Description = p.Description,
-                    Enabled = _manager.IsPromptEnabled(p.Name),
+                    Visible = _manager.IsPromptEnabled(p.Name),
                     Role = p.Role.ToString(),
                     Arguments = FeatureFilter.ParseSchemaArguments(p.InputSchema)
                 });
 
-        public (int Enabled, int Total, int EnabledTokenCount) GetCounts() =>
+        public (int Visible, int Total, int VisibleTokenCount) GetCounts() =>
             (_manager.EnabledPromptsCount, _manager.TotalPromptsCount, 0);
 
-        public void SetEnabled(string name, bool enabled) => _manager.SetPromptEnabled(name, enabled);
+        public void SetVisible(string name, bool visible) => _manager.SetPromptEnabled(name, visible);
     }
 
     /// <summary>Adapter over <see cref="IResourceManager"/> (uri + mimetype; no token count → reports 0).</summary>
@@ -120,14 +120,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     // IRunResource carries no Title; fall back to the name for the row heading.
                     Title = null,
                     Description = r.Description,
-                    Enabled = _manager.IsResourceEnabled(r.Name),
+                    Visible = _manager.IsResourceEnabled(r.Name),
                     Uri = r.Route,
                     MimeType = r.MimeType
                 });
 
-        public (int Enabled, int Total, int EnabledTokenCount) GetCounts() =>
+        public (int Visible, int Total, int VisibleTokenCount) GetCounts() =>
             (_manager.EnabledResourcesCount, _manager.TotalResourcesCount, 0);
 
-        public void SetEnabled(string name, bool enabled) => _manager.SetResourceEnabled(name, enabled);
+        public void SetVisible(string name, bool visible) => _manager.SetResourceEnabled(name, visible);
     }
 }

@@ -8,6 +8,7 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using com.IvanMurzak.Godot.MCP.Connection;
@@ -52,7 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 LogLevel = GodotMcpLogLevel.Trace,
                 SelectedAgentId = "cursor",
             };
-            original.Features.Tools.Add(new GodotMcpFeatureState { Name = "ping", Enabled = false });
+            original.Features.Tools.Add(new GodotMcpFeatureState { Name = "ping", Visible = false });
 
             var json = JsonSerializer.Serialize(original, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
 
@@ -69,7 +70,51 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("cursor", back.SelectedAgentId);
             Assert.Single(back.Features.Tools);
             Assert.Equal("ping", back.Features.Tools[0].Name);
-            Assert.False(back.Features.Tools[0].Enabled);
+            Assert.False(back.Features.Tools[0].Visible);
+        }
+
+        static string SavedConfigWithHiddenPing()
+        {
+            var config = new GodotMcpConfig();
+            config.Features.Tools.Add(new GodotMcpFeatureState { Name = "ping", Visible = false });
+            return JsonSerializer.Serialize(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+        }
+
+        [Fact]
+        public void FeatureState_IsWrittenAsVisible_WithoutTheOldKey()
+        {
+            var json = SavedConfigWithHiddenPing();
+
+            Assert.Contains("\"visible\": false", json);
+            Assert.DoesNotContain("\"enabled\"", json);
+        }
+
+        [Fact]
+        public void FeatureState_SavedBeforeTheRename_KeepsItsHiddenItems()
+        {
+            // A config written before the rename carries "enabled" instead of "visible".
+            var legacy = SavedConfigWithHiddenPing().Replace("\"visible\": false", "\"enabled\": false");
+            Assert.DoesNotContain("\"visible\"", legacy);
+
+            var back = JsonSerializer.Deserialize(legacy, GodotMcpConfigJsonContext.Default.GodotMcpConfig)!;
+
+            Assert.Equal("ping", back.Features.Tools.Single().Name);
+            Assert.False(back.Features.Tools.Single().Visible);
+
+            // Saved again, it moves to the new key.
+            var resaved = JsonSerializer.Serialize(back, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+            Assert.Contains("\"visible\": false", resaved);
+            Assert.DoesNotContain("\"enabled\"", resaved);
+        }
+
+        [Fact]
+        public void FeatureState_WithBothKeys_TakesVisible()
+        {
+            var both = SavedConfigWithHiddenPing().Replace("\"visible\": false", "\"enabled\": true, \"visible\": false");
+
+            var back = JsonSerializer.Deserialize(both, GodotMcpConfigJsonContext.Default.GodotMcpConfig)!;
+
+            Assert.False(back.Features.Tools.Single().Visible);
         }
     }
 }

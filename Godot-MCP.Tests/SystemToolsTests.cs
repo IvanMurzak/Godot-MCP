@@ -95,16 +95,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void SkillTools_AreDisabledByDefault_MatchingTheUnityReference()
+        public void SkillTools_AreHiddenByDefault_MatchingTheUnityReference()
         {
-            // Unity's unity-skill-create / unity-skill-generate ship `Enabled = false` (they are editor
-            // infrastructure, not everyday agent tools). `Enabled` only affects the LISTING metadata —
+            // Unity's unity-skill-create / unity-skill-generate ship `Visible = false` (they are editor
+            // infrastructure, not everyday agent tools). `Visible` only affects the LISTING metadata —
             // McpSystemToolManager.RunSystemTool dispatches regardless — so the HTTP surface still works.
-            Assert.False(AiToolOf(typeof(Tool_Skills), nameof(Tool_Skills.Create)).Enabled);
-            Assert.False(AiToolOf(typeof(Tool_Skills), nameof(Tool_Skills.GenerateAll)).Enabled);
+            Assert.False(AiToolOf(typeof(Tool_Skills), nameof(Tool_Skills.Create)).Visible);
+            Assert.False(AiToolOf(typeof(Tool_Skills), nameof(Tool_Skills.GenerateAll)).Visible);
 
             // ping stays enabled — it is the liveness probe every client calls.
-            Assert.True(AiToolOf(typeof(Tool_Ping), nameof(Tool_Ping.Ping)).Enabled);
+            Assert.True(AiToolOf(typeof(Tool_Ping), nameof(Tool_Ping.Ping)).Visible);
         }
 
         [Fact]

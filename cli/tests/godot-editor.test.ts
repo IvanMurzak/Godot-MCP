@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { findGodotBinary, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
+import { dotnetRuntimeWorkaroundEnv, findGodotBinary, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
 
 // ESM module namespaces are non-configurable, so spying on a named export is
 // not possible; mock the module instead and assert against the mocked spawn.
@@ -315,7 +315,20 @@ describe('launchEditor', () => {
     expect(args).toEqual(['--editor', '--path', path.resolve('/my/project')]);
     expect(opts).toMatchObject({ detached: true, stdio: 'ignore' });
     expect((opts as { env: Record<string, string> }).env['GODOT_MCP_HOST']).toBe('http://localhost:9000');
+    expect((opts as { env: Record<string, string> }).env['DOTNET_ThreadPool_ThreadsToKeepAlive']).toBe(
+      process.env.DOTNET_ThreadPool_ThreadsToKeepAlive ?? '-1',
+    );
     expect(unref).toHaveBeenCalledTimes(1);
     expect(child).toBe(fakeChild);
+  });
+});
+
+describe('dotnetRuntimeWorkaroundEnv (dotnet/runtime#135441)', () => {
+  it('keeps idle thread-pool threads alive in editors the CLI starts', () => {
+    expect(dotnetRuntimeWorkaroundEnv({})).toEqual({ DOTNET_ThreadPool_ThreadsToKeepAlive: '-1' });
+  });
+
+  it('leaves a value the user set alone', () => {
+    expect(dotnetRuntimeWorkaroundEnv({ DOTNET_ThreadPool_ThreadsToKeepAlive: '4' })).toEqual({});
   });
 });

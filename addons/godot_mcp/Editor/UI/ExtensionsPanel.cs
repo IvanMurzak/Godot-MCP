@@ -117,7 +117,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             foreach (var descriptor in GodotExtensionRegistry.All)
             {
                 var row = new ExtensionRow(descriptor, OnRowAction);
-                _body.AddChild(DockStyle.RowCard(row, $"{descriptor.PackageId}Card", enabled: true));
+                _body.AddChild(DockStyle.RowCard(row, $"{descriptor.PackageId}Card", visible: true));
                 row.ShowState(InstalledStateDetector.StateFor(descriptor, installed));
                 _rows.Add(row);
             }

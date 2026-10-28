@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
@@ -80,12 +81,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             }
         }
 
-        // Set while a GD writer of Emit runs: the engine-error logger is called back synchronously on this thread for a
-        // PushError / PushWarning and must not collect the same line a second time (ScriptErrorCapture.Route).
-        [ThreadStatic] static bool _emitting;
+        // Threads inside a GD writer of Emit (managed thread id -> nesting depth): the engine-error logger is called back
+        // synchronously on that thread for a PushError / PushWarning and must not collect the same line a second time
+        // (ScriptErrorCapture.Route). Deliberately NOT a thread-static field: thread statics of an assembly in Godot's reloadable
+        // context can corrupt a live static of the reloaded plugin on .NET 10 (dotnet/runtime#135441).
+        static readonly ConcurrentDictionary<int, int> EmittingDepth = new();
 
         /// <summary>Whether this thread is inside one of the plugin's own diagnostics (its GD writer).</summary>
-        internal static bool IsEmitting => _emitting;
+        internal static bool IsEmitting => EmittingDepth.ContainsKey(System.Environment.CurrentManagedThreadId);
 
         /// <summary>
         /// The one sanctioned native sink: invoke the <see cref="GD"/> writer, then append to the collector.
@@ -93,13 +96,20 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// editor-reload, and the collector append must never escape into a teardown / unload path). This
         /// internal try/catch is what lets every call site drop its own defensive wrapper.
         /// </summary>
-        static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
+        internal static void Emit(GodotLogType logType, string message, Action gd, bool collect = true)
         {
-            var outer = _emitting;
-            _emitting = true;
+            var thread = System.Environment.CurrentManagedThreadId;
+            EmittingDepth.AddOrUpdate(thread, 1, static (_, depth) => depth + 1);
             try { gd(); }
             catch { /* GD may be unavailable mid editor-reload; swallow */ }
-            finally { _emitting = outer; }
+            finally
+            {
+                // Only this thread touches its own entry, so the read-then-write below cannot race.
+                if (EmittingDepth.TryGetValue(thread, out var depth) && depth > 1)
+                    EmittingDepth[thread] = depth - 1;
+                else
+                    EmittingDepth.TryRemove(thread, out _);
+            }
 
             if (!collect) return;
             try { GodotLogCollector.Current?.Append(logType, message); }

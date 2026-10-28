@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         public const string MutateToolId = "rql-mutate";
 
-        [AiTool(MutateToolId, Title = "RQL / Mutate", Enabled = true, DestructiveHint = true, OpenWorldHint = false)]
+        [AiTool(MutateToolId, Title = "RQL / Mutate", Visible = true, DestructiveHint = true, OpenWorldHint = false)]
         [AiSkillDescription(RqlGuide.MutateBlurb)]
         [AiSkillBody(RqlGuide.MutateDescription)]
         [Description(RqlGuide.MutateDescription)]

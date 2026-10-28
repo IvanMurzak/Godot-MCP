@@ -27,10 +27,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     public class FeatureFilterTests
     {
         static FeatureRowItem Tool(string name, bool enabled, string? title = null, string? desc = null) =>
-            new() { Name = name, Title = title, Description = desc, Enabled = enabled };
+            new() { Name = name, Title = title, Description = desc, Visible = enabled };
 
         static FeatureRowItem Resource(string name, bool enabled, string? uri = null) =>
-            new() { Name = name, Enabled = enabled, Uri = uri };
+            new() { Name = name, Visible = enabled, Uri = uri };
 
         static List<FeatureRowItem> Sample() => new()
         {
@@ -49,16 +49,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Apply_Enabled_status_keeps_only_enabled()
+        public void Apply_Visible_status_keeps_only_visible()
         {
-            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Enabled, null, GodotMcpFeatureKind.Tools);
+            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Visible, null, GodotMcpFeatureKind.Tools);
             Assert.Equal(new[] { "alpha-tool", "gamma-tool" }, result.Select(i => i.Name));
         }
 
         [Fact]
-        public void Apply_Disabled_status_keeps_only_disabled()
+        public void Apply_Hidden_status_keeps_only_hidden()
         {
-            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Disabled, null, GodotMcpFeatureKind.Tools);
+            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Hidden, null, GodotMcpFeatureKind.Tools);
             Assert.Equal(new[] { "beta-tool" }, result.Select(i => i.Name));
         }
 
@@ -95,7 +95,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Apply_empty_text_applies_status_only()
         {
-            var blank = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Enabled, "   ", GodotMcpFeatureKind.Tools);
+            var blank = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Visible, "   ", GodotMcpFeatureKind.Tools);
             Assert.Equal(new[] { "alpha-tool", "gamma-tool" }, blank.Select(i => i.Name));
         }
 
@@ -111,8 +111,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void Apply_status_and_text_combine_status_first()
         {
-            // "tool" matches all three by name; Enabled status narrows to the two enabled ones.
-            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Enabled, "tool", GodotMcpFeatureKind.Tools);
+            // "tool" matches all three by name; Visible status narrows to the two visible ones.
+            var result = FeatureFilter.Apply(Sample(), FeatureStatusFilter.Visible, "tool", GodotMcpFeatureKind.Tools);
             Assert.Equal(new[] { "alpha-tool", "gamma-tool" }, result.Select(i => i.Name));
         }
 
@@ -136,7 +136,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // A tool-kind item with a Uri set (unusual) must NOT be matched by URI text — only resources match URI.
             var items = new List<FeatureRowItem>
             {
-                new() { Name = "tool-x", Enabled = true, Uri = "godot://only-here" },
+                new() { Name = "tool-x", Visible = true, Uri = "godot://only-here" },
             };
             var asTool = FeatureFilter.Apply(items, FeatureStatusFilter.All, "only-here", GodotMcpFeatureKind.Tools);
             Assert.Empty(asTool);

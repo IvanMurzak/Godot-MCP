@@ -21,7 +21,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         public const string SchemaToolId = "rql-schema";
 
-        [AiTool(SchemaToolId, Title = "RQL / Schema", Enabled = true, ReadOnlyHint = true, OpenWorldHint = false)]
+        [AiTool(SchemaToolId, Title = "RQL / Schema", Visible = true, ReadOnlyHint = true, OpenWorldHint = false)]
         [AiSkillDescription(RqlGuide.SchemaBlurb)]
         [AiSkillBody(RqlGuide.SchemaDescription)]
         [Description(RqlGuide.SchemaDescription)]

@@ -7,6 +7,7 @@ import {
   getOrCreateConfig,
   writeConfig,
   updateFeatures,
+  readFeatures,
   type McpFeature,
   type GodotMcpFeaturesConfig,
 } from '../utils/config.js';
@@ -34,36 +35,29 @@ function buildAction(
 }
 
 function snapshotFeatures(config: GodotMcpFeaturesConfig, key: 'tools' | 'prompts' | 'resources'): McpFeature[] {
-  const raw = config[key];
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter(
-      (f): f is McpFeature =>
-        typeof f === 'object' && f !== null && typeof f.name === 'string' && typeof f.enabled === 'boolean',
-    )
-    .map((f) => ({ name: f.name, enabled: f.enabled }));
+  return readFeatures(config[key]);
 }
 
 export const configureCommand = new Command('configure')
   .description(
-    'Configure an AI agent for the project (--agent <id> proxies to the managed gamedev-mcp-server binary, writing that client\'s MCP config with the derived pin + port), OR list / enable / disable MCP tools, prompts, and resources in the project-local .godot-mcp/features.json',
+    'Configure an AI agent for the project (--agent <id> proxies to the managed gamedev-mcp-server binary, writing that client\'s MCP config with the derived pin + port), OR list / show / hide MCP tools, prompts, and resources in the project-local .godot-mcp/features.json (visibility only decides what MCP clients see listed; a hidden tool still runs when called by name)',
   )
   .argument('[path]', 'Path to the Godot project')
   .option('--path <path>', 'Path to the Godot project')
   .option('--agent <id>', 'Configure an AI agent by proxying to the managed gamedev-mcp-server binary (requires install-plugin --with-server)')
   .option('--url <url>', 'Explicit MCP server URL override forwarded to the server binary (--agent only)')
-  .option('--enable-tools <names>', 'Enable specific tools (comma-separated)', parseCommaSeparated)
-  .option('--disable-tools <names>', 'Disable specific tools (comma-separated)', parseCommaSeparated)
-  .option('--enable-all-tools', 'Enable all tools')
-  .option('--disable-all-tools', 'Disable all tools')
-  .option('--enable-prompts <names>', 'Enable specific prompts (comma-separated)', parseCommaSeparated)
-  .option('--disable-prompts <names>', 'Disable specific prompts (comma-separated)', parseCommaSeparated)
-  .option('--enable-all-prompts', 'Enable all prompts')
-  .option('--disable-all-prompts', 'Disable all prompts')
-  .option('--enable-resources <names>', 'Enable specific resources (comma-separated)', parseCommaSeparated)
-  .option('--disable-resources <names>', 'Disable specific resources (comma-separated)', parseCommaSeparated)
-  .option('--enable-all-resources', 'Enable all resources')
-  .option('--disable-all-resources', 'Disable all resources')
+  .option('--enable-tools <names>', 'Show specific tools to MCP clients (comma-separated)', parseCommaSeparated)
+  .option('--disable-tools <names>', 'Hide specific tools from MCP clients (comma-separated; still callable by name)', parseCommaSeparated)
+  .option('--enable-all-tools', 'Show all tools')
+  .option('--disable-all-tools', 'Hide all tools')
+  .option('--enable-prompts <names>', 'Show specific prompts to MCP clients (comma-separated)', parseCommaSeparated)
+  .option('--disable-prompts <names>', 'Hide specific prompts from MCP clients (comma-separated; still callable by name)', parseCommaSeparated)
+  .option('--enable-all-prompts', 'Show all prompts')
+  .option('--disable-all-prompts', 'Hide all prompts')
+  .option('--enable-resources <names>', 'Show specific resources to MCP clients (comma-separated)', parseCommaSeparated)
+  .option('--disable-resources <names>', 'Hide specific resources from MCP clients (comma-separated; still callable by name)', parseCommaSeparated)
+  .option('--enable-all-resources', 'Show all resources')
+  .option('--disable-all-resources', 'Hide all resources')
   .option('--list', 'List current configuration')
   .action(
     async (
@@ -156,11 +150,11 @@ export const configureCommand = new Command('configure')
         const printFeatures = (featureLabel: string, features: McpFeature[]) => {
           ui.heading(featureLabel);
           if (features.length === 0) {
-            ui.info('(none configured - all enabled by default)');
+            ui.info('(none configured - all visible by default)');
             return;
           }
           for (const f of features) {
-            ui.featureRow(f.name, f.enabled);
+            ui.featureRow(f.name, f.visible);
           }
         };
 

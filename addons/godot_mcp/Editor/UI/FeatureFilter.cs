@@ -18,18 +18,18 @@ using com.IvanMurzak.ReflectorNet.Utils;
 
 namespace com.IvanMurzak.Godot.MCP.UI
 {
-    /// <summary>Which enabled-status a feature list window currently shows. The Godot analog of Unity-MCP's
-    /// <c>McpFilterType</c> (its Tools/Prompts/Resources list windows' All/Enabled/Disabled dropdown).</summary>
+    /// <summary>Which visibility a feature list window currently shows. The Godot analog of Unity-MCP's
+    /// <c>McpFilterType</c> (its Tools/Prompts/Resources list windows' All/Visible/Hidden dropdown).</summary>
     public enum FeatureStatusFilter
     {
-        /// <summary>Show every item regardless of enabled-state.</summary>
+        /// <summary>Show every item regardless of visibility.</summary>
         All,
 
-        /// <summary>Show only items whose <see cref="FeatureRowItem.Enabled"/> is <c>true</c>.</summary>
-        Enabled,
+        /// <summary>Show only items whose <see cref="FeatureRowItem.Visible"/> is <c>true</c>.</summary>
+        Visible,
 
-        /// <summary>Show only items whose <see cref="FeatureRowItem.Enabled"/> is <c>false</c>.</summary>
-        Disabled
+        /// <summary>Show only items whose <see cref="FeatureRowItem.Visible"/> is <c>false</c>.</summary>
+        Hidden
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// <summary>
     /// The pure-managed row view-model for ONE MCP feature item (a tool, prompt, or resource). Carries every
     /// field the list window renders: the common <see cref="Name"/> / <see cref="Title"/> / <see cref="Description"/>
-    /// / <see cref="Enabled"/>, plus the type-specific metadata — tools: <see cref="TokenCount"/> +
+    /// / <see cref="Visible"/>, plus the type-specific metadata — tools: <see cref="TokenCount"/> +
     /// <see cref="Inputs"/>; prompts: <see cref="Role"/> + <see cref="Arguments"/>; resources: <see cref="Uri"/>
     /// + <see cref="MimeType"/>. The Godot analog of Unity-MCP's per-window <c>ToolViewModel</c> /
     /// <c>PromptViewModel</c> / <c>ResourceViewModel</c>, collapsed to one record so the filter/window can address
@@ -65,8 +65,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Optional human description (shown in the per-row Description foldout).</summary>
         public string? Description { get; init; }
 
-        /// <summary>The item's current enabled-state on the live manager (drives the status filter + toggle).</summary>
-        public bool Enabled { get; init; }
+        /// <summary>Whether the item is listed to MCP clients on the live manager (drives the status filter + toggle). Not an access control.</summary>
+        public bool Visible { get; init; }
 
         /// <summary>Tools only: approximate token cost of this tool's schema (0 for prompts/resources).</summary>
         public int TokenCount { get; init; }
@@ -100,7 +100,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
     public static class FeatureFilter
     {
         /// <summary>
-        /// Apply the STATUS filter first (Enabled → only enabled, Disabled → only disabled, All → unchanged) then
+        /// Apply the STATUS filter first (Visible → only visible, Hidden → only hidden, All → unchanged) then
         /// the live TEXT filter (case-insensitive ordinal <c>Contains</c> over Name / Title / Description; for the
         /// <see cref="GodotMcpFeatureKind.Resources"/> kind ALSO over the resource <see cref="FeatureRowItem.Uri"/>).
         /// An empty/whitespace <paramref name="text"/> applies the status filter only. Returns a new list in source
@@ -117,8 +117,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             filtered = status switch
             {
-                FeatureStatusFilter.Enabled => filtered.Where(i => i.Enabled),
-                FeatureStatusFilter.Disabled => filtered.Where(i => !i.Enabled),
+                FeatureStatusFilter.Visible => filtered.Where(i => i.Visible),
+                FeatureStatusFilter.Hidden => filtered.Where(i => !i.Visible),
                 _ => filtered
             };
 

@@ -313,7 +313,7 @@ package assemblies are not copied next to the game assembly):
 ```xml
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.13.1" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.e8985d5" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
@@ -333,7 +333,7 @@ package assemblies are not copied next to the game assembly):
 | Package | Version | Role |
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.0` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.13.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.14.0-dev.e8985d5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.0f1bf94` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.2b784e4` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.2b784e4` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
@@ -564,6 +564,27 @@ keep the old assembly alive and Godot's unload would fail, so the plugin gates t
   connection: retry it too);
 - after the reload the plugin reconnects by itself, and `script-build` delivers its result.
 
+### Known issue: crash or hang on reload with .NET 10
+
+On .NET 10, the editor can crash or hang shortly after a C# assembly reload. This is a .NET runtime bug,
+[dotnet/runtime#135441](https://github.com/dotnet/runtime/issues/135441): when an idle thread-pool thread exits after a
+reload, the runtime can free a handle in the wrong collectible load context and corrupt a static of the newly loaded
+assemblies (the addon's dependencies use thread-static fields, which trigger it). It is fixed on the runtime's main branch
+([dotnet/runtime#134983](https://github.com/dotnet/runtime/pull/134983)); the .NET 10 servicing fix is
+[dotnet/runtime#136481](https://github.com/dotnet/runtime/pull/136481).
+
+Until that servicing release ships, keep idle thread-pool threads alive by setting this environment variable for the
+editor process:
+
+```
+DOTNET_ThreadPool_ThreadsToKeepAlive=-1
+```
+
+Editors started by `godot-cli` (`open`, `open --headless`, `exec`) get it automatically. If you open the editor
+yourself, set it system-wide (Windows: *System Properties → Environment Variables*, or
+`setx DOTNET_ThreadPool_ThreadsToKeepAlive -1`; macOS / Linux: export it in the shell or launcher that starts Godot)
+and restart the editor. Remove it once your .NET 10 runtime includes the fix.
+
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 # Runtime usage (in-game)
@@ -666,7 +687,7 @@ A game started from the Godot editor (Play, F5) inherits the editor's environmen
 plugin the agent talks to. Exported games and games started outside the editor connect as before. To connect a game
 run from the editor too, opt in with `builder.ConnectWhenRunFromEditor()` or the process environment variable
 `GODOT_MCP_RUNTIME_FROM_EDITOR=1`. A GameDev-MCP-Server with plugin roles then keeps both connections (the game
-registers as `Godot <version> (runtime)`) and routes tool calls to the editor while it is connected. The editor
+connects with the runtime role, the editor with the editor role) and routes tool calls to the editor while it is connected. The editor
 plugin sets `GODOT_MCP_EDITOR_PID` in its process, so every process it starts inherits it; it counts only while that
 editor runs, and the plugin clears it when it unloads.
 
@@ -1037,6 +1058,11 @@ natural-language requests and actual Godot operations. When you ask the AI to "c
 "open a scene," it uses MCP Tools to execute the action. Tools have typed, described parameters; return
 structured results; and are thread-aware (main-thread for Godot API calls, background-thread for heavy
 processing).
+
+Each tool, prompt and resource has a **Visible** switch in the dock's Tools / Prompts / Resources windows. It only
+decides whether MCP clients see the item listed (`tools/list`), which keeps their context small; it is not an access
+control: a hidden tool still runs when a client calls it by name. Settings saved by an older version (the switch was
+called *Enabled*) are kept.
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 

@@ -95,6 +95,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void RuntimeConfig_DeclaresTheRuntimeRole_EvenIfTheDeveloperSetsEditor()
+        {
+            var builder = GodotMcpRuntime.Initialize(b => b.WithConfig(c =>
+            {
+                c.LogLevel = GodotMcpLogLevel.Trace;
+                c.ClientRole = com.IvanMurzak.McpPlugin.Common.ClientRole.Editor;
+            }));
+
+            var config = GodotMcpRuntime.ResolveConfig(builder);
+
+            Assert.Equal(com.IvanMurzak.McpPlugin.Common.ClientRole.Runtime, config.ClientRole);
+            Assert.Equal(GodotMcpLogLevel.Trace, config.LogLevel); // the developer's other mutations still apply
+        }
+
+        [Fact]
         public void Builder_ByDefault_RegistersZeroTools()
         {
             // The core "exactly Unity's model" invariant: nothing opted in → empty tool set.

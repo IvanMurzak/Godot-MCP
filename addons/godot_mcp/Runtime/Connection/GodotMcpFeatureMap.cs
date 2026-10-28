@@ -14,9 +14,9 @@ using System.Text.Json.Serialization;
 namespace com.IvanMurzak.Godot.MCP.Connection
 {
     /// <summary>
-    /// The persisted enable-map for the three MCP feature kinds (tools / prompts / resources). Each list
+    /// The persisted visibility map for the three MCP feature kinds (tools / prompts / resources). Each list
     /// holds the user-touched <see cref="GodotMcpFeatureState"/> entries for that kind; an empty list means
-    /// "everything at its live default" (which for the McpPlugin managers is enabled). Serialized as part of
+    /// "everything at its live default" (which for the McpPlugin managers is visible). Serialized as part of
     /// <see cref="GodotMcpConfig"/> under the <c>features</c> key so a user's per-item disable survives a
     /// restart. Pure-managed (no Godot native types, no <c>#if TOOLS</c>) — the merge/apply/capture logic in
     /// <see cref="GodotMcpFeatureStateMerge"/> is unit-testable in the plain-xUnit host.

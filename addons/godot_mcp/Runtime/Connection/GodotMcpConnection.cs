@@ -533,7 +533,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 catch (Exception ex) { GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed: {ex.Message}"); }
             }
 
-            // Reapply the persisted per-feature enable-map now that the managers exist (the tool/prompt/
+            // Reapply the persisted per-feature visibility map now that the managers exist (the tool/prompt/
             // resource registries are populated during Build via the assembly scan). A saved disable for a
             // still-registered item is restored; stale entries (renamed/removed) are pruned; items with no
             // saved entry stay at the manager default (enabled). See ReapplyFeatureStates.
@@ -884,11 +884,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         static void RouteFrameworkLog(GodotLogType logType, string message)
             => GodotMcpLog.Route(logType, message);
 
-        // --- MCP feature enable-map (tools / prompts / resources) -----------------------------------------
+        // --- MCP feature visibility map (tools / prompts / resources) -----------------------------------------
 
         /// <summary>
         /// The per-kind feature manager off the freshly-built plugin, or null when that kind's manager is not
-        /// available. The three managers share the same shape (enumerate / count / is-enabled / set-enabled),
+        /// available. The three managers share the same shape (enumerate / count / is-visible / set-visible),
         /// so the dock addresses them generically through <see cref="GodotMcpFeatureKind"/>.
         /// </summary>
         IFeatureManagerAdapter? FeatureManager(GodotMcpFeatureKind kind, IMcpPlugin? plugin)
@@ -907,9 +907,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Reapply the persisted enable-map to a freshly-built plugin's managers. For each kind, the pure
+        /// Reapply the persisted visibility map to a freshly-built plugin's managers. For each kind, the pure
         /// <see cref="GodotMcpFeatureStateMerge.ComputeReapply"/> decides which live items get an explicit
-        /// <c>SetEnabled</c> (saved entries matching a live item) — stale saved names are pruned and items with
+        /// <c>SetVisible</c> (saved entries matching a live item) — stale saved names are pruned and items with
         /// no saved entry stay at the manager default (enabled). A null/empty map disables nothing. Runs once
         /// per <see cref="Start"/>, right after the plugin is built.
         /// </summary>
@@ -926,7 +926,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 var toApply = GodotMcpFeatureStateMerge.ComputeReapply(liveNames, saved);
 
                 foreach (var pair in toApply)
-                    manager.SetEnabled(pair.Key, pair.Value);
+                    manager.SetVisible(pair.Key, pair.Value);
             }
         }
 
@@ -994,7 +994,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Enumerate the live items of a feature kind as pure-managed <see cref="FeatureRowItem"/> view-models
         /// for the list window — the common name/title/description/enabled plus the kind-specific metadata
         /// (tools: token count + input args; prompts: role + arguments; resources: uri + mimetype). Empty when
-        /// the plugin/managers are not yet available. Reads the LIVE enabled-state off the manager (which
+        /// the plugin/managers are not yet available. Reads the LIVE visibility off the manager (which
         /// reflects any reapplied persisted disable). The window filters this list via <see cref="FeatureFilter"/>.
         /// </summary>
         public IReadOnlyList<FeatureRowItem> GetFeatureItems(GodotMcpFeatureKind kind)
@@ -1009,7 +1009,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Count summary (enabled, total, enabledTokenCount) for a feature kind, or null when the
         /// plugin/managers are not yet available (the panel shows the "—" placeholder then). Only the
         /// <see cref="GodotMcpFeatureKind.Tools"/> kind reports a non-zero token count
-        /// (<c>EnabledToolsTokenCount</c>); prompts/resources have no token analog.
+        /// (<c>VisibleToolsTokenCount</c>); prompts/resources have no token analog.
         /// </summary>
         public (int Enabled, int Total, int EnabledTokenCount)? GetFeatureCounts(GodotMcpFeatureKind kind)
         {
@@ -1018,18 +1018,18 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Toggle one item's enabled-state: push it to the live manager AND patch + persist the enable-map so
+        /// Show or hide one item: push it to the live manager AND patch + persist the visibility map so
         /// the choice survives a restart. No-op (returns false) when the manager is unavailable. The map is
         /// patched via the pure <see cref="GodotMcpFeatureStateMerge.Upsert"/> then <see cref="Save"/>d.
         /// </summary>
-        public bool SetFeatureEnabled(GodotMcpFeatureKind kind, string name, bool enabled)
+        public bool SetFeatureVisible(GodotMcpFeatureKind kind, string name, bool visible)
         {
             var manager = FeatureManager(kind, _plugin);
             if (manager == null)
                 return false;
 
-            manager.SetEnabled(name, enabled);
-            GodotMcpFeatureStateMerge.Upsert(_config.Features.For(kind), name, enabled);
+            manager.SetVisible(name, visible);
+            GodotMcpFeatureStateMerge.Upsert(_config.Features.For(kind), name, visible);
             Save();
 
             // Guarantee the dock's features panel recomputes after a per-row toggle (issue #54). Directly
@@ -1051,7 +1051,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Raise <see cref="FeaturesUpdated"/> on the editor main thread, mirroring the same dispatcher-guard
         /// the managers' <c>On*Updated</c> subscription uses (see <see cref="SubscribeToFeatureUpdates"/>): hop
         /// to the main thread when off it (and a dispatcher is in the tree), else invoke inline. The toggle
-        /// path (<see cref="SetFeatureEnabled"/>) already runs on the editor main thread, so it takes the inline
+        /// path (<see cref="SetFeatureVisible"/>) already runs on the editor main thread, so it takes the inline
         /// branch — but routing through the same guard keeps the event's "always marshalled onto the main
         /// thread" contract true regardless of which thread a future caller raises from.
         /// </summary>
