@@ -72,7 +72,7 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
   {
     id: 'script',
     title: 'Script',
-    summary: 'Read, create, update, delete, and attach GDScript / C# scripts, and run C# in the editor.',
+    summary: 'Read, create, update, delete, and attach GDScript / C# scripts, build the C# project, and run C# in the editor.',
     tools: [
       { name: 'script-read', description: 'Read the source of a script file.' },
       { name: 'script-create', description: 'Create a new script file.' },
@@ -80,6 +80,11 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
       { name: 'script-validate', description: 'Validate GDScript (.gd) files and return structured parse/compile diagnostics.' },
       { name: 'script-delete', description: 'Delete a script file.' },
       { name: 'script-attach-to-node', description: 'Attach a script to a node in the scene.' },
+      {
+        name: 'script-build',
+        description:
+          "Build the project's C# (dotnet build) so new or changed C# scripts load; the result arrives after Godot reloads the assembly.",
+      },
       {
         name: 'script-execute',
         description:

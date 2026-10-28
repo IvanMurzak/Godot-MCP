@@ -109,6 +109,12 @@ editors keep answering tool calls with an old build).
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by
   `Godot-Tests/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
   runnable top to bottom against its fixture scene.
+- **C# reload gate.** Godot reloads the assembly ~0.5 s after the built DLL changes, and detaches the C# script
+  instances first, so the dispatcher's `_ExitTree` never runs: a tool call queued for the main thread then blocks its
+  thread inside this assembly forever and the unload fails ("Giving up", plugin offline). `Editor/Reload/` refuses calls
+  while a reload is pending (retryable error), defers Godot's watcher timer for calls in flight, and at teardown refuses
+  queued bodies (`MainThreadDispatcher.RefusalReason`) and waits for those calls. Every editor tool is a `GatedRunTool`;
+  verify with `scripts/smoke_reload.py`.
 - **RQL and hot reload.** RQL lives in the default load context; its Type-keyed caches are cleared on teardown
   (`RqlStaticCaches`). The editor tool surface is shaped by the `configurePlugin` callback the editor passes to the
   `GodotMcpConnection` constructor (Runtime/ never names editor types); console-* / reflection-* stay in the in-game runtime only.

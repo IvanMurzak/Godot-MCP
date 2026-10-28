@@ -57,7 +57,7 @@ Tools and connects them to an MCP server through the hosted cloud backend at ai-
 self-hosted server. The MCP / reflection stack is shared with Unity-MCP and consumed from nuget.org as
 NuGet package references (not forked).
 
-23 built-in tools across 9 families: ping, rql, script, screenshot, console, reflection, runtime-errors, session, and skills.
+24 built-in tools across 9 families: ping, rql, script, screenshot, console, reflection, runtime-errors, session, and skills.
 The editor is driven with RQL (rql-query / rql-mutate / rql-schema): one query language for scene nodes, resources, scenes and editor state.
 
 Requirements:

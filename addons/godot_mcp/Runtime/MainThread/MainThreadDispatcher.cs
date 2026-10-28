@@ -44,7 +44,42 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// <summary>True when the calling thread is the captured Godot main thread.</summary>
         public static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == MainThreadId;
 
-        static readonly ConcurrentQueue<Action> _actions = new ConcurrentQueue<Action>();
+        /// <summary>A queued action and, for awaited work, how to fail its awaiter instead of running it (see <see cref="RefusalReason"/>).</summary>
+        readonly struct WorkItem
+        {
+            public WorkItem(Action run, Action<Exception>? refuse)
+            {
+                Run = run;
+                Refuse = refuse;
+            }
+
+            public readonly Action Run;
+            public readonly Action<Exception>? Refuse;
+        }
+
+        static readonly ConcurrentQueue<WorkItem> _actions = new ConcurrentQueue<WorkItem>();
+
+        static volatile string? _refusalReason;
+
+        /// <summary>
+        /// When set, no queued work runs any more: awaited work (<see cref="Enqueue(Action, Action{Exception})"/> with a
+        /// refusal callback) is refused with an <see cref="InvalidOperationException"/> carrying this message, at enqueue or
+        /// when drained, and fire-and-forget work is dropped (its callers expect a live dispatcher, not a throw). The editor sets it when the C# assembly starts unloading, so a tool body queued
+        /// by a call in flight never runs inside the unload and its blocked caller returns at once. Null = run as usual.
+        /// </summary>
+        public static string? RefusalReason
+        {
+            get => _refusalReason;
+            set => _refusalReason = value;
+        }
+
+        /// <summary>
+        /// True while queued AWAITED work runs on the main thread (a tool call's body, through <c>GodotMainThread</c>): code
+        /// reached from it is nested inside that call.
+        /// </summary>
+        public static bool IsRunningAwaitedWork => _runningAwaited > 0;
+
+        static int _runningAwaited;
 
         /// <summary>
         /// The currently-installed dispatcher, or <c>null</c> when none is in the tree. <b>Marked
@@ -152,10 +187,23 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// <see cref="InvalidOperationException"/> immediately, exactly as before.
         /// </para>
         /// </summary>
-        public static void Enqueue(Action action)
+        public static void Enqueue(Action action) => Enqueue(action, null);
+
+        /// <summary>
+        /// <see cref="Enqueue(Action)"/> for work someone awaits: <paramref name="refuse"/> fails the awaiter instead of
+        /// running <paramref name="action"/> once <see cref="RefusalReason"/> is set.
+        /// </summary>
+        public static void Enqueue(Action action, Action<Exception>? refuse)
         {
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
+
+            if (_refusalReason is { } reason)
+            {
+                if (refuse != null)
+                    throw new InvalidOperationException(reason);
+                return;
+            }
 
             // No dispatcher currently in the tree: buffer if one has never booted yet (it will arrive and
             // drain — the #169 early-boot window), but fail fast if one booted and was torn down (nothing
@@ -166,7 +214,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
                     "The dispatcher booted and was removed (plugin unloaded / editor reload); nothing would " +
                     "drain the queue. It is added by GodotMcpPlugin._EnterTree and removed on _ExitTree.");
 
-            _actions.Enqueue(action);
+            _actions.Enqueue(new WorkItem(action, refuse));
         }
 
         public override void _EnterTree()
@@ -253,8 +301,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             _draining = true;
             try
             {
-                while (!_actions.IsEmpty && !IsHeld() && _actions.TryDequeue(out var action))
-                    InvokeDrained(action);
+                while (!_actions.IsEmpty && (_refusalReason != null || !IsHeld()) && _actions.TryDequeue(out var item))
+                    InvokeDrained(item);
             }
             finally
             {
@@ -307,22 +355,38 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             // first caps the iteration at the items present now, so any item a drained body re-enqueues is not
             // pulled into this same drain pass.
             var budget = _actions.Count;
-            for (var i = 0; i < budget && _actions.TryDequeue(out var action); i++)
+            for (var i = 0; i < budget && _actions.TryDequeue(out var item); i++)
             {
-                InvokeDrained(action);
+                InvokeDrained(item);
             }
         }
+
+        /// <summary>
+        /// Settle what is queued now (main thread): with <see cref="RefusalReason"/> set that fails every queued awaiter
+        /// without running its body. Used by the editor's reload drain, which waits on the main thread for the tool
+        /// calls whose bodies it just refused.
+        /// </summary>
+        public static void FlushQueued() => DrainQueueBounded();
 
         /// <summary>
         /// Invoke one drained action, swallowing and surfacing any throw without killing the pump loop. The
         /// action is responsible for routing its own exceptions back to its awaiter (GodotMainThread wraps the
         /// body in a try/catch). A throw here would only mean a bug in the action wrapper itself.
         /// </summary>
-        static void InvokeDrained(Action action)
+        static void InvokeDrained(WorkItem item)
         {
             try
             {
-                action.Invoke();
+                if (_refusalReason is { } reason)
+                    item.Refuse?.Invoke(new InvalidOperationException(reason));
+                else if (item.Refuse == null)
+                    item.Run.Invoke();
+                else
+                {
+                    _runningAwaited++;
+                    try { item.Run.Invoke(); }
+                    finally { _runningAwaited--; }
+                }
             }
             catch (Exception ex)
             {
@@ -393,6 +457,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
             _instance = null;
             _instancePresentForTests = false;
             _hasEverEntered = false;
+            _refusalReason = null;
+            _runningAwaited = 0;
             HoldWhile = null;
             _heldSinceMs = -1;
             MainThreadId = -1;
