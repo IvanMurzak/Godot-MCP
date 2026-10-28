@@ -97,6 +97,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         internal static string? ValidateBatch(IReadOnlyList<MutationRecord> records)
         {
+            if (ValidateCreateBatch(records) is { } duplicate) return duplicate;
             var freed = new HashSet<Node>();
             foreach (var record in records)
                 if (record.Method?.Name == "Free" && record.Item is Node node) freed.Add(node);

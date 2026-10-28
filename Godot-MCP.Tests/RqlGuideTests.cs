@@ -49,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
             Assert.Equal(27, RqlGuide.QueryExamples.Length);
-            Assert.Equal(37, RqlGuide.MutateExamples.Length);
+            Assert.Equal(40, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
 
@@ -64,9 +64,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(RqlGuide.MutateExamples, e => e.Contains(".replace("));
             Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("group-by class, "));
             Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("items.avg("));
-            Assert.Contains("a condition must be a boolean", RqlGuide.Language);
+            Assert.Contains("a boolean condition", RqlGuide.Language);
             Assert.Contains("has(Mesh)", RqlGuide.QuerySyntaxShort);
+            // The shared rules come from the runtime (conditions, list equality, receipts, call, bulk create, vectors, map entries).
+            Assert.EndsWith(global::Rql.Execution.RqlLanguageGuide.Rules, RqlGuide.Language);
             Assert.Contains("Lists compare by value", RqlGuide.Language);
+            Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("range(0, ") && e.Contains("call editor.CreateNode("));
+            Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("[[") && e.Contains("call editor.InstantiateScene("));
+            Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("set Scale = Scale * 1.5"));
+            Assert.Contains("one undo step", RqlGuide.MutateDescription);
             Assert.Contains("unchanged assignment(s) not listed", RqlGuide.MutateDescription);
         }
 

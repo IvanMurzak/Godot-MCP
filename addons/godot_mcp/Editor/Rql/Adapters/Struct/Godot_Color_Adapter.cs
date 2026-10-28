@@ -20,6 +20,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Color: write as \"(r, g, b, a)\" with 0..1 components, [r, g, b] or \"#RRGGBB\"";
         protected override string Expected => "(r, g, b, a), [r, g, b] or #RRGGBB";
         protected override int Width => 4;
+        // Component-wise arithmetic (RQL spec §4.2): Scale * 1.5, Position + [0, 1, 0], -Velocity.
+        protected override bool Arithmetic => true;
         protected override float Component(Color c, int index) => index switch { 0 => c.R, 1 => c.G, 2 => c.B, _ => c.A };
         protected override Color? Make(float[] f) =>
             f.Length == 4 ? new Color(f[0], f[1], f[2], f[3]) : f.Length == 3 ? new Color(f[0], f[1], f[2]) : (Color?)null;

@@ -29,8 +29,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class ScriptExecuteSource
     {
-        /// <summary>How long one snippet may run (ms); below the server's <c>GodotMcpServerView.ToolTimeoutMs</c>.</summary>
-        public const int RunTimeoutMs = 120_000;
+        /// <summary>Room for compiling and answering between the end of a snippet's time budget and the server's tool timeout.</summary>
+        public const int ToolTimeoutMarginMs = 60_000;
+
+        /// <summary>
+        /// How long one snippet may run (ms): the tool timeout every server applies at least (McpPlugin's default, which the
+        /// local server's <c>GodotMcpServerView.ToolTimeoutMs</c> keeps) minus <see cref="ToolTimeoutMarginMs"/>, so Code-Exec's
+        /// guard stops an endless loop with a Timeout result before the server gives up on the call. It is both the runner's
+        /// <c>DefaultTimeoutMs</c> and every request's <c>TimeoutMs</c>: a request never sends 0 (since Code-Exec 0.4 that means
+        /// the host default; before, no bound).
+        /// </summary>
+        public const int RunTimeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultToolTimeoutMs - ToolTimeoutMarginMs;
 
         /// <summary>Usings every snippet gets; Godot's namespace on top of Unity-MCP's System set.</summary>
         public static readonly IReadOnlyList<string> DefaultUsings = new[]

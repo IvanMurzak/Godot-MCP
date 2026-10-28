@@ -261,6 +261,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(ResponseErrorKind.Unavailable, result.ErrorKind);
             Assert.Equal("req-1", result.RequestID);
             Assert.Contains(AssemblyReloadGate.UnloadingMessage, result.GetMessage());
+            // Nothing ran: 503 lets the server re-send the call once the editor is back.
+            Assert.Equal(503, result.HttpStatusCode);
         }
 
         [Fact]
@@ -294,6 +296,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(ResponseErrorKind.Unavailable, result.ErrorKind);
             Assert.Contains(AssemblyReloadGate.UnloadingMessage, result.GetMessage());
             Assert.DoesNotContain("Tool execution failed", result.GetMessage());
+            // The tool had started: no 503, so the server reports the refusal instead of re-sending a call that may have run.
+            Assert.NotEqual(503, result.HttpStatusCode);
         }
 
         [Fact]

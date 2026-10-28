@@ -25,7 +25,7 @@
     <!-- Core MCP pins (the godot_mcp addon depends on these); keep in lockstep with the addon. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.13.1" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.c5fed20" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.0f1bf94" />
     <!-- The extension under test, restored from the local feed (CI packs it as 0.0.0-ci). -->
     <PackageReference Include="com.IvanMurzak.Godot.MCP.Particles" Version="0.0.0-ci" />
   </ItemGroup>

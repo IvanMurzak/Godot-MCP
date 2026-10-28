@@ -234,13 +234,13 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 > compile the addon.
 
 > [!NOTE]
-> **Windows, C# game scripts in a game run from the editor.** On Godot 4.5.1 for Windows, a game started from the editor
-> (Play) can fail to create *every* C# script ("Cannot instantiate C# script because the associated class could not be
-> found", after a `TypeLoadException ... Could not resolve type '<an EditorPlugin class>'`) when the project contains any
-> C# `[Tool]` `EditorPlugin`, Godot-MCP's included, even wrapped in `#if TOOLS` (the editor's Debug build defines
-> `TOOLS`, and the game process cannot resolve `GodotSharpEditor`). It is a Godot issue, reproduced in a project without
-> Godot-MCP; GDScript is unaffected. Workaround: copy `GodotSharpEditor.dll` from the editor's
-> `GodotSharp/Api/Debug/` folder into the project's `.godot/mono/temp/bin/Debug/`.
+> **C# scripts in a game run from the editor need `<EnableDynamicLoading>true</EnableDynamicLoading>`.** If a game
+> started from the editor (Play) fails to create *every* C# script ("Cannot instantiate C# script because the associated
+> class could not be found", after a `TypeLoadException ... Could not resolve type '<an EditorPlugin class>'`), the
+> project's `.csproj` lacks that property: without it the build does not copy the NuGet package assemblies (Godot-MCP's
+> packages, and the Debug configuration's `GodotSharpEditor` reference) into `.godot/mono/temp/bin/Debug/`. Godot's own
+> C# project template always has it, and `godot-cli install-plugin` / `create-project` set it. Add it to the project's
+> `<PropertyGroup>` (next to `<TargetFramework>`) and rebuild.
 
 # Installation
 
@@ -306,7 +306,9 @@ On a successful load the editor Output panel prints:
 ## Step 2: Add the NuGet packages + the extension catalog embed
 
 Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource>` to your project's
-`.csproj` (use these exact pinned versions — they must match the addon's `Godot-MCP.csproj`):
+`.csproj` (use these exact pinned versions — they must match the addon's `Godot-MCP.csproj`), and keep
+`<EnableDynamicLoading>true</EnableDynamicLoading>` in its `<PropertyGroup>` (Godot's C# template has it; without it the
+package assemblies are not copied next to the game assembly):
 
 ```xml
 <ItemGroup>
@@ -316,9 +318,9 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.c5fed20" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.3.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.3.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.0f1bf94" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.21dd065" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.21dd065" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
@@ -332,9 +334,9 @@ Add the six `PackageReference`s **and** the extension-catalog `<EmbeddedResource
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.0` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.13.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.c5fed20` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.3.1` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.3.1` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.0f1bf94` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.21dd065` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.21dd065` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
 
 The four editor-only packages carry a `Condition` that leaves them out of Godot's export builds: only editor
@@ -467,7 +469,8 @@ use the **Local server** row:
   on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport,
   with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`. A server built on McpPlugin 8.11.0+
   sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself after
-  2 minutes). Older servers, including the currently pinned one, ignore `tool-timeout`: they re-send a call every
+  4 minutes, the tool timeout minus a minute: an endless loop returns a `Timeout` error and runaway recursion a
+  "Recursion too deep" error, the editor keeps running). Older servers, including the currently pinned one, ignore `tool-timeout`: they re-send a call every
   10 s and give up after about 110 s; the addon runs each re-sent call only once.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
@@ -645,6 +648,7 @@ Builder surface (all fluent / chainable):
 | `builder.WithResourcesFromAssembly(Assembly)` | Register every `[AiResourceType]` class in an assembly. Independent of tools/prompts. |
 | `builder.WithResources(params Type[])` | Register specific `[AiResourceType]` classes. |
 | `builder.WithoutMainThreadDispatcher()` | Skip the automatic main-thread-dispatcher bootstrap (only if you install your own autoload dispatcher). |
+| `builder.ConnectWhenRunFromEditor()` | Let `handle.Connect()` connect in a game started from the Godot editor (Play) too. **OFF by default**: see ["Games run from the editor"](#games-run-from-the-editor) below. |
 | `builder.WithRuntimeErrorCapture()` | Capture errors raised in the **running game** (GDScript runtime errors, `push_error`/`push_warning`, shader errors via the Godot 4.5+ engine hook; C# unhandled / unobserved-`Task` exceptions with full stack traces) and register the `runtime-errors-*` tool so an agent can poll them. **OFF by default.** See ["Capturing in-game runtime errors"](#capturing-in-game-runtime-errors) below. |
 | `builder.WithScriptExecute()` | Register `script-execute` **in the game**: the agent's C# is compiled with Roslyn and run on the game's main thread. **OFF by default**, needs the csproj opt-in, arbitrary code execution. See ["Running C# in the game"](#running-c-in-the-game) below. |
 | `builder.Build()` | Finalize; returns a **default-OFF** `GodotMcpRuntimeHandle`. |
@@ -653,6 +657,17 @@ Builder surface (all fluent / chainable):
 > `Initialize().Build()` also guarantees a main-thread dispatcher `Node` in the running `SceneTree` (so
 > tool handlers can marshal Godot API calls onto the engine main thread), unless you opt out with
 > `WithoutMainThreadDispatcher()`. Call it once a `SceneTree` is live (e.g. from an autoload `_Ready`).
+
+### Games run from the editor
+
+A game started from the Godot editor (Play, F5) inherits the editor's environment, `GODOT_MCP_HOST` and
+`GODOT_MCP_TOKEN` included, so its in-game runtime would join the server the editor is connected to. By default
+`handle.Connect()` therefore does nothing in such a game and returns `false` (it logs why); the editor stays the one
+plugin the agent talks to. Exported games and games started outside the editor connect as before. To connect a game
+run from the editor too, opt in with `builder.ConnectWhenRunFromEditor()` or the process environment variable
+`GODOT_MCP_RUNTIME_FROM_EDITOR=1`. A GameDev-MCP-Server with plugin roles then keeps both connections (the game
+registers as `Godot <version> (runtime)`) and routes tool calls to the editor while it is connected. The editor
+plugin marks the games it runs with `GODOT_MCP_EDITOR_PID`.
 
 ## Capturing in-game runtime errors
 

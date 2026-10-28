@@ -38,6 +38,47 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             ValueConverter = converter ?? (value => value?.ToString()),
         });
 
+        // ---- Execution guards (Code-Exec 0.4): the editor's budget, endless loops, runaway recursion ----------------
+
+        [Fact]
+        public void RunTimeout_IsTheToolTimeoutMinusAMargin_AndNeverZero()
+        {
+            Assert.Equal(com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultToolTimeoutMs - ScriptExecuteSource.ToolTimeoutMarginMs,
+                ScriptExecuteSource.RunTimeoutMs);
+            Assert.True(ScriptExecuteSource.RunTimeoutMs > 0);
+        }
+
+        static CodeRunner GuardedRunner(int defaultTimeoutMs) => new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
+        {
+            DefaultUsings = ScriptExecuteSource.DefaultUsings,
+            ValueConverter = value => value?.ToString(),
+            DefaultTimeoutMs = defaultTimeoutMs,
+            ExecutionGuards = true,
+        });
+
+        // wave 5 (C2): `while (true) {}` froze the editor. On the calling thread (the editor runs snippets on its main thread)
+        // the guard stops it once the budget is spent, also for a request that leaves TimeoutMs at 0 (= the host default).
+        [Fact]
+        public void EndlessLoop_StopsWithATimeout()
+        {
+            var result = GuardedRunner(defaultTimeoutMs: 500).Execute(new ExecuteRequest { Code = "while (true) { }" });
+            Assert.False(result.Success);
+            Assert.Equal(ErrorKind.Timeout, result.ErrorKind);
+        }
+
+        // wave 5 (C1): runaway recursion overflowed the stack and killed the editor; now it is a Runtime error.
+        [Fact]
+        public void RunawayRecursion_IsARuntimeError()
+        {
+            var result = GuardedRunner(defaultTimeoutMs: 30_000).Execute(new ExecuteRequest
+            {
+                Code = "int Deep(int n) { return Deep(n + 1) + 1; }\nDeep(0)",
+            });
+            Assert.False(result.Success);
+            Assert.Equal(ErrorKind.Runtime, result.ErrorKind);
+            Assert.Contains("Recursion too deep", result.Error);
+        }
+
         // ---- FullSourceEntryType -----------------------------------------------------------------
 
         [Theory]

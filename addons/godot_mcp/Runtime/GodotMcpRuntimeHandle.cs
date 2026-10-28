@@ -36,13 +36,31 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         readonly bool _uninstallErrorCaptureOnDispose;
         int _disposed;
 
+        readonly bool _connectWhenRunFromEditor;
+
         internal GodotMcpRuntimeHandle(IMcpPlugin plugin, GodotMcpConfig config,
-            bool uninstallErrorCaptureOnDispose = false)
+            bool uninstallErrorCaptureOnDispose = false, bool connectWhenRunFromEditor = false)
         {
             _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _uninstallErrorCaptureOnDispose = uninstallErrorCaptureOnDispose;
+            _connectWhenRunFromEditor = connectWhenRunFromEditor;
         }
+
+        internal const string RunFromEditorMessage =
+            "[Godot-MCP] runtime: not connecting: this game was started from the Godot editor, which is connected itself (the game " +
+            "inherits its GODOT_MCP_* settings). To connect the game too, call ConnectWhenRunFromEditor() on the runtime builder " +
+            "or set " + GodotMcpEnv.RuntimeFromEditor + "=1.";
+
+        /// <summary>
+        /// Whether <see cref="Connect"/> stays offline: a game the editor started (<paramref name="editorPid"/> is the editor
+        /// plugin's marker, inherited from the editor process) connects only when the developer opted in. Pure (unit-tested).
+        /// </summary>
+        internal static bool StaysOfflineWhenRunFromEditor(string? editorPid, bool isEditorProcess, bool optedIn, string? optInEnv) =>
+            !isEditorProcess && !string.IsNullOrEmpty(editorPid) && !optedIn && !IsTrue(optInEnv);
+
+        static bool IsTrue(string? value) =>
+            value != null && (value.Trim() == "1" || value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>The resolved connection config (host / token / mode) this handle connects with.</summary>
         public GodotMcpConfig Config => _config;
@@ -55,10 +73,22 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// guards re-entry; when <see cref="GodotMcpConfig.KeepConnected"/> is true the client also re-arms
         /// its own auto-reconnect intent here. Returns <c>true</c> when the initial connect succeeded
         /// (the client keeps retrying afterwards if <c>KeepConnected</c>).
+        /// <para>
+        /// In a game started from the Godot editor (Play) it does not connect and returns <c>false</c>: that game inherits the
+        /// editor's <c>GODOT_MCP_HOST</c>, so it would join the editor's server as a second plugin. Opt in with
+        /// <see cref="GodotMcpRuntimeBuilder.ConnectWhenRunFromEditor"/> or <c>GODOT_MCP_RUNTIME_FROM_EDITOR=1</c>.
+        /// </para>
         /// </summary>
         public Task<bool> Connect(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
+            if (StaysOfflineWhenRunFromEditor(System.Environment.GetEnvironmentVariable(GodotMcpEnv.EditorPid),
+                    global::Godot.OS.HasFeature("editor"), _connectWhenRunFromEditor,
+                    System.Environment.GetEnvironmentVariable(GodotMcpEnv.RuntimeFromEditor)))
+            {
+                GodotMcpLog.Info(RunFromEditorMessage);
+                return Task.FromResult(false);
+            }
             return _plugin.Connect(cancellationToken);
         }
 

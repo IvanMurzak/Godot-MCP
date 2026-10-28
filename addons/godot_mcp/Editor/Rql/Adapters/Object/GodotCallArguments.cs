@@ -78,11 +78,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 
         private static Variant ConvertOne(object? value, global::Godot.Collections.Dictionary arg, RqlKernel kernel, string method, int index)
         {
-            var type = (Variant.Type)arg["type"].AsInt32();
-            var hint = (PropertyHint)arg["hint"].AsInt32();
-            var hintString = arg["hint_string"].AsString();
             var className = arg["class_name"].AsString();
-            var label = $"{method} argument {index + 1} ({arg["name"].AsString()}: {(className.Length > 0 ? className : type.ToString())})";
+            var label = $"{method} argument {index + 1} ({arg["name"].AsString()}: {(className.Length > 0 ? className : ((Variant.Type)arg["type"].AsInt32()).ToString())})";
+            return ConvertTo(value, arg, kernel, label);
+        }
+
+        /// <summary>
+        /// <paramref name="value"/> converted like a <c>set</c> would to the type a Godot method argument or property list entry
+        /// (<paramref name="info"/>: type, hint, hint_string, class_name) declares; throws <see cref="ArgumentException"/> starting
+        /// with <paramref name="label"/> when it does not convert.
+        /// </summary>
+        public static Variant ConvertTo(object? value, global::Godot.Collections.Dictionary info, RqlKernel kernel, string label)
+        {
+            var type = (Variant.Type)info["type"].AsInt32();
+            var hint = (PropertyHint)info["hint"].AsInt32();
+            var hintString = info["hint_string"].AsString();
+            var className = info["class_name"].AsString();
             if (type == Variant.Type.Nil) return GodotVariants.ToVariant(value);
             if (type == Variant.Type.Int && value is string text && GodotEnumOptions.Of(className, hint, hintString) is { Count: > 0 } options)
                 return GodotEnumNames.TryMatch(options, text, out var enumValue)

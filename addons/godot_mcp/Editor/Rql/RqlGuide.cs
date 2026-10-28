@@ -55,24 +55,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group; " +
             "godot.callable(\"Player\", \"_on_hit\") a Callable.\n" +
             "Stages:\n" +
-            "  where <predicate>   filter; a condition must be a boolean: where Mesh != null, where has(Mesh), where Text != \"\", " +
-            "where children.count() > 0 (a bare object, number, string or list is a type-mismatch; null counts as false)\n" +
+            "  where <predicate>   filter (a boolean condition: where Mesh != null, where has(Mesh), where children.count() > 0)\n" +
             "  select a b.c alias=(expr)   project columns (wrap computed expressions in parentheses)\n" +
             "  sort <expr> [desc], ...   stable sort\n" +
             "  first N | skip N | count\n" +
             "  get <path>   replace each item by a member (lists are flattened)\n" +
             "  recurse children [max-depth=N] [include-self=false]   walk the scene tree (input items included by default)\n" +
             "  distinct [expr] | sum expr | min expr | max expr | avg expr\n" +
-            "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count; each group's items " +
-            "are in items: group-by class | select key, count, avgY = items.avg(Position.Y)\n" +
+            "  group-by expr   rows key|count; group-by a, b (or kind=class) gives one column per key, then count; " +
+            "group-by class | select key, count, avgY = items.avg(Position.Y)\n" +
             "Expressions: == != < <= > >= and or not + - * / %; contains, starts-with, ends-with (case-insensitive); " +
             "matches \"regex\"; x in [a, b]; x is null; x is not null; $ is Node3D (includes subclasses); has(member). " +
-            "Conditional: cond ? a : b or if(cond, a, b) (only the taken branch runs; inside select wrap it in parentheses: " +
-            "select name kind=($ is MeshInstance3D ? \"mesh\" : \"other\")). " +
+            "Conditional: cond ? a : b, e.g. select name kind=($ is MeshInstance3D ? \"mesh\" : \"other\"). " +
             "Text: replace(s, from, to) (case-insensitive), replace-regex(s, pattern, repl) ($1 = group 1), substring(s, start[, length]), " +
             "split(s, sep), trim(s), pad(v, width[, fill]) — also as methods: name.replace(\"Old\", \"New\"), name.substring(0, 4). " +
-            "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}. Lists compare by value: " +
-            "groups == [\"enemies\"], and equal lists form one group in distinct / group-by.\n" +
+            "Literals: numbers, \"strings\", true/false/null, lists [a, b], objects {x: 1, y: 2}; groups == [\"enemies\"] compares a list.\n" +
             "Paths: a.b.c, list[0], map[\"key\"]; .member on a list maps over its elements. List methods: .any(pred) .all(pred) " +
             ".count([pred]) .sum(e) .min(e) .max(e) .first([pred]); inside them bare names refer to the element, falling back to the outer item.\n" +
             "Meta: $ (current item), $ref (stable id such as Node3D#1234), $type, $path, $index, $depth. Enums compare to strings; " +
@@ -87,7 +84,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "including GDScript script variables (in the editor: @export ones, every one of a @tool script) and GDExtension properties, is in props[\"snake_name\"] (e.g. props[\"light_energy\"], " +
             "props[\"speed\"] on a scripted node); a Godot array lists the values it holds (get props[\"items\"] | where props[\"price\"] > 10). " +
             "Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
-            "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". A resource path \"res://…\" works wherever a resource is expected, " +
+            "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". Vector2/3/4, their integer variants and Color compute component-wise " +
+            "(set Scale = Scale * 1.5, Position + [0, 1, 0]); Quaternion, Basis and transforms do not. A resource path \"res://…\" works wherever a resource is expected, " +
             "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +
             "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
             "(id kind atlas texture tileCount), physicsLayers, terrainSets, customDataLayers; an atlas source has tiles (coords size data). " +
@@ -100,7 +98,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "projects output columns.\n" +
             "Results come back as compact rows (header line, then col|col). Long results are truncated — refine with where/first or use count. " +
             "Unknown members produce warnings with suggestions (in rql-mutate a misspelt member that leaves no target is an error); " +
-            "rql-schema(type) lists a type's members and Godot properties.";
+            "rql-schema(type) lists a type's members and Godot properties.\n\n" +
+            // The rules every RQL host shares (conditions, ?:, list equality, group items, receipts, call, bulk create, vectors,
+            // missing map entries), appended rather than copied so they follow the runtime.
+            global::Rql.Execution.RqlLanguageGuide.Rules;
 
         /// <summary>
         /// rql-query examples, one per line ("  &lt;query&gt;"); run in order by the live CI smoke against its fixture scene.
@@ -146,6 +147,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where name starts-with \"Enemy\" | sort name | set Position.X = $index * 2   spread the matches along X\n" +
             "  godot.resource(\"res://materials/red.tres\") | set props[\"albedo_color\"] = \"(1, 0, 0, 1)\"   edit a resource file (saved to disk)\n" +
             "  root | call AddChild(\"Node3D\", \"Props\")   new child node of a class; the receipt's result column holds its $ref\n" +
+            "  range(0, 100) | call editor.CreateNode(\"MeshInstance3D\", {name: \"Cube\" + $, parent: \"Props\", position: [($ % 10) * 2, 0, floor($ / 10) * 2], mesh: {class: \"BoxMesh\"}})   bulk create: a 10 x 10 grid of cubes in one call and one undo step (one receipt row per node, with its $ref)\n" +
+            "  [[\"CoinA\", 0], [\"CoinB\", 3]] | call editor.InstantiateScene(\"res://scenes/enemy.tscn\", {name: $[0], parent: \"Props\", position: [$[1], 1, 0]})   one scene instance per list entry\n" +
+            "  nodes | where name starts-with \"Cube\" | set Scale = Scale * 1.5   vectors and colors compute component-wise\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
             "  nodes | where name == \"Crate\" | call Duplicate()   copy next to it (returns the copy)\n" +
             "  nodes | where name == \"Floor\" | set Mesh = {$type: \"PlaneMesh\", Size: \"(20, 20)\"}   a new embedded resource (mesh, shape, material, environment …) of a concrete class, with its members; a script class_name works too\n" +
@@ -211,6 +215,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
+            "Bulk create: range(start, end) or a list literal streams items, and call editor.CreateNode(class, {…}) / " +
+            "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +
+            "path or ref; the scene root by default) and any Godot property of the new node (position, rotation_degrees, scale, mesh, " +
+            "visible …). Every item is checked before the first node is made; all of them are one undo step.\n" +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
             "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +

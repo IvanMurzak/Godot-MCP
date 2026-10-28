@@ -154,6 +154,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),
                 ValueConverter = Serialize,
                 LogCaptures = new List<ILogCapture> { new ConsoleLogCapture(), new GodotPrintLogCapture() },
+                // Code-Exec's guards (recursion, loops) stop a runaway snippet with a Runtime / Timeout result instead of a stack
+                // overflow that kills the editor or a loop that freezes it; the budget ends before the server's tool timeout.
+                DefaultTimeoutMs = ScriptExecuteSource.RunTimeoutMs,
+                ExecutionGuards = true,
             });
         }
 

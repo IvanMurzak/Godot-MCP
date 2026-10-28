@@ -20,6 +20,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         public override string Description => "Vector4I: write as \"(x, y, z, w)\" or [x, y, z, w] with whole numbers";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w] with whole numbers";
         protected override int Width => 4;
+        // Component-wise arithmetic (RQL spec §4.2): Cell + [1, 0, 0], Size * 2; a result that is not whole is a type-mismatch.
+        protected override bool Arithmetic => true;
         protected override int Whole(Vector4I v, int index) => index switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
 
         protected override Vector4I? Make(float[] f) => WholeNumbers.Of(f, 4) is { } i ? new Vector4I(i[0], i[1], i[2], i[3]) : (Vector4I?)null;

@@ -360,3 +360,38 @@ function findItemGroupCloseContaining(text: string, childTagRe: RegExp): number 
   }
   return -1;
 }
+
+export interface CsprojPropertyResult {
+  /** The new csproj text (identical to input when nothing changed). */
+  text: string;
+  /** True when the text was modified. */
+  changed: boolean;
+}
+
+/**
+ * Make sure the consumer `.csproj` has `<EnableDynamicLoading>true</EnableDynamicLoading>`, as Godot's own C# project
+ * template does. Without it the build does not copy the NuGet package assemblies (the addon's packages, and the Debug
+ * configuration's GodotSharpEditor reference) into `.godot/mono/temp/bin/<config>/`, and a game run from the editor cannot
+ * instantiate any C# script. Pure (csproj TEXT in, text out); a `false` value is turned into `true`, a missing property is
+ * added to the first unconditional `<PropertyGroup>` (or a new one after `<Project …>`).
+ */
+export function ensureEnableDynamicLoading(csprojText: string): CsprojPropertyResult {
+  const element = '<EnableDynamicLoading>true</EnableDynamicLoading>';
+  const existing = /<EnableDynamicLoading>\s*([^<]*?)\s*<\/EnableDynamicLoading>/i.exec(csprojText);
+  if (existing) {
+    if (existing[1].toLowerCase() === 'true') return { text: csprojText, changed: false };
+    return { text: csprojText.replace(existing[0], element), changed: true };
+  }
+  const eol = detectEol(csprojText);
+  const group = /^([ \t]*)<PropertyGroup\s*>/im.exec(csprojText);
+  if (group) {
+    const insertAt = group.index + group[0].length;
+    const indent = `${group[1]}${group[1] || '  '}`;
+    return { text: `${csprojText.slice(0, insertAt)}${eol}${indent}${element}${csprojText.slice(insertAt)}`, changed: true };
+  }
+  const project = /<Project\b[^>]*>/i.exec(csprojText);
+  if (!project) return { text: csprojText, changed: false };
+  const insertAt = project.index + project[0].length;
+  const block = `${eol}  <PropertyGroup>${eol}    ${element}${eol}  </PropertyGroup>`;
+  return { text: `${csprojText.slice(0, insertAt)}${block}${csprojText.slice(insertAt)}`, changed: true };
+}

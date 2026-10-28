@@ -42,6 +42,20 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Forces the editor tools' data layer (<c>Rql</c> / <c>Json</c>).</summary>
         public const string ToolFormat = "GODOT_MCP_TOOL_FORMAT";
 
+        // --- In-game runtime started from the editor (resolved in GodotMcpRuntimeHandle). ---
+
+        /// <summary>
+        /// Set by the editor plugin in the editor process (its process id), so every game the editor runs inherits it: a game
+        /// started with Play also inherits <see cref="Host"/>, and its in-game runtime would connect to the editor's server.
+        /// </summary>
+        public const string EditorPid = "GODOT_MCP_EDITOR_PID";
+
+        /// <summary>
+        /// <c>true</c> / <c>1</c>: the in-game runtime connects even in a game started from the editor (default: it does not;
+        /// same as <c>GodotMcpRuntimeBuilder.ConnectWhenRunFromEditor()</c>).
+        /// </summary>
+        public const string RuntimeFromEditor = "GODOT_MCP_RUNTIME_FROM_EDITOR";
+
         // --- Local server binary (resolved in GodotMcpServerManager; editor-only). ---
 
         /// <summary>
