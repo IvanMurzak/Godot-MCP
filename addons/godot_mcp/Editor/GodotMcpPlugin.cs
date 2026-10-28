@@ -501,8 +501,12 @@ namespace com.IvanMurzak.Godot.MCP
             //    call left running keeps a thread inside it and refills the caches cleared below: Godot's unload fails.
             try
             {
-                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload,
-                    () => _connection?.DisconnectImmediate());
+                _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload, () =>
+                {
+                    // Stop receiving and join that disposal now, so a connect attempt racing it cannot leave it un-joined.
+                    _connection?.DisconnectImmediate();
+                    _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
+                });
             }
             catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
 
