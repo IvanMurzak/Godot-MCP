@@ -580,8 +580,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 .Subscribe(status =>
                 {
                     // R3 fires off the SignalR thread; hop to the editor main thread before raising the
-                    // event so subscribers (the dock) can touch Control nodes directly. A missing
-                    // dispatcher (between editor reloads) degrades to a direct call rather than throwing.
+                    // event so subscribers (the dock) can touch Control nodes directly. Once the dispatcher is
+                    // torn down (plugin teardown disconnects from a worker thread) the push is dropped.
                     // Same stale-plugin guard as the auth-rejected subscription below: a status emitted by a
                     // plugin a Reconnect() has already superseded must not overwrite the new plugin's status
                     // (it would briefly flip the label before the re-sync corrects it). Re-checked on the main
@@ -589,14 +589,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     if (!ReferenceEquals(_plugin, plugin))
                         return;
 
-                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() =>
-                        {
-                            if (ReferenceEquals(_plugin, plugin))
-                                PublishStatus(status, marshalled: true);
-                        });
-                    else if (ReferenceEquals(_plugin, plugin))
-                        PublishStatus(status, marshalled: false);
+                    var marshalled = !MainThreadDispatcher.IsMainThread;
+                    MainThreadDispatcher.RunOnMainThread(() =>
+                    {
+                        if (ReferenceEquals(_plugin, plugin))
+                            PublishStatus(status, marshalled);
+                    });
                 });
 
             // Surface the reused client's authorization-rejected stream as a main-thread event the dock can
@@ -624,14 +622,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                         return;
                     }
 
-                    if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                        MainThreadDispatcher.Enqueue(() =>
-                        {
-                            if (ReferenceEquals(_plugin, plugin))
-                                RaiseAuthorizationRejected();
-                        });
-                    else if (ReferenceEquals(_plugin, plugin))
-                        RaiseAuthorizationRejected();
+                    MainThreadDispatcher.RunOnMainThread(() =>
+                    {
+                        if (ReferenceEquals(_plugin, plugin))
+                            RaiseAuthorizationRejected();
+                    });
                 });
         }
 
@@ -715,10 +710,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     if (!_disposed && !_recoverySuspended && _config.KeepConnected && ReferenceEquals(_plugin, plugin) && _account.IsSignedIn)
                         Reconnect();
                 }
-                if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                    MainThreadDispatcher.Enqueue(ReconnectIfStillWanted);
-                else
-                    ReconnectIfStillWanted();
+                MainThreadDispatcher.RunOnMainThread(ReconnectIfStillWanted);
             }
             catch (Exception ex)
             {
@@ -816,10 +808,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 AgentsUpdated?.Invoke();
             }
 
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(Apply);
-            else
-                Apply();
+            MainThreadDispatcher.RunOnMainThread(Apply);
         }
 
         /// <summary>
@@ -1048,19 +1037,12 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Raise <see cref="FeaturesUpdated"/> on the editor main thread, mirroring the same dispatcher-guard
-        /// the managers' <c>On*Updated</c> subscription uses (see <see cref="SubscribeToFeatureUpdates"/>): hop
-        /// to the main thread when off it (and a dispatcher is in the tree), else invoke inline. The toggle
-        /// path (<see cref="SetFeatureVisible"/>) already runs on the editor main thread, so it takes the inline
-        /// branch — but routing through the same guard keeps the event's "always marshalled onto the main
-        /// thread" contract true regardless of which thread a future caller raises from.
+        /// Raise <see cref="FeaturesUpdated"/> on the editor main thread via
+        /// <see cref="MainThreadDispatcher.RunOnMainThread"/>, whichever thread the caller is on.
         /// </summary>
         void RaiseFeaturesUpdated()
         {
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(() => FeaturesUpdated?.Invoke());
-            else
-                FeaturesUpdated?.Invoke();
+            MainThreadDispatcher.RunOnMainThread(() => FeaturesUpdated?.Invoke());
         }
 
         /// <summary>
