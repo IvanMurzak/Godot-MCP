@@ -318,7 +318,7 @@ package assemblies are not copied next to the game assembly):
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.0f1bf94" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.2877579" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -334,7 +334,7 @@ package assemblies are not copied next to the game assembly):
 | --- | --- | --- |
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.0` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.14.0-dev.e8985d5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.0f1bf94` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.2877579` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.2b784e4` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.2b784e4` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |

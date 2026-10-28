@@ -458,6 +458,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             EditorToolGuards.CheckClassDbInstantiation(native, paramName);
             return native;
         }
+
+        /// <summary>
+        /// Null when an object literal may become a value of <paramref name="target"/> (a Godot object type), else the refusal
+        /// (<see cref="RqlLiteralPolicy"/>): a literal naming a class ("$type" / "class") is allowed when that class (a script
+        /// class: its native base) is a Resource; an unnamed one when the target is. An unknown class is left to the conversion,
+        /// which reports it. Builds nothing.
+        /// </summary>
+        internal static string? LiteralRefusal(IDictionary<string, object?> literal, Type target)
+        {
+            var named = (literal.TryGetValue("$type", out var type) ? type : literal.TryGetValue("class", out var cls) ? cls : null) as string;
+            if (string.IsNullOrEmpty(named))
+                return typeof(Resource).IsAssignableFrom(target) ? null : RqlLiteralPolicy.Refusal(RqlHostNames.GodotClassName(target) ?? target.Name);
+            string native;
+            try { native = ClassDB.ClassExists(named) ? named : ScriptAwareClass(named!, "Object", "class", out _); }
+            catch (ArgumentException) { return null; }
+            return native == "Resource" || ClassDB.IsParentClass(native, "Resource") ? null : RqlLiteralPolicy.Refusal(named!);
+        }
     }
 }
 #endif

@@ -12,7 +12,7 @@ external checkout or junction.
 - `project.godot` — enables `res://addons/godot_mcp/plugin.cfg` in `[editor_plugins]`.
 - `Godot-Tests.csproj` — `Godot.NET.Sdk` + the **same frozen NuGet pins** as
   `../Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet` 5.5.0,
-  `com.IvanMurzak.McpPlugin` 8.14.0-dev.e8985d5, `com.IvanMurzak.Rql` 0.3.0-dev.0f1bf94, Code-Exec 0.4.0-dev.2b784e4 + Roslyn 0.4.0-dev.2b784e4), so the addon's C# compiles into the project
+  `com.IvanMurzak.McpPlugin` 8.14.0-dev.e8985d5, `com.IvanMurzak.Rql` 0.3.0-dev.2877579, Code-Exec 0.4.0-dev.2b784e4 + Roslyn 0.4.0-dev.2b784e4), so the addon's C# compiles into the project
   assembly. Excluded from `../Godot-MCP.sln` so the `dotnet build (.NET 8)` gate is
   unaffected.
 - No game content, no scenes, no committed addon copy.
