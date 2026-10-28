@@ -49,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "  - Godot 4.5+: 'Precise' — exact line + message captured via the engine Logger hook.\n" +
             "  - Godot < 4.5: 'Coarse' — per-file pass/fail with the engine error code (no line/message text).\n" +
             "GDScript warnings (unused variables, shadowed names, … as enabled in Project Settings → Debug → GDScript) come back " +
-            "with severity Warning on Godot 4.5+ for scripts without errors; they do not make 'ok' false.\n" +
+            "with severity Warning on Godot 4.5+ for scripts without errors (res://addons/ skipped like the editor does); they do not make 'ok' false.\n" +
             "C# ('.cs') files are NOT validated here (Godot has no in-editor C# compiler to reach cheaply); " +
             "their compile errors surface through the project build. Pair with the RQL 'console' source " +
             "(rql-query 'console | where logType == \"Error\"'), which on Godot 4.5+ also captures engine GDScript parse errors passively.")]
@@ -271,12 +271,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 RqlProject.SettingNames(ScriptDiagnosticsFilter.WarningSettingPrefix).Select(n => new KeyValuePair<string, object?>(n, RqlProject.Get(n))));
             if (raised.Count == 0)
                 return found;
-            foreach (var name in raised)
-                ProjectSettings.SetSetting(name, 2);
+            // Godot ignores warnings of res://addons/ scripts by default (exclude_addons); the path-less probe would not.
+            var skipAddons = RqlProject.Get(ScriptDiagnosticsFilter.WarningSettingPrefix + "exclude_addons") is not false;
+            var raisedSoFar = new List<string>();
             try
             {
+                foreach (var name in raised)
+                {
+                    ProjectSettings.SetSetting(name, 2);
+                    raisedSoFar.Add(name);
+                }
                 foreach (var (path, content) in files)
                 {
+                    if (skipAddons && path.StartsWith("res://addons/", StringComparison.Ordinal))
+                        continue;
                     Probe(content, path, capture, out var rows);
                     var classNames = ScriptDiagnosticsFilter.ExtractClassNames(content);
                     foreach (var row in rows)
@@ -288,7 +296,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
             finally
             {
-                foreach (var name in raised)
+                foreach (var name in raisedSoFar)
                     ProjectSettings.SetSetting(name, 1);
             }
             return found;

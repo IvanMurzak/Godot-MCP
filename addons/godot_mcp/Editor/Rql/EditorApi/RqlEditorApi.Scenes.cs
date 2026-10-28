@@ -128,7 +128,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static string? OpenWithMissingDependencies(string path)
         {
             var root = (Engine.GetMainLoop() as SceneTree)?.Root;
-            var dialog = root?.FindChildren("*", "DependencyErrorDialog", true, false).OfType<AcceptDialog>().FirstOrDefault(d => d.Visible);
+            // Only the dialog for this file ("Error loading: <file name>"), never one another open left on screen.
+            var fileName = path.Substring(path.LastIndexOf('/') + 1);
+            var dialog = root?.FindChildren("*", "DependencyErrorDialog", true, false).OfType<AcceptDialog>()
+                .FirstOrDefault(d => d.Visible && d.Title.EndsWith(fileName, StringComparison.Ordinal));
             if (dialog == null) return null;
             var missing = string.Join(", ", new FileReferences().MissingDepsOf(path));
             dialog.GetOkButton().EmitSignal(BaseButton.SignalName.Pressed);

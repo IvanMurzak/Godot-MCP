@@ -510,7 +510,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _settingsChanged = false;
             var error = ProjectSettings.Save();
             if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
-            _changedAutoloads?.Call(Settings.RqlProject.UpdateAutoloadMethod);
+            if (_changedAutoloads != null && GodotObject.IsInstanceValid(_changedAutoloads))
+                _changedAutoloads.Call(Settings.RqlProject.UpdateAutoloadMethod);
             _changedAutoloads = null;
         }
 

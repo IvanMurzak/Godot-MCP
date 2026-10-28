@@ -30,14 +30,15 @@ def missing_query(host: str) -> None:
 def gdscript_warnings(host: str, d: str) -> None:
     """script-validate lists the GDScript warnings (shown only in the script editor before) without failing ok."""
     path = f"{d}/w5_warn.gd"
-    src = f"extends Node\n\nfunc _ready() -> void:\n{TAB}var unused_counter := 0\n{TAB}print(1)\n"
+    src = f"extends Node\n\nfunc _ready() -> void:\n{TAB}var unused_counter := 0\n{TAB}var unused_total := 1\n{TAB}print(1)\n"
     must("W5W script-create", tool(host, "script-create", {"scriptPath": path, "content": src}))
     text = must("W5W validate", tool(host, "script-validate", {"scriptPath": path}))
     if "Coarse" in text:
         print("[SKIP] W5W GDScript warnings need the Godot 4.5+ error hook", flush=True)
         return
-    has("W5W the unused variable is a warning", text, "unused_counter", "Warning")
-    check("W5W ok stays true and one warning is counted", '"ok":true' in text.replace(" ", "").lower() or "ok:true" in text.lower(), text)
+    has("W5W both unused variables are warnings", text, "unused_counter", "unused_total", "Warning")
+    flat = text.replace(" ", "").replace('"', "").lower()
+    check("W5W ok stays true and both warnings are counted", "ok:true" in flat and "warningcount:2" in flat, text)
     lacks("W5W the probe's error marker is not shown", text, "Warning treated as error")
     level = must("W5W the warning level is restored", query(host, 'settings | where name == "debug/gdscript/warnings/unused_variable" | select value'))
     value_is("W5W unused_variable stays at Warn (1)", level, "1")
