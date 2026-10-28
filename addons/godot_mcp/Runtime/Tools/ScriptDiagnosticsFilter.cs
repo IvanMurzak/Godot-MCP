@@ -100,6 +100,41 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static string WithoutClassNames(string source, IReadOnlyCollection<string> names) =>
             ClassNameDeclPattern.Replace(source, m => names.Contains(m.Groups[1].Value) ? new string(' ', m.Length) : m.Value);
 
+        /// <summary>The project setting section of the GDScript warning levels (0 ignore, 1 warn, 2 error).</summary>
+        public const string WarningSettingPrefix = "debug/gdscript/warnings/";
+
+        /// <summary>The suffix Godot appends to a warning it reports as an error (level 2).</summary>
+        public const string WarningAsErrorSuffix = "(Warning treated as error.)";
+
+        /// <summary>
+        /// The warning-level settings to raise from Warn (1) to Error (2) for a probe, so the warnings Godot only shows in the
+        /// script editor come through the error hook: every <c>debug/gdscript/warnings/*</c> int set to 1, none when
+        /// <c>debug/gdscript/warnings/enable</c> is false.
+        /// </summary>
+        public static IReadOnlyList<string> WarnLevelSettings(IEnumerable<KeyValuePair<string, object?>> settings)
+        {
+            var list = settings.Where(s => s.Key.StartsWith(WarningSettingPrefix, StringComparison.Ordinal)).ToList();
+            if (list.Any(s => s.Key == WarningSettingPrefix + "enable" && s.Value is bool b && !b))
+                return Array.Empty<string>();
+            return list.Where(s => s.Value is long or int && Convert.ToInt64(s.Value) == 1).Select(s => s.Key).ToList();
+        }
+
+        /// <summary>
+        /// The warning text of a probe row that is a warning raised to an error (<c>Parse Error: The local variable "x" is
+        /// declared but never used … (Warning treated as error.)</c> → <c>The local variable "x" is declared but never used …</c>),
+        /// or null for a genuine error.
+        /// </summary>
+        public static string? RaisedWarning(string? message)
+        {
+            if (message == null) return null;
+            var at = message.LastIndexOf(WarningAsErrorSuffix, StringComparison.Ordinal);
+            if (at < 0) return null;
+            var text = message.Substring(0, at).Trim();
+            foreach (var prefix in new[] { "Parse Error:", "Compile Error:" })
+                if (text.StartsWith(prefix, StringComparison.Ordinal)) text = text.Substring(prefix.Length).Trim();
+            return text;
+        }
+
         /// <summary>Convenience overload: extract the class names from <paramref name="source"/> and test the
         /// message against them in one call (the shape the editor validator uses).</summary>
         public static bool IsGlobalClassSelfHide(string? message, string? source)

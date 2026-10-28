@@ -226,6 +226,7 @@
     <!-- C# reload gate: the admission state machine and the gated tool wrapper (pure-managed). -->
     <Compile Include="..\addons\godot_mcp\Editor\Reload\AssemblyReloadGate.cs" Link="Source\AssemblyReloadGate.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Reload\GatedRunTool.cs" Link="Source\GatedRunTool.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Reload\BoundedCall.cs" Link="Source\BoundedCall.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Reload\ProjectBuild.cs" Link="Source\ProjectBuild.cs" />
     <!-- script-validate diagnostics — pure-managed (no Godot native types, no #if TOOLS): the diagnostic
          result models (ScriptDiagnostic / ScriptDiagnosticsResult + their enums) and the ScriptErrorCapture

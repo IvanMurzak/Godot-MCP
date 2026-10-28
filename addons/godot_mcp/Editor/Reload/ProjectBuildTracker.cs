@@ -124,7 +124,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             _processLookedUp = true;
             GodotMcpLog.Info($"[Godot-MCP] script-build: dotnet build started (pid {process.Id}).");
             return "Building the project's C# (dotnet build) in the background. When it succeeds Godot reloads the C# assembly and the " +
-                   "plugin reconnects; the result (the warning count, or the compiler errors) is delivered then. Tool calls made " +
+                   "plugin reconnects; the result (the compiler warnings, or the compiler errors) is delivered then. Tool calls made " +
                    "while the reload is pending are refused with a retryable error.";
         }
 
@@ -200,15 +200,15 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             var dllNow = ReloadGateDriver.WriteTime(_dllPath);
             var dllAtStart = record.DllWriteTicksAtStart > 0 ? AssemblyReloadGate.ToSeconds(new DateTime(record.DllWriteTicksAtStart, DateTimeKind.Utc)) : 0;
             if (dllNow == null || AssemblyReloadGate.ToSeconds(dllNow.Value) <= dllAtStart)
-                return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}); the assembly was already up to date, so there was nothing to reload.");
+                return ResponseCallTool.Success(outcome.SuccessText("; the assembly was already up to date, so there was nothing to reload."));
             if (record.LoadId != LoadId)
-                return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}) and Godot reloaded the C# assembly: new and changed C# " +
-                                                "scripts and [GlobalClass] types are usable now.");
+                return ResponseCallTool.Success(outcome.SuccessText(" and Godot reloaded the C# assembly: new and changed C# " +
+                                                                        "scripts and [GlobalClass] types are usable now."));
             _finishedAt ??= now;
             return now - _finishedAt < ReloadTimeout
                 ? null
-                : ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}), but Godot has not reloaded the C# assembly (C# hot " +
-                                           "reload may be off): focus the editor window or restart the editor to load it.");
+                : ResponseCallTool.Success(outcome.SuccessText(", but Godot has not reloaded the C# assembly (C# hot " +
+                                                                   "reload may be off): focus the editor window or restart the editor to load it."));
         }
 
         /// <summary>

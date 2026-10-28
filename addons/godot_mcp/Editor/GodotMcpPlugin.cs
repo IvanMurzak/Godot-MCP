@@ -502,11 +502,13 @@ namespace com.IvanMurzak.Godot.MCP
             try
             {
                 _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload, () =>
-                {
                     // Stop receiving and join that disposal now, so a connect attempt racing it cannot leave it un-joined.
-                    _connection?.DisconnectImmediate();
-                    _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
-                });
+                    // On its own thread, bounded: the main thread must not hang in the SignalR teardown (BoundedCall).
+                    RunTeardownStep("stopping the connection", fromReload, () =>
+                    {
+                        _connection?.DisconnectImmediate();
+                        _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
+                    }));
             }
             catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
 
@@ -549,22 +551,16 @@ namespace com.IvanMurzak.Godot.MCP
             //    in which case the bounded wait returns and we proceed anyway. Must precede the connection
             //    Dispose (Dispose also disconnects, but doing the drain explicitly first joins the threads
             //    while the plugin is still live and keeps the ordering obvious).
-            try
-            {
-                _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2));
-            }
-            catch (System.Exception ex) { TryLogTeardownError("disconnect-and-drain", ex); }
+            //    Skipped when an earlier connection step is still stuck: a second thread would race it inside McpPlugin.
+            if (!_connectionStepStuck)
+                RunTeardownStep("disconnect-and-drain", fromReload, () => _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2)));
 
-            // 3) Dispose the connection — releases the R3 subscriptions and the plugin instance.
-            try
-            {
-                if (_connection != null)
-                {
-                    _connection.Dispose();
-                    _connection = null;
-                }
-            }
-            catch (System.Exception ex) { TryLogTeardownError("connection dispose", ex); }
+            // 3) Dispose the connection — releases the R3 subscriptions and the plugin instance. The same McpPlugin teardown
+            //    runs inside, so it is bounded too, and left alone while an earlier step is stuck in it.
+            var connection = _connection;
+            _connection = null;
+            if (connection != null && !_connectionStepStuck)
+                RunTeardownStep("connection dispose", fromReload, connection.Dispose);
 
             // 4) MAIN-THREAD ONLY: free the dock + dispatcher. These touch Godot Nodes (Node.Free), which is
             //    only legal on the editor main thread. The ALC Unloading event and _ExitTree both run on the
@@ -777,6 +773,32 @@ namespace com.IvanMurzak.Godot.MCP
             catch (System.ObjectDisposedException) { /* already gone — benign */ }
             catch (System.Exception ex) { TryLogTeardownError("free stale node", ex); }
             node = null;
+        }
+
+        /// <summary>The longest a connection step of the teardown may hold the main thread (its own waits are 2 s).</summary>
+        static readonly System.TimeSpan TeardownStepTimeout = System.TimeSpan.FromSeconds(5);
+
+        // A connection step of this teardown timed out and may still be running inside McpPlugin.
+        bool _connectionStepStuck;
+
+        /// <summary>
+        /// Run a connection step of the teardown on its own thread, bounded by <see cref="TeardownStepTimeout"/>
+        /// (<see cref="BoundedCall"/>): a step still running after that is logged and left behind, and the unload proceeds
+        /// (it will likely fail, since that thread is still inside this assembly, instead of hanging the editor). On a reload
+        /// each step is announced first, so a hang names the step it is stuck in.
+        /// </summary>
+        void RunTeardownStep(string step, bool announce, System.Action body)
+        {
+            if (announce)
+                GodotMcpLog.Info($"[Godot-MCP] reload teardown: {step}");
+            if (!BoundedCall.Run(body, TeardownStepTimeout, out var error))
+            {
+                _connectionStepStuck = true;
+                GodotMcpLog.Warning($"[Godot-MCP] reload teardown: {step} did not finish in {TeardownStepTimeout.TotalSeconds:0} s; " +
+                                    "continuing (Godot's unload will probably fail: a thread is still running inside the plugin).");
+            }
+            else if (error != null)
+                TryLogTeardownError(step, error);
         }
 
         /// <summary>

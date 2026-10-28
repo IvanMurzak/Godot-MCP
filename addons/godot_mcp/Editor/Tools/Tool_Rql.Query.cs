@@ -30,6 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string query
         )
         {
+            if (query == null) return ResponseCallTool.Error(MissingQueryText);
             return Run(() => RqlGodot.RunQuery(() => RqlGodot.Engine.Execute(query)));
         }
     }

@@ -45,6 +45,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Settings
         /// <summary>The ProjectSettings singleton object (one per process).</summary>
         public static GodotObject Instance => _instance != null && GodotObject.IsInstanceValid(_instance) ? _instance : _instance = Engine.GetSingleton("ProjectSettings");
 
+        /// <summary>The method of the editor's autoload tab that re-reads <c>autoload/*</c> into the editor (the GDScript singletons).</summary>
+        public const string UpdateAutoloadMethod = "update_autoload";
+
+        /// <summary>
+        /// The editor's Project Settings → Autoload tab (<c>EditorAutoloadSettings</c>), or null. Setting <c>autoload/*</c>
+        /// alone does not register a singleton with the running editor: until its <c>update_autoload</c> runs, a script using
+        /// the autoload fails to compile ("Identifier not found") in script-validate and the script editor.
+        /// </summary>
+        public static Node? EditorAutoloads()
+        {
+            // Looked up on each autoload change (rare) rather than cached: no editor node is held across a C# reload.
+            var root = (Engine.GetMainLoop() as SceneTree)?.Root;
+            var found = root?.FindChildren("*", "EditorAutoloadSettings", true, false).FirstOrDefault();
+            return found != null && found.HasMethod(UpdateAutoloadMethod) ? found : null;
+        }
+
         /// <summary>Whether <paramref name="o"/> is the ProjectSettings singleton (no native call for nodes and resources).</summary>
         public static bool Is(GodotObject o) => !(o is Node) && !(o is Resource) && o.GetInstanceId() == Instance.GetInstanceId();
 

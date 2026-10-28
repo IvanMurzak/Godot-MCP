@@ -28,6 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     [AiToolType]
     public partial class Tool_Rql
     {
+        /// <summary>The answer to a call without its required query (a client that left the argument out).</summary>
+        public const string MissingQueryText = "error missing-argument: the 'query' argument is required: an RQL query such as nodes | count";
+
         /// <summary>A query or mutation: executed on the main thread, its (already encoded) result rendered after the hop.</summary>
         private static ResponseCallTool Run(Func<QueryResult> execute) => Run(execute, result =>
         {

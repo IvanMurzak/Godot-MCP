@@ -12,7 +12,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.Settings;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
@@ -46,6 +48,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'ok' is NOT a whole-project all-clear), and a 'fidelity' note:\n" +
             "  - Godot 4.5+: 'Precise' — exact line + message captured via the engine Logger hook.\n" +
             "  - Godot < 4.5: 'Coarse' — per-file pass/fail with the engine error code (no line/message text).\n" +
+            "GDScript warnings (unused variables, shadowed names, … as enabled in Project Settings → Debug → GDScript) come back " +
+            "with severity Warning on Godot 4.5+ for scripts without errors (res://addons/ skipped like the editor does); they do not make 'ok' false.\n" +
             "C# ('.cs') files are NOT validated here (Godot has no in-editor C# compiler to reach cheaply); " +
             "their compile errors surface through the project build. Pair with the RQL 'console' source " +
             "(rql-query 'console | where logType == \"Error\"'), which on Godot 4.5+ also captures engine GDScript parse errors passively.")]
@@ -76,8 +80,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
                 var diagnostics = new List<ScriptDiagnostic>();
                 var stale = StaleClasses();
+                var clean = new List<(string path, string content)>();
                 foreach (var path in targets)
-                    diagnostics.AddRange(ValidateOne(path, stale));
+                {
+                    var found = ValidateOne(path, stale, out var content);
+                    diagnostics.AddRange(found);
+                    if (content != null && found.Count == 0)
+                        clean.Add((path, content));
+                }
+                diagnostics.AddRange(Warnings(clean));
 
                 // Errors first, then warnings, each in scan order.
                 diagnostics.Sort((a, b) => a.Severity.CompareTo(b.Severity));
@@ -161,9 +172,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <see cref="GDScript.Reload"/>; on older versions only the <c>Reload()</c> <see cref="Error"/> code
         /// is available, yielding a single coarse diagnostic with line -1. Main-thread only (touches GDScript).
         /// </summary>
-        static List<ScriptDiagnostic> ValidateOne(string resPath, List<(string name, string path)> staleClasses)
+        static List<ScriptDiagnostic> ValidateOne(string resPath, List<(string name, string path)> staleClasses, out string? source)
         {
             var diagnostics = new List<ScriptDiagnostic>();
+            source = null;
 
             // Load the on-disk source through a throwaway GDScript instance (same probe technique as the
             // pre-write ValidateSyntax helper, but reading the file rather than a candidate string).
@@ -185,6 +197,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 diagnostics.Add(new ScriptDiagnostic(resPath, -1, stale));
                 return diagnostics;
             }
+            source = content;
 
             // Probe with a throwaway GDScript. Do NOT set ResourcePath to the REAL res:// path: Reload()
             // would then register/replace this throwaway in Godot's global class registry and resource cache,
@@ -194,21 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             // Current is non-null only on a 4.5+ build where the engine Logger hook installed (the #else stub
             // never sets it), so it alone decides precise-vs-coarse — no separate compile-time const needed.
             var capture = ScriptErrorCapture.Current;
-            capture?.BeginSession(resPath);
-            Error err;
-            ScriptDiagnostic[] captured = Array.Empty<ScriptDiagnostic>();
-            using (var probe = new GDScript { SourceCode = content })
-            {
-                try
-                {
-                    err = probe.Reload(keepState: false);
-                }
-                finally
-                {
-                    if (capture != null)
-                        captured = capture.EndSession();
-                }
-            }
+            var err = Probe(content, resPath, capture, out var captured);
             diagnostics.AddRange(captured);
 
             // 4.5+ precise path: the session captured the engine's script errors for THIS file (the session's
@@ -254,6 +253,60 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
 
             return diagnostics;
+        }
+
+        static readonly StringName SettingsChangedSignal = "settings_changed";
+
+        /// <summary>
+        /// The GDScript warnings (unused variables, shadowing …) of the <paramref name="files"/> that have no error, which Godot
+        /// shows only in the script editor: the Warn-level warning settings are raised to Error in memory for one probe of
+        /// each file (restored right after; nothing is saved), and only the rows Godot marks "(Warning treated as error.)" are
+        /// kept, as warnings. Needs the 4.5+ capture session (the coarse path has no row text); main-thread only.
+        /// </summary>
+        static List<ScriptDiagnostic> Warnings(List<(string path, string content)> files)
+        {
+            var found = new List<ScriptDiagnostic>();
+            var capture = ScriptErrorCapture.Current;
+            if (capture == null || files.Count == 0)
+                return found;
+            var raised = ScriptDiagnosticsFilter.WarnLevelSettings(
+                RqlProject.SettingNames(ScriptDiagnosticsFilter.WarningSettingPrefix).Select(n => new KeyValuePair<string, object?>(n, RqlProject.Get(n))));
+            if (raised.Count == 0)
+                return found;
+            // Godot ignores warnings of res://addons/ scripts by default (exclude_addons); the path-less probe would not.
+            var skipAddons = RqlProject.Get(ScriptDiagnosticsFilter.WarningSettingPrefix + "exclude_addons") is not false;
+            var raisedSoFar = new List<string>();
+            try
+            {
+                foreach (var name in raised)
+                {
+                    ProjectSettings.SetSetting(name, 2);
+                    raisedSoFar.Add(name);
+                }
+                // Godot 4.6+ caches the warning levels and refreshes them on settings_changed, which ProjectSettings emits
+                // deferred (next frame): emit it now so this frame's probes see the raised levels (4.5 reads them directly).
+                RqlProject.Instance.EmitSignal(SettingsChangedSignal);
+                foreach (var (path, content) in files)
+                {
+                    if (skipAddons && path.StartsWith("res://addons/", StringComparison.Ordinal))
+                        continue;
+                    Probe(content, path, capture, out var rows);
+                    var classNames = ScriptDiagnosticsFilter.ExtractClassNames(content);
+                    foreach (var row in rows)
+                        if (ScriptDiagnosticsFilter.RaisedWarning(row.Message) is { } warning
+                            && !ScriptDiagnosticsFilter.IsGlobalClassSelfHide(warning, classNames))
+                            found.Add(new ScriptDiagnostic(string.IsNullOrEmpty(row.Path) ? path : row.Path, row.Line, warning,
+                                ScriptDiagnosticSeverity.Warning));
+                }
+            }
+            finally
+            {
+                foreach (var name in raisedSoFar)
+                    ProjectSettings.SetSetting(name, 1);
+                if (raisedSoFar.Count > 0)
+                    RqlProject.Instance.EmitSignal(SettingsChangedSignal);
+            }
+            return found;
         }
 
         /// <summary>

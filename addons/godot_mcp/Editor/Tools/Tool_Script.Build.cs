@@ -30,7 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Build the project's C# (dotnet build, Debug configuration like the editor's builds) so C# scripts " +
             "written with '" + ScriptCreateToolId + "' / '" + ScriptUpdateToolId + "' load: new [GlobalClass] types, changed " +
             "node scripts. The build runs in the background; when it succeeds Godot reloads the C# assembly and the plugin " +
-            "reconnects, and the result (the warning count, or the compiler errors) is delivered after that reload through " +
+            "reconnects, and the result (the compiler warnings, or the compiler errors) is delivered after that reload through " +
             "the request's requestId. Tool calls made while the reload is pending are refused with a retryable error: " +
             "retry them a few seconds later.")]
         public ResponseCallTool Build
