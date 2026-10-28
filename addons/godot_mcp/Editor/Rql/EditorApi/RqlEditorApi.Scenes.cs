@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
@@ -109,10 +110,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             path = RequireScenePath(path);
             EditorToolGuards.RequireResourceExists(path, nameof(path), $"no scene at '{path}'");
             Ei.OpenSceneFromPath(path);
+            if (RqlGodot.EditedRoot()?.SceneFilePath != path && OpenWithMissingDependencies(path) is { } missing)
+                RqlGodot.Warn("missing-dependencies", $"'{path}' references files that no longer exist ({missing}); it was opened " +
+                    "anyway (Open Anyway) and those references are empty: list them with rql-query files | where missingDeps.count() > 0");
             var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
             if (root.SceneFilePath != path)
                 throw new InvalidOperationException($"opened '{path}' but the editor shows '{root.SceneFilePath}'");
             return root;
+        }
+
+        /// <summary>
+        /// A scene with a missing dependency does not open in a windowed editor: Godot shows its "Error loading" dialog
+        /// (<c>DependencyErrorDialog</c>) and waits for Open Anyway / Fix Dependencies. When that dialog is up for
+        /// <paramref name="path"/>, press Open Anyway (the scene opens with the broken references empty) and return the missing
+        /// files; null when there is no such dialog. A headless editor opens such scenes without asking.
+        /// </summary>
+        private static string? OpenWithMissingDependencies(string path)
+        {
+            var root = (Engine.GetMainLoop() as SceneTree)?.Root;
+            var dialog = root?.FindChildren("*", "DependencyErrorDialog", true, false).OfType<AcceptDialog>().FirstOrDefault(d => d.Visible);
+            if (dialog == null) return null;
+            var missing = string.Join(", ", new FileReferences().DepsOf(path).Where(d => !FileReferences.Exists(d)));
+            dialog.GetOkButton().EmitSignal(BaseButton.SignalName.Pressed);
+            return missing.Length > 0 ? missing : "see the editor output";
         }
 
         [RqlCallable("save the edited scene to its file, or to a new res://….tscn path (save as); returns the saved path")]

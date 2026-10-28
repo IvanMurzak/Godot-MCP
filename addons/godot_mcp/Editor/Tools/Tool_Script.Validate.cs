@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -46,6 +47,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "'ok' is NOT a whole-project all-clear), and a 'fidelity' note:\n" +
             "  - Godot 4.5+: 'Precise' — exact line + message captured via the engine Logger hook.\n" +
             "  - Godot < 4.5: 'Coarse' — per-file pass/fail with the engine error code (no line/message text).\n" +
+            "GDScript warnings (unused variables, shadowed names, … as enabled in Project Settings → Debug → GDScript) come back " +
+            "with severity Warning on Godot 4.5+; they do not make 'ok' false.\n" +
             "C# ('.cs') files are NOT validated here (Godot has no in-editor C# compiler to reach cheaply); " +
             "their compile errors surface through the project build. Pair with the RQL 'console' source " +
             "(rql-query 'console | where logType == \"Error\"'), which on Godot 4.5+ also captures engine GDScript parse errors passively.")]
@@ -238,6 +241,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     diagnostics.RemoveAll(d =>
                         ScriptDiagnosticsFilter.IsGlobalClassSelfHide(d.Message, declaredClassNames));
 
+                diagnostics.AddRange(WarningsOf(resPath, content));
                 return diagnostics;
             }
 
@@ -253,7 +257,63 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         : $"{err} (Godot < 4.5: no line/message detail available; open the script in the editor)."));
             }
 
+            diagnostics.AddRange(WarningsOf(resPath, content));
             return diagnostics;
+        }
+
+        /// <summary>
+        /// The GDScript warnings of <paramref name="content"/> (unused variables, shadowing …), which Godot shows only in the script
+        /// editor: a second probe runs with the Warn-level warning settings raised to Error for the duration of the call (in
+        /// memory, restored right after; nothing is saved), and only the rows Godot marks "(Warning treated as error.)" are kept,
+        /// as warnings. Needs the 4.5+ capture session (the coarse path has no row text); main-thread only.
+        /// </summary>
+        static IEnumerable<ScriptDiagnostic> WarningsOf(string resPath, string content)
+        {
+            var capture = ScriptErrorCapture.Current;
+            if (capture == null)
+                return Array.Empty<ScriptDiagnostic>();
+            var raised = ScriptDiagnosticsFilter.WarnLevelSettings(WarningSettings());
+            if (raised.Count == 0)
+                return Array.Empty<ScriptDiagnostic>();
+            ScriptDiagnostic[] rows;
+            foreach (var name in raised)
+                ProjectSettings.SetSetting(name, 2);
+            capture.BeginSession(resPath);
+            try
+            {
+                using var probe = new GDScript { SourceCode = content };
+                probe.Reload(keepState: false);
+            }
+            finally
+            {
+                rows = capture.EndSession();
+                foreach (var name in raised)
+                    ProjectSettings.SetSetting(name, 1);
+            }
+            var classNames = ScriptDiagnosticsFilter.ExtractClassNames(content);
+            return rows
+                .Select(d => (row: d, warning: ScriptDiagnosticsFilter.RaisedWarning(d.Message)))
+                .Where(x => x.warning != null && !ScriptDiagnosticsFilter.IsGlobalClassSelfHide(x.warning, classNames))
+                .Select(x => new ScriptDiagnostic(string.IsNullOrEmpty(x.row.Path) ? resPath : x.row.Path, x.row.Line, x.warning!,
+                    ScriptDiagnosticSeverity.Warning))
+                .ToList();
+        }
+
+        static IEnumerable<KeyValuePair<string, object?>> WarningSettings()
+        {
+            foreach (var property in Engine.GetSingleton("ProjectSettings").GetPropertyList())
+            {
+                var name = property["name"].AsString();
+                if (!name.StartsWith(ScriptDiagnosticsFilter.WarningSettingPrefix, StringComparison.Ordinal))
+                    continue;
+                var value = ProjectSettings.GetSetting(name);
+                yield return new KeyValuePair<string, object?>(name, value.VariantType switch
+                {
+                    Variant.Type.Int => value.AsInt64(),
+                    Variant.Type.Bool => value.AsBool(),
+                    _ => null,
+                });
+            }
         }
 
         /// <summary>

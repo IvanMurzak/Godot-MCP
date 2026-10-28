@@ -76,18 +76,23 @@ namespace com.IvanMurzak.Godot.MCP.Reload
     /// <summary>The outcome of a finished <c>dotnet build</c>, read from its MSBuild file log.</summary>
     public sealed class BuildOutcome
     {
-        BuildOutcome(bool succeeded, int warnings, IReadOnlyList<string> errors, string? tail)
+        BuildOutcome(bool succeeded, IReadOnlyList<string> warnings, IReadOnlyList<string> errors, string? tail)
         {
             Succeeded = succeeded;
-            Warnings = warnings;
+            WarningList = warnings;
             Errors = errors;
             Tail = tail;
         }
 
         public const int MaxErrors = 20;
 
+        /// <summary>The most warnings a result lists (the count covers all of them).</summary>
+        public const int MaxWarnings = 20;
+
         public bool Succeeded { get; }
-        public int Warnings { get; }
+        public int Warnings => WarningList.Count;
+        /// <summary>The distinct compiler warnings, project folder cut from their paths (an agent asked to fix warnings needs them).</summary>
+        public IReadOnlyList<string> WarningList { get; }
         /// <summary>The distinct compiler errors (MSBuild prints each twice), project folder cut from their paths.</summary>
         public IReadOnlyList<string> Errors { get; }
         /// <summary>The log's last lines when the build failed without a compiler error (an MSBuild / SDK failure).</summary>
@@ -108,7 +113,7 @@ namespace com.IvanMurzak.Godot.MCP.Reload
                 return null;
             var errors = Diagnostics(lines, "error", projectDir);
             var tail = !succeeded && errors.Count == 0 ? string.Join("\n", lines.Skip(Math.Max(0, lines.Count - 10))) : null;
-            return new BuildOutcome(succeeded, Diagnostics(lines, "warning", projectDir).Count, errors, tail);
+            return new BuildOutcome(succeeded, Diagnostics(lines, "warning", projectDir), errors, tail);
         }
 
         /// <summary>The text an agent gets for a failed build: the errors (at most <see cref="MaxErrors"/>) or the log tail.</summary>
@@ -116,12 +121,20 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         {
             if (Errors.Count == 0)
                 return "C# build failed:\n" + (Tail ?? "(no output)");
-            var shown = Errors.Take(MaxErrors).ToList();
-            var more = Errors.Count > shown.Count ? $"\n… and {Errors.Count - shown.Count} more" : "";
-            return $"C# build failed with {Count(Errors.Count, "error")} (the editor keeps the previous assembly):\n" + string.Join("\n", shown) + more;
+            return $"C# build failed with {Count(Errors.Count, "error")} (the editor keeps the previous assembly):\n" + Listed(Errors, MaxErrors);
         }
 
         public string WarningsText => Count(Warnings, "warning");
+
+        /// <summary>The warnings (at most <see cref="MaxWarnings"/>) as lines to append to a success text; empty when there are none.</summary>
+        public string WarningsList => Warnings == 0 ? "" : "\nWarnings:\n" + Listed(WarningList, MaxWarnings);
+
+        static string Listed(IReadOnlyList<string> items, int max)
+        {
+            var shown = items.Take(max).ToList();
+            var more = items.Count > shown.Count ? $"\n… and {items.Count - shown.Count} more" : "";
+            return string.Join("\n", shown) + more;
+        }
 
         static string Count(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
 

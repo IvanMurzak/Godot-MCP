@@ -147,11 +147,14 @@ def main() -> int:
             tag = f"{run}_{n}"
             ok, text = tool(host, "script-create", {
                 "scriptPath": f"res://{FOLDER}/Round{tag}.cs",
-                "content": f"public static class Round{tag} {{ public const int Value = {n}; }}\n"})
+                # Round 1 carries a compiler warning: a successful script-build lists it (file, line and code).
+                "content": f"public static class Round{tag} {{ public const int Value = {n};"
+                           + (" static void W() { int unusedLocal = 1; }" if n == 1 else "") + " }\n"})
             check(f"round {n}: script-create Round{tag}", ok, text)
             with Background(host, args.workers, tag) as background:
                 time.sleep(0.3)
-                build(host, f"round {n}: script-build reloads", "C# build succeeded", "Godot reloaded the C# assembly")
+                build(host, f"round {n}: script-build reloads", "C# build succeeded", "Godot reloaded the C# assembly",
+                      *(("Warnings:", f"Round{tag}.cs", "CS0219") if n == 1 else ()))
                 time.sleep(0.5)
             for status, ok, text in background.results:
                 if ok:

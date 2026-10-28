@@ -176,7 +176,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  godot.resource(\"res://materials/water.tres\") | set params[\"speed\"] = 2, params[\"tint\"] = \"#3388ff\"   shader uniforms of a ShaderMaterial (null or call ClearParam(name) reverts one)\n" +
             "  godot.resource(\"res://meshes/tiles.tres\") | call CreateItem(\"Floor\", \"res://meshes/floor.tres\")   add a MeshLibrary item (set its shapes, navigationMesh … on the returned row)\n" +
             "  nodes | where class == \"OmniLight3D\" | set name = name.replace(\"Lamp\", \"Light\")   bulk rename (replace, replace-regex, substring, pad …)\n" +
-            "  files | where path == \"res://tiles/terrain.png\" | set importSettings[\"mipmaps/generate\"] = true   change an import option (re-imports the file; a .wav loops with edit/loop_mode = 2)";
+            "  files | where path == \"res://tiles/terrain.png\" | set importSettings[\"mipmaps/generate\"] = true   change an import option (re-imports the file; a .wav file loops with the import option edit/loop_mode = 2; on an AudioStreamWAV resource set LoopMode = \"Forward\", its loop_mode 2 is PingPong)";
 
         /// <summary>The queries of <see cref="QueryExampleText"/>, in order.</summary>
         public static string[] QueryExamples => Examples(QueryExampleText);

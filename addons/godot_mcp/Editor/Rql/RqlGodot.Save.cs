@@ -60,8 +60,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly HashSet<Resource> _toSaveSet = new HashSet<Resource>();
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
         private static bool _settingsChanged;
-        // Receipt warnings of the running mutation (a radians rotation written with degree-sized angles).
-        private static readonly List<string> _warnings = new List<string>();
+
+        /// <summary>Whether the running mutation changed an autoload (the editor's autoload registry is refreshed after saving).</summary>
+        private static bool _autoloadsChanged;
+        // Receipt warnings of the running mutation (code, text): a radians rotation written with degree-sized angles, a scene
+        // opened with missing dependencies.
+        private static readonly List<(string code, string text)> _warnings = new List<(string code, string text)>();
+
+        /// <summary>Add a warning to the receipt of the running mutation (once per text).</summary>
+        internal static void Warn(string code, string text)
+        {
+            if (!_warnings.Contains((code, text))) _warnings.Add((code, text));
+        }
         // Objects whose change registered its own do/undo (structural edits such as adding a TileSet source or a Theme
         // item): their property snapshot is not turned into undo properties (setting a removed entry to null does not
         // remove it again), they are only marked changed / saved.
@@ -97,6 +107,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _toSaveSet.Clear();
             _removed.Clear();
             _settingsChanged = false;
+            _autoloadsChanged = false;
             _warnings.Clear();
             _explicitUndo.Clear();
             _setStages.Clear();
@@ -123,8 +134,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (_mutating == 0) CommitUndo(query);
             }
             if (_mutating == 0)
-                foreach (var warning in _warnings)
-                    result.Diagnostics.Add(Diagnostic.Warning("radians", warning));
+                foreach (var (code, text) in _warnings)
+                    result.Diagnostics.Add(Diagnostic.Warning(code, text));
             if (_mutating > 0 || dryRun) return result;
 
             List<string> problems;
@@ -190,9 +201,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             _setStages.BeforeWrite(records, _mutating);
             foreach (var r in records)
-                if (r.Method == null && r.Owner is Node && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning
-                    && !_warnings.Contains(warning))
-                    _warnings.Add(warning);
+                if (r.Method == null && r.Owner is Node && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning)
+                    Warn("radians", warning);
             foreach (var owner in MutatedObjects(records))
                 if (!_snapshots.ContainsKey(owner))
                     _snapshots[owner] = StoredProperties(owner);
@@ -235,16 +245,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                         var target = owner;
                         // Undoing / redoing a project setting also writes project.godot, like the Project Settings dialog.
                         var save = Settings.RqlProject.Is(owner);
+                        // An autoload change also refreshes the editor's autoload registry (scripts then resolve the singleton).
+                        var autoloads = save && changed.Any(c => c.name.StartsWith(Settings.RqlProject.AutoloadPrefix, StringComparison.Ordinal))
+                            ? Settings.RqlProject.EditorAutoloads() : null;
+                        if (autoloads != null) _autoloadsChanged = true;
                         (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(
                             ur =>
                             {
                                 foreach (var c in changed) ur.AddDoProperty(target, c.name, c.after);
                                 if (save) ur.AddDoMethod(target, ProjectSettings.MethodName.Save);
+                                if (autoloads != null) ur.AddDoMethod(autoloads, Settings.RqlProject.UpdateAutoloadMethod);
                             },
                             ur =>
                             {
                                 foreach (var c in changed) ur.AddUndoProperty(target, c.name, c.before);
                                 if (save) ur.AddUndoMethod(target, ProjectSettings.MethodName.Save);
+                                if (autoloads != null) ur.AddUndoMethod(autoloads, Settings.RqlProject.UpdateAutoloadMethod);
                             }));
                     }
                 }
@@ -494,6 +510,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _settingsChanged = false;
             var error = ProjectSettings.Save();
             if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
+            if (!_autoloadsChanged) return;
+            _autoloadsChanged = false;
+            Settings.RqlProject.EditorAutoloads()?.Call(Settings.RqlProject.UpdateAutoloadMethod);
         }
 
         /// <summary>Write a file resource to its res:// file and refresh the editor filesystem; the problem, or null when saved.</summary>

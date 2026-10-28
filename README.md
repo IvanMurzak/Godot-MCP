@@ -176,7 +176,7 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `script-validate` — Validate GDScript (.gd) files and return structured parse/compile diagnostics.
 - `script-build` — Build the project's C# (`dotnet build`, Debug) so scripts written with `script-create` /
   `script-update` load. The build runs in the background; when it succeeds Godot reloads the C# assembly, the plugin
-  reconnects and the result (warning count, or the compiler errors) is delivered after the reload through the
+  reconnects and the result (the compiler warnings, or the compiler errors) is delivered after the reload through the
   request's `requestId`. See [C# assembly reloads](#c-assembly-reloads).
 - `script-execute` — Compile and run C# in the editor (Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
   plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a
@@ -232,6 +232,15 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 > [!IMPORTANT]
 > Godot-MCP requires the **mono (C#/.NET)** build of Godot — the standard (GDScript-only) build cannot
 > compile the addon.
+
+> [!NOTE]
+> **Windows, C# game scripts in a game run from the editor.** On Godot 4.5.1 for Windows, a game started from the editor
+> (Play) can fail to create *every* C# script ("Cannot instantiate C# script because the associated class could not be
+> found", after a `TypeLoadException ... Could not resolve type '<an EditorPlugin class>'`) when the project contains any
+> C# `[Tool]` `EditorPlugin`, Godot-MCP's included, even wrapped in `#if TOOLS` (the editor's Debug build defines
+> `TOOLS`, and the game process cannot resolve `GodotSharpEditor`). It is a Godot issue, reproduced in a project without
+> Godot-MCP; GDScript is unaffected. Workaround: copy `GodotSharpEditor.dll` from the editor's
+> `GodotSharp/Api/Debug/` folder into the project's `.godot/mono/temp/bin/Debug/`.
 
 # Installation
 
