@@ -208,7 +208,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "value is checked before anything is written; a failure changes nothing. Undoable in the editor (Ctrl+Z). Scene " +
             "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
-            "lists only assignments that changed a value; the others are counted (\"N unchanged assignment(s) not listed\"). Do " +
+            "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
             MutateStages + MutateExamplesBlock +
             "Object literals build values: set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +

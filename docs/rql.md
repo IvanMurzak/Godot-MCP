@@ -69,8 +69,8 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 ## Writes: undo and saving
 
 - **All-or-nothing.** Every target and value is checked before anything is written; a failure changes nothing.
-  `dry_run: true` returns the receipt (`$ref member old new`) without changing anything. The receipt lists only
-  assignments that changed a value; the others are counted (`N unchanged assignment(s) not listed`).
+  `dry_run: true` returns the receipt (`$ref member old new`) without changing anything. The receipt leaves out
+  assignments that found the value already set; they are counted (`N unchanged assignment(s) not listed`).
 - **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
   an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). Omitted, no budget
   is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member

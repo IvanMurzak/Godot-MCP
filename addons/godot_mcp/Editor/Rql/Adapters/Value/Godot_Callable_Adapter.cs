@@ -165,7 +165,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         {
             Node node when RqlGodot.IsInEditedScene(node) => RqlGodot.PathOf(node),
             Resource resource when RqlGodot.IsFileResource(resource) => resource.ResourcePath,
-            _ => $"{target.GetType().Name}#{target.GetInstanceId().ToString(CultureInfo.InvariantCulture)}",
+            _ => $"{RqlHostNames.GodotClassName(target.GetType()) ?? target.GetType().Name}#{target.GetInstanceId().ToString(CultureInfo.InvariantCulture)}",
         };
     }
 }
