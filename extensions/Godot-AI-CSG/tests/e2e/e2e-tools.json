@@ -1,6 +1,6 @@
 {
   "description": "Live E2E for the CSG RQL module. Driven by scripts/extension_e2e.py (via scripts/extension_live.py) against ONE connected headless editor and a local gamedev-mcp-server. The module ships no MCP tools: every call is the core rql-query / rql-mutate / rql-schema, and a regression in the module (adapters, validation, guide) turns the suite red.",
-  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every CsgGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and rejected writes. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated. The C# type names in refs are CsgBox3D etc.; class is Godot's CSGBox3D.",
+  "notes": "The 'setup' opens a fresh scene (root Node3D 'Root') with the core editor | call NewScene. rql-schema proves the module was discovered (its adapter description). The 'tools' then run every CsgGuide example in order (the xUnit suite asserts this list contains them all, in order, each with rql-mutate for set / call and rql-query otherwise), followed by read-backs and rejected writes. 'expect' substrings are matched against the default compact RQL text inside godot-cli's --raw JSON: rows are '|'-separated. Refs and class use Godot's names (CSGBox3D#…, class CSGBox3D).",
   "setup": [
     {
       "tool": "rql-mutate",
@@ -30,7 +30,7 @@
         "query": "root | call AddChild(\"CSGCombiner3D\", \"Combo\")"
       },
       "expect": [
-        "CsgCombiner3D#",
+        "CSGCombiner3D#",
         "(Combo)"
       ]
     },
@@ -40,7 +40,7 @@
         "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGBox3D\", \"Box\")"
       },
       "expect": [
-        "CsgBox3D#",
+        "CSGBox3D#",
         "(Box)"
       ]
     },
@@ -59,7 +59,7 @@
         "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGSphere3D\", \"Ball\")"
       },
       "expect": [
-        "CsgSphere3D#",
+        "CSGSphere3D#",
         "(Ball)"
       ]
     },
@@ -79,7 +79,7 @@
         "query": "nodes | where name == \"Combo\" | call AddChild(\"CSGCylinder3D\", \"Pipe\")"
       },
       "expect": [
-        "CsgCylinder3D#",
+        "CSGCylinder3D#",
         "(Pipe)"
       ]
     },
@@ -160,7 +160,7 @@
         "query": "root | call AddChild(\"CSGTorus3D\", \"Ring\")"
       },
       "expect": [
-        "CsgTorus3D#",
+        "CSGTorus3D#",
         "(Ring)"
       ]
     },

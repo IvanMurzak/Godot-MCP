@@ -91,7 +91,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static string RenderType(RqlEngine engine, string typeName)
         {
             var candidates = SourceTypes(engine, typeName).Concat(GodotTypes.Candidates(typeName)).Distinct().Take(3).ToList();
-            var godotClass = GodotClassName(typeName, candidates);
+            var godotClass = ClassDbClass(typeName, candidates);
             if (candidates.Count == 0 && godotClass == null)
             {
                 // Types only reachable through sources (e.g. an extension's view objects): RQL's own schema walk finds them.
@@ -124,14 +124,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }
 
         /// <summary>The ClassDB class a name (or its C# type) stands for, or null.</summary>
-        private static string? GodotClassName(string typeName, IReadOnlyList<Type> candidates)
+        private static string? ClassDbClass(string typeName, IReadOnlyList<Type> candidates)
         {
             if (ClassDB.ClassExists(typeName)) return typeName;
-            var classes = GodotTypes.GodotClasses();
-            string? Match(string name) => classes.FirstOrDefault(c => string.Equals(c, name, StringComparison.OrdinalIgnoreCase));
             foreach (var t in candidates)
-                if (typeof(GodotObject).IsAssignableFrom(t) && Match(t.Name) is { } match) return match;
-            return Match(typeName);
+                if (typeof(GodotObject).IsAssignableFrom(t) && (RqlHostNames.GodotClassName(t) ?? t.Name) is var name && ClassDB.ClassExists(name))
+                    return name;
+            return GodotTypes.GodotClasses().FirstOrDefault(c => string.Equals(c, typeName, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>The class's own Godot properties (props["…"] keys) with their types, then its parent chain.</summary>

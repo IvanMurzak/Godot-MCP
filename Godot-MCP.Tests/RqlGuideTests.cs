@@ -48,7 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
-            Assert.Equal(26, RqlGuide.QueryExamples.Length);
+            Assert.Equal(27, RqlGuide.QueryExamples.Length);
             Assert.Equal(37, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
@@ -63,6 +63,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("$index") && e.Contains("set "));
             Assert.Contains(RqlGuide.MutateExamples, e => e.Contains(".replace("));
             Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("group-by class, "));
+            Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("items.avg("));
+            Assert.Contains("a condition must be a boolean", RqlGuide.Language);
+            Assert.Contains("has(Mesh)", RqlGuide.QuerySyntaxShort);
+            Assert.Contains("Lists compare by value", RqlGuide.Language);
+            Assert.Contains("unchanged assignment(s) not listed", RqlGuide.MutateDescription);
         }
 
         [Fact]

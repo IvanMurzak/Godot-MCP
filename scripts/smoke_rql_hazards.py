@@ -194,7 +194,7 @@ def target_limit(host: str, d: str) -> None:
           "mutation-limit", "limit of 200", "max_targets = 300")
     must("TL max_targets = 300 changes all 300", mutate_max(f"{cubes} | first 300 | set Visible = false", 300))
     has("TL 300 hidden", must("TL read", query(host, f"{cubes} | where Visible == false | count")), "300")
-    fails("TL max_targets above the ceiling", mutate_max(f"{cubes} | set Visible = true", 1001), "invalid-value", "between 1 and 1000")
+    fails("TL max_targets above the ceiling", mutate_max(f"{cubes} | set Visible = true", 1001), "invalid-value", "from 1 to 1000")
     fails("TL a typo that empties a mutation", mutate(host, f"{cubes} | where Visibel == false | set Visible = true"),
           "unknown-member", "nothing was changed")
     must("TL a polymorphic no-match stays ok", mutate(host, 'nodes | where $ is Light3D | set LightEnergy = 2'))

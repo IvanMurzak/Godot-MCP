@@ -34,7 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             int max_targets = RqlTargetLimit.Default
         )
         {
-            return Run(() => RqlGodot.Mutate(query, dry_run, max_targets));
+            return Run(() => RqlGodot.Mutate(query, dry_run, RqlTargetLimit.Requested(max_targets)));
         }
     }
 }

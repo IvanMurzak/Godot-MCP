@@ -15,7 +15,7 @@ import re
 import time
 
 from smoke_rql_lib import file_text, must, mutate, q, query, tool
-from smoke_rql_models import fails, has, lacks
+from smoke_rql_models import fails, has, lacks, value_is
 
 
 def run(host: str, project: pathlib.Path, d: str) -> None:
@@ -64,7 +64,9 @@ def script_only_props(host: str) -> None:
 
 def enum_names(host: str) -> None:
     """Enum-hinted ints take an inspector label without its "(note)" and the C# enum name with digits."""
-    has("AE label without its note", must("AE set", mutate(host, 'godot.find("Sun") | set props["directional_shadow_mode"] = "PSSM 4 Splits"')), "|2")
+    must("AE set", mutate(host, 'godot.find("Sun") | set props["directional_shadow_mode"] = "PSSM 4 Splits"'))
+    # Read back, not the receipt: 2 is the default, and a receipt leaves out an assignment that found the value already set.
+    value_is("AE label without its note", must("AE read", query(host, 'godot.find("Sun") | select props["directional_shadow_mode"]')), "2")
     version = re.search(r"(\d+)\.(\d+)", must("AE version", query(host, "editor | select godotVersion")))
     # The setter's constants (SHADOW_PARALLEL_2_SPLITS) need ClassDB.class_get_property_setter: Godot 4.4+.
     if version and (int(version.group(1)), int(version.group(2))) >= (4, 4):

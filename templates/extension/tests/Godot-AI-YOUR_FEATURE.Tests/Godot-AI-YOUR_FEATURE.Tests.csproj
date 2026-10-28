@@ -25,7 +25,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <!-- The package's RQL pin (IRqlModule, adapters, the parser for the guide examples) and the Godot API it
          compiles against (metadata only here). -->
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.7dd3b29" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.c5fed20" />
     <PackageReference Include="GodotSharp" Version="4.3.0" />
     <!-- The sample source reads EditorInterface (GodotSharpEditor); drop this when the module uses no editor API. -->
     <PackageReference Include="GodotSharpEditor" Version="4.3.0" />

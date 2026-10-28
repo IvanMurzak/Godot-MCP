@@ -49,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             return engine;
         }
 
-        private static QueryResult Mutate(RqlEngine engine, string query, int maxTargets = RqlTargetLimit.Default) =>
+        private static QueryResult Mutate(RqlEngine engine, string query, int? maxTargets = null) =>
             engine.Execute(query, RqlTargetLimit.BudgetsFor(maxTargets), new QueryOptions { AllowMutation = true });
 
         private static string Text(QueryResult r) => string.Join("; ", r.Diagnostics.Select(d => $"{d.Code}: {d.Message} ({d.Hint})"));
@@ -77,15 +77,73 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(Mutate(Engine(1001), "items | set value = 1", maxTargets: RqlTargetLimit.Ceiling).Ok);
         }
 
-        [Fact]
-        public void MaxTargetsOutsideOneToTheCeilingIsRefused()
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(RqlTargetLimit.Ceiling + 1)]
+        public void MaxTargetsOutsideOneToTheCeilingIsRefusedAndNothingRuns(int maxTargets)
         {
-            Assert.Null(RqlTargetLimit.Problem(1));
-            Assert.Null(RqlTargetLimit.Problem(RqlTargetLimit.Ceiling));
-            Assert.Contains("between 1 and 1000", RqlTargetLimit.Problem(1001));
-            Assert.NotNull(RqlTargetLimit.Problem(0));
-            Assert.Contains("leave max_targets out", RqlTargetLimit.ProblemHint(0));
-            Assert.Contains("first 1000", RqlTargetLimit.ProblemHint(1001));
+            var engine = Engine(3);
+            var r = Mutate(engine, "items | set value = 7", maxTargets);
+            Assert.False(r.Ok);
+            var error = Assert.Single(r.Diagnostics, d => d.Code == "invalid-value");
+            Assert.Contains("max_targets must be from 1 to 1000", error.Message);
+            Assert.Contains("omit it", error.Hint);
+            Assert.Equal("0", engine.Execute("items | where value == 7 | count").Value?.ToString());
+        }
+
+        [Fact]
+        public void AnOmittedMaxTargetsSendsNoBudget()
+        {
+            Assert.Null(RqlTargetLimit.BudgetsFor(null));
+            Assert.Null(RqlTargetLimit.Requested(RqlTargetLimit.Default)); // the tool argument's default: not given
+            Assert.Equal(0, RqlTargetLimit.Requested(0)); // passed on, so RQL refuses it
+            Assert.Equal(300, RqlTargetLimit.Requested(300));
+            Assert.Equal(5, RqlTargetLimit.BudgetsFor(5)!.MaxMutationTargets);
+        }
+
+        // ------------------------------------------------------------ receipts, hints, display names
+
+        [Fact]
+        public void AReceiptListsOnlyRealChangesAndCountsTheRestAsUnchanged()
+        {
+            var engine = Engine(10);
+            Assert.True(Mutate(engine, "items | where name == \"n0\" | set value = 1").Ok);
+            var r = Mutate(engine, "items | set value = 1");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal(9, r.Rows!.Count);
+            Assert.Equal(1, r.Unchanged);
+            Assert.Contains("(1 unchanged assignment(s) not listed)", AgentFormat.Render(r, OutputFormat.Table));
+        }
+
+        [Fact]
+        public void ASetInAReadOnlyRequestNamesTheMutateTool()
+        {
+            var engine = Engine(1);
+            engine.MutateHint = "rql-mutate";
+            var r = engine.Execute("items | set value = 1");
+            var error = Assert.Single(r.Diagnostics, d => d.Code == "permission-denied");
+            Assert.Contains("rql-mutate", error.Message + error.Hint);
+        }
+
+        [Fact]
+        public void GodotClassNamesComeFromTheBinding()
+        {
+            Assert.Equal("GPUParticles3D", RqlHostNames.GodotClassName(typeof(global::Godot.GpuParticles3D)));
+            Assert.Equal("CSGBox3D", RqlHostNames.GodotClassName(typeof(global::Godot.CsgBox3D)));
+            Assert.Equal("Object", RqlHostNames.GodotClassName(typeof(global::Godot.GodotObject)));
+            Assert.Null(RqlHostNames.GodotClassName(typeof(global::Godot.Node3D)));
+            Assert.Null(RqlHostNames.GodotClassName(typeof(Item)));
+        }
+
+        [Fact]
+        public void TheDisplayNameIsShownAndBothNamesMatch()
+        {
+            var engine = Engine(1);
+            engine.TypeDisplayName = t => t == typeof(Item) ? "ITEM" : null;
+            var r = engine.Execute("items | where $ is ITEM and $ is Item | select $type");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal("ITEM", Assert.Single(r.Rows!)[0]?.ToString());
         }
 
         [Fact]
