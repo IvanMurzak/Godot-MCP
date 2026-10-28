@@ -60,6 +60,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
 
             var node = FindByPath(root, nodeRef.Path!);
+            // An RQL $ref copied from a query row ("Camera3D#2990639514705"): the node with that instance id.
+            if (node == null && Data.NodeRef.TryParseRef(nodeRef.Path, out var refClass, out var refId)
+                && GodotObject.IsInstanceIdValid(refId) && GodotObject.InstanceFromId(refId) is Node byRef && byRef.IsClass(refClass))
+                return byRef;
             if (node == null)
             {
                 error = $"Node not found at path '{nodeRef.Path}' (resolved relative to edited scene root '{root.Name}').";
