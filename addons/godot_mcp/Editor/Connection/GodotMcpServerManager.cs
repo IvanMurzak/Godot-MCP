@@ -933,16 +933,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             void Raise() => StatusChanged?.Invoke(status);
 
-            if (marshalled
-                && MainThreadDispatcher.Instance != null
-                && !MainThreadDispatcher.IsMainThread)
-            {
-                MainThreadDispatcher.Enqueue(Raise);
-            }
+            if (marshalled)
+                MainThreadDispatcher.RunOnMainThread(Raise);
             else
-            {
                 Raise();
-            }
         }
 
         // --- Filesystem helpers --------------------------------------------------------------------------

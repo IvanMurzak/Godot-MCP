@@ -1172,12 +1172,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _authFlowStateChangedHandler = state =>
             {
                 // OnStateChanged fires on the flow's background task thread; hop to the editor main thread
-                // before touching Controls. A missing dispatcher (between editor reloads) degrades to a
-                // direct call rather than throwing.
-                if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                    MainThreadDispatcher.Enqueue(() => OnAuthFlowStateChanged(flow, state));
-                else
-                    OnAuthFlowStateChanged(flow, state);
+                // before touching Controls (dropped once the dispatcher is torn down).
+                MainThreadDispatcher.RunOnMainThread(() => OnAuthFlowStateChanged(flow, state));
             };
             flow.OnStateChanged += _authFlowStateChangedHandler;
 
@@ -1195,10 +1191,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 _connection.Account, flow, _connection.CloudBaseUrl, _connection.Config);
 
             // Render + reconnect on the editor main thread (the awaited continuation may run off-thread).
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(() => ApplySignInOutcome(flow, outcome));
-            else
-                ApplySignInOutcome(flow, outcome);
+            MainThreadDispatcher.RunOnMainThread(() => ApplySignInOutcome(flow, outcome));
         }
 
         /// <summary>
@@ -1330,10 +1323,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ConfigChanged?.Invoke(); // account state changed → agent section re-checks config
             }
 
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(Render);
-            else
-                Render();
+            MainThreadDispatcher.RunOnMainThread(Render);
         }
 
         /// <summary>
@@ -1390,10 +1380,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         void OnAccountSignInRequired()
         {
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(ApplySignInRequired);
-            else
-                ApplySignInRequired();
+            MainThreadDispatcher.RunOnMainThread(ApplySignInRequired);
         }
 
         /// <summary>
@@ -1443,10 +1430,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ApplyAlertVisibility(_connection.ConnectionStatus);
             }
 
-            if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
-                MainThreadDispatcher.Enqueue(Render);
-            else
-                Render();
+            MainThreadDispatcher.RunOnMainThread(Render);
         }
 
         /// <summary>

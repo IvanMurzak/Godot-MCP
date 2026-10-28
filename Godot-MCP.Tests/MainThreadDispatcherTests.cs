@@ -348,6 +348,76 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Throws<InvalidOperationException>(() => MainThreadDispatcher.Enqueue(() => { }));
         }
 
+        // ---- RunOnMainThread: UI updates from background threads ----------------------------------------------
+
+        static void OnBackgroundThread(Action body)
+        {
+            Exception? error = null;
+            var t = new Thread(() =>
+            {
+                try { body(); }
+                catch (Exception e) { error = e; }
+            });
+            t.Start();
+            t.Join();
+            Assert.Null(error);
+        }
+
+        [Fact]
+        public void RunOnMainThread_OnMainThread_RunsInline()
+        {
+            MainThreadDispatcher.SimulateInstanceEnteredForTests(); // this thread is now the main thread
+
+            var ran = false;
+            MainThreadDispatcher.RunOnMainThread(() => ran = true);
+
+            Assert.True(ran);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+        }
+
+        [Fact]
+        public void RunOnMainThread_OffThread_WithLiveDispatcher_QueuesForTheMainThread()
+        {
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+
+            var ranOnThread = 0;
+            OnBackgroundThread(() => MainThreadDispatcher.RunOnMainThread(() => ranOnThread = Thread.CurrentThread.ManagedThreadId));
+
+            Assert.Equal(0, ranOnThread);
+            Assert.Equal(1, MainThreadDispatcher.PendingActionCountForTests);
+
+            MainThreadDispatcher.DrainForTests();
+            Assert.Equal(MainThreadDispatcher.MainThreadId, ranOnThread);
+        }
+
+        [Fact]
+        public void RunOnMainThread_OffThread_AfterTeardown_DropsWithoutRunningOrThrowing()
+        {
+            // The plugin-teardown case: the dispatcher (a child of the plugin) has left the tree, then the
+            // connection's disconnect, on a worker thread, pushes a status change. Running it inline would touch
+            // dock Controls off the main thread ("Caller thread can't call this function"); nothing would drain
+            // a queued copy either. It must be dropped.
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            MainThreadDispatcher.SimulateInstanceExitedForTests();
+
+            var ran = false;
+            OnBackgroundThread(() => MainThreadDispatcher.RunOnMainThread(() => ran = true));
+
+            Assert.False(ran);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+        }
+
+        [Fact]
+        public void RunOnMainThread_OffThread_BeforeBoot_BuffersUntilTheDispatcherArrives()
+        {
+            var ran = false;
+            OnBackgroundThread(() => MainThreadDispatcher.RunOnMainThread(() => ran = true));
+
+            Assert.False(ran);
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            Assert.True(ran);
+        }
+
         // ---- Continuations don't run inline on the pump/drain thread (#179) ---------------------------------
 
         [Fact]
