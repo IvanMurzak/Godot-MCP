@@ -200,6 +200,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static void BeforeWrite(IReadOnlyList<MutationRecord> records)
         {
+            SceneChanging();
             _setStages.BeforeWrite(records, _mutating);
             foreach (var r in records)
                 if (r.Method == null && r.Owner is Node && RotationUnits.Warning(r.Member, Components(r.New)) is { } warning)

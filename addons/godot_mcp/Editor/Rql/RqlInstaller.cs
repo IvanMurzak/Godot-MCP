@@ -57,6 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             RqlToolBinding.EngineProvider = null;
             RqlToolBinding.MainThreadRunner = null;
             RqlGodot.UndoRedo = null;
+            RqlTools.Manager = null;
             var used = RqlGodot.Reset();
             GodotTypes.Reset();
             if (!used) return; // no engine was ever built: RQL's process-wide caches hold nothing of this assembly
@@ -69,6 +70,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var tools = plugin.McpManager?.ToolManager;
             if (tools == null) return;
+            RqlTools.Manager = tools; // the tools source lists every tool, hidden ones included
             foreach (var id in EditorReplacedTools)
                 if (tools.HasTool(id)) tools.RemoveTool(id);
             try

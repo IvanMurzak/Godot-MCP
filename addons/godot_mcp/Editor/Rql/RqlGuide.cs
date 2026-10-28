@@ -38,18 +38,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "create, move and delete resources; open and save scenes. dry_run previews.";
 
         public const string SchemaBlurb =
-            "List RQL sources and the node classes present in the edited scene; pass a type name for its members and Godot properties.";
+            "List RQL sources, installed extensions and the node classes in the edited scene; pass an extension name for its " +
+            "guide or a type name for its members and Godot properties.";
 
         public const string Language =
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
             "selection, scenes (open scenes), files (every res:// file the editor knows; on request deps, missingDeps, usedBy (scenes / resources that load it) and " +
-            "importSettings[\"option\"]), classes (Godot classes, ClassDB), " +
+            "importSettings[\"option\"]), folders (path fileCount folderCount empty), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
             "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +
             "settings[\"section/key\"], name, mainScene; input map, autoload and global group calls), settings (every project " +
             "setting: name section value type changed), inputActions (name events deadzone builtIn), autoloads (name path " +
-            "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names). " +
+            "singleton order), groups (name nodes count global), layers (kind index name: the project's layer names), tools (every MCP tool of this " +
+            "editor, hidden ones included: name title visible description; a hidden tool is not offered to this client: " +
+            "to use one, ask the user to show it in the AI Game Developer dock). " +
             "Resources: godot.resources(\"StandardMaterial3D\") or godot.resources(\"Texture2D\", \"res://art\"), " +
             "godot.resource(\"res://materials/red.tres\"). ref(\"Node3D#1234\") resolves a $ref; godot.find(\"Player\") or " +
             "godot.find(\"Level/Player\") a node by unique name or path below the scene root; godot.group(\"enemies\") the nodes of a group; " +
@@ -201,7 +204,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
             "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
-            "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n";
+            "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
+            "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
+            "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
         public const string QueryDescription =
             "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
@@ -246,8 +251,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "bulk change of more objects: the call stays all-or-nothing and one undo step.";
 
         public const string SchemaDescription =
-            "Without a type: RQL sources, functions, and the node classes present in the edited scene (with counts), plus the " +
-            "Node members. With a type name (e.g. \"Node3D\", \"OmniLight3D\", \"StandardMaterial3D\", \"Vector3\", \"editor\"): that " +
+            "Without a type: RQL sources, functions, the installed extensions (Particles, Tilemap …), and the node classes present in " +
+            "the edited scene (with counts), plus the Node members. With an extension name: its guide with examples. With a type name (e.g. \"Node3D\", \"OmniLight3D\", \"StandardMaterial3D\", \"Vector3\", \"editor\"): that " +
             "type's members (name type; ro = read-only), methods, and its Godot properties (props[\"name\"]). Use it before " +
             "querying an unfamiliar class.";
     }

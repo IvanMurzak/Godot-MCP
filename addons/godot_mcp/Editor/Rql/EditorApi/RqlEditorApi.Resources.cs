@@ -84,6 +84,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         private static string DeletablePath(string path, bool force)
         {
+            // A folder (wave 6: agents tried DeleteResource("res://empty_folder/")): name the operation that deletes one.
+            if (FolderAt(path) is { } folder)
+            {
+                RequireUnprotectedFolder(folder);
+                throw new ArgumentException($"'{path}' is a folder; delete an empty folder with editor | call DeleteFolder(\"{folder}\")");
+            }
             var resPath = ResPathNormalizer.RequireResFilePath(path, nameof(path));
             RequireUnprotected(resPath);
             if (!FileAccess.FileExists(resPath)) throw new ArgumentException($"no file exists at '{resPath}'");
@@ -91,6 +97,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 throw new InvalidOperationException($"'{resPath}' is still used by {RqlReferences.Describe(users)}; deleting it would break " +
                     $"those references. Point them elsewhere first, or delete anyway with DeleteResource(\"{resPath}\", true)");
             return resPath;
+        }
+
+        // The existing folder (below the project root, no "..") a path names, or null: NormalizeDir rejects traversal first.
+        private static string? FolderAt(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            string dir;
+            try { dir = ResPathNormalizer.NormalizeDir(path!.Trim()).TrimEnd('/'); }
+            catch (ArgumentException) { return null; }
+            return dir.Length > "res:/".Length && DirAccess.DirExistsAbsolute(dir) ? dir : null;
         }
 
         [RqlCallable("move or rename a file (its .import / .uid sidecars move with it); returns the new path")]
@@ -147,6 +163,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return resPath;
         }
 
+        // A folder whose contents are protected (Godot's res://.godot cache, the addon's own folder): checked through a path inside it.
+        private static void RequireUnprotectedFolder(string dir)
+        {
+            if (ResPathNormalizer.ProtectedFileProblem(dir + "/_") != null)
+                throw new ArgumentException($"'{dir}' is a protected folder (Godot's cache or the Godot-MCP addon); the file tools do not delete it");
+        }
+
         private static void RequireUnprotected(string resPath)
         {
             if (ResPathNormalizer.ProtectedFileProblem(resPath) is { } problem) throw new ArgumentException(problem + "; the file tools do not create, move or delete files there");
@@ -158,6 +181,36 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var dir = ResPathNormalizer.NormalizeDir(path);
             EditorToolGuards.EnsureDirectoryExists(dir);
             RqlReimport.RegisterFolder(dir);
+            return dir;
+        }
+
+        [RqlCallable("delete an EMPTY folder, e.g. \"res://old/textures\" (no files, no subfolders; delete those first with " +
+            "DeleteResource / DeleteFolder); returns its path")]
+        public string DeleteFolder(string path)
+        {
+            var dir = DeletableFolder(path);
+            var error = DirAccess.RemoveAbsolute(dir);
+            if (error != Error.Ok) throw new InvalidOperationException($"could not delete the folder '{dir}': {error}");
+            RqlReimport.Run(null); // a settled scan: the folders source no longer lists it
+            return dir;
+        }
+
+        public string? ValidateDeleteFolder(string path) => RqlGodot.Rejection(() => DeletableFolder(path));
+
+        // The folder DeleteFolder removes, after every check: inside res://, not the root, not a protected folder, existing, empty.
+        private static string DeletableFolder(string path)
+        {
+            var dir = ResPathNormalizer.NormalizeDir(path).TrimEnd('/');
+            if (dir.Length <= "res://".Length) throw new ArgumentException("the project root cannot be deleted");
+            RequireUnprotectedFolder(dir);
+            if (!DirAccess.DirExistsAbsolute(dir)) throw new ArgumentException($"no folder exists at '{dir}'");
+            using var d = DirAccess.Open(dir) ?? throw new ArgumentException($"the folder '{dir}' cannot be opened");
+            d.IncludeHidden = true;
+            var files = d.GetFiles();
+            var dirs = d.GetDirectories();
+            if (files.Length > 0 || dirs.Length > 0)
+                throw new ArgumentException($"the folder '{dir}' is not empty ({files.Length} file(s), {dirs.Length} folder(s)" +
+                    ", e.g. " + files.Concat(dirs.Select(x => x + "/")).First() + "); only empty folders are deleted");
             return dir;
         }
 

@@ -76,7 +76,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         /// <c>{class: "BoxShape3D", …}</c> (the member every Godot object reads as): an embedded sub-resource for a property
         /// (shape, mesh, material, environment …). A Godot class goes to RQL's own construction (C# members); a class Godot
         /// cannot instantiate is refused (C# would build a useless abstract Mesh); a script class (GDScript <c>class_name</c>)
-        /// is built here only when it is a Resource (a Node script class is an engine object), its other keys written as Godot properties (snake_case or the C#-style name).
+        /// or a GDExtension class without a C# type is built here only when it is a Resource (a Node class is an engine object),
+        /// its other keys written as Godot properties (snake_case or the C#-style name).
         /// </summary>
         private static AdapterOutcome TryBuild(ObjectValue literal, Type target, RqlKernel kernel, out object? result, out string? reason)
         {
@@ -91,14 +92,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 // place and left to RQL rather than built through the kernel here: a nested value of the same target type would
                 // then skip this adapter (the kernel's re-entry guard) and lose res:// paths and nested literals.
                 var clr = GodotTypes.GodotClassType(className);
-                if (clr == null) { reason = $"no C# type for Godot class '{className}'"; return AdapterOutcome.Failed; }
-                literal.Remove("class");
-                literal["$type"] = clr.FullName;
-                return AdapterOutcome.NotHandled;
+                if (clr != null)
+                {
+                    literal.Remove("class");
+                    literal["$type"] = clr.FullName;
+                    // Godot property names ("albedo_color") name the C# members RQL builds from (AlbedoColor).
+                    foreach (var k in literal.Keys.Where(k => k != "$type").ToList())
+                        if (RqlHostNames.CSharpMember(clr, k) is { } member && !literal.ContainsKey(member))
+                        {
+                            literal[member] = literal[k];
+                            literal.Remove(k);
+                        }
+                    return AdapterOutcome.NotHandled;
+                }
+                // A GDExtension class (Terrain3DAssets, Terrain3DTextureAsset …) has no C# type for RQL to build: a Resource is
+                // built here like a script class, its other keys written as Godot properties.
             }
-            if (!RqlGodot.IsGlobalScriptClass(className)) return AdapterOutcome.NotHandled;
-            // Only a script Resource is built from a literal: RQL refuses engine objects (a Node script class included), and an
-            // overload check runs this adapter without keeping its result, so a built Node would leak.
+            else if (!RqlGodot.IsGlobalScriptClass(className)) return AdapterOutcome.NotHandled;
+            // Only a script / GDExtension Resource is built from a literal: RQL refuses engine objects (a Node class included),
+            // and an overload check runs this adapter without keeping its result, so a built Node would leak.
             if (RqlGodot.LiteralRefusal(literal, target) is { } refusal) { reason = refusal; return AdapterOutcome.Failed; }
             GodotObject built;
             try { built = RqlGodot.Instantiate<GodotObject>(className, "Resource", "class"); }

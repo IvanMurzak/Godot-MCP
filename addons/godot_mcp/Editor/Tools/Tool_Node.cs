@@ -51,15 +51,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             }
 
-            // 2) Scene-tree path (priority 2).
+            // 2) Scene-tree path (priority 2), then an RQL $ref copied from a query row ("Camera3D#2990639514705"): the live
+            // node with that instance id (any class: a C# script node's $ref names its script class).
             var root = EditorInterface.Singleton.GetEditedSceneRoot();
+            var node = root == null ? null : FindByPath(root, nodeRef.Path!);
+            if (node == null && Editor.Rql.Adapters.CallableText.TryParseRef(nodeRef.Path, out var refId)
+                && GodotObject.IsInstanceIdValid(refId) && GodotObject.InstanceFromId(refId) is Node byRef)
+                return byRef;
             if (root == null)
             {
                 error = "No scene is currently being edited; cannot resolve a Node by path.";
                 return null;
             }
-
-            var node = FindByPath(root, nodeRef.Path!);
             if (node == null)
             {
                 error = $"Node not found at path '{nodeRef.Path}' (resolved relative to edited scene root '{root.Name}').";
