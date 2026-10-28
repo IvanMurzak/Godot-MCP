@@ -502,11 +502,13 @@ namespace com.IvanMurzak.Godot.MCP
             try
             {
                 _reloadGate?.DrainForUnload(() => _connection?.Plugin?.RequestActivity?.InFlightCount ?? 0, fromReload, () =>
-                {
                     // Stop receiving and join that disposal now, so a connect attempt racing it cannot leave it un-joined.
-                    _connection?.DisconnectImmediate();
-                    _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
-                });
+                    // On its own thread, bounded: the main thread must not hang in the SignalR teardown (BoundedCall).
+                    RunTeardownStep("stopping the connection", () =>
+                    {
+                        _connection?.DisconnectImmediate();
+                        _connection?.Plugin?.WaitForImmediateTeardown(System.TimeSpan.FromSeconds(2));
+                    }));
             }
             catch (System.Exception ex) { TryLogTeardownError("reload gate drain", ex); }
 
@@ -549,11 +551,7 @@ namespace com.IvanMurzak.Godot.MCP
             //    in which case the bounded wait returns and we proceed anyway. Must precede the connection
             //    Dispose (Dispose also disconnects, but doing the drain explicitly first joins the threads
             //    while the plugin is still live and keeps the ordering obvious).
-            try
-            {
-                _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2));
-            }
-            catch (System.Exception ex) { TryLogTeardownError("disconnect-and-drain", ex); }
+            RunTeardownStep("disconnect-and-drain", () => _connection?.DisconnectAndDrain(System.TimeSpan.FromSeconds(2)));
 
             // 3) Dispose the connection — releases the R3 subscriptions and the plugin instance.
             try
@@ -785,6 +783,21 @@ namespace com.IvanMurzak.Godot.MCP
         /// try/catch (mid-reload the Godot logging API or the log collector may be unavailable; a teardown
         /// diagnostic must never throw on the ALC-unloading path, and <c>GodotMcpLog.Emit</c> guarantees that).
         /// </summary>
+        /// <summary>The longest a connection step of the teardown may hold the main thread (its own waits are 2 s).</summary>
+        static readonly System.TimeSpan TeardownStepTimeout = System.TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// Run a connection step of the teardown on its own thread, bounded by <see cref="TeardownStepTimeout"/>
+        /// (<see cref="BoundedCall"/>): a step still running after that is logged and left behind; the unload proceeds.
+        /// </summary>
+        static void RunTeardownStep(string step, System.Action body)
+        {
+            if (!BoundedCall.Run(body, TeardownStepTimeout, out var error))
+                GodotMcpLog.Warning($"[Godot-MCP] reload teardown: {step} did not finish in {TeardownStepTimeout.TotalSeconds:0} s; continuing.");
+            else if (error != null)
+                TryLogTeardownError(step, error);
+        }
+
         static void TryLogTeardownError(string step, System.Exception ex)
             => GodotMcpLog.Error($"[Godot-MCP] teardown step '{step}' failed: {ex.Message}");
     }

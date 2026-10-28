@@ -55,7 +55,9 @@ def autoload_registry(host: str, d: str) -> None:
     lacks("W5A the singleton resolves", text, "not found", "not declared")
     must("W5A undo the autoload", mutate(host, "editor | call Undo()"))
     text = must("W5A validate after undo", tool(host, "script-validate", {"scriptPath": user}))
-    check("W5A undone: the singleton is unknown again", "not declared" in text or "not found" in text, text)
+    # Godot < 4.5 has no error text (Coarse fidelity): the parse error itself is the evidence there.
+    unknown = "not declared" in text or "not found" in text or ("Coarse" in text and "ParseError" in text)
+    check("W5A undone: the singleton is unknown again", unknown, text)
     must("W5A redo", mutate(host, "editor | call Redo()"))
     text = must("W5A validate after redo", tool(host, "script-validate", {"scriptPath": user}))
     lacks("W5A redone: the singleton resolves again", text, "not found", "not declared")
