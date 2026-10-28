@@ -222,7 +222,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// inline when already on the main thread, otherwise queued (buffered before the first dispatcher boots).
         /// Once the dispatcher has been torn down (plugin teardown: the dispatcher is a child of the plugin, so it
         /// leaves the tree first) an off-thread call is DROPPED: nothing would drain it, and touching a Godot Node
-        /// off the main thread is illegal ("Caller thread can't call this function"). Never throws.
+        /// off the main thread is illegal ("Caller thread can't call this function"). The dispatch never throws (an
+        /// inline action's own exception still reaches the caller).
         /// </summary>
         public static void RunOnMainThread(Action action)
         {

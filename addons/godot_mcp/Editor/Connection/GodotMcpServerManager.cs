@@ -77,7 +77,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// </summary>
         public event Action<GodotMcpServerStatus>? StatusChanged;
 
-        /// <summary>The current server status (last value pushed to <see cref="StatusChanged"/>).</summary>
+        /// <summary>The current server status (<see cref="StatusChanged"/> may lag it by a frame when raised off-thread).</summary>
         public GodotMcpServerStatus Status
         {
             get { lock (_processMutex) { return _status; } }
@@ -889,7 +889,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (sender is not Process process)
                 return;
             // Process.Exited fires on a thread-pool thread; marshal cleanup onto the editor main thread so
-            // the status push (which the dock observes) is raised there.
+            // the status push (which the dock observes) is raised there. Deliberately NOT RunOnMainThread: after
+            // teardown the cleanup must still run (inline); SetStatus itself drops the off-thread status raise.
             if (MainThreadDispatcher.Instance != null && !MainThreadDispatcher.IsMainThread)
                 MainThreadDispatcher.Enqueue(() => CleanupProcess(process));
             else
@@ -924,12 +925,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Set + raise the new status. Must be called holding <see cref="_processMutex"/> for the status
         /// field write (the public callers do). The raise runs on the editor main thread (inline when already
-        /// there; dropped off-thread once the dispatcher is torn down, e.g. a server exit during teardown).
+        /// there; dropped off-thread once the dispatcher is torn down, e.g. a server exit during teardown). A
+        /// deferred raise reports the status current when it runs, so a stale queued value (a background Stopped
+        /// drained after the user's Start) cannot overwrite a newer one in the dock.
         /// </summary>
         void SetStatus(GodotMcpServerStatus status)
         {
             _status = status;
-            MainThreadDispatcher.RunOnMainThread(() => StatusChanged?.Invoke(status));
+            MainThreadDispatcher.RunOnMainThread(() => StatusChanged?.Invoke(Status));
         }
 
         // --- Filesystem helpers --------------------------------------------------------------------------

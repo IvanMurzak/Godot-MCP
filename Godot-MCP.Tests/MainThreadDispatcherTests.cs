@@ -408,6 +408,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void RunOnMainThread_OffThread_WhileRefusing_DropsWithoutRunningOrThrowing()
+        {
+            // The assembly is unloading (RefusalReason set): fire-and-forget work is dropped, never queued.
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            MainThreadDispatcher.RefusalReason = "unloading";
+
+            var ran = false;
+            OnBackgroundThread(() => MainThreadDispatcher.RunOnMainThread(() => ran = true));
+
+            Assert.False(ran);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+        }
+
+        [Fact]
         public void RunOnMainThread_OffThread_BeforeBoot_BuffersUntilTheDispatcherArrives()
         {
             var ran = false;
