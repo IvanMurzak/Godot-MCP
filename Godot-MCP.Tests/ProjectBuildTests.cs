@@ -79,7 +79,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(outcome!.Succeeded);
             Assert.Equal(1, outcome.Warnings);
             Assert.Equal("1 warning", outcome.WarningsText);
-            Assert.Equal("\nWarnings:\nPlayer.cs(3,5): warning CS0168: The variable 'x' is declared but never used", outcome.WarningsList);
+            Assert.Equal("\nWarnings:\nPlayer.cs(3,5): warning CS0168: The variable 'x' is declared but never used", outcome.WarningLines);
         }
 
         [Fact]
@@ -88,7 +88,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var outcome = BuildOutcome.FromLog("  Game -> C:\\proj\\Game.dll\n\nBuild succeeded.\n    0 Warning(s)\n", "C:\\proj");
 
             Assert.Equal("0 warnings", outcome!.WarningsText);
-            Assert.Equal("", outcome.WarningsList);
+            Assert.Equal("", outcome.WarningLines);
+            Assert.Equal("C# build succeeded (0 warnings).", outcome.SuccessText("."));
         }
 
         [Fact]
@@ -99,9 +100,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var outcome = BuildOutcome.FromLog(log)!;
 
             Assert.Equal(25, outcome.Warnings);
-            Assert.Contains("A.cs(20,1): warning CS0168", outcome.WarningsList);
-            Assert.DoesNotContain("A.cs(21,1)", outcome.WarningsList);
-            Assert.EndsWith("… and 5 more", outcome.WarningsList);
+            Assert.Contains("A.cs(20,1): warning CS0168", outcome.WarningLines);
+            Assert.DoesNotContain("A.cs(21,1)", outcome.WarningLines);
+            Assert.EndsWith("… and 5 more", outcome.WarningLines);
         }
 
         [Fact]

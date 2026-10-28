@@ -200,15 +200,15 @@ namespace com.IvanMurzak.Godot.MCP.Reload
             var dllNow = ReloadGateDriver.WriteTime(_dllPath);
             var dllAtStart = record.DllWriteTicksAtStart > 0 ? AssemblyReloadGate.ToSeconds(new DateTime(record.DllWriteTicksAtStart, DateTimeKind.Utc)) : 0;
             if (dllNow == null || AssemblyReloadGate.ToSeconds(dllNow.Value) <= dllAtStart)
-                return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}); the assembly was already up to date, so there was nothing to reload." + outcome.WarningsList);
+                return ResponseCallTool.Success(outcome.SuccessText("; the assembly was already up to date, so there was nothing to reload."));
             if (record.LoadId != LoadId)
-                return ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}) and Godot reloaded the C# assembly: new and changed C# " +
-                                                "scripts and [GlobalClass] types are usable now." + outcome.WarningsList);
+                return ResponseCallTool.Success(outcome.SuccessText(" and Godot reloaded the C# assembly: new and changed C# " +
+                                                                        "scripts and [GlobalClass] types are usable now."));
             _finishedAt ??= now;
             return now - _finishedAt < ReloadTimeout
                 ? null
-                : ResponseCallTool.Success($"C# build succeeded ({outcome.WarningsText}), but Godot has not reloaded the C# assembly (C# hot " +
-                                           "reload may be off): focus the editor window or restart the editor to load it." + outcome.WarningsList);
+                : ResponseCallTool.Success(outcome.SuccessText(", but Godot has not reloaded the C# assembly (C# hot " +
+                                                                   "reload may be off): focus the editor window or restart the editor to load it."));
         }
 
         /// <summary>

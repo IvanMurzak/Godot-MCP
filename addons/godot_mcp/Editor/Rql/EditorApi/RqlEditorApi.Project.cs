@@ -71,7 +71,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public List<string> deps => _references.DepsOf(path);
 
         [RqlDescription("dependencies whose file no longer exists: broken references")]
-        public List<string> missingDeps => deps.Where(d => !FileReferences.Exists(d)).ToList();
+        public List<string> missingDeps => _references.MissingDepsOf(path);
 
         [RqlDescription("the scenes and resources whose deps include this one, as saved (scripts' load / preload, project settings such as " +
             "the main scene, icon or autoloads, and unsaved edits are not seen); the first usedBy of a query scans the project")]
@@ -163,6 +163,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     .ToList();
             return deps;
         }
+
+        /// <summary>The dependencies of <paramref name="path"/> whose file no longer exists (broken references).</summary>
+        public List<string> MissingDepsOf(string path) => DepsOf(path).Where(d => !Exists(d)).ToList();
 
         public List<string> UsedBy(string path)
         {

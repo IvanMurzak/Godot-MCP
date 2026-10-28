@@ -61,8 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
         private static bool _settingsChanged;
 
-        /// <summary>Whether the running mutation changed an autoload (the editor's autoload registry is refreshed after saving).</summary>
-        private static bool _autoloadsChanged;
+        // The editor's autoload tab when the running mutation changed an autoload: refreshed after saving (held for one mutation only).
+        private static Node? _changedAutoloads;
         // Receipt warnings of the running mutation (code, text): a radians rotation written with degree-sized angles, a scene
         // opened with missing dependencies.
         private static readonly List<(string code, string text)> _warnings = new List<(string code, string text)>();
@@ -107,7 +107,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _toSaveSet.Clear();
             _removed.Clear();
             _settingsChanged = false;
-            _autoloadsChanged = false;
+            _changedAutoloads = null;
             _warnings.Clear();
             _explicitUndo.Clear();
             _setStages.Clear();
@@ -248,7 +248,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                         // An autoload change also refreshes the editor's autoload registry (scripts then resolve the singleton).
                         var autoloads = save && changed.Any(c => c.name.StartsWith(Settings.RqlProject.AutoloadPrefix, StringComparison.Ordinal))
                             ? Settings.RqlProject.EditorAutoloads() : null;
-                        if (autoloads != null) _autoloadsChanged = true;
+                        _changedAutoloads ??= autoloads;
                         (IsSceneObject(owner) ? _sceneUndo : _otherUndo).Add(new UndoStep(
                             ur =>
                             {
@@ -510,9 +510,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _settingsChanged = false;
             var error = ProjectSettings.Save();
             if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
-            if (!_autoloadsChanged) return;
-            _autoloadsChanged = false;
-            Settings.RqlProject.EditorAutoloads()?.Call(Settings.RqlProject.UpdateAutoloadMethod);
+            _changedAutoloads?.Call(Settings.RqlProject.UpdateAutoloadMethod);
+            _changedAutoloads = null;
         }
 
         /// <summary>Write a file resource to its res:// file and refresh the editor filesystem; the problem, or null when saved.</summary>

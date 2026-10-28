@@ -127,7 +127,10 @@ namespace com.IvanMurzak.Godot.MCP.Reload
         public string WarningsText => Count(Warnings, "warning");
 
         /// <summary>The warnings (at most <see cref="MaxWarnings"/>) as lines to append to a success text; empty when there are none.</summary>
-        public string WarningsList => Warnings == 0 ? "" : "\nWarnings:\n" + Listed(WarningList, MaxWarnings);
+        public string WarningLines => Warnings == 0 ? "" : "\nWarnings:\n" + Listed(WarningList, MaxWarnings);
+
+        /// <summary>The text an agent gets for a successful build: the count, <paramref name="rest"/>, then the warnings.</summary>
+        public string SuccessText(string rest) => $"C# build succeeded ({WarningsText}){rest}" + WarningLines;
 
         static string Listed(IReadOnlyList<string> items, int max)
         {

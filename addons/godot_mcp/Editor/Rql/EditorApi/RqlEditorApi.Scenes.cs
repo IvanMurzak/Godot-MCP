@@ -130,7 +130,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var root = (Engine.GetMainLoop() as SceneTree)?.Root;
             var dialog = root?.FindChildren("*", "DependencyErrorDialog", true, false).OfType<AcceptDialog>().FirstOrDefault(d => d.Visible);
             if (dialog == null) return null;
-            var missing = string.Join(", ", new FileReferences().DepsOf(path).Where(d => !FileReferences.Exists(d)));
+            var missing = string.Join(", ", new FileReferences().MissingDepsOf(path));
             dialog.GetOkButton().EmitSignal(BaseButton.SignalName.Pressed);
             return missing.Length > 0 ? missing : "see the editor output";
         }

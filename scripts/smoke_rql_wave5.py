@@ -10,7 +10,7 @@ from __future__ import annotations
 import pathlib
 
 from smoke_rql_lib import check, must, mutate, q, query, tool
-from smoke_rql_models import fails, has, lacks
+from smoke_rql_models import fails, has, lacks, value_is
 
 TAB = "\t"
 
@@ -40,7 +40,7 @@ def gdscript_warnings(host: str, d: str) -> None:
     check("W5W ok stays true and one warning is counted", '"ok":true' in text.replace(" ", "").lower() or "ok:true" in text.lower(), text)
     lacks("W5W the probe's error marker is not shown", text, "Warning treated as error")
     level = must("W5W the warning level is restored", query(host, 'settings | where name == "debug/gdscript/warnings/unused_variable" | select value'))
-    check("W5W unused_variable stays at Warn (1)", level.strip().splitlines()[-1].strip() == "1", level)
+    value_is("W5W unused_variable stays at Warn (1)", level, "1")
 
 
 def autoload_registry(host: str, d: str) -> None:
