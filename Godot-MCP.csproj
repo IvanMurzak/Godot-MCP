@@ -17,7 +17,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.42786f9" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.c0d3157" />
   </ItemGroup>
 
   <!--
@@ -31,9 +31,9 @@
     TEMPORARY PRE-RELEASE PINS (owner rule: between test waves RQL, Code-Exec, McpPlugin and ReflectorNet are not released; plugins consume
     their main commits): com.IvanMurzak.Rql 0.3.0-dev.aacfbba is packed from RQL main aacfbba, com.IvanMurzak.CodeExec + .Roslyn
     0.4.0-dev.2556a2f from Code-Exec main 2556a2f, com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the
-    server build) 8.14.0-dev.42786f9 from MCP-Plugin-dotnet main 42786f9 (the McpPlugin pin above; same build as
+    server build) 8.14.0-dev.c0d3157 from MCP-Plugin-dotnet main c0d3157 (the McpPlugin pin above; same build as
     GameDev-MCP-Server) and com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e from ReflectorNet main ec3702e (McpPlugin
-    8.14.0-dev.42786f9 depends on it; the ReflectorNet pin above), all committed under prerelease-packages/; the
+    8.14.0-dev.c0d3157 depends on it; the ReflectorNet pin above), all committed under prerelease-packages/; the
     repo-root Directory.Build.props adds that folder as a restore source for every project in this repo (core, tests,
     Godot-Tests, extensions, templates and the consumers CI scaffolds inside the checkout). Every csproj pin, the CLI
     fallback (cli/src/utils/addon-deps.ts) and the pin docs move together. At the cascade release: set the published

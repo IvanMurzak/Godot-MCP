@@ -10,8 +10,9 @@ All notable changes to `godot-cli` are documented in this file.
 - **`configure`: tools are shown or hidden, not enabled or disabled.** The flag only decides what MCP clients see listed;
   a hidden tool still runs when called by name. `.godot-mcp/features.json` entries are written as `{ name, visible }`
   (a file with the old `enabled` key is still read); `--list` prints `[visible]` / `[hidden]`. Flag names are unchanged.
-- **McpPlugin 8.14.0-dev.42786f9, ReflectorNet 5.5.1-dev.ec3702e (temporary pre-release pins).** The `install-plugin`
-  fallback pins follow the addon (McpPlugin: game-only tools reach the game while the editor is connected).
+- **McpPlugin 8.14.0-dev.c0d3157, ReflectorNet 5.5.1-dev.ec3702e (temporary pre-release pins).** The `install-plugin`
+  fallback pins follow the addon (McpPlugin: game-only tools reach the game while the editor is connected; no
+  warnings about list changes while disconnected or about a connect canceled on request).
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.
