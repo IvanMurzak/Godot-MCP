@@ -269,7 +269,7 @@ in this repo):
 | Package | Version | Role |
 | --- | --- | --- |
 | `com.IvanMurzak.ReflectorNet` | `5.5.1-dev.ec3702e` | reflection / serialization core |
-| `com.IvanMurzak.McpPlugin` | `8.14.0-dev.c0d3157` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.McpPlugin` | `8.14.0-dev.71fa5c1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 | `com.IvanMurzak.Rql` | `0.3.0-dev.aacfbba` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield) |
 | `com.IvanMurzak.CodeExec` + `com.IvanMurzak.CodeExec.Roslyn` | `0.4.0-dev.2556a2f` | Code-Exec runtime + source-only Roslyn adapter behind `script-execute` (PolyForm Shield) |
 | `Microsoft.CodeAnalysis.CSharp` | `4.12.0` | Roslyn for `script-execute`; 4.12 keeps its dependencies at the .NET 8 framework versions |
