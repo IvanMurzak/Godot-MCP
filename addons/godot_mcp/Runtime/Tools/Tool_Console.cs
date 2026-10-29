@@ -8,6 +8,7 @@
 */
 #nullable enable
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.Common;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -27,7 +28,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// pure-managed collector), so it intentionally lives OUTSIDE <c>#if TOOLS</c> — it is discovered by
     /// the McpPlugin assembly scanner and is unit-testable in the plain xUnit host.
     /// </summary>
-    [AiToolType]
+    // Game-only: in the editor RQL's console source replaces it; the server sends the calls to the game while the editor is connected.
+    [AiToolType(Target = ToolTarget.Runtime)]
     public partial class Tool_Console
     {
     }

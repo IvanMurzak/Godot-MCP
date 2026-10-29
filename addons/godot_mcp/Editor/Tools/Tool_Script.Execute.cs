@@ -44,9 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScriptExecuteSource.SkillParameters)]
         [Description("Compiles and runs C# in the Godot editor: plain statements with the last expression as the result " +
             "(own usings, local classes, await allowed), or a declared class 'className' with static method 'methodName'. " +
-            "Returns the result and the printed output (Console; GD.Print on Godot 4.5+). Guarded: an endless loop is stopped when " +
-            "its time budget (about 4 min) runs out and runaway recursion is stopped, with an error, and the editor keeps running; " +
-            "threads or tasks the code starts itself are not stopped, so do not leave them running.")]
+            "Returns the result and the printed output (Console; GD.Print on Godot 4.5+). " + ScriptExecuteSource.GuardDescription)]
         public Task<ScriptExecuteResult> Execute
         (
             [Description("C# code. Snippet: 'var root = EditorInterface.Singleton.GetEditedSceneRoot();\\nroot.GetChildCount()'" +
@@ -65,9 +63,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description(ScriptExecuteSource.UsingsDescription)]
             string[]? usings = null,
             [Description("Helper .cs files or folders (recursive) compiled with the code, relative to <project>/.ai-game-dev/snippets.")]
-            string[]? include = null
+            string[]? include = null,
+            [Description(ScriptExecuteSource.TimeoutDescription)]
+            int timeout = ScriptExecuteSource.DefaultTimeoutSeconds
         )
-            => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include);
+            => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
     }
 }
 #endif

@@ -48,22 +48,71 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(ScriptExecuteSource.RunTimeoutMs > 0);
         }
 
-        // A snippet that waited (compile, an earlier snippet) gets what is left of the call's budget, never 0 (= the default).
+        // The `timeout` argument is in seconds: 0 or less is the 30 s default, more than the call's budget is cut to it.
         [Theory]
-        [InlineData(0L, ScriptExecuteSource.RunTimeoutMs)]
-        [InlineData(1_000L, ScriptExecuteSource.RunTimeoutMs - 1_000)]
-        [InlineData(ScriptExecuteSource.RunTimeoutMs + 5_000L, 1)]
-        [InlineData(-5L, ScriptExecuteSource.RunTimeoutMs)]
-        public void RemainingRunTimeout_CountsFromTheCallsArrival(long elapsedMs, int expected)
-            => Assert.Equal(expected, ScriptExecuteSource.RemainingRunTimeoutMs(elapsedMs));
+        [InlineData(0, 30_000)]
+        [InlineData(-3, 30_000)]
+        [InlineData(5, 5_000)]
+        [InlineData(ScriptExecuteSource.MaxTimeoutSeconds, ScriptExecuteSource.RunTimeoutMs)]
+        [InlineData(100_000, ScriptExecuteSource.RunTimeoutMs)]
+        [InlineData(int.MaxValue, ScriptExecuteSource.RunTimeoutMs)]
+        public void RequestedTimeout_IsSecondsWithADefaultAndACap(int seconds, int expectedMs)
+            => Assert.Equal(expectedMs, ScriptExecuteSource.RequestedTimeoutMs(seconds));
 
-        static CodeRunner GuardedRunner(int defaultTimeoutMs) => new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
+        // A snippet that waited (compile, an earlier snippet) keeps its requested budget while the call's budget allows it, then
+        // gets what is left of that, never 0 (= the default).
+        [Theory]
+        [InlineData(5_000, 0L, 5_000)]
+        [InlineData(5_000, 3_000L, 5_000)]
+        [InlineData(ScriptExecuteSource.RunTimeoutMs, 0L, ScriptExecuteSource.RunTimeoutMs)]
+        [InlineData(ScriptExecuteSource.RunTimeoutMs, 1_000L, ScriptExecuteSource.RunTimeoutMs - 1_000)]
+        [InlineData(5_000, ScriptExecuteSource.RunTimeoutMs - 2_000L, 2_000)]
+        [InlineData(5_000, ScriptExecuteSource.RunTimeoutMs + 5_000L, 1)]
+        [InlineData(int.MaxValue, -5L, ScriptExecuteSource.RunTimeoutMs)]
+        public void RunBudget_IsTheRequestBoundedByTheCallsArrival(int requestedMs, long elapsedMs, int expected)
+            => Assert.Equal(expected, ScriptExecuteSource.RunBudgetMs(requestedMs, elapsedMs));
+
+        [Fact]
+        public void TimeoutDescription_StatesTheDefaultAndTheCapInSeconds()
+        {
+            Assert.Equal(240, ScriptExecuteSource.MaxTimeoutSeconds);
+            Assert.Contains($"in seconds (default {ScriptExecuteSource.DefaultTimeoutSeconds}, at most {ScriptExecuteSource.MaxTimeoutSeconds};",
+                ScriptExecuteSource.TimeoutDescription);
+            Assert.Contains($"default {ScriptExecuteSource.DefaultTimeoutSeconds} s", ScriptExecuteSource.GuardDescription);
+        }
+
+        static CodeRunner GuardedRunner(int defaultTimeoutMs, int maxTimeoutMs = 0) => new CodeRunner(new RoslynCSharpCompiler(), new CodeRunnerOptions
         {
             DefaultUsings = ScriptExecuteSource.DefaultUsings,
             ValueConverter = value => value?.ToString(),
             DefaultTimeoutMs = defaultTimeoutMs,
+            MaxTimeoutMs = maxTimeoutMs,
             ExecutionGuards = true,
         });
+
+        // wave 6: an endless loop cost the agent the full budget (4 min); the host cap bounds a longer request too.
+        [Fact]
+        public void EndlessLoop_RequestBeyondTheCap_StopsAtTheCap()
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var result = GuardedRunner(defaultTimeoutMs: 30_000, maxTimeoutMs: 500)
+                .Execute(new ExecuteRequest { Code = "while (true) { }", TimeoutMs = 600_000 });
+            Assert.Equal(ErrorKind.Timeout, result.ErrorKind);
+            Assert.True(watch.ElapsedMilliseconds < 20_000, $"took {watch.ElapsedMilliseconds} ms");
+        }
+
+        // wave 6: a thread the snippet started kept running after the call; it now stops at its next loop iteration.
+        [Fact]
+        public void SnippetThread_IsStoppedWhenTheRunEnds()
+        {
+            var result = GuardedRunner(defaultTimeoutMs: 30_000).Execute(new ExecuteRequest
+            {
+                Code = "var t = new System.Threading.Thread(() => { while (true) { System.Threading.Thread.Sleep(5); } });\n" +
+                       "t.IsBackground = true; t.Start(); System.Threading.Thread.Sleep(50); t",
+            });
+            Assert.True(result.Success, result.Error);
+            Assert.Contains(result.Logs, l => l.Message.Contains("had not finished when it ended"));
+        }
 
         // wave 5 (C2): `while (true) {}` froze the editor. On the calling thread (the editor runs snippets on its main thread)
         // the guard stops it once the budget is spent, also for a request that leaves TimeoutMs at 0 (= the host default).

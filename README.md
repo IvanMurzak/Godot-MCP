@@ -468,9 +468,9 @@ use the **Local server** row:
   version match, so the editor plugin and the server it talks to never drift). The server is launched
   on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport,
   with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`. A server built on McpPlugin 8.11.0+
-  sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself after
-  4 minutes, the tool timeout minus a minute: an endless loop returns a `Timeout` error and runaway recursion a
-  "Recursion too deep" error, the editor keeps running). Older servers ignore `tool-timeout`: they re-send a call every
+  sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself when its
+  `timeout` argument runs out: 30 s by default, at most 4 minutes, the tool timeout minus a minute; an endless loop returns
+  a `Timeout` error and runaway recursion a "Recursion too deep" error, the editor keeps running). Older servers ignore `tool-timeout`: they re-send a call every
   10 s and give up after about 110 s; the addon runs each re-sent call only once.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
@@ -810,10 +810,13 @@ a pure-managed `game-ping` round-trip plus a `game-scene-tree-summary` that read
 ```csharp
 using System.ComponentModel;
 using com.IvanMurzak.McpPlugin;              // [AiToolType], [AiTool]
+using com.IvanMurzak.McpPlugin.Common;       // ToolTarget
 using com.IvanMurzak.ReflectorNet.Utils;     // MainThread
 using Godot;
 
-[AiToolType]
+// Target = ToolTarget.Runtime: a game-only tool. A game run from the editor compiles the same assembly, but only the
+// game's connection registers it; while the editor is connected too, the server sends its calls to the game.
+[AiToolType(Target = ToolTarget.Runtime)]
 public partial class GameMcpTools
 {
     [AiTool("game-ping", Title = "Game Ping", ReadOnlyHint = true, IdempotentHint = true)]
@@ -864,8 +867,11 @@ against your live game. Real example outsourcing bot logic: a `chess-do-turn` to
 game controller on the main thread, plus a `chess-get-board` tool returning a structured board model.
 
 > Same `[AiToolType]`/`[AiTool]`/`MainThread.Instance.Run(...)` contract as the editor [Customize
-> Tools](#customize-tools) section — the only difference is that in a game build *you* register the tools
-> and *you* call `Connect()`.
+> Tools](#customize-tools) section — the only differences are that in a game build *you* register the tools
+> and *you* call `Connect()`, and that game tools are marked `[AiToolType(Target = ToolTarget.Runtime)]` (or per
+> tool `[AiTool("x", Target = ToolTarget.Runtime)]`) so the editor does not register them and the agent reaches
+> the game even while the editor is connected. `ToolTarget.Editor` marks an editor-only tool; the default, `Both`,
+> registers it everywhere (the editor answers it while connected).
 
 ## Sample: a prompt and a resource
 

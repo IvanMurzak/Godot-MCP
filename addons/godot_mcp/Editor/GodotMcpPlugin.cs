@@ -331,8 +331,9 @@ namespace com.IvanMurzak.Godot.MCP
                 // single source of the first-load config; a resolve failure must not block dock/boot.
                 _connection.ResolveConfig();
 
-                // The editor's connection role (the McpPlugin default, stated so it never depends on it): the server
-                // routes agents to the editor and uses an in-game runtime only while no editor is connected.
+                // The editor's connection role (the McpPlugin default, stated so it never depends on it), set before the plugin is
+                // built: Build() skips ToolTarget.Runtime tools (game-only), and the server routes agents to the editor, sending a
+                // tool only the game has to the game while the editor is connected.
                 _connection.Config.ClientRole = com.IvanMurzak.McpPlugin.Common.ClientRole.Editor;
 
                 // Publish the editor-side host the `godot-skill-*` SYSTEM tools delegate to, and clear it in

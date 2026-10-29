@@ -10,13 +10,14 @@ All notable changes to `godot-cli` are documented in this file.
 - **`configure`: tools are shown or hidden, not enabled or disabled.** The flag only decides what MCP clients see listed;
   a hidden tool still runs when called by name. `.godot-mcp/features.json` entries are written as `{ name, visible }`
   (a file with the old `enabled` key is still read); `--list` prints `[visible]` / `[hidden]`. Flag names are unchanged.
-- **McpPlugin 8.14.0-dev.42786f9 (temporary pre-release pin).** The `install-plugin` fallback pins follow the addon.
+- **McpPlugin 8.14.0-dev.42786f9, ReflectorNet 5.5.1-dev.ec3702e (temporary pre-release pins).** The `install-plugin`
+  fallback pins follow the addon (McpPlugin: game-only tools reach the game while the editor is connected).
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.
 - **RQL 0.3.0-dev.2f4e263, Code-Exec 0.4.0-dev.2556a2f (temporary pre-release pins).** The `install-plugin` fallback pins
-  (addons without `nuget-deps.json`) follow the addon (RQL: arguments by name, overload checks without side effects,
-  compact receipts).
+  (addons without `nuget-deps.json`) follow the addon (RQL: typed Resource literals, vector functions, key warnings;
+  Code-Exec: a `timeout` budget, snippet threads stopped with their run).
 - **ReflectorNet 5.5.0, McpPlugin 8.11.1, server 9.2.14.** The `install-plugin` fallback pins (addons without
   `nuget-deps.json`) and the default server download follow. ReflectorNet 5.5.0's base `MainThread` now detects the main
   thread by its `SynchronizationContext`; the addon is unaffected (`GodotMainThread` overrides that detection).

@@ -88,7 +88,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "props[\"speed\"] on a scripted node); a Godot array lists the values it holds (get props[\"items\"] | where props[\"price\"] > 10). " +
             "Vectors / colors print as (x, y, z); write \"(1, 2, 3)\", [1, 2, 3] or " +
             "{x: 1, y: 2, z: 3}; colors also \"#ff8800\". Vector2/3/4, their integer variants (whole results only) and Color compute " +
-            "component-wise (set Scale = Scale * 1.5, Position + [0, 1, 0]); Quaternion, Basis and transforms do not. A resource path \"res://…\" works wherever a resource is expected, " +
+            "component-wise (set Scale = Scale * 1.5, Position + [0, 1, 0]); Quaternion, Basis and transforms do not. Lists of numbers compute too " +
+            "([Position.X, 0, Position.Z] * 2), and length(v), normalize(v), distance(a, b), dot(a, b), lerp(a, b, t) take vectors or lists " +
+            "(distance(Position, godot.find(\"Player\").Position) < 5). Units: meters in 3D, pixels in 2D. A resource path \"res://…\" works wherever a resource is expected, " +
             "a node path or name wherever a node is expected. Freed nodes read as null. Input events are text: \"Key:Space\", " +
             "\"Key:Ctrl+S\", \"PhysicalKey:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\". A TileSet has sources " +
             "(id kind atlas texture tileCount), physicsLayers, terrainSets, customDataLayers; an atlas source has tiles (coords size data). " +
@@ -103,8 +105,26 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Unknown members produce warnings with suggestions (in rql-mutate a misspelt member that leaves no target is an error); " +
             "rql-schema(type) lists a type's members and Godot properties.\n\n" +
             // The rules every RQL host shares (conditions, ?:, list equality, group items, receipts, call, bulk create, vectors,
-            // missing map entries), appended rather than copied so they follow the runtime.
-            global::Rql.Execution.RqlLanguageGuide.Rules;
+            // missing map entries, literal kinds) with Godot's creation call in the examples.
+            SharedRules;
+
+        /// <summary>
+        /// <c>RqlLanguageGuide.RulesFor("editor.CreateNode")</c> as a constant, since the tools' [Description] attributes embed
+        /// the guide. RqlGuideTests fails when it differs from the runtime's text: after an RQL update copy
+        /// <c>RqlLanguageGuide.Rules</c> again with editor.CreateObject replaced by editor.CreateNode and its "stands for" note dropped.
+        /// </summary>
+        public const string SharedRules =
+            "Language rules:\n" +
+            "- Conditions are booleans. where, and / or / not, ?: and the predicates of .any() .all() .count() .first() take a comparison or has(), never a bare value: where material != null (or has(material)), where count > 0, where name != \"\", where len(tags) > 0. A number, string, object or list there fails with type-mismatch; null counts as false.\n" +
+            "- cond ? a : b (the same as if(cond, a, b)) picks a value and evaluates only the taken branch: set y = (y < 0 ? 0 : y). Inside select, wrap computed values in parentheses: select kind = (intensity > 2 ? \"bright\" : \"dim\").\n" +
+            "- Lists compare by value, in order: tags == [\"a\", \"b\"], x in [[1, 2], [3, 4]]; distinct and group-by merge equal lists.\n" +
+            "- group-by gives rows with key (or one column per key), count and the group's items: group-by kind | select key, count, avg = items.avg(weight); also items.sum(e), items.min(e), items.max(e), items.count(pred), items.first().name. Group by the item's type with $type (group-by $type); a bare type is a member that most items do not have.\n" +
+            "- Receipts list only real changes: a set row whose value stayed the same is left out and counted as unchanged, so no rows with N unchanged means the values already matched.\n" +
+            "- call Method(args) runs the method of each item (the items must be objects). call source.Method(args) runs the method of that one source object once per stream item, with $, $index, $path and $depth in the arguments being the item's; every call counts against the target limit, and every argument is checked before the first call (a dry run checks without calling).\n" +
+            "- Bulk create: range(start, end[, step]) streams numbers (end excluded), and a list literal streams its elements, so one call creates many objects: range(0, 300) | call editor.CreateNode(\"Cube\", {position: [($ % 15) * 2, 0, floor($ / 15) * 2]}) builds a 15-wide grid, [[\"A\", 1], [\"B\", 2]] | call editor.CreateNode($[0], $[1]) one object per entry. The receipt has one row per call with the $ref of the created object.\n" +
+            "- Vectors and colors the host marks as component-wise compute component by component: set Scale = Scale * 1.5, Position + [0, 1, 0], Position - Offset, -Velocity, v / 2. Adding a number to a vector is a type-mismatch (add [x, y, z] instead); quaternions and other types without that mark stay type-mismatch. Lists of numbers are vectors too: [x, 0, z] * k, [1, 2] + [3, 4]. Vector functions work on both: length(v) (or v.length(), magnitude), normalize(v), distance(a, b), dot(a, b), lerp(a, b, t); len(x) stays the size of a string or list.\n" +
+            "- A missing map entry reads as null: props[\"k\"] == null and props[\"k\"] is null are true without the entry, and has(props[\"k\"]) tests whether it exists. A misspelt member is not null: it stays unknown and is reported.\n" +
+            "- Arguments by name: call Method({name: value, ...}) with one object literal that no overload takes as a whole binds each key to the parameter of that name; parameters left out keep their defaults, and an unknown name fails listing the parameters: range(0, 10) | call editor.CreateNode({name: \"Tile\" + $, position: [$ * 2, 0, 0]}). Engine objects (scene objects, nodes, actors) are never built from an object literal: pass an existing one, e.g. ref(\"Type#id\"). Value-like assets and owned subobjects that the host marks are built from a typed literal: set mesh = {$type: \"TypeName\", size: 2}.\n";
 
         /// <summary>
         /// rql-query examples, one per line ("  &lt;query&gt;"); run in order by the live CI smoke against its fixture scene.
@@ -133,6 +153,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  godot.resources(\"MeshLibrary\") | get items | select id name mesh\n" +
             "  nodes | group-by class, scripted=(script is not null)\n" +
             "  nodes | where $ is Node3D | group-by class | select key, count, avgY = items.avg(Position.Y)\n" +
+            "  nodes | where $ is Node3D | sort distance(Position, [0, 0, 0]) | first 3 | select name dist = (distance(Position, [0, 0, 0]))\n" +
             "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")\n" +
             "  files | where type contains \"Material\" and usedBy.count() == 0 | select path\n" +
             "  files | where missingDeps.count() > 0 | select path missingDeps\n" +
@@ -153,6 +174,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  range(0, 100) | call editor.CreateNode(\"MeshInstance3D\", {name: \"Cube\" + $, parent: \"Props\", position: [($ % 10) * 2, 0, floor($ / 10) * 2], mesh: {class: \"BoxMesh\"}})   bulk create: a 10 x 10 grid of cubes in one call and one undo step (one receipt row per node with its $ref; a long receipt lists the first 50 and counts the rest)\n" +
             "  [[\"CoinA\", 0], [\"CoinB\", 3]] | call editor.InstantiateScene(\"res://scenes/enemy.tscn\", {name: $[0], parent: \"Props\", position: [$[1], 1, 0]})   one scene instance per list entry\n" +
             "  nodes | where name starts-with \"Cube\" | set Scale = Scale * 1.5   vectors and colors compute component-wise\n" +
+            "  nodes | where name starts-with \"Cube\" | set Position = [Position.X, 0, Position.Z] * 2   numeric lists compute like vectors ([x, 0, z] * k); vector functions: length, normalize, distance, dot, lerp\n" +
             "  nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")   instance a scene as a child\n" +
             "  nodes | where name == \"Crate\" | call Duplicate()   copy next to it (returns the copy)\n" +
             "  nodes | where name == \"Floor\" | set Mesh = {$type: \"PlaneMesh\", Size: \"(20, 20)\"}   a new embedded resource (mesh, shape, material, environment …) of a concrete class, with its members; a script class_name works too\n" +
@@ -218,15 +240,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
-            "exactly the change requested; a read-only member fails with readonly-member instead of being approximated.\n" +
+            "exactly the change requested; a read-only member fails with readonly-member instead of being approximated. Destructive " +
+            "cleanup (Free, DeleteResource, DeleteFolder on many items) takes two steps: list what matches with rql-query and show it, then " +
+            "delete in a second call. When you map a misspelt or approximate name to an existing node, resource or member, tell the user " +
+            "which one you used.\n" +
             MutateStages + MutateExamplesBlock +
             "Bulk create: range(start, end) or a list literal streams items, and call editor.CreateNode(class, {…}) / " +
             "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +
             "its path or ref(\"Node3D#…\"); the scene root by default) and Godot properties of the new node (position, rotation_degrees, " +
             "scale, mesh, visible …; local, not global_*). Every item is checked before the first node is made; all of them are one " +
             "undo step. By name, the options stay one object: call editor.CreateNode({className: \"Node3D\", options: {name: \"Pivot\"}}).\n" +
-            "Object literals build values and resources (meshes, shapes, materials …), never nodes (AddChild / CreateNode create " +
-            "those): set Position = {x: 1, y: 2, z: 3}; {$type: \"PlaneMesh\"} picks a concrete class. Map entries " +
+            "Object literals build values and resources (meshes, shapes, materials …, script and GDExtension Resource classes too), never " +
+            "nodes (AddChild / CreateNode create those; pass an existing node by godot.find(\"Name\"), path or ref): set Position = " +
+            "{x: 1, y: 2, z: 3}; set Mesh = {$type: \"BoxMesh\", Size: [1, 2, 1]} builds a new resource of a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
             "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +
             "1000): still one all-or-nothing, undoable call. Nodes inside a scene " +

@@ -16,7 +16,7 @@ using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
-    /// <summary>The literal policy's decision only (no native type is instantiated); the live smoke builds the literals.</summary>
+    /// <summary>The literal kinds and refusal advice only (no native type is instantiated); the live smoke builds the literals.</summary>
     public class RqlLiteralPolicyTests
     {
         [Theory]
@@ -26,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(typeof(BoxShape3D))]
         [InlineData(typeof(global::Godot.Environment))]
         [InlineData(typeof(ParticleProcessMaterial))]
-        public void Resources_are_built_from_literals(Type type) => Assert.True(RqlLiteralPolicy.CanConstruct(type));
+        public void Resources_are_values(Type type) => Assert.Equal(LiteralKind.Value, RqlLiteralPolicy.KindOf(type));
 
         [Theory]
         [InlineData(typeof(Node))]
@@ -35,16 +35,34 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(typeof(GodotObject))]
         [InlineData(typeof(string))]
         [InlineData(typeof(Vector3))]
-        public void Other_types_keep_the_default(Type type) => Assert.Null(RqlLiteralPolicy.CanConstruct(type));
+        public void Other_types_keep_the_default_kind(Type type) => Assert.Null(RqlLiteralPolicy.KindOf(type));
+
+        [Theory]
+        [InlineData(typeof(Node), RqlLiteralPolicy.NodeAdvice)]
+        [InlineData(typeof(MeshInstance3D), RqlLiteralPolicy.NodeAdvice)]
+        [InlineData(typeof(GodotObject), RqlLiteralPolicy.ObjectAdvice)]
+        [InlineData(typeof(string), null)]
+        public void Refusals_name_godots_references(Type type, string? expected) => Assert.Equal(expected, RqlLiteralPolicy.RefusalHint(type));
 
         [Fact]
-        public void Configure_installs_the_hook()
+        public void Node_advice_names_the_finder_and_the_creation_calls()
+        {
+            Assert.Contains("godot.find(", RqlLiteralPolicy.NodeAdvice);
+            Assert.Contains("editor.CreateNode", RqlLiteralPolicy.NodeAdvice);
+            Assert.EndsWith(RqlLiteralPolicy.NodeAdvice, RqlLiteralPolicy.Refusal("MeshInstance3D"));
+        }
+
+        // The literal kind replaces the CanConstructFromLiteral override of RQL 2877579 (it would turn every engine type into a value).
+        [Fact]
+        public void Configure_installs_the_kind_and_the_advice_only()
         {
             var engine = new RqlEngine();
-            Assert.Null(engine.Mutations.CanConstructFromLiteral);
             RqlLiteralPolicy.Configure(engine.Mutations);
-            Assert.True(engine.Mutations.CanConstructFromLiteral!(typeof(BoxMesh)));
-            Assert.Null(engine.Mutations.CanConstructFromLiteral!(typeof(Node3D)));
+            Assert.Equal(LiteralKind.Value, engine.Mutations.LiteralKindOf!(typeof(BoxMesh)));
+            Assert.Null(engine.Mutations.LiteralKindOf!(typeof(Node3D)));
+            Assert.Equal(RqlLiteralPolicy.NodeAdvice, engine.Mutations.LiteralRefusalHint!(typeof(Node3D)));
+            Assert.Null(engine.Mutations.CanConstructFromLiteral);
+            Assert.Null(engine.Mutations.CreateForLiteral);
         }
     }
 }

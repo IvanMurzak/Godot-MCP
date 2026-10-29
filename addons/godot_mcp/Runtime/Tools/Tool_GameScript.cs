@@ -56,7 +56,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Compiles and runs C# inside the running game (main thread; game types, autoloads and the scene tree via " +
             "((SceneTree)Engine.GetMainLoop()).Root; no editor APIs): plain statements with the last expression as the result " +
             "(own usings, local classes, await allowed), or a declared class 'className' with static method 'methodName'. " +
-            "Returns the result and the printed output (Console; GD.Print on Godot 4.5+).")]
+            "Returns the result and the printed output (Console; GD.Print on Godot 4.5+). " + ScriptExecuteSource.GuardDescription)]
         public Task<ScriptExecuteResult> Execute
         (
             [Description("C# code. Snippet: 'var root = ((SceneTree)Engine.GetMainLoop()).Root;\\nroot.GetChildCount()'" +
@@ -74,9 +74,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             string[]? usings = null,
             [Description("Helper .cs files or folders (recursive) compiled with the code, relative to .ai-game-dev/snippets " +
                 "(in the project, or next to the game executable).")]
-            string[]? include = null
+            string[]? include = null,
+            [Description(ScriptExecuteSource.TimeoutDescription)]
+            int timeout = ScriptExecuteSource.DefaultTimeoutSeconds
         )
-            => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include);
+            => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
 
         /// <summary>
         /// Makes THIS tool the plugin's <c>script-execute</c>. A game that also registers the addon assembly
