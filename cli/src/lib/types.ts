@@ -277,9 +277,10 @@ export interface OpenProjectOptions {
 
 /**
  * Starts the editor for `openProject`: `editorPath` with `args`, detached, in `env` (the full environment:
- * `process.env` plus the MCP variables). Returns the started process (its `pid` is read once) or a promise of the
+ * `process.env`, the .NET runtime workaround `DOTNET_ThreadPool_ThreadsToKeepAlive`, and the MCP variables). Returns the started process (its `pid` is read once) or a promise of the
  * editor's pid, which `openProject` waits for before it reports `editor-launched` and returns `editorPid`
  * (`undefined`: started, pid unknown). A rejection, or a throw, fails the open: the editor did not start.
+ * The promise must settle: `openProject` sets no deadline of its own, the implementation owns it.
  */
 export type EditorSpawnImpl = (
   editorPath: string,

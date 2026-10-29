@@ -267,7 +267,7 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
 /** The editor pid an `openProject` `spawnImpl` reported: the started process's `pid`, or its promise's value. */
 async function spawnedEditorPid(started: ReturnType<EditorSpawnImpl>): Promise<number | undefined> {
   const value = await started;
-  return typeof value === 'object' ? value.pid : value;
+  return value !== null && typeof value === 'object' ? value.pid : (value ?? undefined);
 }
 
 /**

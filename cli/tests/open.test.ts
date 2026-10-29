@@ -284,6 +284,7 @@ describe('openProject', () => {
     fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
     const fakeBin = path.join(tmpDir, 'godot-bin');
     fs.writeFileSync(fakeBin, '');
+    spawnMock.mockReset();
     const events: { phase: string; message: string; pid?: number }[] = [];
 
     const sync = await openProject({ projectPath: tmpDir, editorPath: fakeBin, noConnect: true, spawnImpl: () => ({ pid: 77 }) });
@@ -297,12 +298,14 @@ describe('openProject', () => {
     if (unknown.kind !== 'success') return;
     expect(unknown.editorPid).toBeUndefined();
     expect(events).toContainEqual({ phase: 'editor-launched', message: 'Launched Godot editor', pid: undefined });
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
   it('a spawnImpl that rejects fails the open (the editor did not start)', async () => {
     fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
     const fakeBin = path.join(tmpDir, 'godot-bin');
     fs.writeFileSync(fakeBin, '');
+    spawnMock.mockReset();
     const phases: string[] = [];
 
     const result = await openProject({
@@ -316,5 +319,6 @@ describe('openProject', () => {
     expect(result.errorMessage).toBe('Windows did not start the application (code 9).');
     // Nothing after the launch attempt: no `editor-launched`, no final `done`.
     expect(phases.at(-1)).toBe('launching-editor');
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 });
