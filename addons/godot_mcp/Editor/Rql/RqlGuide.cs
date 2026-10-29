@@ -252,9 +252,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated. Destructive " +
-            "cleanup (Free, DeleteResource, DeleteFolder on many items) takes two steps: list what matches with rql-query and show it, then " +
-            "delete in a second call. When you map a misspelt or approximate name to an existing node, resource or member, tell the user " +
-            "which one you used.\n" +
+            "cleanup (Free on many nodes, DeleteResource, DeleteFolder) takes two turns: list what matches with rql-query, show the list to the " +
+            "user and end your turn; delete only after the user confirms in a later message. When you map a misspelt or approximate name " +
+            "to an existing node, resource or member, tell the user which one you used.\n" +
             MutateStages + MutateExamplesBlock +
             "Bulk create: range(start, end) or a list literal streams items, and call editor.CreateNode(class, {…}) / " +
             "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +

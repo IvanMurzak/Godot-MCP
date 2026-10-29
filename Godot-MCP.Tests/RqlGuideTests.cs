@@ -92,7 +92,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             foreach (var function in new[] { "length(v)", "normalize(v)", "distance(a, b)", "dot(a, b)", "lerp(a, b, t)" })
                 Assert.Contains(function, RqlGuide.Language);
             Assert.Contains("Units: meters in 3D, pixels in 2D", RqlGuide.Language);
-            Assert.Contains("list what matches with rql-query and show it", RqlGuide.MutateDescription);
+            Assert.Contains("list what matches with rql-query, show the list to the user and end your turn; delete only after the user confirms", RqlGuide.MutateDescription);
             Assert.Contains("tell the user", RqlGuide.MutateDescription);
             Assert.Contains("{$type: \"BoxMesh\", Size: [1, 2, 1]}", RqlGuide.MutateDescription);
             Assert.Contains("one undo step", RqlGuide.MutateDescription);
