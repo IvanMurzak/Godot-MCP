@@ -108,9 +108,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // missing map entries, literal kinds) with Godot's creation call in the examples.
             SharedRules;
 
-        /// <summary>Godot's creation call in the shared rules' examples (<c>RqlLanguageGuide.RulesWith</c>).</summary>
-        public const string RuleCreateCall = "editor.CreateNode";
-
         /// <summary>The grid example: the call after <c>range(0, 300) | call </c>, building a 15-wide grid from <c>$</c>.</summary>
         public const string RuleGridExample = "editor.CreateNode(\"Node3D\", {name: \"Tile\" + $, position: [($ % 15) * 2, 0, floor($ / 15) * 2]})";
 

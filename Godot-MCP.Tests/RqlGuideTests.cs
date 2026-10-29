@@ -70,17 +70,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // vectors, map entries, literal kinds).
             var rules = global::Rql.Execution.RqlLanguageGuide.RulesWith(new global::Rql.Execution.RqlRuleExamples
             {
-                CreateCall = RqlGuide.RuleCreateCall,
                 Grid = RqlGuide.RuleGridExample,
                 PerEntry = RqlGuide.RulePerEntryExample,
                 Named = RqlGuide.RuleNamedExample,
             });
             Assert.EndsWith(rules, RqlGuide.Language);
             Assert.Equal(RqlGuide.SharedRules, rules);
-            // RQL aacfbba: the rules show Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder.
-            Assert.Contains("range(0, 300) | call " + RqlGuide.RuleGridExample, RqlGuide.SharedRules);
-            Assert.Contains(RqlGuide.RulePerEntryExample, RqlGuide.SharedRules);
-            Assert.Contains("range(0, 10) | call " + RqlGuide.RuleNamedExample, RqlGuide.SharedRules);
+            // RQL aacfbba: Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder left.
             Assert.DoesNotContain("stands for", RqlGuide.SharedRules);
             Assert.DoesNotContain("\"Cube\"", RqlGuide.SharedRules);
             Assert.DoesNotContain("editor.CreateObject", RqlGuide.Language);

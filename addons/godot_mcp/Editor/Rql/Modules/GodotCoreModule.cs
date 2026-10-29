@@ -28,6 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
         public void Configure(RqlModuleContext ctx)
         {
+            // Each source declares its getter's return type: its members are known names before a query reads it (RQL never
+            // evaluates a source a query does not name). Keep it the concrete type: a base such as GodotObject would make RQL's
+            // known-names walk visit every subclass.
             ctx.AddSource("nodes", RqlGodot.AllNodes, "every node of the edited scene, depth-first, root first (internal children excluded)", typeof(List<global::Godot.Node>))
                .AddSource("root", RqlGodot.Roots, "the root node of the edited scene", typeof(List<global::Godot.Node>))
                .AddSource("selection", RqlGodot.SelectedNodes, "nodes selected in the editor", typeof(List<global::Godot.Node>))
