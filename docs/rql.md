@@ -59,9 +59,10 @@ layer masks and MeshLibrary item settings are stored properties and go through t
 like any object, and undoing them writes `project.godot` again. Changes to a sub-resource stored inside a resource
 file (a TileSet's atlas source, also one created in the same session) save that file.
 
-Kept as tools: `script-*`, `screenshot-*`, `ping`, `godot-skill-*`, `runtime-errors-*`. The **in-game runtime** tool
-surface is unchanged: `console-*`, `reflection-*`, `runtime-errors-*` and `ping` stay registered in a game build (the
-editor removes `console-*` / `reflection-*` from the plugin it builds — `RqlInstaller.EditorReplacedTools`).
+Kept as tools: `script-*`, `screenshot-*`, `ping`, `godot-skill-*`. The **in-game runtime** tool surface is unchanged:
+`console-*`, `reflection-*`, `runtime-errors-*` and `ping` stay registered in a game build. The first three are game-only
+(`[AiToolType(Target = ToolTarget.Runtime)]`): the editor's plugin does not register them, and while both are connected the
+server sends their calls to the game.
 
 With the default `toolFormat` `Rql` (config key `toolFormat`, env `GODOT_MCP_TOOL_FORMAT`), the other tools take RQL
 values as arguments (`"Level/Player"`, `ref("Node3D#12")`, `godot.find("Name")` for a `NodeRef`) and return compact

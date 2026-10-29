@@ -12,7 +12,6 @@
 using System;
 using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat;
-using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
 
@@ -24,9 +23,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// creates (its <c>configurePlugin</c> parameter), so the runtime-agnostic connection
     /// never references editor code. For every plugin the connection builds it:
     /// <list type="bullet">
-    /// <item>shapes the EDITOR tool surface: removes the runtime-safe data tools RQL replaces in the editor
-    /// (<see cref="EditorReplacedTools"/>: console-* → the <c>console</c> source, reflection-method-* → <c>call</c> /
-    /// <c>CallMethod</c> / rql-schema). The in-game runtime (<c>GodotMcpRuntime</c>) builds its own plugin and keeps them;</item>
+    /// <item>gives the RQL <c>tools</c> source the tool manager. The game-only tool families RQL replaces in the editor
+    /// (console-* → the <c>console</c> source, reflection-method-* → <c>call</c> / <c>CallMethod</c> / rql-schema) and
+    /// runtime-errors-* are <c>ToolTarget.Runtime</c>: the editor's plugin (role Editor) never registers them, the in-game runtime
+    /// (<c>GodotMcpRuntime</c>, role Runtime) does, and the server sends their calls to the game while the editor is connected;</item>
     /// <item>installs the tool data layer the config asks for (<see cref="GodotMcpConfig.ActiveToolFormat"/>): RQL
     /// (<see cref="RqlToolBinding"/>) or ReflectorNet JSON.</item>
     /// </list>
@@ -34,15 +34,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     internal static class RqlInstaller
     {
-        /// <summary>Runtime tools that RQL replaces in the editor (they stay registered in a game build's runtime).</summary>
-        internal static readonly string[] EditorReplacedTools =
-        {
-            Tool_Console.ConsoleGetLogsToolId,
-            Tool_Console.ConsoleClearLogsToolId,
-            Tool_Reflection.ReflectionMethodFindToolId,
-            Tool_Reflection.ReflectionMethodCallToolId,
-        };
-
         /// <summary>Wire the engine and the binding to the editor; returns the plugin configuration for the connection.</summary>
         public static Action<IMcpPlugin, GodotMcpConfig> Install(Func<global::Godot.EditorUndoRedoManager?> undoRedo)
         {
@@ -71,8 +62,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var tools = plugin.McpManager?.ToolManager;
             if (tools == null) return;
             RqlTools.Manager = tools; // the tools source lists every tool, hidden ones included
-            foreach (var id in EditorReplacedTools)
-                if (tools.HasTool(id)) tools.RemoveTool(id);
             try
             {
                 RqlToolBinding.Apply(tools, config.ActiveToolFormat, config.ToolTextEscaping);

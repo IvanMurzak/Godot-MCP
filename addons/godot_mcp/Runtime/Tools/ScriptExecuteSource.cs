@@ -33,19 +33,42 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public const int ToolTimeoutMarginMs = 60_000;
 
         /// <summary>
-        /// How long one script-execute call may take (ms): McpPlugin's default tool timeout (300 s, which the local server's
+        /// The longest time budget of a snippet (ms): McpPlugin's default tool timeout (300 s, which the local server's
         /// <c>GodotMcpServerView.ToolTimeoutMs</c> keeps) minus <see cref="ToolTimeoutMarginMs"/>, so Code-Exec's guard stops an
-        /// endless loop with a Timeout result before the server gives up on the call. It is the runner's <c>DefaultTimeoutMs</c>;
-        /// each request gets what is left of it when its snippet starts (<see cref="RemainingRunTimeoutMs"/>), never 0 (since
-        /// Code-Exec 0.4 that means the host default; before, no bound).
+        /// endless loop with a Timeout result before the server gives up on the call. It is the runner's <c>MaxTimeoutMs</c>
+        /// (a longer <c>timeout</c> argument is cut to it); a call never runs past it counted from its arrival (<see cref="RunBudgetMs"/>).
         /// </summary>
         public const int RunTimeoutMs = com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultToolTimeoutMs - ToolTimeoutMarginMs;
 
+        /// <summary>The <c>timeout</c> argument's default, in seconds (Code-Exec's recommendation: an endless loop costs 30 s, not 4 min).</summary>
+        public const int DefaultTimeoutSeconds = 30;
+
+        /// <summary>The largest useful <c>timeout</c> argument, in seconds (<see cref="RunTimeoutMs"/>).</summary>
+        public const int MaxTimeoutSeconds = RunTimeoutMs / 1000;
+
+        /// <summary>The <c>timeout</c> argument's description (editor and in-game tools); a test checks its numbers against the constants.</summary>
+        internal const string TimeoutDescription =
+            "Time budget of the run in seconds (default 30, at most 240; 0 = default). When it runs out the code is stopped at its " +
+            "next loop iteration or call and the call fails with Timeout; give long-running work a larger value.";
+
+        /// <summary>The guard sentence of the tool descriptions (editor and in-game): the time budget and what Code-Exec stops.</summary>
+        internal const string GuardDescription =
+            "Guarded: an endless loop is stopped when its time budget ('timeout', default 30 s) runs out, and runaway recursion is " +
+            "stopped, with an error, and the process keeps running. Threads and tasks the code starts (new Thread, Task.Run, " +
+            "ThreadPool) are stopped at their next loop iteration or call once the run ends (a warning counts them); timers, " +
+            "async void code after its first await and work blocked in a wait are not, so join or await what you start.";
+
+        /// <summary>The budget a <c>timeout</c> argument (seconds) asks for, in ms: the default for 0 or less, at most <see cref="RunTimeoutMs"/>.</summary>
+        public static int RequestedTimeoutMs(int timeoutSeconds) =>
+            timeoutSeconds <= 0 ? DefaultTimeoutSeconds * 1000 : (int)Math.Min(timeoutSeconds * 1000L, RunTimeoutMs);
+
         /// <summary>
         /// The time budget of a snippet that starts <paramref name="elapsedMs"/> after its call arrived (compiling, waiting for the
-        /// main thread or for an earlier snippet): the rest of <see cref="RunTimeoutMs"/>, at least 1 ms (0 would mean the default).
+        /// main thread or for an earlier snippet): the requested budget, but no more than what is left of <see cref="RunTimeoutMs"/>
+        /// (the call must answer before the server's tool timeout); at least 1 ms (0 would mean the default).
         /// </summary>
-        public static int RemainingRunTimeoutMs(long elapsedMs) => (int)Math.Max(1, Math.Min(RunTimeoutMs, RunTimeoutMs - elapsedMs));
+        public static int RunBudgetMs(int requestedMs, long elapsedMs) =>
+            (int)Math.Max(1, Math.Min(Math.Min(requestedMs, RunTimeoutMs), RunTimeoutMs - elapsedMs));
 
         /// <summary>Usings every snippet gets; Godot's namespace on top of Unity-MCP's System set.</summary>
         public static readonly IReadOnlyList<string> DefaultUsings = new[]

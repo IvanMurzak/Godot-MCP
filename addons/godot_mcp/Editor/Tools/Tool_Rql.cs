@@ -31,10 +31,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>The answer to a call without its required query (a client that left the argument out).</summary>
         public const string MissingQueryText = "error missing-argument: the 'query' argument is required: an RQL query such as nodes | count";
 
+        /// <summary>
+        /// The note after the count of receipt rows a long receipt leaves out. RQL's default points at a json format these tools
+        /// do not have; the change itself is complete, and the objects can be read back.
+        /// </summary>
+        public const string MoreReceiptRowsNote = "(every change was made; rql-query reads the changed objects)";
+
+        /// <summary>As <see cref="MoreReceiptRowsNote"/> for a dry run, which changed nothing.</summary>
+        public const string MoreDryRunRowsNote = "(every target was checked; rql-query reads them)";
+
         /// <summary>A query or mutation: executed on the main thread, its (already encoded) result rendered after the hop.</summary>
         private static ResponseCallTool Run(Func<QueryResult> execute) => Run(execute, result =>
         {
-            var text = AgentFormat.Render(result, OutputFormat.Table);
+            var text = AgentFormat.Render(result, OutputFormat.Table, AgentFormat.DefaultReceiptRows,
+                result.DryRun ? MoreDryRunRowsNote : MoreReceiptRowsNote);
             return result.Ok ? ResponseCallTool.Success(text) : ResponseCallTool.Error(text);
         });
 

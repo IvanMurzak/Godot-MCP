@@ -16,8 +16,8 @@
     version deterministic.
   -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.e8985d5" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.42786f9" />
   </ItemGroup>
 
   <!--
@@ -28,11 +28,12 @@
     Code-Exec and Roslyn also go into exports when the game opts in to in-game `script-execute` with
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
-    TEMPORARY PRE-RELEASE PINS (owner rule: between test waves RQL, Code-Exec and McpPlugin are not released; plugins consume
-    their main commits): com.IvanMurzak.Rql 0.3.0-dev.2877579 is packed from RQL main 2877579, com.IvanMurzak.CodeExec + .Roslyn
-    0.4.0-dev.2b784e4 from Code-Exec main 2b784e4, com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the
-    server build) 8.14.0-dev.e8985d5 from MCP-Plugin-dotnet main e8985d5 (the McpPlugin pin above; same build as
-    GameDev-MCP-Server), all committed under prerelease-packages/; the
+    TEMPORARY PRE-RELEASE PINS (owner rule: between test waves RQL, Code-Exec, McpPlugin and ReflectorNet are not released; plugins consume
+    their main commits): com.IvanMurzak.Rql 0.3.0-dev.2f4e263 is packed from RQL main 2f4e263, com.IvanMurzak.CodeExec + .Roslyn
+    0.4.0-dev.2556a2f from Code-Exec main 2556a2f, com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the
+    server build) 8.14.0-dev.42786f9 from MCP-Plugin-dotnet main 42786f9 (the McpPlugin pin above; same build as
+    GameDev-MCP-Server) and com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e from ReflectorNet main ec3702e (McpPlugin
+    8.14.0-dev.42786f9 depends on it; the ReflectorNet pin above), all committed under prerelease-packages/; the
     repo-root Directory.Build.props adds that folder as a restore source for every project in this repo (core, tests,
     Godot-Tests, extensions, templates and the consumers CI scaffolds inside the checkout). Every csproj pin, the CLI
     fallback (cli/src/utils/addon-deps.ts) and the pin docs move together. At the cascade release: set the published
@@ -42,9 +43,9 @@
     <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2877579" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2b784e4" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2f4e263" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2556a2f" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2556a2f" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
   </ItemGroup>
 

@@ -8,6 +8,7 @@
 */
 #nullable enable
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.Common;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -30,7 +31,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// families it is opt-in for the running game: a developer registers it via
     /// <c>GodotMcpRuntime.Initialize(b =&gt; b.WithRuntimeErrorTool())</c> (or the whole addon assembly).
     /// </summary>
-    [AiToolType]
+    // Game-only (the editor never installs the capture): the editor does not register it, so the server sends the calls to the game.
+    [AiToolType(Target = ToolTarget.Runtime)]
     public partial class Tool_RuntimeErrors
     {
     }

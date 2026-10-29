@@ -312,15 +312,15 @@ package assemblies are not copied next to the game assembly):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.e8985d5" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.42786f9" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.2877579" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.2f4e263" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.0-dev.2556a2f" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2556a2f" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
@@ -332,11 +332,11 @@ package assemblies are not copied next to the game assembly):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.0` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.14.0-dev.e8985d5` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.2877579` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.2b784e4` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.2b784e4` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.1-dev.ec3702e` | Reflection / serialization core |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.14.0-dev.42786f9` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0-dev.2f4e263` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.0-dev.2556a2f` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
+| [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.0-dev.2556a2f` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
 
 The four editor-only packages carry a `Condition` that leaves them out of Godot's export builds: only editor
@@ -468,9 +468,9 @@ use the **Local server** row:
   version match, so the editor plugin and the server it talks to never drift). The server is launched
   on the port from your **Server URL** (default `http://localhost:8080`), over the `streamableHttp` transport,
   with `plugin-timeout=10000` (the connection timeout) and `tool-timeout=300000`. A server built on McpPlugin 8.11.0+
-  sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself after
-  4 minutes, the tool timeout minus a minute: an endless loop returns a `Timeout` error and runaway recursion a
-  "Recursion too deep" error, the editor keeps running). Older servers ignore `tool-timeout`: they re-send a call every
+  sends a tool call to the editor once and lets it run up to 5 minutes (`script-execute` stops a snippet itself when its
+  `timeout` argument runs out: 30 s by default, at most 4 minutes, the tool timeout minus a minute; an endless loop returns
+  a `Timeout` error and runaway recursion a "Recursion too deep" error, the editor keeps running). Older servers ignore `tool-timeout`: they re-send a call every
   10 s and give up after about 110 s; the addon runs each re-sent call only once.
 
 > **Version pinning & security.** The download URL is derived **solely** from the addon's pinned
@@ -810,10 +810,13 @@ a pure-managed `game-ping` round-trip plus a `game-scene-tree-summary` that read
 ```csharp
 using System.ComponentModel;
 using com.IvanMurzak.McpPlugin;              // [AiToolType], [AiTool]
+using com.IvanMurzak.McpPlugin.Common;       // ToolTarget
 using com.IvanMurzak.ReflectorNet.Utils;     // MainThread
 using Godot;
 
-[AiToolType]
+// Target = ToolTarget.Runtime: a game-only tool. A game run from the editor compiles the same assembly, but only the
+// game's connection registers it; while the editor is connected too, the server sends its calls to the game.
+[AiToolType(Target = ToolTarget.Runtime)]
 public partial class GameMcpTools
 {
     [AiTool("game-ping", Title = "Game Ping", ReadOnlyHint = true, IdempotentHint = true)]
@@ -864,8 +867,11 @@ against your live game. Real example outsourcing bot logic: a `chess-do-turn` to
 game controller on the main thread, plus a `chess-get-board` tool returning a structured board model.
 
 > Same `[AiToolType]`/`[AiTool]`/`MainThread.Instance.Run(...)` contract as the editor [Customize
-> Tools](#customize-tools) section — the only difference is that in a game build *you* register the tools
-> and *you* call `Connect()`.
+> Tools](#customize-tools) section — the only differences are that in a game build *you* register the tools
+> and *you* call `Connect()`, and that game tools are marked `[AiToolType(Target = ToolTarget.Runtime)]` (or per
+> tool `[AiTool("x", Target = ToolTarget.Runtime)]`) so the editor does not register them and the agent reaches
+> the game even while the editor is connected. `ToolTarget.Editor` marks an editor-only tool; the default, `Both`,
+> registers it everywhere (the editor answers it while connected).
 
 ## Sample: a prompt and a resource
 

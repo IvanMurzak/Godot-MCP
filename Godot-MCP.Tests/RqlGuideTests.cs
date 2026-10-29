@@ -48,8 +48,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
-            Assert.Equal(27, RqlGuide.QueryExamples.Length);
-            Assert.Equal(40, RqlGuide.MutateExamples.Length);
+            Assert.Equal(28, RqlGuide.QueryExamples.Length);
+            Assert.Equal(41, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
 
@@ -66,12 +66,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("items.avg("));
             Assert.Contains("a boolean condition", RqlGuide.Language);
             Assert.Contains("has(Mesh)", RqlGuide.QuerySyntaxShort);
-            // The shared rules come from the runtime (conditions, list equality, receipts, call, bulk create, vectors, map entries).
-            Assert.EndsWith(global::Rql.Execution.RqlLanguageGuide.Rules, RqlGuide.Language);
+            // The shared rules are the runtime's, with Godot's creation call (conditions, list equality, receipts, call, bulk create,
+            // vectors, map entries, literal kinds).
+            Assert.EndsWith(global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"), RqlGuide.Language);
+            Assert.Equal(RqlGuide.SharedRules, global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"));
+            Assert.DoesNotContain("editor.CreateObject", RqlGuide.Language);
             Assert.Contains("Lists compare by value", RqlGuide.Language);
             Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("range(0, ") && e.Contains("call editor.CreateNode("));
             Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("[[") && e.Contains("call editor.InstantiateScene("));
             Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("set Scale = Scale * 1.5"));
+            // RQL 2f4e263: list arithmetic and vector functions; wave-6 agent rules.
+            Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("[Position.X, 0, Position.Z] * 2"));
+            Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("distance(Position, "));
+            foreach (var function in new[] { "length(v)", "normalize(v)", "distance(a, b)", "dot(a, b)", "lerp(a, b, t)" })
+                Assert.Contains(function, RqlGuide.Language);
+            Assert.Contains("Units: meters in 3D, pixels in 2D", RqlGuide.Language);
+            Assert.Contains("list what matches with rql-query and show it", RqlGuide.MutateDescription);
+            Assert.Contains("tell the user", RqlGuide.MutateDescription);
+            Assert.Contains("{$type: \"BoxMesh\", Size: [1, 2, 1]}", RqlGuide.MutateDescription);
             Assert.Contains("one undo step", RqlGuide.MutateDescription);
             Assert.Contains("unchanged assignment(s) not listed", RqlGuide.MutateDescription);
         }

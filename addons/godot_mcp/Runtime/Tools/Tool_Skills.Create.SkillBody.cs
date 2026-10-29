@@ -109,6 +109,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "A tool that touches `EditorInterface`/`EditorPlugin`/`EditorFileSystem` must be wrapped in " +
             "`#if TOOLS ... #endif` so it is stripped from an exported game build (where those APIs do not " +
             "exist). A tool that only needs pure-managed state (like `ping`) should stay unguarded.\n\n" +
+            "### Mark game-only tools `ToolTarget.Runtime`\n" +
+            "A tool for the RUNNING game (registered by `GodotMcpRuntime`, reading the live game) is marked " +
+            "`[AiToolType(Target = ToolTarget.Runtime)]` (`using com.IvanMurzak.McpPlugin.Common;`): the editor then does not " +
+            "register it, and the agent reaches the game even while the editor is connected. Editor tools keep the default.\n\n" +
             "### Return structured data, not formatted strings\n" +
             "Prefer returning a data model (ReflectorNet serializes it for the client) over hand-formatted " +
             "text, so the AI can read individual fields. Return `void` for side-effect-only operations.\n\n" +

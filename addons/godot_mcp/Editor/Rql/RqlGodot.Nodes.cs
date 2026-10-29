@@ -469,11 +469,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var named = (literal.TryGetValue("$type", out var type) ? type : literal.TryGetValue("class", out var cls) ? cls : null) as string;
             if (string.IsNullOrEmpty(named))
-                return typeof(Resource).IsAssignableFrom(target) ? null : RqlLiteralPolicy.Refusal(RqlHostNames.GodotClassName(target) ?? target.Name);
+                return typeof(Resource).IsAssignableFrom(target) ? null
+                    : RqlLiteralPolicy.Refusal(RqlHostNames.GodotClassName(target) ?? target.Name, typeof(Node).IsAssignableFrom(target));
             string native;
             try { native = ClassDB.ClassExists(named) ? named : ScriptAwareClass(named!, "Object", "class", out _); }
             catch (ArgumentException) { return null; }
-            return native == "Resource" || ClassDB.IsParentClass(native, "Resource") ? null : RqlLiteralPolicy.Refusal(named!);
+            return native == "Resource" || ClassDB.IsParentClass(native, "Resource") ? null
+                : RqlLiteralPolicy.Refusal(named!, native == "Node" || ClassDB.IsParentClass(native, "Node"));
         }
     }
 }
