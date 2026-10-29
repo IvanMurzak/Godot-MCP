@@ -250,4 +250,72 @@ describe('openProject', () => {
     expect(buildSpawn).not.toHaveBeenCalled();
     expect(spawnMock).toHaveBeenCalledTimes(1);
   });
+  it('a spawnImpl starts the editor instead, and a late pid is waited for and logged once known', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
+    const fakeBin = path.join(tmpDir, 'godot-bin');
+    fs.writeFileSync(fakeBin, '');
+    spawnMock.mockReset();
+    const events: { phase: string; message: string; pid?: number }[] = [];
+    const spawnImpl = vi.fn((_editor: string, _args: string[], _env: NodeJS.ProcessEnv) =>
+      // Later than the 2 s the default spawn waits for its `spawn` event: a spawnImpl's pid is never cut off.
+      new Promise<number>((resolve) => setTimeout(() => resolve(4242), 2100)));
+
+    const result = await openProject({
+      projectPath: tmpDir,
+      editorPath: fakeBin,
+      url: 'http://localhost:8080',
+      spawnImpl,
+      onProgress: (e) => events.push(e as { phase: string; message: string; pid?: number }),
+    });
+
+    expect(result.kind).toBe('success');
+    if (result.kind !== 'success') return;
+    expect(result.editorPid).toBe(4242);
+    expect(spawnMock).not.toHaveBeenCalled();
+    const [bin, args, env] = spawnImpl.mock.calls[0];
+    expect(bin).toBe(path.resolve(fakeBin));
+    expect(args).toEqual(['--editor', '--path', path.resolve(tmpDir)]);
+    expect(env).toMatchObject({ GODOT_MCP_HOST: 'http://localhost:8080', PATH: process.env.PATH });
+    expect(events.filter((e) => e.phase === 'editor-launched')).toEqual([
+      { phase: 'editor-launched', message: 'Launched Godot editor (PID: 4242)', pid: 4242 },
+    ]);
+  }, 20_000);
+
+  it('a spawnImpl may return the started process; an unknown pid is never logged as "unknown"', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
+    const fakeBin = path.join(tmpDir, 'godot-bin');
+    fs.writeFileSync(fakeBin, '');
+    const events: { phase: string; message: string; pid?: number }[] = [];
+
+    const sync = await openProject({ projectPath: tmpDir, editorPath: fakeBin, noConnect: true, spawnImpl: () => ({ pid: 77 }) });
+    expect(sync.kind === 'success' && sync.editorPid).toBe(77);
+
+    const unknown = await openProject({
+      projectPath: tmpDir, editorPath: fakeBin, noConnect: true, spawnImpl: async () => undefined,
+      onProgress: (e) => events.push(e as { phase: string; message: string; pid?: number }),
+    });
+    expect(unknown.kind).toBe('success');
+    if (unknown.kind !== 'success') return;
+    expect(unknown.editorPid).toBeUndefined();
+    expect(events).toContainEqual({ phase: 'editor-launched', message: 'Launched Godot editor', pid: undefined });
+  });
+
+  it('a spawnImpl that rejects fails the open (the editor did not start)', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');
+    const fakeBin = path.join(tmpDir, 'godot-bin');
+    fs.writeFileSync(fakeBin, '');
+    const phases: string[] = [];
+
+    const result = await openProject({
+      projectPath: tmpDir, editorPath: fakeBin, noConnect: true,
+      spawnImpl: async () => { throw new Error('Windows did not start the application (code 9).'); },
+      onProgress: (e) => phases.push(e.phase),
+    });
+
+    expect(result.kind).toBe('failure');
+    if (result.kind !== 'failure') return;
+    expect(result.errorMessage).toBe('Windows did not start the application (code 9).');
+    // Nothing after the launch attempt: no `editor-launched`, no final `done`.
+    expect(phases.at(-1)).toBe('launching-editor');
+  });
 });

@@ -210,7 +210,7 @@ export const openCommand = new Command('open')
               break;
             }
             case 'editor-launched': {
-              ui.success(`Launched Godot editor (PID: ${event.pid ?? 'unknown'})`);
+              ui.success(event.message);
               break;
             }
             default:
@@ -229,7 +229,7 @@ export const openCommand = new Command('open')
 
       if (result.alreadyRunning) {
         spinner.stop();
-        ui.success(`Godot is already running with this project (PID: ${result.editorPid ?? 'unknown'})`);
+        ui.success(`Godot is already running with this project${result.editorPid !== undefined ? ` (PID: ${result.editorPid})` : ''}`);
         ui.info('Skipping launch. Use the running instance or close it first.');
         process.exit(0);
       }

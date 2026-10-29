@@ -4,6 +4,11 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`openProject` `spawnImpl`** (type `EditorSpawnImpl`): an embedder starts the editor its own way. It gets the
+  editor path, arguments and full environment, and returns the started process or a promise of the editor's pid,
+  which `openProject` waits for before `editor-launched` and `editorPid`; a rejection fails the open. The
+  `editor-launched` line (and `open`'s output) names the pid once known and never says `PID: unknown`.
+
 - **Editors the CLI starts get `DOTNET_ThreadPool_ThreadsToKeepAlive=-1`** (`open`, `open --headless`, `exec`; a value
   you set is kept). Works around the .NET 10 runtime bug dotnet/runtime#135441 (crash or hang after a C# assembly
   reload) until the servicing fix dotnet/runtime#136481 ships.
