@@ -76,9 +76,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("subfolders directly in it")]
         public int folderCount { get; }
 
-        [RqlDescription("no files and no subfolders in the editor's view (delete it with editor | call DeleteFolder(path), which " +
-            "also refuses files the editor does not list)")]
-        public bool empty => fileCount == 0 && folderCount == 0;
+        [RqlDescription("nothing in it: no files and no subfolders, in the editor's view AND on disk (files the editor does not list, " +
+            "such as native libraries, count), so editor | call DeleteFolder(path) deletes exactly these")]
+        public bool empty => fileCount == 0 && folderCount == 0 && NothingOnDisk(path);
+
+        private static bool NothingOnDisk(string resDir)
+        {
+            using var dir = DirAccess.Open(resDir);
+            if (dir == null) return true;
+            dir.IncludeHidden = true;
+            return dir.GetFiles().Length == 0 && dir.GetDirectories().Length == 0;
+        }
     }
 
     /// <summary>One file of the project (the <c>files</c> source).</summary>
