@@ -128,6 +128,11 @@ def core_pins(root=ROOT):
     return pins
 
 
+def pin_folders(root=ROOT):
+    """Every folder whose csproj files must pin the core versions: each module and the template."""
+    return [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']
+
+
 def core_pin_drift(root=ROOT):
     """Extension/template csproj pins of CORE_DEPENDENCIES that differ from Godot-MCP.csproj.
 
@@ -141,7 +146,7 @@ def core_pin_drift(root=ROOT):
         raise ValueError(f'Godot-MCP.csproj must pin {CORE_DEPENDENCIES}; found {sorted(core)}')
     drift = []
     # Fail closed: a moved or empty module folder must not turn the scan into a silent pass.
-    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
+    for folder in pin_folders(root):
         csprojs = sorted(folder.rglob('*.csproj'))
         if not csprojs:
             drift.append(f'{folder.relative_to(root).as_posix()}: no csproj found')

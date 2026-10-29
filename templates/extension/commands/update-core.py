@@ -23,16 +23,11 @@ def main() -> int:
     ap.add_argument("--rql")
     ap.add_argument("--what-if", action="store_true")
     args = ap.parse_args()
-    if not args.mcp_plugin and not args.reflector_net and not args.rql:
+    pins = {pid: ver for pid, ver in (("com.IvanMurzak.McpPlugin", args.mcp_plugin),
+                                      ("com.IvanMurzak.ReflectorNet", args.reflector_net),
+                                      ("com.IvanMurzak.Rql", args.rql)) if ver}
+    if not pins:
         raise SystemExit("error: pass --mcp-plugin, --reflector-net and/or --rql")
-
-    pins = {}
-    if args.mcp_plugin:
-        pins["com.IvanMurzak.McpPlugin"] = args.mcp_plugin
-    if args.reflector_net:
-        pins["com.IvanMurzak.ReflectorNet"] = args.reflector_net
-    if args.rql:
-        pins["com.IvanMurzak.Rql"] = args.rql
 
     root = Path(__file__).resolve().parent.parent
     csprojs = []
@@ -48,7 +43,7 @@ def main() -> int:
         for pid, ver in pins.items():
             new = re.sub(
                 r'(<PackageReference\s+Include="' + re.escape(pid) + r'"\s+Version=")[^"]+(")',
-                lambda m, ver=ver: m.group(1) + ver + m.group(2), new)
+                lambda m: m.group(1) + ver + m.group(2), new)
         if new != content:
             print(f"Updating {csproj.relative_to(root).as_posix()}")
             for pid, ver in pins.items():

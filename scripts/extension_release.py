@@ -240,7 +240,9 @@ def main():
                                       'version': m['version'], 'tag': tag(m), 'published': published(m)}
                                      for m in selected]}))
     elif args.command == 'version':
-        print('\n'.join(m['version'] if len(selected) == 1 else f"{m['name']} {m['version']}" for m in selected))
+        if len(selected) != 1:
+            parser.error('version requires one module')
+        print(selected[0]['version'])
     elif args.command == 'pack':
         print('\n'.join(str(path) for path in pack(selected, args.output.resolve())))
     elif args.command == 'stage':

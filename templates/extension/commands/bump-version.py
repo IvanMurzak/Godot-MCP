@@ -12,7 +12,6 @@ Usage:
 from __future__ import annotations
 import argparse
 import re
-import sys
 from pathlib import Path
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.\-]+)?$")
@@ -23,10 +22,11 @@ def read(path: Path) -> str:
         return handle.read()
 
 
-def find_package_csproj(root: Path) -> Path:
+def find_package_csproj(root: Path) -> "tuple[Path, str]":
     for p in sorted((root / "src").rglob("*.csproj")):
-        if "<PackageId>" in read(p):
-            return p
+        content = read(p)
+        if "<PackageId>" in content:
+            return p, content
     raise SystemExit("error: could not find the package csproj (with <PackageId>) under src/")
 
 
@@ -38,8 +38,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parent.parent
-    csproj = find_package_csproj(root)
-    content = read(csproj)
+    csproj, content = find_package_csproj(root)
     m = re.search(r"<Version>([^<]+)</Version>", content)
     if not m:
         raise SystemExit(f"error: no <Version> element in {csproj.name}")
@@ -50,8 +49,7 @@ def main() -> int:
         return 0
 
     if not args.version or not SEMVER.match(args.version):
-        print("error: pass a semantic version major.minor.patch[-prerelease]", file=sys.stderr)
-        return 2
+        ap.error("pass a semantic version major.minor.patch[-prerelease]")
 
     print(f"Package: {csproj.name}")
     print(f"Version: {current} -> {args.version}")
