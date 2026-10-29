@@ -46,6 +46,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      # Mitigation for https://github.com/dotnet/runtime/issues/135441: on thread exit the
+      # runtime can free a handle in the wrong collectible AssemblyLoadContext once a
+      # thread-static TLS index has been reused, which intermittently crashes or hangs the
+      # Godot editor/game across C# assembly reloads (the reload-smoke failures). Keeping
+      # thread-pool threads alive avoids those exits. Fixed upstream by dotnet/runtime#134983;
+      # REMOVE this once .NET 10 servicing ships the backport (dotnet/runtime#136481).
+      DOTNET_ThreadPool_ThreadsToKeepAlive: "-1"
       # The in-repo test project. The addon is copied into <TEST_PROJECT>/addons/
       # at runtime (a dev junction does not survive checkout).
       TEST_PROJECT: Godot-Tests

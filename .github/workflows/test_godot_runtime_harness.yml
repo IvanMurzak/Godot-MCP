@@ -77,6 +77,13 @@ jobs:
     continue-on-error: ${{ inputs.advisory }}
     timeout-minutes: 35
     env:
+      # Mitigation for https://github.com/dotnet/runtime/issues/135441: on thread exit the
+      # runtime can free a handle in the wrong collectible AssemblyLoadContext once a
+      # thread-static TLS index has been reused, which intermittently crashes or hangs the
+      # Godot editor/game across C# assembly reloads (the reload-smoke failures). Keeping
+      # thread-pool threads alive avoids those exits. Fixed upstream by dotnet/runtime#134983;
+      # REMOVE this once .NET 10 servicing ships the backport (dotnet/runtime#136481).
+      DOTNET_ThreadPool_ThreadsToKeepAlive: "-1"
       TEST_PROJECT: Godot-Tests
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
       SERVER_PORT: "5400"
