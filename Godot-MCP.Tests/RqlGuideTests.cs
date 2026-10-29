@@ -49,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
             Assert.Equal(29, RqlGuide.QueryExamples.Length);
-            Assert.Equal(41, RqlGuide.MutateExamples.Length);
+            Assert.Equal(42, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
 
@@ -76,7 +76,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             });
             Assert.EndsWith(rules, RqlGuide.Language);
             Assert.Equal(RqlGuide.SharedRules, rules);
-            // RQL aacfbba: Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder left.
+            // Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder left; RQL 544a247: the grid
+            // example owns its range (150, within the default target limit of 200), and the rules teach trigonometry and $count.
+            Assert.StartsWith("range(0, 150) | call editor.CreateNode(", RqlGuide.RuleGridExample);
+            Assert.DoesNotContain("range(0, 300)", RqlGuide.SharedRules);
+            Assert.Contains("$count", RqlGuide.SharedRules);
+            Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("cos(2 * pi() * $index / $count)"));
             Assert.DoesNotContain("stands for", RqlGuide.SharedRules);
             Assert.DoesNotContain("\"Cube\"", RqlGuide.SharedRules);
             Assert.DoesNotContain("editor.CreateObject", RqlGuide.Language);

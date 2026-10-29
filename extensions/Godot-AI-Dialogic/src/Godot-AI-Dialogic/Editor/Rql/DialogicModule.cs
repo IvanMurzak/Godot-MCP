@@ -28,7 +28,7 @@ namespace com.IvanMurzak.Godot.MCP.Dialogic
                     "Dialogic dialogue files of the project: installed, hint, timelines (path name eventCount text; call AddText), " +
                     "characters (path name displayName color description resource; write through resource); calls CreateTimeline, " +
                     "CreateCharacter. Needs the Dialogic addon (dialogic-godot/dialogic 2.0, res://addons/dialogic) enabled; without " +
-                    "it the lists are empty and the calls fail", typeof(DialogicApi))
+                    "it the lists are empty and the calls fail")
                .AddGuide(DialogicGuide.Topic, DialogicGuide.Markdown);
     }
 }

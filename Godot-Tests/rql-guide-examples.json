@@ -42,6 +42,7 @@
     "[[\"CoinA\", 0], [\"CoinB\", 3]] | call editor.InstantiateScene(\"res://scenes/enemy.tscn\", {name: $[0], parent: \"Props\", position: [$[1], 1, 0]})",
     "nodes | where name starts-with \"Cube\" | set Scale = Scale * 1.5",
     "nodes | where name starts-with \"Cube\" | set Position = [Position.X, 0, Position.Z] * 2",
+    "nodes | where name starts-with \"Cube\" | sort name | set Position = [10 * cos(2 * pi() * $index / $count), 0, 10 * sin(2 * pi() * $index / $count)]",
     "nodes | where name == \"Props\" | call InstantiateScene(\"res://scenes/enemy.tscn\")",
     "nodes | where name == \"Crate\" | call Duplicate()",
     "nodes | where name == \"Floor\" | set Mesh = {$type: \"PlaneMesh\", Size: \"(20, 20)\"}",

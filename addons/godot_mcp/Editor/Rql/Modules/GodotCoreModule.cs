@@ -10,8 +10,6 @@
 #if TOOLS
 #nullable enable
 using System;
-using System.Collections.Generic;
-using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters;
 using Rql.Execution;
 
@@ -28,29 +26,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
         public void Configure(RqlModuleContext ctx)
         {
-            // Each source declares its getter's return type: its members are known names before a query reads it (RQL never
-            // evaluates a source a query does not name). Keep it the concrete type: a base such as GodotObject would make RQL's
-            // known-names walk visit every subclass.
-            ctx.AddSource("nodes", RqlGodot.AllNodes, "every node of the edited scene, depth-first, root first (internal children excluded)", typeof(List<global::Godot.Node>))
-               .AddSource("root", RqlGodot.Roots, "the root node of the edited scene", typeof(List<global::Godot.Node>))
-               .AddSource("selection", RqlGodot.SelectedNodes, "nodes selected in the editor", typeof(List<global::Godot.Node>))
-               .AddSource("scenes", RqlEditorApi.OpenScenes, "scenes open in the editor: path name active root; calls Open, Save", typeof(List<RqlScene>))
+            // AddSource<T> declares each getter's return type: its members are known names before a query reads it (RQL never
+            // evaluates a source a query does not name). Keep getters typed concretely: a base such as GodotObject would make
+            // RQL's known-names walk visit every subclass (a Func<object?> declares nothing).
+            ctx.AddSource("nodes", RqlGodot.AllNodes, "every node of the edited scene, depth-first, root first (internal children excluded)")
+               .AddSource("root", RqlGodot.Roots, "the root node of the edited scene")
+               .AddSource("selection", RqlGodot.SelectedNodes, "nodes selected in the editor")
+               .AddSource("scenes", RqlEditorApi.OpenScenes, "scenes open in the editor: path name active root; calls Open, Save")
                .AddSource("files", RqlEditorApi.Files,
                    $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request size (bytes), importedSize " +
                    "(bytes of its import outputs, every platform variant), deps (what it loads), " +
-                   "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)", typeof(IEnumerable<RqlFile>))
+                   "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)")
                .AddSource("folders", RqlEditorApi.Folders, "every folder the editor filesystem knows: path name fileCount folderCount empty " +
-                   "(empty folders: folders | where empty; delete one with editor | call DeleteFolder(path))", typeof(IEnumerable<RqlFolder>))
-               .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource", typeof(List<RqlClass>))
-               .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace", typeof(List<LogEntry>))
+                   "(empty folders: folders | where empty; delete one with editor | call DeleteFolder(path))")
+               .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")
+               .AddSource("console", RqlEditorApi.ConsoleEntries, $"captured editor log lines, oldest first (last {RqlEditorApi.MaxLogEntries}): Sequence LogType Message Timestamp StackTrace")
                .AddSource("gameLog", RqlEditorApi.GameLog,
                    $"what the game run from the editor (PlayScene / isPlaying) printed, its errors and warnings, oldest first (last {RqlEditorApi.MaxGameLogEntries}): " +
-                   "Sequence LogType Message StackTrace (the console source is the editor's own log)", typeof(List<GameLogEntry>))
+                   "Sequence LogType Message StackTrace (the console source is the editor's own log)")
                .AddSource("editor", () => RqlEditorApi.Instance,
                    "editor state (isPlaying, playingScene, editedScene, selection, godotVersion, undoHistory, redoHistory) and operations: CreateNode, InstantiateScene " +
                    "(bulk create: range(0, N) | call editor.CreateNode(class, {name, parent, position …})), NewScene, OpenScene, ReloadScene, SaveScene, " +
                    "SaveAllScenes, PlayScene, StopScene, Undo, Redo, CreateResource, MoveResource, DeleteResource, CreateFolder, DeleteFolder, Reimport, ClearConsole " +
-                   "(rql-schema \"editor\" for signatures)", typeof(RqlEditorApi))
+                   "(rql-schema \"editor\" for signatures)")
                .AddFunction("godot.find", RqlGodot.FindNode,
                    "godot.find(name): the node with that unique name or path below the scene root (\"Level/Player\"), e.g. call Reparent(godot.find(\"Props\"))")
                .AddFunction("godot.resources", RqlGodot.FindResources,
@@ -58,16 +56,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddFunction("godot.resource", RqlGodot.LoadResource, "godot.resource(path): the resource at a res:// or uid:// path, or null")
                .AddFunction("godot.group", RqlGodot.FindGroup, "godot.group(name): the nodes of the edited scene in a group, e.g. godot.group(\"enemies\") | set Visible = false")
                // Undeclared: the singleton is a plain GodotObject, and declaring that type would walk every Godot class for known names.
-               .AddSource("project", () => Settings.RqlProject.Instance, Godot_ProjectSettings_Adapter.Summary)
+               .AddSource("project", (Func<object?>)(() => Settings.RqlProject.Instance), Godot_ProjectSettings_Adapter.Summary)
                .AddSource("settings", Settings.RqlProject.Settings,
-                   "every project setting: name section value type changed (write with project | set settings[\"<name>\"] = …)", typeof(List<Settings.RqlSetting>))
+                   "every project setting: name section value type changed (write with project | set settings[\"<name>\"] = …)")
                .AddSource("inputActions", Settings.RqlProject.InputActions,
-                   "the input map: name events deadzone builtIn (events as \"Key:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\"); calls AddEvent, RemoveEvent, Remove", typeof(List<Settings.RqlInputAction>))
-               .AddSource("autoloads", Settings.RqlProject.Autoloads, "autoloads (singletons) in load order: name path singleton order; call Remove", typeof(List<Settings.RqlAutoload>))
-               .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description", typeof(List<Settings.RqlGroup>))
+                   "the input map: name events deadzone builtIn (events as \"Key:W\", \"Mouse:Left\", \"JoypadButton:A\", \"JoypadMotion:LeftX-\"); calls AddEvent, RemoveEvent, Remove")
+               .AddSource("autoloads", Settings.RqlProject.Autoloads, "autoloads (singletons) in load order: name path singleton order; call Remove")
+               .AddSource("groups", Settings.RqlProject.Groups, "node groups of the edited scene and the project's global groups: name nodes count global description")
                .AddSource("layers", Settings.RqlLayers.All,
-                   "the project's layers (Project Settings → Layer Names): kind index bit name setting; set name renames one (objects read and write their masks by these names in layerNames[\"…\"])", typeof(List<Settings.RqlLayer>))
-               .AddSource(RqlTools.SourceName, RqlTools.All, RqlTools.Description, typeof(List<RqlToolRow>))
+                   "the project's layers (Project Settings → Layer Names): kind index bit name setting; set name renames one (objects read and write their masks by these names in layerNames[\"…\"])")
+               .AddSource(RqlTools.SourceName, RqlTools.All, RqlTools.Description)
                .AddFunction("godot.callable", Godot_Callable_Adapter.Function,
                    "godot.callable(target, method): a Callable of a method on a node (path or node), a resource (res://) or Class#id, e.g. godot.callable(\"Player\", \"_on_hit\")");
 
