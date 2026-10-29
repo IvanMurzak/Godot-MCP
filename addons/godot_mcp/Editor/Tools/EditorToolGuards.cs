@@ -214,8 +214,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var editor = EditorInterface.Singleton;
             scenePath = scenePath.SimplifyPath();
             if (Array.IndexOf(editor.GetOpenScenes(), scenePath) < 0) return;
-            ResourceLoader.Load(scenePath, null, ResourceLoader.CacheMode.Replace);
-            editor.ReloadSceneFromPath(scenePath);
+            if (RefreshCachedResource(scenePath))
+                editor.ReloadSceneFromPath(scenePath);
+        }
+
+        /// <summary>
+        /// Refresh the cached instance of <paramref name="resPath"/> in place from its file (everything holding it sees the
+        /// change; unsaved edits to it are replaced). The file is parsed first: a file that does not load leaves the cached
+        /// copy untouched (Replace resets the instance before filling it). False when nothing was refreshed. Main-thread only.
+        /// </summary>
+        internal static bool RefreshCachedResource(string resPath)
+        {
+            if (ResourceLoader.Load(resPath, string.Empty, ResourceLoader.CacheMode.Ignore) == null) return false;
+            ResourceLoader.Load(resPath, string.Empty, ResourceLoader.CacheMode.Replace);
+            return true;
         }
 
         /// <summary>

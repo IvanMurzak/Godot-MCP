@@ -223,7 +223,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return (d.GetFiles(), d.GetDirectories());
         }
 
-        [RqlCallable("re-import files (res:// paths) after they changed on disk, verifying each import (a loaded .tres / .tscn is refreshed from the file); no argument: a full filesystem scan. Returns a status (files NOT imported are listed first)")]
+        [RqlCallable("re-import files (res:// paths) after they changed on disk, verifying each import (a loaded .tres is refreshed from the file, replacing unsaved edits to it; a scene open in a tab is reloaded with ReloadScene); no argument: a full filesystem scan. Returns a status (files NOT imported are listed first)")]
         public string Reimport(string[]? files = null) => RqlReimport.Run(files);
     }
 }

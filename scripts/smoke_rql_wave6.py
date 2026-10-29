@@ -77,6 +77,10 @@ def changed_on_disk(host: str, project: pathlib.Path, d: str) -> None:
     must("W6D reimport the changed file", mutate(host, f"editor | call Reimport([{q(path)}])"))
     value_is("W6D the loaded resource shows the file's new data",
              must("W6D read again", query(host, f"godot.resource({q(path)}) | select AlbedoColor")), "(0, 0, 1, 1)")
+    file.write_text('[gd_resource type="StandardMaterial3D" format=3]\n\n[resource]\nalbedo_color = Color(0, 1\n', encoding="utf-8")
+    has("W6D a broken file is reported", must("W6D reimport the broken file", mutate(host, f"editor | call Reimport([{q(path)}])")), "NOT refreshed")
+    value_is("W6D and the loaded copy is kept",
+             must("W6D read after the broken file", query(host, f"godot.resource({q(path)}) | select AlbedoColor")), "(0, 0, 1, 1)")
 
 
 def literal_names(host: str, d: str) -> None:
