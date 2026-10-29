@@ -69,7 +69,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 p => ResourceLoader.Exists(p));
 
             foreach (var path in plan.Native)
+            {
                 efs.UpdateFile(path);
+                // A loaded resource (a .tres read by an earlier query) keeps its old data otherwise: refresh the cached
+                // instance in place from the file, so later queries and everything holding it see the change.
+                if (ResourceLoader.HasCached(path))
+                    ResourceLoader.Load(path, string.Empty, ResourceLoader.CacheMode.Replace);
+            }
             foreach (var path in RoutedToImporter(plan))
                 if (!IsKnownToFileSystem(efs, path))
                     efs.UpdateFile(path);
