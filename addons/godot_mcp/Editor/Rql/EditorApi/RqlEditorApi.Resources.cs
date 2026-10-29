@@ -204,14 +204,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (dir.Length <= "res://".Length) throw new ArgumentException("the project root cannot be deleted");
             RequireUnprotectedFolder(dir);
             if (!DirAccess.DirExistsAbsolute(dir)) throw new ArgumentException($"no folder exists at '{dir}'");
-            using var d = DirAccess.Open(dir) ?? throw new ArgumentException($"the folder '{dir}' cannot be opened");
-            d.IncludeHidden = true;
-            var files = d.GetFiles();
-            var dirs = d.GetDirectories();
+            var (files, dirs) = DiskEntries(dir) ?? throw new ArgumentException($"the folder '{dir}' cannot be opened");
             if (files.Length > 0 || dirs.Length > 0)
                 throw new ArgumentException($"the folder '{dir}' is not empty ({files.Length} file(s), {dirs.Length} folder(s)" +
                     ", e.g. " + files.Concat(dirs.Select(x => x + "/")).First() + "); only empty folders are deleted");
             return dir;
+        }
+
+        /// <summary>
+        /// What a folder holds on disk, hidden entries included (files the editor does not list count): the one listing
+        /// <c>DeleteFolder</c> and <c>folders.empty</c> share. Null when the folder cannot be opened.
+        /// </summary>
+        internal static (string[] files, string[] folders)? DiskEntries(string resDir)
+        {
+            using var d = DirAccess.Open(resDir);
+            if (d == null) return null;
+            d.IncludeHidden = true;
+            return (d.GetFiles(), d.GetDirectories());
         }
 
         [RqlCallable("re-import files (res:// paths) after they changed on disk, verifying each import; no argument: a full filesystem scan. Returns a status (files NOT imported are listed first)")]
