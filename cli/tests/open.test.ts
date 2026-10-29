@@ -257,8 +257,7 @@ describe('openProject', () => {
     spawnMock.mockReset();
     const events: { phase: string; message: string; pid?: number }[] = [];
     const spawnImpl = vi.fn((_editor: string, _args: string[], _env: NodeJS.ProcessEnv) =>
-      // Later than the 2 s the default spawn waits for its `spawn` event: a spawnImpl's pid is never cut off.
-      new Promise<number>((resolve) => setTimeout(() => resolve(4242), 2100)));
+      new Promise<number>((resolve) => setTimeout(() => resolve(4242), 50)));
 
     const result = await openProject({
       projectPath: tmpDir,
@@ -279,7 +278,7 @@ describe('openProject', () => {
     expect(events.filter((e) => e.phase === 'editor-launched')).toEqual([
       { phase: 'editor-launched', message: 'Launched Godot editor (PID: 4242)', pid: 4242 },
     ]);
-  }, 20_000);
+  });
 
   it('a spawnImpl may return the started process; an unknown pid is never logged as "unknown"', async () => {
     fs.writeFileSync(path.join(tmpDir, 'project.godot'), 'config_version=5\n');

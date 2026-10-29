@@ -10,7 +10,7 @@ import {
   ENV_LOG_LEVEL,
   ENV_TOKEN,
 } from '../utils/connection.js';
-import { emitProgress } from './progress.js';
+import { emitProgress, pidSuffix } from './progress.js';
 import { buildProject } from './build.js';
 import type {
   EditorSpawnImpl,
@@ -220,7 +220,7 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
     const editorLaunched = (pid: number | undefined): void => {
       emitProgress(options.onProgress, {
         phase: 'editor-launched',
-        message: `Launched Godot editor${pid !== undefined ? ` (PID: ${pid})` : ''}`,
+        message: `Launched Godot editor${pidSuffix(pid)}`,
         pid,
       });
     };
