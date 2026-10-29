@@ -44,7 +44,7 @@ def vectors(host: str) -> None:
 
 
 def key_warnings(host: str) -> None:
-    has("W6B a failing sort key warns", must("W6B sort", query(host, 'root | recurse children | sort Position.X / 0 | select name')),
+    has("W6B a failing sort key warns", must("W6B sort", query(host, 'root | recurse children | sort (Position.X / 0) | select name')),
         "sort key", "failed for")
     has("W6B an all-missing group-by key offers $type", query(host, "root | recurse children | group-by type")[1], "$type")
 
