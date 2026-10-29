@@ -213,9 +213,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 }
             })).ToArray();
 
-            Assert.True(readersStarted.Wait(TimeSpan.FromSeconds(5)));
+            // Generous: CI runs this suite next to the extension suites, and 4 Task.Run readers can wait seconds for pool threads.
+            Assert.True(readersStarted.Wait(TimeSpan.FromSeconds(60)));
             Assert.True(
-                SpinWait.SpinUntil(() => Volatile.Read(ref appendsObserved) > 0, TimeSpan.FromSeconds(5)),
+                SpinWait.SpinUntil(() => Volatile.Read(ref appendsObserved) > 0, TimeSpan.FromSeconds(60)),
                 "The readers should exercise the append path before the swap storm starts.");
 
             // Main thread: install a fresh collector repeatedly (the _EnterTree swap), interleaved with the
