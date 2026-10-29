@@ -120,7 +120,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>
         /// <c>RqlLanguageGuide.RulesWith</c> with the Rule*Example constants, as a constant, since the tools' [Description] attributes
         /// embed the guide. RqlGuideTests fails when it differs from the runtime's text: after an RQL update copy
-        /// <c>RqlLanguageGuide.Rules</c> again, keeping the Rule*Example constants in place of its examples.
+        /// <c>RqlLanguageGuide.Rules</c> again, keeping the Rule*Example constants in place of its examples and dropping its
+        /// "(editor.CreateObject stands for …)" note.
         /// </summary>
         public const string SharedRules =
             "Language rules:\n" +
