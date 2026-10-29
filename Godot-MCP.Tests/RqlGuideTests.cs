@@ -48,7 +48,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ExampleListsAreNotEmptyAndHaveNoNotesLeft()
         {
-            Assert.Equal(28, RqlGuide.QueryExamples.Length);
+            Assert.Equal(29, RqlGuide.QueryExamples.Length);
             Assert.Equal(41, RqlGuide.MutateExamples.Length);
             Assert.All(RqlGuide.MutateExamples, e => Assert.DoesNotContain("   ", e));
         }
@@ -87,6 +87,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // RQL 2f4e263: list arithmetic and vector functions; wave-6 agent rules.
             Assert.Contains(RqlGuide.MutateExamples, e => e.Contains("[Position.X, 0, Position.Z] * 2"));
             Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("distance(Position, "));
+            // Agents look for a file size column to find the largest assets.
+            Assert.Contains(RqlGuide.QueryExamples, e => e.Contains("sort size desc") && e.Contains("importedSize"));
             foreach (var function in new[] { "length(v)", "normalize(v)", "distance(a, b)", "dot(a, b)", "lerp(a, b, t)" })
                 Assert.Contains(function, RqlGuide.Language);
             Assert.Contains("Units: meters in 3D, pixels in 2D", RqlGuide.Language);

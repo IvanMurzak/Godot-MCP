@@ -58,6 +58,32 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static string ImportSidecarPath(string resPath) => resPath + ImportSidecarSuffix;
 
         /// <summary>
+        /// The imported artifacts a sidecar lists: the <c>res://</c> paths of its <c>[deps]</c> <c>dest_files=[…]</c> line
+        /// (<c>res://.godot/imported/…ctex</c>, what an export packs instead of the source file); empty when there is none.
+        /// </summary>
+        public static List<string> DestFiles(string? sidecarText)
+        {
+            var files = new List<string>();
+            if (string.IsNullOrEmpty(sidecarText))
+                return files;
+            var inDeps = false;
+            foreach (var raw in sidecarText!.Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("[", StringComparison.Ordinal))
+                    inDeps = line == "[deps]";
+                else if (inDeps && line.StartsWith("dest_files=", StringComparison.Ordinal))
+                    foreach (var part in line.Substring("dest_files=".Length).Trim('[', ']').Split(','))
+                    {
+                        var path = part.Trim().Trim('"');
+                        if (path.Length > 0)
+                            files.Add(path);
+                    }
+            }
+            return files;
+        }
+
+        /// <summary>
         /// The extension of a <c>res://</c> file path, lower-cased and without the dot (<c>"png"</c> for
         /// <c>res://art/Hero.PNG</c>), or an empty string when the file name has none. A dot in a DIRECTORY
         /// name (<c>res://v1.2/readme</c>) is not an extension. Mirrors Godot's <c>String.get_extension()</c>.

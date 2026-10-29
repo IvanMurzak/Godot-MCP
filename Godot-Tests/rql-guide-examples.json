@@ -27,6 +27,7 @@
     "nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")",
     "files | where type contains \"Material\" and usedBy.count() == 0 | select path",
     "files | where missingDeps.count() > 0 | select path missingDeps",
+    "files | where not (path starts-with \"res://addons/\") | sort size desc | first 5 | select path size importedSize",
     "nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides",
     "editor | select undoHistory redoHistory"
   ],

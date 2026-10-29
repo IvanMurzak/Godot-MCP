@@ -111,6 +111,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("uid:// of the file, or null")]
         public string? uid => RqlGodot.UidOf(path);
 
+        [RqlDescription("bytes of the file on disk (largest files: files | sort size desc | first 5)")]
+        public long size => FileBytes(path);
+
+        [RqlDescription("bytes of what the import produced (the .godot/imported files of its .import, which an export packs instead " +
+            "of the source), null for a file that is not imported; on request")]
+        public long? importedSize
+        {
+            get
+            {
+                var sidecar = ReimportClassifier.ImportSidecarPath(path);
+                if (!FileAccess.FileExists(sidecar)) return null;
+                return ReimportClassifier.DestFiles(FileAccess.GetFileAsString(sidecar)).Sum(FileBytes);
+            }
+        }
+
+        private static long FileBytes(string resPath)
+        {
+            var file = new System.IO.FileInfo(ProjectSettings.GlobalizePath(resPath));
+            return file.Exists ? file.Length : 0;
+        }
+
         [RqlDescription("res:// paths this file loads (a material's textures, a scene's sub-scenes, scripts and resources …), as saved on disk")]
         public List<string> deps => _references.DepsOf(path);
 
@@ -137,7 +158,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 "texture …); set one to change it and re-import the file (like the Import dock: not undoable)",
                 // Every key reaches validate, which names the file's options.
                 has: (o, key) => true);
-            m.Untyped.ExplicitOnly("deps", "missingDeps", "usedBy", "importSettings");
+            m.Untyped.ExplicitOnly("deps", "missingDeps", "usedBy", "importSettings", "importedSize");
         }
     }
 

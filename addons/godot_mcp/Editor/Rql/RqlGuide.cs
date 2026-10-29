@@ -44,7 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string Language =
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
-            "selection, scenes (open scenes), files (every res:// file the editor knows; on request deps, missingDeps, usedBy (scenes / resources that load it) and " +
+            "selection, scenes (open scenes), files (every res:// file the editor knows, with its size in bytes; on request importedSize, deps, missingDeps, usedBy (scenes / resources that load it) and " +
             "importSettings[\"option\"]), folders (path fileCount folderCount empty), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
             "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +
@@ -167,6 +167,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")\n" +
             "  files | where type contains \"Material\" and usedBy.count() == 0 | select path\n" +
             "  files | where missingDeps.count() > 0 | select path missingDeps\n" +
+            "  files | where not (path starts-with \"res://addons/\") | sort size desc | first 5 | select path size importedSize\n" +
             "  nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides\n" +
             "  editor | select undoHistory redoHistory";
 
