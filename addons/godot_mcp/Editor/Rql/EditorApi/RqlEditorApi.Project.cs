@@ -114,9 +114,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("bytes of the file on disk (largest files: files | sort size desc | first 5); on request")]
         public long size => FileBytes(path);
 
-        [RqlDescription("bytes of what the import produced (the .godot/imported files of its .import, which an export packs instead " +
-            "of the source), null for a file that is not imported; on request")]
-        public long? importedSize => ImportSettings.DestFiles(path) is { } files ? files.Sum(FileBytes) : (long?)null;
+        [RqlDescription("bytes of everything the import produced (the .godot/imported files its .import lists, every platform variant; " +
+            "an export packs its platform's instead of the source), null for a file with no import output; on request")]
+        public long? importedSize => ImportSettings.DestFiles(path) is { Length: > 0 } files ? files.Sum(FileBytes) : (long?)null;
 
         private static long FileBytes(string resPath)
         {
