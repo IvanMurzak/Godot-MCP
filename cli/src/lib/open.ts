@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { findGodotBinary, launchEditor } from '../utils/godot-editor.js';
+import { editorLaunchArgs, editorLaunchEnv, findGodotBinary, launchEditor } from '../utils/godot-editor.js';
 import { findGodotProcess } from '../utils/godot-process.js';
 import {
   ENV_AUTH_OPTION,
@@ -10,9 +10,10 @@ import {
   ENV_LOG_LEVEL,
   ENV_TOKEN,
 } from '../utils/connection.js';
-import { emitProgress } from './progress.js';
+import { emitProgress, pidSuffix } from './progress.js';
 import { buildProject } from './build.js';
 import type {
+  EditorSpawnImpl,
   OpenEnvInputs,
   OpenProjectAuthOption,
   OpenProjectConnectionMode,
@@ -216,20 +217,27 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
       projectPath,
     });
 
-    const child = launchEditor(editorPath, projectPath, env, {
-      onSpawn: (pid) => {
-        emitProgress(options.onProgress, {
-          phase: 'editor-launched',
-          message: `Launched Godot editor (PID: ${pid ?? 'unknown'})`,
-          pid,
-        });
-      },
-      onError: (err) => {
-        warnings.push(`Editor spawn reported error: ${err.message}`);
-      },
-    });
-
-    const pid = await waitForSpawn(child);
+    const editorLaunched = (pid: number | undefined): void => {
+      emitProgress(options.onProgress, {
+        phase: 'editor-launched',
+        message: `Launched Godot editor${pidSuffix(pid)}`,
+        pid,
+      });
+    };
+    let pid: number | undefined;
+    if (options.spawnImpl) {
+      // The embedder starts the editor; its pid may come later (a promise), and is logged once known.
+      pid = await spawnedEditorPid(options.spawnImpl(editorPath, editorLaunchArgs(projectPath), editorLaunchEnv(env)));
+      editorLaunched(pid);
+    } else {
+      const child = launchEditor(editorPath, projectPath, env, {
+        onSpawn: editorLaunched,
+        onError: (err) => {
+          warnings.push(`Editor spawn reported error: ${err.message}`);
+        },
+      });
+      pid = await waitForSpawn(child);
+    }
 
     emitProgress(options.onProgress, { phase: 'done', message: 'Editor launched.' });
 
@@ -254,6 +262,12 @@ export async function openProject(options: OpenProjectOptions): Promise<OpenProj
       error: errorObj,
     };
   }
+}
+
+/** The editor pid an `openProject` `spawnImpl` reported: the started process's `pid`, or its promise's value. */
+async function spawnedEditorPid(started: ReturnType<EditorSpawnImpl>): Promise<number | undefined> {
+  const value = await started;
+  return value !== null && typeof value === 'object' ? value.pid : (value ?? undefined);
 }
 
 /**

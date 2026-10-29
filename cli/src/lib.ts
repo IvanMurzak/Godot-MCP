@@ -40,6 +40,7 @@ export type {
   ProgressCallback,
   ResultKind,
   // open-project
+  EditorSpawnImpl,
   OpenProjectOptions,
   OpenProjectResult,
   OpenProjectSuccess,
