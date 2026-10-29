@@ -6,6 +6,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
+#if TOOLS
 #nullable enable
 using Rql;
 
@@ -47,3 +48,4 @@ namespace com.IvanMurzak.Godot.MCP.Tilemap
         public int alternative { get; }
     }
 }
+#endif

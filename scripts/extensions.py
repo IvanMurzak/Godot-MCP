@@ -14,6 +14,8 @@ SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
 # The only package dependencies an extension may declare (the MCP stack and the RQL module API); their pins must
 # equal the core's.
 CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql')
+# A source that names RQL (using Rql / Rql.Execution, [Rql…] attributes) before any `#if TOOLS`: RQL is editor-only.
+RQL_OUTSIDE_TOOLS = re.compile(r'\A(?:(?!#if TOOLS).)*?\bRql', re.S)
 
 
 def read_text(path):
@@ -107,8 +109,10 @@ def verify_package(archive, module, root=ROOT, version=None):
         if set(deps) != expected:
             raise ValueError(f'Unexpected package dependencies: {set(deps)}; expected {expected}')
         # RQL is editor-only (TOOLS code): a consumer's game export must not get its DLLs through this package.
-        if 'runtime' not in {part.strip().lower() for part in deps['com.IvanMurzak.Rql'].attrib.get('exclude', '').split(',')}:
-            raise ValueError('The com.IvanMurzak.Rql dependency must exclude Runtime assets (RQL never ships in a game): ' + str(archive))
+        excluded = {part.strip().lower() for part in deps['com.IvanMurzak.Rql'].attrib.get('exclude', '').split(',')}
+        if 'runtime' not in excluded or 'compile' in excluded:
+            raise ValueError('The com.IvanMurzak.Rql dependency must exclude Runtime (and keep Compile) assets (RQL never ships in a '
+                             'game): ' + str(archive))
         floors = package_pins(root / module['project'], expected)
         floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
         for package, node in deps.items():
@@ -123,6 +127,9 @@ def verify_package(archive, module, root=ROOT, version=None):
                 name for name in required if name.endswith('.cs')}:
             raise ValueError('Package contains duplicate entries or unexpected sources')
         for name in required:
+            if name.endswith('.cs') and RQL_OUTSIDE_TOOLS.search(bundle.read(name).decode('utf-8', 'replace')):
+                # A game build compiles the package sources without RQL's DLLs: a type naming RQL there fails to load.
+                raise ValueError('Packaged source uses RQL outside #if TOOLS: ' + name)
             relative = name.removeprefix('src/') if name.startswith('src/') else name
             if bundle.read(name) != (source / relative).read_bytes():
                 raise ValueError('Packaged bytes differ from source: ' + name)
