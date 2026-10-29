@@ -44,7 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string Language =
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
-            "selection, scenes (open scenes), files (every res:// file the editor knows; on request deps, missingDeps, usedBy (scenes / resources that load it) and " +
+            "selection, scenes (open scenes), files (every res:// file the editor knows; on request size (bytes), importedSize, deps, missingDeps, usedBy (scenes / resources that load it) and " +
             "importSettings[\"option\"]), folders (path fileCount folderCount empty), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
             "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +
@@ -167,6 +167,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  nodes | where $ is Node3D | select name kind=($ is MeshInstance3D ? \"mesh\" : $ is Light3D ? \"light\" : \"other\")\n" +
             "  files | where type contains \"Material\" and usedBy.count() == 0 | select path\n" +
             "  files | where missingDeps.count() > 0 | select path missingDeps\n" +
+            "  files | where not (path starts-with \"res://addons/\") | sort size desc | first 5 | select path size importedSize\n" +
             "  nodes | where SceneFilePath != \"\" and overrides.count() > 0 | select name overrides\n" +
             "  editor | select undoHistory redoHistory";
 
@@ -251,9 +252,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated. Destructive " +
-            "cleanup (Free, DeleteResource, DeleteFolder on many items) takes two steps: list what matches with rql-query and show it, then " +
-            "delete in a second call. When you map a misspelt or approximate name to an existing node, resource or member, tell the user " +
-            "which one you used.\n" +
+            "cleanup over what a query finds (Free, DeleteResource, DeleteFolder on matches, not on paths the user named) takes two turns: list " +
+            "what matches with rql-query, show the list to the user and end your turn; delete only after the user confirms in a later " +
+            "message. When you map a misspelt or approximate name " +
+            "to an existing node, resource or member, tell the user which one you used.\n" +
             MutateStages + MutateExamplesBlock +
             "Bulk create: range(start, end) or a list literal streams items, and call editor.CreateNode(class, {…}) / " +
             "editor.InstantiateScene(path, {…}) runs once per item ($ and $index are the item's); the options are name, parent (a node, " +

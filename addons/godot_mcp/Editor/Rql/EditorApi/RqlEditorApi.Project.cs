@@ -76,9 +76,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("subfolders directly in it")]
         public int folderCount { get; }
 
-        [RqlDescription("no files and no subfolders in the editor's view (delete it with editor | call DeleteFolder(path), which " +
-            "also refuses files the editor does not list)")]
-        public bool empty => fileCount == 0 && folderCount == 0;
+        [RqlDescription("nothing in it: no files and no subfolders, in the editor's view AND on disk (files the editor does not list, " +
+            "such as native libraries, count), so editor | call DeleteFolder(path) deletes exactly these")]
+        public bool empty => fileCount == 0 && folderCount == 0 && RqlEditorApi.DiskEntries(path) is { files.Length: 0, folders.Length: 0 };
     }
 
     /// <summary>One file of the project (the <c>files</c> source).</summary>
@@ -111,6 +111,19 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("uid:// of the file, or null")]
         public string? uid => RqlGodot.UidOf(path);
 
+        [RqlDescription("bytes of the file on disk (largest files: files | sort size desc | first 5); on request")]
+        public long size => FileBytes(path);
+
+        [RqlDescription("bytes of everything the import produced (the .godot/imported files its .import lists, every platform variant; " +
+            "an export packs its platform's instead of the source), null for a file with no import output; on request")]
+        public long? importedSize => ImportSettings.DestFiles(path) is { Length: > 0 } files ? files.Sum(FileBytes) : (long?)null;
+
+        private static long FileBytes(string resPath)
+        {
+            var file = new System.IO.FileInfo(ProjectSettings.GlobalizePath(resPath));
+            return file.Exists ? file.Length : 0;
+        }
+
         [RqlDescription("res:// paths this file loads (a material's textures, a scene's sub-scenes, scripts and resources …), as saved on disk")]
         public List<string> deps => _references.DepsOf(path);
 
@@ -137,7 +150,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 "texture …); set one to change it and re-import the file (like the Import dock: not undoable)",
                 // Every key reaches validate, which names the file's options.
                 has: (o, key) => true);
-            m.Untyped.ExplicitOnly("deps", "missingDeps", "usedBy", "importSettings");
+            m.Untyped.ExplicitOnly("size", "deps", "missingDeps", "usedBy", "importSettings", "importedSize");
         }
     }
 
@@ -159,6 +172,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }).Config;
 
         private static string[] KeysOf(ConfigFile c) => c.HasSection(Section) ? c.GetSectionKeys(Section) : System.Array.Empty<string>();
+
+        /// <summary>The imported artifacts the sidecar lists (<c>[deps] dest_files</c>), or null for a file that is not imported.</summary>
+        public static string[]? DestFiles(string path) => Load(path) is { } c ? c.GetValue("deps", "dest_files", new string[0]).AsStringArray() : null;
 
         public static IEnumerable<string> Keys(string path) => Load(path) is { } c ? KeysOf(c) : System.Array.Empty<string>();
 

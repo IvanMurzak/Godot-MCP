@@ -50,6 +50,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // structured failure, matching the other Tool_Node handlers — no redundant top-level pre-check.
                 var node = Tool_Node.ResolveNode(nodeRef, out var error)
                     ?? throw new Exception(error ?? $"Node by {nodeRef} not found.");
+                // SetScript can replace the node's managed wrapper (attaching or removing a [Tool] C# script makes Godot create a
+                // new C# instance and dispose the old one), so nothing reads `node` after it.
+                var nodeName = node.Name;
 
                 // Detach mode: clear the script. SetScript(default) assigns a nil Variant, removing the script.
                 if (string.IsNullOrWhiteSpace(scriptPath))
@@ -60,7 +63,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     {
                         ResourcePath = string.Empty,
                         Language = string.Empty,
-                        Status = $"Script detached from node '{node.Name}'.",
+                        Status = $"Script detached from node '{nodeName}'.",
                     };
                 }
 
@@ -92,7 +95,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // (rql-mutate 'editor | call SaveScene()') so the caller controls when the scene is written.
                 EditorInterface.Singleton.MarkSceneAsUnsaved();
 
-                return ToScriptInfo(resPath, lang, $"Script attached to node '{node.Name}'.");
+                return ToScriptInfo(resPath, lang, $"Script attached to node '{nodeName}'.");
             });
         }
     }

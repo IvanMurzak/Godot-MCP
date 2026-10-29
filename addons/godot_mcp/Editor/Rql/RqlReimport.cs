@@ -68,13 +68,34 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 ResourceLoader.GetRecognizedExtensionsForType(string.Empty),
                 p => ResourceLoader.Exists(p));
 
+            var notes = new List<string>();
             foreach (var path in plan.Native)
+            {
                 efs.UpdateFile(path);
+                if (RefreshLoaded(path) is { } note) notes.Add(note);
+            }
             foreach (var path in RoutedToImporter(plan))
                 if (!IsKnownToFileSystem(efs, path))
                     efs.UpdateFile(path);
 
-            return FinishTargetedReimport(efs, plan, startedUnix);
+            var status = FinishTargetedReimport(efs, plan, startedUnix);
+            return notes.Count == 0 ? status : status + "; " + string.Join("; ", notes);
+        }
+
+        /// <summary>
+        /// A native file an earlier query loaded (a .tres) keeps its old data in the resource cache otherwise: refresh the
+        /// cached instance from the changed file. Scripts are left to the editor and the C# build; a scene open in a tab is
+        /// the editor's node tree, not the cached file (ReloadScene reloads it). Returns a status note, or null.
+        /// </summary>
+        static string? RefreshLoaded(string path)
+        {
+            if (!ResourceLoader.HasCached(path) || ResourceLoader.Load(path, string.Empty, ResourceLoader.CacheMode.Reuse) is Script)
+                return null;
+            if (Array.IndexOf(EditorInterface.Singleton.GetOpenScenes(), path) >= 0)
+                return $"'{path}' is open in a scene tab and was not reloaded (editor | call ReloadScene(\"{path}\") drops its unsaved changes)";
+            return Tools.EditorToolGuards.RefreshCachedResource(path)
+                ? $"refreshed the loaded '{path}' from the file"
+                : $"NOT refreshed '{path}': the changed file does not load, so the loaded copy was kept";
         }
 
         static string FinishTargetedReimport(EditorFileSystem efs, Tools.ReimportPlan plan, ulong startedUnix)

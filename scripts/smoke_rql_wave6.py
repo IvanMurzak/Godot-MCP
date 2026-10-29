@@ -18,6 +18,7 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     tools_source(host)
     extension_guides(host)
     folders(host, project, d)
+    changed_on_disk(host, project, d)
     literal_names(host, d)
     groups_without_errors(host, d)
 
@@ -49,12 +50,37 @@ def folders(host: str, project: pathlib.Path, d: str) -> None:
     has("W6F empty folder reads empty", rows, "w6_empty/|true")
     has("W6F folder with a file reads not empty", rows, "w6_full/|false")
     fails("W6F a non-empty folder is refused", mutate(host, f"editor | call DeleteFolder({q(full)})"), "not empty")
+    # A file the editor does not list (a hidden placeholder, a native library) makes the folder not empty either.
+    hidden = f"{d}/w6_hidden"
+    must("W6F create hidden", mutate(host, f"editor | call CreateFolder({q(hidden)})"))
+    (project / hidden.replace("res://", "") / ".gitkeep").write_text("", encoding="utf-8")
+    rows = must("W6F folders again", query(host, f'folders | where path starts-with {q(hidden)} | select path fileCount empty'))
+    has("W6F a folder with only a file the editor does not list reads not empty", rows, "w6_hidden/|0|false")
+    fails("W6F and DeleteFolder refuses it", mutate(host, f"editor | call DeleteFolder({q(hidden)})"), "not empty")
     fails("W6F DeleteResource on a folder names DeleteFolder", mutate(host, f"editor | call DeleteResource({q(empty + '/')})"), "DeleteFolder")
     fails("W6F a missing folder is refused", mutate(host, f'editor | call DeleteFolder({q(d + "/w6_nope")})'), "no folder")
     must("W6F dry run", tool(host, "rql-mutate", {"query": f"editor | call DeleteFolder({q(empty)})", "dry_run": True}))
     check("W6F dry run keeps it", (project / empty.replace("res://", "")).is_dir())
     must("W6F delete empty", mutate(host, f"editor | call DeleteFolder({q(empty)})"))
     check("W6F deleted on disk", not (project / empty.replace("res://", "")).exists())
+
+
+def changed_on_disk(host: str, project: pathlib.Path, d: str) -> None:
+    # Wave 7: a .tres an earlier query loaded and that then changed on disk stayed stale after Reimport([path]).
+    path = f"{d}/w6_disk.tres"
+    file = project / path.replace("res://", "")
+    material = '[gd_resource type="StandardMaterial3D" format=3]\n\n[resource]\nalbedo_color = Color({}, 1)\n'
+    file.write_text(material.format("1, 0, 0"), encoding="utf-8")
+    must("W6D register", mutate(host, "editor | call Reimport()"))
+    value_is("W6D first read", must("W6D read", query(host, f"godot.resource({q(path)}) | select AlbedoColor")), "(1, 0, 0, 1)")
+    file.write_text(material.format("0, 0, 1"), encoding="utf-8")
+    must("W6D reimport the changed file", mutate(host, f"editor | call Reimport([{q(path)}])"))
+    value_is("W6D the loaded resource shows the file's new data",
+             must("W6D read again", query(host, f"godot.resource({q(path)}) | select AlbedoColor")), "(0, 0, 1, 1)")
+    file.write_text('[gd_resource type="StandardMaterial3D" format=3]\n\n[resource]\nalbedo_color = Color(0, 1\n', encoding="utf-8")
+    has("W6D a broken file is reported", must("W6D reimport the broken file", mutate(host, f"editor | call Reimport([{q(path)}])")), "NOT refreshed")
+    value_is("W6D and the loaded copy is kept",
+             must("W6D read after the broken file", query(host, f"godot.resource({q(path)}) | select AlbedoColor")), "(0, 0, 1, 1)")
 
 
 def literal_names(host: str, d: str) -> None:
