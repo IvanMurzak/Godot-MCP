@@ -32,7 +32,8 @@ and our source compiles against *that* exact version.
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
     <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.71fa5c1" />
-    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.aacfbba" />
+    <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
+    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.aacfbba" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>
 
   <!-- (3) GodotSharp is needed to COMPILE locally but must NOT be a package dependency. -->
@@ -87,7 +88,8 @@ SDK adds GodotSharp *after* the body is evaluated, so there is nothing to update
 
 Verify it worked by inspecting the generated `.nuspec` — its `<dependencies>` must list **only**
 `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.ReflectorNet` and `com.IvanMurzak.Rql`, with **no** `GodotSharp` /
-`Godot.SourceGenerators`. CI asserts exactly this (`scripts/extensions.py` `verify_package`).
+`Godot.SourceGenerators`, and the `com.IvanMurzak.Rql` dependency must carry `exclude="Runtime,…"`. CI asserts exactly
+this (`scripts/extensions.py` `verify_package`).
 
 ## Why `build/*.props` injection, not `contentFiles`?
 

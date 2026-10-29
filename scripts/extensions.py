@@ -14,6 +14,8 @@ SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
 # The only package dependencies an extension may declare (the MCP stack and the RQL module API); their pins must
 # equal the core's.
 CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql')
+# A source that names RQL (using Rql / Rql.Execution, [Rql…] attributes) before any `#if TOOLS`: RQL is editor-only.
+RQL_OUTSIDE_TOOLS = re.compile(r'\A(?:(?!#if TOOLS).)*?\bRql', re.S)
 
 
 def read_text(path):
@@ -102,16 +104,20 @@ def verify_package(archive, module, root=ROOT, version=None):
                     if node.tag.rsplit('}', 1)[-1] in ('id', 'version')}
         if metadata.get('id') != module['packageId'] or metadata.get('version') != (version or module['version']):
             raise ValueError('Packaged identity/version differs from requested module: ' + str(archive))
-        deps = {node.attrib['id'] for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'}
+        deps = {node.attrib['id']: node for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'}
         expected = set(CORE_DEPENDENCIES)
-        if deps != expected:
-            raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
+        if set(deps) != expected:
+            raise ValueError(f'Unexpected package dependencies: {set(deps)}; expected {expected}')
+        # RQL is editor-only (TOOLS code): a consumer's game export must not get its DLLs through this package.
+        excluded = {part.strip().lower() for part in deps['com.IvanMurzak.Rql'].attrib.get('exclude', '').split(',')}
+        if 'runtime' not in excluded or 'compile' in excluded:
+            raise ValueError('The com.IvanMurzak.Rql dependency must exclude Runtime (and keep Compile) assets (RQL never ships in a '
+                             'game): ' + str(archive))
         floors = package_pins(root / module['project'], expected)
         floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
-        for node in spec.iter():
-            if node.tag.rsplit('}', 1)[-1] == 'dependency':
-                if node.attrib.get('version') != floors[node.attrib['id']]:
-                    raise ValueError('Packaged dependency floor differs from source: ' + node.attrib['id'])
+        for package, node in deps.items():
+            if node.attrib.get('version') != floors[package]:
+                raise ValueError('Packaged dependency floor differs from source: ' + package)
         required = {f'build/{module["packageId"]}.props', 'README.md'}
         required.update('src/' + path.relative_to(source).as_posix()
                         for path in (source / 'Editor').rglob('*.cs'))
@@ -121,6 +127,9 @@ def verify_package(archive, module, root=ROOT, version=None):
                 name for name in required if name.endswith('.cs')}:
             raise ValueError('Package contains duplicate entries or unexpected sources')
         for name in required:
+            if name.endswith('.cs') and RQL_OUTSIDE_TOOLS.search(bundle.read(name).decode('utf-8', 'replace')):
+                # A game build compiles the package sources without RQL's DLLs: a type naming RQL there fails to load.
+                raise ValueError('Packaged source uses RQL outside #if TOOLS: ' + name)
             relative = name.removeprefix('src/') if name.startswith('src/') else name
             if bundle.read(name) != (source / relative).read_bytes():
                 raise ValueError('Packaged bytes differ from source: ' + name)
