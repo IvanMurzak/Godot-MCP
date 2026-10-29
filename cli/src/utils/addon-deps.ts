@@ -82,7 +82,7 @@ export interface AddonEmbeddedResource {
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.5.1-dev.ec3702e' },
-  { id: 'com.IvanMurzak.McpPlugin', version: '8.14.0-dev.42786f9' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '8.14.0-dev.c0d3157' },
   { id: 'com.IvanMurzak.Rql', version: '0.3.0-dev.aacfbba', editorOnly: true },
   { id: 'com.IvanMurzak.CodeExec', version: '0.4.0-dev.2556a2f', editorOnly: true, inGameOptIn: true },
   { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.4.0-dev.2556a2f', editorOnly: true, inGameOptIn: true },
