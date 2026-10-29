@@ -24,7 +24,8 @@ consumer's Godot project against the consumer's own GodotSharp; the packaging re
 - `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite, which
   installs the pinned addon from `extension.json` `testAddon`.
 - `testbed/Beehave-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
-- `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
+- Versions and core pins are set from the monorepo root: `scripts/extension_release.py bump` / `version`,
+  `scripts/update_core.py`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
 ## Critical invariants
@@ -57,4 +58,4 @@ already-cached version: when re-packing the same `Version`, clear
   `#nullable enable`.
 - The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp and the
   Beehave addon must never become package dependencies** (CI asserts the nuspec). Bump them with
-  `commands/update-core.ps1`.
+  `scripts/update_core.py`.

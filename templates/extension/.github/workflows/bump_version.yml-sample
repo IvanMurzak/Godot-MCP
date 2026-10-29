@@ -14,7 +14,7 @@
 #           `workflow_dispatch` events, by contrast, ALWAYS create a run. Hence push-then-dispatch,
 #           which is why this job needs `actions: write` on top of `contents: write`.
 #
-# Both modes apply the SAME edit through the SAME script (commands/bump-version.ps1), so the two paths
+# Both modes apply the SAME edit through the SAME script (commands/bump-version.py), so the two paths
 # cannot drift in which files they change.
 name: bump version
 
@@ -65,8 +65,7 @@ jobs:
           git checkout -b "release/${{ github.event.inputs.version }}"
 
       - name: Bump version
-        shell: pwsh
-        run: ./commands/bump-version.ps1 -NewVersion "${{ github.event.inputs.version }}"
+        run: python3 commands/bump-version.py "${{ github.event.inputs.version }}"
 
       - name: Commit and push
         run: |
@@ -114,10 +113,9 @@ jobs:
 
       # Same script, same argument as the pr path — the single source of the version edit.
       - name: Bump version
-        shell: pwsh
         env:
           VERSION: ${{ github.event.inputs.version }}
-        run: ./commands/bump-version.ps1 -NewVersion "$env:VERSION"
+        run: python3 commands/bump-version.py "$VERSION"
 
       - name: Commit the bump
         id: commit
@@ -132,7 +130,7 @@ jobs:
           # version gate would silently do nothing and the caller would wait for a commit that never
           # arrives. Fail loudly instead.
           if git diff --cached --quiet; then
-            echo "Error: bump-version.ps1 changed nothing — is the version already $VERSION?"
+            echo "Error: bump-version.py changed nothing — is the version already $VERSION?"
             exit 1
           fi
           echo "Staged files:"

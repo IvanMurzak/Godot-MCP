@@ -284,13 +284,15 @@ class SuiteGuards(unittest.TestCase):
                                 ignore=shutil.ignore_patterns('bin', 'obj', '.godot', '__pycache__'))
             folder = new_extension.create('ExampleFeature', root)
             self.assertFalse((folder / '.github').exists())
+            self.assertFalse((folder / 'commands').exists())
             self.assertEqual('Godot-AI-ExampleFeature', extensions.modules(root)[-1]['name'])
             self.assertNotIn('YOUR_FEATURE', (folder / 'extension.json').read_text())
             with self.assertRaisesRegex(ValueError, 'already exists'):
                 new_extension.create('ExampleFeature', root)
             shutil.copytree(extensions.ROOT / 'scripts', root / 'scripts',
                             ignore=shutil.ignore_patterns('tests', '__pycache__'))
-            subprocess.run([sys.executable, str(folder / 'commands/bump-version.py'), '0.1.1'],
+            subprocess.run([sys.executable, str(root / 'scripts/extension_release.py'), 'bump',
+                            '--only', 'Godot-AI-ExampleFeature', '--version', '0.1.1'],
                            check=True, capture_output=True)
             self.assertEqual('0.1.1', extensions.modules(root)[-1]['version'])
 
@@ -298,7 +300,7 @@ class SuiteGuards(unittest.TestCase):
 class CorePinParity(unittest.TestCase):
     def test_extensions_and_template_pin_the_core_versions(self):
         # Drift here broke a release-train leg with NU1605 (an extension's ReflectorNet pin was
-        # below what a newer McpPlugin requires). Fix: commands/update-core.py in each module.
+        # below what a newer McpPlugin requires). Fix: scripts/update_core.py.
         self.assertEqual([], extensions.core_pin_drift())
 
     def test_pin_differing_from_core_is_reported(self):

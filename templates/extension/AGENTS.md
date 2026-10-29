@@ -3,7 +3,7 @@
 **Template** for Godot-MCP extension packages (the Godot analog of `Unity-AI-Tools-Template`). An extension
 is an **RQL module**: it teaches the core `rql-query` / `rql-mutate` / `rql-schema` tools about a Godot feature
 (adapters, sources, methods, a guide) instead of adding MCP tools. `scripts/new_extension.py` (monorepo) or
-`commands/init.ps1` / `init.py` turn the placeholder boilerplate into a real extension, so every change here
+`commands/init.py` turn the placeholder boilerplate into a real extension, so every change here
 propagates to future extensions — keep placeholder tokens consistent.
 
 ## Placeholders (replaced by `init`)
@@ -11,7 +11,7 @@ propagates to future extensions — keep placeholder tokens consistent.
 | Token | Example value | Used in |
 | --- | --- | --- |
 | `YOUR_FEATURE` | `Particles` | namespaces, `<Feature>Module` / `Guide` / `Api`, folder/file names, the package id suffix |
-| `YOUR_SOURCE` | `particles` | the RQL source name of the sample module (`--source-name` / `-SourceName`) |
+| `YOUR_SOURCE` | `particles` | the RQL source name of the sample module (`--source-name`) |
 | `YOUR_DISPLAY_NAME` | `Particles Tools` | package `Title`, the guide topic, docs |
 | `YOUR_DESCRIPTION` | `RQL module for Godot Particles.` | package `Description` |
 | `YOUR_GITHUB_USERNAME_REPOSITORY` | `IvanMurzak/Godot-AI-Particles` | repo URLs |
@@ -31,7 +31,8 @@ The package id is always `com.IvanMurzak.Godot.MCP.<Feature>`, written literally
   guide checks come from `extensions/Shared/Tests/GuideExampleTests.cs`, linked by the test csproj.
 - `tests/e2e/e2e-tools.json` — the live calls that run every guide example (driver: `scripts/extension_e2e.py`).
 - `testbed/` — consumer `Godot.NET.Sdk` project restoring the local-packed package (injection proof).
-- `commands/` — `init`, `bump-version`, `update-core` (`.ps1` + `.py`), `get-version.ps1`.
+- `commands/` — `init.py`, `bump-version.py` (`--get` prints the version), `update-core.py`. A monorepo module
+  gets no copy (`scripts/new_extension.py` skips it): use `scripts/extension_release.py` and `scripts/update_core.py`.
 - `.github/workflows/*.yml-sample` — CI, inert until `init`. Never commit live `.github/workflows/*.yml` here.
 - `docs/` — `source-only-nuget-recipe.md` (the packaging recipe + consumer story); `ci.md`.
 
@@ -54,4 +55,4 @@ dotnet build testbed/YOUR_FEATURE-Testbed.csproj                      # consumes
   clamping them: a rejected value fails the whole mutation.
 - Every guide example runs in `tests/e2e/e2e-tools.json` (xUnit-asserted, in order); keep them runnable.
 - Core pins (`McpPlugin`, `ReflectorNet`, `Rql`) equal the core addon's (`core_pin_drift` fails CI otherwise); bump with
-  `commands/update-core.ps1`. GodotSharp must never become a package dep (see the recipe; CI asserts it).
+  `commands/update-core.py` (`scripts/update_core.py` in the monorepo). GodotSharp must never become a package dep (see the recipe; CI asserts it).

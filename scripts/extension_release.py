@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 from extension_live import download
-from extensions import ROOT, SEMVER, modules, read_json, run, verify_package
+from extensions import ROOT, SEMVER, modules, read_json, read_text, run, verify_package, write_text
 
 REPO = 'IvanMurzak/Godot-MCP'
 PUBLICATION_WAIT_SECONDS = 3600
@@ -201,30 +201,35 @@ def publish_github(module, output):
         run(['gh', 'release', 'edit', release_tag, '--draft=false', '--latest=false', '--repo', REPO])
 
 
-def bump(module, version):
+def bump(module, version, what_if=False):
     if not SEMVER.fullmatch(version):
         raise ValueError('Expected a stable x.y.z component version')
     if tuple(map(int, version.split('.'))) <= tuple(map(int, module['version'].split('.'))):
         raise ValueError('Component versions must increase')
+    print(f"{module['name']}: {module['version']} -> {version}" + (' (what-if)' if what_if else ''))
+    if what_if:
+        return
     project = ROOT / module['project']
     text, count = re.subn(r'<Version>' + re.escape(module['version']) + r'</Version>',
-                          '<Version>' + version + '</Version>', project.read_text())
+                          '<Version>' + version + '</Version>', read_text(project))
     if count != 1:
         raise ValueError('Expected one authoritative package version: ' + str(project))
-    project.write_text(text)
+    write_text(project, text)
     metadata = ROOT / 'extensions' / module['name'] / 'extension.json'
     updated = {**module, 'version': version}
-    metadata.write_text(json.dumps(updated, indent=2) + '\n')
+    write_text(metadata, json.dumps(updated, indent=2) + '\n')
     for path in (metadata.parent / 'README.md', project.parent / 'README.md'):
-        path.write_text(path.read_text().replace(module['version'], version))
+        write_text(path, read_text(path).replace(module['version'], version))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['plan', 'pack', 'stage', 'push', 'verify-registry', 'publish-github', 'bump'])
+    parser.add_argument('command', choices=['plan', 'version', 'pack', 'stage', 'push', 'verify-registry',
+                                            'publish-github', 'bump'])
     parser.add_argument('--only', required=True, help='all or comma-separated module names/package IDs')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/component-releases')
     parser.add_argument('--version', help='bump: new stable version for the selected module')
+    parser.add_argument('--what-if', action='store_true', help='bump: print the change without writing it')
     args = parser.parse_args()
     if args.command in ('push', 'publish-github') and (os.environ.get('GITHUB_ACTIONS') != 'true'
                                             or os.environ.get('GITHUB_REF') != 'refs/heads/main'):
@@ -234,6 +239,10 @@ def main():
         print(json.dumps({'include': [{'name': m['name'], 'packageId': m['packageId'],
                                       'version': m['version'], 'tag': tag(m), 'published': published(m)}
                                      for m in selected]}))
+    elif args.command == 'version':
+        if len(selected) != 1:
+            parser.error('version requires one module')
+        print(selected[0]['version'])
     elif args.command == 'pack':
         print('\n'.join(str(path) for path in pack(selected, args.output.resolve())))
     elif args.command == 'stage':
@@ -243,7 +252,7 @@ def main():
     elif args.command == 'bump':
         if len(selected) != 1 or not args.version:
             parser.error('bump requires one module and --version')
-        bump(selected[0], args.version)
+        bump(selected[0], args.version, args.what_if)
     else:
         args.output.mkdir(parents=True, exist_ok=True)
         for module in selected:

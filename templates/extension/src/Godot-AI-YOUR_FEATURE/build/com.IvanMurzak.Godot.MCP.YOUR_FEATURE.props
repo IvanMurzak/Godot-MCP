@@ -6,7 +6,7 @@
 
   NuGet auto-imports `build/<PackageId>.props` into any project that references this package. This file
   MUST be named exactly `<PackageId>.props` (com.IvanMurzak.Godot.MCP.YOUR_FEATURE.props) or NuGet will
-  not import it. `bump-version` / `init` keep the name in lockstep with <PackageId>.
+  not import it. `init` / `scripts/new_extension.py` name it after <PackageId>.
 
   It adds this package's packed `.cs` (which sit in the NuGet cache under `<package>/<version>/src/`) as
   <Compile> items in the CONSUMER's project, so they compile INSIDE the consumer's Godot project against

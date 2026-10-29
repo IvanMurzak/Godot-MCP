@@ -46,7 +46,10 @@ upstream Godot 4.7 parser fix and requires Godot 4.5. These are test fixtures, n
 ## Releases and installation
 
 Versions remain independent. Bump one module with
-`python scripts/extension_release.py bump --only Godot-AI-Animation --version 0.1.3`.
+`python scripts/extension_release.py bump --only Godot-AI-Animation --version 0.1.3` (`--what-if` previews;
+`version --only <module>` prints the current one). Move the core pins of every module and the template in
+lockstep with `python scripts/update_core.py --mcp-plugin <v> [--reflector-net <v>] [--rql <v>]`
+(`--only <module>` narrows it, `--what-if` previews). The modules carry no per-module `commands/`.
 Dispatch `release_extensions.yml` on main with `extensions=Godot-AI-Animation` (or a comma-separated
 selection / `all`). Dry run defaults to true. All test gates precede publication.
 NuGet Trusted Publishing must authorize `IvanMurzak/Godot-MCP`, `release_extensions.yml`, and

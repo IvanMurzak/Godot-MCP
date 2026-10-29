@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize a new Godot-MCP extension from this template (POSIX/Python path; mirrors init.ps1).
+"""Initialize a new Godot-MCP extension from this template.
 
 From a single --feature name (PascalCase, e.g. "Particles") this substitutes every placeholder, renames
 files/folders whose name contains YOUR_FEATURE, then activates CI (*.yml-sample -> *.yml).
@@ -23,9 +23,9 @@ from pathlib import Path
 
 EXCLUDE_DIRS = {".git", "bin", "obj", ".godot", "local-nuget", ".vs"}
 TEXT_EXT = {".cs", ".csproj", ".props", ".targets", ".md", ".json", ".yml", ".yaml",
-            ".yml-sample", ".godot", ".config", ".sh", ".ps1", ".py", ".editorconfig",
+            ".yml-sample", ".godot", ".config", ".sh", ".py", ".editorconfig",
             ".gitignore", ".txt"}
-SELF = {"init.py", "init.ps1"}
+SELF = {"init.py"}
 
 
 def is_excluded(path: Path, root: Path) -> bool:
@@ -85,15 +85,17 @@ def main() -> int:
         if not path.is_file() or is_excluded(path, root) or path.name in SELF or not is_text(path):
             continue
         try:
-            text = path.read_text(encoding="utf-8")
+            with open(path, encoding="utf-8", newline="") as handle:
+                text = handle.read()
         except (UnicodeDecodeError, OSError):
             continue
         new = text
         for token, value in replacements:
             new = new.replace(token, value)
         if new != text:
-            path.write_text(new, encoding="utf-8", newline="")
-            print(f"  updated {path.relative_to(root)}")
+            with open(path, "w", encoding="utf-8", newline="") as handle:
+                handle.write(new)
+            print(f"  updated {path.relative_to(root).as_posix()}")
 
     # 2) Rename files/folders containing YOUR_FEATURE, deepest-first.
     print("Renaming files and folders...")
@@ -114,8 +116,12 @@ def main() -> int:
             print(f"  activated {sample.name} -> {target.name}")
 
     print("\nDone. Next:")
-    print(f"  dotnet build src/Godot-AI-{feature}/Godot-AI-{feature}.csproj")
-    print(f"  dotnet test  tests/Godot-AI-{feature}.Tests/Godot-AI-{feature}.Tests.csproj")
+    print("  1. Review the changes, then build + test:")
+    print(f"       dotnet build src/Godot-AI-{feature}/Godot-AI-{feature}.csproj")
+    print(f"       dotnet test  tests/Godot-AI-{feature}.Tests/Godot-AI-{feature}.Tests.csproj")
+    print(f"  2. Write the RQL module under src/Godot-AI-{feature}/Editor/Rql (adapters, sources, guide; see AGENTS.md).")
+    print("  3. Create the nuget.org trusted-publishing policy and `gh variable set NUGET_USER` (see release.yml),")
+    print("     then push to main with a bumped <Version> to release.")
     return 0
 
 

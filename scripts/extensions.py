@@ -16,6 +16,17 @@ SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
 CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql')
 
 
+def read_text(path):
+    """UTF-8 text with its newlines untouched (a Windows runner would otherwise decode cp1252 and write CRLF)."""
+    with open(path, encoding='utf-8', newline='') as handle:
+        return handle.read()
+
+
+def write_text(path, text):
+    with open(path, 'w', encoding='utf-8', newline='') as handle:
+        handle.write(text)
+
+
 def read_json(path):
     return json.loads(Path(path).read_text(encoding='utf-8-sig'))
 
@@ -128,6 +139,11 @@ def core_pins(root=ROOT):
     return pins
 
 
+def pin_folders(root=ROOT):
+    """Every folder whose csproj files must pin the core versions: each module and the template."""
+    return [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']
+
+
 def core_pin_drift(root=ROOT):
     """Extension/template csproj pins of CORE_DEPENDENCIES that differ from Godot-MCP.csproj.
 
@@ -141,7 +157,7 @@ def core_pin_drift(root=ROOT):
         raise ValueError(f'Godot-MCP.csproj must pin {CORE_DEPENDENCIES}; found {sorted(core)}')
     drift = []
     # Fail closed: a moved or empty module folder must not turn the scan into a silent pass.
-    for folder in [*sorted((root / 'extensions').glob('Godot-AI-*')), root / 'templates/extension']:
+    for folder in pin_folders(root):
         csprojs = sorted(folder.rglob('*.csproj'))
         if not csprojs:
             drift.append(f'{folder.relative_to(root).as_posix()}: no csproj found')

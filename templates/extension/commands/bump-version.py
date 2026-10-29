@@ -1,24 +1,32 @@
 #!/usr/bin/env python3
-"""Set the extension package version (the package csproj <Version>). POSIX/Python mirror of bump-version.ps1.
+"""Set the extension package version (the single source of truth: the package csproj <Version>).
+
+The release workflow is version-gated on this value: it publishes only when <Version> increases AND the
+tag does not exist yet. Inside the Godot-MCP monorepo use `scripts/extension_release.py bump` instead.
 
 Usage:
   python commands/bump-version.py 1.0.1
   python commands/bump-version.py 1.0.1 --what-if
-  python commands/bump-version.py --get        # print current version
+  python commands/bump-version.py --get        # print the current version (CI's version gate)
 """
 from __future__ import annotations
 import argparse
 import re
-import sys
 from pathlib import Path
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.\-]+)?$")
 
 
-def find_package_csproj(root: Path) -> Path:
-    for p in (root / "src").rglob("*.csproj"):
-        if "<PackageId>" in p.read_text(encoding="utf-8"):
-            return p
+def read(path: Path) -> str:
+    with open(path, encoding="utf-8", newline="") as handle:
+        return handle.read()
+
+
+def find_package_csproj(root: Path) -> "tuple[Path, str]":
+    for p in sorted((root / "src").rglob("*.csproj")):
+        content = read(p)
+        if "<PackageId>" in content:
+            return p, content
     raise SystemExit("error: could not find the package csproj (with <PackageId>) under src/")
 
 
@@ -30,24 +38,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(__file__).resolve().parent.parent
-    if (root / "extension.json").is_file():
-        # Keep the monorepo inventory and package README versions in sync.
-        sys.path.insert(0, str(root.parents[1] / "scripts"))
-        from extension_release import bump
-        from extensions import modules, SEMVER as stable_version
-        module = modules(only=[root.name])[0]
-        if args.get:
-            print(module["version"])
-            return 0
-        if not args.version or not stable_version.fullmatch(args.version):
-            ap.error("pass a stable major.minor.patch version")
-        if args.what_if:
-            print(f"{module['name']}: {module['version']} -> {args.version} (what-if)")
-            return 0
-        bump(module, args.version)
-        return 0
-    csproj = find_package_csproj(root)
-    content = csproj.read_text(encoding="utf-8")
+    csproj, content = find_package_csproj(root)
     m = re.search(r"<Version>([^<]+)</Version>", content)
     if not m:
         raise SystemExit(f"error: no <Version> element in {csproj.name}")
@@ -58,17 +49,17 @@ def main() -> int:
         return 0
 
     if not args.version or not SEMVER.match(args.version):
-        print("error: pass a semantic version major.minor.patch[-prerelease]", file=sys.stderr)
-        return 2
+        ap.error("pass a semantic version major.minor.patch[-prerelease]")
 
     print(f"Package: {csproj.name}")
     print(f"Version: {current} -> {args.version}")
     if args.what_if:
         print("(what-if — no changes written)")
         return 0
-    csproj.write_text(re.sub(r"<Version>[^<]+</Version>", f"<Version>{args.version}</Version>", content),
-                       encoding="utf-8", newline="")
+    with open(csproj, "w", encoding="utf-8", newline="") as handle:
+        handle.write(re.sub(r"<Version>[^<]+</Version>", lambda _: f"<Version>{args.version}</Version>", content))
     print("Updated.")
+    print("Remember to commit, then push to main to trigger the version-gated release.")
     return 0
 
 
