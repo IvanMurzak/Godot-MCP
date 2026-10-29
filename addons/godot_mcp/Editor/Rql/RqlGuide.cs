@@ -44,7 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string Language =
             "RQL: source | stage | stage ...\n" +
             "Sources: nodes (every node of the edited scene, depth-first, root included), root (the edited scene root), " +
-            "selection, scenes (open scenes), files (every res:// file the editor knows, with its size in bytes; on request importedSize, deps, missingDeps, usedBy (scenes / resources that load it) and " +
+            "selection, scenes (open scenes), files (every res:// file the editor knows; on request size (bytes), importedSize, deps, missingDeps, usedBy (scenes / resources that load it) and " +
             "importSettings[\"option\"]), folders (path fileCount folderCount empty), classes (Godot classes, ClassDB), " +
             "console (captured editor log entries), gameLog (what the game run from the editor printed: Sequence LogType Message " +
             "StackTrace), editor (editor state, undoHistory / redoHistory, and operations), project (project settings: " +

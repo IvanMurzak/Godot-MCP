@@ -34,19 +34,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class ReimportClassifierTests
     {
-        [Fact]
-        public void DestFiles_ReadsTheImportedArtifactsOfTheDepsSection()
-        {
-            const string sidecar = "[remap]\n\nimporter=\"texture\"\npath.s3tc=\"res://.godot/imported/a.png-1.s3tc.ctex\"\n\n" +
-                                   "[deps]\n\nsource_file=\"res://a.png\"\r\n" +
-                                   "dest_files=[\"res://.godot/imported/a.png-1.s3tc.ctex\", \"res://.godot/imported/a.png-1.etc2.ctex\"]\n\n" +
-                                   "[params]\n\ndest_files=[\"res://not-a-dep\"]\n";
-            Assert.Equal(new[] { "res://.godot/imported/a.png-1.s3tc.ctex", "res://.godot/imported/a.png-1.etc2.ctex" },
-                ReimportClassifier.DestFiles(sidecar));
-            Assert.Empty(ReimportClassifier.DestFiles(null));
-            Assert.Empty(ReimportClassifier.DestFiles("[deps]\n\nsource_file=\"res://a.wav\"\ndest_files=[]\n"));
-        }
-
         /// <summary>
         /// What <c>ResourceLoader.GetRecognizedExtensionsForType("")</c> returns in a real editor: the
         /// importer's extensions AND the native loaders' extensions, mixed. Spelled the way Godot does

@@ -36,7 +36,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("selection", RqlGodot.SelectedNodes, "nodes selected in the editor", typeof(List<global::Godot.Node>))
                .AddSource("scenes", RqlEditorApi.OpenScenes, "scenes open in the editor: path name active root; calls Open, Save", typeof(List<RqlScene>))
                .AddSource("files", RqlEditorApi.Files,
-                   $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid size (bytes); on request importedSize " +
+                   $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request size (bytes), importedSize " +
                    "(bytes of its import output, what an export packs), deps (what it loads), " +
                    "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)", typeof(IEnumerable<RqlFile>))
                .AddSource("folders", RqlEditorApi.Folders, "every folder the editor filesystem knows: path name fileCount folderCount empty " +

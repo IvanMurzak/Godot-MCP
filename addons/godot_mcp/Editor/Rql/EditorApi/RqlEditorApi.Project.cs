@@ -111,20 +111,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("uid:// of the file, or null")]
         public string? uid => RqlGodot.UidOf(path);
 
-        [RqlDescription("bytes of the file on disk (largest files: files | sort size desc | first 5)")]
+        [RqlDescription("bytes of the file on disk (largest files: files | sort size desc | first 5); on request")]
         public long size => FileBytes(path);
 
         [RqlDescription("bytes of what the import produced (the .godot/imported files of its .import, which an export packs instead " +
             "of the source), null for a file that is not imported; on request")]
-        public long? importedSize
-        {
-            get
-            {
-                var sidecar = ReimportClassifier.ImportSidecarPath(path);
-                if (!FileAccess.FileExists(sidecar)) return null;
-                return ReimportClassifier.DestFiles(FileAccess.GetFileAsString(sidecar)).Sum(FileBytes);
-            }
-        }
+        public long? importedSize => ImportSettings.DestFiles(path) is { } files ? files.Sum(FileBytes) : (long?)null;
 
         private static long FileBytes(string resPath)
         {
@@ -158,7 +150,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 "texture …); set one to change it and re-import the file (like the Import dock: not undoable)",
                 // Every key reaches validate, which names the file's options.
                 has: (o, key) => true);
-            m.Untyped.ExplicitOnly("deps", "missingDeps", "usedBy", "importSettings", "importedSize");
+            m.Untyped.ExplicitOnly("size", "deps", "missingDeps", "usedBy", "importSettings", "importedSize");
         }
     }
 
@@ -180,6 +172,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         }).Config;
 
         private static string[] KeysOf(ConfigFile c) => c.HasSection(Section) ? c.GetSectionKeys(Section) : System.Array.Empty<string>();
+
+        /// <summary>The imported artifacts the sidecar lists (<c>[deps] dest_files</c>), or null for a file that is not imported.</summary>
+        public static string[]? DestFiles(string path) => Load(path) is { } c ? c.GetValue("deps", "dest_files", new string[0]).AsStringArray() : null;
 
         public static IEnumerable<string> Keys(string path) => Load(path) is { } c ? KeysOf(c) : System.Array.Empty<string>();
 
