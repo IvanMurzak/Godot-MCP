@@ -144,7 +144,7 @@ class PackageVerification(unittest.TestCase):
 <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.4.3"/>
 <PackageReference Include="com.IvanMurzak.Rql" Version="0.1.1"/>
 </ItemGroup></Project>''')
-        self.files = {'src/Editor/Test.cs': b'class Example {}', 'build/example.props': b'<Project/>',
+        self.files = {'src/Editor/Test.cs': b'#if TOOLS\nusing Rql;\nclass Example {}\n#endif\n', 'build/example.props': b'<Project/>',
                       'README.md': b'Package readme'}
         for name, value in self.files.items():
             path = self.source / name.removeprefix('src/')
@@ -153,7 +153,7 @@ class PackageVerification(unittest.TestCase):
         self.files['example.nuspec'] = b'''<package><metadata><id>example</id><version>1.2.3</version>
 <dependencies><dependency id="com.IvanMurzak.McpPlugin" version="8.8.1"/>
 <dependency id="com.IvanMurzak.ReflectorNet" version="5.4.3"/>
-<dependency id="com.IvanMurzak.Rql" version="0.1.1"/></dependencies></metadata></package>'''
+<dependency id="com.IvanMurzak.Rql" version="0.1.1" exclude="Runtime,Build,Analyzers"/></dependencies></metadata></package>'''
 
     def verify(self):
         archive = self.root / 'example.nupkg'
@@ -193,8 +193,27 @@ class PackageVerification(unittest.TestCase):
 
     def test_missing_rql_dependency_is_rejected(self):
         self.files['example.nuspec'] = self.files['example.nuspec'].replace(
-            b'\n<dependency id="com.IvanMurzak.Rql" version="0.1.1"/>', b'')
+            b'\n<dependency id="com.IvanMurzak.Rql" version="0.1.1" exclude="Runtime,Build,Analyzers"/>', b'')
         with self.assertRaisesRegex(ValueError, 'Unexpected package dependencies'):
+            self.verify()
+
+    def test_rql_dependency_shipping_runtime_assets_is_rejected(self):
+        # Without the exclusion a consumer's export build copies Rql.*.dll into the game.
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b' exclude="Runtime,Build,Analyzers"', b' exclude="Build,Analyzers"')
+        with self.assertRaisesRegex(ValueError, 'must exclude Runtime'):
+            self.verify()
+
+    def test_rql_dependency_without_compile_assets_is_rejected(self):
+        self.files['example.nuspec'] = self.files['example.nuspec'].replace(b'exclude="Runtime,Build,Analyzers"', b'exclude="Runtime,Compile"')
+        with self.assertRaisesRegex(ValueError, 'keep Compile'):
+            self.verify()
+
+    def test_source_using_rql_outside_tools_is_rejected(self):
+        # Without RQL's runtime DLLs a game build cannot load a type that names RQL (e.g. an [RqlDescription] row class).
+        source = b'#nullable enable\nusing Rql;\n[RqlDescription("row")]\nclass Row {}\n'
+        self.files['src/Editor/Test.cs'] = source
+        (self.source / 'Editor/Test.cs').write_bytes(source)
+        with self.assertRaisesRegex(ValueError, 'outside #if TOOLS'):
             self.verify()
 
     def test_train_package_requires_exact_candidate_dependency(self):
