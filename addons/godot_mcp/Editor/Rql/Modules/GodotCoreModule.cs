@@ -51,7 +51,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                    $"godot.resources(type, folder?): resources of a Godot class (subclasses included) below an optional res:// folder, e.g. \"Texture2D\" (at most {RqlGodot.MaxResources}, loaded as needed)")
                .AddFunction("godot.resource", RqlGodot.LoadResource, "godot.resource(path): the resource at a res:// or uid:// path, or null")
                .AddFunction("godot.group", RqlGodot.FindGroup, "godot.group(name): the nodes of the edited scene in a group, e.g. godot.group(\"enemies\") | set Visible = false")
-               .AddTypedSource("project", () => Settings.RqlProject.Instance, Godot_ProjectSettings_Adapter.Summary)
+               // Undeclared: the singleton is a plain GodotObject, and declaring that type would walk every Godot class for known names.
+               .AddSource("project", () => Settings.RqlProject.Instance, Godot_ProjectSettings_Adapter.Summary)
                .AddTypedSource("settings", Settings.RqlProject.Settings,
                    "every project setting: name section value type changed (write with project | set settings[\"<name>\"] = …)")
                .AddTypedSource("inputActions", Settings.RqlProject.InputActions,
@@ -120,7 +121,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
         /// <summary>
         /// <c>AddSource</c> with the getter's return type declared: its members are known names before any query has read the
         /// source (RQL never evaluates a source a query does not name, e.g. the groups walk), so a typo in a query of a source
-        /// not read yet is still reported, and mixed-stream hints see its type.
+        /// not read yet is still reported, and mixed-stream hints see its type. Declare the concrete type: a base such as
+        /// GodotObject would make RQL's known-names walk visit every subclass.
         /// </summary>
         public static RqlModuleContext AddTypedSource<T>(this RqlModuleContext ctx, string name, Func<T> getter, string? description = null)
         {

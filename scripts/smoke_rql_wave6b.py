@@ -50,8 +50,12 @@ def key_warnings(host: str) -> None:
 
 
 def receipts_and_names(host: str) -> None:
+    planned = must("W6B 60 nodes, dry run", mutate(host, 'range(0, 60) | call editor.CreateNode("Node3D", {name: "D" + $})', dry_run=True))
+    has("W6B a long dry-run receipt says the targets were checked", planned, "10 more row(s) not shown", "every target was checked")
+    lacks("W6B and never that changes were made", planned, "every change was made")
     receipt = must("W6B 60 nodes", mutate(host, 'range(0, 60) | call editor.CreateNode("Node3D", {name: "R" + $})'))
     has("W6B a long receipt counts the rest", receipt, "10 more row(s) not shown")
     lacks("W6B and names no json format", receipt, "json format")
+    has("W6B and says every change was made", receipt, "every change was made")
     fails("W6B a misspelt argument name is suggested", mutate(host, 'editor | call CreateNode({klass: "Node3D"})', dry_run=True),
           "did you mean 'className'")

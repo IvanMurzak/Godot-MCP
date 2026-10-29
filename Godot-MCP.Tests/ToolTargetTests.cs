@@ -31,6 +31,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(typeof(Tool_Console))]
         public void Game_only_families_are_runtime_tools(Type family) => Assert.Equal(ToolTarget.Runtime, TargetOf(family));
 
+        // Tool_Reflection is not compiled into this suite (it needs the Godot reflector): its source carries the marker.
+        [Fact]
+        public void Reflection_family_is_a_runtime_tool()
+        {
+            var source = System.IO.File.ReadAllText(System.IO.Path.Combine(RepoRoot(), "addons", "godot_mcp", "Runtime", "Tools", "Tool_Reflection.cs"));
+            Assert.Contains("[AiToolType(Target = ToolTarget.Runtime)]\n    public partial class Tool_Reflection", source.Replace("\r\n", "\n"));
+        }
+
+        static string RepoRoot()
+        {
+            var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;
+            return dir?.FullName ?? throw new InvalidOperationException("Godot-MCP.csproj not found above " + AppContext.BaseDirectory);
+        }
+
         [Theory]
         [InlineData(typeof(Tool_Ping))]
         [InlineData(typeof(Tool_Skills))]

@@ -69,7 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // The shared rules are the runtime's, with Godot's creation call (conditions, list equality, receipts, call, bulk create,
             // vectors, map entries, literal kinds).
             Assert.EndsWith(global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"), RqlGuide.Language);
-            Assert.Equal(global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"), RqlGuide.SharedRules);
+            Assert.Equal(RqlGuide.SharedRules, global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"));
             Assert.DoesNotContain("editor.CreateObject", RqlGuide.Language);
             Assert.Contains("Lists compare by value", RqlGuide.Language);
             Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("range(0, ") && e.Contains("call editor.CreateNode("));

@@ -119,7 +119,8 @@ editors keep answering tool calls with an old build).
   reloaded plugin takes it back (`GodotMcpLocalServerHandoff`); a live process holding our delegates fails the unload.
 - **RQL and hot reload.** RQL lives in the default load context; its Type-keyed caches are cleared on teardown
   (`RqlStaticCaches`). The editor tool surface is shaped by the `configurePlugin` callback the editor passes to the
-  `GodotMcpConnection` constructor (Runtime/ never names editor types); console-* / reflection-* stay in the in-game runtime only.
+  `GodotMcpConnection` constructor (Runtime/ never names editor types). console-* / reflection-* / runtime-errors-* are
+  game-only (`[AiToolType(Target = ToolTarget.Runtime)]`): the editor's plugin (role Editor, set before Build()) never registers them.
 
 ## Conventions
 

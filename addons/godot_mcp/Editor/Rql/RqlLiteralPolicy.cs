@@ -46,10 +46,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>
         /// The refusal of a literal naming (or written to) a non-Resource Godot class, for the checks the addon makes before RQL
-        /// would: script classes it builds itself and the call validators (dry runs fail like the real call). Same text as RQL's.
+        /// would: script classes it builds itself and the call validators (dry runs fail like the real call). Same text as RQL's
+        /// (<see cref="RefusalHint"/>): the node advice for a Node class, else the object advice.
         /// </summary>
-        public static string Refusal(string className) =>
-            $"{className} is an engine object and cannot be built from an object literal; {NodeAdvice}";
+        public static string Refusal(string className, bool isNode) =>
+            $"{className} is an engine object and cannot be built from an object literal; {(isNode ? NodeAdvice : ObjectAdvice)}";
     }
 }
 #endif

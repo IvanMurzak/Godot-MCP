@@ -49,10 +49,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             Assert.Contains("godot.find(", RqlLiteralPolicy.NodeAdvice);
             Assert.Contains("editor.CreateNode", RqlLiteralPolicy.NodeAdvice);
-            Assert.EndsWith(RqlLiteralPolicy.NodeAdvice, RqlLiteralPolicy.Refusal("MeshInstance3D"));
+            Assert.EndsWith(RqlLiteralPolicy.NodeAdvice, RqlLiteralPolicy.Refusal("MeshInstance3D", isNode: true));
+            Assert.EndsWith(RqlLiteralPolicy.ObjectAdvice, RqlLiteralPolicy.Refusal("RefCounted", isNode: false));
         }
 
-        // The literal kind replaces the CanConstructFromLiteral override of RQL 2877579 (it would turn every engine type into a value).
+        // The literal kind replaces the CanConstructFromLiteral Resource override the addon set for RQL 2877579.
         [Fact]
         public void Configure_installs_the_kind_and_the_advice_only()
         {
