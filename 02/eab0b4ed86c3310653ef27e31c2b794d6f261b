@@ -1,0 +1,78 @@
+addons/godot_mcp/Runtime/Tools/Tool_GameScript.cs
+  s_5f9a753ce320b5::t_9ed5622c019b10 1-113
+  s_5f9a753ce320b5::t_5badd5c6bc21ac 114
+scripts/check-runtime-boundary.py
+  s_5f9a753ce320b5::t_93ae374152040c 189-191
+  s_5f9a753ce320b5::t_9d2a7391fd86d0 272,274-275
+  s_5f9a753ce320b5::t_62dfbbeb4311a4 281
+  s_5f9a753ce320b5::t_915603e0949293 198,204-205,210,213-215,217,221-225
+  s_5f9a753ce320b5::t_193ab506a3da2a 27-30,98-99
+  s_5f9a753ce320b5::t_7d206b8a715892 55-56,58-62,66-68,72-75,78,80,89-97
+  s_5f9a753ce320b5::t_1c556a17b31ab3 249,251
+scripts/check-export-assemblies.py
+  s_5f9a753ce320b5::t_694bb57006059a 1-104
+.github/workflows/ci.yml
+  s_5f9a753ce320b5::t_1937129114b059 28-46
+Godot-MCP.Tests/GameScriptExecuteTests.cs
+  s_5f9a753ce320b5::t_c9022980fa6814 1-120
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_69e520bf8d0004 7-12
+docs/runtime-security.md
+  s_5f9a753ce320b5::t_4390d6df7848d4 76-92
+scripts/tests/test_check_runtime_boundary.py
+  s_5f9a753ce320b5::t_1491acc209b689 1-75
+AGENTS.md
+  s_5f9a753ce320b5::t_db534198b97baa 97-99
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5f9a753ce320b5::t_951fee41a5ca7a 9-11,213-219
+Godot-MCP.csproj
+  s_5f9a753ce320b5::t_c4fc7cff5ebddb 28-30,32-34,37-39
+Godot-Tests/Godot-Tests.csproj
+  s_5f9a753ce320b5::t_178e0a93708163 34-38,43-45
+Godot-Tests/Harness/RuntimeHarness.cs
+  s_5f9a753ce320b5::t_84cf7ccbcfba1a 221-225,255-294,672-675,803-806
+README.md
+  s_5f9a753ce320b5::t_1b5c08d55b250a 621,698-731,928-930
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_5f9a753ce320b5::t_3934f4bf00e85b 164-170
+addons/godot_mcp/Runtime/GodotMcpRuntimeBuilder.cs
+  s_5f9a753ce320b5::t_e071c4564231df 261-312
+addons/godot_mcp/Runtime/Tools/GodotSnippetLogger.cs
+  s_5f9a753ce320b5::t_6646e4e23e4322 10-11
+addons/godot_mcp/Runtime/Tools/ScriptExecuteSource.cs
+  s_5f9a753ce320b5::t_3f8fc85a9b6836 10-11,85-96
+addons/godot_mcp/Runtime/Tools/ScriptExecutor.cs
+  s_5f9a753ce320b5::t_4e12d0f933d8d9 1-185
+cli/src/utils/addon-deps.ts
+  s_5f9a753ce320b5::t_dff8e86b03d287 15-16,34-39,49-63,87-89
+cli/src/utils/addon-nuget-deps.ts
+  s_5f9a753ce320b5::t_77efb25aab285a 3-8,45,47,53,58-59,63-64,72,74-75,84-85
+cli/src/utils/csproj-deps.ts
+  s_5f9a753ce320b5::t_351212a80983bf 5,7,122-124,127-133,136-138
+cli/tests/addon-nuget-deps.test.ts
+  s_5f9a753ce320b5::t_0c573e84c22b7a 7,41-55,78,81,87,109-120
+cli/tests/csproj-deps.test.ts
+  s_5f9a753ce320b5::t_fbed17b9d4a270 3-8,320-376
+docs/ARCHITECTURE.md
+  s_5f9a753ce320b5::t_52f41f22b7e64c 57-58,194,219,234-253
+scripts/assert_runtime_harness.py
+  s_5f9a753ce320b5::t_deb7ffb9555011 115-123
+scripts/write-nuget-deps.mjs
+  s_5f9a753ce320b5::t_cd07217fe199f6 21-22,24,31-33,35-38,42,44,56-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "02eab0b4ed86c3310653ef27e31c2b794d6f261b",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+docs/RELEASING.md
+  s_eb8bcde0be96a2::t_693651cb5d30ba 119-123
+scripts/extension_release.py
+  s_eb8bcde0be96a2::t_ff308638ff0f98 123-138,145,189-191
+.github/workflows/release_extensions.yml
+  s_eb8bcde0be96a2::t_c8e6c22029ff07 123-128
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_ff308638ff0f98 9,81-131
+  s_8b677f7e5eeedc::t_57a93c9833fec3 132-133
+scripts/assetlib_extensions.py
+  s_eb8bcde0be96a2::t_0a8c2fe762f1b4 181-182,185-188,250-251
+  s_eb8bcde0be96a2::t_60dc15cb49fcd7 1-20,22-167,174-180,189-229,237-246,249,252-263,267-292
+  s_eb8bcde0be96a2::t_c8e6c22029ff07 230-236
+  s_eb8bcde0be96a2::t_f7829cecab5358 21,168-173,183-184
+  s_eb8bcde0be96a2::t_59eb2f40ab0b77 247-248,264-266
+scripts/tests/test_assetlib_extensions.py
+  s_eb8bcde0be96a2::t_c8e6c22029ff07 1-2,4-12,14-15,20-21,30,32-145,152-162
+  s_eb8bcde0be96a2::t_9663dc57c4764e 3,13,16-19,22-29,31
+  s_eb8bcde0be96a2::t_f7829cecab5358 146-151
+scripts/test_extensions.py
+  s_eb8bcde0be96a2::t_c8e6c22029ff07 172-189
+extensions/manifest.json
+  s_eb8bcde0be96a2::t_c8e6c22029ff07 3
+docs/EXTENSION-MONOREPO.md
+  s_eb8bcde0be96a2::t_693651cb5d30ba 71-97
+extensions/Godot-AI-Animation/README.md
+  s_eb8bcde0be96a2::t_d60e903f1e1e97 35-45
+extensions/Godot-AI-Beehave/README.md
+  s_eb8bcde0be96a2::t_96ea8172695c59 49-59
+extensions/Godot-AI-CSG/README.md
+  s_eb8bcde0be96a2::t_7ecbe54f2b3721 35-45
+extensions/Godot-AI-Dialogic/README.md
+  s_eb8bcde0be96a2::t_a90aa203cc76a3 49-59
+extensions/Godot-AI-GridMap/README.md
+  s_eb8bcde0be96a2::t_b19c371db85189 35-45
+extensions/Godot-AI-Navigation/README.md
+  s_eb8bcde0be96a2::t_9c9cdc00e9e57f 35-45
+extensions/Godot-AI-Particles/README.md
+  s_eb8bcde0be96a2::t_7564fdd5c3076c 33-43
+extensions/Godot-AI-PhantomCamera/README.md
+  s_eb8bcde0be96a2::t_16624edc039e56 51-61
+extensions/Godot-AI-Terrain3D/README.md
+  s_eb8bcde0be96a2::t_3a8a3ad13c8788 52-62
+extensions/Godot-AI-Tilemap/README.md
+  s_eb8bcde0be96a2::t_8b8b54b972bb43 34-44
+templates/extension/README.md
+  s_eb8bcde0be96a2::t_f075cb9356cdd7 19-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e88cde121f20246b12bb2439e49e5fffe50060a2",
+  "prompts": {},
+  "sessions": {
+    "s_8b677f7e5eeedc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1413c-d77b-7de0-8dd6-eb573f517fb8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

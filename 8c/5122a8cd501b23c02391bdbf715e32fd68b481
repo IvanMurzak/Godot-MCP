@@ -1,0 +1,29 @@
+scripts/release_dependency_guard.py
+  s_7bc72ecaebd05d::t_2df035c05c5886 1-424
+  s_7bc72ecaebd05d::t_279641bb61941a 425
+scripts/tests/test_release_dependency_guard.py
+  s_7bc72ecaebd05d::t_0af920be85525d 1-180
+  s_7bc72ecaebd05d::t_b866847cad2d6d 181-182
+.github/workflows/release.yml
+  s_7bc72ecaebd05d::t_3fd19d3124d766 23-24,98-103
+.github/workflows/release_extensions.yml
+  s_7bc72ecaebd05d::t_831cbbabd1047d 35-38
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_37cd37d229039c 74-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8c5122a8cd501b23c02391bdbf715e32fd68b481",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

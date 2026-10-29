@@ -1,0 +1,83 @@
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_0ce2fbf4fb6ad4 3
+.github/workflows/test_godot_runtime_harness.yml
+  s_7bc72ecaebd05d::t_ecb194f3d262fa 29-30,78,544-568,603
+AGENTS.md
+  s_7bc72ecaebd05d::t_3bb9fe52b86901 112-117
+Godot-MCP.Tests/AssemblyReloadGateTests.cs
+  s_7bc72ecaebd05d::t_4a532672faf53a 1-465
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_25d23c1ce472f8 226-229
+Godot-MCP.Tests/ProjectBuildTests.cs
+  s_7bc72ecaebd05d::t_dff37a4e8c1756 1-121
+README.md
+  s_7bc72ecaebd05d::t_67de1bca93658b 46,131,146,177-180,540-554
+addons/godot_mcp/Editor/Connection/DevControl/DevControlServer.cs
+  s_7bc72ecaebd05d::t_513bf0c1b64e81 285
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_7bc72ecaebd05d::t_fe00dfa542a79e 17,65-70,75-76,223-237,307-315,499-512,532-541,628-654,657,660-661,760-762
+addons/godot_mcp/Editor/Reload/AssemblyReloadGate.cs
+  s_7bc72ecaebd05d::t_b5cac9b65409e5 1-187
+addons/godot_mcp/Editor/Reload/GatedRunTool.cs
+  s_7bc72ecaebd05d::t_47bd7ed9812201 1-96
+addons/godot_mcp/Editor/Reload/ProjectBuild.cs
+  s_7bc72ecaebd05d::t_f95c6b20e28779 1-141
+addons/godot_mcp/Editor/Reload/ProjectBuildTracker.cs
+  s_7bc72ecaebd05d::t_e10f691a576caf 1-275
+addons/godot_mcp/Editor/Reload/ReloadGateDriver.cs
+  s_7bc72ecaebd05d::t_3572e1853c3cdc 1-196
+addons/godot_mcp/Editor/Tools/Tool_Script.AttachToNode.cs
+  s_7bc72ecaebd05d::t_ee01af7f42c0c6 72
+addons/godot_mcp/Editor/Tools/Tool_Script.Build.cs
+  s_7bc72ecaebd05d::t_b7f889984982d5 1-54
+addons/godot_mcp/Editor/Tools/Tool_Script.Create.cs
+  s_7bc72ecaebd05d::t_be85b271ba3157 35
+addons/godot_mcp/Editor/Tools/Tool_Script.Execute.cs
+  s_7bc72ecaebd05d::t_c85e649b397e75 37-38
+addons/godot_mcp/Editor/Tools/Tool_Script.Update.cs
+  s_7bc72ecaebd05d::t_ae7e65c6f7b14b 37
+addons/godot_mcp/Editor/Tools/Tool_Script.cs
+  s_7bc72ecaebd05d::t_a8df38cefa8104 103
+addons/godot_mcp/Runtime/Connection/GodotMcpLogger.cs
+  s_7bc72ecaebd05d::t_0b05999c2abf1c 58-64,126-127
+addons/godot_mcp/Runtime/MainThread/GodotMainThread.cs
+  s_7bc72ecaebd05d::t_10b85eb6d7e95f 110
+addons/godot_mcp/Runtime/MainThread/MainThreadDispatcher.cs
+  s_7bc72ecaebd05d::t_a7eddc057b5e1a 47-82,190-196,201-207,217,304-305,358,360,364-370,376,380-389,460-461
+cli/src/utils/skills.ts
+  s_7bc72ecaebd05d::t_961a13bf5f51f5 75,83-87
+cli/tests/skills-addon-parity.test.ts
+  s_7bc72ecaebd05d::t_474c5c5adafe64 217,220,223-224,279
+docs/ARCHITECTURE.md
+  s_7bc72ecaebd05d::t_4999a82d4a4845 67-68
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_759a62337da144 60
+scripts/smoke_reload.py
+  s_7bc72ecaebd05d::t_c7c1f705f8b88d 1-202
+tests/chain-fixtures/4.3.0/tools.jsonl
+  s_7bc72ecaebd05d::t_6f4b8b8e22120f 15-16,20
+tests/chain-fixtures/4.4.0/tools.jsonl
+  s_7bc72ecaebd05d::t_4e0d6a4f084e80 15-16,20
+tests/chain-fixtures/4.5.1/tools.jsonl
+  s_7bc72ecaebd05d::t_92a17c984cf472 15-16,20
+tests/chain-fixtures/4.6.3/tools.jsonl
+  s_7bc72ecaebd05d::t_270564704cf6af 15-16,20
+tests/chain-fixtures/4.7.0/tools.jsonl
+  s_7bc72ecaebd05d::t_2c381147d5628f 15-16,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1dabc80a9b932b73c4d01430670753551a8dd00e",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

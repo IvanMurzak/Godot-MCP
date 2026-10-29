@@ -1,0 +1,90 @@
+addons/godot_mcp/Runtime/MainThread/MainThreadDispatcher.cs
+  s_7bc72ecaebd05d::t_2a7197a8aeb835 47-77,185-191,196-198,208,295-296,349,351,355-361,367,371-374,445
+addons/godot_mcp/Runtime/MainThread/GodotMainThread.cs
+  s_7bc72ecaebd05d::t_1d439cf2aeedd6 110
+addons/godot_mcp/Editor/Connection/DevControl/DevControlServer.cs
+  s_7bc72ecaebd05d::t_949be20d962181 285
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_7bc72ecaebd05d::t_723c8cdf549f3a 17,65-70,75-76,223-229,299-307,491-500,520-529,616-642,645,648-649,748-750
+addons/godot_mcp/Editor/Reload/ReloadGateDriver.cs
+  s_7bc72ecaebd05d::t_70169f92d48257 1-184
+  s_7bc72ecaebd05d::t_73413f870392c6 185-186
+addons/godot_mcp/Editor/Reload/GatedRunTool.cs
+  s_7bc72ecaebd05d::t_78bdd6941ec90f 1-89
+  s_7bc72ecaebd05d::t_01477861f58ea8 90-97
+addons/godot_mcp/Editor/Reload/AssemblyReloadGate.cs
+  s_7bc72ecaebd05d::t_4a52c3cdcc2de1 176-182
+  s_7bc72ecaebd05d::t_fc14ad015adf2e 1-175
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_26faf71f89ff87 3
+.github/workflows/test_godot_runtime_harness.yml
+  s_7bc72ecaebd05d::t_9d0995a1a3c7e2 29-30,544-567,602
+AGENTS.md
+  s_7bc72ecaebd05d::t_8d23ce712d9fb7 112-117
+Godot-MCP.Tests/AssemblyReloadGateTests.cs
+  s_7bc72ecaebd05d::t_60a73e9a14eea9 1-420
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_ca3cf10a428374 226-229
+Godot-MCP.Tests/ProjectBuildTests.cs
+  s_7bc72ecaebd05d::t_10cec8cafdf24d 1-121
+README.md
+  s_7bc72ecaebd05d::t_e75fd3aca59397 46,131,146,177-180,540-553
+addons/godot_mcp/Editor/Reload/ProjectBuild.cs
+  s_7bc72ecaebd05d::t_8db9043da860c6 1-141
+addons/godot_mcp/Editor/Tools/Tool_Script.AttachToNode.cs
+  s_7bc72ecaebd05d::t_cad1a47766404d 72
+addons/godot_mcp/Editor/Tools/Tool_Script.Create.cs
+  s_7bc72ecaebd05d::t_a28d4f2d4ee4f3 35
+addons/godot_mcp/Editor/Tools/Tool_Script.Execute.cs
+  s_7bc72ecaebd05d::t_8d421f7b1ea4d4 37-38
+addons/godot_mcp/Editor/Tools/Tool_Script.Update.cs
+  s_7bc72ecaebd05d::t_1a89c0662c2b4b 37
+addons/godot_mcp/Editor/Tools/Tool_Script.cs
+  s_7bc72ecaebd05d::t_64b13e640946e2 103
+cli/src/utils/skills.ts
+  s_7bc72ecaebd05d::t_2851fb5d800048 75,83-87
+cli/tests/skills-addon-parity.test.ts
+  s_7bc72ecaebd05d::t_6ff523f0432f16 217,220,223-224,279
+docs/ARCHITECTURE.md
+  s_7bc72ecaebd05d::t_f601812604682b 67-68
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_9d1930b1caa8bd 60
+scripts/smoke_reload.py
+  s_7bc72ecaebd05d::t_f037cfd05528eb 1-201
+addons/godot_mcp/Editor/Reload/ProjectBuildTracker.cs
+  s_7b179640090bbe::t_26635f06260e99 1-247
+addons/godot_mcp/Editor/Tools/Tool_Script.Build.cs
+  s_3845a59f1accb2::t_bedc0ca33f7212 1-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b16b91187a68e2c7bec5e1b76d82fcf44accc5cb",
+  "prompts": {},
+  "sessions": {
+    "s_3845a59f1accb2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a60ab3444bf5d1552",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_7b179640090bbe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a69f8a6921e679043",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

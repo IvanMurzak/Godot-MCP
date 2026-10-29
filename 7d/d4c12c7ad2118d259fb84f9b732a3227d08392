@@ -1,0 +1,27 @@
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_06c53c82d6e5ea::t_e1aebee7ea94ab 997
+  s_06c53c82d6e5ea::t_324efb255c96cc 815-818
+  s_06c53c82d6e5ea::t_ee7f56b3cb31be 1019
+  s_06c53c82d6e5ea::t_1b95c46bfd7380 292-294
+  s_06c53c82d6e5ea::t_6ae82e8fa252b9 75-79,407-415,417-420,422
+  s_06c53c82d6e5ea::t_9f39cc2fa3b45d 423-432,434,453-455
+  s_06c53c82d6e5ea::t_8bf7ca7d7ee9fb 460-462,465,467-475
+  s_06c53c82d6e5ea::t_e8122fcf06c3fc 939
+  s_06c53c82d6e5ea::t_087f3a54ffa0be 259-262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7dd4c12c7ad2118d259fb84f9b732a3227d08392",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

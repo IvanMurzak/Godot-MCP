@@ -1,0 +1,19 @@
+addons/godot_mcp/Editor/Reload/ProjectBuildTracker.cs
+  s_7bc72ecaebd05d::t_d2268c9f1a2cbd 74-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fd71489fc84a23859fca1affcbe063b87178460",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

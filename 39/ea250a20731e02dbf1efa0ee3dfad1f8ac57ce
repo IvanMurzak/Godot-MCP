@@ -1,0 +1,27 @@
+tests/chain-fixtures/4.3.0/tools.jsonl
+  s_f9885b8a4d06ac::t_5096ad24469f2a 1,17
+tests/chain-fixtures/4.4.0/tools.jsonl
+  s_f9885b8a4d06ac::t_ac2dfbf890209d 1,17
+tests/chain-fixtures/4.5.1/tools.jsonl
+  s_f9885b8a4d06ac::t_3cefd48919a7e2 1,17
+tests/chain-fixtures/4.6.3/tools.jsonl
+  s_f9885b8a4d06ac::t_15c5be4e0344c9 1,17
+tests/chain-fixtures/4.7.0/tools.jsonl
+  s_f9885b8a4d06ac::t_1b98dd3f2e6305 1,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "39ea250a20731e02dbf1efa0ee3dfad1f8ac57ce",
+  "prompts": {},
+  "sessions": {
+    "s_f9885b8a4d06ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15163-393a-7211-938a-4b86b5b293ef",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

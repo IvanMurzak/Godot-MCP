@@ -1,0 +1,21 @@
+cli/src/utils/agents.ts
+  s_03889e5b831242::t_450a2f8ff09005 151
+cli/tests/setup-mcp.test.ts
+  s_03889e5b831242::t_aa0f4803ee297a 64,118,278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9e0a23b7781899a32c735b47f4ab7e3efb2c0076",
+  "prompts": {},
+  "sessions": {
+    "s_03889e5b831242": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3843704f-05ea-48af-bc8c-fc5e33c964db",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

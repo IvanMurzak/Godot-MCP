@@ -1,0 +1,25 @@
+docs/rql.md
+  s_7bc72ecaebd05d::t_dc9fa1fdb6cd8f 87-90
+scripts/smoke_rql_feedback.py
+  s_7bc72ecaebd05d::t_849c3c881395fc 30-31
+  s_7bc72ecaebd05d::t_7ea6978ac56fca 21-29,32-35
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Scenes.cs
+  s_7bc72ecaebd05d::t_76e97502afda2b 39-46
+  s_7bc72ecaebd05d::t_7956aea3690c3e 56-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f397b45eecdeacfa85ee8011243222347504b774",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

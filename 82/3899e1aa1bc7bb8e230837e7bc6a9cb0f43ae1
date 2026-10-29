@@ -1,0 +1,46 @@
+Godot-MCP.Tests/ScriptResultTextTests.cs
+  s_7bc72ecaebd05d::t_d69e9ef5611d6b 101-158
+scripts/smoke_rql_feedback.py
+  s_7bc72ecaebd05d::t_25f5fb74ebb966 44
+scripts/smoke_script_execute.py
+  s_7bc72ecaebd05d::t_06c6b58e67bf30 166-170
+docs/rql.md
+  s_7bc72ecaebd05d::t_784001994ee3ee 87-88
+addons/godot_mcp/Runtime/Tools/ScriptExecutor.cs
+  s_7bc72ecaebd05d::t_2d8506440cfdac 171-173,175-183,194,197,202-209,211
+addons/godot_mcp/Runtime/Connection/GodotMcpLoggerProvider.cs
+  s_7bc72ecaebd05d::t_50bf2e9c1ea49b 33,40-41,45,49
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Scenes.cs
+  s_7bc72ecaebd05d::t_2a45ff22ced2de 117
+addons/godot_mcp/Runtime/Connection/GodotMcpLog.cs
+  s_7bc72ecaebd05d::t_50bf2e9c1ea49b 66-67,72,75,78,96,98,102,104
+Godot-MCP.Tests/GodotMcpLogGateTests.cs
+  s_7bc72ecaebd05d::t_cb13784c6bbef3 172,174-180,182-193,195-210,214-232
+addons/godot_mcp/Editor/Rql/RqlReimport.cs
+  s_7bc72ecaebd05d::t_ccfe6466f8ee46 120-122,128-132,139-187
+addons/godot_mcp/Runtime/Reflection/Godot_Variant_ReflectionConverter.cs
+  s_7bc72ecaebd05d::t_622f29201c93bf 310-311,321,324-325,404,412,498-499,536-538
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_7bc72ecaebd05d::t_50bf2e9c1ea49b 469-470
+addons/godot_mcp/Runtime/Connection/GodotMcpLogger.cs
+  s_7bc72ecaebd05d::t_50bf2e9c1ea49b 46-49,51-56,61,69-70,78,120
+addons/godot_mcp/Runtime/Tools/ScriptResultText.cs
+  s_7bc72ecaebd05d::t_7fc68ccb3f2f5f 21,30-32,39-41,43,48-49,51,54-55,58-59,61-80,82-83,85-87,89-114,122,125-127,130-148,152-154,156-196,206-207,215,218
+  s_7bc72ecaebd05d::t_541683aed88ad0 217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "823899e1aa1bc7bb8e230837e7bc6a9cb0f43ae1",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

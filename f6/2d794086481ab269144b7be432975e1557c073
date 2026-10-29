@@ -1,0 +1,23 @@
+Godot-MCP.Tests/MainThreadDispatcherTests.cs
+  s_7be60963fe3603::t_43610cf92c2bb2 410-423
+addons/godot_mcp/Editor/Connection/GodotMcpServerManager.cs
+  s_7be60963fe3603::t_8b79b21a8c2935 80,892-893,928-930,935
+addons/godot_mcp/Runtime/MainThread/MainThreadDispatcher.cs
+  s_7be60963fe3603::t_9cd93480447f7b 225-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f62d794086481ab269144b7be432975e1557c073",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

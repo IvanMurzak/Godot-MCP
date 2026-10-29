@@ -1,0 +1,36 @@
+.github/assetlib/edit.hbs
+  h_8325a340bf5897 3
+CLAUDE.md
+  h_8325a340bf5897 17,170
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  h_8325a340bf5897 46
+Godot-MCP.csproj
+  h_8325a340bf5897 20
+Godot-Tests/Godot-Tests.csproj
+  h_8325a340bf5897 15,37
+Godot-Tests/README.md
+  h_8325a340bf5897 15
+README.md
+  h_8325a340bf5897 320,332
+cli/src/utils/addon-deps.ts
+  h_8325a340bf5897 46
+cli/tests/skills-addon-parity.test.ts
+  h_8325a340bf5897 323
+docs/ARCHITECTURE.md
+  h_8325a340bf5897 220
+docs/RELEASING.md
+  h_8325a340bf5897 248
+docs/assetlib/SUBMISSION.md
+  h_8325a340bf5897 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7fe0b38dbd9c8929b6fba9227293c5f0f20735f9",
+  "prompts": {},
+  "humans": {
+    "h_8325a340bf5897": {
+      "author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

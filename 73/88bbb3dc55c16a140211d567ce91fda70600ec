@@ -1,0 +1,54 @@
+Godot-MCP.Tests/RqlEditorHistoryAndGameLogTests.cs
+  s_7bc72ecaebd05d::t_c5c046f361382b 125
+  s_7bc72ecaebd05d::t_8f582d4814f788 121-124,126-136
+Godot-MCP.Tests/StaleGlobalClassTests.cs
+  s_7bc72ecaebd05d::t_2218202e34495f 20,22,28,49-53
+addons/godot_mcp/Editor/Rql/Adapters/Object/GodotEnumNames.cs
+  s_7bc72ecaebd05d::t_64a231f484c9a8 24
+addons/godot_mcp/Editor/Rql/EditorApi/GameLogText.cs
+  s_7bc72ecaebd05d::t_e8e8e8e5d41c9f 59,62-64,99-101
+addons/godot_mcp/Editor/Rql/EditorApi/HistoryStepText.cs
+  s_7bc72ecaebd05d::t_002b014de72f2a 32-38
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.GameLog.cs
+  s_7bc72ecaebd05d::t_ee9e70fc662f4a 35,55-63
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.History.cs
+  s_7bc72ecaebd05d::t_dce2c39c705265 54-61,89,91
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Scenes.cs
+  s_7bc72ecaebd05d::t_3c16e76ba80904 52-53,56-57,159-169,174-179
+addons/godot_mcp/Editor/Rql/GodotVariants.cs
+  s_7bc72ecaebd05d::t_85ea5a71fb8ceb 174-178,187-188
+addons/godot_mcp/Editor/Rql/Modules/GodotCoreModule.cs
+  s_7bc72ecaebd05d::t_635e92dec824d5 41
+addons/godot_mcp/Editor/Rql/RqlGodot.Save.cs
+  s_7bc72ecaebd05d::t_57d3dd90a06d3f 404-407
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7bc72ecaebd05d::t_3d0d7ef7896085 183
+addons/godot_mcp/Editor/Tools/StaleGlobalClass.cs
+  s_7bc72ecaebd05d::t_8fcfe1df1a49b8 35-37
+addons/godot_mcp/Editor/Tools/Tool_Script.AttachToNode.cs
+  s_7bc72ecaebd05d::t_2f85d31e06d4fc 72
+addons/godot_mcp/Editor/Tools/Tool_Script.cs
+  s_7bc72ecaebd05d::t_5466545fd72b22 102
+docs/rql.md
+  s_7bc72ecaebd05d::t_5236214c31565b 25,127
+scripts/smoke_rql.py
+  s_7bc72ecaebd05d::t_6b0d9876e831c1 62
+scripts/smoke_rql_agent.py
+  s_7bc72ecaebd05d::t_5e19c0e6e700db 14,68-71,114-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7388bbb3dc55c16a140211d567ce91fda70600ec",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
