@@ -27,7 +27,7 @@ namespace com.IvanMurzak.Godot.MCP.Beehave
             ctx.AddSource("beehave", () => new BeehaveApi(),
                     "Beehave behaviour trees of the edited scene: installed, hint, trees (name path scriptClass enabled tickRate " +
                     "processThread actor node), nodes (name path scriptClass kind tree depth node); write through node. Needs the " +
-                    "Beehave addon (bitbrain/beehave, res://addons/beehave) enabled; without it the lists are empty")
+                    "Beehave addon (bitbrain/beehave, res://addons/beehave) enabled; without it the lists are empty", typeof(BeehaveApi))
                .AddGuide(BeehaveGuide.Topic, BeehaveGuide.Markdown);
     }
 }

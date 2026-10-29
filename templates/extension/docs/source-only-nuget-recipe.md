@@ -32,7 +32,7 @@ and our source compiles against *that* exact version.
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
     <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.42786f9" />
-    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.2f4e263" />
+    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.aacfbba" />
   </ItemGroup>
 
   <!-- (3) GodotSharp is needed to COMPILE locally but must NOT be a package dependency. -->
