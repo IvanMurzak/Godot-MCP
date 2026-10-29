@@ -36,10 +36,10 @@ def create(feature, root=ROOT):
         return text
     template = root / 'templates/extension'
     for source in template.rglob('*'):
-        if not source.is_file() or any(part in ('.github', 'bin', 'obj', '.godot', 'local-nuget')
+        # commands/ is the standalone scaffold's tooling; a monorepo module uses scripts/extension_release.py
+        # and scripts/update_core.py instead.
+        if not source.is_file() or any(part in ('.github', 'bin', 'obj', '.godot', 'local-nuget', 'commands')
                                        for part in source.relative_to(template).parts):
-            continue
-        if source.name in ('init.py', 'init.ps1'):
             continue
         target = folder / replace(source.relative_to(template).as_posix())
         target.parent.mkdir(parents=True, exist_ok=True)

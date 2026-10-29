@@ -31,7 +31,7 @@
     <RootNamespace>com.IvanMurzak.Godot.MCP.GridMap</RootNamespace>
     <AssemblyName>com.IvanMurzak.Godot.MCP.GridMap</AssemblyName>
 
-    <!-- ===== Package identity (bump-version.ps1 / get-version.ps1 own the Version element) ===== -->
+    <!-- ===== Package identity (scripts/extension_release.py bump owns the Version element) ===== -->
     <IsPackable>true</IsPackable>
     <PackageId>com.IvanMurzak.Godot.MCP.GridMap</PackageId>
     <Version>1.0.1</Version>
@@ -64,7 +64,7 @@
     module API: IRqlModule, type adapters). A NuGet Version="x" is a ">= x" floor; the pins EQUAL the core
     Godot-MCP addon's (Godot-MCP.csproj; scripts/extensions.py core_pin_drift fails CI otherwise): a lower
     ReflectorNet than the McpPlugin requires is a NU1605 downgrade, a higher pin cannot restore in a consumer
-    pinned to the core. `update-core.ps1` / `update-core.py` keep package, tests and testbed in lockstep.
+    pinned to the core. `scripts/update_core.py` keeps package, tests and testbed in lockstep.
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />

@@ -25,7 +25,8 @@ GodotSharp; the packaging recipe is in `docs/source-only-nuget-recipe.md`.
   installs the pinned addon (`extension.json` `testAddon`, a newer tag from Godot 4.5) and registers its `Dialogic`
   autoload.
 - `testbed/Dialogic-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
-- `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
+- Versions and core pins are set from the monorepo root: `scripts/extension_release.py bump` / `version`,
+  `scripts/update_core.py`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
 ## Critical invariants
@@ -63,4 +64,4 @@ the **global NuGet cache** for an already-cached version: when re-packing the sa
   `#nullable enable`.
 - The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp and the
   Dialogic addon must never become package dependencies** (CI asserts the nuspec). Bump them with
-  `commands/update-core.ps1`.
+  `scripts/update_core.py`.

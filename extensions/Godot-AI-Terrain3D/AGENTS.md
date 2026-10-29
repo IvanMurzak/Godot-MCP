@@ -22,7 +22,8 @@ against the consumer's own GodotSharp; the packaging recipe is in `docs/source-o
 - `tests/e2e/e2e-tools.json` — the live calls (`rql-*`), driven by `scripts/extension_e2e.py` from the monorepo suite with
   the pinned addon installed (`extension.json` `testAddon`: `TokisanGames/Terrain3D` @ `v1.0.2-stable`).
 - `testbed/Terrain3D-Testbed.csproj` — consumer project restoring the local-packed package (injection proof).
-- `commands/` — `bump-version`, `update-core`, `init` (`.ps1` + `.py`), `get-version.ps1`.
+- Versions and core pins are set from the monorepo root: `scripts/extension_release.py bump` / `version`,
+  `scripts/update_core.py`.
 - CI and publishing are centralized in the monorepo; see `../../docs/EXTENSION-MONOREPO.md`.
 
 ## Critical invariants (addon-dependent)
@@ -58,4 +59,4 @@ root. `dotnet pack` reuses the **global NuGet cache** for an already-cached vers
   starts with the Apache-2.0 header and `#nullable enable`.
 - The package declares only the `com.IvanMurzak.McpPlugin` / `ReflectorNet` / `Rql` pins (equal to the core's); **GodotSharp and the
   Terrain3D addon must never become package dependencies** (CI asserts the nuspec). Bump them with
-  `commands/update-core.ps1`.
+  `scripts/update_core.py`.
