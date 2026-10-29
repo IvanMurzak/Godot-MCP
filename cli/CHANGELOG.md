@@ -10,11 +10,11 @@ All notable changes to `godot-cli` are documented in this file.
 - **`configure`: tools are shown or hidden, not enabled or disabled.** The flag only decides what MCP clients see listed;
   a hidden tool still runs when called by name. `.godot-mcp/features.json` entries are written as `{ name, visible }`
   (a file with the old `enabled` key is still read); `--list` prints `[visible]` / `[hidden]`. Flag names are unchanged.
-- **McpPlugin 8.14.0-dev.e8985d5 (temporary pre-release pin).** The `install-plugin` fallback pins follow the addon.
+- **McpPlugin 8.14.0-dev.42786f9 (temporary pre-release pin).** The `install-plugin` fallback pins follow the addon.
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.
-- **RQL 0.3.0-dev.2877579, Code-Exec 0.4.0-dev.2b784e4 (temporary pre-release pins).** The `install-plugin` fallback pins
+- **RQL 0.3.0-dev.2f4e263, Code-Exec 0.4.0-dev.2556a2f (temporary pre-release pins).** The `install-plugin` fallback pins
   (addons without `nuget-deps.json`) follow the addon (RQL: arguments by name, overload checks without side effects,
   compact receipts).
 - **ReflectorNet 5.5.0, McpPlugin 8.11.1, server 9.2.14.** The `install-plugin` fallback pins (addons without

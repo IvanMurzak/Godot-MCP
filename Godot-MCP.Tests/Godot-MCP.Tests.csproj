@@ -46,11 +46,11 @@
     <!-- Same pins as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline).
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.0" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.e8985d5" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2877579" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2b784e4" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2b784e4" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.42786f9" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2f4e263" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2556a2f" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2556a2f" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
   </ItemGroup>
 
