@@ -8,6 +8,7 @@
 */
 #if TOOLS
 #nullable enable
+using System.Collections.Generic;
 using Rql.Execution;
 
 namespace com.IvanMurzak.Godot.MCP.Terrain3D
@@ -27,8 +28,8 @@ namespace com.IvanMurzak.Godot.MCP.Terrain3D
         public void Configure(RqlModuleContext ctx) =>
             ctx.AddSource("terrain3d", () => Terrain3DApi.Terrains(),
                     "Terrain3D nodes of the edited scene (Terrain3D extension): node name path regionSize dataDirectory material regionCount " +
-                    "meshLods meshSize vertexSpacing version; call ChangeRegionSize(size)")
-               .AddSource("terrain3d.addon", () => Terrain3DApi.Addon, "is the Terrain3D GDExtension installed: installed addon hint")
+                    "meshLods meshSize vertexSpacing version; call ChangeRegionSize(size)", typeof(List<Terrain3DView>))
+               .AddSource("terrain3d.addon", () => Terrain3DApi.Addon, "is the Terrain3D GDExtension installed: installed addon hint", typeof(Terrain3DAddon))
                .AddFunction("terrain3d.newMaterial", Terrain3DApi.NewMaterial,
                     "terrain3d.newMaterial(): a new Terrain3DMaterial, e.g. terrain3d | get node | set props[\"material\"] = terrain3d.newMaterial()")
                .AddGuide(Terrain3DGuide.Topic, Terrain3DGuide.Markdown);

@@ -68,8 +68,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("has(Mesh)", RqlGuide.QuerySyntaxShort);
             // The shared rules are the runtime's, with Godot's creation call (conditions, list equality, receipts, call, bulk create,
             // vectors, map entries, literal kinds).
-            Assert.EndsWith(global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"), RqlGuide.Language);
-            Assert.Equal(RqlGuide.SharedRules, global::Rql.Execution.RqlLanguageGuide.RulesFor("editor.CreateNode"));
+            var rules = global::Rql.Execution.RqlLanguageGuide.RulesWith(new global::Rql.Execution.RqlRuleExamples
+            {
+                CreateCall = RqlGuide.RuleCreateCall,
+                Grid = RqlGuide.RuleGridExample,
+                PerEntry = RqlGuide.RulePerEntryExample,
+                Named = RqlGuide.RuleNamedExample,
+            });
+            Assert.EndsWith(rules, RqlGuide.Language);
+            Assert.Equal(RqlGuide.SharedRules, rules);
+            // RQL aacfbba: the rules show Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder.
+            Assert.Contains("range(0, 300) | call " + RqlGuide.RuleGridExample, RqlGuide.SharedRules);
+            Assert.Contains(RqlGuide.RulePerEntryExample, RqlGuide.SharedRules);
+            Assert.Contains("range(0, 10) | call " + RqlGuide.RuleNamedExample, RqlGuide.SharedRules);
+            Assert.DoesNotContain("stands for", RqlGuide.SharedRules);
+            Assert.DoesNotContain("\"Cube\"", RqlGuide.SharedRules);
             Assert.DoesNotContain("editor.CreateObject", RqlGuide.Language);
             Assert.Contains("Lists compare by value", RqlGuide.Language);
             Assert.Contains(RqlGuide.MutateExamples, e => e.StartsWith("range(0, ") && e.Contains("call editor.CreateNode("));

@@ -215,7 +215,7 @@ the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSh
 `Godot-MCP.csproj` declares each with
 
 ```xml
-<PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.2f4e263" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.aacfbba" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 ```
 
 (Code-Exec and Roslyn carry a wider condition, see "In-game code execution" below.)
