@@ -138,7 +138,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.Object => hint == PropertyHint.ResourceType ? typeof(Resource)
                 : hint == PropertyHint.NodeType ? typeof(Node) : typeof(GodotObject),
             Variant.Type.Dictionary => typeof(global::Godot.Collections.Dictionary),
-            Variant.Type.Array => typeof(global::Godot.Collections.Array),
+            Variant.Type.Array => TypedArrayType(hint, hintString),
             Variant.Type.PackedByteArray => typeof(byte[]),
             Variant.Type.PackedInt32Array => typeof(int[]),
             Variant.Type.PackedInt64Array => typeof(long[]),
@@ -150,6 +150,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.PackedColorArray => typeof(Color[]),
             _ => typeof(object), // Nil (a Variant property), Signal, Packed types newer than 4.3
         };
+
+        // A typed array of resources or nodes (Array[Resource], Array[Texture2D], Array[Node3D], a script class) takes a list of
+        // them: RQL then builds each object literal as a typed literal and resolves refs, which an untyped Array would keep raw.
+        private static Type TypedArrayType(PropertyHint hint, string? hintString)
+        {
+            if (GodotTypedArrayHint.ObjectElement((int)hint, hintString) is not { } element) return typeof(global::Godot.Collections.Array);
+            bool Derives(string baseClass) => ClassDB.ClassExists(element.className) && ClassDB.IsParentClass(element.className, baseClass);
+            if (element.elementHint == (int)PropertyHint.NodeType || Derives("Node")) return typeof(List<Node>);
+            if (element.elementHint == (int)PropertyHint.ResourceType || Derives("Resource")) return typeof(List<Resource>);
+            return typeof(global::Godot.Collections.Array);
+        }
 
         /// <summary>
         /// The one property-usage rule: a real property (not a category / group / subgroup header) that is stored — or,
