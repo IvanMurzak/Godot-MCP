@@ -198,7 +198,7 @@ class PackageVerification(unittest.TestCase):
             self.verify()
 
     def test_rql_dependency_shipping_runtime_assets_is_rejected(self):
-        # Without the exclusion a consumer's export build copies Rql.*.dll into the game (wave 7 S03).
+        # Without the exclusion a consumer's export build copies Rql.*.dll into the game.
         self.files['example.nuspec'] = self.files['example.nuspec'].replace(b' exclude="Runtime,Build,Analyzers"', b' exclude="Build,Analyzers"')
         with self.assertRaisesRegex(ValueError, 'must exclude Runtime'):
             self.verify()

@@ -32,7 +32,7 @@ and our source compiles against *that* exact version.
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
     <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0-dev.c0d3157" />
-    <!-- RQL is editor-only: runtime assets stay private, so a consumer's game export ships no RQL. -->
+    <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
     <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0-dev.aacfbba" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>
 
