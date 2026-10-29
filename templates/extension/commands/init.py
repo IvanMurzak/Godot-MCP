@@ -120,7 +120,8 @@ def main() -> int:
     print(f"       dotnet build src/Godot-AI-{feature}/Godot-AI-{feature}.csproj")
     print(f"       dotnet test  tests/Godot-AI-{feature}.Tests/Godot-AI-{feature}.Tests.csproj")
     print(f"  2. Write the RQL module under src/Godot-AI-{feature}/Editor/Rql (adapters, sources, guide; see AGENTS.md).")
-    print("  3. Configure the NUGET_API_KEY secret, then push to main with a bumped <Version> to release.")
+    print("  3. Create the nuget.org trusted-publishing policy and `gh variable set NUGET_USER` (see release.yml),")
+    print("     then push to main with a bumped <Version> to release.")
     return 0
 
 

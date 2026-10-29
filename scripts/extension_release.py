@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 from extension_live import download
-from extensions import ROOT, SEMVER, modules, read_json, run, verify_package
+from extensions import ROOT, SEMVER, modules, read_json, read_text, run, verify_package, write_text
 
 REPO = 'IvanMurzak/Godot-MCP'
 PUBLICATION_WAIT_SECONDS = 3600
@@ -211,15 +211,15 @@ def bump(module, version, what_if=False):
         return
     project = ROOT / module['project']
     text, count = re.subn(r'<Version>' + re.escape(module['version']) + r'</Version>',
-                          '<Version>' + version + '</Version>', project.read_text())
+                          '<Version>' + version + '</Version>', read_text(project))
     if count != 1:
         raise ValueError('Expected one authoritative package version: ' + str(project))
-    project.write_text(text)
+    write_text(project, text)
     metadata = ROOT / 'extensions' / module['name'] / 'extension.json'
     updated = {**module, 'version': version}
-    metadata.write_text(json.dumps(updated, indent=2) + '\n')
+    write_text(metadata, json.dumps(updated, indent=2) + '\n')
     for path in (metadata.parent / 'README.md', project.parent / 'README.md'):
-        path.write_text(path.read_text().replace(module['version'], version))
+        write_text(path, read_text(path).replace(module['version'], version))
 
 
 def main():

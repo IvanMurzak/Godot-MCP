@@ -15,7 +15,10 @@ import argparse
 import re
 
 from extension_release import selection
-from extensions import CORE_DEPENDENCIES, ROOT, pin_folders
+from extensions import CORE_DEPENDENCIES, ROOT, pin_folders, read_text, write_text
+
+# A NuGet version (x.y.z[-pre][+meta]); anything else would break the Version="..." attribute.
+VERSION = re.compile(r'[0-9A-Za-z.+-]+')
 
 
 def targets(only):
@@ -26,8 +29,7 @@ def targets(only):
 def update(csprojs, pins, what_if=False):
     """Rewrite each PackageReference Version in `pins`, keeping every other byte (and the newlines)."""
     for csproj in csprojs:
-        with open(csproj, encoding='utf-8', newline='') as handle:
-            content = handle.read()
+        content = read_text(csproj)
         new = content
         for package, version in pins.items():
             new = re.sub(r'(<PackageReference\s+Include="' + re.escape(package) + r'"\s+Version=")[^"]+(")',
@@ -38,8 +40,7 @@ def update(csprojs, pins, what_if=False):
         for package, version in pins.items():
             print(f'  {package} -> {version}')
         if not what_if:
-            with open(csproj, 'w', encoding='utf-8', newline='') as handle:
-                handle.write(new)
+            write_text(csproj, new)
 
 
 def main(argv=None):
@@ -55,7 +56,13 @@ def main(argv=None):
             zip(CORE_DEPENDENCIES, (args.mcp_plugin, args.reflector_net, args.rql)) if version}
     if not pins:
         parser.error('pass --mcp-plugin, --reflector-net and/or --rql')
-    update(targets(args.only), pins, args.what_if)
+    if not all(VERSION.fullmatch(version) for version in pins.values()):
+        parser.error('a version may hold only letters, digits and . - +')
+    try:
+        csprojs = targets(args.only)
+    except ValueError as error:
+        parser.error(str(error))
+    update(csprojs, pins, args.what_if)
     print('(what-if: no changes written)' if args.what_if else 'Done. Rebuild + test to confirm compatibility.')
     return 0
 

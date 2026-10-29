@@ -28,6 +28,8 @@ def main() -> int:
                                       ("com.IvanMurzak.Rql", args.rql)) if ver}
     if not pins:
         raise SystemExit("error: pass --mcp-plugin, --reflector-net and/or --rql")
+    if not all(re.fullmatch(r"[0-9A-Za-z.+-]+", ver) for ver in pins.values()):
+        raise SystemExit("error: a version may hold only letters, digits and . - +")
 
     root = Path(__file__).resolve().parent.parent
     csprojs = []

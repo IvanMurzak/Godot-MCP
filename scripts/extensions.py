@@ -16,6 +16,17 @@ SEMVER = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
 CORE_DEPENDENCIES = ('com.IvanMurzak.McpPlugin', 'com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.Rql')
 
 
+def read_text(path):
+    """UTF-8 text with its newlines untouched (a Windows runner would otherwise decode cp1252 and write CRLF)."""
+    with open(path, encoding='utf-8', newline='') as handle:
+        return handle.read()
+
+
+def write_text(path, text):
+    with open(path, 'w', encoding='utf-8', newline='') as handle:
+        handle.write(text)
+
+
 def read_json(path):
     return json.loads(Path(path).read_text(encoding='utf-8-sig'))
 
