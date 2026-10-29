@@ -154,6 +154,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 
         private static string? PropProblem(GodotObject o, string key, object? value)
         {
+            // Attaching a C# script replaces the object's managed wrapper, which the change's undo step and receipt still hold.
+            if (key == "script" && o is Node)
+                return "'script' is not set through props: attach or detach a script with the script-attach-to-node tool";
             EnumValue(o, key, value, out var problem);
             return problem;
         }

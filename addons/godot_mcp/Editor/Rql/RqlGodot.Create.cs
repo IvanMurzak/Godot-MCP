@@ -205,7 +205,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (name.StartsWith("global_", StringComparison.Ordinal))
                 throw new ArgumentException($"'{key}' cannot be set on a node being created (it has no parent yet); use '{name.Substring(7)}', which is relative to the parent");
             if (name == "script")
-                throw new ArgumentException("'script' cannot be set on a node being created; create the script class itself (CreateNode(\"<class_name>\")) or set script on the node afterwards");
+                throw new ArgumentException("'script' cannot be set on a node being created; create the script class itself (CreateNode(\"<class_name>\")) or attach the script afterwards with the script-attach-to-node tool");
             if (table.TryGetValue(name, out var entry)) return new KeyValuePair<string, global::Godot.Collections.Dictionary>(name, entry);
             var what = tableKey.StartsWith("scene:", StringComparison.Ordinal) ? $"the root of {tableKey.Substring(6)}" : $"a {tableKey.Substring(6)}";
             throw new ArgumentException($"{what} has no property '{key}'" + Similar(table.Keys, key) +

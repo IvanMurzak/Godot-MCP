@@ -49,6 +49,13 @@ def folders(host: str, project: pathlib.Path, d: str) -> None:
     has("W6F empty folder reads empty", rows, "w6_empty/|true")
     has("W6F folder with a file reads not empty", rows, "w6_full/|false")
     fails("W6F a non-empty folder is refused", mutate(host, f"editor | call DeleteFolder({q(full)})"), "not empty")
+    # A file the editor does not list (a hidden placeholder, a native library) makes the folder not empty either.
+    hidden = f"{d}/w6_hidden"
+    must("W6F create hidden", mutate(host, f"editor | call CreateFolder({q(hidden)})"))
+    (project / hidden.replace("res://", "") / ".gitkeep").write_text("", encoding="utf-8")
+    rows = must("W6F folders again", query(host, f'folders | where path starts-with {q(hidden)} | select path fileCount empty'))
+    has("W6F a folder with only a file the editor does not list reads not empty", rows, "w6_hidden/|0|false")
+    fails("W6F and DeleteFolder refuses it", mutate(host, f"editor | call DeleteFolder({q(hidden)})"), "not empty")
     fails("W6F DeleteResource on a folder names DeleteFolder", mutate(host, f"editor | call DeleteResource({q(empty + '/')})"), "DeleteFolder")
     fails("W6F a missing folder is refused", mutate(host, f'editor | call DeleteFolder({q(d + "/w6_nope")})'), "no folder")
     must("W6F dry run", tool(host, "rql-mutate", {"query": f"editor | call DeleteFolder({q(empty)})", "dry_run": True}))
