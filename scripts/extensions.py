@@ -106,6 +106,11 @@ def verify_package(archive, module, root=ROOT, version=None):
         expected = set(CORE_DEPENDENCIES)
         if deps != expected:
             raise ValueError(f'Unexpected package dependencies: {deps}; expected {expected}')
+        rql = next(node for node in spec.iter() if node.tag.rsplit('}', 1)[-1] == 'dependency'
+                   and node.attrib['id'] == 'com.IvanMurzak.Rql')
+        # RQL is editor-only (TOOLS code): a consumer's game export must not get its DLLs through this package.
+        if 'runtime' not in {part.strip().lower() for part in rql.attrib.get('exclude', '').split(',')}:
+            raise ValueError('The com.IvanMurzak.Rql dependency must exclude Runtime assets (RQL never ships in a game): ' + str(archive))
         floors = package_pins(root / module['project'], expected)
         floors.update({package: pin for package, pin in chain_pins(root).items() if package in floors})
         for node in spec.iter():
