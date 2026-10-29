@@ -13,6 +13,7 @@ import { createGodotSession, ensureEditor } from '../lib/session.js';
 import { parsePositiveIntFlag } from '../utils/input.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
+import { pidSuffix } from '../lib/progress.js';
 
 export interface ResolveProjectPathResult {
   /** Absolute, resolved path to the project directory. */
@@ -210,7 +211,7 @@ export const openCommand = new Command('open')
               break;
             }
             case 'editor-launched': {
-              ui.success(`Launched Godot editor (PID: ${event.pid ?? 'unknown'})`);
+              ui.success(event.message);
               break;
             }
             default:
@@ -229,7 +230,7 @@ export const openCommand = new Command('open')
 
       if (result.alreadyRunning) {
         spinner.stop();
-        ui.success(`Godot is already running with this project (PID: ${result.editorPid ?? 'unknown'})`);
+        ui.success(`Godot is already running with this project${pidSuffix(result.editorPid)}`);
         ui.info('Skipping launch. Use the running instance or close it first.');
         process.exit(0);
       }

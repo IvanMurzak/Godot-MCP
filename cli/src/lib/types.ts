@@ -267,8 +267,26 @@ export interface OpenProjectOptions {
   mode?: OpenProjectConnectionMode;
   /** Log level — sets `GODOT_MCP_LOG_LEVEL`. */
   logLevel?: string;
+  /**
+   * Starts the editor in place of the default detached `child_process.spawn` (an embedder that launches processes
+   * its own way). See {@link EditorSpawnImpl}.
+   */
+  spawnImpl?: EditorSpawnImpl;
   onProgress?: ProgressCallback;
 }
+
+/**
+ * Starts the editor for `openProject`: `editorPath` with `args`, detached, in `env` (the full environment:
+ * `process.env`, the .NET runtime workaround `DOTNET_ThreadPool_ThreadsToKeepAlive`, and the MCP variables). Returns the started process (its `pid` is read once) or a promise of the
+ * editor's pid, which `openProject` waits for before it reports `editor-launched` and returns `editorPid`
+ * (`undefined`: started, pid unknown). A rejection, or a throw, fails the open: the editor did not start.
+ * The promise must settle: `openProject` sets no deadline of its own, the implementation owns it.
+ */
+export type EditorSpawnImpl = (
+  editorPath: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+) => { pid?: number } | Promise<number | undefined>;
 
 export interface OpenProjectSuccess {
   kind: 'success';

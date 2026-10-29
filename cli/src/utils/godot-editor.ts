@@ -384,6 +384,16 @@ export function dotnetRuntimeWorkaroundEnv(processEnv: NodeJS.ProcessEnv = proce
   return processEnv[DOTNET_THREADS_TO_KEEP_ALIVE_ENV]?.trim() ? {} : { [DOTNET_THREADS_TO_KEEP_ALIVE_ENV]: '-1' };
 }
 
+/** The editor's command-line arguments for opening `projectPath` (`launchEditor` and an `openProject` `spawnImpl`). */
+export function editorLaunchArgs(projectPath: string): string[] {
+  return ['--editor', '--path', path.resolve(projectPath)];
+}
+
+/** The editor's full environment: `process.env`, the .NET runtime workaround, then `env` (the MCP variables). */
+export function editorLaunchEnv(env?: Record<string, string>): NodeJS.ProcessEnv {
+  return { ...process.env, ...dotnetRuntimeWorkaroundEnv(), ...env };
+}
+
 /**
  * Spawn the Godot editor binary opening the given project, optionally with
  * `GODOT_MCP_*` connection environment variables. Mirrors the Unity CLI's
@@ -402,12 +412,10 @@ export function launchEditor(
   env?: Record<string, string>,
   callbacks?: LaunchEditorCallbacks,
 ): import('child_process').ChildProcess {
-  const args = ['--editor', '--path', path.resolve(projectPath)];
-
-  const child = spawn(editorPath, args, {
+  const child = spawn(editorPath, editorLaunchArgs(projectPath), {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env, ...dotnetRuntimeWorkaroundEnv(), ...env },
+    env: editorLaunchEnv(env),
   });
 
   child.on('spawn', () => {

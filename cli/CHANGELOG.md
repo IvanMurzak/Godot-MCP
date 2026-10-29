@@ -4,15 +4,21 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`openProject` `spawnImpl`** (type `EditorSpawnImpl`): an embedder starts the editor its own way. It gets the
+  editor path, arguments and full environment, and returns the started process or a promise of the editor's pid,
+  which `openProject` waits for before `editor-launched` and `editorPid`; a rejection fails the open. The
+  `editor-launched` line (and `open`'s output) names the pid once known and never says `PID: unknown`.
+
 - **Editors the CLI starts get `DOTNET_ThreadPool_ThreadsToKeepAlive=-1`** (`open`, `open --headless`, `exec`; a value
   you set is kept). Works around the .NET 10 runtime bug dotnet/runtime#135441 (crash or hang after a C# assembly
   reload) until the servicing fix dotnet/runtime#136481 ships.
 - **`configure`: tools are shown or hidden, not enabled or disabled.** The flag only decides what MCP clients see listed;
   a hidden tool still runs when called by name. `.godot-mcp/features.json` entries are written as `{ name, visible }`
   (a file with the old `enabled` key is still read); `--list` prints `[visible]` / `[hidden]`. Flag names are unchanged.
-- **McpPlugin 8.14.0-dev.c0d3157, ReflectorNet 5.5.1-dev.ec3702e (temporary pre-release pins).** The `install-plugin`
+- **McpPlugin 8.14.0-dev.71fa5c1, ReflectorNet 5.5.1-dev.ec3702e (temporary pre-release pins).** The `install-plugin`
   fallback pins follow the addon (McpPlugin: game-only tools reach the game while the editor is connected; no
-  warnings about list changes while disconnected or about a connect canceled on request).
+  warnings about list changes while disconnected or about a connect canceled on request; status queries do not
+  connect).
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.
