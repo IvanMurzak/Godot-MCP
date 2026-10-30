@@ -1,0 +1,101 @@
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_f1424c00eda833 31-33
+cli/CHANGELOG.md
+  s_7bc72ecaebd05d::t_6ebd46e559c4e2 18-19
+extensions/Godot-AI-Animation/README.md
+  s_7bc72ecaebd05d::t_966c5ae9cefab2 5,17
+extensions/Godot-AI-Animation/extension.json
+  s_7bc72ecaebd05d::t_ac5163e2987993 4
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj
+  s_7bc72ecaebd05d::t_6f62c8a1e2158c 37
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/README.md
+  s_7bc72ecaebd05d::t_622c96581834b0 5,17
+extensions/Godot-AI-Beehave/README.md
+  s_7bc72ecaebd05d::t_f2bbd13245a6c4 5,32
+extensions/Godot-AI-Beehave/extension.json
+  s_7bc72ecaebd05d::t_a014d0da779a54 4
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj
+  s_7bc72ecaebd05d::t_de14d63da9acd2 37
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/README.md
+  s_7bc72ecaebd05d::t_1c7df2b75ece40 5,32
+extensions/Godot-AI-CSG/README.md
+  s_7bc72ecaebd05d::t_88547be4fe0679 5,17
+extensions/Godot-AI-CSG/extension.json
+  s_7bc72ecaebd05d::t_cc44247a48aa83 4
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj
+  s_7bc72ecaebd05d::t_61a619a65256f4 37
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/README.md
+  s_7bc72ecaebd05d::t_913f69747e12b8 5,17
+extensions/Godot-AI-Dialogic/README.md
+  s_7bc72ecaebd05d::t_1d6f53e5210de4 5,33
+extensions/Godot-AI-Dialogic/extension.json
+  s_7bc72ecaebd05d::t_7b9de6fef54084 4
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj
+  s_7bc72ecaebd05d::t_38eb16caa5aff0 37
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/README.md
+  s_7bc72ecaebd05d::t_190e5bb741dd18 5,33
+extensions/Godot-AI-GridMap/README.md
+  s_7bc72ecaebd05d::t_be3dce7af8414b 5,17
+extensions/Godot-AI-GridMap/extension.json
+  s_7bc72ecaebd05d::t_c27a3a69a7b6b1 4
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj
+  s_7bc72ecaebd05d::t_6099bbdc20e499 37
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/README.md
+  s_7bc72ecaebd05d::t_b6202b29bdf525 5,17
+extensions/Godot-AI-Navigation/README.md
+  s_7bc72ecaebd05d::t_6e845cbf2e3b98 5,17
+extensions/Godot-AI-Navigation/extension.json
+  s_7bc72ecaebd05d::t_deea5f45be416b 4
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj
+  s_7bc72ecaebd05d::t_804384b9b92a42 37
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/README.md
+  s_7bc72ecaebd05d::t_02ab19e064b199 5,17
+extensions/Godot-AI-Particles/README.md
+  s_7bc72ecaebd05d::t_dfc0c95b89dbe3 5,17
+extensions/Godot-AI-Particles/extension.json
+  s_7bc72ecaebd05d::t_a3ce89f451eb56 4
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj
+  s_7bc72ecaebd05d::t_0fc7e00a81fb46 37
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/README.md
+  s_7bc72ecaebd05d::t_4d33825b4a5816 5,17
+extensions/Godot-AI-PhantomCamera/README.md
+  s_7bc72ecaebd05d::t_5da9b590ee2f2e 5,15,33
+extensions/Godot-AI-PhantomCamera/extension.json
+  s_7bc72ecaebd05d::t_227b315eba1ec3 4
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj
+  s_7bc72ecaebd05d::t_f0c2cf920311fe 37
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/README.md
+  s_7bc72ecaebd05d::t_9dab2eca42dce8 5,15,33
+extensions/Godot-AI-Terrain3D/README.md
+  s_7bc72ecaebd05d::t_2eac1ece08db20 5,15,35
+extensions/Godot-AI-Terrain3D/extension.json
+  s_7bc72ecaebd05d::t_26fbbca8fc0df3 4
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj
+  s_7bc72ecaebd05d::t_32790356f7d287 37
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/README.md
+  s_7bc72ecaebd05d::t_dd3bd16f5d1233 5,15,35
+extensions/Godot-AI-Tilemap/README.md
+  s_7bc72ecaebd05d::t_470afc37749e28 5,17
+extensions/Godot-AI-Tilemap/extension.json
+  s_7bc72ecaebd05d::t_db6b567d0df6a6 4
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj
+  s_7bc72ecaebd05d::t_2df66618b5f1e0 37
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/README.md
+  s_7bc72ecaebd05d::t_2388a79a14f9e5 5,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "470ed3ccf984fae4c04a7843feb2f860a7c213ae",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
