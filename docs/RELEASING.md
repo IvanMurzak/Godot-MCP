@@ -270,8 +270,8 @@ in this repo):
 | --- | --- | --- |
 | `com.IvanMurzak.ReflectorNet` | `5.5.1-dev.ec3702e` | reflection / serialization core |
 | `com.IvanMurzak.McpPlugin` | `8.14.0-dev.71fa5c1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
-| `com.IvanMurzak.Rql` | `0.3.0-dev.3602d6a` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield) |
-| `com.IvanMurzak.CodeExec` + `com.IvanMurzak.CodeExec.Roslyn` | `0.4.0-dev.54d527b` | Code-Exec runtime + source-only Roslyn adapter behind `script-execute` (PolyForm Shield) |
+| `com.IvanMurzak.Rql` | `0.3.0` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield) |
+| `com.IvanMurzak.CodeExec` + `com.IvanMurzak.CodeExec.Roslyn` | `0.4.0` | Code-Exec runtime + source-only Roslyn adapter behind `script-execute` (PolyForm Shield) |
 | `Microsoft.CodeAnalysis.CSharp` | `4.12.0` | Roslyn for `script-execute`; 4.12 keeps its dependencies at the .NET 8 framework versions |
 
 RQL, Code-Exec and Roslyn are editor-only: their `PackageReference`s carry a `Condition` that leaves them out of

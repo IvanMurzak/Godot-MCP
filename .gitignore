@@ -224,7 +224,7 @@ PublishScripts/
 
 # NuGet Packages
 *.nupkg
-# TEMPORARY: the committed pre-release RQL package (Directory.Build.props); remove with it at the cascade release.
+# TEMPORARY: the committed pre-release McpPlugin / ReflectorNet packages (Directory.Build.props); remove with it at the cascade release.
 !/prerelease-packages/*.nupkg
 # NuGet Symbol Packages
 *.snupkg
