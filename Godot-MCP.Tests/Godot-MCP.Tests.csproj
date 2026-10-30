@@ -48,7 +48,7 @@
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.71fa5c1" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.aacfbba" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.544a247" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.2556a2f" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.2556a2f" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
@@ -448,6 +448,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlSetStageBuffer.cs" Link="Source\Rql\RqlSetStageBuffer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\GodotTypedArrayHint.cs" Link="Source\Rql\GodotTypedArrayHint.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlLiteralPolicy.cs" Link="Source\Rql\RqlLiteralPolicy.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlExtensionGuides.cs" Link="Source\Rql\RqlExtensionGuides.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTools.cs" Link="Source\Rql\RqlTools.cs" />

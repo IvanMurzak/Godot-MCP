@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE
     /// <para>
     /// Typical contributions (see the Godot-AI-* extensions): <c>ctx.AddAdapter(new Godot_&lt;Type&gt;_Adapter())</c> for a
     /// Godot type (validated members that replace C# properties, virtual members, <c>Method</c> / <c>Function</c> calls,
-    /// <c>Expose("Name")</c> for an existing C# method), <c>ctx.AddSource(name, getter, description, typeof(T))</c> for state no node owns (the declared type makes its members known
+    /// <c>Expose("Name")</c> for an existing C# method), <c>ctx.AddSource(name, getter, description)</c> for state no node owns (a typed getter declares the source type, so its members are known
     /// names before a query reads the source), and
     /// <c>ctx.AddGuide</c>. Writes are undoable when their target is the Godot object that changes (the core snapshots the
     /// stored properties of every changed node / resource), so put a method on the object it modifies.
@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.YOUR_FEATURE
 
         public void Configure(RqlModuleContext ctx) =>
             ctx.AddSource("YOUR_SOURCE", () => YOUR_FEATUREApi.Instance,
-                    "YOUR_DISPLAY_NAME: godotVersion, editorScale; call Echo(message)", typeof(YOUR_FEATUREApi))
+                    "YOUR_DISPLAY_NAME: godotVersion, editorScale; call Echo(message)")
                .AddGuide(YOUR_FEATUREGuide.Topic, YOUR_FEATUREGuide.Markdown);
     }
 }

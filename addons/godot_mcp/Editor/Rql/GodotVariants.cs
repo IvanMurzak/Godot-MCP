@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using Godot;
@@ -138,7 +139,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.Object => hint == PropertyHint.ResourceType ? typeof(Resource)
                 : hint == PropertyHint.NodeType ? typeof(Node) : typeof(GodotObject),
             Variant.Type.Dictionary => typeof(global::Godot.Collections.Dictionary),
-            Variant.Type.Array => typeof(global::Godot.Collections.Array),
+            Variant.Type.Array => TypedArrayType(hint, hintString),
             Variant.Type.PackedByteArray => typeof(byte[]),
             Variant.Type.PackedInt32Array => typeof(int[]),
             Variant.Type.PackedInt64Array => typeof(long[]),
@@ -150,6 +151,29 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             Variant.Type.PackedColorArray => typeof(Color[]),
             _ => typeof(object), // Nil (a Variant property), Signal, Packed types newer than 4.3
         };
+
+        // A typed array of resources or nodes (Array[Resource], Array[Texture2D], Array[Node3D], a script class) takes a list of
+        // them: RQL then builds each object literal as a typed literal and resolves refs, which an untyped Array would keep raw.
+        // Memoized: ClrType is read per row / per key / per call argument, and a hint string's answer is fixed for the session.
+        private static Type TypedArrayType(PropertyHint hint, string? hintString) =>
+            string.IsNullOrEmpty(hintString)
+                ? typeof(global::Godot.Collections.Array)
+                : _typedArrayTypes.GetOrAdd((hint, hintString!), key => ResolveTypedArrayType(key.hint, key.hintString));
+
+        private static readonly ConcurrentDictionary<(PropertyHint hint, string hintString), Type> _typedArrayTypes = new();
+
+        private static Type ResolveTypedArrayType(PropertyHint hint, string hintString)
+        {
+            if (GodotTypedArrayHint.ObjectElement((int)hint, hintString) is not { } element) return typeof(global::Godot.Collections.Array);
+            // GodotTypes knows Godot classes, the project's C# script classes and extensions; a GDScript class_name resolves to
+            // GodotObject and relies on the element hint.
+            if (element.elementHint == (int)PropertyHint.NodeType) return typeof(List<Node>);
+            if (element.elementHint == (int)PropertyHint.ResourceType) return typeof(List<Resource>);
+            var type = GodotTypes.GodotObjectType(element.className);
+            if (typeof(Node).IsAssignableFrom(type)) return typeof(List<Node>);
+            if (typeof(Resource).IsAssignableFrom(type)) return typeof(List<Resource>);
+            return typeof(global::Godot.Collections.Array);
+        }
 
         /// <summary>
         /// The one property-usage rule: a real property (not a category / group / subgroup header) that is stored — or,
@@ -164,6 +188,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>A category / group / subgroup header of a property list (not a property).</summary>
         public static bool IsHeader(PropertyUsageFlags usage) =>
             (usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0;
+
+        /// <summary>
+        /// Write property <paramref name="key"/>. A typed array property (Array[Font], Array[Resource] …) refuses an untyped
+        /// Array without an error: a copy of the current, typed one is filled instead, and an element of the wrong type (which
+        /// Godot refuses) throws, so the whole write fails (rollback).
+        /// </summary>
+        public static void SetProperty(GodotObject o, string key, Variant variant)
+        {
+            var current = o.Get(key);
+            if (current.VariantType == Variant.Type.Array && variant.VariantType == Variant.Type.Array)
+            {
+                var source = variant.AsGodotArray();
+                var typed = current.AsGodotArray().Duplicate(false);
+                typed.Clear();
+                foreach (var element in source) typed.Add(element);
+                if (typed.Count != source.Count)
+                    throw new ArgumentException($"'{key}' is a typed array; an element does not match its element type");
+                variant = typed;
+            }
+            o.Set(key, variant);
+        }
 
         /// <summary>One Godot property of an object: its Variant type and hint.</summary>
         public readonly struct GodotProperty

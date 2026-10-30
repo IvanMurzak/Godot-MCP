@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.PhantomCamera
                     "Phantom Camera virtual cameras of the edited scene: installed, hint, cameras (name path scriptClass priority " +
                     "followMode followTarget lookAtMode lookAtTarget node; calls SetFollow, SetLookAt), hosts (name path camera node); " +
                     "write through node. Needs the Phantom Camera addon (ramokz/phantom-camera, res://addons/phantom_camera) enabled; " +
-                    "without it the lists are empty", typeof(PhantomCameraApi))
+                    "without it the lists are empty")
                .AddGuide(PhantomCameraGuide.Topic, PhantomCameraGuide.Markdown);
     }
 }

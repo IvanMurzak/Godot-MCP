@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Live cases of the RQL 2f4e263 adoption (literal kinds, vector functions, key warnings, receipt notes, misspelt parameter
+Live cases of the RQL 2f4e263 adoption (literal kinds, typed arrays of resources, vector functions, key warnings, receipt notes, misspelt parameter
 names), run by scripts/smoke_rql.py against a running editor: a typed Resource literal builds a value, a Node literal is
 refused with Godot's advice (godot.find / editor.CreateNode), distance() / normalize() / [x, 0, z] * k work in a mutation,
 a failing sort key and a sparse group-by key warn, a long receipt never points at a json format the tools do not have, and
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pathlib
 
-from smoke_rql_lib import must, mutate, q, query
+from smoke_rql_lib import disk, must, mutate, q, query, tool
 from smoke_rql_models import fails, has, lacks, value_is
 
 
@@ -20,6 +20,7 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     vectors(host)
     key_warnings(host)
     receipts_and_names(host)
+    typed_arrays(host, project, d)
 
 
 def literal_kinds(host: str) -> None:
@@ -59,3 +60,23 @@ def receipts_and_names(host: str) -> None:
     has("W6B and says every change was made", receipt, "every change was made")
     fails("W6B a misspelt argument name is suggested", mutate(host, 'editor | call CreateNode({klass: "Node3D"})', dry_run=True),
           "did you mean 'className'")
+
+
+def typed_arrays(host: str, project: pathlib.Path, d: str) -> None:
+    # Wave 7: an Array[Resource] property ("24/17:Resource") took no object literals or refs, and copying one typed array
+    # into another must keep working.
+    script = f"{d}/w6b_holder.gd"
+    disk(project, script).write_text("extends Node3D\n@export var items: Array[Resource] = []\n@export var others: Array[Resource] = []\n"
+                                     "@export var textures: Array[Texture2D] = []\n",
+                                     encoding="utf-8")
+    must("W6Y register", mutate(host, "editor | call Reimport()"))
+    must("W6Y holder", mutate(host, 'root | call AddChild("Node3D", "H")'))
+    must("W6Y attach", tool(host, "script-attach-to-node", {"nodeRef": "H", "scriptPath": script}))
+    must("W6Y typed array of literals", mutate(host, 'godot.find("H") | set props["items"] = [{$type: "BoxMesh"}, {$type: "SphereMesh"}]'))
+    must("W6Y append a literal", mutate(host, 'godot.find("H") | set props["items"] = append(props["items"], {$type: "CylinderMesh"})'))
+    value_is("W6Y three typed elements", must("W6Y read", query(host, 'godot.find("H") | select n = len(props["items"])')), "3")
+    must("W6Y copy into another typed array", mutate(host, 'godot.find("H") | set props["others"] = props["items"]'))
+    has("W6Y the copy holds the same meshes", must("W6Y read copy", query(host, 'godot.find("H") | get props["others"] | select class')),
+        "CylinderMesh")
+    fails("W6Y a wrong element class is refused in a dry run",
+          mutate(host, 'godot.find("H") | set props["textures"] = [{$type: "BoxMesh"}]', dry_run=True), "Texture2D", "BoxMesh")

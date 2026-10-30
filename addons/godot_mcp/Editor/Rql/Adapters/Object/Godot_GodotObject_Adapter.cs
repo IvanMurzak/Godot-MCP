@@ -141,7 +141,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     : AdapterOutcome.NotHandled;
                 if (outcome == AdapterOutcome.NotHandled && !kernel.TryCoerce(value, info.ClrType, out converted, out why)) outcome = AdapterOutcome.Failed;
                 if (outcome == AdapterOutcome.Failed) return $"'{kv.Key}': {why}";
-                built.Set(name, GodotVariants.ToVariant(converted));
+                GodotVariants.SetProperty(built, name, GodotVariants.ToVariant(converted));
             }
             return null;
         }
@@ -158,7 +158,20 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (key == "script" && o is Node)
                 return "'script' is not set through props: attach or detach a script with the script-attach-to-node tool";
             EnumValue(o, key, value, out var problem);
-            return problem;
+            return problem ?? ElementClassProblem(o, key, value);
+        }
+
+        // A typed array of a Godot class (Array[Texture2D]) maps to List<Resource>: the element class is checked here, so a dry
+        // run reports what Godot would refuse. Script classes (class_name) are left to Godot.
+        private static string? ElementClassProblem(GodotObject o, string key, object? value)
+        {
+            if (!(value is System.Collections.IList list) || !(Property(o, key) is { Type: Variant.Type.Array } info)) return null;
+            if (!(GodotTypedArrayHint.ObjectElement((int)info.Hint, info.HintString) is { } element) || !ClassDB.ClassExists(element.className))
+                return null;
+            for (var i = 0; i < list.Count; i++)
+                if (list[i] is GodotObject item && !item.IsClass(element.className))
+                    return $"'{key}' holds {element.className} elements; [{i}] is a {item.GetClass()}";
+            return null;
         }
 
         // The value property `key` is written with: an enum-hinted int's name becomes its number; other values pass as given.
@@ -184,24 +197,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             }
         }
 
-        private static void Set(GodotObject o, string key, object? value)
-        {
-            var variant = GodotVariants.ToVariant(value);
-            // A typed array property (Array[Font] …) refuses an untyped Array: fill a copy of the current, typed one
-            // instead. An element of the wrong type is refused by Godot; that makes the whole write fail (rollback).
-            var current = o.Get(key);
-            if (current.VariantType == Variant.Type.Array && variant.VariantType == Variant.Type.Array)
-            {
-                var source = variant.AsGodotArray();
-                var typed = current.AsGodotArray().Duplicate(false);
-                typed.Clear();
-                foreach (var element in source) typed.Add(element);
-                if (typed.Count != source.Count)
-                    throw new ArgumentException($"'{key}' is a typed array; an element does not match its element type");
-                variant = typed;
-            }
-            o.Set(key, variant);
-        }
+        private static void Set(GodotObject o, string key, object? value) => GodotVariants.SetProperty(o, key, GodotVariants.ToVariant(value));
 
         private static object? CallMethod(GodotObject o, string method, ArgumentList? args) =>
             GodotVariants.ToClr(o.Call(method, Prepare(o, method, args)));
