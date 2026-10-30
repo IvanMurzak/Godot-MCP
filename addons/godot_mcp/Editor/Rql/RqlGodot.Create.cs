@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 {
     /// <summary>
     /// Bulk create behind <c>editor.CreateNode(class, {…})</c> and <c>editor.InstantiateScene(path, {…})</c>: RQL runs the call once per
-    /// stream item (<c>range(0, 300) | call editor.CreateNode(…)</c>), checks every item first (class or scene, parent, name, each
+    /// stream item (<c>range(0, 150) | call editor.CreateNode(…)</c>), checks every item first (class or scene, parent, name, each
     /// property and its value), and the nodes join the mutation's one undo action through <see cref="Attach"/>.
     /// </summary>
     public static partial class RqlGodot

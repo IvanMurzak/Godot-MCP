@@ -32,12 +32,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static (string className, int elementHint)? ObjectElement(int hint, string? hintString)
         {
-            if (string.IsNullOrWhiteSpace(hintString)) return null;
+            if (string.IsNullOrWhiteSpace(hintString) || (hint != TypeStringHint && hint != ArrayTypeHint)) return null;
             var text = hintString!.Trim();
             var colon = text.IndexOf(':');
             if (colon < 0)
                 return hint == ArrayTypeHint && IsClassName(text) ? (text, 0) : null;
-            if (hint != TypeStringHint && hint != ArrayTypeHint) return null;
             var head = text.Substring(0, colon);
             var slash = head.IndexOf('/');
             var typeText = slash < 0 ? head : head.Substring(0, slash);
@@ -52,7 +51,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         // A class name (Godot class or script class_name): starts with a letter or '_', no type-string punctuation.
         private static bool IsClassName(string text) =>
-            text.Length > 0 && (char.IsLetter(text[0]) || text[0] == '_') && text.IndexOfAny(new[] { '/', ':' }) < 0;
+            text.Length > 0 && (char.IsLetter(text[0]) || text[0] == '_') && text.IndexOfAny(TypeStringPunctuation) < 0;
+
+        private static readonly char[] TypeStringPunctuation = { '/', ':' };
     }
 }
 #endif

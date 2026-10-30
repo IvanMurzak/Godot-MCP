@@ -11,6 +11,7 @@
 #nullable enable
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using Godot;
@@ -153,12 +154,22 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         // A typed array of resources or nodes (Array[Resource], Array[Texture2D], Array[Node3D], a script class) takes a list of
         // them: RQL then builds each object literal as a typed literal and resolves refs, which an untyped Array would keep raw.
-        private static Type TypedArrayType(PropertyHint hint, string? hintString)
+        // Memoized: ClrType is read per row / per key / per call argument, and a hint string's answer is fixed for the session.
+        private static Type TypedArrayType(PropertyHint hint, string? hintString) =>
+            string.IsNullOrEmpty(hintString)
+                ? typeof(global::Godot.Collections.Array)
+                : _typedArrayTypes.GetOrAdd((hint, hintString!), key => ResolveTypedArrayType(key.hint, key.hintString));
+
+        private static readonly ConcurrentDictionary<(PropertyHint hint, string hintString), Type> _typedArrayTypes = new();
+
+        private static Type ResolveTypedArrayType(PropertyHint hint, string hintString)
         {
             if (GodotTypedArrayHint.ObjectElement((int)hint, hintString) is not { } element) return typeof(global::Godot.Collections.Array);
-            bool Derives(string baseClass) => ClassDB.ClassExists(element.className) && ClassDB.IsParentClass(element.className, baseClass);
-            if (element.elementHint == (int)PropertyHint.NodeType || Derives("Node")) return typeof(List<Node>);
-            if (element.elementHint == (int)PropertyHint.ResourceType || Derives("Resource")) return typeof(List<Resource>);
+            // GodotTypes knows Godot classes, the project's C# script classes and extensions; a GDScript class_name resolves to
+            // GodotObject and relies on the element hint.
+            var type = GodotTypes.GodotObjectType(element.className);
+            if (element.elementHint == (int)PropertyHint.NodeType || typeof(Node).IsAssignableFrom(type)) return typeof(List<Node>);
+            if (element.elementHint == (int)PropertyHint.ResourceType || typeof(Resource).IsAssignableFrom(type)) return typeof(List<Resource>);
             return typeof(global::Godot.Collections.Array);
         }
 
