@@ -807,7 +807,7 @@ def themes(host: str, project: pathlib.Path, d: str) -> None:
 def guide_fixture(host: str, project: pathlib.Path) -> None:
     """What the guide's new examples need: a script with _on_enemy_died on Player, game.gd, a TileSet + texture, a Theme."""
     # First, before any script is created: a full scan imports the texture in the new res://tiles/ folder (a targeted
-    # Reimport of a file in a folder the editor never scanned reports it NOT imported). Run after script-create, the
+    # Reimport of a file in a folder the editor never scanned only queues it for the next frame). Run after script-create, the
     # scan collided with Godot 4.4's script-class update and hung the headless editor.
     write_png(disk(project, "res://tiles/terrain.png"), 32, 16, {(0, 0), (1, 0)}, 16)
     must("G0 import terrain.png", mutate(host, "editor | call Reimport()"))

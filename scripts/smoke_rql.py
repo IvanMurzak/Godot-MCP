@@ -5,7 +5,7 @@ Live smoke of the RQL tools (rql-query / rql-mutate / rql-schema) against a runn
 Every change is verified where it cannot lie: the `.tres` / `.tscn` text Godot itself wrote to disk (the
 read-back assertions of the former smoke_property_patches.py, ported from node-modify / resource-modify /
 scene-* / resource-move|delete to RQL). Then every example of the agent guide
-(Godot-Tests/rql-guide-examples.json, kept equal to RqlGuide.cs by the xUnit suite) runs in order against
+(Godot-Tests/fixtures/rql-guide-examples.json, kept equal to RqlGuide.cs by the xUnit suite) runs in order against
 its fixture scene and must succeed.
 
 It does NOT launch anything. Point it at a local `gamedev-mcp-server` whose Godot editor (with this addon,
@@ -44,6 +44,7 @@ import smoke_rql_wave5
 import smoke_rql_bulk
 import smoke_rql_wave6
 import smoke_rql_wave6b
+import smoke_rql_wave7
 
 
 def wait_ready(host: str, timeout: float) -> bool:
@@ -230,7 +231,7 @@ def deleted_open_scene(host: str, project: pathlib.Path, d: str) -> None:
 
 def guide_examples(host: str, project: pathlib.Path) -> None:
     """Every example of the agent guide, in order, against the fixture scene its examples are written for."""
-    examples = json.loads((ROOT / "Godot-Tests" / "rql-guide-examples.json").read_text(encoding="utf-8"))
+    examples = json.loads((ROOT / "Godot-Tests" / "fixtures" / "rql-guide-examples.json").read_text(encoding="utf-8"))
     for path in ("res://scenes/new.tscn", "res://scenes/level.tscn", "res://scenes/enemy.tscn", "res://scenes/player.gd", "res://scenes/game.gd",
                  "res://materials/red.tres", "res://materials/blue.tres", "res://materials/old/blue.tres"):
         if disk(project, path).exists():
@@ -306,6 +307,7 @@ def main() -> int:
     smoke_rql_bulk.run(host, project, d)
     smoke_rql_wave6.run(host, project, d)
     smoke_rql_wave6b.run(host, project, d)
+    smoke_rql_wave7.run(host, project, d)
     smoke_rql_semantics.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)

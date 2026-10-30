@@ -107,7 +107,7 @@ editors keep answering tool calls with an old build).
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
   (`SKILL_FAMILIES`) and the README counts/table; `cli/tests/skills-addon-parity.test.ts` fails on drift.
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by
-  `Godot-Tests/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
+  `Godot-Tests/fixtures/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
   runnable top to bottom against its fixture scene.
 - **C# reload gate.** Godot reloads the assembly ~0.5 s after the built DLL changes, and detaches the C# script
   instances first, so the dispatcher's `_ExitTree` never runs: a tool call queued for the main thread then blocks its

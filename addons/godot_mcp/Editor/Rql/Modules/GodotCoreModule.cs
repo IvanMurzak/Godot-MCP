@@ -36,7 +36,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddSource("files", RqlEditorApi.Files,
                    $"every file the editor filesystem knows (at most {RqlGodot.MaxFiles}): path name dir ext type uid; on request size (bytes), importedSize " +
                    "(bytes of its import outputs, every platform variant), deps (what it loads), " +
-                   "missingDeps (broken references), usedBy (the scenes / resources that load it) and importSettings[\"option\"] (writable)")
+                   "missingDeps (broken references), usedBy (the files that load it or name it as a res:// string) and importSettings[\"option\"] (writable)")
                .AddSource("folders", RqlEditorApi.Folders, "every folder the editor filesystem knows: path name fileCount folderCount empty " +
                    "(empty folders: folders | where empty; delete one with editor | call DeleteFolder(path))")
                .AddSource("classes", RqlEditorApi.Classes, "Godot classes (ClassDB): name parent canInstantiate isNode isResource")

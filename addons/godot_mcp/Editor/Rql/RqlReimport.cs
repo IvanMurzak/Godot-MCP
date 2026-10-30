@@ -21,8 +21,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// <c>editor | call Reimport(files?)</c> — the logic of the replaced <c>filesystem-reimport</c> tool, unchanged: with
     /// files, each is routed by type (an imported asset is reimported, a new importable file is registered and imported,
     /// Godot's native formats are refreshed with UpdateFile) and every import is verified; without files, a full
-    /// EditorFileSystem scan. RQL calls run on the editor main thread, so a brand-new file in a folder the editor never
-    /// scanned is reported as NOT imported (run Reimport() without files first) instead of waiting for editor frames.
+    /// EditorFileSystem scan. RQL calls run on the editor main thread and a scan's result lands on the next editor frame, so
+    /// a brand-new file in a folder the editor never scanned gets a full scan and is reported as queued: the editor imports
+    /// it on that next frame, after the call.
     /// </summary>
     internal static class RqlReimport
     {
@@ -38,7 +39,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>
         /// The targeted (<c>files</c>) form, on the main thread: validate, classify, refresh the native files, register
         /// the importer-routed ones, then import and verify. No editor frame runs during the call, so a file in a folder
-        /// the editor never scanned stays unregistered and is reported as NOT imported.
+        /// the editor never scanned gets one full scan and is reported as queued (the editor imports it a frame later).
         /// </summary>
         static string ReimportFiles(IReadOnlyList<string> files)
         {
@@ -56,6 +57,18 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (!FileAccess.FileExists(p))
                     throw new ArgumentException($"No file exists at '{p}'.", nameof(files));
                 normalized.Add(p);
+            }
+
+            // UpdateFile ignores a file in a folder the editor never scanned: one full scan registers those folders (its
+            // result, and the import of their new files, land on the next editor frame).
+            var scanned = new HashSet<string>(StringComparer.Ordinal);
+            var unscanned = normalized.Where(p => Tools.ResPathNormalizer.ParentDir(p) is var dir
+                                                  && !IsKnownFolder(efs, dir) && !IsIgnoredFolder(dir)).ToList();
+            // A scan this frame (Register's) already sees them: a second Scan() would be ignored until it lands.
+            if (unscanned.Count > 0 && (_scanFrame == Engine.GetProcessFrames() || ScanStarted(efs)))
+            {
+                scanned.UnionWith(unscanned);
+                _scanFrame = Engine.GetProcessFrames();
             }
 
             // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import (issue #310), and never route a brand-new
@@ -78,7 +91,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (!IsKnownToFileSystem(efs, path))
                     efs.UpdateFile(path);
 
-            var status = FinishTargetedReimport(efs, plan, startedUnix);
+            var status = FinishTargetedReimport(efs, plan, startedUnix, scanned);
             return notes.Count == 0 ? status : status + "; " + string.Join("; ", notes);
         }
 
@@ -98,7 +111,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 : $"NOT refreshed '{path}': the changed file does not load, so the loaded copy was kept";
         }
 
-        static string FinishTargetedReimport(EditorFileSystem efs, Tools.ReimportPlan plan, ulong startedUnix)
+        static string FinishTargetedReimport(EditorFileSystem efs, Tools.ReimportPlan plan, ulong startedUnix, HashSet<string> scanned)
         {
             var outcomes = new Dictionary<string, Tools.ImportOutcome>(StringComparer.Ordinal);
             var newFiles = new HashSet<string>(plan.NewImportable, StringComparer.Ordinal);
@@ -109,10 +122,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             foreach (var path in RoutedToImporter(plan))
             {
                 if (!IsKnownToFileSystem(efs, path))
-                    outcomes[path] = Tools.ImportOutcome.Failure(
-                        "the editor filesystem never registered the file, so it could not be imported (its folder " +
-                        "may not have been scanned yet, or the path's letter case differs from the file on disk) — " +
-                        "run editor | call Reimport() without files for a full scan");
+                    outcomes[path] = scanned.Contains(path)
+                        ? Tools.ImportOutcome.QueuedByScan()
+                        : IsIgnoredFolder(Tools.ResPathNormalizer.ParentDir(path))
+                            ? Tools.ImportOutcome.Failure("its folder is one the editor never imports from (it or a parent " +
+                                "holds a .gdignore file, or is dot-named)")
+                            : Tools.ImportOutcome.Failure(
+                                "the editor filesystem never registered the file, so it could not be imported (the path's " +
+                                "letter case may differ from the file on disk, or a scan was already running) — " +
+                                "run editor | call Reimport() without files for a full scan");
                 else if (newFiles.Contains(path) && VerifyImport(path, startedUnix).Imported)
                     outcomes[path] = Tools.ImportOutcome.Success();
                 else
@@ -215,9 +233,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         static bool IsKnownFolder(EditorFileSystem efs, string resDir) =>
             efs.GetFilesystemPath(Tools.ResPathNormalizer.NormalizeDir(resDir)) != null;
 
-        static string FullScan()
+        static string FullScan() => FullScan(Tools.EditorToolGuards.GetResourceFileSystemOrThrow(), out _);
+
+        /// <summary>A full scan, settled; false when it did not start (one is already in flight, or the editor is busy).</summary>
+        static bool ScanStarted(EditorFileSystem efs)
         {
-            var efs = Tools.EditorToolGuards.GetResourceFileSystemOrThrow();
+            FullScan(efs, out var started);
+            return started;
+        }
+
+        static string FullScan(EditorFileSystem efs, out bool started)
+        {
 
             // Full scan. Scan() runs the index ASYNCHRONOUSLY, so IsScanning() can still be false on the
             // first check (the scan has not begun yet). A naive `while (IsScanning())` would exit
@@ -230,7 +256,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             for (var primePolls = 0; primePolls < ReimportPrimeWaits && !efs.IsScanning(); primePolls++)
                 Thread.Sleep(ReimportSleepMs);
 
-            if (!efs.IsScanning())
+            started = efs.IsScanning();
+            if (!started)
                 // The scan never started within the prime window. Report it explicitly rather than
                 // silently claiming "settled" — the caller should not assume the index was refreshed.
                 return $"{action}; scan did not start within {ReimportPrimeWaits * ReimportSleepMs}ms — filesystem may be unchanged or busy (NOT confirmed settled).";

@@ -201,21 +201,62 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             var editor = EditorInterface.Singleton;
             if (editor.GetEditedSceneRoot()?.SceneFilePath == deletedPath.SimplifyPath() && editor.HasMethod("close_scene"))
+            {
                 editor.Call("close_scene");
+                NoteSceneSwitch();
+            }
         }
+
+        private static ulong _sceneSwitchFrame = ulong.MaxValue;
+
+        /// <summary>
+        /// Record that the edited scene changed (a switch, a tab reload, a close). For the rest of that editor frame Godot is
+        /// "changing scenes" (until its deferred update runs) and ignores <c>EditorInterface.OpenSceneFromPath</c> and
+        /// <c>ReloadSceneFromPath</c>, so a second switch in one call needs <see cref="SelectOpenSceneTab"/>, and a reload
+        /// cannot happen at all (<see cref="SwitchedScenesThisFrame"/>). Main-thread only.
+        /// </summary>
+        internal static void NoteSceneSwitch() => _sceneSwitchFrame = Engine.GetProcessFrames();
+
+        /// <summary>Whether this addon changed the edited scene earlier in this editor frame (see <see cref="NoteSceneSwitch"/>).</summary>
+        internal static bool SwitchedScenesThisFrame => _sceneSwitchFrame == Engine.GetProcessFrames();
 
         /// <summary>
         /// A new file was just written at <paramref name="scenePath"/> while a scene of that path is still open in a tab
         /// (its file was deleted while another scene was edited): opening the path would switch to that tab and show the
         /// old nodes. The cached PackedScene is replaced by the new file first, or the reload would read the old one again.
+        /// False when no tab has the path, or its file does not load (nothing was reloaded).
         /// </summary>
-        internal static void ReloadReplacedOpenScene(string scenePath)
+        internal static bool ReloadReplacedOpenScene(string scenePath)
         {
             var editor = EditorInterface.Singleton;
             scenePath = scenePath.SimplifyPath();
-            if (Array.IndexOf(editor.GetOpenScenes(), scenePath) < 0) return;
-            if (RefreshCachedResource(scenePath))
-                editor.ReloadSceneFromPath(scenePath);
+            if (Array.IndexOf(editor.GetOpenScenes(), scenePath) < 0 || !RefreshCachedResource(scenePath)) return false;
+            editor.ReloadSceneFromPath(scenePath);
+            NoteSceneSwitch(); // the reload re-adds the tab and selects the previous one again
+            return true;
+        }
+
+        /// <summary>
+        /// Make the scene open in a tab at <paramref name="scenePath"/> the edited one by selecting its tab in the scene tab bar.
+        /// <c>EditorInterface.OpenSceneFromPath</c> does nothing in the frame of an earlier switch (<see cref="NoteSceneSwitch"/>);
+        /// selecting the tab switches at once, like a click on it. False when the path is not open in a tab, or the tab cannot
+        /// be told apart (an unsaved scene's tab makes the tab bar and the open-scene list differ). Main-thread only.
+        /// </summary>
+        internal static bool SelectOpenSceneTab(string scenePath)
+        {
+            var editor = EditorInterface.Singleton;
+            var open = editor.GetOpenScenes();
+            var index = Array.IndexOf(open, scenePath.SimplifyPath());
+            if (index < 0) return false;
+            var tabs = editor.GetBaseControl().FindChildren("*", "EditorSceneTabs", true, false);
+            if (tabs.Count == 0 || tabs[0].FindChildren("*", nameof(TabBar), true, false) is not { Count: > 0 } bars) return false;
+            var bar = (TabBar)bars[0];
+            if (bar.TabCount != open.Length) return false;
+            // The bar catches up with a switch only on the next frame: it may still show this tab as current (no signal then).
+            if (bar.CurrentTab == index) bar.EmitSignal(TabBar.SignalName.TabChanged, index);
+            else bar.CurrentTab = index;
+            NoteSceneSwitch();
+            return editor.GetEditedSceneRoot()?.SceneFilePath == scenePath.SimplifyPath();
         }
 
         /// <summary>
