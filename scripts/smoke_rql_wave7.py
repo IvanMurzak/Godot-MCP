@@ -9,6 +9,7 @@ editor has imported it by the next call. Pure stdlib, Python 3.8+.
 from __future__ import annotations
 
 import pathlib
+import time
 
 from smoke_rql_lib import check, disk, file_text, must, mutate, q, query
 from smoke_rql_models import fails, has, lacks, value_is, write_png
@@ -31,6 +32,8 @@ def string_references(host: str, project: pathlib.Path, d: str) -> None:
     fails("W7 DeleteResource refuses a file named by a string", mutate(host, f"editor | call DeleteResource({q(level)})"),
           "still used by", loader)
     main = must("W7 main scene", query(host, "project | select mainScene")).strip().splitlines()[-1]
+    if main.startswith("uid://"):  # Godot 4.4+ may store the main scene by uid
+        main = must("W7 main scene path", query(host, f"files | where uid == {q(main)} | select path")).strip().splitlines()[-1]
     if main.startswith("res://"):
         has("W7 the main scene is used by project.godot",
             must("W7 main usedBy", query(host, f"files | where path == {q(main)} | select usedBy")), "res://project.godot")
@@ -56,6 +59,10 @@ def switches_in_one_call(host: str, project: pathlib.Path, d: str) -> None:
     # A second reload in the same call cannot happen: refused with the way out instead of leaving the old nodes.
     fails("W7 a second reload in one call is refused", mutate(host, f"[{q(a)}, {q(b)}] | call editor.ReloadScene($)"),
           "own rql-mutate")
+    # A second new scene in one call could be saved but not opened: refused before anything is written.
+    n1, n2 = f"{d}/w7_n1.tscn", f"{d}/w7_n2.tscn"
+    fails("W7 a second NewScene in one call is refused", mutate(host, f"[{q(n1)}, {q(n2)}] | call editor.NewScene($)"), "own rql-mutate")
+    check("W7 and its file was not written", not disk(project, n2).exists())
 
 
 def reimport_new_folder(host: str, project: pathlib.Path, d: str) -> None:
@@ -63,8 +70,13 @@ def reimport_new_folder(host: str, project: pathlib.Path, d: str) -> None:
     image = f"{d}/w7_new/deep/dot.png"
     write_png(disk(project, image), 16, 16, {(0, 0)}, 16)
     text = must("W7 Reimport a file in an unscanned folder", mutate(host, f"editor | call Reimport([{q(image)}])"))
-    has("W7 the file is queued", text, "Queued 1 new file(s)", image)
+    has("W7 the file is queued", text, "Queued 1 file(s)", image)
     lacks("W7 and not refused", text, "NOT imported")
-    has("W7 the editor imported it by the next call",
-        must("W7 imported", query(host, f"files | where path == {q(image)} | select type")), "Texture2D")
+    imported = ""
+    for _ in range(25):  # the scan lands, and imports the file, on the next editor frames
+        imported = must("W7 imported", query(host, f"files | where path == {q(image)} | select type"))
+        if "Texture2D" in imported:
+            break
+        time.sleep(0.2)
+    has("W7 the editor imported it right after the call", imported, "Texture2D")
     check("W7 its .import sidecar exists", disk(project, image + ".import").exists(), file_text(project, image + ".import"))

@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.Godot.MCP.Tools;
@@ -194,6 +195,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 "res://levels/level2.tscn", "res://art/hero.png", "uid://bq6x1", "res://scripts/Player.cs",
                 "res://docs/readme.txt", "res://a.tres", "res://b.tres", "uid://x", "res://c.tscn",
             }, ResPathNormalizer.MentionedPaths(text));
+        }
+
+        [Fact]
+        public void MentionedPaths_KeepsQuotedSpaces_StopsAtEscapes_IgnoresOtherSchemes()
+        {
+            var text = "var next = \"res://My Levels/level 2.tscn\";\n" +
+                       "GD.Print(\"res://logs/out.txt\\n\");\n" +
+                       "var db = \"postgres://host/db\"; var f = fluid://x;";
+            var mentions = ResPathNormalizer.MentionedPaths(text).ToList();
+            Assert.Contains("res://My Levels/level 2.tscn", mentions);
+            Assert.Contains("res://logs/out.txt", mentions);
+            Assert.DoesNotContain(mentions, m => m.Contains("host/db") || m == "uid://x" || m.Contains('\\'));
         }
 
         [Theory]

@@ -64,7 +64,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var scanned = new HashSet<string>(StringComparer.Ordinal);
             var unscanned = normalized.Where(p => Tools.ResPathNormalizer.ParentDir(p) is var dir
                                                   && !IsKnownFolder(efs, dir) && !IsIgnoredFolder(dir)).ToList();
-            if (unscanned.Count > 0 && ScanStarted(efs)) scanned.UnionWith(unscanned);
+            // A scan this frame (Register's) already sees them: a second Scan() would be ignored until it lands.
+            if (unscanned.Count > 0 && (_scanFrame == Engine.GetProcessFrames() || ScanStarted(efs)))
+            {
+                scanned.UnionWith(unscanned);
+                _scanFrame = Engine.GetProcessFrames();
+            }
 
             // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import (issue #310), and never route a brand-new
             // importable file (no sidecar yet) to UpdateFile alone — that registers it but does not import it (D32).

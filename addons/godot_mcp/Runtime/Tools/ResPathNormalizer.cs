@@ -146,21 +146,27 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         /// <summary>
         /// The <c>res://</c> paths and <c>uid://</c> ids written as strings in a text file (a script's <c>load("res://…")</c>, a
-        /// scene's string property, <c>project.godot</c>'s main scene), in order, without repeats. A path ends at whitespace, a
-        /// quote or a list / call delimiter; a trailing <c>.</c> or <c>:</c> (end of a sentence, a <c>::</c> separator) is not part of it.
+        /// scene's string property, <c>project.godot</c>'s main scene), without repeats: first every quoted one (whole, spaces
+        /// included), then the unquoted ones. An unquoted path ends at whitespace, a quote, a backslash or a list / call
+        /// delimiter; a trailing <c>.</c> or <c>:</c> (end of a sentence, a <c>::</c> separator) is not part of it. A scheme
+        /// inside a longer word (<c>postgres://</c>) is not one.
         /// </summary>
         public static IEnumerable<string> MentionedPaths(string? text)
         {
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (System.Text.RegularExpressions.Match match in MentionPattern.Matches(text ?? ""))
-            {
-                var mention = match.Value.TrimEnd('.', ':');
-                if (mention.Length > "res://".Length && seen.Add(mention)) yield return mention;
-            }
+            foreach (var pattern in new[] { QuotedMention, BareMention })
+                foreach (System.Text.RegularExpressions.Match match in pattern.Matches(text ?? ""))
+                {
+                    var mention = match.Groups["p"].Value.TrimEnd('.', ':');
+                    if (mention.Length > "res://".Length && seen.Add(mention)) yield return mention;
+                }
         }
 
-        private static readonly System.Text.RegularExpressions.Regex MentionPattern =
-            new System.Text.RegularExpressions.Regex(@"(?:res|uid)://(?:[^\s""'`<>|,;()\[\]{}:]|:(?!:))+", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        private static readonly System.Text.RegularExpressions.Regex QuotedMention = new System.Text.RegularExpressions.Regex(
+            @"(?<q>[""'])(?<p>(?:res|uid)://[^""'\r\n\x5C]+)\k<q>", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        private static readonly System.Text.RegularExpressions.Regex BareMention = new System.Text.RegularExpressions.Regex(
+            @"(?<![A-Za-z0-9_])(?<p>(?:res|uid)://(?:[^\s""'`<>|,;()\[\]{}:\x5C]|:(?!:))+)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
         /// <summary>Whether <paramref name="src"/> → <paramref name="dst"/> only changes letter case (the same file on Windows / macOS).</summary>
         public static bool IsCaseOnlyRename(string src, string dst)

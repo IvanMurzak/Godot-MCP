@@ -233,7 +233,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             if (_usedBy == null)
             {
-                _usedBy = new Dictionary<string, List<string>>();
+                _usedBy = new Dictionary<string, List<string>>(System.StringComparer.OrdinalIgnoreCase); // as RqlReferences.Mentions
                 // Only scenes and resources reference other files (as in DeleteResource's users check).
                 foreach (var (file, _) in RqlGodot.WalkFiles(EditorToolGuards.GetResourceFileSystemOrThrow().GetFilesystem()).Take(RqlGodot.MaxFiles))
                 {

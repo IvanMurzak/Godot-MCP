@@ -433,7 +433,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.DoesNotContain("NOT imported", described);
             Assert.Contains("Imported 1 new file(s): res://ok.png;", described);
-            Assert.Contains("Queued 1 new file(s) in a folder the editor had not scanned yet: res://new-folder/cat.png (", described);
+            Assert.Contains("Queued 1 file(s) in a folder the editor had not scanned yet: res://new-folder/cat.png (", described);
             Assert.Contains("next frame", described);
             Assert.False(ImportOutcome.QueuedByScan().Imported);
         }

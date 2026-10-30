@@ -26,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public Node NewScene(string path, string rootClass = "Node", string? rootName = null)
         {
             path = NewScenePath(path);
-            RequireReloadableTab(path, "create it");
+            RequireSceneSwitchable(path, "create it");
             if (IsBaseScene(rootClass)) return NewInheritedScene(path, rootClass, rootName);
             var root = EditorToolGuards.ValidateClassDbInstantiation<Node>(RootClass(rootClass), "rootClass", requireParentClass: "Node");
             if (!string.IsNullOrEmpty(rootName)) root.Name = rootName;
@@ -98,7 +98,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             EditorToolGuards.RequireResourceExists(target, nameof(path), $"no scene at '{target}'");
             if (Array.IndexOf(Ei.GetOpenScenes(), target) < 0) return OpenScene(target);
             // Reload first (a background tab too), then switch: after a switch Godot ignores reloads for the rest of the frame.
-            RequireReloadableTab(target, "reload it");
+            RequireSceneSwitchable(target, "reload it");
             if (!EditorToolGuards.ReloadReplacedOpenScene(target)) // replaces the cached PackedScene, then reloads the tab
                 throw new InvalidOperationException($"'{target}' was not reloaded: its file does not load (see the editor output)");
             return OpenScene(target);
@@ -109,6 +109,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             path = RequireScenePath(path);
             EditorToolGuards.RequireResourceExists(path, nameof(path), $"no scene at '{path}'");
+            if (RqlGodot.EditedRoot() is { } edited && edited.SceneFilePath == path) return edited;
             var switchedBefore = EditorToolGuards.SwitchedScenesThisFrame;
             Ei.OpenSceneFromPath(path);
             EditorToolGuards.NoteSceneSwitch();
@@ -120,7 +121,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var root = RqlGodot.EditedRoot() ?? throw new InvalidOperationException($"opened '{path}' but the editor has no edited scene");
             if (root.SceneFilePath != path)
                 throw new InvalidOperationException($"opened '{path}' but the editor shows '{root.SceneFilePath}'" + (switchedBefore
-                    ? ": Godot opens no scene that is not in a tab yet in the editor frame of another scene switch; open it in its own rql-mutate"
+                    ? Array.IndexOf(Ei.GetOpenScenes(), path) >= 0
+                        ? ": the scene tab bar had not caught up with an earlier scene change in this editor frame; open it in its own rql-mutate"
+                        : ": Godot opens no scene that is not in a tab yet in the editor frame of another scene switch; open it in its own rql-mutate"
                     : ""));
             return root;
         }
@@ -209,12 +212,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else EditorToolGuards.CheckClassDbInstantiation(RootClass(rootClass), "rootClass", requireParentClass: "Node");
         });
 
-        // After a scene switch Godot ignores reloads for the rest of the editor frame: a tab of the path would keep its old nodes.
-        private static void RequireReloadableTab(string path, string what)
+        // After a scene switch Godot ignores reloads and opening a scene not in a tab yet for the rest of the editor frame: refuse
+        // before anything is written (a tab of the path would keep its old nodes, a new scene would be saved but not opened).
+        private static void RequireSceneSwitchable(string path, string what)
         {
-            if (EditorToolGuards.SwitchedScenesThisFrame && Array.IndexOf(Ei.GetOpenScenes(), path) >= 0)
-                throw new InvalidOperationException($"'{path}' is open in a tab, and Godot reloads no tab in the editor frame of another scene " +
-                    $"switch made by this call; {what} in its own rql-mutate");
+            if (!EditorToolGuards.SwitchedScenesThisFrame) return;
+            throw new InvalidOperationException(Array.IndexOf(Ei.GetOpenScenes(), path) >= 0
+                ? $"'{path}' is open in a tab, and Godot reloads no tab in the editor frame of an earlier scene switch (this call made " +
+                  $"one); {what} in its own rql-mutate"
+                : $"Godot opens no scene that is not in a tab yet in the editor frame of an earlier scene switch (this call made one); " +
+                  $"{what} in its own rql-mutate");
         }
 
         private static string RootClass(string rootClass) => string.IsNullOrWhiteSpace(rootClass) ? "Node" : rootClass;

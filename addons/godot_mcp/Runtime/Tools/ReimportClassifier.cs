@@ -279,7 +279,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (imported.Count > 0)
                 parts.Add($"Imported {imported.Count} new file(s): {string.Join(", ", imported)}");
             if (queued.Count > 0)
-                parts.Add($"Queued {queued.Count} new file(s) in a folder the editor had not scanned yet: {string.Join(", ", queued)} " +
+                parts.Add($"Queued {queued.Count} file(s) in a folder the editor had not scanned yet: {string.Join(", ", queued)} " +
                           $"({ImportOutcome.QueuedReason})");
             if (Native.Count > 0)
                 parts.Add(parts.Count == 0
