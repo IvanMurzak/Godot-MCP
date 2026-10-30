@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-Navigation",
   "packageId": "com.IvanMurzak.Godot.MCP.Navigation",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "project": "extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj",
   "tests": "extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/Godot-AI-Navigation.Tests.csproj",
   "minGodotVersion": "4.3.0",
