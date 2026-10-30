@@ -205,7 +205,7 @@ the reload still unloads.
 - `scripts/smoke_rql.py` (CI: `test_godot_runtime_harness.yml`, every Godot version of the matrix) against a live
   headless editor: read-back of every change from the `.tscn` / `.tres` Godot wrote (the former
   `smoke_property_patches.py` cases), `AddChild` + `SaveScene` round-trip, resource move / delete with sidecars, and
-  every example of the guide (`Godot-Tests/rql-guide-examples.json`) in order. `scripts/smoke_rql_models.py` adds
+  every example of the guide (`Godot-Tests/fixtures/rql-guide-examples.json`) in order. `scripts/smoke_rql_models.py` adds
   ~500 checks: every existing adapter on real properties (Node2D, Node3D, Control, Resource, NodePath, StringName,
   Variant, NodeRef, the struct types), groups, signal connections, project settings, the input map, autoloads, global
   groups, TileSets and Themes — each change read back from the `.tscn` / `.tres` / `project.godot` Godot wrote,

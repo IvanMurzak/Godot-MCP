@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// The agent guide of the RQL tools (<see cref="RqlGuide"/>): every example parses, mutate examples end with set / call,
-    /// and <c>Godot-Tests/rql-guide-examples.json</c> — the list the live CI smoke (scripts/smoke_rql.py) runs against a real
+    /// and <c>Godot-Tests/fixtures/rql-guide-examples.json</c> — the list the live CI smoke (scripts/smoke_rql.py) runs against a real
     /// editor — mirrors the guide exactly.
     /// </summary>
     public class RqlGuideTests
@@ -116,15 +116,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void TheLiveSmokeRunsExactlyTheGuideExamples()
         {
-            var path = Path.Combine(RepoRoot(), "Godot-Tests", "rql-guide-examples.json");
+            var path = Path.Combine(RepoRoot(), "Godot-Tests", "fixtures", "rql-guide-examples.json");
             Assert.True(File.Exists(path), $"{path} is missing");
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             var query = doc.RootElement.GetProperty("query").EnumerateArray().Select(e => e.GetString()).ToArray();
             var mutate = doc.RootElement.GetProperty("mutate").EnumerateArray().Select(e => e.GetString()).ToArray();
             Assert.True(RqlGuide.QueryExamples.SequenceEqual(query!),
-                "Godot-Tests/rql-guide-examples.json 'query' differs from RqlGuide.QueryExampleText; copy the examples over (same order)");
+                "Godot-Tests/fixtures/rql-guide-examples.json 'query' differs from RqlGuide.QueryExampleText; copy the examples over (same order)");
             Assert.True(RqlGuide.MutateExamples.SequenceEqual(mutate!),
-                "Godot-Tests/rql-guide-examples.json 'mutate' differs from RqlGuide.MutateExampleText; copy the examples over (same order)");
+                "Godot-Tests/fixtures/rql-guide-examples.json 'mutate' differs from RqlGuide.MutateExampleText; copy the examples over (same order)");
         }
 
         private static string RepoRoot()

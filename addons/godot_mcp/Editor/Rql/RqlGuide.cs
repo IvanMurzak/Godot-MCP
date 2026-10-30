@@ -20,7 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// use); the one-line blurbs are what the always-visible tool catalog shows.
     /// <para>
     /// Pure strings (no Godot API, not behind <c>#if TOOLS</c>) so the xUnit suite parses every example, and
-    /// <c>Godot-Tests/rql-guide-examples.json</c> mirrors <see cref="QueryExamples"/> / <see cref="MutateExamples"/> so
+    /// <c>Godot-Tests/fixtures/rql-guide-examples.json</c> mirrors <see cref="QueryExamples"/> / <see cref="MutateExamples"/> so
     /// the live CI smoke (<c>scripts/smoke_rql.py</c>) runs each one against a real editor. The examples are written
     /// against that smoke's fixture scene and run in the listed order, so keep them executable top to bottom.
     /// </para>
