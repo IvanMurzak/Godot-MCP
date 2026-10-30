@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -142,6 +143,24 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (string.Equals(part, resPath, StringComparison.OrdinalIgnoreCase) || (!string.IsNullOrEmpty(uid) && part == uid)) return true;
             return false;
         }
+
+        /// <summary>
+        /// The <c>res://</c> paths and <c>uid://</c> ids written as strings in a text file (a script's <c>load("res://…")</c>, a
+        /// scene's string property, <c>project.godot</c>'s main scene), in order, without repeats. A path ends at whitespace, a
+        /// quote or a list / call delimiter; a trailing <c>.</c> or <c>:</c> (end of a sentence, a <c>::</c> separator) is not part of it.
+        /// </summary>
+        public static IEnumerable<string> MentionedPaths(string? text)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (System.Text.RegularExpressions.Match match in MentionPattern.Matches(text ?? ""))
+            {
+                var mention = match.Value.TrimEnd('.', ':');
+                if (mention.Length > "res://".Length && seen.Add(mention)) yield return mention;
+            }
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex MentionPattern =
+            new System.Text.RegularExpressions.Regex(@"(?:res|uid)://(?:[^\s""'`<>|,;()\[\]{}:]|:(?!:))+", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
         /// <summary>Whether <paramref name="src"/> → <paramref name="dst"/> only changes letter case (the same file on Windows / macOS).</summary>
         public static bool IsCaseOnlyRename(string src, string dst)

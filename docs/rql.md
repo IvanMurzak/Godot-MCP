@@ -104,7 +104,17 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   frame is registered when that scan lands; a `.gdignore` or dot-named folder is never scanned for). `NewScene` onto the path of a scene
   that is still open in a background tab (its file was deleted while another scene was edited) replaces the cached
   scene and reloads that tab, so the new scene is shown, not the old nodes; `OpenScene` fails when the editor ends up
-  on another scene than the one asked for.
+  on another scene than the one asked for. For the rest of an editor frame in which the edited scene changed, Godot
+  ignores `OpenSceneFromPath` and `ReloadSceneFromPath`: `OpenScene` then selects the scene's tab in the scene tab bar
+  (`EditorToolGuards.SelectOpenSceneTab`), so several switches work in one call; a scene not in a tab yet cannot be
+  opened then, and `ReloadScene` / `NewScene` onto an open tab are refused with "in its own rql-mutate" instead of
+  leaving the old nodes (`EditorToolGuards.NoteSceneSwitch`). `ReloadScene` of a background tab reloads it before it
+  switches to it. A targeted `Reimport` of a new file in a folder the editor never scanned runs one full scan and
+  reports the file queued: the scan's result, and the import, land on the next editor frame.
+- **usedBy** (and `DeleteResource`'s users check) add the files that name a file as a `res://` / `uid://` string
+  (`RqlReferences.Mentions`: scripts, text scenes / resources, data and config files and `project.godot`, read once per
+  editor frame, this addon's own folder skipped), because `ResourceLoader.GetDependencies` misses an exported
+  `NextLevel = "res://…"` or a `load("res://…")`; a path built from parts at run time is not seen.
 - **Refused instead of silently changed**: a rename Godot would alter (a character it does not allow in node names,
   `. : @ / " %`, or a sibling's name); `SaveScene(path)` onto another existing file; `InstantiateScene` of a scene that
   contains the edited one; `MoveResource` that changes the extension; `DeleteResource` of a file a scene or resource still

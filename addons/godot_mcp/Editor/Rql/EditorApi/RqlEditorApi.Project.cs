@@ -130,8 +130,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         [RqlDescription("dependencies whose file no longer exists: broken references")]
         public List<string> missingDeps => _references.MissingDepsOf(path);
 
-        [RqlDescription("the scenes and resources whose deps include this one, as saved (scripts' load / preload, project settings such as " +
-            "the main scene, icon or autoloads, and unsaved edits are not seen); the first usedBy of a query scans the project")]
+        [RqlDescription("the files that use this one, as saved: scenes and resources whose deps include it, and files naming it as a " +
+            "res:// / uid:// string (scripts' load / preload / ChangeSceneToFile, string properties such as a NextLevel path, project.godot's " +
+            "main scene, icon and autoloads); a path a script builds from parts and unsaved edits are not seen. The first usedBy of a " +
+            "query scans the project")]
         public List<string> usedBy => _references.UsedBy(path);
     }
 
@@ -241,6 +243,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                         if (!_usedBy.TryGetValue(dep, out var users)) _usedBy[dep] = users = new List<string>();
                         users.Add(file);
                     }
+                }
+                foreach (var target in RqlReferences.Mentions().Keys)
+                {
+                    if (!_usedBy.TryGetValue(target, out var users)) _usedBy[target] = users = new List<string>();
+                    users.AddRange(RqlReferences.MentionsOf(target).Where(m => !users.Contains(m)).ToList());
                 }
             }
             return _usedBy.TryGetValue(path, out var found) ? found : new List<string>();

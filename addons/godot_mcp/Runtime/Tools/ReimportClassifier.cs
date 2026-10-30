@@ -261,13 +261,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return "No files to refresh";
 
             bool Imported(string path) => outcomes.GetValueOrDefault(path)?.Imported == true;
+            bool Queued(string path) => outcomes.GetValueOrDefault(path)?.Queued == true;
 
             var failed = Importable.Concat(NewImportable)
-                .Where(path => !Imported(path))
+                .Where(path => !Imported(path) && !Queued(path))
                 .Select(path => $"{path} ({outcomes.GetValueOrDefault(path)?.Reason ?? ImportOutcome.NoOutcomeReason})")
                 .ToList();
             var reimported = Importable.Count(Imported);
             var imported = NewImportable.Where(Imported).ToList();
+            var queued = Importable.Concat(NewImportable).Where(Queued).ToList();
 
             var parts = new List<string>();
             if (failed.Count > 0)
@@ -276,6 +278,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 parts.Add($"Reimported {reimported} file(s)");
             if (imported.Count > 0)
                 parts.Add($"Imported {imported.Count} new file(s): {string.Join(", ", imported)}");
+            if (queued.Count > 0)
+                parts.Add($"Queued {queued.Count} new file(s) in a folder the editor had not scanned yet: {string.Join(", ", queued)} " +
+                          $"({ImportOutcome.QueuedReason})");
             if (Native.Count > 0)
                 parts.Add(parts.Count == 0
                     ? $"Refreshed {Native.Count} native file(s) (no importer handles them — Godot's native formats " +
@@ -293,15 +298,32 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>Reason used when the handler recorded no outcome for a routed file.</summary>
         public const string NoOutcomeReason = "no import result was observed";
 
-        ImportOutcome(string? reason) => Reason = reason;
+        /// <summary>What a <see cref="QueuedByScan"/> file waits for, and how to check it.</summary>
+        public const string QueuedReason =
+            "a full filesystem scan found it; the editor imports it on its next frame, after this call: check with " +
+            "rql-query files | where path == \"<path>\" | select path type";
+
+        ImportOutcome(string? reason, bool queued = false)
+        {
+            Reason = reason;
+            Queued = queued;
+        }
 
         /// <summary>True only when the import was OBSERVED to succeed (a valid sidecar exists afterwards).</summary>
         public bool Imported => Reason == null;
+
+        /// <summary>
+        /// The file's folder was unknown to the editor: a full scan registered it, and the editor imports it a frame later
+        /// (a scan's result is swapped in on the next editor frame, after the call). Not imported yet, but not a failure.
+        /// </summary>
+        public bool Queued { get; }
 
         /// <summary>Why the file was not imported; null when <see cref="Imported"/> is true.</summary>
         public string? Reason { get; }
 
         public static ImportOutcome Success() => new ImportOutcome(null);
+
+        public static ImportOutcome QueuedByScan() => new ImportOutcome(QueuedReason, queued: true);
 
         public static ImportOutcome Failure(string reason)
             => new ImportOutcome(string.IsNullOrWhiteSpace(reason) ? NoOutcomeReason : reason);

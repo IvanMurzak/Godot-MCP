@@ -419,6 +419,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void Describe_FileQueuedByAScan_IsNeitherImportedNorAFailure()
+        {
+            // F6: a new file in a folder the editor never scanned gets a full scan; the editor imports it a frame later.
+            var plan = Plan(new[] { "res://new-folder/cat.png", "res://ok.png" }, ProjectWithImported());
+            var outcomes = new Dictionary<string, ImportOutcome>(StringComparer.Ordinal)
+            {
+                ["res://new-folder/cat.png"] = ImportOutcome.QueuedByScan(),
+                ["res://ok.png"] = ImportOutcome.Success(),
+            };
+
+            var described = plan.Describe(outcomes);
+
+            Assert.DoesNotContain("NOT imported", described);
+            Assert.Contains("Imported 1 new file(s): res://ok.png;", described);
+            Assert.Contains("Queued 1 new file(s) in a folder the editor had not scanned yet: res://new-folder/cat.png (", described);
+            Assert.Contains("next frame", described);
+            Assert.False(ImportOutcome.QueuedByScan().Imported);
+        }
+
+        [Fact]
         public void Describe_RoutedFileWithoutAnOutcome_IsReportedAsNotImported()
         {
             // Without outcomes nothing was observed, so nothing may be claimed — for new AND existing imports.

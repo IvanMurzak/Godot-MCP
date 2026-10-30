@@ -179,5 +179,28 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("uid://x::::res://Exp/Sub.tscn", "res://exp/sub.tscn", null, true)] // Windows / macOS: the same file
         public void DependencyNames_MatchesPathOrUid(string entry, string path, string? uid, bool expected)
             => Assert.Equal(expected, ResPathNormalizer.DependencyNames(entry, path, uid));
+
+        [Fact]
+        public void MentionedPaths_FindsPathsAndUidsWrittenAsStrings()
+        {
+            var text = "NextLevel = \"res://levels/level2.tscn\"\n" +
+                       "var tex = load('res://art/hero.png'); var s = preload(\"uid://bq6x1\")\n" +
+                       "[ext_resource type=\"Script\" path=\"res://scripts/Player.cs\" id=\"1\"]\n" +
+                       "run/main_scene=\"res://levels/level2.tscn\"\n" +
+                       "See res://docs/readme.txt. Also [res://a.tres, res://b.tres] and uid://x::Type::res://c.tscn\n" +
+                       "just res:// alone";
+            Assert.Equal(new[]
+            {
+                "res://levels/level2.tscn", "res://art/hero.png", "uid://bq6x1", "res://scripts/Player.cs",
+                "res://docs/readme.txt", "res://a.tres", "res://b.tres", "uid://x", "res://c.tscn",
+            }, ResPathNormalizer.MentionedPaths(text));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("no paths here, only user://save.dat and http://example.com")]
+        public void MentionedPaths_EmptyWhenNothingIsNamed(string? text)
+            => Assert.Empty(ResPathNormalizer.MentionedPaths(text));
     }
 }

@@ -44,6 +44,7 @@ import smoke_rql_wave5
 import smoke_rql_bulk
 import smoke_rql_wave6
 import smoke_rql_wave6b
+import smoke_rql_wave7
 
 
 def wait_ready(host: str, timeout: float) -> bool:
@@ -306,6 +307,7 @@ def main() -> int:
     smoke_rql_bulk.run(host, project, d)
     smoke_rql_wave6.run(host, project, d)
     smoke_rql_wave6b.run(host, project, d)
+    smoke_rql_wave7.run(host, project, d)
     smoke_rql_semantics.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
