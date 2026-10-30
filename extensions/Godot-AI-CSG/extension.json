@@ -1,7 +1,7 @@
 {
   "name": "Godot-AI-CSG",
   "packageId": "com.IvanMurzak.Godot.MCP.CSG",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "project": "extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj",
   "tests": "extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/Godot-AI-CSG.Tests.csproj",
   "minGodotVersion": "4.3.0",

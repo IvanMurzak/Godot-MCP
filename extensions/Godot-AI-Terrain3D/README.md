@@ -2,7 +2,7 @@
 
 RQL module for the Terrain3D addon (TokisanGames heightmap terrain): terrain3d source with validated ChangeRegionSize, addon check and material creation for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (1.0.2).
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (1.1.0).
 Requires a Godot C# project (4.4.0+) with a core `godot_mcp` addon that has the RQL tools
 (`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
@@ -12,7 +12,7 @@ This extension **does NOT include** the Terrain3D addon and does not download or
 install Terrain3D into your own Godot project separately:
 
 - Install **Terrain3D** from the **Godot Asset Library** (search "Terrain3D"), or from
-  **https://github.com/TokisanGames/Terrain3D** (tested against **v1.0.2-stable**). Terrain3D ships
+  **https://github.com/TokisanGames/Terrain3D** (tested against **v1.1.0-stable**). Terrain3D ships
   **precompiled binaries** in its release — no C++ build is required.
 - Unzip it into **`addons/terrain_3d/`**, **restart Godot** (a GDExtension only loads on editor
   startup), then enable it under **Project Settings → Plugins**.
@@ -32,7 +32,7 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Terrain3D /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 1.0.2` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.1.0` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
