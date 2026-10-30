@@ -28,24 +28,23 @@
     Code-Exec and Roslyn also go into exports when the game opts in to in-game `script-execute` with
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
-    TEMPORARY PRE-RELEASE PINS (owner rule: between test waves RQL, Code-Exec, McpPlugin and ReflectorNet are not released; plugins consume
-    their main commits): com.IvanMurzak.Rql 0.3.0-dev.3602d6a is packed from RQL main 3602d6a, com.IvanMurzak.CodeExec + .Roslyn
-    0.4.0-dev.54d527b from Code-Exec main 54d527b, com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the
-    server build) 8.14.0-dev.71fa5c1 from MCP-Plugin-dotnet main 71fa5c1 (the McpPlugin pin above; same build as
-    GameDev-MCP-Server) and com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e from ReflectorNet main ec3702e (McpPlugin
-    8.14.0-dev.71fa5c1 depends on it; the ReflectorNet pin above), all committed under prerelease-packages/; the
-    repo-root Directory.Build.props adds that folder as a restore source for every project in this repo (core, tests,
-    Godot-Tests, extensions, templates and the consumers CI scaffolds inside the checkout). Every csproj pin, the CLI
-    fallback (cli/src/utils/addon-deps.ts) and the pin docs move together. At the cascade release: set the published
-    version everywhere, delete prerelease-packages/ and Directory.Build.props.
+    TEMPORARY PRE-RELEASE PINS (owner rule: between test waves McpPlugin and ReflectorNet are not released; plugins consume
+    their main commits): com.IvanMurzak.McpPlugin (+ McpPlugin.Common, + McpPlugin.Server for the server build)
+    8.14.0-dev.71fa5c1 from MCP-Plugin-dotnet main 71fa5c1 (the McpPlugin pin above; same build as GameDev-MCP-Server) and
+    com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e from ReflectorNet main ec3702e (McpPlugin 8.14.0-dev.71fa5c1 depends on
+    it; the ReflectorNet pin above), both committed under prerelease-packages/; the repo-root Directory.Build.props adds
+    that folder as a restore source for every project in this repo (core, tests, Godot-Tests, extensions, templates and
+    the consumers CI scaffolds inside the checkout). RQL (0.3.0) and Code-Exec (0.4.0) are published releases from
+    nuget.org. Every csproj pin, the CLI fallback (cli/src/utils/addon-deps.ts) and the pin docs move together. At the
+    cascade release: set the published version everywhere, delete prerelease-packages/ and Directory.Build.props.
   -->
   <PropertyGroup Condition="'$(GodotMcpCodeExecInGame)' == 'true'">
     <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.3602d6a" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.54d527b" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
-    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.54d527b" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
+    <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
   </ItemGroup>
 
