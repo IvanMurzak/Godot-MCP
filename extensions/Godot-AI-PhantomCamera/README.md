@@ -12,7 +12,7 @@ This extension **does NOT include** the Phantom Camera addon and does not downlo
 install Phantom Camera into your own Godot project separately:
 
 - Install **Phantom Camera** from the **Godot Asset Library**, or from
-  **https://github.com/ramokz/phantom-camera** (tested against **v0.11.1.0**).
+  **https://github.com/ramokz/phantom-camera** (tested against **v0.11.0.2**).
 - Enable it under **Project Settings → Plugins**.
 
 Without Phantom Camera installed and enabled, `phantomcamera | select installed hint` reports `false` with an install

@@ -12,7 +12,7 @@ This extension **does NOT include** the Terrain3D addon and does not download or
 install Terrain3D into your own Godot project separately:
 
 - Install **Terrain3D** from the **Godot Asset Library** (search "Terrain3D"), or from
-  **https://github.com/TokisanGames/Terrain3D** (tested against **v1.1.0-stable**). Terrain3D ships
+  **https://github.com/TokisanGames/Terrain3D** (tested against **v1.0.2-stable**). Terrain3D ships
   **precompiled binaries** in its release — no C++ build is required.
 - Unzip it into **`addons/terrain_3d/`**, **restart Godot** (a GDExtension only loads on editor
   startup), then enable it under **Project Settings → Plugins**.
