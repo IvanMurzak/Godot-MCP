@@ -1,0 +1,37 @@
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_3520011ca94af6 3
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_70c2922d3ccd8d 52-53
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_8d115c73018a94 33,47-48
+Godot-Tests/Godot-Tests.csproj
+  s_7bc72ecaebd05d::t_1a7f130ba0a37c 15,43-44
+Godot-Tests/README.md
+  s_7bc72ecaebd05d::t_e53277b1a44a7e 15
+README.md
+  s_7bc72ecaebd05d::t_7b770d46afc790 322-323,338-339
+cli/CHANGELOG.md
+  s_7bc72ecaebd05d::t_384403be699bef 25
+cli/src/utils/addon-deps.ts
+  s_7bc72ecaebd05d::t_c221a19dc34fba 87-88
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_7b72de01fea9b9 274
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_986312387e7c10 72-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a07aa1edd5b394aa2d5d2bd4787b048f13ae5db",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
