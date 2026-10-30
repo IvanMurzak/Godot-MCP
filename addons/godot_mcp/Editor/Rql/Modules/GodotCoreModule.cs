@@ -93,6 +93,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
             // Values
             ctx.AddAdapter(new Godot_Variant_Adapter())
                .AddAdapter(new Godot_Array_Adapter())
+               .AddAdapter(new Godot_ObjectList_Adapter<global::Godot.Resource>())
+               .AddAdapter(new Godot_ObjectList_Adapter<global::Godot.Node>())
                .AddAdapter(new RqlFile_Adapter())
                .AddAdapter(new Godot_StringName_Adapter())
                .AddAdapter(new Godot_NodePath_Adapter())
