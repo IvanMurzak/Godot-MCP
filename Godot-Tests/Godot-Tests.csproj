@@ -12,7 +12,7 @@
     single assembly. So this csproj must declare the same NuGet
     PackageReferences the addon's scripts depend on, otherwise the addon's C#
     will not compile here. Keep these pins in lockstep with ../Godot-MCP.csproj
-    (com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e, com.IvanMurzak.McpPlugin 8.14.0-dev.71fa5c1, com.IvanMurzak.Rql 0.3.0-dev.544a247, com.IvanMurzak.CodeExec + .Roslyn 0.4.0-dev.affe6ef, Microsoft.CodeAnalysis.CSharp 4.12.0).
+    (com.IvanMurzak.ReflectorNet 5.5.1-dev.ec3702e, com.IvanMurzak.McpPlugin 8.14.0-dev.71fa5c1, com.IvanMurzak.Rql 0.3.0-dev.3602d6a, com.IvanMurzak.CodeExec + .Roslyn 0.4.0-dev.affe6ef, Microsoft.CodeAnalysis.CSharp 4.12.0).
 
     SDK pin note: Godot.NET.Sdk/4.3.0 is the engine floor the addon supports
     (matches ../Godot-MCP.csproj). The .NET SDK package is published to
@@ -39,7 +39,7 @@
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1-dev.ec3702e" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0-dev.71fa5c1" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.544a247" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0-dev.3602d6a" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0-dev.affe6ef" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0-dev.affe6ef" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
