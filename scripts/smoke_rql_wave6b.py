@@ -66,7 +66,8 @@ def typed_arrays(host: str, project: pathlib.Path, d: str) -> None:
     # Wave 7: an Array[Resource] property ("24/17:Resource") took no object literals or refs, and copying one typed array
     # into another must keep working.
     script = f"{d}/w6b_holder.gd"
-    disk(project, script).write_text("extends Node3D\n@export var items: Array[Resource] = []\n@export var others: Array[Resource] = []\n",
+    disk(project, script).write_text("extends Node3D\n@export var items: Array[Resource] = []\n@export var others: Array[Resource] = []\n"
+                                     "@export var textures: Array[Texture2D] = []\n",
                                      encoding="utf-8")
     must("W6Y register", mutate(host, "editor | call Reimport()"))
     must("W6Y holder", mutate(host, 'root | call AddChild("Node3D", "H")'))
@@ -77,3 +78,5 @@ def typed_arrays(host: str, project: pathlib.Path, d: str) -> None:
     must("W6Y copy into another typed array", mutate(host, 'godot.find("H") | set props["others"] = props["items"]'))
     has("W6Y the copy holds the same meshes", must("W6Y read copy", query(host, 'godot.find("H") | get props["others"] | select class')),
         "CylinderMesh")
+    fails("W6Y a wrong element class is refused in a dry run",
+          mutate(host, 'godot.find("H") | set props["textures"] = [{$type: "BoxMesh"}]', dry_run=True), "Texture2D", "BoxMesh")

@@ -145,7 +145,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     foreach (var kv in options.Properties)
                     {
                         var info = PropertyEntry(table, kv.Key, tableKey);
-                        node.Set(info.Key, ConvertProperty(kv.Value, info, options));
+                        GodotVariants.SetProperty(node, info.Key, ConvertProperty(kv.Value, info, options));
                     }
                 }
             }

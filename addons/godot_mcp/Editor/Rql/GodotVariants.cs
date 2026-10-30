@@ -167,9 +167,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (GodotTypedArrayHint.ObjectElement((int)hint, hintString) is not { } element) return typeof(global::Godot.Collections.Array);
             // GodotTypes knows Godot classes, the project's C# script classes and extensions; a GDScript class_name resolves to
             // GodotObject and relies on the element hint.
+            if (element.elementHint == (int)PropertyHint.NodeType) return typeof(List<Node>);
+            if (element.elementHint == (int)PropertyHint.ResourceType) return typeof(List<Resource>);
             var type = GodotTypes.GodotObjectType(element.className);
-            if (element.elementHint == (int)PropertyHint.NodeType || typeof(Node).IsAssignableFrom(type)) return typeof(List<Node>);
-            if (element.elementHint == (int)PropertyHint.ResourceType || typeof(Resource).IsAssignableFrom(type)) return typeof(List<Resource>);
+            if (typeof(Node).IsAssignableFrom(type)) return typeof(List<Node>);
+            if (typeof(Resource).IsAssignableFrom(type)) return typeof(List<Resource>);
             return typeof(global::Godot.Collections.Array);
         }
 
@@ -186,6 +188,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>A category / group / subgroup header of a property list (not a property).</summary>
         public static bool IsHeader(PropertyUsageFlags usage) =>
             (usage & (PropertyUsageFlags.Category | PropertyUsageFlags.Group | PropertyUsageFlags.Subgroup)) != 0;
+
+        /// <summary>
+        /// Write property <paramref name="key"/>. A typed array property (Array[Font], Array[Resource] …) refuses an untyped
+        /// Array without an error: a copy of the current, typed one is filled instead, and an element of the wrong type (which
+        /// Godot refuses) throws, so the whole write fails (rollback).
+        /// </summary>
+        public static void SetProperty(GodotObject o, string key, Variant variant)
+        {
+            var current = o.Get(key);
+            if (current.VariantType == Variant.Type.Array && variant.VariantType == Variant.Type.Array)
+            {
+                var source = variant.AsGodotArray();
+                var typed = current.AsGodotArray().Duplicate(false);
+                typed.Clear();
+                foreach (var element in source) typed.Add(element);
+                if (typed.Count != source.Count)
+                    throw new ArgumentException($"'{key}' is a typed array; an element does not match its element type");
+                variant = typed;
+            }
+            o.Set(key, variant);
+        }
 
         /// <summary>One Godot property of an object: its Variant type and hint.</summary>
         public readonly struct GodotProperty

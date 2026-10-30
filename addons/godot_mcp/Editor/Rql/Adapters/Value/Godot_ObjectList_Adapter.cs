@@ -34,7 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             var list = new List<T>();
             foreach (var item in items)
             {
-                if (!kernel.TryCoerce(item, typeof(T), out var element, out var why, $"[{list.Count}]"))
+                var plain = item is Variant variant ? GodotVariants.ToClr(variant) : item;
+                if (!kernel.TryCoerce(plain, typeof(T), out var element, out var why, $"[{list.Count}]"))
                 {
                     reason = why;
                     return AdapterOutcome.Failed;
