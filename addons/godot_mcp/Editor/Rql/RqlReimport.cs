@@ -62,8 +62,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             // UpdateFile ignores a file in a folder the editor never scanned: one full scan registers those folders (its
             // result, and the import of their new files, land on the next editor frame).
             var scanned = new HashSet<string>(StringComparer.Ordinal);
-            var unscanned = normalized.Where(p => !IsKnownFolder(efs, Tools.ResPathNormalizer.ParentDir(p))
-                                                  && !IsIgnoredFolder(Tools.ResPathNormalizer.ParentDir(p))).ToList();
+            var unscanned = normalized.Where(p => Tools.ResPathNormalizer.ParentDir(p) is var dir
+                                                  && !IsKnownFolder(efs, dir) && !IsIgnoredFolder(dir)).ToList();
             if (unscanned.Count > 0 && ScanStarted(efs)) scanned.UnionWith(unscanned);
 
             // Never queue a NATIVE file (.tscn/.tres/.gd/…) for import (issue #310), and never route a brand-new

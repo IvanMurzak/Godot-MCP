@@ -247,7 +247,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 foreach (var target in RqlReferences.Mentions().Keys)
                 {
                     if (!_usedBy.TryGetValue(target, out var users)) _usedBy[target] = users = new List<string>();
-                    users.AddRange(RqlReferences.MentionsOf(target).Where(m => !users.Contains(m)).ToList());
+                    foreach (var user in RqlReferences.MentionsOf(target))
+                        if (!users.Contains(user)) users.Add(user);
                 }
             }
             return _usedBy.TryGetValue(path, out var found) ? found : new List<string>();
