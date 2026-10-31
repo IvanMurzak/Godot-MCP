@@ -34,7 +34,7 @@
     <!-- ===== Package identity (scripts/extension_release.py bump owns the Version element) ===== -->
     <IsPackable>true</IsPackable>
     <PackageId>com.IvanMurzak.Godot.MCP.Navigation</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Title>Navigation Tools</Title>
     <Authors>Ivan Murzak</Authors>
     <Description>RQL module for Godot Navigation.</Description>
@@ -68,7 +68,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.15.0" />
     <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>

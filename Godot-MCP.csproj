@@ -17,7 +17,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.15.0" />
   </ItemGroup>
 
   <!--
@@ -29,7 +29,7 @@
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
     Every package above is a published nuget.org release (cascade train t-2026-10-30-03: McpPlugin 8.14.0, ReflectorNet
-    5.5.1, RQL 0.3.0, Code-Exec 0.4.0). Every csproj pin, the CLI fallback (cli/src/utils/addon-deps.ts) and the pin
+    5.5.1, RQL 0.3.0, Code-Exec 0.4.0; McpPlugin 8.15.0 since). Every csproj pin, the CLI fallback (cli/src/utils/addon-deps.ts) and the pin
     docs move together.
   -->
   <PropertyGroup Condition="'$(GodotMcpCodeExecInGame)' == 'true'">

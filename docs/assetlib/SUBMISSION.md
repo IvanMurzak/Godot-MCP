@@ -67,7 +67,7 @@ Requirements:
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the six NuGet package references the addon depends on:
   com.IvanMurzak.ReflectorNet     version 5.5.1
-  com.IvanMurzak.McpPlugin        version 8.14.0
+  com.IvanMurzak.McpPlugin        version 8.15.0
   com.IvanMurzak.Rql              version 0.3.0
   com.IvanMurzak.CodeExec         version 0.4.0
   com.IvanMurzak.CodeExec.Roslyn  version 0.4.0

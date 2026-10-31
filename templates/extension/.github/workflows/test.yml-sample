@@ -99,7 +99,7 @@ jobs:
     # installed addon pins, Authorization=none) and boots a SECOND headless editor in Custom connection
     # mode so its `[AiTool]` handlers (incl. the `#if TOOLS` editor tools) are live. tests/e2e/run_tool_e2e.py
     # then calls each tool in tests/e2e/e2e-tools.json via `godot-cli run-tool` and asserts success — a
-    # real per-tool gate (an exception comes back HTTP 500 -> godot-cli exits non-zero -> the leg fails).
+    # real per-tool gate (an exception comes back non-2xx (422/500) -> godot-cli exits non-zero -> the leg fails).
     env:
       # Fixed loopback port the server listens on and the editor connects to (auth=none).
       SERVER_PORT: "5300"
