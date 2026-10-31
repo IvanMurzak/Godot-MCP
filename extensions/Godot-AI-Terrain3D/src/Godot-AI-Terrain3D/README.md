@@ -2,7 +2,7 @@
 
 RQL module for the Terrain3D addon (TokisanGames heightmap terrain): terrain3d source with validated ChangeRegionSize, addon check and material creation for the core rql-query / rql-mutate tools, plus an agent guide.
 
-Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (1.1.0).
+Optional Godot-MCP extension, independently versioned as NuGet package `com.IvanMurzak.Godot.MCP.Terrain3D` (1.1.1).
 Requires a Godot C# project (4.4.0+) with a core `godot_mcp` addon that has the RQL tools
 (`rql-query` / `rql-mutate` / `rql-schema`, the release after 0.28.0).
 
@@ -32,7 +32,7 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.Terrain3D /path/to/project
 godot-cli build /path/to/project
 ```
 
-The installer resolves the latest stable version from NuGet; use `--version 1.1.0` to request an exact version.
+The installer resolves the latest stable version from NuGet; use `--version 1.1.1` to request an exact version.
 Packages contain C# source and build props, compiled against the project's own GodotSharp.
 Previous NuGet versions remain installable after the repository migration.
 
