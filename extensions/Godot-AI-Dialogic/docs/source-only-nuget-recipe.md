@@ -31,7 +31,7 @@ and our source compiles against *that* exact version.
   <!-- Only the MCP / reflection / query stack is a package dependency (the consumer already has it); pins = the core's. -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.14.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.15.0" />
     <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
     <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>

@@ -4,6 +4,8 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **McpPlugin 8.15.0.** The `install-plugin` fallback pin follows the addon (McpPlugin: a tool that throws on the
+  request's content is HTTP 422 on the server's direct endpoint, not 500).
 - **`openProject` `spawnImpl`** (type `EditorSpawnImpl`): an embedder starts the editor its own way. It gets the
   editor path, arguments and full environment, and returns the started process or a promise of the editor's pid,
   which `openProject` waits for before `editor-launched` and `editorPid`; a rejection fails the open. The

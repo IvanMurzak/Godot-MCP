@@ -47,7 +47,7 @@
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.14.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.15.0" />
     <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.0" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.0" />
