@@ -286,8 +286,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             var setupKind = description.SetupKind;
 
-            // Unsupported: the alert comes first, and RefreshStatus hides Configure. The shared description's alert
-            // asks for a stdio transport Godot does not offer, so Godot's own text replaces it.
+            // Unsupported: Godot's alert replaces the shared one (it asks for a stdio transport Godot lacks).
             if (setupKind == AgentConfig.AgentSetupKind.Unsupported)
             {
                 var unsupported = DockStyle.WarningFrame(GodotAgentConfigurators.UnsupportedTransportMessage(agent.AgentName));
@@ -297,8 +296,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Order mirrors Unity's containerAlert → status row → containerSkills → containerHttp.
             // The reconfigure/setup alert + the Configure/Remove status row only exist for agents with a detectable
-            // config (the Custom agent has no writable config file — snippet/Docker only). Manual setup writes no
-            // file either: a neutral status line, and the steps are the sections below.
+            // config (the Custom agent has no writable config file — snippet/Docker only). Manual writes no file
+            // either: a neutral line instead, and with no status row RefreshStatus does nothing for it.
             if (setupKind == AgentConfig.AgentSetupKind.Manual)
             {
                 var manual = DescriptionLabel(GodotAgentConfigurators.ManualSetupStatus);
@@ -318,8 +317,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();
 
-            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets (for Manual:
-            // the steps, with a clickable link and a copyable URL). Unsupported's only section is the alert above.
+            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets (Manual: the
+            // steps). Unsupported's only section is the alert above.
             if (setupKind != AgentConfig.AgentSetupKind.Unsupported)
             {
                 foreach (var section in description.Sections)

@@ -61,7 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// The neutral status line for <see cref="AgentConfig.AgentSetupKind.Manual"/>: the user follows the steps
         /// below in the agent's own UI (today: adding a Claude custom connector), so there is nothing to configure.
         /// </summary>
-        public const string ManualSetupStatus = "Manual setup (Claude connector): follow the steps below. Nothing is written on this computer.";
+        public const string ManualSetupStatus = "Manual setup: follow the steps below. Nothing is written on this computer.";
 
         // The Godot-visible configurators, in the shared registry's display order, minus the Unity-only
         // agent. Materialized once: the shared registry is static and immutable.

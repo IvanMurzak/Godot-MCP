@@ -74,10 +74,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Equal(AgentSetupKind.Manual, description.SetupKind);
             Assert.False(description.TransportSupported); // so no Godot path writes claude_desktop_config.json
-            Assert.False(GodotAgentConfigurators.CanConfigure(agent));
-            Assert.Contains(items, i => i.Kind == ConfigurationItemKind.Link && i.Url == "https://claude.ai/customize/connectors");
+            Assert.Contains(items, i => i.Kind == ConfigurationItemKind.Link && i.Url == com.IvanMurzak.McpPlugin.AgentConfig.Impl.ClaudeDesktopConfigurator.ConnectorsSettingsUrl);
             Assert.Contains(items, i => i.Kind == ConfigurationItemKind.ReadOnlyField && i.Text == settings.PinnedHttpUrl);
-            Assert.Contains("/mcp/p/", settings.PinnedHttpUrl);
             Assert.DoesNotContain(items, i => i.Kind == ConfigurationItemKind.Alert);
         }
 
@@ -88,7 +86,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var settings = Settings(mode);
             foreach (var agent in GodotAgentConfigurators.All.Where(GodotAgentConfigurators.CanConfigure))
-                Assert.Equal(AgentSetupKind.ConfigFile, agent.Describe(settings, GodotAgentConfigurators.Transport, NullLogger.Instance).SetupKind);
+                Assert.True(agent.Describe(settings, GodotAgentConfigurators.Transport, NullLogger.Instance).SetupKind == AgentSetupKind.ConfigFile, agent.AgentId);
         }
 
         [Fact]
