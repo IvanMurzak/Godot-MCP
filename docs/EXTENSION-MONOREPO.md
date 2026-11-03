@@ -110,7 +110,9 @@ empty `tools` list), and does not create a repository or separate workflows. An 
 **RQL module** ([docs/rql.md](rql.md#extensions-are-rql-modules)): implement its adapters, sources and
 guide under `Editor/Rql/`, the xUnit tests, and the live manifest that runs every guide example, then
 run the same central suite. Packaging constraints are documented in each module's
-`docs/source-only-nuget-recipe.md`.
+`docs/source-only-nuget-recipe.md`. The script does not touch the root `README.md`: add the module's row
+(and any required addon or Godot version) to its "Install Additional Skills and Tools" table, which
+`ReadmeTableParity` in `scripts/tests/test_extensions.py` checks.
 
 The live manifests call the core `rql-query` / `rql-mutate` / `rql-schema` tools and match the default
 compact text results; `scripts/extension_e2e.py` drives them. A call marked `expectFailure` must fail with

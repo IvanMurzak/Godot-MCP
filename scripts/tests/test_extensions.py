@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -347,6 +348,26 @@ class CorePinParity(unittest.TestCase):
             (root / 'Godot-MCP.csproj').write_text('<Project/>')
             with self.assertRaisesRegex(ValueError, 'must pin'):
                 extensions.core_pin_drift(root)
+
+
+class ReadmeTableParity(unittest.TestCase):
+    def test_readme_lists_every_extension_once(self):
+        # README's "Install Additional Skills and Tools" table is hand-written; new_extension.py does not add rows.
+        readme = (extensions.ROOT / 'README.md').read_text(encoding='utf-8')
+        pairs = re.findall(r'^\|.*?\]\(extensions/(Godot-AI-[^/)]+)/README\.md\)(.*)$', readme, re.M)
+        listed, rows = [name for name, _ in pairs], dict(pairs)
+        modules = extensions.modules()
+        self.assertEqual(sorted(m['name'] for m in modules), sorted(listed),
+                         'Add or remove the README.md extensions table row')
+        # The Requires column must state each prerequisite the catalog and extension.json declare.
+        catalog = extensions.read_json(extensions.ROOT / 'addons/godot_mcp/extensions.catalog.json')['extensions']
+        addons = {d['packageId']: d['addonRequired']['name'] for d in catalog if 'addonRequired' in d}
+        for m in modules:
+            if m['packageId'] in addons:
+                self.assertIn(addons[m['packageId']], rows[m['name']], m['name'] + ': README row omits its addon')
+            if m['minGodotVersion'] != '4.3.0':
+                self.assertIn('Godot ' + m['minGodotVersion'].removesuffix('.0') + '+', rows[m['name']],
+                              m['name'] + ': README row omits its minimum Godot version')
 
 
 if __name__ == '__main__':
