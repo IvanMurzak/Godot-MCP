@@ -52,8 +52,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// <see cref="AgentConfig.AgentConfiguratorSettings"/> via <see cref="AgentConfiguratorSettingsFactory.Create"/>
     /// (runtime OS detection for per-OS config paths). The description's <see cref="AgentConfig.AgentSetupKind"/>
     /// picks the view: ConfigFile = Configure / Remove + status; Manual (Claude Desktop in Cloud mode: add a Claude
-    /// connector) = the steps only; Unsupported (Claude Desktop with a Custom server) = an alert, with Remove kept for a
-    /// stale HTTP entry an older version wrote.
+    /// connector) = the steps only, no project-key row; Unsupported (Claude Desktop with a Custom server) = an alert,
+    /// with Remove kept for a stale HTTP entry an older version wrote.
     /// </para>
     ///
     /// <para>
@@ -311,8 +311,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 BuildConfigureStatusRow(agent);
             }
 
-            // Cloud project key: status line + "Regenerate key" (rewrites every configured agent).
-            BuildProjectKeyRow();
+            // Cloud project key: status line + "Regenerate key" (rewrites every configured agent). Not for Manual: its
+            // text is about Configure, and a Claude connector signs in with OAuth, not the project key.
+            if (setupKind != AgentConfig.AgentSetupKind.Manual)
+                BuildProjectKeyRow();
 
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();

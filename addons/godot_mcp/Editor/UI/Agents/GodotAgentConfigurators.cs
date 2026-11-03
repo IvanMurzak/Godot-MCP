@@ -53,7 +53,7 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         /// not have.
         /// </summary>
         public static string UnsupportedTransportMessage(string agentName) =>
-            $"{agentName} skips HTTP servers in its config file and cannot reach a server on this computer, " +
+            $"{agentName} skips HTTP servers in its config file, and a Claude connector reaches only public servers, " +
             $"so Godot-MCP cannot set it up with a Custom server. Switch the connection to Cloud to add {agentName} " +
             "as a Claude connector (the steps appear here), or choose another agent, for example Claude Code.";
 
