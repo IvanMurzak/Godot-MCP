@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -347,6 +348,15 @@ class CorePinParity(unittest.TestCase):
             (root / 'Godot-MCP.csproj').write_text('<Project/>')
             with self.assertRaisesRegex(ValueError, 'must pin'):
                 extensions.core_pin_drift(root)
+
+
+class ReadmeTableParity(unittest.TestCase):
+    def test_readme_lists_every_extension_once(self):
+        # README's "Install Additional Skills and Tools" table is hand-written; new_extension.py does not add rows.
+        readme = (extensions.ROOT / 'README.md').read_text(encoding='utf-8')
+        listed = re.findall(r'^\|.*?\]\(extensions/(Godot-AI-[^/)]+)/README\.md\)', readme, re.M)
+        self.assertEqual(sorted(m['name'] for m in extensions.modules()), sorted(listed),
+                         'Add or remove the README.md extensions table row')
 
 
 if __name__ == '__main__':
