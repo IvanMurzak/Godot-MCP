@@ -373,7 +373,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(connectHost, root, marker);
 
             Assert.Equal($"http://localhost:{projectPort}", connectHost);
-            Assert.Equal(projectPort, new Uri(connectHost).Port);
             Assert.Equal(projectPort, bindPort);
             if (marker == null)
                 Assert.Equal(projectPort, LocalSettings(root, connectHost).ResolvedPort);

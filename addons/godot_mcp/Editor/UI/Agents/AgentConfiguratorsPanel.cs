@@ -886,8 +886,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_removeButton != null)
                 _removeButton.Visible = anyDetected;
 
-            // No Setup / Reconfiguration alert where Configure is not offered: the transport alert says why.
-            RefreshAlert(canConfigure ? status : AgentConfig.ConfiguratorStatus.Configured);
+            RefreshAlert(status);
         }
 
         /// <summary>
@@ -908,7 +907,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 child.QueueFree();
             }
 
-            if (status == AgentConfig.ConfiguratorStatus.Configured)
+            // No Setup / Reconfiguration alert where Configure is not offered: the transport alert says why.
+            if (status == AgentConfig.ConfiguratorStatus.Configured
+                || _current == null || !GodotAgentConfigurators.CanConfigure(_current))
                 return;
 
             var (title, message, button) = status == AgentConfig.ConfiguratorStatus.ReconfigureNeeded

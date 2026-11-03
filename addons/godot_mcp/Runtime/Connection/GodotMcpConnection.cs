@@ -1284,8 +1284,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// dependency is the res:// project-root resolution; the URL derivation is the pure-managed,
         /// unit-tested <see cref="GodotProjectIdentity.ResolveDefaultLocalServerHost"/>. A project root that
         /// fails to resolve leaves the baseline in place (a degenerate non-editor path). Never throws.
-        /// It also records the project port as <see cref="GodotMcpConfig.LocalServerPort"/> and gives a portless
-        /// loopback host that port (<see cref="GodotMcpConfig.RepairLocalHost"/>).
+        /// It also records the project port as <see cref="GodotMcpConfig.LocalServerPort"/>, which
+        /// <see cref="GodotMcpConfig.RepairLocalHost"/> gives a portless loopback host.
         /// </summary>
         void SeedDefaultLocalServerHost()
         {
@@ -1296,8 +1296,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             try
             {
                 var marker = ProjectMarker.Read(projectRoot);
-                // From here on ResolveCustomHost gives a portless loopback host this port (any layer, env too).
-                _config.LocalServerPort = GodotProjectIdentity.Derive(projectRoot, marker).Port;
+                // From here on ResolveCustomHost gives a portless loopback host this port (any layer, env too). The
+                // stored host stays as typed, so it keeps following the project port (e.g. a later portOverride).
+                var port = GodotProjectIdentity.Derive(projectRoot, marker).Port;
+                _config.LocalServerPort = port;
 
                 // Respect any explicit local host chosen by a higher-precedence layer (enrolled serverTarget,
                 // persisted config, or .env). Only the untouched built-in baseline is replaced; a live
@@ -1305,19 +1307,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 var current = GodotMcpConfig.NormalizeUrl(_config.CustomHost);
                 if (string.IsNullOrEmpty(current) || current == GodotMcpConfig.DefaultCustomHost)
                 {
-                    _config.CustomHost = GodotProjectIdentity.ResolveDefaultLocalServerHost(projectRoot, marker);
+                    _config.CustomHost = $"{GodotProjectIdentity.LocalLoopbackHost}:{port}";
                     GodotMcpLog.Info(
                         $"[Godot-MCP] local server default port -> ProjectIdentity-derived host {_config.CustomHost}.");
-                    return;
-                }
-
-                // A saved portless loopback URL (e.g. "http://localhost/mcp") would dial port 80: repair the field
-                // too, so the Server URL field shows the URL the plugin connects to (persisted on the next save).
-                var repaired = _config.RepairLocalHost(current!);
-                if (repaired != current)
-                {
-                    _config.CustomHost = repaired;
-                    GodotMcpLog.Info($"[Godot-MCP] local server URL '{current}' has no port -> {repaired}.");
                 }
             }
             catch (Exception ex)
