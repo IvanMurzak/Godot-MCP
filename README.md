@@ -100,6 +100,7 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
 
 - [Quick Start](#quick-start)
 - [Tools Reference](#tools-reference)
+  - [Install Additional Skills and Tools](#install-additional-skills-and-tools)
 - [Requirements](#requirements)
 - [Installation](#installation)
   - [Step 1: Add the addon](#step-1-add-the-addon)
@@ -220,6 +221,28 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `godot-skill-generate` — Regenerate every `SKILL.md` from the tools currently registered in the editor, into the selected AI agent's skills folder.
 
 </details>
+
+## Install Additional Skills and Tools
+
+Install extensions when you need more or [create your own tools](#customize-tools). Each extension is an RQL module: it adds no MCP tools of its own, it extends the core `rql-query` / `rql-mutate` / `rql-schema` tools and the `godot-rql` skill.
+
+```sh
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG /path/to/project
+godot-cli build /path/to/project
+```
+
+| Extension | Description |
+| --- | --- |
+| **[AI Animation](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Animation/README.md)** | AnimationPlayer libraries, animations, tracks and keys |
+| **[AI Beehave](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Beehave/README.md)** | Beehave addon: list behaviour trees and their nodes |
+| **[AI CSG](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-CSG/README.md)** | Constructive solid geometry: validated primitive dimensions |
+| **[AI Dialogic](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Dialogic/README.md)** | Dialogic addon: list and create timelines and characters, append timeline text |
+| **[AI GridMap](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-GridMap/README.md)** | GridMap 3D tile maps: validated settings, cell rows and cell editing |
+| **[AI Navigation](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Navigation/README.md)** | 2D and 3D navigation: agents, regions, links and region baking |
+| **[AI Particles](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Particles/README.md)** | GPU particles in 2D and 3D: validated emitter settings and restart |
+| **[AI PhantomCamera](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-PhantomCamera/README.md)** | Phantom Camera addon: list virtual cameras and hosts, set follow and look-at targets |
+| **[AI Terrain3D](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Terrain3D/README.md)** | Terrain3D addon: terrain source, region size changes and material creation |
+| **[AI Tilemap](https://github.com/IvanMurzak/Godot-MCP/blob/main/extensions/Godot-AI-Tilemap/README.md)** | TileMapLayer: used-cell rows and cell editing |
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
