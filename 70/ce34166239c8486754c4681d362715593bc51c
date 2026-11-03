@@ -1,0 +1,27 @@
+scripts/extension_live.py
+  s_eb8bcde0be96a2::t_93df4af4883805 128,152,230-231,242-243
+  s_eb8bcde0be96a2::t_6a9da4c5eca61b 71,77-81,133-137,147-151,153-155,164,247-249
+extensions/Godot-AI-Dialogic/extension.json
+  s_eb8bcde0be96a2::t_6a9da4c5eca61b 15
+docs/EXTENSION-MONOREPO.md
+  s_eb8bcde0be96a2::t_93df4af4883805 39-43
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_6a9da4c5eca61b 91-96,98,100
+  s_eb8bcde0be96a2::t_93df4af4883805 97,99,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70ce34166239c8486754c4681d362715593bc51c",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

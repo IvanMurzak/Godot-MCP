@@ -1,0 +1,23 @@
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_078fa506df63a1 13,18
+cli/README.md
+  s_5f9a753ce320b5::t_f6e12034dc2071 189
+cli/src/lib/session.ts
+  s_5f9a753ce320b5::t_6d501604b17370 37-40,77,138,140,221-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e2edaaba889f68e42956f121d2822f480f414e23",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

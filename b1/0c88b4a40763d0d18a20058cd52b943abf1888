@@ -1,0 +1,45 @@
+addons/godot_mcp/Editor/Rql/RqlGodot.Nodes.cs
+  s_7bc72ecaebd05d::t_5025c5816f5bc4 129-169
+  s_7bc72ecaebd05d::t_c3586a81f38108 220
+  s_7bc72ecaebd05d::t_c1cabeb49f4114 113-114,116
+  s_7bc72ecaebd05d::t_42cb854bc48d8c 93
+  s_7bc72ecaebd05d::t_8925e0f875754a 52-55
+  s_7bc72ecaebd05d::t_d50213231cb500 105
+  s_7bc72ecaebd05d::t_74178b13b482ae 177
+  s_7bc72ecaebd05d::t_a65ec700f4592f 258
+scripts/smoke_rql_hazards.py
+  s_7bc72ecaebd05d::t_cc4e1f329c20cd 7-9
+  s_7bc72ecaebd05d::t_b638310d6b3fa7 33,195-255
+addons/godot_mcp/Editor/Rql/RqlGodot.Save.cs
+  s_7bc72ecaebd05d::t_8d977f97f17747 244-246
+addons/godot_mcp/Editor/Rql/Adapters/Object/Godot_Node_Adapter.cs
+  s_7bc72ecaebd05d::t_4b991eb0bfcba1 38-39
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7be60963fe3603::t_71cd44dea10dd6 184-186
+docs/rql.md
+  s_7bc72ecaebd05d::t_566047f0497236 90-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b10c88b4a40763d0d18a20058cd52b943abf1888",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

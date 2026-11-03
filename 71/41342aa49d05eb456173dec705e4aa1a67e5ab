@@ -1,0 +1,23 @@
+addons/godot_mcp/Editor/Rql/RqlGodot.Names.cs
+  s_7bc72ecaebd05d::t_547bb7651f9326 62-65
+addons/godot_mcp/Editor/Rql/RqlGodotSchema.cs
+  s_7bc72ecaebd05d::t_179ccdea791483 94,127,131-133
+scripts/smoke_rql_semantics.py
+  s_7bc72ecaebd05d::t_98ae152296e4ee 16,39,48,50,77-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7141342aa49d05eb456173dec705e4aa1a67e5ab",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

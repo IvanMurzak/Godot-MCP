@@ -1,0 +1,25 @@
+docs/EXTENSION-MONOREPO.md
+  s_eb8bcde0be96a2::t_fa8423282d7152 67-68
+scripts/extension_release.py
+  s_eb8bcde0be96a2::t_fa8423282d7152 20-21,92-96,105-120
+.github/workflows/release_extensions.yml
+  s_eb8bcde0be96a2::t_fa8423282d7152 91
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_fa8423282d7152 20-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "205703b83f86ae41eb6ea726e4d71759761d3247",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

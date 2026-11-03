@@ -1,0 +1,162 @@
+scripts/smoke_rql_semantics.py
+  s_7bc72ecaebd05d::t_06fe3de0585ec0 1-96
+docs/rql.md
+  s_7bc72ecaebd05d::t_eac7ed145c9ab0 209-210
+  s_484db280ceefc2::t_76c843f06d0c6f 72-73,75-76,78-82
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_44dc01d4cb801d 51
+Godot-MCP.Tests/RqlGuideTests.cs
+  s_7bc72ecaebd05d::t_ef6710390a335f 51,66-70
+Godot-MCP.Tests/RqlTargetLimitAndHostNamesTests.cs
+  s_7bc72ecaebd05d::t_4a159de5d17c15 52,80-103,105,107-143
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_11041c9c05659c 32,42
+Godot-Tests/Godot-Tests.csproj
+  s_7bc72ecaebd05d::t_a097f07e295cd5 15,42
+Godot-Tests/README.md
+  s_7bc72ecaebd05d::t_470726b6105323 15
+Godot-Tests/rql-guide-examples.json
+  s_7bc72ecaebd05d::t_f99d413e34651b 25
+README.md
+  s_7bc72ecaebd05d::t_578b6d65db37aa 310,326
+addons/godot_mcp/Editor/Rql/GodotTypes.cs
+  s_7bc72ecaebd05d::t_e74c07bfc86aab 24-26,76
+addons/godot_mcp/Editor/Rql/RqlGodot.Names.cs
+  s_7bc72ecaebd05d::t_bd41a77c1e9fc3 37-38
+addons/godot_mcp/Editor/Rql/RqlGodot.Save.cs
+  s_7bc72ecaebd05d::t_92d4b512dcdd16 109
+addons/godot_mcp/Editor/Rql/RqlGodot.cs
+  s_7bc72ecaebd05d::t_6422b520bb8223 63-65,71,73
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7bc72ecaebd05d::t_ad7adc27a61659 58-59,66-67,74-75,131,210-211,229-230
+addons/godot_mcp/Editor/Rql/RqlHostNames.cs
+  s_7bc72ecaebd05d::t_b57966fa262032 17,22-24,44-50
+addons/godot_mcp/Editor/Rql/RqlTargetLimit.cs
+  s_7bc72ecaebd05d::t_b023004acfefce 21-22,40-41
+addons/godot_mcp/Editor/Tools/Tool_Rql.Mutate.cs
+  s_7bc72ecaebd05d::t_ce1a290fc7bb95 34
+cli/src/utils/addon-deps.ts
+  s_7bc72ecaebd05d::t_aaecd3c7fd9f73 86
+docs/ARCHITECTURE.md
+  s_7bc72ecaebd05d::t_b64705c4305c45 218
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_b970962b256a6d 273
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_948f6c4bbafece 71
+extensions/Godot-AI-Animation/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_c55bdcc07dbf35 35
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj
+  s_7bc72ecaebd05d::t_4603967465335d 72
+extensions/Godot-AI-Animation/testbed/Animation-Testbed.csproj
+  s_7bc72ecaebd05d::t_7d7a9377dbb2a7 28
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/Godot-AI-Animation.Tests.csproj
+  s_7bc72ecaebd05d::t_b830129f02e290 28
+extensions/Godot-AI-Beehave/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_767861c4c6e2cc 35
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj
+  s_7bc72ecaebd05d::t_022f84657703f2 72
+extensions/Godot-AI-Beehave/testbed/Beehave-Testbed.csproj
+  s_7bc72ecaebd05d::t_398323dfb9fb23 28
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Godot-AI-Beehave.Tests.csproj
+  s_7bc72ecaebd05d::t_e8362a5bcaaefe 28
+extensions/Godot-AI-CSG/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_61ec5ac87a65a8 35
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj
+  s_7bc72ecaebd05d::t_ad0f0f063e90af 72
+extensions/Godot-AI-CSG/testbed/CSG-Testbed.csproj
+  s_7bc72ecaebd05d::t_a75142f1f23220 28
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/Godot-AI-CSG.Tests.csproj
+  s_7bc72ecaebd05d::t_b198f98fd6485d 28
+extensions/Godot-AI-Dialogic/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_5402c0a4c2ce73 35
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj
+  s_7bc72ecaebd05d::t_7c2fc190d75c61 72
+extensions/Godot-AI-Dialogic/testbed/Dialogic-Testbed.csproj
+  s_7bc72ecaebd05d::t_e8c4aac2233b76 28
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/Godot-AI-Dialogic.Tests.csproj
+  s_7bc72ecaebd05d::t_20a99293076aeb 28
+extensions/Godot-AI-GridMap/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_66b83a08e39d7e 35
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj
+  s_7bc72ecaebd05d::t_da2900325dde46 72
+extensions/Godot-AI-GridMap/testbed/GridMap-Testbed.csproj
+  s_7bc72ecaebd05d::t_60a299c331e96d 28
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Godot-AI-GridMap.Tests.csproj
+  s_7bc72ecaebd05d::t_95a14c8f248dbd 28
+extensions/Godot-AI-Navigation/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_88885236e0bdd7 35
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj
+  s_7bc72ecaebd05d::t_23548880101efe 72
+extensions/Godot-AI-Navigation/testbed/Navigation-Testbed.csproj
+  s_7bc72ecaebd05d::t_912fc94b92261d 28
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/Godot-AI-Navigation.Tests.csproj
+  s_7bc72ecaebd05d::t_24f411726c4bc4 28
+extensions/Godot-AI-Particles/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_36cd5355498bd8 35
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj
+  s_7bc72ecaebd05d::t_fca7061a420ebf 72
+extensions/Godot-AI-Particles/testbed/Particles-Testbed.csproj
+  s_7bc72ecaebd05d::t_f25a1ae9e7f255 28
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/Godot-AI-Particles.Tests.csproj
+  s_7bc72ecaebd05d::t_ccb15e15a4a064 28
+extensions/Godot-AI-PhantomCamera/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_369bd75c0c6ac8 35
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj
+  s_7bc72ecaebd05d::t_16d6137bea502b 72
+extensions/Godot-AI-PhantomCamera/testbed/PhantomCamera-Testbed.csproj
+  s_7bc72ecaebd05d::t_d9790f6778f32b 28
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Godot-AI-PhantomCamera.Tests.csproj
+  s_7bc72ecaebd05d::t_1b3df2c06b178d 28
+extensions/Godot-AI-Terrain3D/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_11e2cf1c3b720c 35
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj
+  s_7bc72ecaebd05d::t_814d25bd1ed293 72
+extensions/Godot-AI-Terrain3D/testbed/Terrain3D-Testbed.csproj
+  s_7bc72ecaebd05d::t_7c2cff4c9d2e5f 28
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj
+  s_7bc72ecaebd05d::t_998821d0997ae4 28
+extensions/Godot-AI-Tilemap/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_a9c01147c368bc 35
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj
+  s_7bc72ecaebd05d::t_780d14be85ea28 72
+extensions/Godot-AI-Tilemap/testbed/Tilemap-Testbed.csproj
+  s_7bc72ecaebd05d::t_c087d64e7c030d 28
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/Godot-AI-Tilemap.Tests.csproj
+  s_7bc72ecaebd05d::t_359b16fceecd0c 28
+scripts/smoke_rql.py
+  s_7bc72ecaebd05d::t_cf8cc3d66948df 39,301
+scripts/smoke_rql_hazards.py
+  s_7bc72ecaebd05d::t_7bc215d514c1a3 197
+templates/extension/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_202ef68ad8a988 35
+templates/extension/src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj
+  s_7bc72ecaebd05d::t_28b088608c7f0e 72
+templates/extension/testbed/YOUR_FEATURE-Testbed.csproj
+  s_7bc72ecaebd05d::t_cc5f9da43d445d 28
+templates/extension/tests/Godot-AI-YOUR_FEATURE.Tests/Godot-AI-YOUR_FEATURE.Tests.csproj
+  s_7bc72ecaebd05d::t_6f37e06629a7e3 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0d4108b59846eb03eeba47be4115817909f8792",
+  "prompts": {},
+  "sessions": {
+    "s_484db280ceefc2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a19bf90b873acfafe",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

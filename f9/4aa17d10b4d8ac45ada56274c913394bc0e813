@@ -1,0 +1,23 @@
+addons/godot_mcp/Runtime/Data/NodeRef.cs
+  s_7bc72ecaebd05d::t_c7eeb9316a6f46 83-104
+addons/godot_mcp/Editor/Tools/Tool_Node.cs
+  s_7bc72ecaebd05d::t_7e36a1502963ea 63-66
+Godot-MCP.Tests/NodeRefParseTests.cs
+  s_7bc72ecaebd05d::t_de363430ef0fed 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f94aa17d10b4d8ac45ada56274c913394bc0e813",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_5e2881ed8bfd52::t_a5d4eb4f028d0e 70
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_5e2881ed8bfd52::t_4cb8c400691842 286
+addons/godot_mcp/plugin.cfg
+  s_5e2881ed8bfd52::t_031d42f596ab8d 6
+cli/package-lock.json
+  s_5e2881ed8bfd52::t_07f69d0fe02745 3,9
+cli/package.json
+  s_5e2881ed8bfd52::t_8c2230eb70adbd 3
+docs/assetlib/SUBMISSION.md
+  s_5e2881ed8bfd52::t_7c6f250db412d2 28,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a109e42dbe3fc90b8d31a496f6d5eb569f91e704",
+  "prompts": {},
+  "sessions": {
+    "s_5e2881ed8bfd52": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a139fe-5e37-7630-a5ee-38fd3b09c0dd",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
