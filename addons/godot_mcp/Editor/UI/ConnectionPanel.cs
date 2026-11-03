@@ -1012,7 +1012,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             }
 
             var normalized = text.Trim().Trim('"').TrimEnd('/');
-            var changed = _connection.Config.CustomHost != normalized;
+            // The field shows the repaired URL; leaving it untouched must not save that (or reconnect).
+            var stored = _connection.Config.CustomHost;
+            var changed = stored != normalized && _connection.Config.RepairLocalHost(stored) != normalized;
             if (changed)
             {
                 _connection.Config.CustomHost = normalized;

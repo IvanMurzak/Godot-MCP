@@ -867,7 +867,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // One status read: Configured is exactly IsConfigured, and NotConfigured for an unsupported transport.
             var status = _current.GetStatus(settings, GodotAgentConfigurators.Transport, Logger);
             var isConfigured = status == AgentConfig.ConfiguratorStatus.Configured;
-            var anyDetected = _current.IsDetected(settings, Logger);
+            // Remove targets Godot's own entry. For an agent Godot cannot configure, only an HTTP entry is ours (a
+            // stale one); a stdio entry under the same name in a machine-wide file (Claude Desktop) belongs to another
+            // engine's plugin and works, so it must not be offered for removal here.
+            var anyDetected = canConfigure
+                ? _current.IsDetected(settings, Logger)
+                : _current.GetHttpConfig(settings, Logger, CurrentCredentialMode()).IsDetected();
 
             _statusLabel.Text = !canConfigure ? "Not supported (http)" : isConfigured ? "Configured (http)" : "Not configured";
             _statusLabel.AddThemeColorOverride(

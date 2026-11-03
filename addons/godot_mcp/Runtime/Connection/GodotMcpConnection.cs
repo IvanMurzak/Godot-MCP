@@ -1297,7 +1297,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             {
                 var marker = ProjectMarker.Read(projectRoot);
                 // From here on ResolveCustomHost gives a portless loopback host this port (any layer, env too). The
-                // stored host stays as typed, so it keeps following the project port (e.g. a later portOverride).
+                // stored host stays as typed, so it follows the project port the next time this runs (a later
+                // portOverride is picked up on the next editor start or assembly reload).
                 var port = GodotProjectIdentity.Derive(projectRoot, marker).Port;
                 _config.LocalServerPort = port;
 
