@@ -114,6 +114,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void EveryRqlToolDescriptionNamesRqlAndLinksItsReference()
+        {
+            Assert.Equal("https://ai-game.dev/docs/rql", RqlGuide.DocsUrl);
+            foreach (var description in new[] { RqlGuide.QueryDescription, RqlGuide.MutateDescription, RqlGuide.SchemaDescription })
+                Assert.StartsWith("RQL (Reflection Query Language, reference: " + RqlGuide.DocsUrl + ")", description);
+        }
+
+        [Fact]
         public void TheLiveSmokeRunsExactlyTheGuideExamples()
         {
             var path = Path.Combine(RepoRoot(), "Godot-Tests", "fixtures", "rql-guide-examples.json");

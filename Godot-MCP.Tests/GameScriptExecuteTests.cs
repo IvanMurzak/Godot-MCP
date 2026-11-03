@@ -75,6 +75,16 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.True(Tool_GameScript.EnsureRegistered(tools, reflector));
             Assert.Equal(typeof(Tool_GameScript), Winner(tools));
+
+            // The hand-registered runner carries the attribute's title and MCP hints, as a scanned one would.
+            var attribute = typeof(Tool_GameScript).GetMethod(nameof(Tool_GameScript.Execute))!.GetCustomAttribute<AiToolAttribute>()!;
+            var registered = tools.GetAllTools().Single(t => t.Name == Tool_GameScript.ScriptExecuteToolId);
+            Assert.Equal(attribute.Title, registered.Title);
+            Assert.Equal(attribute.ReadOnlyHintValue, registered.ReadOnlyHint);
+            Assert.Equal(attribute.DestructiveHintValue, registered.DestructiveHint);
+            Assert.Equal(attribute.IdempotentHintValue, registered.IdempotentHint);
+            Assert.Equal(attribute.OpenWorldHintValue, registered.OpenWorldHint);
+
             Assert.False(Tool_GameScript.EnsureRegistered(tools, reflector));
             Assert.Single(tools.GetAllTools(), t => t.Name == Tool_GameScript.ScriptExecuteToolId);
         }

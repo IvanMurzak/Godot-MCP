@@ -35,15 +35,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class ToolAnnotationsTests
     {
-        static readonly string[] HintNames =
-        {
-            nameof(AiToolAttribute.ReadOnlyHint),
-            nameof(AiToolAttribute.DestructiveHint),
-            nameof(AiToolAttribute.IdempotentHint),
-            nameof(AiToolAttribute.OpenWorldHint),
-        };
-
-        record ToolAnnotations(string Where, string? Name, string? Title, IReadOnlyDictionary<string, bool?> Hints);
+        record ToolAnnotations(string Where, string? Name, string? Title,
+            bool? ReadOnlyHint, bool? DestructiveHint, bool? IdempotentHint, bool? OpenWorldHint);
 
         [Fact]
         public void CompiledTools_DeclareTitleAndEveryHint()
@@ -62,12 +55,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             // The source scan must see every tool reflection sees, with the same values: proves its constant evaluation.
             foreach (var compiled in CompiledTools())
-            {
-                var match = tools.FirstOrDefault(t => t.Name == compiled.Name && t.Title == compiled.Title);
-                Assert.True(match != null, $"The source scan missed '{compiled.Name}' ({compiled.Where}).");
-                foreach (var hint in HintNames)
-                    Assert.Equal(compiled.Hints[hint], match!.Hints[hint]);
-            }
+                Assert.Contains(tools, t => t with { Where = compiled.Where } == compiled);
         }
 
         static void AssertAnnotated(IEnumerable<ToolAnnotations> tools)
@@ -75,15 +63,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var problems = new List<string>();
             foreach (var tool in tools)
             {
+                var id = $"{tool.Where} ({tool.Name})";
                 if (string.IsNullOrWhiteSpace(tool.Name))
-                    problems.Add($"{tool.Where}: tool name is not a constant string");
+                    problems.Add($"{id}: tool name is not a constant string");
                 if (string.IsNullOrWhiteSpace(tool.Title))
-                    problems.Add($"{tool.Where} ({tool.Name}): missing Title");
-                foreach (var hint in HintNames)
-                    if (tool.Hints[hint] == null)
-                        problems.Add($"{tool.Where} ({tool.Name}): {hint} not set explicitly");
-                if (tool.Hints[nameof(AiToolAttribute.ReadOnlyHint)] == true && tool.Hints[nameof(AiToolAttribute.DestructiveHint)] == true)
-                    problems.Add($"{tool.Where} ({tool.Name}): ReadOnlyHint and DestructiveHint are both true");
+                    problems.Add($"{id}: missing Title");
+                if (tool.ReadOnlyHint == null) problems.Add($"{id}: ReadOnlyHint not set explicitly");
+                if (tool.DestructiveHint == null) problems.Add($"{id}: DestructiveHint not set explicitly");
+                if (tool.IdempotentHint == null) problems.Add($"{id}: IdempotentHint not set explicitly");
+                if (tool.OpenWorldHint == null) problems.Add($"{id}: OpenWorldHint not set explicitly");
+                if (tool.ReadOnlyHint == true && tool.DestructiveHint == true)
+                    problems.Add($"{id}: ReadOnlyHint and DestructiveHint are both true");
             }
             Assert.True(problems.Count == 0, "Tool annotation problems:\n" + string.Join("\n", problems));
         }
@@ -92,37 +82,30 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         static List<ToolAnnotations> CompiledTools() => typeof(Tool_Ping).Assembly.GetTypes()
             .Where(type => type.Namespace?.StartsWith(typeof(ToolAnnotationsTests).Namespace!, StringComparison.Ordinal) != true)
             .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-                .Select(method => (method, attribute: method.GetCustomAttribute<AiToolAttribute>()))
-                .Where(x => x.attribute != null)
-                .Select(x => new ToolAnnotations($"{type.Name}.{x.method.Name}", x.attribute!.Name, x.attribute.Title,
-                    new Dictionary<string, bool?>
-                    {
-                        [nameof(AiToolAttribute.ReadOnlyHint)] = x.attribute.ReadOnlyHintValue,
-                        [nameof(AiToolAttribute.DestructiveHint)] = x.attribute.DestructiveHintValue,
-                        [nameof(AiToolAttribute.IdempotentHint)] = x.attribute.IdempotentHintValue,
-                        [nameof(AiToolAttribute.OpenWorldHint)] = x.attribute.OpenWorldHintValue,
-                    })))
+                .Select(method => (method, a: method.GetCustomAttribute<AiToolAttribute>()))
+                .Where(x => x.a != null)
+                .Select(x => new ToolAnnotations($"{type.Name}.{x.method.Name}", x.a!.Name, x.a.Title,
+                    x.a.ReadOnlyHintValue, x.a.DestructiveHintValue, x.a.IdempotentHintValue, x.a.OpenWorldHintValue)))
             .ToList();
 
         /// <summary>Every <c>[AiTool]</c> in <c>addons/godot_mcp/</c> and <c>extensions/*/src/</c>, from source.</summary>
         static List<ToolAnnotations> SourceTools()
         {
-            var root = FindRepoRoot();
+            var root = RepoRoot();
             var files = Directory.EnumerateFiles(Path.Combine(root, "addons", "godot_mcp"), "*.cs", SearchOption.AllDirectories)
                 .Concat(Directory.EnumerateDirectories(Path.Combine(root, "extensions"))
                     .Select(dir => Path.Combine(dir, "src"))
                     .Where(Directory.Exists)
-                    .SelectMany(src => Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)))
-                .ToList();
+                    .SelectMany(src => Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)));
 
             // TOOLS: editor tools sit behind #if TOOLS; inactive regions are trivia and would hide their attributes.
             var parseOptions = new CSharpParseOptions(LanguageVersion.Latest,
                 preprocessorSymbols: new[] { "TOOLS", "GODOT_MCP_CODE_EXEC_IN_GAME" });
             var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(f), parseOptions, f)).ToList();
 
-            // Constant folding needs only the declaring types, which are all in source; the loaded assemblies cover the rest
-            // (missing editor-only references just leave unrelated errors). This test assembly is left out: it compiles
-            // the same addon types, and two copies would make every reference to them ambiguous.
+            // The loaded assemblies (McpPlugin, GodotSharp …) bind the attribute and its constants; missing editor-only
+            // references only leave unrelated errors. This test assembly is left out: it compiles the same addon types,
+            // and two copies would make every reference to them ambiguous.
             var self = typeof(ToolAnnotationsTests).Assembly;
             var references = AppDomain.CurrentDomain.GetAssemblies()
                 .Where(a => a != self && !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
@@ -134,48 +117,36 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             foreach (var tree in trees)
             {
                 var model = compilation.GetSemanticModel(tree);
-                foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
+                foreach (var method in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
                 {
-                    var name = attribute.Name.ToString();
-                    if (name != "AiTool" && name != "AiToolAttribute" && !name.EndsWith(".AiTool", StringComparison.Ordinal)
-                        && !name.EndsWith(".AiToolAttribute", StringComparison.Ordinal))
+                    // An unbound attribute class still carries its name, so a broken binding fails below instead of
+                    // silently dropping the tool.
+                    var attribute = model.GetDeclaredSymbol(method)?.GetAttributes()
+                        .FirstOrDefault(a => a.AttributeClass?.Name is nameof(AiToolAttribute) or "AiTool");
+                    if (attribute == null)
                         continue;
 
-                    var args = attribute.ArgumentList?.Arguments ?? default;
-                    var positional = args.Where(a => a.NameEquals == null && a.NameColon == null).ToList();
-                    object? Named(string argName)
-                    {
-                        var arg = args.FirstOrDefault(a => a.NameEquals?.Name.Identifier.Text == argName
-                            || a.NameColon?.Name.Identifier.Text == argName.ToLowerInvariant());
-                        return arg == null ? null : Constant(model, arg.Expression);
-                    }
-
-                    var toolName = Named("name") ?? (positional.Count > 0 ? Constant(model, positional[0].Expression) : null);
-                    var title = Named("Title") ?? (positional.Count > 1 ? Constant(model, positional[1].Expression) : null);
-                    var line = tree.GetLineSpan(attribute.Span).StartLinePosition.Line + 1;
-                    tools.Add(new ToolAnnotations($"{Path.GetRelativePath(root, tree.FilePath)}:{line}", toolName as string, title as string,
-                        HintNames.ToDictionary(h => h, h => Named(h) as bool?)));
+                    var ctor = attribute.ConstructorArguments;
+                    var named = attribute.NamedArguments.ToDictionary(a => a.Key, a => a.Value.Value);
+                    var line = method.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    tools.Add(new ToolAnnotations($"{Path.GetRelativePath(root, tree.FilePath)}:{line}",
+                        ctor.Length > 0 ? ctor[0].Value as string : null,
+                        (named.GetValueOrDefault(nameof(AiToolAttribute.Title)) ?? (ctor.Length > 1 ? ctor[1].Value : null)) as string,
+                        named.GetValueOrDefault(nameof(AiToolAttribute.ReadOnlyHint)) as bool?,
+                        named.GetValueOrDefault(nameof(AiToolAttribute.DestructiveHint)) as bool?,
+                        named.GetValueOrDefault(nameof(AiToolAttribute.IdempotentHint)) as bool?,
+                        named.GetValueOrDefault(nameof(AiToolAttribute.OpenWorldHint)) as bool?));
                 }
             }
             return tools;
         }
 
-        static object? Constant(SemanticModel model, ExpressionSyntax expression)
-        {
-            var value = model.GetConstantValue(expression);
-            return value.HasValue ? value.Value : null;
-        }
-
-        static string FindRepoRoot()
+        static string RepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            for (var i = 0; i < 12 && dir != null; i++, dir = dir.Parent)
-            {
-                if (Directory.Exists(Path.Combine(dir.FullName, "addons", "godot_mcp"))
-                    && Directory.Exists(Path.Combine(dir.FullName, "extensions")))
-                    return dir.FullName;
-            }
-            throw new DirectoryNotFoundException("Godot-MCP repo root (addons/godot_mcp + extensions) not found above " + AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;
+            Assert.NotNull(dir);
+            return dir!.FullName;
         }
     }
 }

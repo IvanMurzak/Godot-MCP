@@ -12,6 +12,7 @@
 #nullable enable
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
@@ -99,9 +100,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (current != null)
                 tools.RemoveTool(ScriptExecuteToolId);
             var execute = typeof(Tool_GameScript).GetMethod(nameof(Execute))!;
+            // The [AiTool] attribute stays the one source of the title and the MCP hints.
+            var attribute = execute.GetCustomAttribute<AiToolAttribute>()!;
             tools.AddTool(ScriptExecuteToolId, RunTool.CreateFromClassMethod(
                 reflector, logger: null, ScriptExecuteToolId, typeof(Tool_GameScript), execute,
-                title: ScriptExecuteTitle, openWorldHint: true));
+                title: attribute.Title,
+                readOnlyHint: attribute.ReadOnlyHintValue,
+                destructiveHint: attribute.DestructiveHintValue,
+                idempotentHint: attribute.IdempotentHintValue,
+                openWorldHint: attribute.OpenWorldHintValue));
             return current != null;
         }
     }
