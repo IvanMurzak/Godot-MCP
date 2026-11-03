@@ -26,7 +26,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScriptAttachToNodeToolId,
             Title = "Script / Attach To Node",
-            IdempotentHint = true
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Attach a script (C# '.cs' or GDScript '.gd') to a Node in the currently edited Godot " +
             "scene — the Godot analog of adding a MonoBehaviour to a GameObject. Identify the target with " +

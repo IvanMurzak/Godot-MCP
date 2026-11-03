@@ -70,7 +70,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "    {\n" +
             "        public const string SampleRenameToolId = \"sample-rename\";\n" +
             "\n" +
-            "        [AiTool(SampleRenameToolId, Title = \"Sample / Rename\")]\n" +
+            "        [AiTool(SampleRenameToolId, Title = \"Sample / Rename\", ReadOnlyHint = false, DestructiveHint = false,\n" +
+            "            IdempotentHint = true, OpenWorldHint = false)]\n" +
             "        [Description(\"Renames a node in the currently edited scene.\")]\n" +
             "        public string Rename\n" +
             "        (\n" +
@@ -113,6 +114,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "A tool for the RUNNING game (registered by `GodotMcpRuntime`, reading the live game) is marked " +
             "`[AiToolType(Target = ToolTarget.Runtime)]` (`using com.IvanMurzak.McpPlugin.Common;`): the editor then does not " +
             "register it, and the agent reaches the game even while the editor is connected. Editor tools keep the default.\n\n" +
+            "### Annotate every tool\n" +
+            "Give every `[AiTool]` a `Title` and set `ReadOnlyHint`, `DestructiveHint`, `IdempotentHint` and `OpenWorldHint` " +
+            "explicitly: pure reads are read-only; deleting or overwriting anything, or running arbitrary code, is destructive. " +
+            "MCP clients use these hints to decide which calls need the user's confirmation.\n\n" +
             "### Return structured data, not formatted strings\n" +
             "Prefer returning a data model (ReflectorNet serializes it for the client) over hand-formatted " +
             "text, so the AI can read individual fields. Return `void` for side-effect-only operations.\n\n" +

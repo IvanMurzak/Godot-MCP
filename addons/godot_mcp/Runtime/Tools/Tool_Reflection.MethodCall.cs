@@ -30,7 +30,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [AiTool
         (
             ReflectionMethodCallToolId,
-            Title = "Method C# / Call"
+            Title = "Method C# / Call",
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = false,
+            OpenWorldHint = true
         )]
         [Description("Call a C# method by reflection — including private methods. The Godot analog of " +
             "Unity's 'reflection-method-call'. Requires a method schema obtained via " +

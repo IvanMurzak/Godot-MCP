@@ -35,6 +35,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScriptExecuteToolId,
             Title = ScriptExecuteTitle,
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = false,
             OpenWorldHint = true
         )]
         [AiSkillDescription("Compiles and runs C# INSIDE THE RUNNING GAME (Roslyn): plain statements with the last expression as the " +

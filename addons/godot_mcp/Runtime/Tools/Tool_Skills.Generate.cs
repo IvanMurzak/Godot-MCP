@@ -21,7 +21,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             SkillsGenerateToolId,
             Title = "Skill (Tool) / Generate All",
-            DestructiveHint = false,
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = true,
+            OpenWorldHint = false,
             Visible = false,
             ToolType = McpToolType.System
         )]

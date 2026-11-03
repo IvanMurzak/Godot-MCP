@@ -26,6 +26,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScriptExecuteToolId,
             Title = "Script / Execute",
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = false,
             OpenWorldHint = true
         )]
         [AiSkillDescription("Compiles and runs C# in the Godot editor (Roslyn): plain statements with the last expression as the result, " +

@@ -22,7 +22,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             SkillsCreateToolId,
             Title = "Skill (Tool) / Create",
-            DestructiveHint = false,
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = true,
+            OpenWorldHint = false,
             Visible = false,
             ToolType = McpToolType.System
         )]

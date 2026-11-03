@@ -25,7 +25,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [AiTool
         (
             ScriptBuildToolId,
-            Title = "Script / Build"
+            Title = "Script / Build",
+            ReadOnlyHint = false,
+            DestructiveHint = false,
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Build the project's C# (dotnet build, Debug configuration like the editor's builds) so C# scripts " +
             "written with '" + ScriptCreateToolId + "' / '" + ScriptUpdateToolId + "' load: new [GlobalClass] types, changed " +
