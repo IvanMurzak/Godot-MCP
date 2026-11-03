@@ -47,9 +47,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
     ///
     /// <para>
     /// Godot-MCP is an HTTP-only CLIENT of the shared/cloud server, so the panel always describes the
-    /// <see cref="TransportMethod.streamableHttp"/> transport (no stdio container). Godot's connection state is
-    /// bridged into the shared <see cref="AgentConfig.AgentConfiguratorSettings"/> via
-    /// <see cref="AgentConfiguratorSettingsFactory.Create"/> (runtime OS detection for per-OS config paths).
+    /// <see cref="TransportMethod.streamableHttp"/> transport (<see cref="GodotAgentConfigurators.Transport"/>, no
+    /// stdio container). Godot's connection state is bridged into the shared
+    /// <see cref="AgentConfig.AgentConfiguratorSettings"/> via <see cref="AgentConfiguratorSettingsFactory.Create"/>
+    /// (runtime OS detection for per-OS config paths). An agent that cannot use HTTP (Claude Desktop) gets an alert
+    /// instead of Configure, in Custom and Cloud mode alike; Remove stays for a stale entry an older version wrote.
     /// </para>
     ///
     /// <para>
@@ -92,6 +94,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
         Button? _configureButton;
         Button? _removeButton;
         VBoxContainer? _alertHost;
+
+        // Shown after a config write / removal for an agent that reads its MCP config only at startup.
+        AcceptDialog? _restartNoticeDialog;
 
         // Cloud project-key state (panel-wide, survives agent switches). _projectKey is the key Configure writes
         // (from the local cache or the last get-or-mint / regenerate) — never logged or rendered.
@@ -239,7 +244,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // ForDisplay: the manual-configuration snippets show the SAME shape Configure writes (the Authorization
             // header is present when a project key is in use) with the key itself redacted.
             var settings = CurrentSettings().ForDisplay();
-            var description = agent.Describe(settings, TransportMethod.streamableHttp, Logger);
+            var description = agent.Describe(settings, GodotAgentConfigurators.Transport, Logger);
 
             // --- Agent header row: a 40px per-agent icon (LEFT) + a column holding the agent NAME (section-title)
             //     over the Download/Tutorial links (from the DTO's Links) — a faithful port of Unity-MCP's
@@ -277,6 +282,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _agentBody.AddThemeConstantOverride("separation", 4);
             _agentView.AddChild(_agentBody);
 
+            // An agent that cannot use HTTP: the alert comes first, and RefreshStatus hides Configure. The shared
+            // description's alert asks for a stdio transport Godot does not offer, so Godot's own text replaces it.
+            if (!description.TransportSupported)
+            {
+                var unsupported = DockStyle.WarningFrame(GodotAgentConfigurators.UnsupportedTransportMessage(agent.AgentName));
+                unsupported.Name = "TransportNotSupported";
+                _agentBody.AddChild(unsupported);
+            }
+
             // Order mirrors Unity's containerAlert → status row → containerSkills → containerHttp.
             // The reconfigure/setup alert + the Configure/Remove status row only exist for agents with a detectable
             // config (the Custom agent has no writable config file — snippet/Docker only).
@@ -293,9 +307,13 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();
 
-            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets.
-            foreach (var section in description.Sections)
-                _agentBody.AddChild(BuildSection(agent, section));
+            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets. (An
+            // unsupported transport's only section is the alert already rendered above.)
+            if (description.TransportSupported)
+            {
+                foreach (var section in description.Sections)
+                    _agentBody.AddChild(BuildSection(agent, section));
+            }
 
             RefreshStatus();
         }
@@ -548,7 +566,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// </summary>
         public void OnConfigureButtonPressed()
         {
-            if (_current == null || _projectKeyBusy)
+            if (_current == null || _projectKeyBusy || !GodotAgentConfigurators.CanConfigure(_current))
                 return;
 
             if (IsCloudMode)
@@ -571,7 +589,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_current == null || _projectKeyBusy)
                 return;
             var config = _current.GetHttpConfig(CurrentSettings(), Logger, CurrentCredentialMode());
-            config.Unconfigure();
+            if (config.Unconfigure())
+                ShowRestartNotice(_current);
             RefreshStatus();
         }
 
@@ -587,9 +606,36 @@ namespace com.IvanMurzak.Godot.MCP.UI
             StartProjectKeyOperation(ProjectKeyOperation.Regenerate, null);
         }
 
-        /// <summary>Write <paramref name="agent"/>'s HTTP config for the current connection + project-key state.</summary>
+        /// <summary>
+        /// Write <paramref name="agent"/>'s HTTP config for the current connection + project-key state. Never writes
+        /// for an agent that cannot use HTTP (it would reject the entry).
+        /// </summary>
         void WriteConfig(AgentConfig.AiAgentConfigurator agent)
-            => agent.GetHttpConfig(SettingsFor(agent), Logger, CredentialModeFor(agent)).Configure();
+        {
+            if (!GodotAgentConfigurators.CanConfigure(agent))
+                return;
+            if (agent.GetHttpConfig(SettingsFor(agent), Logger, CredentialModeFor(agent)).Configure())
+                ShowRestartNotice(agent);
+        }
+
+        /// <summary>
+        /// Tell the user to restart <paramref name="agent"/> when it reads its MCP config only at startup (the shared
+        /// <see cref="AgentConfig.AiAgentConfigurator.GetRestartNotice"/>; none for HTTP agents today).
+        /// </summary>
+        void ShowRestartNotice(AgentConfig.AiAgentConfigurator agent)
+        {
+            var notice = agent.GetRestartNotice(GodotAgentConfigurators.Transport);
+            if (string.IsNullOrEmpty(notice))
+                return;
+            if (_restartNoticeDialog == null)
+            {
+                _restartNoticeDialog = new AcceptDialog { Name = "RestartNoticeDialog" };
+                AddChild(_restartNoticeDialog);
+            }
+            _restartNoticeDialog.Title = $"Restart {agent.AgentName}";
+            _restartNoticeDialog.DialogText = notice;
+            _restartNoticeDialog.PopupCentered();
+        }
 
         /// <summary>
         /// Run a project-key get-or-mint / regenerate OFF the editor main thread (it does network I/O and may wait
@@ -699,7 +745,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var mode = CurrentCredentialMode();
             foreach (var agent in GodotAgentConfigurators.All)
             {
-                if (!HasDetectableConfig(agent))
+                // A stale entry of an agent that cannot use HTTP is detected too; never rewrite it.
+                if (!HasDetectableConfig(agent) || !GodotAgentConfigurators.CanConfigure(agent))
                     continue;
                 try
                 {
@@ -816,17 +863,20 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
 
             var settings = CurrentSettings();
-            var status = _current.GetStatus(settings, TransportMethod.streamableHttp, Logger);
-            var isConfigured = _current.IsConfigured(settings, TransportMethod.streamableHttp, Logger);
+            var canConfigure = GodotAgentConfigurators.CanConfigure(_current);
+            // One status read: Configured is exactly IsConfigured, and NotConfigured for an unsupported transport.
+            var status = _current.GetStatus(settings, GodotAgentConfigurators.Transport, Logger);
+            var isConfigured = status == AgentConfig.ConfiguratorStatus.Configured;
             var anyDetected = _current.IsDetected(settings, Logger);
 
-            _statusLabel.Text = isConfigured ? "Configured (http)" : "Not configured";
+            _statusLabel.Text = !canConfigure ? "Not supported (http)" : isConfigured ? "Configured (http)" : "Not configured";
             _statusLabel.AddThemeColorOverride(
                 "font_color",
                 isConfigured ? DockStyle.Rgb(DockTheme.StatusOnline) : DockStyle.Rgb(DockTheme.WarningText));
 
             if (_configureButton != null)
             {
+                _configureButton.Visible = canConfigure;
                 _configureButton.Text = isConfigured ? "Reconfigure" : "Configure";
                 if (isConfigured)
                     DockStyle.ApplySecondaryButton(_configureButton);
@@ -836,7 +886,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (_removeButton != null)
                 _removeButton.Visible = anyDetected;
 
-            RefreshAlert(status);
+            // No Setup / Reconfiguration alert where Configure is not offered: the transport alert says why.
+            RefreshAlert(canConfigure ? status : AgentConfig.ConfiguratorStatus.Configured);
         }
 
         /// <summary>

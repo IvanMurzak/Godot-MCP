@@ -1011,7 +1011,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            var normalized = text.Trim().Trim('"').TrimEnd('/');
+            // A portless loopback URL gets the project port (http://localhost/mcp → http://localhost:<port>), the
+            // one the local server binds; show the repaired value.
+            var normalized = _connection.Config.RepairLocalHost(text.Trim().Trim('"').TrimEnd('/'));
+            _hostField.Text = normalized;
             if (_connection.Config.CustomHost == normalized)
                 return;
 
