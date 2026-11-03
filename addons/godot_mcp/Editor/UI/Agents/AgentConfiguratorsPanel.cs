@@ -50,8 +50,10 @@ namespace com.IvanMurzak.Godot.MCP.UI
     /// <see cref="TransportMethod.streamableHttp"/> transport (<see cref="GodotAgentConfigurators.Transport"/>, no
     /// stdio container). Godot's connection state is bridged into the shared
     /// <see cref="AgentConfig.AgentConfiguratorSettings"/> via <see cref="AgentConfiguratorSettingsFactory.Create"/>
-    /// (runtime OS detection for per-OS config paths). An agent that cannot use HTTP (Claude Desktop) gets an alert
-    /// instead of Configure, in Custom and Cloud mode alike; Remove stays for a stale entry an older version wrote.
+    /// (runtime OS detection for per-OS config paths). The description's <see cref="AgentConfig.AgentSetupKind"/>
+    /// picks the view: ConfigFile = Configure / Remove + status; Manual (Claude Desktop in Cloud mode: add a Claude
+    /// connector) = the steps only; Unsupported (Claude Desktop with a Custom server) = an alert, with Remove kept for a
+    /// stale HTTP entry an older version wrote.
     /// </para>
     ///
     /// <para>
@@ -282,9 +284,11 @@ namespace com.IvanMurzak.Godot.MCP.UI
             _agentBody.AddThemeConstantOverride("separation", 4);
             _agentView.AddChild(_agentBody);
 
-            // An agent that cannot use HTTP: the alert comes first, and RefreshStatus hides Configure. The shared
-            // description's alert asks for a stdio transport Godot does not offer, so Godot's own text replaces it.
-            if (!description.TransportSupported)
+            var setupKind = description.SetupKind;
+
+            // Unsupported: the alert comes first, and RefreshStatus hides Configure. The shared description's alert
+            // asks for a stdio transport Godot does not offer, so Godot's own text replaces it.
+            if (setupKind == AgentConfig.AgentSetupKind.Unsupported)
             {
                 var unsupported = DockStyle.WarningFrame(GodotAgentConfigurators.UnsupportedTransportMessage(agent.AgentName));
                 unsupported.Name = "TransportNotSupported";
@@ -293,8 +297,15 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             // Order mirrors Unity's containerAlert → status row → containerSkills → containerHttp.
             // The reconfigure/setup alert + the Configure/Remove status row only exist for agents with a detectable
-            // config (the Custom agent has no writable config file — snippet/Docker only).
-            if (HasDetectableConfig(agent))
+            // config (the Custom agent has no writable config file — snippet/Docker only). Manual setup writes no
+            // file either: a neutral status line, and the steps are the sections below.
+            if (setupKind == AgentConfig.AgentSetupKind.Manual)
+            {
+                var manual = DescriptionLabel(GodotAgentConfigurators.ManualSetupStatus);
+                manual.Name = "ManualSetupStatus";
+                _agentBody.AddChild(manual);
+            }
+            else if (HasDetectableConfig(agent))
             {
                 _alertHost = new VBoxContainer { Name = "AlertHost", SizeFlagsHorizontal = SizeFlags.ExpandFill };
                 _agentBody.AddChild(_alertHost);
@@ -307,9 +318,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // Skills sit ABOVE the DTO sections (Unity's containerSkills order).
             BuildSkillsSection();
 
-            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets. (An
-            // unsupported transport's only section is the alert already rendered above.)
-            if (description.TransportSupported)
+            // Walk the shared DTO's sections — each becomes a collapsible foldout of mapped item widgets (for Manual:
+            // the steps, with a clickable link and a copyable URL). Unsupported's only section is the alert above.
+            if (setupKind != AgentConfig.AgentSetupKind.Unsupported)
             {
                 foreach (var section in description.Sections)
                     _agentBody.AddChild(BuildSection(agent, section));

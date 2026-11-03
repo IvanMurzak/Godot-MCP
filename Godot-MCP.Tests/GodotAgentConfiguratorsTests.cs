@@ -49,19 +49,36 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(new[] { ClaudeDesktopId }, blocked);
         }
 
-        [Theory]
-        [InlineData(ConnectionMode.Local)]
-        [InlineData(ConnectionMode.Cloud)]
-        public void ClaudeDesktop_DescribesTheHttpTransportAsUnsupported_InBothModes(ConnectionMode mode)
+        [Fact]
+        public void ClaudeDesktop_WithACustomServer_IsUnsupported()
         {
             var agent = GodotAgentConfigurators.GetByAgentId(ClaudeDesktopId)!;
-            var settings = Settings(mode);
+            var settings = Settings(ConnectionMode.Local);
 
             var description = agent.Describe(settings, GodotAgentConfigurators.Transport, NullLogger.Instance);
 
-            Assert.False(description.TransportSupported);
+            Assert.Equal(AgentSetupKind.Unsupported, description.SetupKind);
             Assert.False(description.IsConfigured);
             Assert.Equal(ConfiguratorStatus.NotConfigured, agent.GetStatus(settings, GodotAgentConfigurators.Transport, NullLogger.Instance));
+        }
+
+        [Fact]
+        public void ClaudeDesktop_InCloudMode_IsAManualClaudeConnector_WithTheProjectPinnedUrl()
+        {
+            // The panel renders these sections as they are: the link must be clickable and the URL copyable.
+            var agent = GodotAgentConfigurators.GetByAgentId(ClaudeDesktopId)!;
+            var settings = Settings(ConnectionMode.Cloud);
+
+            var description = agent.Describe(settings.ForDisplay(), GodotAgentConfigurators.Transport, NullLogger.Instance);
+            var items = description.Sections.SelectMany(s => s.Items).ToList();
+
+            Assert.Equal(AgentSetupKind.Manual, description.SetupKind);
+            Assert.False(description.TransportSupported); // so no Godot path writes claude_desktop_config.json
+            Assert.False(GodotAgentConfigurators.CanConfigure(agent));
+            Assert.Contains(items, i => i.Kind == ConfigurationItemKind.Link && i.Url == "https://claude.ai/customize/connectors");
+            Assert.Contains(items, i => i.Kind == ConfigurationItemKind.ReadOnlyField && i.Text == settings.PinnedHttpUrl);
+            Assert.Contains("/mcp/p/", settings.PinnedHttpUrl);
+            Assert.DoesNotContain(items, i => i.Kind == ConfigurationItemKind.Alert);
         }
 
         [Theory]
@@ -71,7 +88,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var settings = Settings(mode);
             foreach (var agent in GodotAgentConfigurators.All.Where(GodotAgentConfigurators.CanConfigure))
-                Assert.True(agent.Describe(settings, GodotAgentConfigurators.Transport, NullLogger.Instance).TransportSupported, agent.AgentId);
+                Assert.Equal(AgentSetupKind.ConfigFile, agent.Describe(settings, GodotAgentConfigurators.Transport, NullLogger.Instance).SetupKind);
         }
 
         [Fact]
@@ -83,12 +100,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void UnsupportedTransportMessage_NamesTheAgent_AndOffersNoStdioSetup()
+        public void UnsupportedTransportMessage_PointsAtTheCloudConnector_AndOffersNoStdioSetup()
         {
             var message = GodotAgentConfigurators.UnsupportedTransportMessage("Claude Desktop");
 
-            Assert.Contains("Claude Desktop supports only the stdio transport", message);
-            Assert.Contains("HTTP only", message);
+            Assert.Contains("Switch the connection to Cloud to add Claude Desktop as a Claude connector", message);
+            Assert.DoesNotContain("stdio", message);
             // The shared alert's "select the stdio transport" step does not exist in the Godot dock.
             Assert.DoesNotContain("Select the Custom connection", message);
         }

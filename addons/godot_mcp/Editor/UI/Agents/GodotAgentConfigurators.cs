@@ -48,13 +48,20 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
         public static bool CanConfigure(AgentConfig.AiAgentConfigurator agent) => agent.SupportsTransport(Transport);
 
         /// <summary>
-        /// The alert the dock shows instead of Configure for an agent that cannot use <see cref="Transport"/>. It
-        /// replaces the shared description's alert, which points at a stdio transport Godot does not have.
+        /// The alert the dock shows for <see cref="AgentConfig.AgentSetupKind.Unsupported"/> (today: Claude Desktop with
+        /// a Custom server). It replaces the shared description's alert, which points at a stdio transport Godot does
+        /// not have.
         /// </summary>
         public static string UnsupportedTransportMessage(string agentName) =>
-            $"{agentName} supports only the stdio transport and skips HTTP servers in its config file. " +
-            $"Godot-MCP connects AI agents over HTTP only, so it cannot configure {agentName}. " +
-            "Choose another agent, for example Claude Code.";
+            $"{agentName} skips HTTP servers in its config file and cannot reach a server on this computer, " +
+            $"so Godot-MCP cannot set it up with a Custom server. Switch the connection to Cloud to add {agentName} " +
+            "as a Claude connector (the steps appear here), or choose another agent, for example Claude Code.";
+
+        /// <summary>
+        /// The neutral status line for <see cref="AgentConfig.AgentSetupKind.Manual"/>: the user follows the steps
+        /// below in the agent's own UI (today: adding a Claude custom connector), so there is nothing to configure.
+        /// </summary>
+        public const string ManualSetupStatus = "Manual setup (Claude connector): follow the steps below. Nothing is written on this computer.";
 
         // The Godot-visible configurators, in the shared registry's display order, minus the Unity-only
         // agent. Materialized once: the shared registry is static and immutable.
