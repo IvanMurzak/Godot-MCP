@@ -50,7 +50,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void AllAddonAndExtensionTools_DeclareTitleAndEveryHint()
         {
             var tools = SourceTools();
-            Assert.True(tools.Count >= 25, $"The source scan found only {tools.Count} [AiTool] attributes; the scan is broken.");
+            // A floor, not the exact count (25 today): removing a tool must not trip it.
+            Assert.True(tools.Count >= 20, $"The source scan found only {tools.Count} [AiTool] attributes; is the scan broken?");
             AssertAnnotated(tools);
 
             // The source scan must see every tool reflection sees, with the same values: proves its constant evaluation.
@@ -96,20 +97,31 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 .Concat(Directory.EnumerateDirectories(Path.Combine(root, "extensions"))
                     .Select(dir => Path.Combine(dir, "src"))
                     .Where(Directory.Exists)
-                    .SelectMany(src => Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)));
+                    .SelectMany(src => Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)))
+                .Where(f => !Path.GetRelativePath(root, f).Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
 
             // TOOLS: editor tools sit behind #if TOOLS; inactive regions are trivia and would hide their attributes.
             var parseOptions = new CSharpParseOptions(LanguageVersion.Latest,
                 preprocessorSymbols: new[] { "TOOLS", "GODOT_MCP_CODE_EXEC_IN_GAME" });
             var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(f), parseOptions, f)).ToList();
 
-            // The loaded assemblies (McpPlugin, GodotSharp …) bind the attribute and its constants; missing editor-only
+            // A tool under any other symbol (#else, #if !TOOLS, a version symbol) would be disabled text, invisible below.
+            var hidden = trees.Where(t => t.GetRoot().DescendantTrivia()
+                    .Any(trivia => trivia.IsKind(SyntaxKind.DisabledTextTrivia) && trivia.ToString().Contains("[AiTool")))
+                .Select(t => Path.GetRelativePath(root, t.FilePath)).ToList();
+            Assert.True(hidden.Count == 0, "[AiTool] inside an inactive #if region (only TOOLS and GODOT_MCP_CODE_EXEC_IN_GAME " +
+                "are defined here); extend the scan's symbols: " + string.Join(", ", hidden));
+
+            // The loaded assemblies plus McpPlugin and GodotSharp (named, not left to load order) bind the attribute and its constants; missing editor-only
             // references only leave unrelated errors. This test assembly is left out: it compiles the same addon types,
             // and two copies would make every reference to them ambiguous.
             var self = typeof(ToolAnnotationsTests).Assembly;
             var references = AppDomain.CurrentDomain.GetAssemblies()
+                .Concat(new[] { typeof(AiToolAttribute).Assembly, typeof(global::Godot.GodotObject).Assembly })
                 .Where(a => a != self && !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(a => MetadataReference.CreateFromFile(a.Location));
+                .Select(a => a.Location)
+                .Distinct()
+                .Select(location => MetadataReference.CreateFromFile(location));
             var compilation = CSharpCompilation.Create("ToolAnnotationsScan", trees, references,
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
