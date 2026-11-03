@@ -107,14 +107,14 @@ That's it. Ask your AI *"Create 3 cubes in a circle with radius 2"* and watch it
     - [Option A — Godot Asset Library (recommended)](#option-a--godot-asset-library-recommended)
     - [Option B — GitHub Release zip](#option-b--github-release-zip)
     - [Option C — copy from source](#option-c--copy-from-source)
-  - [Step 2: Add the NuGet packages](#step-2-add-the-nuget-packages)
+  - [Step 2: Add the NuGet packages + the extension catalog embed](#step-2-add-the-nuget-packages--the-extension-catalog-embed)
   - [Step 3: Install an AI agent](#step-3-install-an-ai-agent)
 - [Connect](#connect)
   - [Cloud mode (default) — ai-game.dev](#cloud-mode-default--ai-gamedev)
   - [Custom mode — your own server](#custom-mode--your-own-server)
 - [Godot `MCP Server` setup](#godot-mcp-server-setup)
   - [Local server — let the addon download & run it for you](#local-server--let-the-addon-download--run-it-for-you)
-  - [Build & run the server manually (advanced)](#build--run-the-server-manually-advanced)
+  - [Run the server manually (advanced)](#run-the-server-manually-advanced)
 - [Customize Tools](#customize-tools)
 - [Runtime usage (in-game)](#runtime-usage-in-game)
   - [Capturing in-game runtime errors](#capturing-in-game-runtime-errors)
@@ -220,8 +220,6 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 - `godot-skill-create` — Write a new C# (`.cs`) MCP tool file into the project. The tool becomes callable once the project is rebuilt (Godot builds C# out-of-band).
 - `godot-skill-generate` — Regenerate every `SKILL.md` from the tools currently registered in the editor, into the selected AI agent's skills folder.
 
-</details>
-
 ## Install Additional Skills and Tools
 
 Install extensions when you need more or [create your own tools](#customize-tools). Each extension is an RQL module: it adds no MCP tools of its own, it extends the core `rql-query` / `rql-mutate` / `rql-schema` tools and the `godot-rql` skill.
@@ -231,18 +229,20 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject
 godot-cli build ./MyGodotProject
 ```
 
-| Extension | Description |
-| --- | --- |
-| **[AI Animation](extensions/Godot-AI-Animation/README.md)** | AnimationPlayer libraries, animations, tracks and keys |
-| **[AI Beehave](extensions/Godot-AI-Beehave/README.md)** | Beehave addon: list behaviour trees and their nodes |
-| **[AI CSG](extensions/Godot-AI-CSG/README.md)** | Constructive solid geometry: validated primitive dimensions |
-| **[AI Dialogic](extensions/Godot-AI-Dialogic/README.md)** | Dialogic addon: list and create timelines and characters, append timeline text |
-| **[AI GridMap](extensions/Godot-AI-GridMap/README.md)** | GridMap 3D tile maps: validated settings, cell rows and cell editing |
-| **[AI Navigation](extensions/Godot-AI-Navigation/README.md)** | 2D and 3D navigation: agents, regions, links and region baking |
-| **[AI Particles](extensions/Godot-AI-Particles/README.md)** | GPU particles in 2D and 3D: validated emitter settings and restart |
-| **[AI PhantomCamera](extensions/Godot-AI-PhantomCamera/README.md)** | Phantom Camera addon: list virtual cameras and hosts, set follow and look-at targets |
-| **[AI Terrain3D](extensions/Godot-AI-Terrain3D/README.md)** | Terrain3D addon: terrain source, region size changes and material creation |
-| **[AI Tilemap](extensions/Godot-AI-Tilemap/README.md)** | TileMapLayer: used-cell rows and cell editing |
+| Extension | Description | Requires |
+| --- | --- | --- |
+| **[AI Animation](extensions/Godot-AI-Animation/README.md)** | AnimationPlayer libraries, animations, tracks and keys | |
+| **[AI Beehave](extensions/Godot-AI-Beehave/README.md)** | Beehave addon: list behaviour trees and their nodes | [Beehave](https://github.com/bitbrain/beehave) addon |
+| **[AI CSG](extensions/Godot-AI-CSG/README.md)** | Constructive solid geometry: validated primitive dimensions | |
+| **[AI Dialogic](extensions/Godot-AI-Dialogic/README.md)** | Dialogic addon: list and create timelines and characters, append timeline text | [Dialogic](https://github.com/dialogic-godot/dialogic) addon, Godot 4.4+ |
+| **[AI GridMap](extensions/Godot-AI-GridMap/README.md)** | GridMap 3D tile maps: validated settings, cell rows and cell editing | |
+| **[AI Navigation](extensions/Godot-AI-Navigation/README.md)** | 2D and 3D navigation: agents, regions, links and region baking | |
+| **[AI Particles](extensions/Godot-AI-Particles/README.md)** | GPU particles in 2D and 3D: validated emitter settings and restart | |
+| **[AI PhantomCamera](extensions/Godot-AI-PhantomCamera/README.md)** | Phantom Camera addon: list virtual cameras and hosts, set follow and look-at targets | [Phantom Camera](https://github.com/ramokz/phantom-camera) addon, Godot 4.4+ |
+| **[AI Terrain3D](extensions/Godot-AI-Terrain3D/README.md)** | Terrain3D addon: terrain source, region size changes and material creation | [Terrain3D](https://github.com/TokisanGames/Terrain3D) addon, Godot 4.4+ |
+| **[AI Tilemap](extensions/Godot-AI-Tilemap/README.md)** | TileMapLayer: used-cell rows and cell editing | |
+
+The installer adds only the extension package; install a required third-party addon into the project yourself.
 
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
