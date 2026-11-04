@@ -142,6 +142,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonPropertyName("host")]
         public string CustomHost { get; set; } = DefaultCustomHost;
 
+        /// <summary>
+        /// The project's local server port (the ProjectIdentity port: a marker <c>portOverride</c>, else the
+        /// derived one), set by the connection once the project root is known; <c>null</c> before that and outside
+        /// the editor. When set, <see cref="ResolveCustomHost"/> and <see cref="RepairLocalHost"/> give a portless
+        /// loopback host (e.g. a saved <c>http://localhost/mcp</c>) this port, the one the local server binds for it.
+        /// </summary>
+        [JsonIgnore]
+        public int? LocalServerPort { get; set; }
+
         /// <summary>Backing field for the custom-mode bearer token. Serialized as <c>token</c>.</summary>
         [JsonPropertyName("token")]
         public string? CustomToken { get; set; }
@@ -441,7 +450,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Resolve the active custom-mode host, applying the <see cref="EnvHost"/> override.
+        /// Resolve the active custom-mode host, applying the <see cref="EnvHost"/> override and
+        /// <see cref="RepairLocalHost"/>.
         /// </summary>
         public string ResolveCustomHost()
         {
@@ -449,14 +459,25 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // (mirroring ResolveCloudBaseUrl) and fall back to DefaultCustomHost on anything invalid.
             var envHost = NormalizeUrl(ReadEnv(EnvHost));
             if (!string.IsNullOrEmpty(envHost))
-                return IsValidHttpUrl(envHost) ? envHost : DefaultCustomHost;
+                return IsValidHttpUrl(envHost) ? RepairLocalHost(envHost) : DefaultCustomHost;
 
             var configuredHost = NormalizeUrl(CustomHost);
             if (!string.IsNullOrEmpty(configuredHost))
-                return IsValidHttpUrl(configuredHost) ? configuredHost : DefaultCustomHost;
+                return IsValidHttpUrl(configuredHost) ? RepairLocalHost(configuredHost) : DefaultCustomHost;
 
             return DefaultCustomHost;
         }
+
+        /// <summary>
+        /// Give a portless loopback <paramref name="host"/> the project's <see cref="LocalServerPort"/> (path dropped):
+        /// <c>http://localhost/mcp</c> → <c>http://localhost:&lt;port&gt;</c>. Without it the plugin dials port 80
+        /// while the local server binds, and the agent configs name, the project port. A host with an explicit port,
+        /// a non-loopback host, or an unknown <see cref="LocalServerPort"/> is returned unchanged.
+        /// </summary>
+        public string RepairLocalHost(string host)
+            => LocalServerPort is int port && !string.IsNullOrWhiteSpace(host)
+                ? AgentConfiguratorSettings.NormalizeLocalHost(host, port)
+                : host;
 
         /// <summary>Resolve the active cloud token, applying the <see cref="EnvToken"/> override.</summary>
         public string? ResolveCloudToken()

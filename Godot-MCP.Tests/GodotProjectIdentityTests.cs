@@ -355,6 +355,29 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.NotEqual(8080, bindPort);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData(25000)]
+        public void RepairedPortlessLoopbackHost_ConnectsBindsAndWritesTheSamePort(int? portOverride)
+        {
+            // A saved "http://localhost/mcp" used to make the plugin dial port 80 while the server bound, and the
+            // agent configs named, the project port. With LocalServerPort set (as SeedDefaultLocalServerHost does)
+            // the plugin connects to that port too, with or without a marker portOverride.
+            const string root = "C:/Games/MyGame";
+            var marker = portOverride is int o ? new ProjectMarker { PortOverride = o } : null;
+            var projectPort = GodotProjectIdentity.Derive(root, marker).Port;
+            var config = new GodotMcpConfig { LocalServerPort = projectPort };
+
+            // RepairLocalHost, not ResolveCustomHost: this class is outside the "env" collection (GODOT_MCP_HOST).
+            var connectHost = config.RepairLocalHost("http://localhost/mcp");
+            var bindPort = GodotProjectIdentity.ResolveLocalServerBindPort(connectHost, root, marker);
+
+            Assert.Equal($"http://localhost:{projectPort}", connectHost);
+            Assert.Equal(projectPort, bindPort);
+            if (marker == null)
+                Assert.Equal(projectPort, LocalSettings(root, connectHost).ResolvedPort);
+        }
+
         [Fact]
         public void ResolveLocalServerBindPort_MarkerPortOverride_WinsOnBothSides()
         {

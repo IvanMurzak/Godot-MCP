@@ -482,6 +482,59 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("http://10.0.0.5:9000/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
         }
 
+        // --- Portless local server URL repair (LocalServerPort) ---
+
+        [Theory]
+        [InlineData("http://localhost/mcp", "http://localhost:26610")]
+        [InlineData("http://localhost", "http://localhost:26610")]
+        [InlineData("http://127.0.0.1/mcp", "http://127.0.0.1:26610")]
+        [InlineData("http://localhost:9000", "http://localhost:9000")]   // a typed port is user intent
+        [InlineData("http://localhost:9000/mcp", "http://localhost:9000/mcp")]
+        [InlineData("http://10.0.0.5", "http://10.0.0.5")]               // non-loopback: not ours to change
+        [InlineData("https://ai-game.dev/mcp", "https://ai-game.dev/mcp")]
+        public void ResolveCustomHost_GivesAPortlessLoopbackHostTheLocalServerPort(string host, string expected)
+        {
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig
+            {
+                ConnectionMode = GodotMcpConnectionMode.Custom,
+                CustomHost = host,
+                LocalServerPort = 26610
+            };
+
+            Assert.Equal(expected, config.ResolveCustomHost());
+            Assert.Equal(expected, config.Host);
+        }
+
+        [Fact]
+        public void ResolveCustomHost_RepairsAPortlessEnvHostToo()
+        {
+            using var _ = EnvScope.Set(GodotMcpConfig.EnvHost, "http://localhost/mcp");
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom, LocalServerPort = 26610 };
+
+            Assert.Equal("http://localhost:26610", config.ResolveCustomHost());
+            Assert.Equal("http://localhost:26610/mcp", GodotMcpConfig.ResolveMcpClientUrl(config));
+        }
+
+        [Fact]
+        public void ResolveCustomHost_LeavesAPortlessHostAlone_UntilTheLocalServerPortIsKnown()
+        {
+            // Before the connection resolves the project (and in a game build) there is no port to repair with.
+            using var _ = EnvScope.ClearAll();
+            var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom, CustomHost = "http://localhost/mcp" };
+
+            Assert.Equal("http://localhost/mcp", config.ResolveCustomHost());
+            Assert.Equal("http://localhost/mcp", config.RepairLocalHost("http://localhost/mcp"));
+        }
+
+        [Fact]
+        public void LocalServerPort_IsNeverPersisted()
+        {
+            var config = new GodotMcpConfig { LocalServerPort = 26610 };
+            var json = System.Text.Json.JsonSerializer.Serialize(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+            Assert.DoesNotContain("26610", json);
+        }
+
         /// <summary>
         /// Sets/clears process env vars relevant to <see cref="GodotMcpConfig"/> and restores the prior
         /// values on dispose. Keeps env-driven tests isolated and re-entry-safe.

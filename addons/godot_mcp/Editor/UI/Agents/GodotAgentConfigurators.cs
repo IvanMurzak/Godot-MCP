@@ -11,6 +11,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AgentConfig = com.IvanMurzak.McpPlugin.AgentConfig;
+using static com.IvanMurzak.McpPlugin.Common.Consts.MCP.Server;
 
 namespace com.IvanMurzak.Godot.MCP.UI.Agents
 {
@@ -32,6 +33,35 @@ namespace com.IvanMurzak.Godot.MCP.UI.Agents
     {
         /// <summary>The shared agent id that Godot does not surface (Unity-Editor-specific).</summary>
         public const string ExcludedAgentId = "unity-ai";
+
+        /// <summary>
+        /// The only transport Godot writes agent configs for. The plugin is an HTTP client of the server and the
+        /// dock never offers stdio, in Custom and Cloud mode alike.
+        /// </summary>
+        public const TransportMethod Transport = TransportMethod.streamableHttp;
+
+        /// <summary>
+        /// True when Configure may write <paramref name="agent"/>'s config for <see cref="Transport"/>. False for an
+        /// agent that cannot use it (Claude Desktop starts only stdio servers from its config file and skips an
+        /// HTTP entry), so no Godot path writes a config the agent rejects.
+        /// </summary>
+        public static bool CanConfigure(AgentConfig.AiAgentConfigurator agent) => agent.SupportsTransport(Transport);
+
+        /// <summary>
+        /// The alert the dock shows for <see cref="AgentConfig.AgentSetupKind.Unsupported"/> (today: Claude Desktop with
+        /// a Custom server). It replaces the shared description's alert, which points at a stdio transport Godot does
+        /// not have.
+        /// </summary>
+        public static string UnsupportedTransportMessage(string agentName) =>
+            $"{agentName} skips HTTP servers in its config file, and a Claude connector reaches only public servers, " +
+            $"so Godot-MCP cannot set it up with a Custom server. Switch the connection to Cloud to add {agentName} " +
+            "as a Claude connector (the steps appear here), or choose another agent, for example Claude Code.";
+
+        /// <summary>
+        /// The neutral status line for <see cref="AgentConfig.AgentSetupKind.Manual"/>: the user follows the steps
+        /// below in the agent's own UI (today: adding a Claude custom connector), so there is nothing to configure.
+        /// </summary>
+        public const string ManualSetupStatus = "Manual setup: follow the steps below. Nothing is written on this computer.";
 
         // The Godot-visible configurators, in the shared registry's display order, minus the Unity-only
         // agent. Materialized once: the shared registry is static and immutable.

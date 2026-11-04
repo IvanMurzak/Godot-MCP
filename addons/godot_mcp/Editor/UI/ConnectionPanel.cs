@@ -1006,17 +1006,25 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (!ConnectionPanelView.IsValidServerUrl(text))
             {
                 // Reject: restore the displayed value to the current configured host.
-                _hostField.Text = _connection.Config.CustomHost;
+                _hostField.Text = _connection.Config.ResolveCustomHost();
                 GodotMcpLog.Warning($"[Godot-MCP] ignored invalid server URL: '{text}' (must be an absolute http/https URL).");
                 return;
             }
 
             var normalized = text.Trim().Trim('"').TrimEnd('/');
-            if (_connection.Config.CustomHost == normalized)
+            // The field shows the repaired URL; leaving it untouched must not save that (or reconnect).
+            var stored = _connection.Config.CustomHost;
+            var changed = stored != normalized && _connection.Config.RepairLocalHost(stored) != normalized;
+            if (changed)
+            {
+                _connection.Config.CustomHost = normalized;
+                _connection.Save();
+            }
+            // Show the URL the plugin connects to: a portless loopback URL gets the project port
+            // (http://localhost/mcp → http://localhost:<port>, GodotMcpConfig.RepairLocalHost).
+            _hostField.Text = _connection.Config.ResolveCustomHost();
+            if (!changed)
                 return;
-
-            _connection.Config.CustomHost = normalized;
-            _connection.Save();
 
             // Only a Custom-mode host change warrants a reconnect; in Cloud mode the field is hidden.
             if (_connection.Config.ActiveMode == GodotMcpConnectionMode.Custom)

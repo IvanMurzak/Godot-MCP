@@ -4,6 +4,9 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **McpPlugin 8.18.0.** The `install-plugin` fallback pin follows the addon (McpPlugin 8.16: `ToolUnavailableException`
+  answers 503; 8.17: restart notices, portless local server URLs repaired; 8.18: Claude Desktop takes no HTTP config
+  file entry, in Cloud mode it is added as a Claude custom connector).
 - **McpPlugin 8.15.0.** The `install-plugin` fallback pin follows the addon (McpPlugin: a tool that throws on the
   request's content is HTTP 422 on the server's direct endpoint, not 500).
 - **`openProject` `spawnImpl`** (type `EditorSpawnImpl`): an embedder starts the editor its own way. It gets the
