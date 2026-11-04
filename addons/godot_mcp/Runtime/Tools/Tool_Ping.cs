@@ -44,6 +44,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             PingToolId,
             Title = "Ping",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false,
             ToolType = McpToolType.System

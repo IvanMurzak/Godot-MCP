@@ -35,7 +35,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             SessionCloseToolId,
             Title = "Session / Close",
+            ReadOnlyHint = false,
             DestructiveHint = true,
+            IdempotentHint = false,
             OpenWorldHint = false,
             ToolType = McpToolType.System
         )]

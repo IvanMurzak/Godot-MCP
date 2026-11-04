@@ -34,6 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScriptValidateToolId,
             Title = "Script / Validate",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

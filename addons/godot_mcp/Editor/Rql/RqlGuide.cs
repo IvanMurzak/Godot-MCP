@@ -27,6 +27,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// </summary>
     internal static class RqlGuide
     {
+        /// <summary>The public RQL reference every RQL tool description links to.</summary>
+        public const string DocsUrl = "https://ai-game.dev/docs/rql";
+
+        /// <summary>Opens the rql-query / rql-mutate / rql-schema descriptions: names RQL and links its reference.</summary>
+        const string DocsLead = "RQL (Reflection Query Language, reference: " + DocsUrl + "). ";
+
         public const string QueryBlurb =
             "Query the live Godot editor (scene nodes, resources, files, scenes, classes, console, project settings, input map) with RQL in ONE call: filter, " +
             "project, sort, count, walk the scene tree. Far fewer calls/tokens than reading nodes one by one.";
@@ -244,11 +250,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
         public const string QueryDescription =
-            "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
+            DocsLead + "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
             "exploratory calls. Changes need rql-mutate.\n\n" + Language + "\n\nExamples:\n" + QueryExampleText;
 
         public const string MutateDescription =
-            "Change the live Godot editor with an RQL query whose last stage is set or call. All-or-nothing: every target and " +
+            DocsLead + "Change the live Godot editor with an RQL query whose last stage is set or call. All-or-nothing: every target and " +
             "value is checked before anything is written; a failure changes nothing. Undoable in the editor (Ctrl+Z). Scene " +
             "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
@@ -291,7 +297,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "bulk change of more objects: the call stays all-or-nothing and one undo step.";
 
         public const string SchemaDescription =
-            "Without a type: RQL sources, functions, the installed extensions (Particles, Tilemap …), and the node classes present in " +
+            DocsLead + "Without a type: RQL sources, functions, the installed extensions (Particles, Tilemap …), and the node classes present in " +
             "the edited scene (with counts), plus the Node members. With an extension name: its guide with examples. With a type name (e.g. \"Node3D\", \"OmniLight3D\", \"StandardMaterial3D\", \"Vector3\", \"editor\"): that " +
             "type's members (name type; ro = read-only), methods, and its Godot properties (props[\"name\"]). Use it before " +
             "querying an unfamiliar class.";

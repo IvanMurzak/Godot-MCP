@@ -26,8 +26,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScriptUpdateToolId,
             Title = "Script / Update",
+            ReadOnlyHint = false,
             DestructiveHint = true,
-            IdempotentHint = true
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Overwrite an EXISTING Godot script file (C# '.cs' or GDScript '.gd') under res:// with " +
             "the provided source. Fails if no file exists at the path — use '" + ScriptCreateToolId + "' to " +

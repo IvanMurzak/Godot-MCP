@@ -26,7 +26,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ReflectionMethodFindToolId,
             Title = "Method C# / Find",
             ReadOnlyHint = true,
-            IdempotentHint = true
+            DestructiveHint = false,
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Find C# methods across every loaded assembly by name / declaring-type / parameters — " +
             "including private methods. The Godot analog of Unity's 'reflection-method-find'. Returns " +

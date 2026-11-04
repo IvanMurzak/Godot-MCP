@@ -29,6 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScreenshotIsolatedToolId,
             Title = "Screenshot / Isolated Node",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

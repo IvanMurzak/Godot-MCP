@@ -26,6 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScreenshotViewportToolId,
             Title = "Screenshot / Editor Viewport",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

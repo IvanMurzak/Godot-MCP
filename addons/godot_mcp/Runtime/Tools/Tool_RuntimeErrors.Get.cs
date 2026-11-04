@@ -24,6 +24,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             RuntimeErrorsGetToolId,
             Title = "Runtime Errors / Get",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

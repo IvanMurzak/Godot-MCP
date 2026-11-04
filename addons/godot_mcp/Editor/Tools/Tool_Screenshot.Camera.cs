@@ -28,6 +28,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScreenshotCameraToolId,
             Title = "Screenshot / Camera",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

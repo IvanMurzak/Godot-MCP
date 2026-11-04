@@ -27,7 +27,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ScriptReadToolId,
             Title = "Script / Read",
             ReadOnlyHint = true,
-            IdempotentHint = true
+            DestructiveHint = false,
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Read a Godot script file (C# '.cs' or GDScript '.gd') under res:// and return its " +
             "content + metadata (res:// path, language, line count). Supports an optional 1-based " +

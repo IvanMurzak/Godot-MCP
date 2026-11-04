@@ -20,8 +20,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             RuntimeErrorsClearToolId,
             Title = "Runtime Errors / Clear",
+            ReadOnlyHint = false,
             DestructiveHint = true,
-            IdempotentHint = true
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Clear the captured in-game runtime-error buffer (read by 'runtime-errors-get'). Useful " +
             "for isolating errors to a specific in-game action by clearing the slate first, then performing " +

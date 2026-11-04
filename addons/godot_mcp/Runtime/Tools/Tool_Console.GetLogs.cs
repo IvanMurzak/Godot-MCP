@@ -23,6 +23,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ConsoleGetLogsToolId,
             Title = "Console / Get Logs",
             ReadOnlyHint = true,
+            DestructiveHint = false,
             IdempotentHint = true,
             OpenWorldHint = false
         )]

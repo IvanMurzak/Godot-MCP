@@ -20,8 +20,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ConsoleClearLogsToolId,
             Title = "Console / Clear Logs",
+            ReadOnlyHint = false,
             DestructiveHint = true,
-            IdempotentHint = true
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Clear the captured Godot-MCP log cache (read by 'console-get-logs'). Useful for " +
             "isolating logs to a specific action by clearing the slate first. NOTE: Godot's C# API exposes " +

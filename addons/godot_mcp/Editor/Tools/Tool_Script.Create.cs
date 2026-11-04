@@ -25,7 +25,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [AiTool
         (
             ScriptCreateToolId,
-            Title = "Script / Create"
+            Title = "Script / Create",
+            ReadOnlyHint = false,
+            DestructiveHint = false,
+            IdempotentHint = true,   // a repeat call fails on the existing file and changes nothing
+            OpenWorldHint = false
         )]
         [Description("Create a NEW Godot script file (C# '.cs' or GDScript '.gd') under res:// with the " +
             "provided source. Fails if a file already exists at the path — use '" + ScriptUpdateToolId +

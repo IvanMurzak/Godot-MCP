@@ -26,7 +26,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScriptDeleteToolId,
             Title = "Script / Delete",
-            DestructiveHint = true
+            ReadOnlyHint = false,
+            DestructiveHint = true,
+            IdempotentHint = true,
+            OpenWorldHint = false
         )]
         [Description("Delete a Godot script file (C# '.cs' or GDScript '.gd') from the res:// filesystem. " +
             "Fails if no file exists at the path. The script's identity (path, language) is captured BEFORE " +
