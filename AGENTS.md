@@ -32,6 +32,8 @@ pipelines. **Never bump them here.** The current pins are in `Godot-MCP.csproj` 
 - `extensions/` — independent source-only NuGet modules; read its AGENTS.md before editing.
 - `templates/extension/` — extension scaffolding; never included in core or consumer assemblies.
 - `docs/` — `ARCHITECTURE.md`, `RELEASING.md`, `runtime-security.md`, Asset Library material.
+- `glama/` + `glama.json` — the Glama directory listing image (stdio server + headless Godot editor in one
+  container); not shipped, not CI. Admin-form settings in [`glama/README.md`](glama/README.md).
 - `tests/chain-fixtures/`, `.github/scripts/chain_*.py` — release-train fixtures; byte-compared, LF-pinned.
 
 ## Build / test

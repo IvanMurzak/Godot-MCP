@@ -36,3 +36,6 @@
 /tests/chain-fixtures/** text eol=lf
 /.github/scripts/chain_fixture.py text eol=lf
 /.github/scripts/chain_feed.py text eol=lf
+
+# The Glama image scripts run under bash in Linux containers; a CRLF checkout (e.g. a Windows `docker build`) breaks them.
+/glama/** text eol=lf
