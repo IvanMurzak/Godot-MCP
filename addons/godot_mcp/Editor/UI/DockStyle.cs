@@ -373,7 +373,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         }
 
         /// <summary>
-        /// Build the header AI-cube logo as a square <see cref="TextureRect"/> (Unity's <c>imgLogoPivot</c>,
+        /// Build the header AI Game Dev logo as a square <see cref="TextureRect"/> (Unity's <c>imgLogoPivot</c>,
         /// 60px, scaled to fit, aspect-preserved). Returns <c>null</c> when the logo asset is missing /
         /// un-imported so the header silently omits it (the config column then fills the width). Editor-only.
         /// </summary>

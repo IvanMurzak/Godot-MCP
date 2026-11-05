@@ -194,7 +194,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             contentMargin.AddChild(content);
 
             // --- Header: a ROW with a LEFT base-config column (title + Log Level + Version) and a
-            // RIGHT-aligned AI-cube logo, mirroring Unity-MCP's MainWindow header (config block + imgLogo).
+            // RIGHT-aligned AI Game Dev logo, mirroring Unity-MCP's MainWindow header (config block + imgLogo).
             var header = new HBoxContainer { Name = "Header", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             header.AddThemeConstantOverride("separation", 8);
 
@@ -225,7 +225,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             DockStyle.ApplyDescription(version);
             headerInfo.AddChild(version);
 
-            // Right: the AI-cube logo (square, 60px). Omitted silently when the asset is missing / un-imported.
+            // Right: the AI Game Dev logo (square, 60px). Omitted silently when the asset is missing / un-imported.
             var logo = DockStyle.HeaderLogo();
             if (logo != null)
                 header.AddChild(logo);
