@@ -11,14 +11,12 @@ Nothing here ships with the addon (`.gitattributes` export-ignores it) and nothi
 
 | File | Role |
 | --- | --- |
-| `install.sh` | Build step. Installs the .NET 8 SDK, Godot 4.5.1 .NET (mono) from the official GitHub release, and `godot-cli` from npm. Scaffolds a sample C# project the way users do (`godot-cli create-project --dotnet`, `install-plugin`, `build`), and downloads the GameDev-MCP-Server release that the installed addon pins (`ServerVersion`, SHA256-verified). It then imports, builds and boots the project once and fails the build if `[Godot-MCP] plugin loaded` is missing. |
-| `entrypoint.sh` | The stdio server (Glama's CMD). Starts the server (`--client-transport streamableHttp --auth none`, loopback, free port) and the headless editor in Custom mode (`GODOT_MCP_CONNECTION_MODE=Custom`, `GODOT_MCP_HOST`). It waits until the editor's tools are listed, then bridges stdin/stdout to the server. When stdin closes or on SIGTERM/SIGINT, it kills the editor and the server. |
-| `wait-for-tools.mjs` | Readiness gate: polls `initialize` + `tools/list` until the tool count is non-zero and stable. It gives up after `GLAMA_READY_TIMEOUT` seconds (default 50, below mcp-proxy's 60 s connection timeout) and the bridge starts anyway. |
-| `stdio-bridge.mjs` | stdio ↔ streamable-HTTP bridge. Sends `initialize` first and holds every other message until the session id exists, so an eager client never races the session. It writes JSON or SSE replies as one JSON-RPC line each. |
-| `Dockerfile` | Local reproduction of the image Glama generates from its admin form (see below). It is not given to Glama. |
-| `probe.mjs` | Probes an image the way Glama does and optionally runs tool calls. |
+| `install.sh` | Build step: .NET 8 SDK, Godot 4.5.1 .NET (mono), `godot-cli` from npm, and a sample C# project set up the way users do it (`create-project --dotnet`, `install-plugin --with-server`, `build`). It ends by probing the result like Glama. |
+| `entrypoint.sh` | The stdio server (Glama's CMD). It runs GameDev-MCP-Server in stdio mode next to the headless editor (Custom mode), and holds stdin back until `godot-cli wait-for-ready` sees the editor. |
+| `probe.mjs` | Probes a stdio command the way Glama does, optionally with tool calls. |
+| `Dockerfile` | Local reproduction of the image Glama generates from its admin form (below). It is not given to Glama. |
 
-stdout carries only JSON-RPC. The server, editor and scripts all log to stderr.
+Each script's header has the details. stdout carries only JSON-RPC; every log goes to stderr.
 
 The editor registers **14 tools**: `rql-*` (3), `screenshot-*` (3) and `script-*` (8), each with a title and annotations.
 The README's "24 built-in tools" also counts the `console-*`, `reflection-*` and `runtime-errors-*` families. Those serve
@@ -43,11 +41,11 @@ Measured on a 4 vCPU / 7 GB x86_64 VPS (Docker 29):
 
 | | |
 | --- | --- |
-| Build | 2 min 42 s cold, about 2 min with cached base layers (the install step takes about 70 s) |
-| Image size | 2.40 GB (mostly the .NET SDK, the NuGet cache the editor loads the addon's packages from, Godot, Node.js and Python from Glama's base) |
-| First full `tools/list` | 11.3 s after `docker run` (the editor connects about 9 s after start). Through mcp-proxy, `initialize` answers at 9.8 s and `tools/list` right after. |
+| Build | about 2 min (the install step takes about 65 s, including the probe) |
+| Image size | 2.32 GB: mostly the .NET SDK (`script-build` compiles at run time), the NuGet packages the editor loads the addon from, Godot, and Glama's Node.js and Python |
+| First full `tools/list` | 10.8 s after `docker run` (the editor connects about 9 s after start). Through mcp-proxy, `initialize` answers at 8.7 s and `tools/list` at 8.9 s. |
 | Shutdown | the container exits within 1 s of stdin closing |
-| Offline | works with `--network none`: the network is only needed at build time |
+| Offline | works with `--network none`; the network is only needed at build time |
 
 Godot may print engine teardown errors and a segmentation fault when it is killed at shutdown. That is harmless: the
 container still exits 0.
@@ -75,20 +73,20 @@ merged into `main` first.
    | Pinned commit SHA | leave empty or as Glama manages it (latest `main`) |
 
 3. Click **Deploy** and wait for the build test to pass. The build log should end with `[glama-install] done`.
-   The test log should show `[glama-wait] 14 tools listed`.
+   The log should show `[probe] first tools/list after …: 14 tools`.
 4. Click **Make Release** and publish it. A GitHub release does not count as a Glama release.
 
-Optional overrides go in the env schema: `GLAMA_READY_TIMEOUT` (seconds) and `GLAMA_MCP_PORT` (fixed server port).
+Optional run-time overrides, set through the env schema: `GLAMA_READY_TIMEOUT` (seconds, default 50, below mcp-proxy's
+60 s connection timeout) and `GLAMA_MCP_PORT` (fixed plugin port).
 `install.sh` also reads `GODOT_VERSION` (default `4.5.1`) and `GODOT_CLI_VERSION` (default `latest`), but Glama's
 form has no build-time environment, so changing them means editing the defaults in `install.sh`.
 
 ## Sandbox risks
 
 - **Build network.** The build downloads from dot.net, github.com (Godot, addon and server releases), npmjs.org and
-  nuget.org. At run time the image needs no network.
-- **Image size and build time.** 2.4 GB and about 2 minutes on 4 vCPUs. A build-time cap in Glama would show up as a
-  failed Deploy.
-- **CPU architecture.** x86_64 and arm64 are both handled; any other architecture fails the build with a clear message.
+  nuget.org.
+- **Size and build time.** If Glama caps either, Deploy fails.
+- **CPU architecture.** x86_64 and arm64 are supported; any other architecture fails the build with a clear message.
 - **/dev/shm and GPU.** Not needed: the editor runs `--headless`, with no renderer or display.
-- **Slow sandbox.** If the editor needs more than 50 s to connect, the server still answers but lists no Godot tools. The
-  stderr log then says `did not list tools`.
+- **Slow sandbox.** If the editor needs more than `GLAMA_READY_TIMEOUT` seconds, the server still answers but has no
+  Godot tools. The stderr log then says `did not connect`.

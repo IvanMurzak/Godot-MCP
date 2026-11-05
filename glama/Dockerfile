@@ -7,9 +7,7 @@
 #   docker build -f glama/Dockerfile -t godot-mcp-glama .     # from the repository root
 #   docker run -i --rm godot-mcp-glama                        # MCP over stdio
 FROM debian:trixie-slim
-ENV DEBIAN_FRONTEND=noninteractive \
-    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
-    DOTNET_NOLOGO=1
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git \
     && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
