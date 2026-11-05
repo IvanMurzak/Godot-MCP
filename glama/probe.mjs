@@ -1,11 +1,11 @@
 // Probes the Glama image the way Glama's introspection does: spawns the server command, writes
 // initialize + notifications/initialized + tools/list to its stdin at once, and reports the FIRST tools/list.
-// Optional tool calls follow (name + JSON arguments), then stdin is closed and the container must exit.
+// Optional tool calls follow (name + JSON arguments), then stdin is closed and the server must exit.
 //
 // Usage: node glama/probe.mjs [toolName '<jsonArgs>']... -- docker run -i --rm <image>
 //   (any stdio command works after `--`, e.g. `ssh <host> docker run -i --rm <image>` for a remote Docker)
 // Exits non-zero when the first tools/list is empty, a tool lacks a title or annotations, a call errors,
-// or stdout carries a non-JSON line.
+// stdout carries a non-JSON line, or the server exits early or stays silent past PROBE_TIMEOUT seconds.
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
@@ -25,6 +25,21 @@ const secs = () => ((Date.now() - started) / 1000).toFixed(1);
 const child = spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
 const pending = new Map();
 let failed = false;
+let exitCode;
+let onExit = () => {};
+
+// The child must answer within PROBE_TIMEOUT seconds (default 180); a silent or dead child fails the probe.
+const fail = (reason) => {
+  console.error(`[probe] FAIL: ${reason}`);
+  child.kill('SIGKILL');
+  process.exit(1);
+};
+const timer = setTimeout(() => fail('timed out'), Number(process.env.PROBE_TIMEOUT ?? 180) * 1000);
+child.on('close', (code) => { // 'close': after stdout is drained, so no reply is lost
+  exitCode = code;
+  if (pending.size) fail(`the server exited (${code}) with ${pending.size} request(s) unanswered`);
+  onExit();
+});
 
 createInterface({ input: child.stdout }).on('line', (line) => {
   let msg;
@@ -35,6 +50,7 @@ createInterface({ input: child.stdout }).on('line', (line) => {
     failed = true;
     return;
   }
+  if (msg.method !== undefined) return; // a server notification or request, not a reply
   pending.get(msg.id)?.(msg);
   pending.delete(msg.id);
 });
@@ -77,8 +93,10 @@ for (const { name, args } of calls) {
 }
 
 const closedAt = Date.now();
-child.stdin.end();
-child.on('exit', (code) => {
-  console.error(`[probe] container exited ${code} ${((Date.now() - closedAt) / 1000).toFixed(1)}s after stdin closed`);
+onExit = () => {
+  clearTimeout(timer);
+  console.error(`[probe] exited ${exitCode} ${((Date.now() - closedAt) / 1000).toFixed(1)}s after stdin closed`);
   process.exit(failed ? 1 : 0);
-});
+};
+child.stdin.end();
+if (exitCode !== undefined) onExit();

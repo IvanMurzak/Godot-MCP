@@ -19,8 +19,9 @@ Nothing here ships with the addon (`.gitattributes` export-ignores it) and nothi
 Each script's header has the details. stdout carries only JSON-RPC; every log goes to stderr.
 
 The editor registers **14 tools**: `rql-*` (3), `screenshot-*` (3) and `script-*` (8), each with a title and annotations.
-The README's "24 built-in tools" also counts the `console-*`, `reflection-*` and `runtime-errors-*` families. Those serve
-a running game and are never registered by the editor.
+The README's "24 built-in tools" also counts the `console-*`, `reflection-*` and `runtime-errors-*` families (they serve a
+running game, so the editor never registers them) and the system tools (`ping`, `godot-skill-*`, `session-close`), which
+are not part of `tools/list`.
 
 ## Build, run, probe
 
@@ -42,9 +43,9 @@ Measured on a 4 vCPU / 7 GB x86_64 VPS (Docker 29):
 | | |
 | --- | --- |
 | Build | about 2 min (the install step takes about 65 s, including the probe) |
-| Image size | 2.32 GB: mostly the .NET SDK (`script-build` compiles at run time), the NuGet packages the editor loads the addon from, Godot, and Glama's Node.js and Python |
-| First full `tools/list` | 10.8 s after `docker run` (the editor connects about 9 s after start). Through mcp-proxy, `initialize` answers at 8.7 s and `tools/list` at 8.9 s. |
-| Shutdown | the container exits within 1 s of stdin closing |
+| Image size | 2.32 GB: mostly the .NET SDK (`script-build` compiles at run time), the NuGet packages the editor loads the addon from, Godot and Node.js (Glama's image also carries Python) |
+| First full `tools/list` | 10–12 s after `docker run` (the editor connects about 9 s after start). Through mcp-proxy, `initialize` answers at 8.7–9.8 s and `tools/list` right after. |
+| Shutdown | within 1 s of stdin closing or `docker stop`; a server that fails to start ends the container at once |
 | Offline | works with `--network none`; the network is only needed at build time |
 
 Godot may print engine teardown errors and a segmentation fault when it is killed at shutdown. That is harmless: the
@@ -78,7 +79,7 @@ merged into `main` first.
 
 Optional run-time overrides, set through the env schema: `GLAMA_READY_TIMEOUT` (seconds, default 50, below mcp-proxy's
 60 s connection timeout) and `GLAMA_MCP_PORT` (fixed plugin port).
-`install.sh` also reads `GODOT_VERSION` (default `4.5.1`) and `GODOT_CLI_VERSION` (default `latest`), but Glama's
+`install.sh` also reads `GODOT_VERSION` (default `4.5.1`) and `GODOT_CLI_VERSION` (default: `cli/package.json`, or `latest` if unpublished), but Glama's
 form has no build-time environment, so changing them means editing the defaults in `install.sh`.
 
 ## Sandbox risks
@@ -88,5 +89,7 @@ form has no build-time environment, so changing them means editing the defaults 
 - **Size and build time.** If Glama caps either, Deploy fails.
 - **CPU architecture.** x86_64 and arm64 are supported; any other architecture fails the build with a clear message.
 - **/dev/shm and GPU.** Not needed: the editor runs `--headless`, with no renderer or display.
+- **One session at a time.** Each session (each copy of `entrypoint.sh`) gets its own server port, but all sessions
+  share the one sample project, so concurrent sessions would run two editors on it.
 - **Slow sandbox.** If the editor needs more than `GLAMA_READY_TIMEOUT` seconds, the server still answers but has no
   Godot tools. The stderr log then says `did not connect`.

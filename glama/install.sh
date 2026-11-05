@@ -15,7 +15,9 @@ set -euo pipefail
 
 PREFIX="${GLAMA_PREFIX:-/opt/godot-mcp-glama}"
 GODOT_VERSION="${GODOT_VERSION:-4.5.1}"
-GODOT_CLI_VERSION="${GODOT_CLI_VERSION:-latest}"
+# godot-cli (and, through install-plugin's default, the addon) at the version of this checkout, the one Glama grades;
+# `latest` when that version is not on npm yet (a bump that is not released).
+GODOT_CLI_VERSION="${GODOT_CLI_VERSION:-$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1])).version' "$(dirname "$0")/../cli/package.json")}"
 PROJECT="$PREFIX/project"
 
 log() { echo "[glama-install] $*" >&2; }
@@ -55,6 +57,7 @@ GODOT_BIN="$(find "$PREFIX/godot" -maxdepth 1 -type f -name 'Godot_v*' | head -n
 chmod +x "$GODOT_BIN"
 ln -sf "$GODOT_BIN" /usr/local/bin/godot
 
+npm view "godot-cli@${GODOT_CLI_VERSION}" version >/dev/null 2>&1 || GODOT_CLI_VERSION=latest
 log "godot-cli@${GODOT_CLI_VERSION}"
 npm install -g --no-fund --no-audit "godot-cli@${GODOT_CLI_VERSION}" >&2
 
