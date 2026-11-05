@@ -173,7 +173,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
         public const int ButtonIconSize = 20;
 
         /// <summary>
-        /// The AI-cube / Discord / GitHub / Star icon asset directory (mirrors the agent-icon
+        /// The AI Game Dev logo / Discord / GitHub / Star icon asset directory (mirrors the agent-icon
         /// <c>res://addons/godot_mcp/Icons/</c> convention). The dock's header logo + footer icon buttons load
         /// their textures from here defensively (a missing asset degrades to no-icon, never a crash).
         /// </summary>
