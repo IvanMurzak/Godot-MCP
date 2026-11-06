@@ -84,8 +84,8 @@ export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.5.1' },
   { id: 'com.IvanMurzak.McpPlugin', version: '8.19.0' },
   { id: 'com.IvanMurzak.Rql', version: '0.3.0', editorOnly: true },
-  { id: 'com.IvanMurzak.CodeExec', version: '0.4.0', editorOnly: true, inGameOptIn: true },
-  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.4.0', editorOnly: true, inGameOptIn: true },
+  { id: 'com.IvanMurzak.CodeExec', version: '0.4.1', editorOnly: true, inGameOptIn: true },
+  { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.4.1', editorOnly: true, inGameOptIn: true },
   { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true, inGameOptIn: true },
 ] as const;
 
