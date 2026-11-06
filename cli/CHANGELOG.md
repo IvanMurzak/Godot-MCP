@@ -27,9 +27,10 @@ All notable changes to `godot-cli` are documented in this file.
 - **`install-plugin` sets `EnableDynamicLoading`.** The consumer `.csproj` gets `<EnableDynamicLoading>true</EnableDynamicLoading>`
   (as in Godot's own C# template) when it lacks it or has it `false`: without it the package assemblies are not copied
   to `.godot/mono/temp/bin/<config>/` and a game run from the editor cannot instantiate any C# script.
-- **RQL 0.3.0, Code-Exec 0.4.0.** The `install-plugin` fallback pins (addons without `nuget-deps.json`) follow the
+- **RQL 0.3.0, Code-Exec 0.4.1.** The `install-plugin` fallback pins (addons without `nuget-deps.json`) follow the
   addon (RQL: typed Resource literals, vector functions, key warnings; Code-Exec: a `timeout` budget, snippet threads
-  stopped with their run, blocking waits stop at the budget).
+  stopped with their run, blocking waits stop at the budget; 0.4.1: a `Monitor.Pulse` between two slices of a guarded
+  `Monitor.Wait` is no longer lost).
 - **ReflectorNet 5.5.0, McpPlugin 8.11.1, server 9.2.14.** The `install-plugin` fallback pins (addons without
   `nuget-deps.json`) and the default server download follow. ReflectorNet 5.5.0's base `MainThread` now detects the main
   thread by its `SynchronizationContext`; the addon is unaffected (`GodotMainThread` overrides that detection).
