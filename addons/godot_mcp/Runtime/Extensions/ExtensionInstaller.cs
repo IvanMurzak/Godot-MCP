@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
 
 namespace com.IvanMurzak.Godot.MCP.Extensions
 {
@@ -113,6 +114,43 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
                     ExtensionInstallOutcome.Updated,
                     $"Updated {descriptor.PackageId} to {plan.ToVersion}. Rebuild solutions to restore the new version.",
                     RebuildRequired: true);
+        }
+
+        /// <summary>
+        /// Install (or update) several extensions: each goes through <see cref="Install"/>, one failure does not stop
+        /// the others, and the single result summarizes them all so a bulk action shows one status line.
+        /// </summary>
+        public static ExtensionInstallResult InstallMany(IReadOnlyCollection<GodotExtensionDescriptor> descriptors, IConsumerProjectFile file)
+        {
+            if (descriptors == null)
+                throw new ArgumentNullException(nameof(descriptors));
+
+            var changed = 0;
+            string? firstFailure = null;
+            foreach (var descriptor in descriptors)
+            {
+                var result = Install(descriptor, file);
+                if (result.RebuildRequired)
+                    changed++;
+                else if (result.Outcome != ExtensionInstallOutcome.AlreadyUpToDate)
+                    firstFailure ??= $"{descriptor.Name}: {result.Message}";
+            }
+
+            if (firstFailure != null)
+                return new ExtensionInstallResult(
+                    ExtensionInstallOutcome.Failed,
+                    $"Installed {changed} of {descriptors.Count} extension(s). {firstFailure}",
+                    RebuildRequired: changed > 0);
+
+            return changed > 0
+                ? new ExtensionInstallResult(
+                    ExtensionInstallOutcome.Added,
+                    $"Installed {changed} extension(s). Rebuild solutions to restore and compile them.",
+                    RebuildRequired: true)
+                : new ExtensionInstallResult(
+                    ExtensionInstallOutcome.AlreadyUpToDate,
+                    "All extensions are already installed and up to date.",
+                    RebuildRequired: false);
         }
     }
 }

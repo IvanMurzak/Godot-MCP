@@ -244,6 +244,12 @@ godot-cli build ./MyGodotProject
 
 The installer adds only the extension package; install a required third-party addon into the project yourself.
 
+The **Extensions** section of the dock has **Install All**. **Update All** appears only when the catalog pins a newer
+version than the project has; catalog entries float (`Version="*"`) today, so it stays hidden. Updating the addon with
+`godot-cli install-plugin` re-resolves floating extensions to their latest versions with a forced `dotnet restore`; an
+extension you pinned to a concrete version is kept. If an extension needs a newer McpPlugin than the addon pins, that
+restore fails with `NU1605` and the project will not build until you update the addon or pin the extension.
+
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 # Requirements

@@ -25,6 +25,12 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
         /// <summary>The section header shown above the extension rows / placeholder.</summary>
         public const string Header = "Extensions";
 
+        /// <summary>The header button that installs every extension not installed yet.</summary>
+        public const string InstallAllText = "Install All";
+
+        /// <summary>The header button that updates every installed extension with a newer version. Shown only then.</summary>
+        public const string UpdateAllText = "Update All";
+
         /// <summary>
         /// The honest placeholder shown while no extension package exists yet (the registry ships empty). Matches
         /// Unity-MCP's extensions look but does not pretend an installable extension exists.

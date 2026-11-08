@@ -438,5 +438,53 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.False(result.RebuildRequired);
             Assert.Equal(0, file.Writes);
         }
+
+        // --- Bulk actions -----------------------------------------------------------------------------------------
+
+        [Fact]
+        public void InState_PicksOnlyTheRequestedState()
+        {
+            var installed = InstalledStateDetector.ParsePackageReferences(SampleCsproj);
+            var present = Descriptor("com.IvanMurzak.ReflectorNet");
+            var missing = Descriptor("com.IvanMurzak.Godot.MCP.CSG");
+            var outdated = Descriptor("com.IvanMurzak.McpPlugin", "7.0.0");
+            var all = new[] { present, missing, outdated };
+
+            Assert.Equal(new[] { missing }, InstalledStateDetector.InState(all, installed, ExtensionInstallState.NotInstalled));
+            Assert.Equal(new[] { outdated }, InstalledStateDetector.InState(all, installed, ExtensionInstallState.UpdateAvailable));
+        }
+
+        [Fact]
+        public void InstallMany_AddsEveryOne_AndAsksForOneRebuild()
+        {
+            var file = new FakeProjectFile(SampleCsproj);
+
+            var result = ExtensionInstaller.InstallMany(new[] { Descriptor("a.b.One"), Descriptor("a.b.Two") }, file);
+
+            Assert.Equal(ExtensionInstallOutcome.Added, result.Outcome);
+            Assert.True(result.RebuildRequired);
+            Assert.Contains("Installed 2 extension(s)", result.Message);
+            Assert.Contains("a.b.One", file.Read());
+            Assert.Contains("a.b.Two", file.Read());
+        }
+
+        [Fact]
+        public void InstallMany_NothingToDo_DoesNotAskForRebuild()
+        {
+            var result = ExtensionInstaller.InstallMany(new[] { Descriptor("com.IvanMurzak.ReflectorNet") }, new FakeProjectFile(SampleCsproj));
+
+            Assert.Equal(ExtensionInstallOutcome.AlreadyUpToDate, result.Outcome);
+            Assert.False(result.RebuildRequired);
+        }
+
+        [Fact]
+        public void InstallMany_NoProjectFile_ReportsFailure()
+        {
+            var result = ExtensionInstaller.InstallMany(new[] { Descriptor("a.b.One") }, new FakeProjectFile(null));
+
+            Assert.Equal(ExtensionInstallOutcome.Failed, result.Outcome);
+            Assert.False(result.RebuildRequired);
+            Assert.Contains("Installed 0 of 1", result.Message);
+        }
     }
 }

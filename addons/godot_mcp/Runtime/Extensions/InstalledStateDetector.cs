@@ -137,6 +137,13 @@ namespace com.IvanMurzak.Godot.MCP.Extensions
             return cmp > 0 ? ExtensionInstallState.UpdateAvailable : ExtensionInstallState.Installed;
         }
 
+        /// <summary>The <paramref name="descriptors"/> currently in <paramref name="state"/>, for the panel's bulk actions.</summary>
+        public static List<GodotExtensionDescriptor> InState(
+            IEnumerable<GodotExtensionDescriptor> descriptors,
+            IReadOnlyDictionary<string, string> installed,
+            ExtensionInstallState state)
+            => descriptors.Where(descriptor => StateFor(descriptor, installed) == state).ToList();
+
         /// <summary>Convenience: <see cref="StateFor(GodotExtensionDescriptor, IReadOnlyDictionary{string, string})"/> straight off raw <c>.csproj</c> text.</summary>
         public static ExtensionInstallState StateFor(GodotExtensionDescriptor descriptor, string? csprojText)
             => StateFor(descriptor, ParsePackageReferences(csprojText));
