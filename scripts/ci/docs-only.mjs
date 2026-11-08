@@ -17,7 +17,7 @@
  * step reads. These do not qualify:
  *   README.md, docs/ARCHITECTURE.md, docs/RELEASING.md  cli/tests/skills-addon-parity.test.ts asserts on them
  *   docs/assetlib/                                      the same test, and scripts/bump-version.mjs rewrites it
- *   any .md in a package (cli/, extensions/)            packed into the npm and NuGet packages
+ *   READMEs and the changelog in cli/, extensions/      packed into the npm and NuGet packages
  *   anything but pictures under docs/img/               Godot-MCP.csproj has no Compile Remove for docs/: a .cs there builds
  */
 

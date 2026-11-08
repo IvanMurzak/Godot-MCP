@@ -32,18 +32,21 @@ test("isDocsPath lists only what nothing reads", () => {
     // Godot-MCP.csproj's SDK glob compiles a .cs anywhere under docs/.
     "docs/a.cs",
     "docs/img/a.cs",
-    "docs/img/a.md",
-    // Packed into a package, or read by the build and the tests.
-    "cli/AGENTS.md",
+    "docs/img/a.png.cs",
+    // Packed, rewritten, copied or shipped.
     "cli/README.md",
     "cli/docs/README.md",
     "cli/CHANGELOG.md",
     "extensions/Godot-AI-CSG/README.md",
+    "extensions/Godot-AI-CSG/docs/img/a.png",
     "addons/godot_mcp/extensions.catalog.md",
+    "templates/extension/README.md",
+    // No reader today, but off the list until someone checks and lists them.
+    "cli/AGENTS.md",
     "Godot-Tests/README.md",
     "glama/README.md",
-    "templates/extension/README.md",
     // Code, and near misses of the list.
+    "docs/img/a.md",
     "addons/godot_mcp/plugin.cfg",
     "Godot-MCP.csproj",
     ".github/workflows/test_pull_request.yml",
@@ -58,16 +61,20 @@ test("isDocsPath lists only what nothing reads", () => {
   for (const path of run) assert.equal(isDocsPath(path), false, path);
 });
 
-test("no test, script or workflow names a path the list skips", () => {
+// A guard for the list, not a proof: an unquoted path in a shell step still gets past it.
+test("no file outside the docs names a skipped path as a string", () => {
   const repo = fileURLToPath(new URL("../..", import.meta.url));
-  const out = execFileSync(
-    "git",
-    ["grep", "-hoE", `['"](docs/[^'"]+|AGENTS\\.md)['"]`, "--", "cli/tests", "cli/src", "Godot-MCP.Tests", "Godot-Tests", "scripts", ".github", ":!scripts/ci"],
-    { cwd: repo, encoding: "utf8" },
+  const grep = (...args) =>
+    execFileSync("git", ["grep", ...args, "--", ":!*.md", ":!scripts/ci"], { cwd: repo, encoding: "utf8" }).split("\n").filter(Boolean);
+
+  const named = grep("-hoE", "['\"`](\\.\\.?[\\\\/])*(docs[\\\\/][^'\"`]+|AGENTS\\.md)['\"`]").map((literal) =>
+    literal.slice(1, -1).replace(/^(\.\.?[\\/])+/, "").replaceAll("\\", "/"),
   );
-  const named = [...new Set(out.split("\n").filter(Boolean).map((literal) => literal.slice(1, -1)))];
   assert.ok(named.includes("docs/RELEASING.md"), "the scan must find the docs the parity test reads");
   assert.deepEqual(named.filter(isDocsPath), []);
+
+  // path.join(root, "docs", ...) is how this repo builds paths, so a new one needs a look at the list.
+  assert.deepEqual(grep("-lE", "['\"`]docs['\"`]"), ["cli/package.json"]); // its npm `files`: cli/docs
 });
 
 test("isDocsOnly needs at least one file and every file on the list", () => {
@@ -134,7 +141,8 @@ test("a non-ASCII path stays unquoted, so it can match the list", () => {
 
 test("changedFiles refuses a HEAD that is not a merge commit", () => {
   withRepo((repo, git) => {
-    git("commit", "--allow-empty", "-m", "only");
+    git("commit", "--allow-empty", "-m", "first");
+    git("commit", "--allow-empty", "-m", "second"); // HEAD^1 exists, so only the HEAD^2 check can refuse
     assert.throws(() => changedFiles(repo));
   });
 });
