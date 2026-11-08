@@ -244,6 +244,10 @@ godot-cli build ./MyGodotProject
 
 The installer adds only the extension package; install a required third-party addon into the project yourself.
 
+The **Extensions** section of the dock has **Install All** and, when there is something to update, **Update All**.
+Updating the addon with `godot-cli install-plugin` also moves installed extensions to their latest versions; an
+extension you pinned to a concrete version is kept.
+
 ![AI Game Developer — Godot MCP](https://github.com/IvanMurzak/Godot-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 # Requirements

@@ -46,6 +46,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         VBoxContainer? _body;
         Label? _statusLabel;
+        Button? _installAllButton;
+        Button? _updateAllButton;
         readonly List<ExtensionRow> _rows = new();
 
         /// <summary>Construct with the default editor <see cref="ConsumerProjectFile"/> (globalizes <c>res://</c>, locates the game <c>.csproj</c>).</summary>
@@ -69,9 +71,23 @@ namespace com.IvanMurzak.Godot.MCP.UI
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             AddThemeConstantOverride("separation", 6);
 
-            var header = new Label { Name = "ExtensionsHeader", Text = ExtensionsPanelText.Header };
+            var headerRow = new HBoxContainer { Name = "ExtensionsHeaderRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            headerRow.AddThemeConstantOverride("separation", 8);
+            AddChild(headerRow);
+
+            var header = new Label { Name = "ExtensionsHeader", Text = ExtensionsPanelText.Header, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             DockStyle.ApplyHeader(header);
-            AddChild(header);
+            headerRow.AddChild(header);
+
+            _installAllButton = new Button { Name = "InstallAllButton", Text = ExtensionsPanelText.InstallAllText, SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            DockStyle.ApplySecondaryButton(_installAllButton);
+            DockStyle.ConnectPressed(_installAllButton, this, MethodName.OnInstallAllPressed);
+            headerRow.AddChild(_installAllButton);
+
+            _updateAllButton = new Button { Name = "UpdateAllButton", Text = ExtensionsPanelText.UpdateAllText, SizeFlagsVertical = SizeFlags.ShrinkCenter, Visible = false };
+            DockStyle.ApplyCompactPrimaryButton(_updateAllButton);
+            DockStyle.ConnectPressed(_updateAllButton, this, MethodName.OnUpdateAllPressed);
+            headerRow.AddChild(_updateAllButton);
 
             _body = new VBoxContainer { Name = "ExtensionsBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _body.AddThemeConstantOverride("separation", 6);
@@ -107,6 +123,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (GodotExtensionRegistry.IsEmpty)
             {
                 BuildPlaceholder(_body);
+                RefreshBulkButtons(null);
                 return;
             }
 
@@ -129,6 +146,42 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     row.ShowChecking();
                 SetStatus(ExtensionsPanelText.NoProjectFileNotice, error: true);
             }
+            RefreshBulkButtons(csproj);
+        }
+
+        /// <summary>Install All stays visible and is disabled with nothing to install; Update All shows only with something to update.</summary>
+        void RefreshBulkButtons(string? csproj)
+        {
+            if (_installAllButton == null || _updateAllButton == null)
+                return;
+
+            var hasRows = !GodotExtensionRegistry.IsEmpty;
+            var canEdit = hasRows && _projectFile.Exists;
+            var installable = InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, ExtensionInstallState.NotInstalled).Count;
+            var updatable = InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, ExtensionInstallState.UpdateAvailable).Count;
+
+            _installAllButton.Visible = hasRows;
+            _installAllButton.Disabled = !canEdit || installable == 0;
+            _installAllButton.TooltipText = _installAllButton.Disabled
+                ? "Nothing to install right now."
+                : $"Install {installable} extension(s) that are not installed yet.";
+
+            _updateAllButton.Visible = canEdit && updatable > 0;
+            _updateAllButton.TooltipText = $"Update {updatable} installed extension(s).";
+        }
+
+        /// <summary>Install All <c>pressed</c> handler (object+method Callable).</summary>
+        public void OnInstallAllPressed() => RunBulkAction(ExtensionInstallState.NotInstalled);
+
+        /// <summary>Update All <c>pressed</c> handler (object+method Callable).</summary>
+        public void OnUpdateAllPressed() => RunBulkAction(ExtensionInstallState.UpdateAvailable);
+
+        void RunBulkAction(ExtensionInstallState state)
+        {
+            var csproj = _projectFile.Exists ? _projectFile.Read() : null;
+            var result = ExtensionInstaller.InstallMany(InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, state), _projectFile);
+            SetStatus(result.Message, result.Outcome == ExtensionInstallOutcome.Failed);
+            RefreshStates();
         }
 
         /// <summary>Render the honest "coming soon" placeholder + a docs / template-repo link (registry empty).</summary>
@@ -180,6 +233,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
             var installed = InstalledStateDetector.ParsePackageReferences(csproj);
             foreach (var row in _rows)
                 row.ShowState(InstalledStateDetector.StateFor(row.Descriptor, installed));
+            RefreshBulkButtons(csproj);
         }
 
         void SetStatus(string text, bool error)

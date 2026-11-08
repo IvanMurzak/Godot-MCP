@@ -24,6 +24,7 @@ export type ProgressEvent =
   | { phase: 'addon-downloading'; message: string; url: string }
   | { phase: 'addon-extracting'; message: string }
   | { phase: 'addon-materialized'; message: string; addonDir: string; source: 'download' | 'local' }
+  | { phase: 'extensions-refreshing'; message: string }
   | { phase: 'csproj-patched'; message: string; csprojPath: string }
   // installServer (--with-server) phases
   | { phase: 'server-downloading'; message: string; url: string }
@@ -451,6 +452,10 @@ export type RunSystemToolFailure = RunToolFailure;
 export interface InstallPluginOptions {
   /** Absolute or relative path to the Godot project root. */
   godotProjectPath: string;
+  /** The `dotnet` that restores the installed extensions after an addon update. Defaults to `dotnet` on PATH. */
+  dotnetPath?: string;
+  /** Injectable spawn for tests (mock the `dotnet restore`). */
+  spawnImpl?: typeof import('child_process').spawn;
   /**
    * Local directory to copy `addons/godot_mcp/` from instead of downloading it
    * from the GitHub release (offline / dev / CI path). When set, no network call
@@ -490,6 +495,13 @@ export interface AddonMaterializeOutcome {
 }
 
 /** What `install-plugin` did to the consumer `.csproj`'s PackageReferences + EmbeddedResources. */
+export interface ExtensionsRefreshOutcome {
+  /** Floating (`Version="*"`) extensions a forced restore moved to their latest versions. */
+  refreshed: string[];
+  /** Extensions with a concrete version, kept as the user pinned them. */
+  keptPinned: string[];
+}
+
 export interface CsprojPatchOutcome {
   /** Absolute path to the consumer `.csproj` that was patched, if one was found. */
   csprojPath?: string;
@@ -518,6 +530,8 @@ export interface InstallPluginSuccess {
   materialize: AddonMaterializeOutcome;
   /** Consumer csproj PackageReference patch outcome. */
   csproj: CsprojPatchOutcome;
+  /** What an addon update did to the installed extensions. Empty unless the addon's version changed. */
+  extensions: ExtensionsRefreshOutcome;
   warnings: string[];
 }
 

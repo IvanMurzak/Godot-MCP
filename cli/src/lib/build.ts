@@ -113,7 +113,7 @@ export async function buildProject(options: BuildProjectOptions): Promise<BuildP
       command: [dotnetBin, ...args].join(' '),
     });
 
-    const run = await runDotnetBuild(dotnetBin, args, projectPath, options.spawnImpl);
+    const run = await runDotnet(dotnetBin, args, projectPath, options.spawnImpl);
 
     if (run.code !== 0) {
       const detail = run.output.trim();
@@ -158,13 +158,13 @@ interface DotnetBuildRun {
 }
 
 /**
- * Spawn `dotnet build`, capturing stdout+stderr, and resolve once it exits.
+ * Spawn `dotnet`, capturing stdout+stderr, and resolve once it exits.
  * Unlike the editor launch (which detaches), the build is awaited to completion
  * so the assembly exists before the caller proceeds. Library-safe: a spawn
  * `error` (e.g. `dotnet` not on PATH) resolves as a non-zero run rather than
  * throwing past the boundary. `spawnImpl` is injectable for unit tests.
  */
-function runDotnetBuild(
+export function runDotnet(
   bin: string,
   args: string[],
   cwd: string,

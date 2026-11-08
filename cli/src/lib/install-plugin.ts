@@ -12,11 +12,15 @@ import {
   assertTrustedDownloadUrl,
 } from '../utils/addon-source.js';
 import { parseZip, type ZipEntry } from '../utils/unzip.js';
+import { EXTENSIONS_CATALOG } from '../utils/extensions-catalog.js';
+import { parsePackageReferences } from '../utils/extension-install.js';
+import { runDotnet } from './build.js';
 import { emitProgress } from './progress.js';
 import { requireGodotProject } from './validation.js';
 import type {
   AddonMaterializeOutcome,
   CsprojPatchOutcome,
+  ExtensionsRefreshOutcome,
   InstallPluginOptions,
   InstallPluginResult,
   ProgressCallback,
@@ -39,6 +43,7 @@ const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
  *     `--source`, the checkout's `Godot-MCP.csproj`), falling back to this CLI
  *     build's pins for addon zips that predate the manifest (`addon-nuget-deps.ts`).
  *  3. Flip the `[editor_plugins] enabled` flag in `project.godot`.
+ *  4. When this changed the addon's version, bring the installed extensions to their latest versions.
  *
  * Library-safe: no stdout noise, no `process.exit`, no throws past the public
  * boundary; returns a `{ kind: 'success' | 'failure' }` union. Idempotent: a
@@ -70,6 +75,7 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
     });
 
     // 1. Materialize the addon files (download / local copy / skip).
+    const addonVersionBefore = readAddonVersion(projectPath);
     const materialize = await materializeAddon(projectPath, opts, warnings);
 
     // 2. Patch the consumer csproj with the addon's NuGet PackageReferences.
@@ -87,6 +93,12 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
       });
     }
 
+    // 4. An addon update brings the installed extensions along.
+    const addonVersionAfter = readAddonVersion(projectPath);
+    const extensions = addonVersionBefore !== null && addonVersionBefore !== addonVersionAfter
+      ? await refreshInstalledExtensions(projectPath, csproj.csprojPath, opts, warnings)
+      : NO_EXTENSIONS_REFRESHED;
+
     emitProgress(opts.onProgress, { phase: 'done', message: 'godot_mcp addon installed.' });
 
     return {
@@ -97,6 +109,7 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
       enabledPlugins: toggled.enabled,
       materialize,
       csproj,
+      extensions,
       warnings,
     };
   } catch (err: unknown) {
@@ -107,6 +120,57 @@ export async function installPlugin(opts: InstallPluginOptions): Promise<Install
       error: err instanceof Error ? err : new Error(String(err)),
     };
   }
+}
+
+const NO_EXTENSIONS_REFRESHED: ExtensionsRefreshOutcome = { refreshed: [], keptPinned: [] };
+
+/** The `version` in the project's addon `plugin.cfg`; null when the addon is absent or has none. */
+function readAddonVersion(projectPath: string): string | null {
+  try {
+    const cfg = fs.readFileSync(path.join(projectPath, ADDON_REL_DIR, 'plugin.cfg'), 'utf-8');
+    return /^\s*version\s*=\s*"([^"]*)"/m.exec(cfg)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extensions float (`Version="*"`), but a plain restore keeps the version it already resolved, so only a forced
+ * restore that skips NuGet's HTTP cache moves them to the latest. A concrete pin is the user's choice: it is kept
+ * and reported. Best effort: the addon update already succeeded, so a failure is a warning.
+ */
+async function refreshInstalledExtensions(
+  projectPath: string,
+  csprojPath: string | undefined,
+  opts: InstallPluginOptions,
+  warnings: string[],
+): Promise<ExtensionsRefreshOutcome> {
+  if (!csprojPath) return NO_EXTENSIONS_REFRESHED;
+
+  const references = parsePackageReferences(fs.readFileSync(csprojPath, 'utf-8'));
+  const installed = EXTENSIONS_CATALOG
+    .map((extension) => ({ id: extension.packageId, version: references.get(extension.packageId.toLowerCase()) }))
+    .filter((extension) => extension.version !== undefined);
+  const floating = installed.filter((extension) => extension.version!.includes('*')).map((extension) => extension.id);
+  const keptPinned = installed.filter((extension) => !extension.version!.includes('*')).map((extension) => extension.id);
+
+  if (keptPinned.length > 0) {
+    warnings.push(`Pinned extensions were not updated: ${keptPinned.join(', ')}. Set their Version to "*" to follow the latest.`);
+  }
+  if (floating.length === 0) return { refreshed: [], keptPinned };
+
+  emitProgress(opts.onProgress, { phase: 'extensions-refreshing', message: `Updating ${floating.length} installed extension(s)` });
+  const run = await runDotnet(
+    opts.dotnetPath ?? 'dotnet',
+    ['restore', csprojPath, '--force', '--no-cache'],
+    projectPath,
+    opts.spawnImpl,
+  );
+  if (run.code !== 0) {
+    warnings.push(`Could not update the installed extensions (dotnet restore exited with ${run.code}); they keep their current versions until a forced restore. ${run.output.trim().slice(-500)}`);
+    return { refreshed: [], keptPinned };
+  }
+  return { refreshed: floating, keptPinned };
 }
 
 /**
