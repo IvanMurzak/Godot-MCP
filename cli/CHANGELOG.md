@@ -4,10 +4,12 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
-- **`install-plugin` updates the installed extensions when it changes the addon's version.** It runs a forced
-  `dotnet restore`, so `Version="*"` extensions move to their latest versions (a plain restore keeps what it resolved).
-  Extensions with a concrete version are kept and reported; a failed restore is a warning, not a failed install.
-  The library result gains `extensions` (`refreshed`, `keptPinned`).
+- **`update` updates everything.** `update [path]` brings the project's addon and installed extensions to their latest
+  versions, then updates the CLI itself (it used to update only the CLI). From a subfolder it finds the project; outside a
+  project it updates only the CLI. `--check` reports (exit 2 when something is outdated); `--no-self`, `--no-project` and
+  `--no-extensions` skip a step. A linked addon is left alone. Extensions float (`Version="*"`), so a forced `dotnet restore`
+  moves them; one pinned to a concrete version is kept and reported, and a failed restore is a warning. Library:
+  `updateProject`.
 - **McpPlugin 8.18.0.** The `install-plugin` fallback pin follows the addon (McpPlugin 8.16: `ToolUnavailableException`
   answers 503; 8.17: restart notices, portless local server URLs repaired; 8.18: Claude Desktop takes no HTTP config
   file entry, in Cloud mode it is added as a Claude custom connector).
