@@ -111,12 +111,21 @@ jobs:
         continue-on-error: true
         timeout-minutes: 1
         run: node scripts/ci/docs-only.mjs
-      # Not continue-on-error, or a broken gate would stay green. A failure here only turns this job
-      # red: the output is already written and the jobs below do not require this job's success.
-      - name: Test the docs-only gate
-        if: env.CLASSIFY == 'true'
-        timeout-minutes: 2
-        run: node --test scripts/ci/docs-only.test.mjs
+
+  # Its own job, not a step of `changes`: every step there may fail without turning it red, so a
+  # routine test failure can never reach the jobs that wait on it. Nothing needs this job.
+  test-docs-only-gate:
+    name: Test the docs-only gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: node --test scripts/ci/docs-only.test.mjs
 
   # (a) .NET build + xUnit (mirrors ci.yml; aggregate signal for this PR run).
   dotnet-build-test:

@@ -12,25 +12,24 @@
  * which needs `fetch-depth: 2` on the checkout and no token or API. `--no-renames` because a rename
  * from addons/ into docs/ would otherwise list only its docs/ side.
  *
- * To skip CI for more paths, edit isDocsPath and its table in docs-only.test.mjs. List only what no
- * build, test, packaging or generation step reads. These do not qualify:
+ * To skip CI for more paths, edit DOCS and its table in docs-only.test.mjs: a new doc runs everything
+ * until someone checks it and lists it here. List only what no build, test, packaging or generation
+ * step reads. These do not qualify:
  *   README.md, docs/ARCHITECTURE.md, docs/RELEASING.md  cli/tests/skills-addon-parity.test.ts asserts on them
  *   docs/assetlib/                                      the same test, and scripts/bump-version.mjs rewrites it
  *   any .md in a package (cli/, extensions/)            packed into the npm and NuGet packages
- *   any other extension under docs/                     Godot-MCP.csproj has no Compile Remove for docs/: a .cs there builds
+ *   anything but pictures under docs/img/               Godot-MCP.csproj has no Compile Remove for docs/: a .cs there builds
  */
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const READ_BY_TESTS = new Set(["docs/ARCHITECTURE.md", "docs/RELEASING.md"]);
+const DOCS = new Set(["AGENTS.md", "docs/EXTENSION-MONOREPO.md", "docs/rql.md", "docs/runtime-security.md"]);
 
 /** @param {string} path repo-relative, forward slashes */
 export function isDocsPath(path) {
-  if (path === "AGENTS.md") return true;
-  if (/^docs\/[^/]+\.md$/.test(path)) return !READ_BY_TESTS.has(path);
-  return /^docs\/img\/.+\.(png|jpg|svg)$/.test(path);
+  return DOCS.has(path) || /^docs\/img\/.+\.(png|jpg|svg)$/.test(path);
 }
 
 /** @param {readonly string[]} files */
@@ -53,7 +52,7 @@ function main() {
   const others = files.filter((file) => !isDocsPath(file));
   console.log(`${files.length} changed file(s), ${others.length} outside the docs list${others.length ? `, e.g. ${others[0]}` : ""}`);
   console.log(`docs_only=${docsOnly}`);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `docs_only=${docsOnly}\n`);
+  appendFileSync(process.env.GITHUB_OUTPUT, `docs_only=${docsOnly}\n`);
 }
 
 // realpath: import.meta.url has its symlinks resolved, argv[1] does not, and a mismatch would exit 0 with no output.

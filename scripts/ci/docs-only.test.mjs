@@ -15,7 +15,6 @@ test("isDocsPath lists only what nothing reads", () => {
     "docs/rql.md",
     "docs/runtime-security.md",
     "docs/EXTENSION-MONOREPO.md",
-    "docs/заметка.md",
     "docs/img/mcp-clients/claude-64.png",
     "docs/img/promo/ai-developer-banner.jpg",
     "docs/img/promo/hazzard-features.svg",
@@ -26,8 +25,9 @@ test("isDocsPath lists only what nothing reads", () => {
     "docs/ARCHITECTURE.md",
     "docs/RELEASING.md",
     "docs/assetlib/SUBMISSION.md",
-    // The rest of docs/assetlib/, and folders nobody has checked yet.
+    // The rest of docs/assetlib/, and what nobody has checked yet.
     "docs/assetlib/gallery/01-hero.jpg",
+    "docs/new.md",
     "docs/plans/a.md",
     // Godot-MCP.csproj's SDK glob compiles a .cs anywhere under docs/.
     "docs/a.cs",
@@ -112,24 +112,24 @@ function withMerge(change, check) {
 }
 
 test("changedFiles lists only what the pull request changes, not what main gained", () => {
-  withMerge(({ write }) => write("docs/a.md"), (repo) => assert.deepEqual(changedFiles(repo), ["docs/a.md"]));
+  withMerge(({ write }) => write("docs/rql.md"), (repo) => assert.deepEqual(changedFiles(repo), ["docs/rql.md"]));
 });
 
 test("a rename from code into docs lists both sides, so it is not docs-only", () => {
   withMerge(
     ({ repo }) => {
       mkdirSync(join(repo, "docs"));
-      renameSync(join(repo, "addons/a.cs"), join(repo, "docs/a.md"));
+      renameSync(join(repo, "addons/a.cs"), join(repo, "docs/rql.md"));
     },
     (repo) => {
-      assert.deepEqual(changedFiles(repo).sort(), ["addons/a.cs", "docs/a.md"]);
+      assert.deepEqual(changedFiles(repo).sort(), ["addons/a.cs", "docs/rql.md"]);
       assert.equal(isDocsOnly(changedFiles(repo)), false);
     },
   );
 });
 
-test("a non-ASCII docs path stays unquoted, so it still matches the list", () => {
-  withMerge(({ write }) => write("docs/заметка.md"), (repo) => assert.equal(isDocsOnly(changedFiles(repo)), true));
+test("a non-ASCII path stays unquoted, so it can match the list", () => {
+  withMerge(({ write }) => write("docs/img/заметка.png"), (repo) => assert.equal(isDocsOnly(changedFiles(repo)), true));
 });
 
 test("changedFiles refuses a HEAD that is not a merge commit", () => {
@@ -141,7 +141,7 @@ test("changedFiles refuses a HEAD that is not a merge commit", () => {
 
 test("the script writes the output only when HEAD is the commit under test", () => {
   const script = fileURLToPath(new URL("./docs-only.mjs", import.meta.url));
-  withMerge(({ write }) => write("docs/a.md"), (repo) => {
+  withMerge(({ write }) => write("docs/rql.md"), (repo) => {
     const output = join(repo, "output.txt");
     const run = (sha) => spawnSync(process.execPath, [script], { cwd: repo, encoding: "utf8", env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_SHA: sha } });
 
