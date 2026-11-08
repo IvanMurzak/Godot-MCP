@@ -69,7 +69,6 @@ async function updateProjectStep(projectPath: string, options: UpdateOptions): P
   }
 
   const outdated = result.items.filter((item) => item.status === 'outdated');
-  const pending = [...outdated, ...result.items.filter((item) => item.status === 'floating')];
   spinner.success(options.check
     ? `${outdated.length} update(s) available`
     : `${result.updated.length} updated`);
@@ -79,7 +78,7 @@ async function updateProjectStep(projectPath: string, options: UpdateOptions): P
 
   if (result.items.length === 0) ui.info('The addon is not installed here: nothing to update in this project.');
   if (options.check) return outdated.length > 0 ? 'outdated' : 'done';
-  return result.updated.length < pending.length ? 'failed' : 'done';
+  return result.updated.length < result.items.filter((item) => item.status === 'outdated' || item.status === 'floating').length ? 'failed' : 'done';
 }
 
 async function updateSelfStep(currentVersion: string, check: boolean | undefined): Promise<Outcome> {
@@ -139,6 +138,18 @@ async function updateSelfStep(currentVersion: string, check: boolean | undefined
   return 'done';
 }
 
+/** The project to update, or null when there is none around the current folder. A named path that is not one exits 1. */
+function resolveProject(explicit: string | undefined): string | null {
+  if (explicit === undefined) return findGodotProjectRoot(process.cwd());
+
+  const target = requireGodotProject(explicit);
+  if (!target.ok) {
+    ui.error(target.error.message);
+    process.exit(1);
+  }
+  return target.projectPath;
+}
+
 export function createUpdateCommand(currentVersion: string): Command {
   return new Command('update')
     .description(`Update everything: the Godot project's addon and installed extensions to the latest version, then ${PACKAGE_NAME} itself`)
@@ -152,20 +163,7 @@ export function createUpdateCommand(currentVersion: string): Command {
       const outcomes: Outcome[] = [];
 
       if (options.project !== false) {
-        const explicitPath = positionalPath ?? options.path;
-        let projectPath: string | null;
-        if (explicitPath !== undefined) {
-          // A named project that is not one is an error before anything changes.
-          const target = requireGodotProject(explicitPath);
-          if (!target.ok) {
-            ui.error(target.error.message);
-            process.exit(1);
-          }
-          projectPath = target.projectPath;
-        } else {
-          projectPath = findGodotProjectRoot(process.cwd());
-        }
-
+        const projectPath = resolveProject(positionalPath ?? options.path);
         if (projectPath === null) {
           ui.info('No Godot project here, so only the CLI is updated. Pass a project path to update its addon and extensions.');
         } else {

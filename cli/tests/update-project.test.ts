@@ -118,6 +118,15 @@ describe('updateProject', () => {
     expect(result.updated).toEqual([]);
   });
 
+  it('refuses to replace the addon under an open editor', async () => {
+    const root = project('1.0.0', '');
+
+    const result = await updateProject({ godotProjectPath: root, version: '2.0.0', findEditor: () => ({ pid: 4242 }) });
+
+    expect(result.kind).toBe('failure');
+    if (result.kind === 'failure') expect(result.error.message).toContain('4242');
+  });
+
   it('noExtensions restores nothing', async () => {
     const calls: string[][] = [];
     const result = await updateProject({ godotProjectPath: project('2.0.0', floating), version: '2.0.0', noExtensions: true, spawnImpl: fakeSpawn(calls) });

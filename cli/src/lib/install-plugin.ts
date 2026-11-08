@@ -25,7 +25,7 @@ import type {
 } from './types.js';
 
 /** Relative path of the addon dir inside a Godot project. */
-const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
+export const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
 
 /**
  * Install the `godot_mcp` addon into a Godot C# project as a REAL installer:

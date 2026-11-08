@@ -6,12 +6,11 @@ import { FLOAT_VERSION, parsePackageReferences } from '../utils/extension-instal
 import { isNewerVersion } from '../utils/semver.js';
 import { fetchLatestVersion } from '../utils/update-check.js';
 import { runDotnet } from './build.js';
-import { findConsumerCsproj, installPlugin } from './install-plugin.js';
+import { findGodotProcess } from './close.js';
+import { ADDON_REL_DIR, findConsumerCsproj, installPlugin } from './install-plugin.js';
 import { emitProgress } from './progress.js';
 import { requireGodotProject } from './validation.js';
 import type { ProgressCallback } from './types.js';
-
-const ADDON_REL_DIR = path.join('addons', 'godot_mcp');
 
 /**
  * `outdated`: an update applies. `current`: nothing newer. `local`: a linked addon, never replaced.
@@ -37,7 +36,8 @@ export interface UpdateProjectOptions {
   dryRun?: boolean;
   /** The addon version to move to. Defaults to the latest published release. */
   version?: string;
-  fetchImpl?: typeof fetch;
+  /** Test seam: the editor that has this project open, if any. */
+  findEditor?: (projectPath: string) => { pid: number } | null | undefined;
   /** Injectable spawn for tests (mock the `dotnet restore`). */
   spawnImpl?: typeof spawn;
   onProgress?: ProgressCallback;
@@ -140,10 +140,13 @@ export async function updateProject(opts: UpdateProjectOptions): Promise<UpdateP
 
     if (!opts.dryRun) {
       if (addon?.status === 'outdated') {
+        // Replacing the addon's sources under an open editor makes it reload half-replaced code.
+        const running = (opts.findEditor ?? findGodotProcess)(projectPath);
+        if (running) throw new Error(`Close the Godot editor first (PID ${running.pid}): it has this project open.`);
+
         const result = await installPlugin({
           godotProjectPath: projectPath,
           version: addon.to!,
-          fetchImpl: opts.fetchImpl,
           onProgress: opts.onProgress,
         });
         if (result.kind === 'failure') {
