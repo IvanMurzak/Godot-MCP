@@ -135,9 +135,9 @@ function readAddonVersion(projectPath: string): string | null {
 }
 
 /**
- * Extensions float (`Version="*"`), but a plain restore keeps the version it already resolved, so only a forced
- * restore that skips NuGet's HTTP cache moves them to the latest. A concrete pin is the user's choice: it is kept
- * and reported. Best effort: the addon update already succeeded, so a failure is a warning.
+ * Extensions float (`Version="*"`), but a no-op restore keeps the version it already resolved, so a forced restore
+ * that skips NuGet's HTTP cache re-resolves them to the latest. A concrete pin is the user's choice: it is kept and
+ * reported. Best effort: the addon update already succeeded, so a failure is a warning, never a failed install.
  */
 async function refreshInstalledExtensions(
   projectPath: string,
@@ -147,7 +147,14 @@ async function refreshInstalledExtensions(
 ): Promise<ExtensionsRefreshOutcome> {
   if (!csprojPath) return NO_EXTENSIONS_REFRESHED;
 
-  const references = parsePackageReferences(fs.readFileSync(csprojPath, 'utf-8'));
+  let csprojText: string;
+  try {
+    csprojText = fs.readFileSync(csprojPath, 'utf-8');
+  } catch (err: unknown) {
+    warnings.push(`Could not update the installed extensions: ${err instanceof Error ? err.message : String(err)}`);
+    return NO_EXTENSIONS_REFRESHED;
+  }
+  const references = parsePackageReferences(csprojText);
   const floating: string[] = [];
   const keptPinned: string[] = [];
   for (const { packageId } of EXTENSIONS_CATALOG) {
@@ -168,7 +175,7 @@ async function refreshInstalledExtensions(
     opts.spawnImpl,
   );
   if (run.code !== 0) {
-    warnings.push(`Could not update the installed extensions (dotnet restore exited with ${run.code}); they keep their current versions until a forced restore. ${run.output.trim().slice(-500)}`);
+    warnings.push(`Could not update the installed extensions (dotnet restore exited with ${run.code}). If an extension needs a newer McpPlugin than this addon pins (NU1605), the project will not build until you update the addon or pin that extension to a compatible version. ${run.output.trim().slice(-500)}`);
     return { refreshed: [], keptPinned };
   }
   return { refreshed: floating, keptPinned };

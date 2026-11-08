@@ -494,7 +494,7 @@ export interface AddonMaterializeOutcome {
 
 /** What `install-plugin` did to the consumer `.csproj`'s PackageReferences + EmbeddedResources. */
 export interface ExtensionsRefreshOutcome {
-  /** Floating (`Version="*"`) extensions a forced restore moved to their latest versions. */
+  /** Floating (`Version="*"`) extensions a forced restore re-resolved to their latest versions (they may not have moved). */
   refreshed: string[];
   /** Extensions with a concrete version, kept as the user pinned them. */
   keptPinned: string[];

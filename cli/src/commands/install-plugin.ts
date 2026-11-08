@@ -136,7 +136,7 @@ export const installPluginCommand = new Command('install-plugin')
     }
 
     if (result.extensions.refreshed.length > 0) {
-      ui.label('Extensions updated', result.extensions.refreshed.join(', '));
+      ui.label('Extensions re-resolved to latest', result.extensions.refreshed.join(', '));
     }
 
     ui.label('project.godot', result.projectGodotPath);
