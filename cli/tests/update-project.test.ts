@@ -127,6 +127,18 @@ describe('updateProject', () => {
     if (result.kind === 'failure') expect(result.error.message).toContain('4242');
   });
 
+  it('does not move extensions past an addon it could not look up', async () => {
+    const calls: string[][] = [];
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 })));
+
+    const result = await updateProject({ godotProjectPath: project('1.0.0', floating), spawnImpl: fakeSpawn(calls) });
+
+    if (result.kind !== 'success') throw result.error;
+    expect(result.items[0]?.status).toBe('unknown');
+    expect(calls).toEqual([]);
+    expect(result.warnings.join('\n')).toContain('not updated');
+  });
+
   it('noExtensions restores nothing', async () => {
     const calls: string[][] = [];
     const result = await updateProject({ godotProjectPath: project('2.0.0', floating), version: '2.0.0', noExtensions: true, spawnImpl: fakeSpawn(calls) });

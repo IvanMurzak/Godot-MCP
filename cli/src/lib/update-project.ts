@@ -4,9 +4,9 @@ import * as path from 'path';
 import { EXTENSIONS_CATALOG } from '../utils/extensions-catalog.js';
 import { FLOAT_VERSION, parsePackageReferences } from '../utils/extension-install.js';
 import { isNewerVersion } from '../utils/semver.js';
+import { findGodotProcess } from '../utils/godot-process.js';
 import { fetchLatestVersion } from '../utils/update-check.js';
 import { runDotnet } from './build.js';
-import { findGodotProcess } from './close.js';
 import { ADDON_REL_DIR, findConsumerCsproj, installPlugin } from './install-plugin.js';
 import { emitProgress } from './progress.js';
 import { requireGodotProject } from './validation.js';
@@ -133,12 +133,16 @@ export async function updateProject(opts: UpdateProjectOptions): Promise<UpdateP
     const { projectPath } = validated;
 
     const addon = await planAddon(projectPath, opts, warnings);
-    const csprojPath = findConsumerCsproj(projectPath, warnings);
+    // installPlugin reports its own csproj warnings; these would only repeat them.
+    const csprojPath = findConsumerCsproj(projectPath, []);
     const extensions = opts.noExtensions || csprojPath === null ? [] : planExtensions(csprojPath);
     const items = [...(addon ? [addon] : []), ...extensions];
     const updated: ProjectUpdateItem[] = [];
 
     if (!opts.dryRun) {
+      // Latest extensions can need a newer McpPlugin than an old addon pins (NU1605): do not move them past it.
+      let addonBlocksExtensions = addon?.status === 'unknown';
+
       if (addon?.status === 'outdated') {
         // Replacing the addon's sources under an open editor makes it reload half-replaced code.
         const running = (opts.findEditor ?? findGodotProcess)(projectPath);
@@ -150,6 +154,7 @@ export async function updateProject(opts: UpdateProjectOptions): Promise<UpdateP
           onProgress: opts.onProgress,
         });
         if (result.kind === 'failure') {
+          addonBlocksExtensions = true;
           warnings.push(`Could not update the addon: ${result.error.message}`, ...result.warnings);
         } else {
           warnings.push(...result.warnings);
@@ -163,7 +168,9 @@ export async function updateProject(opts: UpdateProjectOptions): Promise<UpdateP
       }
 
       const floating = extensions.filter((item) => item.status === 'floating');
-      if (floating.length > 0 && csprojPath !== null) {
+      if (floating.length > 0 && addonBlocksExtensions) {
+        warnings.push('The installed extensions were not updated: the addon could not be brought to the latest version first.');
+      } else if (floating.length > 0 && csprojPath !== null) {
         emitProgress(opts.onProgress, { phase: 'extensions-refreshing', message: `Updating ${floating.length} installed extension(s)` });
         const run = await runDotnet('dotnet', ['restore', csprojPath, '--force', '--no-cache'], projectPath, opts.spawnImpl);
         if (run.code === 0) {
