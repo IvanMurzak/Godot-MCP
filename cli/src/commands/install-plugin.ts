@@ -135,10 +135,6 @@ export const installPluginCommand = new Command('install-plugin')
       ui.label('Embedded resources', embedSummary || '(none)');
     }
 
-    if (result.extensions.refreshed.length > 0) {
-      ui.label('Extensions re-resolved to latest', result.extensions.refreshed.join(', '));
-    }
-
     ui.label('project.godot', result.projectGodotPath);
     ui.label('Enabled plugins', result.enabledPlugins.join(', ') || '(none)');
 

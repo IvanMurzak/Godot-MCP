@@ -31,6 +31,8 @@ export { configureAgentViaServer } from './lib/configure-agent.js';
 
 // Shared extension catalog (single-sourced from addons/godot_mcp/extensions.catalog.json)
 // + its lookup helpers, so the app can render the same list the dock + CLI install from.
+export { updateProject, findGodotProjectRoot } from './lib/update-project.js';
+export type { ProjectUpdateItem, ProjectUpdateStatus, UpdateProjectOptions, UpdateProjectResult } from './lib/update-project.js';
 export { EXTENSIONS_CATALOG, findExtension, hasVersion } from './utils/extensions-catalog.js';
 export type { ExtensionDescriptor, ExtensionTool } from './utils/extensions-catalog.js';
 
@@ -86,7 +88,6 @@ export type {
   InstallPluginFailure,
   AddonMaterializeOutcome,
   CsprojPatchOutcome,
-  ExtensionsRefreshOutcome,
   RemovePluginOptions,
   RemovePluginResult,
   RemovePluginSuccess,

@@ -101,7 +101,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
 | `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
 | `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
-| `update` | Check npm for a newer `godot-cli` and install it. |
+| `update [path]` | Update everything: the project's `godot_mcp` addon and installed extensions to their latest versions, then `godot-cli` itself. Outside a project it updates only the CLI. `--check` reports (exit 2 when something is outdated); `--no-self`, `--no-project`, `--no-extensions` skip a step. |
 
 ### Build before open (`open` / `build`)
 
