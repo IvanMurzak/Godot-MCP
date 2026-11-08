@@ -444,13 +444,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void InState_PicksOnlyTheRequestedState()
         {
-            var installed = Descriptor("com.IvanMurzak.ReflectorNet");
+            var installed = InstalledStateDetector.ParsePackageReferences(SampleCsproj);
+            var present = Descriptor("com.IvanMurzak.ReflectorNet");
             var missing = Descriptor("com.IvanMurzak.Godot.MCP.CSG");
             var outdated = Descriptor("com.IvanMurzak.McpPlugin", "7.0.0");
-            var all = new[] { installed, missing, outdated };
+            var all = new[] { present, missing, outdated };
 
-            Assert.Equal(new[] { missing }, InstalledStateDetector.InState(all, SampleCsproj, ExtensionInstallState.NotInstalled));
-            Assert.Equal(new[] { outdated }, InstalledStateDetector.InState(all, SampleCsproj, ExtensionInstallState.UpdateAvailable));
+            Assert.Equal(new[] { missing }, InstalledStateDetector.InState(all, installed, ExtensionInstallState.NotInstalled));
+            Assert.Equal(new[] { outdated }, InstalledStateDetector.InState(all, installed, ExtensionInstallState.UpdateAvailable));
         }
 
         [Fact]

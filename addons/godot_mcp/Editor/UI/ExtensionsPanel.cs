@@ -123,13 +123,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (GodotExtensionRegistry.IsEmpty)
             {
                 BuildPlaceholder(_body);
-                RefreshBulkButtons(null);
+                RefreshBulkButtons(ReadInstalledPackages());
                 return;
             }
 
             // Read the consumer .csproj ONCE and derive every row's state from the same parsed map (synchronous).
-            var csproj = _projectFile.Exists ? _projectFile.Read() : null;
-            var installed = InstalledStateDetector.ParsePackageReferences(csproj);
+            var installed = ReadInstalledPackages();
 
             foreach (var descriptor in GodotExtensionRegistry.All)
             {
@@ -146,19 +145,19 @@ namespace com.IvanMurzak.Godot.MCP.UI
                     row.ShowChecking();
                 SetStatus(ExtensionsPanelText.NoProjectFileNotice, error: true);
             }
-            RefreshBulkButtons(csproj);
+            RefreshBulkButtons(installed);
         }
 
         /// <summary>Install All stays visible and is disabled with nothing to install; Update All shows only with something to update.</summary>
-        void RefreshBulkButtons(string? csproj)
+        void RefreshBulkButtons(IReadOnlyDictionary<string, string> installed)
         {
             if (_installAllButton == null || _updateAllButton == null)
                 return;
 
             var hasRows = !GodotExtensionRegistry.IsEmpty;
             var canEdit = hasRows && _projectFile.Exists;
-            var installable = InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, ExtensionInstallState.NotInstalled).Count;
-            var updatable = InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, ExtensionInstallState.UpdateAvailable).Count;
+            var installable = InstalledStateDetector.InState(GodotExtensionRegistry.All, installed, ExtensionInstallState.NotInstalled).Count;
+            var updatable = InstalledStateDetector.InState(GodotExtensionRegistry.All, installed, ExtensionInstallState.UpdateAvailable).Count;
 
             _installAllButton.Visible = hasRows;
             _installAllButton.Disabled = !canEdit || installable == 0;
@@ -178,8 +177,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
         void RunBulkAction(ExtensionInstallState state)
         {
-            var csproj = _projectFile.Exists ? _projectFile.Read() : null;
-            var result = ExtensionInstaller.InstallMany(InstalledStateDetector.InState(GodotExtensionRegistry.All, csproj, state), _projectFile);
+            var result = ExtensionInstaller.InstallMany(InstalledStateDetector.InState(GodotExtensionRegistry.All, ReadInstalledPackages(), state), _projectFile);
             SetStatus(result.Message, result.Outcome == ExtensionInstallOutcome.Failed);
             RefreshStates();
         }
@@ -229,12 +227,14 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// <summary>Re-read the consumer <c>.csproj</c> and re-apply each row's install state (no full rebuild — rows persist).</summary>
         void RefreshStates()
         {
-            var csproj = _projectFile.Exists ? _projectFile.Read() : null;
-            var installed = InstalledStateDetector.ParsePackageReferences(csproj);
+            var installed = ReadInstalledPackages();
             foreach (var row in _rows)
                 row.ShowState(InstalledStateDetector.StateFor(row.Descriptor, installed));
-            RefreshBulkButtons(csproj);
+            RefreshBulkButtons(installed);
         }
+
+        IReadOnlyDictionary<string, string> ReadInstalledPackages()
+            => InstalledStateDetector.ParsePackageReferences(_projectFile.Exists ? _projectFile.Read() : null);
 
         void SetStatus(string text, bool error)
         {

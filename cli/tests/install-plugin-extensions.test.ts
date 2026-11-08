@@ -58,13 +58,13 @@ describe('installPlugin brings the installed extensions along with an addon upda
     const calls: string[][] = [];
     const root = project('1.0.0', floating);
 
-    const result = await installPlugin({ godotProjectPath: root, source: source('2.0.0'), spawnImpl: fakeSpawn(calls), dotnetPath: 'fake-dotnet' });
+    const result = await installPlugin({ godotProjectPath: root, source: source('2.0.0'), spawnImpl: fakeSpawn(calls) });
 
     expect(result.kind).toBe('success');
     if (result.kind !== 'success') return;
     expect(result.extensions).toEqual({ refreshed: [CSG], keptPinned: [] });
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toEqual(['fake-dotnet', 'restore', path.resolve(root, 'Game.csproj'), '--force', '--no-cache']);
+    expect(calls[0]).toEqual(['dotnet', 'restore', path.resolve(root, 'Game.csproj'), '--force', '--no-cache']);
   });
 
   it('does nothing when the addon version is unchanged', async () => {

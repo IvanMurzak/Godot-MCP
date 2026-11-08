@@ -13,7 +13,7 @@ import {
 } from '../utils/addon-source.js';
 import { parseZip, type ZipEntry } from '../utils/unzip.js';
 import { EXTENSIONS_CATALOG } from '../utils/extensions-catalog.js';
-import { parsePackageReferences } from '../utils/extension-install.js';
+import { FLOAT_VERSION, parsePackageReferences } from '../utils/extension-install.js';
 import { runDotnet } from './build.js';
 import { emitProgress } from './progress.js';
 import { requireGodotProject } from './validation.js';
@@ -148,11 +148,12 @@ async function refreshInstalledExtensions(
   if (!csprojPath) return NO_EXTENSIONS_REFRESHED;
 
   const references = parsePackageReferences(fs.readFileSync(csprojPath, 'utf-8'));
-  const installed = EXTENSIONS_CATALOG
-    .map((extension) => ({ id: extension.packageId, version: references.get(extension.packageId.toLowerCase()) }))
-    .filter((extension) => extension.version !== undefined);
-  const floating = installed.filter((extension) => extension.version!.includes('*')).map((extension) => extension.id);
-  const keptPinned = installed.filter((extension) => !extension.version!.includes('*')).map((extension) => extension.id);
+  const floating: string[] = [];
+  const keptPinned: string[] = [];
+  for (const { packageId } of EXTENSIONS_CATALOG) {
+    const version = references.get(packageId.toLowerCase());
+    if (version !== undefined) (version.includes(FLOAT_VERSION) ? floating : keptPinned).push(packageId);
+  }
 
   if (keptPinned.length > 0) {
     warnings.push(`Pinned extensions were not updated: ${keptPinned.join(', ')}. Set their Version to "*" to follow the latest.`);
@@ -161,7 +162,7 @@ async function refreshInstalledExtensions(
 
   emitProgress(opts.onProgress, { phase: 'extensions-refreshing', message: `Updating ${floating.length} installed extension(s)` });
   const run = await runDotnet(
-    opts.dotnetPath ?? 'dotnet',
+    'dotnet',
     ['restore', csprojPath, '--force', '--no-cache'],
     projectPath,
     opts.spawnImpl,

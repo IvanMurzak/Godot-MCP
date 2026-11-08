@@ -452,8 +452,6 @@ export type RunSystemToolFailure = RunToolFailure;
 export interface InstallPluginOptions {
   /** Absolute or relative path to the Godot project root. */
   godotProjectPath: string;
-  /** The `dotnet` that restores the installed extensions after an addon update. Defaults to `dotnet` on PATH. */
-  dotnetPath?: string;
   /** Injectable spawn for tests (mock the `dotnet restore`). */
   spawnImpl?: typeof import('child_process').spawn;
   /**

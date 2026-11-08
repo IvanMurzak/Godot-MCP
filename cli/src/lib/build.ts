@@ -152,7 +152,7 @@ export async function buildProject(options: BuildProjectOptions): Promise<BuildP
 }
 
 /** A finished `dotnet build` invocation: its exit code + combined output. */
-interface DotnetBuildRun {
+interface DotnetRun {
   code: number | null;
   output: string;
 }
@@ -169,10 +169,10 @@ export function runDotnet(
   args: string[],
   cwd: string,
   spawnImpl: typeof spawn = spawn,
-): Promise<DotnetBuildRun> {
+): Promise<DotnetRun> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (run: DotnetBuildRun): void => {
+    const finish = (run: DotnetRun): void => {
       if (settled) return;
       settled = true;
       resolve(run);
