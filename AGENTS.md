@@ -29,6 +29,7 @@ pipelines. **Never bump them here.** The current pins are in `Godot-MCP.csproj` 
 - `Godot-Tests/` — headless Godot CI testbed + runtime harness ([`Godot-Tests/README.md`](Godot-Tests/README.md)).
 - `cli/` — the `godot-cli` npm package; see [`cli/AGENTS.md`](cli/AGENTS.md).
 - `scripts/` — CI/release helpers (`bump-version.mjs`, `check-runtime-boundary.py`, harness asserts).
+  `scripts/ci/docs-only.mjs` lists the paths on which `test_pull_request.yml` skips its heavy jobs.
 - `extensions/` — independent source-only NuGet modules; read its AGENTS.md before editing.
 - `templates/extension/` — extension scaffolding; never included in core or consumer assemblies.
 - `docs/` — `ARCHITECTURE.md`, `RELEASING.md`, `runtime-security.md`, Asset Library material.

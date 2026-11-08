@@ -22,6 +22,11 @@
 #       (issue #186). This is the half the #if TOOLS-excluded xUnit suite cannot
 #       reach (connect/handshake/dispatch + in-game capture).
 #
+# DOCS-ONLY GATE (`changes`): a pull request that changes only the paths listed in
+# scripts/ci/docs-only.mjs skips every other job here. Only an explicit `docs_only=true` skips.
+# `changes` runs on every event but decides only on an ordinary pull_request, so a dispatched chain
+# leg or a `train/` PR runs in full and no job here ever has a skipped ancestor.
+#
 # NOTE: ci.yml is intentionally left untouched and still runs on push + PR; its
 # job display name `dotnet build (.NET 8)` remains the canonical required check.
 # The `dotnet-build-test` job below is an additional aggregate signal, NOT a
@@ -80,9 +85,53 @@ env:
   CHAIN_LOCK_HASH8: ${{ inputs.lock_hash8 }}
 
 jobs:
+  # Never skip this job, only its steps: a skipped ancestor skips every job below with an implicit
+  # success(), even through a job that ran, and whether jobs inside a called workflow inherit that
+  # is unproven here. It costs a dispatched leg a few seconds.
+  changes:
+    name: Detect docs-only changes
+    runs-on: ubuntu-latest # not self-hosted: this repo is public, and this runs a fork PR's code
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      CLASSIFY: ${{ github.event_name == 'pull_request' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v6
+        if: env.CLASSIFY == 'true'
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          fetch-depth: 2 # the merge commit and both parents: docs-only.mjs diffs HEAD^1..HEAD
+          persist-credentials: false
+      - id: classify
+        if: env.CLASSIFY == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        run: node scripts/ci/docs-only.mjs
+
+  # Its own job, not a step of `changes`: every step there may fail without turning it red, so a
+  # routine test failure can never reach the jobs that wait on it. Nothing needs this job.
+  test-docs-only-gate:
+    name: Test the docs-only gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: node --test scripts/ci/docs-only.test.mjs
+
   # (a) .NET build + xUnit (mirrors ci.yml; aggregate signal for this PR run).
   dotnet-build-test:
     name: dotnet build + test (.NET 8)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -178,6 +227,8 @@ jobs:
 
   # (b) godot-mcp-cli node tests (Node 20 & 22).
   test-cli:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli.yml
     with:
       lock: ${{ inputs.lock }}
@@ -185,6 +236,8 @@ jobs:
 
   # (c) godot_mcp addon-load smoke across the Godot engine matrix (mono).
   test-godot-4-3:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.3.0"
@@ -192,6 +245,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-4:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.4.0"
@@ -199,6 +254,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-5:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.5.1"
@@ -206,6 +263,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-6:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.6.3"
@@ -213,6 +272,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   test-godot-4-7:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.7.0"
@@ -227,6 +288,8 @@ jobs:
   #     (godotengine/godot#51626 "missing dock tab" regression). MUST stay in lockstep
   #     with release.yml's dock-reload legs.
   dock-reload-4-3:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.3.0"
@@ -234,6 +297,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-4:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.4.0"
@@ -241,6 +306,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-5:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.5.1"
@@ -248,6 +315,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-6:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.6.3"
@@ -255,6 +324,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   dock-reload-4-7:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_godot_dock_reload.yml
     with:
       godotVersion: "4.7.0"
@@ -268,6 +339,8 @@ jobs:
   #     terminal Quick Start — a regression in create-project / install-plugin that
   #     breaks a from-scratch install breaks this gate.
   e2e-install-4-3:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.3.0"
@@ -275,6 +348,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-4:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.4.0"
@@ -282,6 +357,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-5:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.5.1"
@@ -289,6 +366,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-6:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.6.3"
@@ -296,6 +375,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   e2e-install-4-7:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     uses: ./.github/workflows/test_cli_e2e_install.yml
     with:
       godotVersion: "4.7.0"
@@ -309,6 +390,8 @@ jobs:
   # Under a chain lock its output is ignored by the harness (the self-built server runs
   # instead); the leg record's warnings[] names the pin drift.
   resolve-server-version:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -341,6 +424,7 @@ jobs:
   #     (resolve-server-version) so the harness tracks the addon's pinned server.
   runtime-harness-4-3:
     needs: [resolve-server-version]
+    if: ${{ !cancelled() && needs.resolve-server-version.result == 'success' }}
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.3.0"
@@ -350,6 +434,7 @@ jobs:
 
   runtime-harness-4-4:
     needs: [resolve-server-version]
+    if: ${{ !cancelled() && needs.resolve-server-version.result == 'success' }}
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.4.0"
@@ -359,6 +444,7 @@ jobs:
 
   runtime-harness-4-5:
     needs: [resolve-server-version]
+    if: ${{ !cancelled() && needs.resolve-server-version.result == 'success' }}
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.5.1"
@@ -368,6 +454,7 @@ jobs:
 
   runtime-harness-4-6:
     needs: [resolve-server-version]
+    if: ${{ !cancelled() && needs.resolve-server-version.result == 'success' }}
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.6.3"
@@ -377,6 +464,7 @@ jobs:
 
   runtime-harness-4-7:
     needs: [resolve-server-version]
+    if: ${{ !cancelled() && needs.resolve-server-version.result == 'success' }}
     uses: ./.github/workflows/test_godot_runtime_harness.yml
     with:
       godotVersion: "4.7.0"
@@ -386,6 +474,7 @@ jobs:
 
   extension-suite-4-3:
     needs: [dotnet-build-test]
+    if: ${{ !cancelled() && needs.dotnet-build-test.result == 'success' }}
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.3.0"
@@ -394,6 +483,7 @@ jobs:
 
   extension-suite-4-4:
     needs: [dotnet-build-test]
+    if: ${{ !cancelled() && needs.dotnet-build-test.result == 'success' }}
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.4.0"
@@ -402,6 +492,7 @@ jobs:
 
   extension-suite-4-5:
     needs: [dotnet-build-test]
+    if: ${{ !cancelled() && needs.dotnet-build-test.result == 'success' }}
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.5.1"
@@ -410,6 +501,7 @@ jobs:
 
   extension-suite-4-6:
     needs: [dotnet-build-test]
+    if: ${{ !cancelled() && needs.dotnet-build-test.result == 'success' }}
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.6.3"
@@ -418,6 +510,7 @@ jobs:
 
   extension-suite-4-7:
     needs: [dotnet-build-test]
+    if: ${{ !cancelled() && needs.dotnet-build-test.result == 'success' }}
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.7.0"

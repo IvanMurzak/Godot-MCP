@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -21,12 +22,23 @@ import extension_e2e
 from extensions import ROOT, modules, run
 
 
+DOWNLOAD_ATTEMPTS = 3
+
+
 def download(url, path, sha256=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + '.download')
     try:
-        with urllib.request.urlopen(url, timeout=60) as response, temporary.open('wb') as output:
-            shutil.copyfileobj(response, output)
+        for attempt in range(DOWNLOAD_ATTEMPTS):
+            try:
+                with urllib.request.urlopen(url, timeout=60) as response, temporary.open('wb') as output:
+                    shutil.copyfileobj(response, output)
+                break
+            except (OSError, http.client.HTTPException) as error:  # a stalled read is an OSError too
+                if attempt == DOWNLOAD_ATTEMPTS - 1:
+                    raise
+                print(f'Download attempt {attempt + 1} failed, retrying: {url}: {error}', flush=True)
+                time.sleep(2 ** attempt)
         digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
         if sha256 and digest != sha256:
             raise ValueError('Downloaded bytes do not match SHA-256: ' + url)
