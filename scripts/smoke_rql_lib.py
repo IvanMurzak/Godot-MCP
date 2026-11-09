@@ -12,8 +12,8 @@ FAILURES: list[str] = []
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-def tool(host: str, name: str, args: dict) -> tuple[bool, str]:
-    """Call a tool over the server's direct HTTP API; (succeeded, text of the result or the error)."""
+def post_tool(host: str, name: str, args: dict) -> dict:
+    """Call a tool over the server's direct HTTP API; the response body ("error" on a failure)."""
     req = urllib.request.Request(
         f"{host}/api/tools/{name}",
         data=json.dumps(args).encode(),
@@ -29,6 +29,12 @@ def tool(host: str, name: str, args: dict) -> tuple[bool, str]:
             body = json.loads(raw or "{}")
         except json.JSONDecodeError:
             body = {"error": raw or str(e)}
+    return body
+
+
+def tool(host: str, name: str, args: dict) -> tuple[bool, str]:
+    """Call a tool; (succeeded, text of the result or the error)."""
+    body = post_tool(host, name, args)
     if "error" in body:
         return False, str(body["error"])
     if "structured" in body:

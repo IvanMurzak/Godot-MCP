@@ -9,6 +9,7 @@
 */
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -25,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     {
         readonly string _parent;
         readonly string _root;
-        readonly System.Collections.Generic.List<string> _links = new();
+        readonly List<string> _links = new();
 
         public ScreenshotSavePathTests()
         {
@@ -312,10 +313,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("Isolated")]
         public void EveryTool_TakesAnOptionalSavePath_AndAdvertisesIt(string family)
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;
-            Assert.NotNull(dir);
-            var source = File.ReadAllText(Path.Combine(dir!.FullName, "addons", "godot_mcp", "Editor", "Tools", $"Tool_Screenshot.{family}.cs"));
+            var source = File.ReadAllText(Path.Combine(ToolAnnotationsTests.RepoRoot(), "addons", "godot_mcp", "Editor", "Tools", $"Tool_Screenshot.{family}.cs"));
 
             Assert.Contains("[Description(ScreenshotSavePath.ParameterDescription)]", source);
             Assert.Contains("string? savePath = null", source);

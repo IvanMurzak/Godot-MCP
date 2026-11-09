@@ -17,16 +17,13 @@ from __future__ import annotations
 
 import argparse
 import base64
-import json
 import os
 import pathlib
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 
-from smoke_rql_lib import FAILURES, check, must, mutate, q
+from smoke_rql_lib import FAILURES, check, must, mutate, post_tool, q, query
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 DIR = "smoke_shots"
@@ -35,17 +32,7 @@ OUTSIDE_NAME = "smoke_shots_outside"
 
 def call(host: str, name: str, args: dict) -> tuple[bool, str, bytes | None]:
     """(succeeded, the text or error, the image bytes when the result has an image)."""
-    req = urllib.request.Request(f"{host}/api/tools/{name}", data=json.dumps(args).encode(),
-                                 headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            body = json.loads(resp.read().decode() or "{}")
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode()
-        try:
-            body = json.loads(raw or "{}")
-        except json.JSONDecodeError:
-            body = {"error": raw or str(e)}
+    body = post_tool(host, name, args)
     if "error" in body:
         return False, str(body["error"]), None
     content = body.get("content") or []
@@ -54,12 +41,12 @@ def call(host: str, name: str, args: dict) -> tuple[bool, str, bytes | None]:
 
 
 def snapshot(*roots: pathlib.Path) -> set[pathlib.Path]:
-    """Every file below the roots, except Godot's own cache and the editor's scan results for the files we saved."""
+    """Every file below the roots, except Godot's own cache and the .import files of its scans."""
     found = set()
     for root in roots:
         for dirpath, dirnames, filenames in os.walk(root):  # does not follow links
             dirnames[:] = [d for d in dirnames if d != ".godot"]
-            found.update(pathlib.Path(dirpath, f) for f in filenames)
+            found.update(pathlib.Path(dirpath, f) for f in filenames if not f.endswith(".import"))
     return found
 
 
@@ -76,7 +63,7 @@ def wait_ready(host: str, timeout: float) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            if mutate(host, 'editor | call Reimport(["res://project.godot"])')[0] or call(host, "rql-query", {"query": "project | take 1"})[0]:
+            if query(host, "project | take 1")[0]:
                 return True
         except (OSError, ValueError):
             pass
@@ -84,9 +71,10 @@ def wait_ready(host: str, timeout: float) -> bool:
     return False
 
 
-def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: pathlib.Path) -> None:
-    """Every bad path: an error that says why, no image, and no new file in or beside the project."""
-    root = str(project.resolve())
+def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: pathlib.Path, every: bool) -> None:
+    """Bad paths: an error that says why, no image, and no new file in or beside the project. Every tool shares one check, so
+    one tool gets the whole table and the others a sample of it."""
+    root = str(project)
     (project / DIR).mkdir(exist_ok=True)
     existing = project / DIR / "existing.png"
     if not existing.exists():
@@ -99,7 +87,7 @@ def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: p
         "..\\outside.png": "inside the project folder",
         f"{DIR}/../../outside.png": "inside the project folder",
         "res://../outside.png": "inside the project folder",
-        str(project.resolve().parent / "outside.png"): "inside the project folder",
+        str(project.parent / "outside.png"): "inside the project folder",
         root + "-sibling/outside.png": "inside the project folder",
         root + "/../outside.png": "inside the project folder",
         root: "inside the project folder",
@@ -131,17 +119,21 @@ def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: p
         f"res://{DIR}/existing.png": "never overwrites",
         f"{DIR}/existing": "never overwrites",
     }
+    if not every:
+        sample = ("../outside.png", f"{DIR}/link_out/outside.png", "user://outside.png", f"{DIR}/shot.jpg", f"{DIR}/existing.png")
+        bad = {path: bad[path] for path in sample}
     before = snapshot(project, outside)
     for path, reason in bad.items():
         ok, text, image = call(host, tool, {**args, "savePath": path})
-        check(f"{tool} refuses {path!r}", not ok and image is None and text.find(f"Cannot save to") >= 0 and reason in text, text)
-    check(f"{tool}: no new file after the refusals", snapshot(project, outside) == before, str(snapshot(project, outside) - before))
+        check(f"{tool} refuses {path!r}", not ok and image is None and "Cannot save to" in text and reason in text, text)
+    after = snapshot(project, outside)
+    check(f"{tool}: no new file after the refusals", after == before, str(after - before))
     check(f"{tool}: the existing file is untouched", existing.read_bytes() == before_bytes)
 
 
 def saves(host: str, project: pathlib.Path, tool: str, args: dict, tag: str) -> None:
     """Each accepted form writes the PNG, returns the same image and states the path; no savePath writes nothing."""
-    root = project.resolve().as_posix()
+    root = project.as_posix()
     forms = {
         f"{DIR}/{tag}/relative.png": f"{DIR}/{tag}/relative.png",
         f"res://{DIR}/{tag}/res.png": f"{DIR}/{tag}/res.png",
@@ -161,7 +153,7 @@ def saves(host: str, project: pathlib.Path, tool: str, args: dict, tag: str) -> 
     ok, text, image = call(host, tool, args)
     check(f"{tool} without savePath: an image", ok and image is not None and image.startswith(PNG_MAGIC), text)
     check(f"{tool} without savePath: no 'Saved to'", "Saved to" not in text and "import" not in text, text)
-    check(f"{tool} without savePath: no file", {p for p in snapshot(project) - before if p.suffix != ".import"} == set())
+    check(f"{tool} without savePath: no file", snapshot(project) == before)
 
     # A second save refuses and keeps the first file.
     first = (project / f"{DIR}/{tag}/relative.png").read_bytes()
@@ -171,12 +163,14 @@ def saves(host: str, project: pathlib.Path, tool: str, args: dict, tag: str) -> 
 
 
 def imports(project: pathlib.Path, tag: str, timeout: float = 30) -> None:
-    """The editor's own scan imports what was saved; the tool never waits for it."""
-    sidecar = project / DIR / tag / "relative.png.import"
+    """The editor's own scan imports what was saved, the last save of a burst included; the tool never waits for it."""
+    saved = [p for p in (project / DIR / tag).glob("*") if p.suffix.lower() == ".png"]
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline and not sidecar.exists():
+    missing = saved
+    while time.monotonic() < deadline and missing:
         time.sleep(0.5)
-    check(f"{tag}: the editor imported the PNG (.import beside it)", sidecar.exists())
+        missing = [p for p in saved if not p.with_name(p.name + ".import").exists()]
+    check(f"{tag}: the editor imported all {len(saved)} PNGs (.import beside each)", not missing, str(missing))
 
 
 def main() -> int:
@@ -203,18 +197,18 @@ def main() -> int:
     must("save scene", mutate(host, "editor | call SaveScene()"))
 
     tools = [
-        ("screenshot-viewport", {"mode": "3d"}, "viewport"),
-        ("screenshot-camera", {"nodeRef": {"path": "SmokeCam"}, "width": 320, "height": 180}, "camera"),
-        ("screenshot-isolated", {"nodeRef": {"path": "SmokeBox"}, "resolution": 128}, "isolated"),
+        ("screenshot-viewport", {"mode": "3d"}),
+        ("screenshot-camera", {"nodeRef": {"path": "SmokeCam"}, "width": 320, "height": 180}),
+        ("screenshot-isolated", {"nodeRef": {"path": "SmokeBox"}, "resolution": 128}),
     ]
-    for tool, tool_args, _ in tools:
-        refusals(host, project, tool, tool_args, outside)
+    for index, (tool, tool_args) in enumerate(tools):
+        refusals(host, project, tool, tool_args, outside, every=index == 0)
     if not args.refusals_only:
-        for tool, tool_args, tag in tools:
-            saves(host, project, tool, tool_args, tag)
-        for _, _, tag in tools:
-            imports(project, tag)
-        must("the editor still answers", call(host, "rql-query", {"query": "project | take 1"})[:2])
+        for tool, tool_args in tools:
+            saves(host, project, tool, tool_args, tool.split("-")[1])
+        for tool, _ in tools:
+            imports(project, tool.split("-")[1])
+        must("the editor still answers", query(host, "project | take 1"))
 
     print(f"{len(FAILURES)} failure(s)" + (": " + "; ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

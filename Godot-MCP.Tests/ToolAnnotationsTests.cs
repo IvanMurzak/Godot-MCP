@@ -168,7 +168,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             return tools;
         }
 
-        static string RepoRoot()
+        internal static string RepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;

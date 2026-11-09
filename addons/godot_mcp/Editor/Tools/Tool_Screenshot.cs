@@ -42,7 +42,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// Every tool takes an optional <c>savePath</c> (<see cref="ScreenshotSavePath"/>) that also writes the PNG inside the
     /// project, so none of them is read-only or idempotent, even when a call does not pass it. A bad path is refused before
     /// the capture, with no image; the write itself is one small file, and the import it causes is left to the editor's own
-    /// asynchronous scan so the main thread never waits for it.
+    /// asynchronous scan so the tool call never waits for it.
     /// </para>
     /// </summary>
     [AiToolType]

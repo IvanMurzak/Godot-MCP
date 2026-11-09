@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -46,7 +45,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // Case-insensitive like the file systems of Windows and macOS (see ResPathNormalizer.ProtectedFileProblem).
         static StringComparison PathComparison => OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-        static readonly Regex DriveRooted = new Regex("^[A-Za-z]:/", RegexOptions.CultureInvariant);
+        static bool IsDriveRooted(string path) =>
+            path.Length >= 3 && path[1] == ':' && path[2] == '/' && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z'));
 
         /// <summary>
         /// Resolve a request against the project folder. True with a null <paramref name="fullPath"/> when no save was asked
@@ -61,9 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return true;
 
             var root = Path.GetFullPath(projectRoot).Replace('\\', '/').TrimEnd('/');
-            var outside = $"it must stay inside the project folder {root}; use a path such as {Example}.";
-
-            var problem = Check(requested!.Trim().Replace('\\', '/'), root, outside, out var resolved);
+            var problem = Check(requested.Trim().Replace('\\', '/'), root, out var resolved);
             if (problem != null)
             {
                 error = $"Cannot save to '{requested}': {problem}";
@@ -73,12 +71,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return true;
         }
 
-        static string? Check(string path, string root, string outside, out string? resolved)
+        static string? Check(string path, string root, out string? resolved)
         {
             resolved = null;
+            var outside = $"it must stay inside the project folder {root}; use a path such as {Example}.";
 
             string relative;
-            if (path.StartsWith(ResPathNormalizer.ResScheme, StringComparison.Ordinal))
+            if (ResPathNormalizer.IsResPath(path))
             {
                 relative = path.Substring(ResPathNormalizer.ResScheme.Length);
                 if (relative.StartsWith("/", StringComparison.Ordinal))
@@ -86,7 +85,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             }
             else if (path.Contains("://"))
                 return $"only a res:// path is accepted, because user:// and other locations are outside the project; use a path such as {Example}.";
-            else if (path.StartsWith("/", StringComparison.Ordinal) || DriveRooted.IsMatch(path))
+            else if (path.StartsWith("/", StringComparison.Ordinal) || IsDriveRooted(path))
             {
                 if (!path.StartsWith(root + "/", PathComparison))
                     return outside;
