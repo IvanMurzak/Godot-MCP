@@ -445,12 +445,12 @@ instance, etc.).
 | `GODOT_MCP_CONNECTION_MODE` | Set to `Custom` to select this mode. | `Cloud` |
 | `GODOT_MCP_HOST` | The custom server URL. Must be an absolute http(s) URL or it falls back to the default. | `http://localhost:8080` |
 | `GODOT_MCP_TOKEN` | Bearer token, sent to the server at `GODOT_MCP_HOST` (or the saved host). Setting it selects `token` authorization unless `GODOT_MCP_AUTH_OPTION` says otherwise. | (none) |
-| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`. Wins over the token rule above: `none` sends no token. | Saved choice, else `none` |
+| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`. Overrides the token rule above; the dock's **None** does not. | Saved choice, else `none` |
 
-A `GODOT_MCP_TOKEN` from the process environment or the project `.env` also applies to a local server the editor
-starts (it launches with `token` authorization) and to agent configs you write with **Configure**. This selection is not
-saved to the config file. A server in `token` mode rejects a connection that has no token with
-`Connection rejected: auth=token mode requires a token but none was provided`; the plugin's log line adds what to set.
+Any set `GODOT_MCP_TOKEN` (process environment or project `.env`) also applies to a local server the editor starts and
+to agent configs you write with **Configure**. Neither the token nor this selection is saved to the config file. A
+server in `token` mode rejects a connection without a token (`Connection rejected: auth=token mode requires a token but
+none was provided`); the plugin then logs what to set.
 
 With authorization `oauth`, your signed-in ai-game.dev account token is sent **only to a localhost server**
 (`localhost`, `127.0.0.0/8`, `::1`). For any other host set `GODOT_MCP_TOKEN`; without it the connection fails with

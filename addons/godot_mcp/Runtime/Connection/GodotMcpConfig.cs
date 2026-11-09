@@ -169,7 +169,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// The configured Custom-mode authorization option (overridable by <see cref="EnvAuthOption"/> via
-        /// <see cref="ResolveActiveAuthOption"/>). Defaults to <see cref="McpServerConsts.AuthOption.none"/> —
+        /// <see cref="ActiveAuthOption"/>). Defaults to <see cref="McpServerConsts.AuthOption.none"/> —
         /// a fresh Custom connection is anonymous until the user opts into auth. Only consulted in Custom mode.
         ///
         /// <para>
@@ -177,7 +177,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// (<c>none</c>/<c>oauth</c>/<c>token</c>) — the per-engine <c>GodotMcpAuthOption</c> enum was retired in
         /// mcp-authorize g6 so the launch-arg builder + auth enum are shared once across engines. A persisted or
         /// env <c>required</c> (the retired shared-token name) is normalized to <c>token</c> on read
-        /// (<see cref="ResolveActiveAuthOption"/>) and rewritten on load (<see cref="GodotMcpConfigStore.Load"/>).
+        /// (<see cref="ActiveAuthOption"/>) and rewritten on load (<see cref="GodotMcpConfigStore.Load"/>).
         /// </para>
         /// </summary>
         [JsonPropertyName("authOption")]
@@ -254,36 +254,29 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         {
             get
             {
-                var active = ResolveActiveAuthOption(AuthOption);
-                return active == McpServerConsts.AuthOption.none && ExplicitTokenImpliesAuth
+                if (TryParseEnumEnv<McpServerConsts.AuthOption>(EnvAuthOption, out var fromEnv))
+                    return NormalizeAuthOption(fromEnv);
+
+                var configured = NormalizeAuthOption(AuthOption);
+                return configured == McpServerConsts.AuthOption.none && ExplicitTokenImpliesAuth
                     ? McpServerConsts.AuthOption.token
-                    : active;
+                    : configured;
             }
         }
 
         /// <summary>The project <c>.env</c> set a valid <see cref="EnvAuthOption"/> (<see cref="GodotMcpEnvFile.Apply"/>). Never serialized.</summary>
         internal bool EnvFileSetAuthOption { get; set; }
 
-        string? _envFileCustomToken;
-        string? _customTokenBeforeEnvFile;
-
-        /// <summary>Layer the project <c>.env</c> token over <see cref="CustomToken"/> (<see cref="GodotMcpEnvFile.Apply"/>).</summary>
-        internal void ApplyEnvFileCustomToken(string token)
-        {
-            if (_envFileCustomToken == null)
-                _customTokenBeforeEnvFile = CustomToken;
-            _envFileCustomToken = CustomToken = token;
-        }
-
-        /// <summary>What a save writes for <see cref="CustomToken"/>: a <c>.env</c> token stays in its file, and one the dock set since is kept.</summary>
-        internal string? PersistedCustomToken =>
-            _envFileCustomToken != null && CustomToken == _envFileCustomToken ? _customTokenBeforeEnvFile : CustomToken;
+        /// <summary>
+        /// The project <c>.env</c> token for Custom mode (<see cref="GodotMcpEnvFile.Apply"/>). Never serialized: it stays
+        /// in its file, and it shadows <see cref="CustomToken"/> as the process env does.
+        /// </summary>
+        internal string? EnvFileCustomToken { get; set; }
 
         bool ExplicitTokenImpliesAuth =>
             ActiveMode == GodotMcpConnectionMode.Custom
             && !EnvFileSetAuthOption
-            && !TryParseEnvAuthOption(out _)
-            && (_envFileCustomToken != null || !string.IsNullOrEmpty(NormalizeEnv(ReadEnv(EnvToken))));
+            && (EnvFileCustomToken != null || !string.IsNullOrEmpty(NormalizeEnv(ReadEnv(EnvToken))));
 
         /// <summary>
         /// The effective log-verbosity threshold after applying the <see cref="EnvLogLevel"/> override.
@@ -541,11 +534,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public Task<string?> ResolveCustomOAuthBearerAsync(string host, Func<Task<string?>>? accountToken)
             => CustomOAuthCredentialPolicy.ResolveAsync(host, accountToken, ResolveConfiguredCustomToken(), EnvToken);
 
-        /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else <see cref="CustomToken"/> (which a project <c>.env</c> also sets).</summary>
+        /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else the project <c>.env</c> token, else <see cref="CustomToken"/>.</summary>
         public string? ResolveConfiguredCustomToken()
         {
             var envToken = NormalizeEnv(ReadEnv(EnvToken));
-            return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
+            return !string.IsNullOrEmpty(envToken) ? envToken : EnvFileCustomToken ?? CustomToken;
         }
 
         /// <summary>Compare credential origins without allowing malformed URLs to inherit a trusted default.</summary>
@@ -595,35 +588,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Resolve the active Custom-mode auth option, letting <see cref="EnvAuthOption"/> override the
-        /// configured value. An unrecognized/empty/numeric env value falls through to
-        /// <paramref name="configured"/> — identical discipline to <see cref="ResolveActiveMode"/>. The result
-        /// is always normalized to one of the three target-state modes via <see cref="NormalizeAuthOption"/>
-        /// (the retired <c>required</c> → <c>token</c>; <c>unknown</c> → <c>none</c>).
+        /// What to set after a server rejected this connection for its token, or <c>null</c> when a token was sent
+        /// (it is then wrong, not missing) or the connection does not use one (Cloud, <c>oauth</c>).
         /// </summary>
-        public static McpServerConsts.AuthOption ResolveActiveAuthOption(McpServerConsts.AuthOption configured)
-        {
-            return NormalizeAuthOption(TryParseEnvAuthOption(out var parsed) ? parsed : configured);
-        }
-
-        /// <summary>A named <see cref="EnvAuthOption"/> value; empty, unknown or numeric values do not count.</summary>
-        static bool TryParseEnvAuthOption(out McpServerConsts.AuthOption parsed)
-        {
-            parsed = default;
-            var normalized = NormalizeEnv(ReadEnv(EnvAuthOption));
-            return !string.IsNullOrEmpty(normalized) &&
-                Enum.TryParse(normalized, ignoreCase: true, out parsed) &&
-                !int.TryParse(normalized, out _);
-        }
-
-        /// <summary>
-        /// Name the fix in the server's rejection of a tokenless connection, which alone suggests nothing to set.
-        /// Other messages pass through unchanged. Never carries a token: it only appends fixed text.
-        /// </summary>
-        public static string AppendAuthRejectionHint(string message)
-            => message.Contains("requires a token but none was provided", StringComparison.Ordinal)
-                ? message + " Set " + EnvToken + " (with " + EnvAuthOption + " unset or token), or choose Token in the AI Game Developer dock."
-                : message;
+        internal string? MissingTokenHint =>
+            ActiveMode == GodotMcpConnectionMode.Custom
+            && ActiveAuthOption != McpServerConsts.AuthOption.oauth
+            && string.IsNullOrEmpty(Token)
+                ? "[Godot-MCP] The server requires a token and this connection sent none. Set " + EnvToken + " (with "
+                    + EnvAuthOption + " unset or token), or choose Token in the AI Game Developer dock."
+                : null;
 
         /// <summary>
         /// Normalize a shared <see cref="McpServerConsts.AuthOption"/> to the three target-state modes the
@@ -635,7 +609,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///   builder, which fail-closed rejects <c>required</c>;</item>
         ///   <item><c>unknown</c> (and any out-of-range value) falls back to the crash-safe <c>none</c>.</item>
         /// </list>
-        /// Applied on every read (<see cref="ResolveActiveAuthOption"/>) AND when a persisted config is loaded
+        /// Applied on every read (<see cref="ActiveAuthOption"/>) AND when a persisted config is loaded
         /// (<see cref="GodotMcpConfigStore.Load"/> rewrites the stored field), so an old
         /// <c>authorization=required</c> config self-heals to <c>token</c>.
         /// </summary>
@@ -651,7 +625,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Resolve the active log-verbosity threshold, letting <see cref="EnvLogLevel"/> override the
         /// configured value. An unrecognized/empty/numeric env value falls through to
         /// <paramref name="configured"/> — identical discipline to <see cref="ResolveActiveMode"/> /
-        /// <see cref="ResolveActiveAuthOption"/>.
+        /// <see cref="ActiveAuthOption"/>.
         /// </summary>
         public static GodotMcpLogLevel ResolveActiveLogLevel(GodotMcpLogLevel configured)
             => ResolveEnumEnv(EnvLogLevel, configured);
@@ -669,13 +643,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// arbitrary member) falls through.
         /// </summary>
         static T ResolveEnumEnv<T>(string name, T configured) where T : struct, Enum
+            => TryParseEnumEnv<T>(name, out var parsed) ? parsed : configured;
+
+        static bool TryParseEnumEnv<T>(string name, out T parsed) where T : struct, Enum
         {
+            parsed = default;
             var normalized = NormalizeEnv(ReadEnv(name));
-            if (string.IsNullOrEmpty(normalized))
-                return configured;
-            return Enum.TryParse<T>(normalized, ignoreCase: true, out var parsed) && !int.TryParse(normalized, out _)
-                ? parsed
-                : configured;
+            return !string.IsNullOrEmpty(normalized)
+                && Enum.TryParse(normalized, ignoreCase: true, out parsed)
+                && !int.TryParse(normalized, out _);
         }
 
         static string? ReadEnv(string name) => Environment.GetEnvironmentVariable(name);

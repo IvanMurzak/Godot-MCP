@@ -1072,7 +1072,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ApplyCloudAuthState();
             }
 
-            // The active mode differs from the persisted mode only when an env/.env override forced it.
+            // The active mode or auth differs from the persisted value only when an env/.env override forced it.
             var overridden = activeMode != persistedMode ||
                 _connection.Config.ActiveAuthOption != GodotMcpConfig.NormalizeAuthOption(_connection.Config.AuthOption);
             _overrideNote.Visible = overridden;

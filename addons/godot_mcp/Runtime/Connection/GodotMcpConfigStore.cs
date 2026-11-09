@@ -106,9 +106,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.SerializeToNode(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig)!;
-            json["token"] = config.PersistedCustomToken;
-            File.WriteAllText(path, json.ToJsonString(GodotMcpConfigJsonContext.Default.Options));
+            var json = JsonSerializer.Serialize(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+            File.WriteAllText(path, json);
         }
 
         /// <summary>

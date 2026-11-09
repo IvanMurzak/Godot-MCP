@@ -640,6 +640,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         void RaiseAuthorizationRejected()
         {
             _authorizationRejected = true;
+            if (_config.MissingTokenHint is { } hint)
+                GodotMcpLog.Warning(hint);
             AuthorizationRejected?.Invoke();
             TryAccountRefreshAndReconnect();
         }
@@ -871,7 +873,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// plugin's ad-hoc diagnostics now land in the same capture sink.
         /// </summary>
         static void RouteFrameworkLog(GodotLogType logType, string message)
-            => GodotMcpLog.Route(logType, GodotMcpConfig.AppendAuthRejectionHint(message));
+            => GodotMcpLog.Route(logType, message);
 
         // --- MCP feature visibility map (tools / prompts / resources) -----------------------------------------
 

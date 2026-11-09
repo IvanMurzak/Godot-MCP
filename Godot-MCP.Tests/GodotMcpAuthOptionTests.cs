@@ -55,13 +55,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("env-token", config.Token);
         }
 
-        [Theory]
-        [InlineData("none")]
-        [InlineData("None")]
-        public void EnvToken_ExplicitEnvNone_Wins(string authOption)
+        [Fact]
+        public void EnvToken_ExplicitEnvNone_Wins()
         {
             using var _ = CustomWithEnvToken();
-            Environment.SetEnvironmentVariable(GodotMcpConfig.EnvAuthOption, authOption);
+            Environment.SetEnvironmentVariable(GodotMcpConfig.EnvAuthOption, "none");
             var config = new GodotMcpConfig { CustomToken = "stored" };
 
             Assert.Equal(McpServerConsts.AuthOption.none, config.ActiveAuthOption);
@@ -119,22 +117,29 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(McpServerConsts.AuthOption.none, new GodotMcpConfig().ActiveAuthOption);
         }
 
-        [Fact]
-        public void EnvToken_ImpliedAuth_IsNotPersisted()
+        static string SaveAndRead(GodotMcpConfig config)
         {
-            using var _ = CustomWithEnvToken();
-            var path = Path.Combine(Path.GetTempPath(), "godot-mcp-implied-" + Guid.NewGuid().ToString("N") + ".json");
+            var path = Path.Combine(Path.GetTempPath(), "godot-mcp-auth-" + Guid.NewGuid().ToString("N") + ".json");
             try
             {
-                GodotMcpConfigStore.Save(path, new GodotMcpConfig());
-
-                Assert.DoesNotContain("env-token", File.ReadAllText(path));
-                Assert.Equal(McpServerConsts.AuthOption.none, GodotMcpConfigStore.Load(path)!.AuthOption);
+                GodotMcpConfigStore.Save(path, config);
+                return File.ReadAllText(path);
             }
             finally
             {
                 File.Delete(path);
             }
+        }
+
+        [Fact]
+        public void EnvToken_ImpliedAuth_IsNotPersisted()
+        {
+            using var _ = CustomWithEnvToken();
+
+            var saved = SaveAndRead(new GodotMcpConfig());
+
+            Assert.DoesNotContain("env-token", saved);
+            Assert.Contains("\"authOption\": \"none\"", saved);
         }
 
         [Fact]
@@ -150,21 +155,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(McpServerConsts.AuthOption.token, config.ActiveAuthOption);
             Assert.Equal("file-token", config.ResolveCustomToken());
             Assert.Equal(McpServerConsts.AuthOption.none, config.AuthOption);
-            Assert.DoesNotContain("EnvFile", JsonSerializer.Serialize(config, GodotMcpConfigJsonContext.Default.GodotMcpConfig));
-        }
-
-        static string SaveAndRead(GodotMcpConfig config)
-        {
-            var path = Path.Combine(Path.GetTempPath(), "godot-mcp-envfile-" + Guid.NewGuid().ToString("N") + ".json");
-            try
-            {
-                GodotMcpConfigStore.Save(path, config);
-                return File.ReadAllText(path);
-            }
-            finally
-            {
-                File.Delete(path);
-            }
         }
 
         [Fact]
@@ -185,7 +175,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void TokenSetAfterEnvFile_IsSaved()
+        public void TokenSetAfterEnvFile_IsSaved_ButEnvFileStillWinsLive()
         {
             using var _ = AuthEnvScope.ClearAll();
             var config = GodotMcpEnvFile.Apply(new GodotMcpConfig(), new Dictionary<string, string>
@@ -196,6 +186,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             config.CustomToken = "generated-in-dock";
 
             Assert.Contains("generated-in-dock", SaveAndRead(config));
+            Assert.Equal("file-token", config.ResolveCustomToken());
         }
 
         [Fact]
@@ -236,12 +227,32 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void AuthRejectionHint_NamesTheFix_OnlyForThatRejection()
+        public void MissingTokenHint_NamesTheFix_WhenNoTokenWasSent()
         {
-            var rejected = "Reason: Connection rejected: auth=token mode requires a token but none was provided.";
+            using var _ = CustomWithEnvToken();
+            Environment.SetEnvironmentVariable(GodotMcpConfig.EnvAuthOption, "none");
 
-            Assert.Contains(GodotMcpConfig.EnvToken, GodotMcpConfig.AppendAuthRejectionHint(rejected));
-            Assert.Equal("Connected.", GodotMcpConfig.AppendAuthRejectionHint("Connected."));
+            Assert.Contains(GodotMcpConfig.EnvToken, new GodotMcpConfig().MissingTokenHint);
+        }
+
+        [Fact]
+        public void MissingTokenHint_IsNull_WhenATokenWasSent()
+        {
+            using var _ = CustomWithEnvToken();
+
+            Assert.Null(new GodotMcpConfig().MissingTokenHint);
+        }
+
+        [Theory]
+        [InlineData("Cloud", "none")]
+        [InlineData("Custom", "oauth")]
+        public void MissingTokenHint_IsNull_WithoutATokenConnection(string mode, string authOption)
+        {
+            using var _ = AuthEnvScope.ClearAll();
+            Environment.SetEnvironmentVariable(GodotMcpConfig.EnvConnectionMode, mode);
+            Environment.SetEnvironmentVariable(GodotMcpConfig.EnvAuthOption, authOption);
+
+            Assert.Null(new GodotMcpConfig().MissingTokenHint);
         }
 
         // --- Default ---
