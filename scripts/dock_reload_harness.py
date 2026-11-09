@@ -23,10 +23,10 @@ HOW IT WORKS (no extra Godot CLI flag — a real in-session reload)
   step 4's `/state` poll never succeeds within the deadline → the harness fails RED. On the FIXED
   addon the reloaded plugin re-registers a fresh dock + bridge and `/state` reports the dock back.
 
-UPSTREAM NOISE (tolerated, never gated on)
-  Godot's own reload emits "An item with the same key has already been added" for some [Tool] classes
-  in generic-heavy assemblies (godotengine/godot #79519 / #87877 / #98094 / #110784). It is non-fatal
-  engine noise — this harness does NOT gate on it.
+"An item with the same key has already been added" (not gated on)
+  A script class in a file not named after it gets no [ScriptPath] and can raise this on reload: that is our
+  defect (GodotScriptFileNameTests). Godot can also raise it for generic-heavy assemblies
+  (godotengine/godot #79519 / #87877 / #98094 / #110784). It is non-fatal; this harness does NOT gate on it.
 
 USAGE
   python scripts/dock_reload_harness.py \
