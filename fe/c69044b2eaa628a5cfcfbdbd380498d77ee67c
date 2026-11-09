@@ -1,0 +1,20 @@
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_cf7ef7d7435eeb::t_ca37b5c6da8f6e 404-411
+  s_cf7ef7d7435eeb::t_a7716d3c94562c 371-377,379-384,391-399,403,412,414-419
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "fec69044b2eaa628a5cfcfbdbd380498d77ee67c",
+  "prompts": {},
+  "sessions": {
+    "s_cf7ef7d7435eeb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43e0612a-829b-4e33-b2f7-3d1fbe030ca4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}

@@ -1,0 +1,21 @@
+Godot-Tests/Godot-Tests.csproj
+  s_88692866f8a457::t_bd16a56e8f1706 15
+Godot-Tests/README.md
+  s_88692866f8a457::t_bd16a56e8f1706 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "188ab66531d9011140d2d41b2b9c8137ba106502",
+  "prompts": {},
+  "sessions": {
+    "s_88692866f8a457": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2977a50-af66-49ec-9bc3-af770d89759d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

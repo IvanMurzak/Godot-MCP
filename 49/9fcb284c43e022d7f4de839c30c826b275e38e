@@ -1,0 +1,21 @@
+docs/EXTENSION-MONOREPO.md
+  s_eb8bcde0be96a2::t_c21b25e5d8a136 42-43
+extensions/Godot-AI-Dialogic/extension.json
+  s_eb8bcde0be96a2::t_c21b25e5d8a136 14,18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "499fcb284c43e022d7f4de839c30c826b275e38e",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+addons/godot_mcp/Editor/Tools/Tool_Script.Execute.cs
+  s_f9885b8a4d06ac::t_293bd150876843 23,36,40,43,52,54,56,60,62
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_f9885b8a4d06ac::t_b3c472eb9b7b49 167
+addons/godot_mcp/Runtime/Tools/ScriptExecuteSource.cs
+  s_f9885b8a4d06ac::t_6b2c56728e10c4 70-92
+addons/godot_mcp/Runtime/Tools/Tool_GameScript.cs
+  s_f9885b8a4d06ac::t_f1702bb9093c37 49,52,55,65,67,69,71,73
+cli/src/utils/csproj-deps.ts
+  s_f9885b8a4d06ac::t_47ad68a8b3a669 126-128
+scripts/check-export-assemblies.py
+  s_f9885b8a4d06ac::t_a460c0317ee943 86-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ddc461cc29f1d9c3df1528ceedde04d782719e60",
+  "prompts": {},
+  "sessions": {
+    "s_f9885b8a4d06ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15163-393a-7211-938a-4b86b5b293ef",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

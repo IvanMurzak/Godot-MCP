@@ -1,0 +1,47 @@
+Godot-MCP.Tests/ScriptExecuteTests.cs
+  s_7bc72ecaebd05d::t_885589cbd95501 233,235,237-265
+  s_7bc72ecaebd05d::t_eb82b46907547f 342,344-348
+  s_7bc72ecaebd05d::t_495632ac9e6aa5 368-369
+cli/CHANGELOG.md
+  s_7bc72ecaebd05d::t_ada943bc66eae6 7-8
+Godot-Tests/README.md
+  s_7bc72ecaebd05d::t_3a53f2a2b7ea1e 15
+addons/godot_mcp/Runtime/Tools/ScriptExecuteSource.cs
+  s_7bc72ecaebd05d::t_3e1de510db86f2 155-160,165-166,168-169
+  s_7bc72ecaebd05d::t_b68e5346a97916 242-246,254-255
+scripts/smoke_script_execute.py
+  s_7bc72ecaebd05d::t_c2c46d5d77b4ba 140-143
+  s_7bc72ecaebd05d::t_9953c6edd5a688 148
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_4080a8fad7703f 3
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_b504c5dccc412c 52-53
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_0856daa6096757 37-38
+Godot-Tests/Godot-Tests.csproj
+  s_7bc72ecaebd05d::t_246a1ed7df0121 15,43-44
+README.md
+  s_7bc72ecaebd05d::t_8a59333f0f5cd7 307-308,323-324
+cli/src/utils/addon-deps.ts
+  s_7bc72ecaebd05d::t_6b88a7a4b31164 87-88
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_2bdbe178821c60 270
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_570cc4c21a1c24 72-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ebeb9cfb5d568ffb68cb759e9c72cf61e1b8ad7",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

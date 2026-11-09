@@ -1,0 +1,16 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs
+  h_8325a340bf5897 69
+cli/src/utils/server-source.ts
+  h_8325a340bf5897 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5b2432b28d902f202258da157c53dad80ddc60eb",
+  "prompts": {},
+  "humans": {
+    "h_8325a340bf5897": {
+      "author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

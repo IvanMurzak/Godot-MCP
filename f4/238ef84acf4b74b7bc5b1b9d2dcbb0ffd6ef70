@@ -1,0 +1,127 @@
+.github/assetlib/edit.hbs
+  s_7bc72ecaebd05d::t_20a94576ff3660 3
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_4b1c24f5fc12aa 51
+Godot-MCP.csproj
+  s_7bc72ecaebd05d::t_dbeaebb742b358 32,46
+Godot-Tests/Godot-Tests.csproj
+  s_7bc72ecaebd05d::t_f039b747715f08 15,42
+Godot-Tests/README.md
+  s_7bc72ecaebd05d::t_4e8244828669aa 15
+README.md
+  s_7bc72ecaebd05d::t_6a6664cf1fa3a7 321,337
+cli/CHANGELOG.md
+  s_7bc72ecaebd05d::t_fc8be2c3929f54 25
+cli/src/utils/addon-deps.ts
+  s_7bc72ecaebd05d::t_d2991e2c646b6f 86
+docs/ARCHITECTURE.md
+  s_7bc72ecaebd05d::t_d90807136ef5d4 218
+docs/RELEASING.md
+  s_7bc72ecaebd05d::t_a7b65e9e553400 273
+docs/assetlib/SUBMISSION.md
+  s_7bc72ecaebd05d::t_2534628bdacc57 71
+extensions/Godot-AI-Animation/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_50a1119e3c3beb 36
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj
+  s_7bc72ecaebd05d::t_d4d8e15ed0ba46 73
+extensions/Godot-AI-Animation/testbed/Animation-Testbed.csproj
+  s_7bc72ecaebd05d::t_6968e63c6e3fa1 28
+extensions/Godot-AI-Animation/tests/Godot-AI-Animation.Tests/Godot-AI-Animation.Tests.csproj
+  s_7bc72ecaebd05d::t_652686561c4e56 28
+extensions/Godot-AI-Beehave/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_0b5c538b75f8cc 36
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj
+  s_7bc72ecaebd05d::t_7abb842de9172c 73
+extensions/Godot-AI-Beehave/testbed/Beehave-Testbed.csproj
+  s_7bc72ecaebd05d::t_b4458301fef7ca 28
+extensions/Godot-AI-Beehave/tests/Godot-AI-Beehave.Tests/Godot-AI-Beehave.Tests.csproj
+  s_7bc72ecaebd05d::t_b0a4569637ba01 28
+extensions/Godot-AI-CSG/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_7dc4a5a4a634e9 36
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj
+  s_7bc72ecaebd05d::t_c71a3069961417 73
+extensions/Godot-AI-CSG/testbed/CSG-Testbed.csproj
+  s_7bc72ecaebd05d::t_830e3030b6fc66 28
+extensions/Godot-AI-CSG/tests/Godot-AI-CSG.Tests/Godot-AI-CSG.Tests.csproj
+  s_7bc72ecaebd05d::t_5e79c4f2360e28 28
+extensions/Godot-AI-Dialogic/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_9974294fa16de2 36
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj
+  s_7bc72ecaebd05d::t_72733db8dcee1b 73
+extensions/Godot-AI-Dialogic/testbed/Dialogic-Testbed.csproj
+  s_7bc72ecaebd05d::t_8ff8931f812593 28
+extensions/Godot-AI-Dialogic/tests/Godot-AI-Dialogic.Tests/Godot-AI-Dialogic.Tests.csproj
+  s_7bc72ecaebd05d::t_b22ba2e86701d1 28
+extensions/Godot-AI-GridMap/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_af193cbdf5b93f 36
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj
+  s_7bc72ecaebd05d::t_def220da79039f 73
+extensions/Godot-AI-GridMap/testbed/GridMap-Testbed.csproj
+  s_7bc72ecaebd05d::t_0d1f4bd94405ee 28
+extensions/Godot-AI-GridMap/tests/Godot-AI-GridMap.Tests/Godot-AI-GridMap.Tests.csproj
+  s_7bc72ecaebd05d::t_fd5b3bfa10a7c7 28
+extensions/Godot-AI-Navigation/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_e24f6919fe5325 36
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj
+  s_7bc72ecaebd05d::t_e6f67b768d5d98 73
+extensions/Godot-AI-Navigation/testbed/Navigation-Testbed.csproj
+  s_7bc72ecaebd05d::t_33369972f143f1 28
+extensions/Godot-AI-Navigation/tests/Godot-AI-Navigation.Tests/Godot-AI-Navigation.Tests.csproj
+  s_7bc72ecaebd05d::t_861ae40d70866e 28
+extensions/Godot-AI-Particles/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_9fa428e0e15834 36
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj
+  s_7bc72ecaebd05d::t_01eb8232abd8cf 73
+extensions/Godot-AI-Particles/testbed/Particles-Testbed.csproj
+  s_7bc72ecaebd05d::t_97bf81c6da15ff 28
+extensions/Godot-AI-Particles/tests/Godot-AI-Particles.Tests/Godot-AI-Particles.Tests.csproj
+  s_7bc72ecaebd05d::t_01a6278376ce9d 28
+extensions/Godot-AI-PhantomCamera/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_b2f68642efde28 36
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj
+  s_7bc72ecaebd05d::t_99856cee505d1c 73
+extensions/Godot-AI-PhantomCamera/testbed/PhantomCamera-Testbed.csproj
+  s_7bc72ecaebd05d::t_3311356e546936 28
+extensions/Godot-AI-PhantomCamera/tests/Godot-AI-PhantomCamera.Tests/Godot-AI-PhantomCamera.Tests.csproj
+  s_7bc72ecaebd05d::t_6c0ecb9f76a95e 28
+extensions/Godot-AI-Terrain3D/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_91d729ba98ef7a 36
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj
+  s_7bc72ecaebd05d::t_be9cf7d24a8a07 73
+extensions/Godot-AI-Terrain3D/testbed/Terrain3D-Testbed.csproj
+  s_7bc72ecaebd05d::t_012bf9016cf519 28
+extensions/Godot-AI-Terrain3D/tests/Godot-AI-Terrain3D.Tests/Godot-AI-Terrain3D.Tests.csproj
+  s_7bc72ecaebd05d::t_bb24649fc8cf60 28
+extensions/Godot-AI-Tilemap/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_117665855adfa8 36
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj
+  s_7bc72ecaebd05d::t_7ee228d18aea6c 73
+extensions/Godot-AI-Tilemap/testbed/Tilemap-Testbed.csproj
+  s_7bc72ecaebd05d::t_9d22c0a7e6f4f8 28
+extensions/Godot-AI-Tilemap/tests/Godot-AI-Tilemap.Tests/Godot-AI-Tilemap.Tests.csproj
+  s_7bc72ecaebd05d::t_e7f3b44ca7837a 28
+templates/extension/docs/source-only-nuget-recipe.md
+  s_7bc72ecaebd05d::t_8a38f9a57cee7b 36
+templates/extension/src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj
+  s_7bc72ecaebd05d::t_1c3fd3a8ec8995 74
+templates/extension/testbed/YOUR_FEATURE-Testbed.csproj
+  s_7bc72ecaebd05d::t_35351a2b7ececd 28
+templates/extension/tests/Godot-AI-YOUR_FEATURE.Tests/Godot-AI-YOUR_FEATURE.Tests.csproj
+  s_7bc72ecaebd05d::t_dd4c3e310ac552 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4238ef84acf4b74b7bc5b1b9d2dcbb0ffd6ef70",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

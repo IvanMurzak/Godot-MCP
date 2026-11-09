@@ -1,0 +1,19 @@
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_be0bea4c059905::t_d2b57ae9313cb3 118-124,947-949,954,964,972-984,1216-1217,1219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "5c039b8bdaea5ae617daafbac963aeaecedba0a6",
+  "prompts": {},
+  "sessions": {
+    "s_be0bea4c059905": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a6546f2ad2f1cb269",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

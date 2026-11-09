@@ -1,0 +1,44 @@
+cli/tests/install-plugin-installer.test.ts
+  s_e19ebe83cb6110::t_67297334ed9e4a 315-456
+  s_e19ebe83cb6110::t_aa91e7dc035d1b 9-10
+cli/tests/addon-nuget-deps.test.ts
+  s_e19ebe83cb6110::t_1e995e3debf3f0 1-74
+scripts/write-nuget-deps.mjs
+  s_e19ebe83cb6110::t_2eb28c4bba3bbf 1-37
+.gitignore
+  s_e19ebe83cb6110::t_442b8a794e7652 471-476
+AGENTS.md
+  s_e19ebe83cb6110::t_7df4fe16fed224 74-78
+cli/CHANGELOG.md
+  s_e19ebe83cb6110::t_b81ffde6dc4223 7-15
+cli/README.md
+  s_e19ebe83cb6110::t_6656a5686a1ce8 97,246-249
+cli/src/commands/install-plugin.ts
+  s_e19ebe83cb6110::t_2f103ac2c0a047 133
+cli/src/lib/install-plugin.ts
+  s_e19ebe83cb6110::t_7c07cec2f4a34f 9,37-40,76,305,309-311,316,318,322,337
+cli/src/lib/types.ts
+  s_e19ebe83cb6110::t_91e6e1424dc668 10,480-485
+cli/src/utils/addon-nuget-deps.ts
+  s_e19ebe83cb6110::t_ca73a96ad7cb99 1-114
+docs/RELEASING.md
+  s_e19ebe83cb6110::t_ba81488b17ad4c 78-82
+.github/workflows/release.yml
+  s_e19ebe83cb6110::t_4fa2a8cff1958b 410-416,433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "af17a79854fd51e07ef4a47b869a72504b27698e",
+  "prompts": {},
+  "sessions": {
+    "s_e19ebe83cb6110": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "514df444-7709-4c0d-be94-41a9023e64ee",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

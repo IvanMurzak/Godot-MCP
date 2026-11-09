@@ -1,0 +1,25 @@
+addons/godot_mcp/Connection/GodotMcpAssemblyResolver.cs
+  s_e36a2a3c4d1c6f::t_e671619a98e74b 242-247
+  s_e36a2a3c4d1c6f::t_fef333d19a3240 380-391,393
+  s_e36a2a3c4d1c6f::t_55460d4ef3ecc5 68-78
+  s_e36a2a3c4d1c6f::t_c4eea0f2ca8509 84-92
+Godot-MCP.Tests/AssemblyResolverTests.cs
+  s_e36a2a3c4d1c6f::t_c3cea91e3559c9 41-45
+  s_e36a2a3c4d1c6f::t_0d56d715f99a8a 109-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "5aa3f7c3de0fe46117fbfa7f0faea30342c0ec04",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

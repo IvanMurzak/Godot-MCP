@@ -1,0 +1,35 @@
+addons/godot_mcp/Editor/UI/Agents/AgentConfiguratorsPanel.cs
+  s_a4bb75bc194299::t_c443c8c5076a70 52-55
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_a4bb75bc194299::t_8c7d691a9874fb 50-53,135-136
+addons/godot_mcp/Editor/UI/ExtensionRow.cs
+  s_a4bb75bc194299::t_c00c19b3fc7eb7 31-34,36
+addons/godot_mcp/Editor/UI/FeatureListWindow.cs
+  s_a4bb75bc194299::t_9d26085ba9f11a 40-43
+addons/godot_mcp/Editor/UI/FeatureRow.cs
+  s_a4bb75bc194299::t_4ac250ba3f8062 34-37
+addons/godot_mcp/Editor/UI/FeaturesPanel.cs
+  s_a4bb75bc194299::t_78e0f60c92087a 43-46
+addons/godot_mcp/Editor/UI/SkillsPanel.cs
+  s_a4bb75bc194299::t_11d0f50b7f2a66 47-50
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_a4bb75bc194299::t_a936d8b732dc6f 238-242,248
+addons/godot_mcp/Runtime/RuntimeErrorCapture.cs
+  s_a4bb75bc194299::t_961e30baf0823d 83-88,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "2cadfe3ea43437f12d5fc14eb928debc6a8d8770",
+  "prompts": {},
+  "sessions": {
+    "s_a4bb75bc194299": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aae63e228cbda93e9",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

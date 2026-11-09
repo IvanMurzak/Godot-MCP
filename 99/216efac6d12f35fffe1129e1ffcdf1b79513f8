@@ -1,0 +1,27 @@
+cli/tests/status.test.ts
+  s_fd7546e55bcb75::t_9f577e9ac9db03 8-23
+  s_fd7546e55bcb75::t_76b28fc434224b 78,82
+cli/tests/wait-for-ready.test.ts
+  s_fd7546e55bcb75::t_a5da5b4febdf5b 8-23
+  s_fd7546e55bcb75::t_95fc0625fa870d 96,100
+cli/tests/run-tool-builder.test.ts
+  s_fd7546e55bcb75::t_3ead79bbb5361d 8-23
+  s_fd7546e55bcb75::t_b166925b583c8d 65,67
+  s_fd7546e55bcb75::t_b6fa1bb91804b7 178,180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "99216efac6d12f35fffe1129e1ffcdf1b79513f8",
+  "prompts": {},
+  "sessions": {
+    "s_fd7546e55bcb75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ada76b30-8908-4a75-ac19-6c216305f5bb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

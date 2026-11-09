@@ -1,0 +1,35 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_ce16cc202c24f6::t_4bd991bef302c0 154-157,159-169,285,611-612
+cli/src/lib/session.ts
+  s_ce16cc202c24f6::t_4bd991bef302c0 79-80
+docs/runtime-security.md
+  s_ce16cc202c24f6::t_4bd991bef302c0 133-137
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_ce16cc202c24f6::t_4bd991bef302c0 957,959,1075,1099-1102,1105-1109
+addons/godot_mcp/Runtime/Connection/GodotMcpConfigStore.cs
+  s_ce16cc202c24f6::t_4bd991bef302c0 37-38
+Godot-MCP.Tests/GodotMcpAuthOptionTests.cs
+  s_ce16cc202c24f6::t_4bd991bef302c0 138-139,141,180,191-209
+Godot-MCP.Tests/CustomOAuthCredentialScopeTests.cs
+  s_ce16cc202c24f6::t_4bd991bef302c0 111
+README.md
+  s_ce16cc202c24f6::t_4bd991bef302c0 450-452,454,1051-1052
+cli/tests/exec.test.ts
+  s_ce16cc202c24f6::t_806319757b7e1a 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6b4439d807f82af677f0016f94ba10ccf7147fb",
+  "prompts": {},
+  "sessions": {
+    "s_ce16cc202c24f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "018c3298-efbf-4326-8560-4ded60fdc450",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

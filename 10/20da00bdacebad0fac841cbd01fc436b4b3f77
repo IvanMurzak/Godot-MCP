@@ -1,0 +1,63 @@
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_f9885b8a4d06ac::t_90b3d1e83daf28 9-10
+Godot-MCP.Tests/ScriptExecuteTests.cs
+  s_5f9a753ce320b5::t_8da5e6c580ea82 205
+README.md
+  s_5f9a753ce320b5::t_624d23a9286705 179-180
+addons/godot_mcp/Editor/IdleShutdown.cs
+  s_f9885b8a4d06ac::t_2f6e58afd1e806 40-45,60
+addons/godot_mcp/Editor/Rql/Adapters/Tool/ReflectorNet_SerializedMemberList_Adapter.cs
+  s_f9885b8a4d06ac::t_0560fd01948d71 78
+addons/godot_mcp/Editor/Tools/ScriptExecuteSource.cs
+  s_f9885b8a4d06ac::t_0ee95361c9f28d 10-11,84-85,91-93,132
+addons/godot_mcp/Editor/Tools/SnippetAssemblyHost.cs
+  s_f9885b8a4d06ac::t_c4d05dc366cc77 10-11,89
+addons/godot_mcp/Editor/Tools/Tool_Script.Execute.cs
+  s_f9885b8a4d06ac::t_207bd0bedaa449 55,64,102-109,116-129,162-171
+addons/godot_mcp/Runtime/GodotMcpEnv.cs
+  s_f9885b8a4d06ac::t_b56858b4a34e2b 58
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_28a7331b96a64c 10-11,17-18
+cli/README.md
+  s_5f9a753ce320b5::t_d4232837473de5 180,187-189
+cli/src/commands/close.ts
+  s_5f9a753ce320b5::t_bd79bb2ef0d42d 96-97,162-168
+cli/src/commands/open.ts
+  s_5f9a753ce320b5::t_f3303cb4db078e 11,13,124-131
+cli/src/lib.ts
+  s_5f9a753ce320b5::t_699037032a591f 19-20
+cli/src/lib/exec.ts
+  s_5f9a753ce320b5::t_e5d85ad8ca2af2 111-114,117-121
+cli/src/lib/session.ts
+  s_5f9a753ce320b5::t_715d04b38973df 5-6,12,42-44,103-104,143-145,207-213,215-220,228-238,243-256
+cli/src/utils/csproj-deps.ts
+  s_5f9a753ce320b5::t_08b028c8fbd0f4 1,149-154
+cli/tests/csproj-deps.test.ts
+  s_5f9a753ce320b5::t_2157b8510a88dc 226-246
+docs/ARCHITECTURE.md
+  s_5f9a753ce320b5::t_da826c46a1150f 237-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1020da00bdacebad0fac841cbd01fc436b4b3f77",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_f9885b8a4d06ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15163-393a-7211-938a-4b86b5b293ef",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

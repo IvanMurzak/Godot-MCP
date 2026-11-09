@@ -1,0 +1,19 @@
+scripts/smoke_rql_wave5.py
+  s_7be60963fe3603::t_f5acddfacd9a2b 13,25-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "06a2431c145d48e97e7613e5e200e732ff18d620",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

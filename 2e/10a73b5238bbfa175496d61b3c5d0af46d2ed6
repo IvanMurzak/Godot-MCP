@@ -1,0 +1,24 @@
+Godot-MCP.Tests/GodotMcpConfigTests.cs
+  s_2d6cb848c62662::t_386b0655165719 80-93
+  s_2d6cb848c62662::t_fca370af5bb3dd 94-95
+addons/godot_mcp/Runtime/Connection/GodotMcpConfig.cs
+  s_2d6cb848c62662::t_386b0655165719 313,315
+addons/godot_mcp/Runtime/Connection/GodotMcpEnvFile.cs
+  s_2d6cb848c62662::t_386b0655165719 224-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2e10a73b5238bbfa175496d61b3c5d0af46d2ed6",
+  "prompts": {},
+  "sessions": {
+    "s_2d6cb848c62662": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11af2-b157-7121-97aa-5de5a862c876",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

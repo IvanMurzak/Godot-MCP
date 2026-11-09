@@ -1,0 +1,65 @@
+extensions/Godot-AI-Animation/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_f999af8df2942b 35
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Godot-AI-Animation.csproj
+  s_7be60963fe3603::t_09ba717f5d6ad0 72
+extensions/Godot-AI-Beehave/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_4013670dba4368 35
+extensions/Godot-AI-Beehave/src/Godot-AI-Beehave/Godot-AI-Beehave.csproj
+  s_7be60963fe3603::t_0e41889a891f0a 72
+extensions/Godot-AI-CSG/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_fc7c7a757057d0 35
+extensions/Godot-AI-CSG/src/Godot-AI-CSG/Godot-AI-CSG.csproj
+  s_7be60963fe3603::t_3cc7b5742f7ae6 72
+extensions/Godot-AI-Dialogic/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_592cc928ff2f1f 35
+extensions/Godot-AI-Dialogic/src/Godot-AI-Dialogic/Godot-AI-Dialogic.csproj
+  s_7be60963fe3603::t_5faf53c44fc7a4 72
+extensions/Godot-AI-GridMap/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_633df1ef766755 35
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Godot-AI-GridMap.csproj
+  s_7be60963fe3603::t_e8e953daafd77c 72
+extensions/Godot-AI-Navigation/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_85a392ad76a5dd 35
+extensions/Godot-AI-Navigation/src/Godot-AI-Navigation/Godot-AI-Navigation.csproj
+  s_7be60963fe3603::t_a846f8f1517fc8 72
+extensions/Godot-AI-Particles/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_11a353bad082be 35
+extensions/Godot-AI-Particles/src/Godot-AI-Particles/Godot-AI-Particles.csproj
+  s_7be60963fe3603::t_8382d11b169cc7 72
+extensions/Godot-AI-PhantomCamera/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_477156bdbebfd9 35
+extensions/Godot-AI-PhantomCamera/src/Godot-AI-PhantomCamera/Godot-AI-PhantomCamera.csproj
+  s_7be60963fe3603::t_a29f13c8a554c3 72
+extensions/Godot-AI-Terrain3D/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_6a5457e039ce24 35
+extensions/Godot-AI-Terrain3D/src/Godot-AI-Terrain3D/Godot-AI-Terrain3D.csproj
+  s_7be60963fe3603::t_494b3a66a673db 72
+extensions/Godot-AI-Tilemap/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_14df9e6c627030 35
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Godot-AI-Tilemap.csproj
+  s_7be60963fe3603::t_23c707910fd0dc 72
+scripts/extensions.py
+  s_7be60963fe3603::t_1f301064cf4d4e 105,107-108,110,114-116
+scripts/tests/test_extensions.py
+  s_7be60963fe3603::t_7d3eb23db0e4a6 201
+templates/extension/docs/source-only-nuget-recipe.md
+  s_7be60963fe3603::t_221f66351da889 35
+templates/extension/src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj
+  s_7be60963fe3603::t_873177e717c5fb 73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfcddadbf33716b418d633feccdeb0bcf08b76d7",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

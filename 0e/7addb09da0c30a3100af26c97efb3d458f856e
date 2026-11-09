@@ -1,0 +1,27 @@
+Godot-MCP.Tests/RqlGuideTests.cs
+  s_7bc72ecaebd05d::t_19f4a99905b42e 95
+addons/godot_mcp/Editor/Rql/Adapters/Object/Godot_GodotObject_Adapter.cs
+  s_7bc72ecaebd05d::t_9660730e6c0e56 157-159
+addons/godot_mcp/Editor/Rql/RqlGodot.Create.cs
+  s_7bc72ecaebd05d::t_c685b2126d0be4 208
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7bc72ecaebd05d::t_fdbb54212632d8 255-257
+scripts/smoke_rql_wave6.py
+  s_7bc72ecaebd05d::t_3cc1a6bbb9629d 52-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e7addb09da0c30a3100af26c97efb3d458f856e",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

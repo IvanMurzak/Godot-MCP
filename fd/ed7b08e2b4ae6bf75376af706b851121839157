@@ -1,0 +1,33 @@
+addons/godot_mcp/Editor/Connection/GodotMcpLocalServerHandoff.cs
+  s_7bc72ecaebd05d::t_edd575916c1717 1-81
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7bc72ecaebd05d::t_4aedfe9cc86495 310-312
+AGENTS.md
+  s_7bc72ecaebd05d::t_f667a48fe7158c 117-119
+Godot-MCP.Tests/GodotMcpLocalServerHandoffTests.cs
+  s_7bc72ecaebd05d::t_ab272ea5990ec1 1-211
+addons/godot_mcp/Editor/Connection/GodotMcpServerManager.cs
+  s_7bc72ecaebd05d::t_cbc823c3ef97b5 38-40,66-68,94-150,665,671-675,759,782
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_7bc72ecaebd05d::t_501c1df6b8441c 556-565
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_7bc72ecaebd05d::t_45a2c351143c3f 813-818
+addons/godot_mcp/Editor/UI/GodotMcpDock.cs
+  s_7bc72ecaebd05d::t_287240321f78d7 373-375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fded7b08e2b4ae6bf75376af706b851121839157",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+Godot-MCP.Tests/RqlTargetLimitAndHostNamesTests.cs
+  s_7be60963fe3603::t_74410215e8d5e6 99-101
+addons/godot_mcp/Editor/Rql/RqlTargetLimit.cs
+  s_7be60963fe3603::t_e214eb8cad9023 40-47
+addons/godot_mcp/Editor/Tools/Tool_Rql.Mutate.cs
+  s_7be60963fe3603::t_52eb993ceea651 34,37
+docs/rql.md
+  s_7be60963fe3603::t_2f8007ab19aee4 75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "737ac6a71b3e14c3267462ee98cb0221ceac28a1",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

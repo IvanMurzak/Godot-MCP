@@ -1,0 +1,19 @@
+addons/godot_mcp/Editor/Tools/Tool_Script.AttachToNode.cs
+  s_7bc72ecaebd05d::t_e50bbfb4a72a04 53-55,66,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bc004bb61391bf1afb6fdcde119d33a2db2656df",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

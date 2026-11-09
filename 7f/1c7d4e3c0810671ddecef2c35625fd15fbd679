@@ -1,0 +1,34 @@
+Godot-MCP.Tests/DockThemeTests.cs
+  s_06c53c82d6e5ea::t_1c641ec907f1b1 66
+  s_06c53c82d6e5ea::t_65ea04967f7633 142
+  s_06c53c82d6e5ea::t_6a746c5fcab9dd 148-150
+  s_06c53c82d6e5ea::t_e9b2a37660ebbc 89,91
+addons/godot_mcp/UI/DockTheme.cs
+  s_06c53c82d6e5ea::t_eb8617ff99d11f 260-263
+  s_06c53c82d6e5ea::t_34e2d3a711c9a0 268
+  s_06c53c82d6e5ea::t_4ad987fdee0f14 136
+  s_06c53c82d6e5ea::t_5d6fb6f4f78e25 79
+  s_06c53c82d6e5ea::t_aafd4d5acb3e65 83
+  s_06c53c82d6e5ea::t_a97bdc60258c65 256-258
+addons/godot_mcp/UI/DockStyle.cs
+  s_06c53c82d6e5ea::t_99962befe5c363 854-855
+  s_06c53c82d6e5ea::t_96b804c054fc3b 750-753
+  s_06c53c82d6e5ea::t_6ee915d57b5d6b 327
+  s_06c53c82d6e5ea::t_efc14920a96556 831-832
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7f1c7d4e3c0810671ddecef2c35625fd15fbd679",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
