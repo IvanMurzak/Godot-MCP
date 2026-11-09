@@ -27,9 +27,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScreenshotCameraToolId,
             Title = "Screenshot / Camera",
-            ReadOnlyHint = true,
+            ReadOnlyHint = false,
             DestructiveHint = false,
-            IdempotentHint = true,
+            IdempotentHint = false,
             OpenWorldHint = false
         )]
         [Description("Capture a screenshot from a specific Camera3D (or Camera2D) in the edited scene and " +
@@ -38,7 +38,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "temporary off-screen SubViewport at the requested 'width'x'height', so the editor's live " +
             "selection/camera is left untouched. Output edges are capped to keep the response transportable. " +
             "NOTE: rendering needs a real GPU — a Godot launched with '--headless' yields an empty image, " +
-            "surfaced here as a structured error rather than a blank PNG.")]
+            "surfaced here as a structured error rather than a blank PNG." + ScreenshotSavePath.ToolDescriptionNote)]
         public ResponseCallTool ScreenshotCamera
         (
             [Description("Reference to the camera Node (Camera3D or Camera2D) to capture from " +
@@ -47,7 +47,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description("Output width in pixels. Default 1920. Must be > 0 and within the dimension cap.")]
             int width = 1920,
             [Description("Output height in pixels. Default 1080. Must be > 0 and within the dimension cap.")]
-            int height = 1080
+            int height = 1080,
+            [Description(ScreenshotSavePath.ParameterDescription)]
+            string? savePath = null
         )
         {
             if (!ScreenshotMath.ValidateDimensions(width, height, out var dimError))
@@ -59,14 +61,17 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return MainThread.Instance.Run(() =>
             {
+                if (!ResolveSavePath(savePath, out var saveTo, out var saveError))
+                    return ResponseCallTool.Error(saveError!);
+
                 var node = Tool_Node.ResolveNode(nodeRef, out var resolveError);
                 if (node == null)
                     return ResponseCallTool.Error(resolveError ?? $"Camera node {nodeRef} not found.");
 
                 if (node is Camera3D camera3D)
-                    return CaptureCamera3D(camera3D, width, height);
+                    return CaptureCamera3D(camera3D, width, height, saveTo);
                 if (node is Camera2D camera2D)
-                    return CaptureCamera2D(camera2D, width, height);
+                    return CaptureCamera2D(camera2D, width, height, saveTo);
 
                 return ResponseCallTool.Error(
                     $"Node {nodeRef} is a '{node.GetClass()}', not a Camera3D or Camera2D.");
@@ -75,7 +80,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         // Render the camera's 3D world into an off-screen SubViewport via a temporary clone camera, so the
         // editor's own current camera / selection is never disturbed. MUST run on the main thread.
-        static ResponseCallTool CaptureCamera3D(Camera3D source, int width, int height)
+        static ResponseCallTool CaptureCamera3D(Camera3D source, int width, int height, string? saveTo)
         {
             var subViewport = new SubViewport
             {
@@ -110,7 +115,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 subViewport.AddChild(cloneCamera);
 
                 return RenderSubViewportToPng(subViewport,
-                    caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})");
+                    caption: $"Camera3D '{source.Name}' screenshot ({width}x{height})", saveTo);
             }
             finally
             {
@@ -120,7 +125,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         // Render the camera's 2D world into an off-screen SubViewport that shares World2D and applies the
         // source camera's transform as the SubViewport's canvas transform (so the same framing is captured).
-        static ResponseCallTool CaptureCamera2D(Camera2D source, int width, int height)
+        static ResponseCallTool CaptureCamera2D(Camera2D source, int width, int height, string? saveTo)
         {
             var sourceViewport = source.GetViewport();
             var world2D = sourceViewport?.GetWorld2D();
@@ -153,7 +158,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 subViewport.CanvasTransform = canvasTransform;
 
                 return RenderSubViewportToPng(subViewport,
-                    caption: $"Camera2D '{source.Name}' screenshot ({width}x{height})");
+                    caption: $"Camera2D '{source.Name}' screenshot ({width}x{height})", saveTo);
             }
             finally
             {
@@ -166,7 +171,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         // it (via FreeOffscreenViewport) in its own finally — this only hosts/un-hosts it so a throw during
         // construction (before this is even reached) is still covered by the caller. MUST run on the main
         // thread.
-        static ResponseCallTool RenderSubViewportToPng(SubViewport subViewport, string caption)
+        static ResponseCallTool RenderSubViewportToPng(SubViewport subViewport, string caption, string? saveTo)
         {
             // The SubViewport needs a parent in the live tree to allocate a render target. The editor's
             // base control is a stable, always-present host; the SubViewport renders off-screen (it is not
@@ -199,8 +204,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (png == null)
                     return ResponseCallTool.Error(error ?? "Failed to read back the camera render.");
 
-                return ResponseCallTool.Image(png, McpPlugin.Common.Consts.MimeType.ImagePng,
-                    $"{caption} ({png.Length} bytes PNG)");
+                return ImageResult(png, caption, saveTo);
             }
             finally
             {

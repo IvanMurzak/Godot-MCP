@@ -28,9 +28,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScreenshotIsolatedToolId,
             Title = "Screenshot / Isolated Node",
-            ReadOnlyHint = true,
+            ReadOnlyHint = false,
             DestructiveHint = false,
-            IdempotentHint = true,
+            IdempotentHint = false,
             OpenWorldHint = false
         )]
         [Description("Render a target Node3D in ISOLATION (only the target is visible, in its own world) " +
@@ -41,7 +41,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "The target is rendered via a temporary off-screen copy, so the edited scene is never mutated. " +
             "Output is a square 'resolution'x'resolution' PNG, capped to keep the response transportable. " +
             "NOTE: rendering needs a real GPU — a Godot launched with '--headless' yields an empty image, " +
-            "surfaced here as a structured error rather than a blank PNG.")]
+            "surfaced here as a structured error rather than a blank PNG." + ScreenshotSavePath.ToolDescriptionNote)]
         public ResponseCallTool ScreenshotIsolated
         (
             [Description("Reference to the target Node3D to render in isolation (instanceId preferred, else path).")]
@@ -61,7 +61,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description("Framing multiplier around the object. 1.0 = tight fit, 1.5 = 50% extra space. Default: 1.2.")]
             float padding = 1.2f,
             [Description("Output image resolution in pixels (width = height). Default: 512.")]
-            int resolution = 512
+            int resolution = 512,
+            [Description(ScreenshotSavePath.ParameterDescription)]
+            string? savePath = null
         )
         {
             if (resolution < ScreenshotMath.MinDimension || resolution > ScreenshotMath.MaxDimension)
@@ -84,6 +86,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return MainThread.Instance.Run(() =>
             {
+                if (!ResolveSavePath(savePath, out var saveTo, out var saveError))
+                    return ResponseCallTool.Error(saveError!);
+
                 var node = Tool_Node.ResolveNode(nodeRef, out var resolveError);
                 if (node == null)
                     return ResponseCallTool.Error(resolveError ?? $"Target node {nodeRef} not found.");
@@ -93,7 +98,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         $"Node {nodeRef} is a '{node.GetClass()}', not a Node3D. screenshot-isolated renders 3D nodes only.");
 
                 return CaptureIsolated(node3D, cameraView, background, resolvedBackgroundColor,
-                    fieldOfView, nearClipPlane, farClipPlane, padding, resolution);
+                    fieldOfView, nearClipPlane, farClipPlane, padding, resolution, saveTo);
             });
         }
 
@@ -106,7 +111,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             float near,
             float far,
             float padding,
-            int resolution)
+            int resolution,
+            string? saveTo)
         {
             // Own-world SubViewport => only what we add below is visible: a copy of the target plus a light.
             // The live edited scene is never touched (we render a Duplicate, in a fresh World3D).
@@ -147,7 +153,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 // Duplicate so we can recenter at the origin without mutating the real node's transform.
                 // Scripts are deliberately NOT duplicated: a static off-screen render needs no behavior, and
                 // including them would run the clones' _EnterTree/_Ready on AddChild — observable side
-                // effects that contradict this tool's ReadOnlyHint=true.
+                // effects on a capture that must leave the edited scene alone.
                 var clone = (Node3D)target.Duplicate((int)(Node.DuplicateFlags.Signals | Node.DuplicateFlags.Groups));
                 clone.Transform = Transform3D.Identity;
                 subViewport.AddChild(clone);
@@ -192,7 +198,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 light.LookAtFromPosition(camPos, center, upVec);
 
                 return RenderSubViewportToPng(subViewport,
-                    caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})");
+                    caption: $"Isolated render of '{target.Name}' ({view}, {resolution}x{resolution}, background={background})", saveTo);
             }
             finally
             {

@@ -59,6 +59,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 Assert.Contains(tools, t => t with { Where = compiled.Where } == compiled);
         }
 
+        [Fact]
+        public void ScreenshotTools_CanWriteAFile_SoAreNotReadOnlyOrIdempotent()
+        {
+            var screenshots = SourceTools().Where(t => t.Name?.StartsWith("screenshot-", StringComparison.Ordinal) == true).ToList();
+
+            Assert.Equal(new[] { "screenshot-camera", "screenshot-isolated", "screenshot-viewport" }, screenshots.Select(t => t.Name).OrderBy(n => n, StringComparer.Ordinal));
+            foreach (var tool in screenshots)
+            {
+                Assert.False(tool.ReadOnlyHint, tool.Name);
+                Assert.False(tool.IdempotentHint, tool.Name);
+                Assert.False(tool.DestructiveHint, tool.Name); // it never overwrites
+                Assert.False(tool.OpenWorldHint, tool.Name);
+            }
+        }
+
         static void AssertAnnotated(IEnumerable<ToolAnnotations> tools)
         {
             var problems = new List<string>();

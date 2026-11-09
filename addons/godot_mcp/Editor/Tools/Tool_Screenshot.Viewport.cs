@@ -25,9 +25,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         (
             ScreenshotViewportToolId,
             Title = "Screenshot / Editor Viewport",
-            ReadOnlyHint = true,
+            ReadOnlyHint = false,
             DestructiveHint = false,
-            IdempotentHint = true,
+            IdempotentHint = false,
             OpenWorldHint = false
         )]
         [Description("Capture the Godot editor's main viewport (the 3D or 2D editing surface) and return it " +
@@ -36,12 +36,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "response transportable; oversized captures are scaled down (aspect preserved). NOTE: the " +
             "viewport must have a live GPU render — a Godot launched with '--headless' has no rendering " +
             "device and yields an empty image, which surfaces here as a structured error rather than a " +
-            "blank PNG.")]
+            "blank PNG." + ScreenshotSavePath.ToolDescriptionNote)]
         public ResponseCallTool ScreenshotViewport
         (
             [Description("Which editor viewport to capture: '3d' (the 3D editor surface, default) or '2d' " +
                 "(the 2D editor surface). Case-insensitive.")]
-            string mode = "3d"
+            string mode = "3d",
+            [Description(ScreenshotSavePath.ParameterDescription)]
+            string? savePath = null
         )
         {
             var normalizedMode = (mode ?? "3d").Trim().ToLowerInvariant();
@@ -50,6 +52,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             return MainThread.Instance.Run(() =>
             {
+                if (!ResolveSavePath(savePath, out var saveTo, out var saveError))
+                    return ResponseCallTool.Error(saveError!);
+
                 // GetEditorViewport3D/2D return the editor's SubViewport (a Viewport). On a GPU-backed
                 // editor these hold the live editing render; under --headless they read back empty, which
                 // EncodeViewportPng reports as a structured error.
@@ -64,8 +69,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (png == null)
                     return ResponseCallTool.Error(error ?? "Failed to capture the editor viewport.");
 
-                return ResponseCallTool.Image(png, McpPlugin.Common.Consts.MimeType.ImagePng,
-                    $"Editor {normalizedMode} viewport screenshot ({png.Length} bytes PNG)");
+                return ImageResult(png, $"Editor {normalizedMode} viewport screenshot", saveTo);
             });
         }
     }
