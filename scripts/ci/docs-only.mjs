@@ -29,7 +29,7 @@ const DOCS = new Set(["AGENTS.md", "docs/EXTENSION-MONOREPO.md", "docs/rql.md", 
 
 /** @param {string} path repo-relative, forward slashes */
 export function isDocsPath(path) {
-  return DOCS.has(path) || /^docs\/img\/.+\.(png|jpg|svg)$/.test(path);
+  return DOCS.has(path) || /^docs\/img\/.+\.(png|jpg|svg)$/.test(path) || /^\.(claude|agents)\//.test(path);
 }
 
 /** @param {readonly string[]} files */
