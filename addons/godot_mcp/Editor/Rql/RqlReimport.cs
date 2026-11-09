@@ -180,6 +180,24 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else FullScanFor(efs);
         }
 
+        /// <summary>
+        /// A full scan that finds a file just written, without waiting for it: the editor imports new files when it lands. A
+        /// scan already running may have listed the folder before the write, and a new Scan() is ignored until it lands, so
+        /// one more scan then follows it. Main-thread only.
+        /// </summary>
+        internal static void ScanWithoutWaiting()
+        {
+            var efs = EditorInterface.Singleton.GetResourceFilesystem();
+            if (efs == null) return;
+            if (efs.IsScanning() || _scanFrame == Engine.GetProcessFrames())
+            {
+                Defer(efs, null);
+                return;
+            }
+            efs.Scan();
+            _scanFrame = Engine.GetProcessFrames();
+        }
+
         // The frame of the last full scan Register ran, and the files written after it in that frame.
         static ulong _scanFrame = ulong.MaxValue;
         static readonly List<string?> _deferred = new List<string?>();

@@ -37,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         public void Dispose()
         {
-            // Links first: a recursive delete refuses a junction on Windows (and must never walk through one).
+            // Junctions first: a recursive delete refuses them on Windows (on Unix it unlinks a symlink without following it).
             foreach (var link in _links) Directory.Delete(link);
             Directory.Delete(_parent, recursive: true);
         }
@@ -73,6 +73,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("  Shots/shot.png  ", "Shots/shot.png")]
         [InlineData("res/shot.png", "res/shot.png")]
         [InlineData("addons/other/shot.png", "addons/other/shot.png")]
+        [InlineData("CONTROL.png", "CONTROL.png")]
+        [InlineData("COMX.png", "COMX.png")]
         public void Accepts_AFileInsideTheProject(string requested, string expected)
         {
             Assert.True(ScreenshotSavePath.TryResolve(requested, _root, out var full, out var error), error);
@@ -114,8 +116,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("\\\\server\\share\\shot.png", "inside the project folder")]
         [InlineData("//?/C:/shot.png", "inside the project folder")]
         // Other schemes.
-        [InlineData("user://shot.png", "user://")]
-        [InlineData("USER://shot.png", "user://")]
+        [InlineData("user://shot.png", "because user://")]
+        [InlineData("USER://shot.png", "because user://")]
         [InlineData("uid://abc", "only a res:// path")]
         [InlineData("file:///C:/shot.png", "only a res:// path")]
         [InlineData("res:///shot.png", "relative to the project root")]
@@ -154,6 +156,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("res://shot.png::$DATA", "character a file name cannot use")]
         [InlineData("sh?t.png", "character a file name cannot use")]
         [InlineData("sh\u0001t.png", "character a file name cannot use")]
+        [InlineData("CON.png", "reserved for a device")]
+        [InlineData("com1.png", "reserved for a device")]
+        [InlineData("AUX/shot.png", "reserved for a device")]
+        [InlineData("res://LPT9.tar.png", "reserved for a device")]
         // Another format.
         [InlineData("shot.jpg", "must end in .png")]
         [InlineData("shot.png.txt", "must end in .png")]
@@ -196,7 +202,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Refuses_ALinkLeadingOut_AndAcceptsOneStayingInside()
+        public void Refuses_AnyLinkOnThePath()
         {
             var outside = _parent + "/outside";
             Directory.CreateDirectory(outside);
@@ -206,23 +212,46 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             MakeDirectoryLink(_root + "/in", inside);
             MakeDirectoryLink(_root + "/real/nested-out", outside);
 
-            AssertRefused("out/shot.png", "A link on this path leads out");
-            AssertRefused("res://out/deep/er/shot.png", "A link on this path leads out");
-            AssertRefused("in/nested-out/shot.png", "A link on this path leads out");
+            AssertRefused("out/shot.png", "'out' is a symlink or junction");
+            AssertRefused("res://out/deep/er/shot.png", "'out' is a symlink or junction");
+            AssertRefused("real/nested-out/shot.png", "'real/nested-out' is a symlink or junction");
+            AssertRefused("in/shot.png", "'in' is a symlink or junction"); // stays inside, but could reach res://.godot/
 
-            Assert.True(ScreenshotSavePath.TryResolve("in/shot.png", _root, out var full, out var error), error);
-            Assert.Equal(_root + "/in/shot.png", full);
+            Assert.True(ScreenshotSavePath.TryResolve("real/shot.png", _root, out var full, out var error), error);
+            Assert.Equal(_root + "/real/shot.png", full);
         }
 
         [Fact]
-        public void Refuses_ADanglingLinkLeadingOut()
+        public void Refuses_ALinkWhoseTargetReadsAsInsideButLeadsOutThroughAnother()
+        {
+            var outside = _parent + "/outside";
+            Directory.CreateDirectory(outside + "/deep");
+            Directory.CreateDirectory(_root + "/real");
+            MakeDirectoryLink(_root + "/real/nested-out", outside);
+            MakeDirectoryLink(_root + "/chained", _root + "/real/nested-out/deep");
+
+            AssertRefused("chained/shot.png", "'chained' is a symlink or junction");
+            Assert.Empty(Directory.EnumerateFileSystemEntries(outside + "/deep"));
+        }
+
+        [Fact]
+        public void AProjectOpenedThroughALinkStillWorks()
+        {
+            MakeDirectoryLink(_parent + "/linked-root", _root);
+
+            Assert.True(ScreenshotSavePath.TryResolve("shot.png", _parent + "/linked-root", out var full, out var error), error);
+            Assert.Equal(_parent + "/linked-root/shot.png", full);
+        }
+
+        [Fact]
+        public void Refuses_ADanglingLink()
         {
             var gone = _parent + "/gone";
             Directory.CreateDirectory(gone);
             MakeDirectoryLink(_root + "/dangling", gone);
             Directory.Delete(gone);
 
-            AssertRefused("dangling/shot.png", "A link on this path leads out");
+            AssertRefused("dangling/shot.png", "'dangling' is a symlink or junction");
         }
 
         [Fact]
@@ -323,7 +352,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var check = source.IndexOf("ResolveSavePath(savePath", StringComparison.Ordinal);
             var capture = new[] { "ResolveNode(", "GetEditorViewport" }
                 .Select(s => source.IndexOf(s, StringComparison.Ordinal)).Where(i => i >= 0).Min();
+            Assert.True(run >= 0 && check >= 0, "the tool no longer has the expected shape");
             Assert.InRange(check, run, capture);
+            // The checked path reaches the write (camera and isolated pass it down to RenderSubViewportToPng).
+            Assert.Contains("saveTo)", source);
         }
 
         [Fact]
@@ -339,12 +371,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         // A junction on Windows (no privilege needed), a symlink elsewhere.
         void MakeDirectoryLink(string link, string target)
         {
-            _links.Add(link);
             if (!OperatingSystem.IsWindows())
             {
                 Directory.CreateSymbolicLink(link, target);
                 return;
             }
+            _links.Add(link);
             var mklink = new ProcessStartInfo("cmd.exe") { RedirectStandardOutput = true, RedirectStandardError = true };
             mklink.ArgumentList.Add("/c");
             mklink.ArgumentList.Add("mklink");

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import os
 import pathlib
 import subprocess
@@ -42,12 +43,13 @@ def call(host: str, name: str, args: dict) -> tuple[bool, str, bytes | None]:
 
 
 def snapshot(*roots: pathlib.Path) -> set[pathlib.Path]:
-    """Every file below the roots, except Godot's own cache and the .import files of its scans."""
+    """Every file and folder below the roots, except Godot's own cache and the .import files of its scans."""
     found = set()
     for root in roots:
         for dirpath, dirnames, filenames in os.walk(root):  # does not follow links
             dirnames[:] = [d for d in dirnames if d != ".godot"]
-            found.update(pathlib.Path(dirpath, f) for f in filenames if not f.endswith(".import"))
+            found.update(pathlib.Path(dirpath, f) for f in filenames if ".import" not in f)
+            found.update(pathlib.Path(dirpath, d) for d in dirnames)
     return found
 
 
@@ -94,8 +96,8 @@ def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: p
         root: "inside the project folder",
         "/outside.png": "inside the project folder",
         "\\\\server\\share\\outside.png": "inside the project folder",
-        f"{DIR}/link_out/outside.png": "A link on this path leads out",
-        "user://outside.png": "user://",
+        f"{DIR}/link_out/outside.png": "is a symlink or junction",
+        "user://outside.png": "because user://",
         "file:///outside.png": "only a res:// path",
         "res:///outside.png": "relative to the project root",
         ".": "names a folder",
@@ -129,6 +131,8 @@ def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: p
         check(f"{tool} refuses {path!r}", not ok and image is None and "Cannot save to" in text and reason in text, text)
     after = snapshot(project, outside)
     check(f"{tool}: no new file after the refusals", after == before, str(after - before))
+    beside = [project.parent / "outside.png", pathlib.Path(root + "-sibling"), pathlib.Path("/outside.png")]
+    check(f"{tool}: nothing written beside the project", not any(p.exists() for p in beside), str(beside))
     check(f"{tool}: the existing file is untouched", existing.read_bytes() == before_bytes)
 
 
@@ -163,6 +167,15 @@ def saves(host: str, project: pathlib.Path, tool: str, args: dict, tag: str) -> 
     check(f"{tool}: the first file stays", (project / f"{DIR}/{tag}/relative.png").read_bytes() == first)
 
 
+def parallel_saves(host: str, project: pathlib.Path, tool: str, args: dict, tag: str) -> None:
+    """Saves close together, some in one editor frame: each scan request after the first finds one running, and no file may be lost."""
+    def save(index: int) -> tuple[bool, str, bytes | None]:
+        return call(host, tool, {**args, "savePath": f"{DIR}/{tag}/parallel-{index}.png"})
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(save, range(6)))
+    check(f"{tool}: 6 parallel saves succeed", all(ok for ok, _, _ in results), str([t[:200] for ok, t, _ in results if not ok]))
+
+
 def imports(project: pathlib.Path, tag: str, timeout: float = 30) -> None:
     """The editor's own scan imports what was saved, the last save of a burst included; the tool never waits for it."""
     saved = [p for p in (project / DIR / tag).glob("*") if p.suffix.lower() == ".png"]
@@ -171,7 +184,7 @@ def imports(project: pathlib.Path, tag: str, timeout: float = 30) -> None:
     while time.monotonic() < deadline and missing:
         time.sleep(0.5)
         missing = [p for p in saved if not p.with_name(p.name + ".import").exists()]
-    check(f"{tag}: the editor imported all {len(saved)} PNGs (.import beside each)", not missing, str(missing))
+    check(f"{tag}: the editor imported all {len(saved)} PNGs (.import beside each)", bool(saved) and not missing, str(missing))
 
 
 def main() -> int:
@@ -208,6 +221,7 @@ def main() -> int:
     if not args.refusals_only:
         for name, tool_args in tools:
             saves(host, project, name, tool_args, f"{name.split('-')[1]}-{run}")
+            parallel_saves(host, project, name, tool_args, f"{name.split('-')[1]}-{run}")
         for name, _ in tools:
             imports(project, f"{name.split('-')[1]}-{run}")
         must("the editor still answers", tool(host, "rql-schema", {}))

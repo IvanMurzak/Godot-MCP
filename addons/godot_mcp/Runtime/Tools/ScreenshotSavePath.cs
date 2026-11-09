@@ -114,6 +114,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     return $"the name '{segment}' ends in a dot or a space, which Windows drops when it opens a file; rename it.";
                 if (segment.Any(c => c < ' ' || ForbiddenSegmentChars.IndexOf(c) >= 0))
                     return $"the name '{segment}' has a character a file name cannot use ({ForbiddenSegmentChars} or a control character); rename it.";
+                if (IsWindowsDeviceName(segment))
+                    return $"the name '{segment}' is reserved for a device on Windows; rename it.";
                 segments.Add(segment);
             }
 
@@ -132,8 +134,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return $"{isProtected}; use a path such as {Example}.";
 
             var full = root + "/" + joined;
-            if (LinkLeadsOut(root, segments))
-                return outside + " A link on this path leads out of it.";
+            if (LinkOnPath(root, segments) is { } link)
+                return $"'{link}' is a symlink or junction, and a capture is only written through real folders of the project; use a path such as {Example}.";
             if (File.Exists(full) || Directory.Exists(full))
                 return "the file already exists and a capture never overwrites one; pick another name.";
 
@@ -141,30 +143,38 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return null;
         }
 
-        // Whether a symlink or junction on the way to the file ends outside the project (best effort, fails closed when a link
-        // cannot be read). A project opened through a link of its own has every internal link refused: a real target is then
-        // not under the requested root. The final write refuses a link at the file itself (FileMode.CreateNew).
-        static bool LinkLeadsOut(string root, List<string> segments)
+        // CON, PRN, AUX, NUL, COM0-9, LPT0-9, with any extension: older Windows opens the device, so a save would claim a file
+        // it never wrote, and on any Windows such a folder is awkward to delete.
+        static bool IsWindowsDeviceName(string segment)
+        {
+            var stem = segment.Split('.')[0].ToUpperInvariant();
+            return stem is "CON" or "PRN" or "AUX" or "NUL"
+                || (stem.Length == 4 && (stem.StartsWith("COM", StringComparison.Ordinal) || stem.StartsWith("LPT", StringComparison.Ordinal)) && stem[3] >= '0' && stem[3] <= '9');
+        }
+
+        // The first symlink or junction on the way to the file (or the part that cannot be read), null when there is none. Any
+        // link is refused rather than resolved: on Unix ResolveLinkTarget follows only the last component, so a target that
+        // reads as inside the project can still lead out through another link, and an internal link could reach res://.godot/.
+        // The project root's own path may hold links; only what is below it is judged.
+        static string? LinkOnPath(string root, List<string> segments)
         {
             var current = root;
+            var relative = "";
             foreach (var segment in segments)
             {
                 current += "/" + segment;
+                relative += relative.Length == 0 ? segment : "/" + segment;
                 try
                 {
-                    var info = new FileInfo(current);
-                    if (info.LinkTarget == null)
-                        continue;
-                    var target = info.ResolveLinkTarget(returnFinalTarget: true)?.FullName.Replace('\\', '/');
-                    if (target == null || !target.StartsWith(root + "/", PathComparison))
-                        return true;
+                    if (new FileInfo(current).LinkTarget != null)
+                        return relative;
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    return true;
+                    return relative;
                 }
             }
-            return false;
+            return null;
         }
 
         /// <summary>

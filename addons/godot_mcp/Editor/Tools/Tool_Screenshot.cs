@@ -105,10 +105,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (!ScreenshotSavePath.TryWrite(saveTo, png, out var writeError))
                     return ResponseCallTool.Error(writeError!);
 
-                // Not RqlReimport.Register: it can wait seconds on this thread for a scan to settle, and UpdateFile alone
-                // registers a new PNG without importing it. If a scan is already running this one is ignored, and the
-                // editor's next scan (at the latest when its window gets focus) finds the file.
-                EditorInterface.Singleton.GetResourceFilesystem()?.Scan();
+                // Not RqlReimport.Register: it can wait seconds on this thread, and UpdateFile alone does not import a new PNG.
+                // Not ScanSources: it compares folder times in whole seconds, so it missed saves made in the same second (live).
+                Editor.Rql.RqlReimport.ScanWithoutWaiting();
                 text += ". " + ScreenshotSavePath.SavedNote(saveTo);
             }
             return ResponseCallTool.Image(png, McpPlugin.Common.Consts.MimeType.ImagePng, text);
