@@ -18,8 +18,16 @@ test("isDocsPath lists only what nothing reads", () => {
     "docs/img/mcp-clients/claude-64.png",
     "docs/img/promo/ai-developer-banner.jpg",
     "docs/img/promo/hazzard-features.svg",
+    // Agent settings and skills at the root; the addon's ".claude/skills" is a path in the user's project.
+    ".claude/settings.json",
+    ".claude/skills/x/SKILL.md",
+    ".agents/skills/x/SKILL.md",
   ];
   const run = [
+    ".claude", // a file, not the folder
+    "cli/.claude/settings.json",
+    ".claude-plugin/plugin.json",
+    ".github/agents/x.agent.md",
     // Read by cli/tests/skills-addon-parity.test.ts.
     "README.md",
     "docs/ARCHITECTURE.md",
