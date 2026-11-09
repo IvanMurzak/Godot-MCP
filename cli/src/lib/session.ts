@@ -76,7 +76,8 @@ export function sessionEditorEnv(url: string, token: string | undefined): Record
     [ENV_CONNECTION_MODE]: SESSION_CONNECTION_MODE,
     [ENV_HOST]: url,
     [ENV_START_SERVER]: 'true',
-    ...(token ? { [ENV_TOKEN]: token, [ENV_AUTH_OPTION]: 'Required' } : {}),
+    // Without a token the session is anonymous: the CLI has no bearer for a server a project .env token would gate.
+    ...(token ? { [ENV_TOKEN]: token, [ENV_AUTH_OPTION]: 'Required' } : { [ENV_AUTH_OPTION]: 'None' }),
   };
 }
 

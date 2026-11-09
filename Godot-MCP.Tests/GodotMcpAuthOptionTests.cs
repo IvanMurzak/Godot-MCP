@@ -135,8 +135,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void EnvToken_ImpliedAuth_IsNotPersisted()
         {
             using var _ = CustomWithEnvToken();
+            var config = new GodotMcpConfig();
+            Assert.Equal(McpServerConsts.AuthOption.token, config.ActiveAuthOption);
 
-            var saved = SaveAndRead(new GodotMcpConfig());
+            var saved = SaveAndRead(config);
 
             Assert.DoesNotContain("env-token", saved);
             Assert.Contains("\"authOption\": \"none\"", saved);
@@ -175,7 +177,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void TokenSetAfterEnvFile_IsSaved_ButEnvFileStillWinsLive()
+        public void TokenSetAfterEnvFile_IsSaved_AndSent()
         {
             using var _ = AuthEnvScope.ClearAll();
             var config = GodotMcpEnvFile.Apply(new GodotMcpConfig(), new Dictionary<string, string>
@@ -186,7 +188,25 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             config.CustomToken = "generated-in-dock";
 
             Assert.Contains("generated-in-dock", SaveAndRead(config));
-            Assert.Equal("file-token", config.ResolveCustomToken());
+            Assert.Equal("generated-in-dock", config.ResolveConfiguredCustomToken());
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task EnvFileToken_Oauth_RemoteHost_IsSent_NeverTheAccountToken()
+        {
+            using var _ = AuthEnvScope.ClearAll();
+            var config = GodotMcpEnvFile.Apply(new GodotMcpConfig
+            {
+                AuthOption = McpServerConsts.AuthOption.oauth,
+                CustomHost = "https://team.example",
+                CloudToken = "account-jwt"
+            }, new Dictionary<string, string>
+            {
+                [GodotMcpConfig.EnvConnectionMode] = "Custom",
+                [GodotMcpConfig.EnvToken] = "file-token"
+            });
+
+            Assert.Equal("file-token", await config.CredentialProvider!());
         }
 
         [Fact]

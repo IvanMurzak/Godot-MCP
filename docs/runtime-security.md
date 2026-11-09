@@ -130,9 +130,11 @@ keystore.
   token. Treat `user://godot-mcp-config.json` as a secret — don't commit it, sync it to a shared drive, or
   paste it.
 - **Rotation.** Clear the saved token in the dock (or delete the file) and reconnect.
-- **Precedence.** A `GODOT_MCP_TOKEN` process-env / `.env` value always shadows the persisted token at
-  resolution time and is **not** written back into this file — so a CI / shared machine can run without
-  ever persisting a token to disk.
+- **Precedence.** A `GODOT_MCP_TOKEN` process-env value, or a Custom-mode `.env` value, shadows the persisted
+  token at resolution time and is **not** written back into this file — so a CI / shared machine can run
+  without ever persisting a token to disk. A `.env` token read in Cloud mode is written back on a dock save.
+- **A set `GODOT_MCP_TOKEN` is sent to the Custom host.** With no `GODOT_MCP_AUTH_OPTION` it overrides a configured
+  `AuthOption = none`, including one set in code. Set `GODOT_MCP_AUTH_OPTION=none` to keep a connection anonymous.
 
 ### The dev-control bridge is unauthenticated but gated OFF
 

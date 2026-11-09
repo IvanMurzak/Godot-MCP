@@ -151,9 +151,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonIgnore]
         public int? LocalServerPort { get; set; }
 
-        /// <summary>Backing field for the custom-mode bearer token. Serialized as <c>token</c>.</summary>
+        /// <summary>
+        /// Backing field for the custom-mode bearer token. Serialized as <c>token</c>. Setting it (the dock's Generate)
+        /// replaces the project <c>.env</c> token for this session, so the new token is the one sent.
+        /// </summary>
         [JsonPropertyName("token")]
-        public string? CustomToken { get; set; }
+        public string? CustomToken
+        {
+            get => _customToken;
+            set
+            {
+                _customToken = value;
+                EnvFileCustomToken = null;
+            }
+        }
+
+        string? _customToken;
 
         /// <summary>Backing field for the cloud-mode bearer token. Serialized as <c>cloudToken</c>.</summary>
         [JsonPropertyName("cloudToken")]
@@ -269,7 +282,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// The project <c>.env</c> token for Custom mode (<see cref="GodotMcpEnvFile.Apply"/>). Never serialized: it stays
-        /// in its file, and it shadows <see cref="CustomToken"/> as the process env does.
+        /// in its file, and it shadows the saved <see cref="CustomToken"/> until the dock sets a new one.
         /// </summary>
         internal string? EnvFileCustomToken { get; set; }
 
@@ -595,8 +608,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             ActiveMode == GodotMcpConnectionMode.Custom
             && ActiveAuthOption != McpServerConsts.AuthOption.oauth
             && string.IsNullOrEmpty(Token)
-                ? "[Godot-MCP] The server requires a token and this connection sent none. Set " + EnvToken + " (with "
-                    + EnvAuthOption + " unset or token), or choose Token in the AI Game Developer dock."
+                ? "[Godot-MCP] The server requires a token and this connection sent none. Set " + EnvToken + " (and "
+                    + EnvAuthOption + " to token if it is set), or press New under Token in the AI Game Developer dock."
                 : null;
 
         /// <summary>

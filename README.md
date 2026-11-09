@@ -447,10 +447,11 @@ instance, etc.).
 | `GODOT_MCP_TOKEN` | Bearer token, sent to the server at `GODOT_MCP_HOST` (or the saved host). Setting it selects `token` authorization unless `GODOT_MCP_AUTH_OPTION` says otherwise. | (none) |
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`. Overrides the token rule above; the dock's **None** does not. | Saved choice, else `none` |
 
-Any set `GODOT_MCP_TOKEN` (process environment or project `.env`) also applies to a local server the editor starts and
-to agent configs you write with **Configure**. Neither the token nor this selection is saved to the config file. A
+Any set `GODOT_MCP_TOKEN` (process environment, or the project `.env` when the editor starts in Custom mode) also applies
+to a local server the editor starts and to agent configs you write with **Configure**. Neither that token nor this
+selection is saved to the config file. A
 server in `token` mode rejects a connection without a token (`Connection rejected: auth=token mode requires a token but
-none was provided`); the plugin then logs what to set.
+none was provided`); the editor plugin then logs what to set.
 
 With authorization `oauth`, your signed-in ai-game.dev account token is sent **only to a localhost server**
 (`localhost`, `127.0.0.0/8`, `::1`). For any other host set `GODOT_MCP_TOKEN`; without it the connection fails with
@@ -1047,8 +1048,8 @@ both are **by design** today:
   Godot's `user://` data directory). It is **not** encrypted or stored in an OS keystore. The trust
   assumption is the **local user account**: anyone with read access to your user data directory can read
   the token. Treat that file as a secret — don't commit it, sync it, or share it. To rotate, clear the
-  saved token in the dock (or delete the file) and reconnect. (Process-env / `.env` overrides via
-  `GODOT_MCP_TOKEN` always shadow the persisted value and are not written back to this file.)
+  saved token in the dock (or delete the file) and reconnect. (A process-env `GODOT_MCP_TOKEN`, or a Custom-mode one in `.env`, shadows the
+  persisted value and is not written back to this file. A `.env` token read in Cloud mode is written back on a dock save.)
 - **The dev-control bridge is unauthenticated but gated OFF.** A development-only inject/control HTTP
   bridge exists for driving the editor dock in tests. It is **unauthenticated**, but its security boundary
   is threefold: it is editor-only (`#if TOOLS`, never compiled into a game), binds **`127.0.0.1`** only,

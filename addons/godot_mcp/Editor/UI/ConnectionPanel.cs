@@ -954,9 +954,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
 
             _connection.Config.AuthOption = authOption;
 
-            // token mode needs a static secret to send; mint one if none is stored yet.
+            // token mode needs a static secret to send; mint one if none is configured yet.
             if (authOption == McpServerConsts.AuthOption.token &&
-                string.IsNullOrEmpty(_connection.Config.CustomToken))
+                string.IsNullOrEmpty(_connection.Config.ResolveConfiguredCustomToken()))
             {
                 _connection.Config.CustomToken = GodotMcpTokenGenerator.Generate();
             }
@@ -1072,10 +1072,7 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 ApplyCloudAuthState();
             }
 
-            // The active mode or auth differs from the persisted value only when an env/.env override forced it.
-            var overridden = activeMode != persistedMode ||
-                _connection.Config.ActiveAuthOption != GodotMcpConfig.NormalizeAuthOption(_connection.Config.AuthOption);
-            _overrideNote.Visible = overridden;
+            ApplyOverrideNote(activeMode);
 
             _hostField.Editable = true;
             ApplyAlertVisibility(_connection.ConnectionStatus);
@@ -1099,8 +1096,16 @@ namespace com.IvanMurzak.Godot.MCP.UI
             // shared-secret path). none = anonymous loopback; oauth = the account JWT (no static token here).
             var isToken = authOption == McpServerConsts.AuthOption.token;
             _tokenRow.Visible = isToken;
-            _tokenField.Text = isToken ? (_connection.Config.CustomToken ?? string.Empty) : string.Empty;
+            _tokenField.Text = isToken
+                ? (_connection.Config.EnvFileCustomToken ?? _connection.Config.CustomToken ?? string.Empty)
+                : string.Empty;
+            ApplyOverrideNote(_connection.Config.ActiveMode);
         }
+
+        /// <summary>The active mode or auth differs from the persisted value only when an env/.env override forced it.</summary>
+        void ApplyOverrideNote(GodotMcpConnectionMode activeMode)
+            => _overrideNote.Visible = activeMode != _connection.Config.ConnectionMode ||
+                _connection.Config.ActiveAuthOption != GodotMcpConfig.NormalizeAuthOption(_connection.Config.AuthOption);
 
         /// <summary>
         /// Render the Cloud-mode auth controls from the account sign-in state (unified-machine-auth f1):

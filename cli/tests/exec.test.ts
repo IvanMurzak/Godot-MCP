@@ -128,6 +128,7 @@ describe('sessionEditorEnv', () => {
   it('connects the started editor to its local server, which it starts itself', () => {
     expect(sessionEditorEnv('http://localhost:5000', undefined)).toEqual({
       ...dotnetRuntimeWorkaroundEnv(),
+      GODOT_MCP_AUTH_OPTION: 'None',
       GODOT_MCP_CONNECTION_MODE: 'Custom',
       GODOT_MCP_HOST: 'http://localhost:5000',
       GODOT_MCP_START_SERVER: 'true',
