@@ -50,8 +50,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(m.Success);
             Assert.Equal("StaticBody3D", m.Groups["type"].Value);
             Assert.Equal("1598684208646", m.Groups["id"].Value);
-            Assert.False(CallableText.Reference.IsMatch("Level/Player"));
-            Assert.False(CallableText.Reference.IsMatch("res://a.tres"));
+            Assert.DoesNotMatch(CallableText.Reference, "Level/Player");
+            Assert.DoesNotMatch(CallableText.Reference, "res://a.tres");
         }
     }
 }
