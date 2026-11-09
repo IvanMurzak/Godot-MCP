@@ -120,6 +120,9 @@ editors keep answering tool calls with an old build).
   verify with `scripts/smoke_reload.py`. The local server the plugin started keeps running across a reload: its
   `Process` gets no handler of ours beyond `Exited` (removed at teardown), its output is drained by BCL code, and the
   reloaded plugin takes it back (`GodotMcpLocalServerHandoff`); a live process holding our delegates fails the unload.
+- **One script class per file, named after it.** Godot generates `[ScriptPath]` only when the file name matches the class;
+  a pathless `[Tool]` class throws `An item with the same key has already been added` on every C# reload
+  (`GodotScriptFileNameTests`).
 - **RQL and hot reload.** RQL lives in the default load context; its Type-keyed caches are cleared on teardown
   (`RqlStaticCaches`). The editor tool surface is shaped by the `configurePlugin` callback the editor passes to the
   `GodotMcpConnection` constructor (Runtime/ never names editor types). console-* / reflection-* / runtime-errors-* are
