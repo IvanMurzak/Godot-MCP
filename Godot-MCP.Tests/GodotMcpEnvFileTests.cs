@@ -344,7 +344,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             using var _ = EnvFileScope.ClearAll();
             var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Custom };
             GodotMcpEnvFile.Apply(config, Map(GodotMcpConfig.EnvToken, "ctok"));
-            Assert.Equal("ctok", config.CustomToken);
+            Assert.Equal("ctok", config.ResolveConfiguredCustomToken());
+            Assert.Null(config.CustomToken); // serialized, so a .env token must stay out of it
             Assert.Null(config.CloudToken);
         }
 
@@ -362,7 +363,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void Apply_FileToken_RoutesByFileMode_WhenFileSetsCustom()
         {
             // Config defaults Cloud, but the file flips mode to Custom and supplies a token in the same
-            // apply: the token must route to CustomToken (mode is settled before the token routes).
+            // apply: the token must route to Custom (mode is settled before the token routes).
             using var _ = EnvFileScope.ClearAll();
             var config = new GodotMcpConfig { ConnectionMode = GodotMcpConnectionMode.Cloud };
             GodotMcpEnvFile.Apply(config, new Dictionary<string, string>(StringComparer.Ordinal)
@@ -370,7 +371,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 [GodotMcpConfig.EnvConnectionMode] = "Custom",
                 [GodotMcpConfig.EnvToken] = "ctok"
             });
-            Assert.Equal("ctok", config.CustomToken);
+            Assert.Equal("ctok", config.ResolveConfiguredCustomToken());
             Assert.Null(config.CloudToken);
         }
 

@@ -34,7 +34,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// FIRST — into the config's serialized backing fields — and only THEN layers the <c>.env</c> file
     /// and (live) process-env on top. Because <see cref="GodotMcpConfig"/>'s <c>Host</c>/<c>Token</c>/
     /// <c>ActiveMode</c> read the process env live on every access, and <see cref="GodotMcpEnvFile.Apply"/>
-    /// overwrites the same backing fields this store wrote, an explicit env/.env value always shadows the
+    /// overwrites these backing fields (a Custom token goes to the non-serialized
+    /// <see cref="GodotMcpConfig.EnvFileCustomToken"/> instead), an explicit env/.env value always shadows the
     /// persisted one. This store therefore NEVER reads env — it only round-trips the serialized fields.
     /// </para>
     /// </summary>

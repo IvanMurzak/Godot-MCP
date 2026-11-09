@@ -154,9 +154,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// <summary>
         /// Apply the parsed <c>.env</c> <paramref name="values"/> to <paramref name="config"/>, writing
         /// each recognized key into the matching serialized backing field — BENEATH the process-env
-        /// layer (see the class precedence note). Token routes to the active mode's token field
-        /// (Cloud → <see cref="GodotMcpConfig.CloudToken"/>, Custom → <see cref="GodotMcpConfig.CustomToken"/>),
-        /// mirroring the process-env token path.
+        /// layer (see the class precedence note). Token routes by the active mode: Cloud →
+        /// <see cref="GodotMcpConfig.CloudToken"/>, Custom → <see cref="GodotMcpConfig.EnvFileCustomToken"/>, which a
+        /// save does not write.
         ///
         /// <para>
         /// Mode selection (highest wins): an explicit <c>GODOT_MCP_CONNECTION_MODE</c> from the env layer
@@ -204,6 +204,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 TryParseAuthOption(fileAuth, out var parsedAuth))
             {
                 config.AuthOption = parsedAuth;
+                config.EnvFileSetAuthOption = true;
             }
 
             // 2c) Log level (cross-cutting): an explicit file value writes the serialized field beneath the
@@ -227,7 +228,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     config.CloudTokenServerTarget = GodotMcpConfig.ResolveCloudBaseUrl(tokenOrigin, useProcessEnvironment: false);
                 }
                 else
-                    config.CustomToken = fileToken;
+                    config.EnvFileCustomToken = fileToken;
             }
 
             return config;
@@ -274,7 +275,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Parse a Custom-mode auth-option string to the shared <see cref="McpServerConsts.AuthOption"/>,
         /// accepting only the named values (<c>none</c>/<c>oauth</c>/<c>token</c>, plus the retired
         /// <c>required</c>, case-insensitive) and rejecting numeric strings — identical discipline to
-        /// <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ResolveActiveAuthOption"/>. The value is
+        /// <see cref="TryParseMode"/> / <see cref="GodotMcpConfig.ActiveAuthOption"/>. The value is
         /// written to the serialized field verbatim; <see cref="GodotMcpConfig.ActiveAuthOption"/> normalizes
         /// a legacy <c>required</c> to <c>token</c> on read.
         /// </summary>

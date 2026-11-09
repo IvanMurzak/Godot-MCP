@@ -108,7 +108,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public async Task Config_Remote_UsesConfiguredCustomToken()
         {
             using var _ = EnvScope.Set(null);
-            var config = CustomOAuth(Remote); // CustomToken also carries a project .env GODOT_MCP_TOKEN
+            var config = CustomOAuth(Remote);
             Assert.Equal("local-secret", config.ResolveCustomToken());
             Assert.Equal("local-secret", await config.CredentialProvider!());
         }

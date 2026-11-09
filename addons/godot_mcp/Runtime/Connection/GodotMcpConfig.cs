@@ -151,9 +151,22 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         [JsonIgnore]
         public int? LocalServerPort { get; set; }
 
-        /// <summary>Backing field for the custom-mode bearer token. Serialized as <c>token</c>.</summary>
+        /// <summary>
+        /// Backing field for the custom-mode bearer token. Serialized as <c>token</c>. Setting it (the dock's Generate)
+        /// replaces the project <c>.env</c> token for this session, so the new token is the one sent.
+        /// </summary>
         [JsonPropertyName("token")]
-        public string? CustomToken { get; set; }
+        public string? CustomToken
+        {
+            get => _customToken;
+            set
+            {
+                _customToken = value;
+                EnvFileCustomToken = null;
+            }
+        }
+
+        string? _customToken;
 
         /// <summary>Backing field for the cloud-mode bearer token. Serialized as <c>cloudToken</c>.</summary>
         [JsonPropertyName("cloudToken")]
@@ -169,7 +182,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
         /// <summary>
         /// The configured Custom-mode authorization option (overridable by <see cref="EnvAuthOption"/> via
-        /// <see cref="ResolveActiveAuthOption"/>). Defaults to <see cref="McpServerConsts.AuthOption.none"/> —
+        /// <see cref="ActiveAuthOption"/>). Defaults to <see cref="McpServerConsts.AuthOption.none"/> —
         /// a fresh Custom connection is anonymous until the user opts into auth. Only consulted in Custom mode.
         ///
         /// <para>
@@ -177,7 +190,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// (<c>none</c>/<c>oauth</c>/<c>token</c>) — the per-engine <c>GodotMcpAuthOption</c> enum was retired in
         /// mcp-authorize g6 so the launch-arg builder + auth enum are shared once across engines. A persisted or
         /// env <c>required</c> (the retired shared-token name) is normalized to <c>token</c> on read
-        /// (<see cref="ResolveActiveAuthOption"/>) and rewritten on load (<see cref="GodotMcpConfigStore.Load"/>).
+        /// (<see cref="ActiveAuthOption"/>) and rewritten on load (<see cref="GodotMcpConfigStore.Load"/>).
         /// </para>
         /// </summary>
         [JsonPropertyName("authOption")]
@@ -241,9 +254,42 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// The effective Custom-mode authorization option after applying the <see cref="EnvAuthOption"/>
         /// override. Never serialized — recomputed from the env each access so a process-level override
         /// always wins (parity with <see cref="ActiveMode"/>).
+        ///
+        /// <para>
+        /// In Custom mode an explicit <see cref="EnvToken"/> (process env or project <c>.env</c>) over a configured
+        /// <c>none</c> means <c>token</c>: the configured <c>none</c> is also the untouched default, and a token the
+        /// user supplied for this connection must reach the server. An explicit <see cref="EnvAuthOption"/> still wins.
+        /// The inference is live and writes nothing, so saving the config never persists it.
+        /// </para>
         /// </summary>
         [JsonIgnore]
-        public McpServerConsts.AuthOption ActiveAuthOption => ResolveActiveAuthOption(AuthOption);
+        public McpServerConsts.AuthOption ActiveAuthOption
+        {
+            get
+            {
+                if (TryParseEnumEnv<McpServerConsts.AuthOption>(EnvAuthOption, out var fromEnv))
+                    return NormalizeAuthOption(fromEnv);
+
+                var configured = NormalizeAuthOption(AuthOption);
+                return configured == McpServerConsts.AuthOption.none && ExplicitTokenImpliesAuth
+                    ? McpServerConsts.AuthOption.token
+                    : configured;
+            }
+        }
+
+        /// <summary>The project <c>.env</c> set a valid <see cref="EnvAuthOption"/> (<see cref="GodotMcpEnvFile.Apply"/>). Never serialized.</summary>
+        internal bool EnvFileSetAuthOption { get; set; }
+
+        /// <summary>
+        /// The project <c>.env</c> token for Custom mode (<see cref="GodotMcpEnvFile.Apply"/>). Never serialized: it stays
+        /// in its file, and it shadows the saved <see cref="CustomToken"/> until the dock sets a new one.
+        /// </summary>
+        internal string? EnvFileCustomToken { get; set; }
+
+        bool ExplicitTokenImpliesAuth =>
+            ActiveMode == GodotMcpConnectionMode.Custom
+            && !EnvFileSetAuthOption
+            && (EnvFileCustomToken != null || !string.IsNullOrEmpty(NormalizeEnv(ReadEnv(EnvToken))));
 
         /// <summary>
         /// The effective log-verbosity threshold after applying the <see cref="EnvLogLevel"/> override.
@@ -501,11 +547,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         public Task<string?> ResolveCustomOAuthBearerAsync(string host, Func<Task<string?>>? accountToken)
             => CustomOAuthCredentialPolicy.ResolveAsync(host, accountToken, ResolveConfiguredCustomToken(), EnvToken);
 
-        /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else <see cref="CustomToken"/> (which a project <c>.env</c> also sets).</summary>
+        /// <summary>The configured Custom token: the <see cref="EnvToken"/> override, else the project <c>.env</c> token, else <see cref="CustomToken"/>.</summary>
         public string? ResolveConfiguredCustomToken()
         {
             var envToken = NormalizeEnv(ReadEnv(EnvToken));
-            return string.IsNullOrEmpty(envToken) ? CustomToken : envToken;
+            return !string.IsNullOrEmpty(envToken) ? envToken : EnvFileCustomToken ?? CustomToken;
         }
 
         /// <summary>Compare credential origins without allowing malformed URLs to inherit a trusted default.</summary>
@@ -555,26 +601,16 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         }
 
         /// <summary>
-        /// Resolve the active Custom-mode auth option, letting <see cref="EnvAuthOption"/> override the
-        /// configured value. An unrecognized/empty/numeric env value falls through to
-        /// <paramref name="configured"/> — identical discipline to <see cref="ResolveActiveMode"/>. The result
-        /// is always normalized to one of the three target-state modes via <see cref="NormalizeAuthOption"/>
-        /// (the retired <c>required</c> → <c>token</c>; <c>unknown</c> → <c>none</c>).
+        /// What to set after a server rejected this connection for its token, or <c>null</c> when a token was sent
+        /// (it is then wrong, not missing) or the connection does not use one (Cloud, <c>oauth</c>).
         /// </summary>
-        public static McpServerConsts.AuthOption ResolveActiveAuthOption(McpServerConsts.AuthOption configured)
-        {
-            var normalized = NormalizeEnv(ReadEnv(EnvAuthOption));
-
-            var resolved = configured;
-            if (!string.IsNullOrEmpty(normalized) &&
-                Enum.TryParse<McpServerConsts.AuthOption>(normalized, ignoreCase: true, out var parsed) &&
-                !int.TryParse(normalized, out _))
-            {
-                resolved = parsed;
-            }
-
-            return NormalizeAuthOption(resolved);
-        }
+        internal string? MissingTokenHint =>
+            ActiveMode == GodotMcpConnectionMode.Custom
+            && ActiveAuthOption != McpServerConsts.AuthOption.oauth
+            && string.IsNullOrEmpty(Token)
+                ? "[Godot-MCP] The server requires a token and this connection sent none. Set " + EnvToken + " (and "
+                    + EnvAuthOption + " to token if it is set), or press New under Token in the AI Game Developer dock."
+                : null;
 
         /// <summary>
         /// Normalize a shared <see cref="McpServerConsts.AuthOption"/> to the three target-state modes the
@@ -586,7 +622,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         ///   builder, which fail-closed rejects <c>required</c>;</item>
         ///   <item><c>unknown</c> (and any out-of-range value) falls back to the crash-safe <c>none</c>.</item>
         /// </list>
-        /// Applied on every read (<see cref="ResolveActiveAuthOption"/>) AND when a persisted config is loaded
+        /// Applied on every read (<see cref="ActiveAuthOption"/>) AND when a persisted config is loaded
         /// (<see cref="GodotMcpConfigStore.Load"/> rewrites the stored field), so an old
         /// <c>authorization=required</c> config self-heals to <c>token</c>.
         /// </summary>
@@ -602,7 +638,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// Resolve the active log-verbosity threshold, letting <see cref="EnvLogLevel"/> override the
         /// configured value. An unrecognized/empty/numeric env value falls through to
         /// <paramref name="configured"/> — identical discipline to <see cref="ResolveActiveMode"/> /
-        /// <see cref="ResolveActiveAuthOption"/>.
+        /// <see cref="ActiveAuthOption"/>.
         /// </summary>
         public static GodotMcpLogLevel ResolveActiveLogLevel(GodotMcpLogLevel configured)
             => ResolveEnumEnv(EnvLogLevel, configured);
@@ -620,13 +656,15 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// arbitrary member) falls through.
         /// </summary>
         static T ResolveEnumEnv<T>(string name, T configured) where T : struct, Enum
+            => TryParseEnumEnv<T>(name, out var parsed) ? parsed : configured;
+
+        static bool TryParseEnumEnv<T>(string name, out T parsed) where T : struct, Enum
         {
+            parsed = default;
             var normalized = NormalizeEnv(ReadEnv(name));
-            if (string.IsNullOrEmpty(normalized))
-                return configured;
-            return Enum.TryParse<T>(normalized, ignoreCase: true, out var parsed) && !int.TryParse(normalized, out _)
-                ? parsed
-                : configured;
+            return !string.IsNullOrEmpty(normalized)
+                && Enum.TryParse(normalized, ignoreCase: true, out parsed)
+                && !int.TryParse(normalized, out _);
         }
 
         static string? ReadEnv(string name) => Environment.GetEnvironmentVariable(name);

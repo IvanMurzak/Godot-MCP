@@ -640,6 +640,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         void RaiseAuthorizationRejected()
         {
             _authorizationRejected = true;
+            if (_config.MissingTokenHint is { } hint)
+                GodotMcpLog.Warning(hint);
             AuthorizationRejected?.Invoke();
             TryAccountRefreshAndReconnect();
         }
