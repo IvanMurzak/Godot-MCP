@@ -10,6 +10,7 @@
 #if TOOLS
 #nullable enable
 using com.IvanMurzak.McpPlugin;
+using com.IvanMurzak.McpPlugin.Common.Model;
 using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
@@ -35,6 +36,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// in <see cref="ScreenshotMath"/> outside this guard and are unit-tested. The image-encoding of a real
     /// <see cref="Image"/> needs the Godot runtime, so it is verified by the headless/windowed live smoke,
     /// not by xUnit (see the profile's <c>test.md</c> Suite 3).
+    /// </para>
+    ///
+    /// <para>
+    /// Every tool takes an optional <c>savePath</c> (<see cref="ScreenshotSavePath"/>) that also writes the PNG inside the
+    /// project, so none of them is read-only or idempotent, even when a call does not pass it. A bad path is refused before
+    /// the capture, with no image; the write itself is one small file, and the import it causes is left to the editor's own
+    /// asynchronous scan so the tool call never waits for it.
     /// </para>
     /// </summary>
     [AiToolType]
@@ -79,6 +87,30 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             ResizeToTransportLimit(image);
 
             return EncodePng(image, out error);
+        }
+
+        /// <summary>Check a tool's <c>savePath</c> against the open project. <paramref name="saveTo"/> is null when none was asked for. Main-thread only.</summary>
+        static bool ResolveSavePath(string? savePath, out string? saveTo, out string? error) =>
+            ScreenshotSavePath.TryResolve(savePath, ProjectSettings.GlobalizePath(ResPathNormalizer.ResScheme), out saveTo, out error);
+
+        /// <summary>
+        /// The result of a capture: the image and its caption, after writing the file when <paramref name="saveTo"/> is set. A
+        /// failed write is an error with no image, so an agent never reads a result without the file it asked for. Main-thread only.
+        /// </summary>
+        static ResponseCallTool ImageResult(byte[] png, string caption, string? saveTo)
+        {
+            var text = $"{caption} ({png.Length} bytes PNG)";
+            if (saveTo != null)
+            {
+                if (!ScreenshotSavePath.TryWrite(saveTo, png, out var writeError))
+                    return ResponseCallTool.Error(writeError!);
+
+                // Not RqlReimport.Register: it can wait seconds on this thread, and UpdateFile alone does not import a new PNG.
+                // Not ScanSources: it compares folder times in whole seconds, so it missed saves made in the same second (live).
+                Editor.Rql.RqlReimport.ScanWithoutWaiting();
+                text += ". " + ScreenshotSavePath.SavedNote(saveTo);
+            }
+            return ResponseCallTool.Image(png, McpPlugin.Common.Consts.MimeType.ImagePng, text);
         }
 
         static byte[]? EncodePng(Image image, out string? error)
