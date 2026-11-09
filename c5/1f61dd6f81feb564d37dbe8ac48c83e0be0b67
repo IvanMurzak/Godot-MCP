@@ -1,0 +1,19 @@
+addons/godot_mcp/Editor/Rql/RqlGodot.Overrides.cs
+  s_7be60963fe3603::t_fc32aa2ec9e5e6 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c51f61dd6f81feb564d37dbe8ac48c83e0be0b67",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

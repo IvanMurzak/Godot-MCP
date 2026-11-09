@@ -1,0 +1,69 @@
+addons/godot_mcp/Data/SceneData.cs
+  s_e36a2a3c4d1c6f::t_a7780eed10d988 1-52
+addons/godot_mcp/Tools/Tool_Scene.Open.cs
+  s_e36a2a3c4d1c6f::t_a9398d3bb1ff2d 1-60
+addons/godot_mcp/Tools/Tool_Node.Create.cs
+  s_e36a2a3c4d1c6f::t_6577edbc0a6c2e 1-130
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_e36a2a3c4d1c6f::t_a169c2447a6005 51
+  s_e36a2a3c4d1c6f::t_9a82c7bb84da63 82
+  s_e36a2a3c4d1c6f::t_9278a0bba950c2 79-81,83
+  s_e36a2a3c4d1c6f::t_483088492ab170 132-137
+addons/godot_mcp/Tools/Tool_Node.Delete.cs
+  s_e36a2a3c4d1c6f::t_775480c93ec472 58-59
+  s_e36a2a3c4d1c6f::t_c38dd0a24ab91c 1-31,33-57,60-69
+  s_e36a2a3c4d1c6f::t_a4ca5fd780e051 32
+addons/godot_mcp/Tools/Tool_Scene.ListOpened.cs
+  s_e36a2a3c4d1c6f::t_26c6c1e9d8b238 1-72
+addons/godot_mcp/Tools/Tool_Scene.Create.cs
+  s_e36a2a3c4d1c6f::t_2e4cf7bfc5cbe3 1-98
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_5a2a9cd79c933a 51-59
+addons/godot_mcp/Reflection/GodotMcpReflector.cs
+  s_e36a2a3c4d1c6f::t_9a376d3f9d67f4 1-50
+addons/godot_mcp/Tools/Tool_Scene.Save.cs
+  s_e36a2a3c4d1c6f::t_70e4f8f88437ff 1-78
+addons/godot_mcp/Tools/Tool_Node.Duplicate.cs
+  s_e36a2a3c4d1c6f::t_55e2f4429ce40d 1-75
+addons/godot_mcp/Tools/Tool_Node.SetParent.cs
+  s_e36a2a3c4d1c6f::t_92f5052dda54b9 1-91
+Godot-MCP.Tests/SceneNodeToolTests.cs
+  s_e36a2a3c4d1c6f::t_cd19919919327f 1-210
+addons/godot_mcp/Tools/Tool_Scene.GetData.cs
+  s_e36a2a3c4d1c6f::t_b1cf055314afaf 1-57
+addons/godot_mcp/Tools/NodePathNormalizer.cs
+  s_e36a2a3c4d1c6f::t_f376a81895409a 1-57
+addons/godot_mcp/Tools/Tool_Scene.cs
+  s_e36a2a3c4d1c6f::t_d3cf46e2b6054f 1-68
+addons/godot_mcp/Tools/Tool_Node.Modify.cs
+  s_e36a2a3c4d1c6f::t_6014608834eaf1 48
+  s_e36a2a3c4d1c6f::t_4426cad89e7f26 1-19,21-47,49-97,103-118
+  s_e36a2a3c4d1c6f::t_d18e8c076c1758 20
+  s_e36a2a3c4d1c6f::t_b93b100f3ed9af 98-102
+addons/godot_mcp/Data/NodeData.cs
+  s_e36a2a3c4d1c6f::t_9095d86ede8f76 1-3,5-73
+  s_e36a2a3c4d1c6f::t_b656dfc28995c2 4
+addons/godot_mcp/Tools/Tool_Node.Find.cs
+  s_e36a2a3c4d1c6f::t_f60b9cf0de3c45 1-61
+addons/godot_mcp/Data/NodePropertyPatch.cs
+  s_e36a2a3c4d1c6f::t_aff7c3e35c70fd 1-42
+addons/godot_mcp/Tools/Tool_Node.cs
+  s_e36a2a3c4d1c6f::t_3e7036350f59d7 1-103,106-107,109-155
+  s_e36a2a3c4d1c6f::t_6e550e076b0dbc 104-105,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "e963403722cd0c434f04563168e8a2c6d04264c0",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

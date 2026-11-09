@@ -1,0 +1,19 @@
+Godot-MCP.Tests/GodotAccountAuthTests.cs
+  s_5e2881ed8bfd52::t_95558bacaa21f3 41-42,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9bfabc588a9151f91bf925ab90644c2bd3276c2",
+  "prompts": {},
+  "sessions": {
+    "s_5e2881ed8bfd52": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a139fe-5e37-7630-a5ee-38fd3b09c0dd",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

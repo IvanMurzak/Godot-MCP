@@ -1,0 +1,51 @@
+cli/src/utils/connection.ts
+  s_b51e94391c27cf::t_62fb3b3f3a761e 7-8
+  s_b51e94391c27cf::t_09f5b8a78a1501 95-101,118
+  s_b51e94391c27cf::t_72982459930945 102-104,115-117
+  s_b51e94391c27cf::t_588d98ee6b3cfb 119-121
+  s_e5f55eb09429f5::t_b3c96012870fcf 105-114,122-182,187-190,195-199,205,212
+cli/tests/connection.test.ts
+  s_b51e94391c27cf::t_5c73e217256797 1
+  s_b51e94391c27cf::t_866de4645d48c5 17-19,51-53,55-57,60,63-64,67,69-70,85-120,123,127,132-136,140,142-146,149,154-155,163,169,179-180,186
+  s_b51e94391c27cf::t_777ea70607419b 121-122
+  s_b51e94391c27cf::t_8801800e8ade5f 124-126
+  s_b51e94391c27cf::t_1954eade719901 128-131
+  s_b51e94391c27cf::t_e678b623f828cc 137-139
+  s_b51e94391c27cf::t_19198e9af6b9fb 141
+  s_b51e94391c27cf::t_f2f52b36a1d51b 147-148
+  s_b51e94391c27cf::t_473a52bf55ad18 150-153
+  s_b51e94391c27cf::t_408748b4a6815b 156-158,160-162
+  s_b51e94391c27cf::t_b007f6423e4b1a 164-168
+  s_b51e94391c27cf::t_fc164ed4de74bd 170-172,176-178
+  s_b51e94391c27cf::t_b9eb36c750ce1c 181-185
+  s_b51e94391c27cf::t_e9afc9441c3343 187-188
+  s_e5f55eb09429f5::t_ca69629d25eef5 159,173-175
+cli/README.md
+  s_e5f55eb09429f5::t_fc4b0e8980965a 143,147-158
+cli/src/lib/setup-mcp.ts
+  s_e5f55eb09429f5::t_c22c7b4158169f 224-225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d9a1241d699e2e31e74e4dda8fd9699c45b35826",
+  "prompts": {},
+  "sessions": {
+    "s_b51e94391c27cf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c5b120-d048-469a-be3f-77172a086fba",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_e5f55eb09429f5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a478ba2f9e289207c",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

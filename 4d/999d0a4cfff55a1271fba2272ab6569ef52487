@@ -1,0 +1,29 @@
+addons/godot_mcp/Runtime/Connection/GodotMcpConnection.cs
+  s_5b742bf37a2587::t_0c0a8ecefb023d 70
+addons/godot_mcp/Runtime/GodotMcpRuntime.cs
+  s_5b742bf37a2587::t_e2dc6fb8c938f8 286
+addons/godot_mcp/plugin.cfg
+  s_5b742bf37a2587::t_db9d1a17c8530b 6
+cli/package-lock.json
+  s_5b742bf37a2587::t_9f30bb57834e3b 3,9
+cli/package.json
+  s_5b742bf37a2587::t_329c5849f7c287 3
+docs/assetlib/SUBMISSION.md
+  s_5b742bf37a2587::t_80c2748a3b1396 28,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4d999d0a4cfff55a1271fba2272ab6569ef52487",
+  "prompts": {},
+  "sessions": {
+    "s_5b742bf37a2587": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba723765-770d-456d-823d-c53d8073ed95",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

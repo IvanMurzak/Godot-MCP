@@ -1,0 +1,19 @@
+addons/godot_mcp/Editor/UI/ExtensionRow.cs
+  s_6a07651c815dbf::t_909c0dd3955cfd 103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "39aecce40ffad2a054c55bd6c6e1cf4fe77facb2",
+  "prompts": {},
+  "sessions": {
+    "s_6a07651c815dbf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a887bd6972a3fabed",
+        "model": "unknown"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

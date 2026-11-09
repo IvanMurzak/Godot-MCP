@@ -1,0 +1,30 @@
+Godot-MCP.Tests/AssemblyReloadGateTests.cs
+  s_7bc72ecaebd05d::t_8ad324403ff004 181-201
+  s_7bc72ecaebd05d::t_02cd53e0e15a5b 180
+README.md
+  s_7bc72ecaebd05d::t_a3eaf2071e6afc 550-552
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_7bc72ecaebd05d::t_bc76ccd5fa2747 499-501,504-505
+addons/godot_mcp/Editor/Reload/AssemblyReloadGate.cs
+  s_7bc72ecaebd05d::t_ac1e61ecd40a21 59-62
+addons/godot_mcp/Editor/Reload/ReloadGateDriver.cs
+  s_7bc72ecaebd05d::t_04d4df7f831200 65-66,153-161,163,170-171
+addons/godot_mcp/Runtime/Connection/GodotMcpLogger.cs
+  s_7bc72ecaebd05d::t_c9c79dd8beb90f 58-64,126-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e025284e1756bcca71d27eaa09cd012265df0a26",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

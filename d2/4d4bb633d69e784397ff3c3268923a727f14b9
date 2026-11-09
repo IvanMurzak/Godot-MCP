@@ -1,0 +1,60 @@
+addons/godot_mcp/Editor/Tools/GodotSnippetLogger.cs
+  s_5f9a753ce320b5::t_c2fb4d527e1b91 1-90
+addons/godot_mcp/Runtime/GodotMcpEnv.cs
+  s_5f9a753ce320b5::t_01a5139811631d 56-72
+addons/godot_mcp/Editor/IdleShutdown.cs
+  s_5f9a753ce320b5::t_587c190ff47d0b 1-69
+addons/godot_mcp/Editor/Tools/SnippetAssemblyHost.cs
+  s_5f9a753ce320b5::t_5d0fe118ddcb97 1-82
+addons/godot_mcp/Editor/Tools/Tool_Script.Execute.cs
+  s_5f9a753ce320b5::t_7ff094d0d3d27e 1-209
+  s_5f9a753ce320b5::t_2aae7d5032eae3 210-213
+addons/godot_mcp/Editor/IdleShutdownTimer.cs
+  s_5f9a753ce320b5::t_14d4042192ce7d 1-69
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_5f9a753ce320b5::t_fbb805f0408a78 810-821
+addons/godot_mcp/Editor/Tools/ScriptExecuteSource.cs
+  s_5f9a753ce320b5::t_e9bdfb811866a5 1-127
+addons/godot_mcp/Editor/Rql/Adapters/Tool/ReflectorNet_SerializedMemberList_Adapter.cs
+  s_5f9a753ce320b5::t_23f65cc362227e 1-105
+Godot-MCP.Tests/RqlToolBindingTests.cs
+  s_5f9a753ce320b5::t_2149aab13ee6b3 208-220
+Godot-MCP.Tests/ScriptExecuteTests.cs
+  s_5f9a753ce320b5::t_b76e742a83cd54 1-152,216-236,239-318
+  s_5f9a753ce320b5::t_7f22a2078088fa 153-168,171-197
+  s_5f9a753ce320b5::t_d938a4c7d3879f 198-215
+  s_5f9a753ce320b5::t_ba94add07b56be 169-170,237-238
+addons/godot_mcp/Runtime/Data/ScriptExecuteResult.cs
+  s_5f9a753ce320b5::t_cddbd5a494a7bd 1-39
+addons/godot_mcp/Editor/Rql/ToolFormat/RqlToolBinding.cs
+  s_5f9a753ce320b5::t_1b98364604b200 332
+  s_5f9a753ce320b5::t_db8be49f8f5374 23,328-331,333
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5f9a753ce320b5::t_72048b3e9ebc18 49-51,206-213
+Godot-MCP.csproj
+  s_5f9a753ce320b5::t_f0be7d15df7a21 22-24
+Godot-Tests/Godot-Tests.csproj
+  s_5f9a753ce320b5::t_36debf73c7db27 39-41
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_5f9a753ce320b5::t_83f3b0fbda3849 61-63,66-70,216-217,315-316,327-344
+addons/godot_mcp/Editor/Rql/Modules/ToolTypesModule.cs
+  s_5f9a753ce320b5::t_2500f83f1144eb 16-19,24-25
+addons/godot_mcp/Editor/UI/GodotMcpDock.cs
+  s_5f9a753ce320b5::t_94d3e565b8afd0 364-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d24d4bb633d69e784397ff3c3268923a727f14b9",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

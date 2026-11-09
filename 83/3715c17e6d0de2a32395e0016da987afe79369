@@ -1,0 +1,21 @@
+addons/godot_mcp/Editor/UI/ConnectionPanel.cs
+  s_8047d5689981d2::t_a5bcbc7448ddfe 254-256,1542-1543,1577
+addons/godot_mcp/Editor/UI/FeaturesPanel.cs
+  s_8047d5689981d2::t_72ad1802817395 86-88,163-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "833715c17e6d0de2a32395e0016da987afe79369",
+  "prompts": {},
+  "sessions": {
+    "s_8047d5689981d2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1230c-c6bd-7aa3-94b2-24a9267b7698",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

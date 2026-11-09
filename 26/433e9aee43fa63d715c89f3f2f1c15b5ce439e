@@ -1,0 +1,47 @@
+addons/godot_mcp/Extensions/GodotExtensionRegistry.cs
+  s_e36a2a3c4d1c6f::t_d6d65f92768064 1-58
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_e36a2a3c4d1c6f::t_7b47ee7b34b744 56
+  s_e36a2a3c4d1c6f::t_6047cc42a0ee41 292
+  s_e36a2a3c4d1c6f::t_bb6972c8f2f084 195-202
+addons/godot_mcp/Extensions/ExtensionInstallPlanner.cs
+  s_e36a2a3c4d1c6f::t_4f8c342a6beecd 1-3,5-228
+  s_e36a2a3c4d1c6f::t_65c0df390aecce 4
+addons/godot_mcp/Extensions/IConsumerProjectFile.cs
+  s_e36a2a3c4d1c6f::t_a1a672667f4ce2 1-42
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_e36a2a3c4d1c6f::t_968fc1f07c47ca 188-200
+addons/godot_mcp/Extensions/InstalledStateDetector.cs
+  s_e36a2a3c4d1c6f::t_daef9699c8af43 1-191
+addons/godot_mcp/UI/ExtensionRow.cs
+  s_e36a2a3c4d1c6f::t_8cc7c879617133 1-117
+addons/godot_mcp/Extensions/ConsumerProjectFile.cs
+  s_e36a2a3c4d1c6f::t_a267ae2f4f64e7 1-159
+addons/godot_mcp/Extensions/GodotExtensionDescriptor.cs
+  s_e36a2a3c4d1c6f::t_1c81816ab3f2b1 1-61
+addons/godot_mcp/Extensions/ExtensionsPanelText.cs
+  s_e36a2a3c4d1c6f::t_54965e1b6c88bf 1-49
+addons/godot_mcp/UI/ExtensionsPanel.cs
+  s_e36a2a3c4d1c6f::t_90b51f66de01c6 1-205
+Godot-MCP.Tests/ExtensionInstallTests.cs
+  s_e36a2a3c4d1c6f::t_c227b570d43be9 1-45,48-65,67-114,116-146,148,150-170,172-188,190-204,206,208-218,220,222-228,230-231,233-292,294-295,297-298,300-304,306-307,309-355,357-358,360-368,370-371,373-376,378-391
+  s_e36a2a3c4d1c6f::t_32b49dbb12d54b 46-47
+addons/godot_mcp/Extensions/ExtensionInstaller.cs
+  s_e36a2a3c4d1c6f::t_734f8dbcccb479 1-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "26433e9aee43fa63d715c89f3f2f1c15b5ce439e",
+  "prompts": {},
+  "sessions": {
+    "s_e36a2a3c4d1c6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a3baf3ee-397f-457d-8b3f-a6edef56f7e4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

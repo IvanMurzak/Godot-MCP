@@ -1,0 +1,39 @@
+cli/tests/addon-deps-parity.test.ts
+  s_5f9a753ce320b5::t_bc1767b4e8c006 78-82
+  s_5f9a753ce320b5::t_e4a2de6bc9dce2 5-6
+cli/src/utils/csproj-deps.ts
+  s_5f9a753ce320b5::t_f61a28364ef6ef 167-169,174
+  s_5f9a753ce320b5::t_5e3d79bc1a68a5 183
+  s_5f9a753ce320b5::t_d1a52c569dc7ed 102-106,108-110
+cli/src/utils/addon-nuget-deps.ts
+  s_5f9a753ce320b5::t_246a02c54dadac 41-43,47-48
+  s_5f9a753ce320b5::t_6eb427fd2870b0 56
+  s_5f9a753ce320b5::t_2c960d723220d2 3
+scripts/write-nuget-deps.mjs
+  s_5f9a753ce320b5::t_1959c3074314dc 29-36,38
+  s_5f9a753ce320b5::t_7d5ac9af5a8866 21-23
+cli/tests/addon-nuget-deps.test.ts
+  s_5f9a753ce320b5::t_93dc41175c6e29 61-62,65,70
+  s_5f9a753ce320b5::t_72c1900a012c4e 7
+scripts/check-runtime-boundary.py
+  s_5f9a753ce320b5::t_05125b74589f69 55,57
+  s_5f9a753ce320b5::t_4043e14d97508a 146-147,149-150,155,185,187-189,204-206,208-210,212-218
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_90fb5cd0d2bd22 7-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57bd0023bd6955d8f9dc2dcdd9700afbd9cb02a6",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+AGENTS.md
+  s_7bc72ecaebd05d::t_e758c9697b3ecf 122-123
+Godot-MCP.Tests/RqlGuideTests.cs
+  s_7bc72ecaebd05d::t_613c8a7fae8297 72
+Godot-MCP.Tests/RqlLiteralPolicyTests.cs
+  s_7bc72ecaebd05d::t_afac10cd5784f8 52-53,56
+Godot-MCP.Tests/ToolTargetTests.cs
+  s_7bc72ecaebd05d::t_cee3a852cb4309 34-48
+addons/godot_mcp/Editor/Rql/Modules/GodotCoreModule.cs
+  s_7bc72ecaebd05d::t_41aaae439896cc 54-55,124-125
+addons/godot_mcp/Editor/Rql/RqlGodot.Nodes.cs
+  s_7bc72ecaebd05d::t_80173f19e98498 472-473,477-478
+addons/godot_mcp/Editor/Rql/RqlLiteralPolicy.cs
+  s_7bc72ecaebd05d::t_332e1166f93df3 49-50,52-53
+addons/godot_mcp/Editor/Tools/Tool_Rql.cs
+  s_7bc72ecaebd05d::t_25ff39dac10060 40-42,46-47
+scripts/smoke_rql_wave6b.py
+  s_7bc72ecaebd05d::t_1f8dbcce5c9845 53-55,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "036c0554ee0ee45ad688ca43e4c0c54023447941",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

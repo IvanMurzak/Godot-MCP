@@ -1,0 +1,23 @@
+scripts/extensions.py
+  s_eb8bcde0be96a2::t_6615cff817166d 98,121-125,127,130-131
+.github/workflows/test_extensions.yml
+  s_eb8bcde0be96a2::t_6615cff817166d 45
+scripts/tests/test_extensions.py
+  s_eb8bcde0be96a2::t_6615cff817166d 77-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f3108c6c5f0ea12f847d3dca10278d289bffc3d",
+  "prompts": {},
+  "sessions": {
+    "s_eb8bcde0be96a2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14267-6fec-7a30-97a7-931925a48014",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

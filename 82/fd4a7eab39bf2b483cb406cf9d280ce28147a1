@@ -1,0 +1,25 @@
+cli/src/lib/install-plugin.ts
+  s_e19ebe83cb6110::t_09eb4345230a19 293-294
+cli/src/utils/addon-deps.ts
+  s_e19ebe83cb6110::t_546757dc08ef39 4,6-11,41-43
+cli/src/utils/addon-nuget-deps.ts
+  s_e19ebe83cb6110::t_05430fc32dcfeb 20
+cli/src/utils/csproj-deps.ts
+  s_e19ebe83cb6110::t_0ca567caa523e7 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82fd4a7eab39bf2b483cb406cf9d280ce28147a1",
+  "prompts": {},
+  "sessions": {
+    "s_e19ebe83cb6110": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "514df444-7709-4c0d-be94-41a9023e64ee",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

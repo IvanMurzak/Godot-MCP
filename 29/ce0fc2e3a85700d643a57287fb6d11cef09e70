@@ -1,0 +1,45 @@
+cli/src/commands/install-plugin.ts
+  s_122f29be78f9f3::t_890c89939643d9 2,10-22,26-28,31-38,43,45,47-52,55,57-60,65,70-83
+cli/tests/addon-deps-parity.test.ts
+  s_122f29be78f9f3::t_347cd2e3f95192 1-48
+cli/tests/csproj-deps.test.ts
+  s_122f29be78f9f3::t_8d1229c29bf998 1-127
+cli/src/lib/install-plugin.ts
+  s_122f29be78f9f3::t_bb5bb2e21fed16 2,8-14,18-19,22,27-29,31,33-39,41-46,66,69-73,75-79,87,92,94-96,109-316
+cli/src/utils/unzip.ts
+  s_122f29be78f9f3::t_330096d38dd836 1-115
+cli/tests/addon-source.test.ts
+  s_122f29be78f9f3::t_9a68d3f9e777e8 1-63
+.github/workflows/test_cli_e2e_install.yml
+  s_122f29be78f9f3::t_7acb2cf4f05019 1-165
+cli/tests/install-remove-plugin.test.ts
+  s_122f29be78f9f3::t_041bfff967933e 11-22,26,32,37,41,46-48,54-55,60-68,70,89,112,116,121,145,155
+cli/src/utils/addon-source.ts
+  s_122f29be78f9f3::t_ff2b2dea16b08b 1-77
+cli/tests/unzip.test.ts
+  s_122f29be78f9f3::t_7b17e271b8b876 1-119
+cli/tests/install-plugin-installer.test.ts
+  s_122f29be78f9f3::t_087e0696de4843 1-287
+cli/src/utils/addon-deps.ts
+  s_122f29be78f9f3::t_7634e37171c3c4 1-36
+cli/src/utils/csproj-deps.ts
+  s_122f29be78f9f3::t_66c65ea6ef859f 1-157
+cli/src/lib/types.ts
+  s_122f29be78f9f3::t_e704dd97fc0a34 19-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "29ce0fc2e3a85700d643a57287fb6d11cef09e70",
+  "prompts": {},
+  "sessions": {
+    "s_122f29be78f9f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3eb59068-3b42-4d80-a3c8-a8ce7f1efee3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

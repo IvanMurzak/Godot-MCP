@@ -1,0 +1,25 @@
+addons/godot_mcp/Connection/DevControl/DevControlRouter.cs
+  s_06c53c82d6e5ea::t_72b166a6e92d6b 42
+  s_06c53c82d6e5ea::t_a58fa2a494ef3e 61
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_06c53c82d6e5ea::t_5b9afafc7c05b4 609-613
+  s_06c53c82d6e5ea::t_b400047044fd81 403-426,608
+addons/godot_mcp/Connection/DevControl/DevControlServer.cs
+  s_06c53c82d6e5ea::t_b5342d28d6fdab 190-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "94c7426d0f59d454ff01601b7da3ac81a8b7736c",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

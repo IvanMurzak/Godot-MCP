@@ -1,0 +1,27 @@
+extensions/Godot-AI-Animation/src/Godot-AI-Animation/Editor/Rql/AnimationTrackRow.cs
+  s_7bc72ecaebd05d::t_0c9f5ff68efeec 9,44
+extensions/Godot-AI-GridMap/src/Godot-AI-GridMap/Editor/Rql/GridMapCellRow.cs
+  s_7bc72ecaebd05d::t_501b83f6d68d06 9,51
+extensions/Godot-AI-Tilemap/src/Godot-AI-Tilemap/Editor/Rql/TilemapCellRow.cs
+  s_7bc72ecaebd05d::t_782efda5269829 9,51
+scripts/extensions.py
+  s_7bc72ecaebd05d::t_3f331baa08269a 17-18,112-115,130-132
+scripts/tests/test_extensions.py
+  s_7bc72ecaebd05d::t_99a940cd6fb403 147,206-218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dce5652508c4c55c0908c0e737378274a247e4ef",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

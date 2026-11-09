@@ -1,0 +1,80 @@
+addons/godot_mcp/Editor/SessionLease.cs
+  s_5f9a753ce320b5::t_cb9f79e4a83e73 1-53
+addons/godot_mcp/Editor/Tools/Tool_Session.cs
+  s_5f9a753ce320b5::t_a818c00c0d3276 1-62
+cli/src/commands/exec.ts
+  s_5f9a753ce320b5::t_ad1f1b54030665 1-121
+cli/src/lib/session.ts
+  s_5f9a753ce320b5::t_b5e7e7f3f3d289 1-136,139,145,147
+  s_5f9a753ce320b5::t_045d22919df2da 137-138,140-144,146,148-219
+cli/src/lib/exec.ts
+  s_5f9a753ce320b5::t_08f72bb0b594fb 1-118
+cli/tests/exec.test.ts
+  s_5f9a753ce320b5::t_b66f375f604820 1-143
+addons/godot_mcp/Editor/IdleShutdown.cs
+  s_5f9a753ce320b5::t_5abc5ae0e1511a 19,22,42,49-51,53-59,62,66,68-77
+.github/assetlib/edit.hbs
+  s_5f9a753ce320b5::t_2863a5e8e33dba 3
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5f9a753ce320b5::t_b601865bb9fd8e 214
+Godot-MCP.Tests/ScriptExecuteTests.cs
+  s_5f9a753ce320b5::t_6dfa0498937c77 298-305,307-308,312-343
+README.md
+  s_5f9a753ce320b5::t_645ae0e131cf38 46,131,146,151,176-180,201-206,294,302-304,318-320
+addons/godot_mcp/Editor/GodotMcpPlugin.cs
+  s_5f9a753ce320b5::t_09c3e4dcb00fd2 69,462-468
+addons/godot_mcp/Editor/IdleShutdownTimer.cs
+  s_5f9a753ce320b5::t_577fa29d1c20d6 54-55,60-62
+addons/godot_mcp/Runtime/GodotMcpEnv.cs
+  s_5f9a753ce320b5::t_f6764c35189073 70,73-75
+cli/package-lock.json
+  s_5f9a753ce320b5::t_85f1e49e260330 12,81-83
+cli/package.json
+  s_5f9a753ce320b5::t_817bb46e0e515f 65
+cli/src/cli.ts
+  s_5f9a753ce320b5::t_18211da5a2656d 9
+cli/src/commands/close.ts
+  s_5f9a753ce320b5::t_42083dd1e0205b 15-16,21-23,72-74,95-99,154-175
+cli/src/commands/open.ts
+  s_f9885b8a4d06ac::t_01ff79322520bd 10-12,54-56,72-74,115-132,232-263
+cli/src/index.ts
+  s_5f9a753ce320b5::t_48ab66c7a73ba7 19,40
+cli/src/lib.ts
+  s_5f9a753ce320b5::t_45363a07dd7b1e 17-20
+cli/src/utils/addon-deps.ts
+  s_5f9a753ce320b5::t_b3c8f8f3b7684a 12-14,46,52-54
+cli/src/utils/connection.ts
+  s_5f9a753ce320b5::t_fd912edf5e6e94 36,184,362-384
+cli/tests/skills-addon-parity.test.ts
+  s_5f9a753ce320b5::t_b0f68b750a5c80 55,61,217,220,223-224,279-280
+docs/ARCHITECTURE.md
+  s_5f9a753ce320b5::t_967b365e314907 222-223,231-233
+docs/RELEASING.md
+  s_5f9a753ce320b5::t_4f3239aebe0960 261,270-271
+docs/assetlib/SUBMISSION.md
+  s_5f9a753ce320b5::t_9e5df6c13b6597 60,68-74,82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f8c49d9e6c63db0e14debd12e9e29cd5f68a2a5a",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    },
+    "s_f9885b8a4d06ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15163-393a-7211-938a-4b86b5b293ef",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

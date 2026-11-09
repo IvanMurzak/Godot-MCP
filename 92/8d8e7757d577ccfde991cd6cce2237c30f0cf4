@@ -1,0 +1,60 @@
+Godot-MCP.Tests/ProjectBuildTests.cs
+  s_7bc72ecaebd05d::t_85c4926cc47932 82-104
+README.md
+  s_7bc72ecaebd05d::t_fcc566fa9d093b 236-244
+  s_7bc72ecaebd05d::t_a1ad691faec2a6 179
+addons/godot_mcp/Editor/Reload/ProjectBuild.cs
+  s_7bc72ecaebd05d::t_8870f10788a7ca 124,129-137
+  s_7bc72ecaebd05d::t_714d9b35610177 79,82,89-91,93-95,116,138
+addons/godot_mcp/Editor/Rql/Settings/RqlProject.cs
+  s_7bc72ecaebd05d::t_aed23d019458e4 48-63
+scripts/smoke_reload.py
+  s_7bc72ecaebd05d::t_6836fbb08a78af 150-152
+  s_7bc72ecaebd05d::t_68966a375682a6 156-157
+addons/godot_mcp/Runtime/Tools/ScriptDiagnosticsFilter.cs
+  s_7bc72ecaebd05d::t_f853601a9b9f7a 103-137
+addons/godot_mcp/Editor/Rql/EditorApi/RqlEditorApi.Scenes.cs
+  s_7bc72ecaebd05d::t_17c29e7e1b83cf 122-132,134-137
+  s_7bc72ecaebd05d::t_011b79225be11e 133
+  s_7bc72ecaebd05d::t_7656b1d8f64978 113-115
+  s_7bc72ecaebd05d::t_96eaa6a5362029 14
+Godot-MCP.Tests/ScriptWarningProbeTests.cs
+  s_7bc72ecaebd05d::t_297e0f1a81b0fe 1-66
+scripts/smoke_rql_wave5.py
+  s_7bc72ecaebd05d::t_fbc0d351fce7d3 1-61
+addons/godot_mcp/Editor/Tools/Tool_Script.Validate.cs
+  s_7bc72ecaebd05d::t_3d3c6a2a49904e 50-51
+  s_7bc72ecaebd05d::t_f5d96f80564ebf 15,244,260,264-318
+addons/godot_mcp/Editor/Reload/ProjectBuildTracker.cs
+  s_7bc72ecaebd05d::t_d6e3cd1faba40f 127,203,206,211
+addons/godot_mcp/Editor/Rql/RqlGodot.Save.cs
+  s_7bc72ecaebd05d::t_b86371c9b4d47f 63-74,110,137-138,204-205,248-251,257,263,513-515
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_7bc72ecaebd05d::t_8ffd8e8deffa70 179
+addons/godot_mcp/Editor/Tools/Tool_Rql.Mutate.cs
+  s_7bc72ecaebd05d::t_347b4f8a4967f7 37
+addons/godot_mcp/Editor/Tools/Tool_Rql.Query.cs
+  s_7bc72ecaebd05d::t_1dc64985f78112 33
+addons/godot_mcp/Editor/Tools/Tool_Rql.cs
+  s_7bc72ecaebd05d::t_aa0da41839d342 31-33
+addons/godot_mcp/Editor/Tools/Tool_Script.Build.cs
+  s_7bc72ecaebd05d::t_1e869427687ac4 33
+scripts/smoke_rql.py
+  s_7bc72ecaebd05d::t_e284d78e13bcaf 43,302
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "928d8e7757d577ccfde991cd6cce2237c30f0cf4",
+  "prompts": {},
+  "sessions": {
+    "s_7bc72ecaebd05d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40274cb2-edf8-49ba-9a73-33b83cb5be53",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_7be60963fe3603::t_92469bce3c93f0 451
+Godot-MCP.Tests/GodotTypedArrayHintTests.cs
+  s_7be60963fe3603::t_e6e13ad879abb3 1-47
+addons/godot_mcp/Editor/Rql/GodotTypedArrayHint.cs
+  s_7be60963fe3603::t_2be7e972b15b5e 1-58
+addons/godot_mcp/Editor/Rql/GodotVariants.cs
+  s_7be60963fe3603::t_9460e1407f3922 141,154-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb107a65cab43c31147a15bf7ca70fe3e3856819",
+  "prompts": {},
+  "sessions": {
+    "s_7be60963fe3603": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c306a43-6f1a-4fe9-9b57-09acf4bc1a65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

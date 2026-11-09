@@ -1,0 +1,27 @@
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_9e1686e62c1946::t_ed48c241420949 34-38,40
+README.md
+  s_9e1686e62c1946::t_66a276f96b5bb9 325-327,330-331
+Godot-MCP.Tests/GodotMcpServerViewTests.cs
+  s_9e1686e62c1946::t_445d73ef2dccf2 104-121,125,127-129,131,136,138-139,141,145-212
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_9e1686e62c1946::t_3c5b6222537b1b 55-99
+addons/godot_mcp/Connection/GodotMcpServerView.cs
+  s_9e1686e62c1946::t_51eb65b5666be2 132-180,184-188,191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "810aceb492485863eb0d4e8019561d78dc922ebd",
+  "prompts": {},
+  "sessions": {
+    "s_9e1686e62c1946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4945dacf-1249-4028-8a7f-8121d8c118b7",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

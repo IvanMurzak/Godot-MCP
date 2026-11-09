@@ -1,0 +1,127 @@
+docs/RELEASING.md
+  s_5f9a753ce320b5::t_18b371f1dbe17d 273-276
+Godot-MCP.csproj
+  s_5f9a753ce320b5::t_91175b044955be 21-33
+scripts/write-nuget-deps.mjs
+  s_5f9a753ce320b5::t_4c95bc6113acaf 41
+  s_5f9a753ce320b5::t_a947579cf65bcf 26-30
+cli/tests/addon-nuget-deps.test.ts
+  s_5f9a753ce320b5::t_2aa88085199a98 61,67
+  s_5f9a753ce320b5::t_cf1b34f12d5052 28-40
+docs/assetlib/SUBMISSION.md
+  s_5f9a753ce320b5::t_998d7094a381a3 75-77
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_2487d4b8117d6e 7-13
+scripts/check-runtime-boundary.py
+  s_5f9a753ce320b5::t_00ff38329bb4af 162
+  s_5f9a753ce320b5::t_1a8ae6c9c15b8f 241
+  s_5f9a753ce320b5::t_1cecb8a59c8f09 231-236,239-240,242
+  s_5f9a753ce320b5::t_3afc2f5cb46fc0 215-223
+  s_5f9a753ce320b5::t_43387c0b650ee2 52-57
+  s_5f9a753ce320b5::t_7f8c2767e956c4 183
+  s_5f9a753ce320b5::t_8eee20246af2d7 27-29
+  s_5f9a753ce320b5::t_2439bfba825400 145,148
+cli/src/utils/addon-nuget-deps.ts
+  s_5f9a753ce320b5::t_3b41b187e2f1ea 40-44,47-50,57
+  s_5f9a753ce320b5::t_c4aefb418f9e41 65-67,76-77
+cli/tests/addon-deps-parity.test.ts
+  s_5f9a753ce320b5::t_83143f05b41dd9 89-90
+  s_5f9a753ce320b5::t_577c4e2adaafd1 5,77-88
+docs/ARCHITECTURE.md
+  s_5f9a753ce320b5::t_7dd500fcdbda0b 250-252
+  s_5f9a753ce320b5::t_9f13dde51daddc 206-232
+  s_5f9a753ce320b5::t_482178c948a483 191-193
+cli/src/utils/addon-deps.ts
+  s_5f9a753ce320b5::t_560f1d549eaf5b 64-67
+  s_5f9a753ce320b5::t_0166cb1217695c 14-15
+  s_5f9a753ce320b5::t_b93a96bddc583a 28-32,35-41
+cli/src/utils/csproj-deps.ts
+  s_5f9a753ce320b5::t_3f6c34d89b00b9 19-20
+  s_5f9a753ce320b5::t_782b71f923ec89 5
+  s_5f9a753ce320b5::t_985e8d71586790 95-101
+  s_5f9a753ce320b5::t_894056e7f5752f 102-114,174-175
+  s_5f9a753ce320b5::t_15859216a19805 164-166,171-173,176-178
+  s_5f9a753ce320b5::t_ebe5af259647cc 186
+cli/tests/install-plugin-installer.test.ts
+  s_5f9a753ce320b5::t_284a42ab137abc 451,453,455-457
+AGENTS.md
+  s_5f9a753ce320b5::t_35001fb16afc11 93-96
+Godot-MCP.Tests/Godot-MCP.Tests.csproj
+  s_5f9a753ce320b5::t_256e32f58c916c 9
+Godot-Tests/Godot-Tests.csproj
+  s_5f9a753ce320b5::t_8c42455aac2ee2 34,38-41
+README.md
+  s_5f9a753ce320b5::t_7b6adcaa8e903f 302-309,327-330
+addons/godot_mcp/Editor/Rql/Adapters/Struct/GodotFloatTupleAdapter.cs
+  s_5f9a753ce320b5::t_e54b1fc24f4c15 10-11,29
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Aabb_Adapter.cs
+  s_5f9a753ce320b5::t_3e3dd7571a85ff 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Basis_Adapter.cs
+  s_5f9a753ce320b5::t_ab120096d67ee8 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Color_Adapter.cs
+  s_5f9a753ce320b5::t_c5139dfc957931 10-11,36
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Plane_Adapter.cs
+  s_5f9a753ce320b5::t_f48f5a6cc77315 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Quaternion_Adapter.cs
+  s_5f9a753ce320b5::t_df7043601f926b 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Rect2I_Adapter.cs
+  s_5f9a753ce320b5::t_6477ae01bfdb4e 10-11,30
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Rect2_Adapter.cs
+  s_5f9a753ce320b5::t_1ce6d149e972e9 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Transform2D_Adapter.cs
+  s_5f9a753ce320b5::t_f388765e385b84 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Transform3D_Adapter.cs
+  s_5f9a753ce320b5::t_260f28ae6f3a01 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector2I_Adapter.cs
+  s_5f9a753ce320b5::t_3c398afdff3b2d 10-11,30
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector2_Adapter.cs
+  s_5f9a753ce320b5::t_bec1957c808fe6 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector3I_Adapter.cs
+  s_5f9a753ce320b5::t_3f865c6d7157be 10-11,30
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector3_Adapter.cs
+  s_5f9a753ce320b5::t_34850c148f6ce4 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector4I_Adapter.cs
+  s_5f9a753ce320b5::t_28201a4b696b77 10-11,30
+addons/godot_mcp/Editor/Rql/Adapters/Struct/Godot_Vector4_Adapter.cs
+  s_5f9a753ce320b5::t_d0fb7a8adfabda 10-11,28
+addons/godot_mcp/Editor/Rql/Adapters/Struct/WholeNumbers.cs
+  s_5f9a753ce320b5::t_a76881ecc797c8 10-11,34
+addons/godot_mcp/Editor/Rql/Adapters/Tool/Godot_NodeRef_Adapter.cs
+  s_5f9a753ce320b5::t_f5ed189442477d 10-11,53
+addons/godot_mcp/Editor/Rql/Adapters/Tool/ReflectorNet_SerializedMemberList_Adapter.cs
+  s_5f9a753ce320b5::t_c74ca9efdf4613 10-11,110
+addons/godot_mcp/Editor/Rql/Modules/ToolTypesModule.cs
+  s_5f9a753ce320b5::t_b72c430bb5db3b 10-11,30
+addons/godot_mcp/Editor/Rql/RqlGuide.cs
+  s_5f9a753ce320b5::t_1769b16e07a01a 10-11,191
+addons/godot_mcp/Editor/Rql/RqlStaticCaches.cs
+  s_5f9a753ce320b5::t_77d95d465c38ae 10-11,113
+addons/godot_mcp/Editor/Rql/Settings/InputEventText.cs
+  s_5f9a753ce320b5::t_4f2355fcb03036 10-11,222
+addons/godot_mcp/Editor/Rql/ToolFormat/CompactText.cs
+  s_5f9a753ce320b5::t_cd31524056e099 10-11,123
+addons/godot_mcp/Editor/Rql/ToolFormat/RqlArgumentAttribute.cs
+  s_5f9a753ce320b5::t_836519ecbb32a8 10-11,29
+addons/godot_mcp/Editor/Rql/ToolFormat/RqlToolBinding.cs
+  s_5f9a753ce320b5::t_cf6c9146066c8e 10-11,389
+addons/godot_mcp/Editor/Rql/ToolFormat/TypeNames.cs
+  s_5f9a753ce320b5::t_fc3c83fdf95c52 10-11,89
+cli/tests/csproj-deps.test.ts
+  s_5f9a753ce320b5::t_07fc8611cfcd96 3,247-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec5c335eadbfce1457d0248425da5325a8ca5c62",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

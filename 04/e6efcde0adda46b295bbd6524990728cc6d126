@@ -1,0 +1,88 @@
+addons/godot_mcp/UI/DockStyle.cs
+  s_06c53c82d6e5ea::t_8a2ceca7bacf9f 408,418,450
+  s_06c53c82d6e5ea::t_66bbf22f6242b7 972,987-990
+  s_06c53c82d6e5ea::t_97e89b461aed46 431
+  s_06c53c82d6e5ea::t_1194d90caff1c9 580,583
+  s_06c53c82d6e5ea::t_931705ff3f4c88 803
+  s_06c53c82d6e5ea::t_f646707c66e07a 37-48,51-55,57-58,475,763
+  s_06c53c82d6e5ea::t_fdb2889b583770 462,476
+  s_06c53c82d6e5ea::t_12ae01d57fc2ce 745,753-756
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_06c53c82d6e5ea::t_db8f6981ea51a2 318
+  s_06c53c82d6e5ea::t_4f3d732d9e0e03 65-72,86-105,109-115,254-257,296-298
+  s_06c53c82d6e5ea::t_ec82a6f6d23b4e 106-108
+addons/godot_mcp/UI/FeatureListWindow.cs
+  s_06c53c82d6e5ea::t_d1d89e541d1992 117
+  s_06c53c82d6e5ea::t_bd5ffc5bf9e076 134-135
+  s_06c53c82d6e5ea::t_0cb8e1b1245802 145
+  s_06c53c82d6e5ea::t_387a9f85f602be 221,223-226
+  s_06c53c82d6e5ea::t_d614d0ec400630 61-63
+  s_06c53c82d6e5ea::t_ffad16bebd9d13 359
+addons/godot_mcp/GodotMcpPlugin.cs
+  s_06c53c82d6e5ea::t_4748b458f5f53f 48-62,95-106,256-282,287-308,310-314,316,318-328,330,332,334-335,337-343,350-351,353-362
+  s_06c53c82d6e5ea::t_4b7d5fdf4f108e 283-286
+  s_06c53c82d6e5ea::t_187566811a5593 345-349,352
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_06c53c82d6e5ea::t_8cb822418364d1 714
+  s_06c53c82d6e5ea::t_48d4143e511149 571
+  s_06c53c82d6e5ea::t_c2d9f150384f06 418,422
+  s_06c53c82d6e5ea::t_4412e00de22f3b 332-335
+  s_06c53c82d6e5ea::t_fc7d675229dc35 848
+  s_06c53c82d6e5ea::t_391fdfa494cc8e 958
+  s_06c53c82d6e5ea::t_1729934420240b 371
+  s_06c53c82d6e5ea::t_ddfeb7ff3407d4 390
+  s_06c53c82d6e5ea::t_20e6f8a52f0f76 633
+addons/godot_mcp/UI/FeatureRow.cs
+  s_06c53c82d6e5ea::t_521de78b1ce5b5 93-94
+  s_06c53c82d6e5ea::t_cb5c487324d162 99
+addons/godot_mcp/UI/SkillsPanel.cs
+  s_06c53c82d6e5ea::t_8d034db7c4b597 50
+  s_06c53c82d6e5ea::t_f7a403dcb14e46 172
+  s_06c53c82d6e5ea::t_b3cfd9e0cfe2da 205
+  s_06c53c82d6e5ea::t_9ec2163d57a1dc 343-344
+addons/godot_mcp/UI/ExtensionRow.cs
+  s_06c53c82d6e5ea::t_aa0fe012b91491 81-82
+addons/godot_mcp/UI/DockControls.cs
+  s_06c53c82d6e5ea::t_bde5e141a96a5b 52-55
+  s_06c53c82d6e5ea::t_537373da133840 1-30,35-50,56-115,151-178
+  s_06c53c82d6e5ea::t_74ee4a6c267671 116-150
+  s_06c53c82d6e5ea::t_5926461999cddb 31-34
+addons/godot_mcp/Connection/GodotMcpConnection.cs
+  s_06c53c82d6e5ea::t_b056835ed75f34 923-957,964-966,973-977,979-984,988,1000-1001,1033-1047
+  s_06c53c82d6e5ea::t_e973f94937b8b9 958-963,967-972,978,985-987,989-999
+addons/godot_mcp/UI/Agents/AgentConfiguratorsPanel.cs
+  s_06c53c82d6e5ea::t_c2a3b6545a86fc 108-109,452
+  s_06c53c82d6e5ea::t_84ecf15a246e2d 470-494
+  s_06c53c82d6e5ea::t_e049433685be18 640-643
+  s_06c53c82d6e5ea::t_2847134b74b4af 329,334
+  s_06c53c82d6e5ea::t_653b4629188769 460
+  s_06c53c82d6e5ea::t_94d9b07d6c3ace 129
+  s_06c53c82d6e5ea::t_472e2b068f7dd9 392-394,397,401
+addons/godot_mcp/UI/SerializationCheckWindow.cs
+  s_06c53c82d6e5ea::t_eeefd9463ea815 143
+  s_06c53c82d6e5ea::t_8b9ba8ad5c1b18 129-130
+  s_06c53c82d6e5ea::t_f372f941ab11c4 387
+  s_06c53c82d6e5ea::t_6f04c38fa62f4f 172
+  s_06c53c82d6e5ea::t_6023288a938088 42-44
+  s_06c53c82d6e5ea::t_8ae74731f4a292 71-73
+  s_06c53c82d6e5ea::t_d2a059d9ab9d79 356,360,363-365,367-378
+  s_06c53c82d6e5ea::t_66965b8864683e 83-85
+addons/godot_mcp/Connection/GodotMcpAssemblyResolver.cs
+  s_06c53c82d6e5ea::t_b8d280facb6df3 124-135,147-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "04e6efcde0adda46b295bbd6524990728cc6d126",
+  "prompts": {},
+  "sessions": {
+    "s_06c53c82d6e5ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9f485071-a568-4a1d-a277-e93be2b3dbda",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}

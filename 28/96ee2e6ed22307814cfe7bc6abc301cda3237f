@@ -1,0 +1,35 @@
+Godot-Tests/Harness/RuntimeHarness.cs
+  s_5f9a753ce320b5::t_7b441826787522 279-280
+README.md
+  s_5f9a753ce320b5::t_9c0c89c0302a36 713-715,726-727
+addons/godot_mcp/Runtime/GodotMcpRuntimeBuilder.cs
+  s_5f9a753ce320b5::t_82f1dab0b91566 263-265
+cli/CHANGELOG.md
+  s_5f9a753ce320b5::t_65183112bab2c6 12-14
+cli/src/utils/csproj-deps.ts
+  s_5f9a753ce320b5::t_182fb454b57011 183-187,189-199
+cli/tests/csproj-deps.test.ts
+  s_5f9a753ce320b5::t_3911163c392d80 355-366
+docs/runtime-security.md
+  s_5f9a753ce320b5::t_4c3695e551f751 80-89
+scripts/check-runtime-boundary.py
+  s_5f9a753ce320b5::t_021a74aa078642 100-103,184-186
+scripts/tests/test_check_runtime_boundary.py
+  s_5f9a753ce320b5::t_fedce9dd0d3749 69-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2896ee2e6ed22307814cfe7bc6abc301cda3237f",
+  "prompts": {},
+  "sessions": {
+    "s_5f9a753ce320b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ee65e8c-aca3-452e-9397-46e1aceea5e9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}

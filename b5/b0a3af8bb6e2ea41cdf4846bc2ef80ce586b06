@@ -1,0 +1,33 @@
+addons/godot_mcp/UI/ConnectionPanelView.cs
+  s_cf7ef7d7435eeb::t_3baa1d7171db9a 88-94,96-98,102-103,105-106
+  s_cf7ef7d7435eeb::t_9ef07297d8a163 65-70
+scripts/dev_control_smoke.py
+  s_cf7ef7d7435eeb::t_501e4d9eaf7476 108-116,118-119
+addons/godot_mcp/UI/ConnectionPanel.cs
+  s_cf7ef7d7435eeb::t_ce058417fabfb4 634-636,638-639
+  s_cf7ef7d7435eeb::t_a7e732a07a7131 500-501,503-505,507-508
+  s_cf7ef7d7435eeb::t_2c66bbc4afd3d6 75-77
+  s_cf7ef7d7435eeb::t_8aef0a01efde67 258,266-269
+Godot-MCP.Tests/ConnectionPanelViewTests.cs
+  s_cf7ef7d7435eeb::t_15eab93a3e747c 91,94-97,99,102,105-106
+addons/godot_mcp/UI/DockStyle.cs
+  s_cf7ef7d7435eeb::t_b432927d289ee2 227-238
+addons/godot_mcp/UI/GodotMcpDock.cs
+  s_cf7ef7d7435eeb::t_8b6ee3e1ce3569 507-510,512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "b5b0a3af8bb6e2ea41cdf4846bc2ef80ce586b06",
+  "prompts": {},
+  "sessions": {
+    "s_cf7ef7d7435eeb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43e0612a-829b-4e33-b2f7-3d1fbe030ca4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ivan Murzak <Ivan.D.Murzak@gmail.com>"
+    }
+  }
+}
