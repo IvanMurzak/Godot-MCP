@@ -871,7 +871,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         /// plugin's ad-hoc diagnostics now land in the same capture sink.
         /// </summary>
         static void RouteFrameworkLog(GodotLogType logType, string message)
-            => GodotMcpLog.Route(logType, message);
+            => GodotMcpLog.Route(logType, GodotMcpConfig.AppendAuthRejectionHint(message));
 
         // --- MCP feature visibility map (tools / prompts / resources) -----------------------------------------
 

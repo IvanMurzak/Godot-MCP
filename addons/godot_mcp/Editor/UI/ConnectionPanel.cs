@@ -1073,7 +1073,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
             }
 
             // The active mode differs from the persisted mode only when an env/.env override forced it.
-            var overridden = activeMode != persistedMode;
+            var overridden = activeMode != persistedMode ||
+                _connection.Config.ActiveAuthOption != GodotMcpConfig.NormalizeAuthOption(_connection.Config.AuthOption);
             _overrideNote.Visible = overridden;
 
             _hostField.Editable = true;

@@ -444,7 +444,13 @@ instance, etc.).
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | Set to `Custom` to select this mode. | `Cloud` |
 | `GODOT_MCP_HOST` | The custom server URL. Must be an absolute http(s) URL or it falls back to the default. | `http://localhost:8080` |
-| `GODOT_MCP_TOKEN` | Bearer token (only needed if the server requires authorization). | (none) |
+| `GODOT_MCP_TOKEN` | Bearer token, sent to the server at `GODOT_MCP_HOST` (or the saved host). Setting it selects `token` authorization unless `GODOT_MCP_AUTH_OPTION` says otherwise. | (none) |
+| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`. Wins over the token rule above: `none` sends no token. | Saved choice, else `none` |
+
+A `GODOT_MCP_TOKEN` from the process environment or the project `.env` also applies to a local server the editor
+starts (it launches with `token` authorization) and to agent configs you write with **Configure**. This selection is not
+saved to the config file. A server in `token` mode rejects a connection that has no token with
+`Connection rejected: auth=token mode requires a token but none was provided`; the plugin's log line adds what to set.
 
 With authorization `oauth`, your signed-in ai-game.dev account token is sent **only to a localhost server**
 (`localhost`, `127.0.0.0/8`, `::1`). For any other host set `GODOT_MCP_TOKEN`; without it the connection fails with
@@ -979,7 +985,7 @@ host/token one of two ways — and they **compose**, with env winning over code 
    | `GODOT_MCP_CONNECTION_MODE` | `Cloud` / `Custom` | Connection mode (a loopback host implies `Custom`). |
    | `GODOT_MCP_CLOUD_URL` | URL | Override the Cloud base URL (default `https://ai-game.dev`). |
    | `GODOT_MCP_HOST` | URL | Custom-mode server host (default `http://localhost:8080`). |
-   | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
+   | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). Unset, a `GODOT_MCP_TOKEN` selects `token`. |
    | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
    | `GODOT_MCP_LOG_LEVEL` | `Trace`…`None` | Log-verbosity threshold. |
    | `GODOT_MCP_SERVER_PATH` | absolute path | **Editor-only** (dev / CI). Launch this existing `gamedev-mcp-server(.exe)` instead of the pinned release: skips the download **and** the version match, and disables orphaned-server cleanup while active. A value naming no existing file is ignored. |
@@ -997,7 +1003,6 @@ host/token one of two ways — and they **compose**, with env winning over code 
    ```bash
    export GODOT_MCP_CONNECTION_MODE=Custom
    export GODOT_MCP_HOST=http://localhost:8080
-   export GODOT_MCP_AUTH_OPTION=token
    export GODOT_MCP_TOKEN=your-secret-token
    ```
 

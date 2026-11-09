@@ -106,7 +106,7 @@ The runtime config (`GodotMcpConfig`) reads these `GODOT_MCP_*` variables live (
 | `GODOT_MCP_CONNECTION_MODE` | `Cloud` / `Custom` | Connection mode (a loopback host implies `Custom`). |
 | `GODOT_MCP_CLOUD_URL` | URL | Override the Cloud base URL (default `https://ai-game.dev`). |
 | `GODOT_MCP_HOST` | URL | Custom-mode server host (default `http://localhost:8080`). |
-| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). |
+| `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token` | Custom-mode auth: anonymous / account (oauth) / offline bearer (`token`). Unset, a `GODOT_MCP_TOKEN` selects `token`. |
 | `GODOT_MCP_TOKEN` | string | The bearer token (routed to Cloud or Custom by the active mode). |
 | `GODOT_MCP_LOG_LEVEL` | `Trace` / `Debug` / `Info` / `Warning` / `Error` / `None` | Log-verbosity threshold. |
 | `GODOT_MCP_EDITOR_PID` | process id | Set by the editor plugin in the editor process, so every process the editor starts inherits it. While that editor runs, the runtime's `Connect()` stays offline in a process that carries it (unless opted in below). |

@@ -204,6 +204,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 TryParseAuthOption(fileAuth, out var parsedAuth))
             {
                 config.AuthOption = parsedAuth;
+                config.EnvFileSetAuthOption = true;
             }
 
             // 2c) Log level (cross-cutting): an explicit file value writes the serialized field beneath the
@@ -227,7 +228,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     config.CloudTokenServerTarget = GodotMcpConfig.ResolveCloudBaseUrl(tokenOrigin, useProcessEnvironment: false);
                 }
                 else
-                    config.CustomToken = fileToken;
+                    config.ApplyEnvFileCustomToken(fileToken);
             }
 
             return config;
