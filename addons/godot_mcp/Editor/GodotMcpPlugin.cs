@@ -265,7 +265,7 @@ namespace com.IvanMurzak.Godot.MCP
                 if (_dock != null)
                 {
                     if (GodotObject.IsInstanceValid(_dock))
-                        RemoveEditorDock(_dock);
+                        RemoveEditorDock();
                     FreeStaleNode(ref _dock);
                 }
                 _dock = new GodotMcpDock(connection);
@@ -291,7 +291,7 @@ namespace com.IvanMurzak.Godot.MCP
             AddDock(_dockHost);
         }
 
-        void RemoveEditorDock(Control dock)
+        void RemoveEditorDock()
         {
             if (_dockHost != null && GodotObject.IsInstanceValid(_dockHost))
             {
@@ -303,7 +303,11 @@ namespace com.IvanMurzak.Godot.MCP
 #else
         void AddEditorDock(Control dock) => AddControlToDock(DockSlot.RightUl, dock);
 
-        void RemoveEditorDock(Control dock) => RemoveControlFromDocks(dock);
+        void RemoveEditorDock()
+        {
+            if (_dock != null && GodotObject.IsInstanceValid(_dock))
+                RemoveControlFromDocks(_dock);
+        }
 #endif
 
         /// <summary>
@@ -752,7 +756,7 @@ namespace com.IvanMurzak.Godot.MCP
                     else
                     {
                     // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
-                    RemoveEditorDock(_dock);
+                    RemoveEditorDock();
 
                     // SYNCHRONOUS free (Free, not QueueFree) on the unload path. A DEFERRED QueueFree would not
                     // run the dock subtree's own _ExitTree disconnect logic until the next idle frame — AFTER the
