@@ -18,18 +18,17 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// Godot's source generator gives a C# script class a <c>[ScriptPath]</c> only when the file is named after the
-    /// class. A class without one gets a pathless script bridge, and on an assembly reload its old script collides
-    /// with the one a re-created instance has already registered:
+    /// class. A class without one gets a pathless script bridge, and on an assembly reload the old script of such a
+    /// class can collide with the one a re-created instance has already registered:
     /// <c>ArgumentException: An item with the same key has already been added</c> from
     /// <c>ScriptManagerBridge.TryReloadRegisteredScriptWithClass</c>. So every script class has its own file.
     /// </summary>
     public class GodotScriptFileNameTests
     {
         // Godot requires `partial` on every GodotObject subclass, so a partial class with a base list is the
-        // widest source-level match for a script class, [Tool] or not.
+        // source-level match for a script class, [Tool] or not. A plain C# partial with a base list matches too.
         static readonly Regex ScriptClass = new(
-            @"^\s*(?:\w+\s+)*partial\s+class\s+(\w+)[^{
-]*:",
+            @"^\s*(?:\[[^\]\r\n]*\]\s*)*(?:\w+\s+)*partial\s+class\s+(\w+)\s*:",
             RegexOptions.Multiline);
 
         [Fact]

@@ -24,7 +24,7 @@ HOW IT WORKS (no extra Godot CLI flag — a real in-session reload)
   addon the reloaded plugin re-registers a fresh dock + bridge and `/state` reports the dock back.
 
 "An item with the same key has already been added" (not gated on)
-  A script class in a file not named after it gets no [ScriptPath] and raises this on reload: that is our
+  A script class in a file not named after it gets no [ScriptPath] and can raise this on reload: that is our
   defect (GodotScriptFileNameTests). Godot can also raise it for generic-heavy assemblies
   (godotengine/godot #79519 / #87877 / #98094 / #110784). It is non-fatal; this harness does NOT gate on it.
 
