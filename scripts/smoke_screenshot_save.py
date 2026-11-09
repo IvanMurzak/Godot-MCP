@@ -23,9 +23,10 @@ import subprocess
 import sys
 import time
 
-from smoke_rql_lib import FAILURES, check, must, mutate, post_tool, q, query
+from smoke_rql_lib import FAILURES, check, must, mutate, post_tool, q, tool
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+ONE_PIXEL_PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
 DIR = "smoke_shots"
 OUTSIDE_NAME = "smoke_shots_outside"
 
@@ -37,7 +38,7 @@ def call(host: str, name: str, args: dict) -> tuple[bool, str, bytes | None]:
         return False, str(body["error"]), None
     content = body.get("content") or []
     image = next((base64.b64decode(c["data"]) for c in content if c.get("type") == "image"), None)
-    return True, "\n".join(c.get("text", "") for c in content), image
+    return True, "\n".join(c.get("text") or "" for c in content), image
 
 
 def snapshot(*roots: pathlib.Path) -> set[pathlib.Path]:
@@ -63,7 +64,7 @@ def wait_ready(host: str, timeout: float) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            if query(host, "project | take 1")[0]:
+            if tool(host, "rql-schema", {})[0]:
                 return True
         except (OSError, ValueError):
             pass
@@ -78,7 +79,7 @@ def refusals(host: str, project: pathlib.Path, tool: str, args: dict, outside: p
     (project / DIR).mkdir(exist_ok=True)
     existing = project / DIR / "existing.png"
     if not existing.exists():
-        existing.write_bytes(b"not a real png")
+        existing.write_bytes(ONE_PIXEL_PNG)
     before_bytes = existing.read_bytes()
     make_link(project / DIR / "link_out", outside)
 
@@ -189,7 +190,8 @@ def main() -> int:
         print(f"the editor never answered on {host} within {args.wait:.0f}s", flush=True)
         return 1
 
-    scene = f"res://{DIR}/scene.tscn"
+    run = int(time.time())  # a project can take several runs
+    scene = f"res://{DIR}/scene-{run}.tscn"
     must("scene", mutate(host, f'editor | call NewScene({q(scene)}, "Node3D", "Root")'))
     must("camera", mutate(host, 'root | call AddChild("Camera3D", "SmokeCam")'))
     must("target", mutate(host, 'root | call AddChild("CSGBox3D", "SmokeBox")'))
@@ -201,14 +203,14 @@ def main() -> int:
         ("screenshot-camera", {"nodeRef": {"path": "SmokeCam"}, "width": 320, "height": 180}),
         ("screenshot-isolated", {"nodeRef": {"path": "SmokeBox"}, "resolution": 128}),
     ]
-    for index, (tool, tool_args) in enumerate(tools):
-        refusals(host, project, tool, tool_args, outside, every=index == 0)
+    for index, (name, tool_args) in enumerate(tools):
+        refusals(host, project, name, tool_args, outside, every=index == 0)
     if not args.refusals_only:
-        for tool, tool_args in tools:
-            saves(host, project, tool, tool_args, tool.split("-")[1])
-        for tool, _ in tools:
-            imports(project, tool.split("-")[1])
-        must("the editor still answers", query(host, "project | take 1"))
+        for name, tool_args in tools:
+            saves(host, project, name, tool_args, f"{name.split('-')[1]}-{run}")
+        for name, _ in tools:
+            imports(project, f"{name.split('-')[1]}-{run}")
+        must("the editor still answers", tool(host, "rql-schema", {}))
 
     print(f"{len(FAILURES)} failure(s)" + (": " + "; ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0
