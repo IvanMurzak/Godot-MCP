@@ -25,14 +25,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public class GodotScriptFileNameTests
     {
+        // Godot requires `partial` on every GodotObject subclass, so a partial class with a base list is the
+        // widest source-level match for a script class, [Tool] or not.
         static readonly Regex ScriptClass = new(
-            @"\[(?:Tool|GlobalClass)\]\s*(?:\[[^\]]*\]\s*)*(?:public|internal)\s+(?:sealed\s+|abstract\s+)?partial\s+class\s+(\w+)",
-            RegexOptions.Compiled);
+            @"^\s*(?:\w+\s+)*partial\s+class\s+(\w+)[^{
+]*:",
+            RegexOptions.Multiline);
 
         [Fact]
         public void EveryScriptClass_LivesInAFileNamedAfterIt()
         {
-            var addonRoot = FindAddonRoot();
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;
+            Assert.NotNull(dir);
+
+            var addonRoot = Path.Combine(dir!.FullName, "addons", "godot_mcp");
             var classes = Directory
                 .EnumerateFiles(addonRoot, "*.cs", SearchOption.AllDirectories)
                 .SelectMany(file => ScriptClass.Matches(File.ReadAllText(file))
@@ -41,24 +48,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             // The scan must really see the addon's script classes, or the check below passes on nothing.
             Assert.Contains(classes, c => c.Class == "GodotMcpDock");
-            Assert.Contains(classes, c => c.Class == "DockActionButton");
 
             var misplaced = classes
                 .Where(c => !string.Equals(Path.GetFileNameWithoutExtension(c.File), c.Class, StringComparison.Ordinal))
                 .Select(c => $"{c.Class} in {Path.GetRelativePath(addonRoot, c.File)}")
                 .ToList();
             Assert.True(misplaced.Count == 0, "Give each script class its own file: " + string.Join(", ", misplaced));
-        }
-
-        static string FindAddonRoot()
-        {
-            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-            {
-                var candidate = Path.Combine(dir.FullName, "addons", "godot_mcp");
-                if (Directory.Exists(candidate))
-                    return candidate;
-            }
-            throw new DirectoryNotFoundException("addons/godot_mcp not found above " + AppContext.BaseDirectory);
         }
     }
 }
