@@ -152,5 +152,7 @@ describe('close — isConsoleWrapper', () => {
   it('does not match the windowed editor or a path that merely contains the word', () => {
     expect(isConsoleWrapper('C:\\Godot\\Godot_v4.5.1-stable_mono_win64.exe --editor --path C:\\p')).toBe(false);
     expect(isConsoleWrapper('/usr/bin/godot --editor --path /home/u/my_consoleapp')).toBe(false);
+    expect(isConsoleWrapper('C:\\Godot\\Godot_v4.5.1-stable_win64.exe --editor --path D:\\games\\space_console')).toBe(false);
+    expect(isConsoleWrapper('"C:\\Godot\\godot.exe" --path "D:\\my_console-demo"')).toBe(false);
   });
 });

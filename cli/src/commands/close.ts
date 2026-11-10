@@ -70,7 +70,10 @@ function resolveEditorProcess(projectPath: string): { pid: number; consoleWrappe
 
 /** Whether a command line runs Godot's `_console` build: a windowless wrapper whose child is the editor. */
 export function isConsoleWrapper(commandLine: string): boolean {
-  return /_console(\.exe)?\b/i.test(commandLine);
+  // Only the program itself: a project path such as `D:\games\space_console` must not count.
+  const program = commandLine.match(/^\s*(?:"([^"]+)"|(\S+))/);
+  const exe = program?.[1] ?? program?.[2] ?? '';
+  return /_console(\.exe)?$/i.test(path.basename(exe.replace(/\\/g, '/')));
 }
 
 export const closeCommand = new Command('close')
@@ -130,12 +133,16 @@ export const closeCommand = new Command('close')
     const spinner = ui.startSpinner(`Sending polite-quit to PID ${pid}...`);
     // A console-subsystem editor (the `_console` build) or a windowless one cannot be asked politely on Windows.
     let sent = sendGracefulShutdown(pid, platform);
-    // The `_console` wrapper has no window, but the editor it runs has: ask that one (the wrapper exits with it).
+    // The `_console` wrapper has no window, but the editor it runs has: ask that one, and wait for both to exit.
+    const waitPids = [pid];
     if (!sent && editor!.consoleWrapper) {
       for (const child of childProcessIds(pid)) {
         const ok = sendGracefulShutdown(child, platform);
         verbose(`Polite-quit to editor child PID ${child}: ${ok ? 'sent' : 'failed'}`);
-        if (ok) sent = true;
+        if (ok) {
+          sent = true;
+          waitPids.push(child);
+        }
       }
     }
     if (!sent && !options.force) {
@@ -144,7 +151,9 @@ export const closeCommand = new Command('close')
     }
 
     if (sent) spinner.text = `Waiting up to ${timeoutSeconds}s for PID ${pid} to exit...`;
-    const exited = sent ? await waitForExit(pid, timeoutSeconds * 1000, platform) : false;
+    const exited = sent
+      ? (await Promise.all(waitPids.map((p) => waitForExit(p, timeoutSeconds * 1000, platform)))).every(Boolean)
+      : false;
 
     if (exited) {
       spinner.success(`Godot editor (PID ${pid}) exited cleanly`);
