@@ -4,7 +4,7 @@ import * as path from 'path';
 import { platform as nodePlatform } from 'os';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
-import { findGodotProcess } from '../utils/godot-process.js';
+import { childProcessIds, findGodotProcess } from '../utils/godot-process.js';
 import {
   isProcessAlive,
   sendGracefulShutdown,
@@ -65,7 +65,12 @@ function resolveEditorProcess(projectPath: string): { pid: number; consoleWrappe
   const proc = findGodotProcess(projectPath);
   if (!proc) return null;
   verbose(`Godot editor PID ${proc.pid} matched for project`);
-  return { pid: proc.pid, consoleWrapper: /_console(.exe)?/i.test(proc.commandLine) };
+  return { pid: proc.pid, consoleWrapper: isConsoleWrapper(proc.commandLine) };
+}
+
+/** Whether a command line runs Godot's `_console` build: a windowless wrapper whose child is the editor. */
+export function isConsoleWrapper(commandLine: string): boolean {
+  return /_console(\.exe)?\b/i.test(commandLine);
 }
 
 export const closeCommand = new Command('close')
@@ -124,7 +129,15 @@ export const closeCommand = new Command('close')
 
     const spinner = ui.startSpinner(`Sending polite-quit to PID ${pid}...`);
     // A console-subsystem editor (the `_console` build) or a windowless one cannot be asked politely on Windows.
-    const sent = sendGracefulShutdown(pid, platform);
+    let sent = sendGracefulShutdown(pid, platform);
+    // The `_console` wrapper has no window, but the editor it runs has: ask that one (the wrapper exits with it).
+    if (!sent && editor!.consoleWrapper) {
+      for (const child of childProcessIds(pid)) {
+        const ok = sendGracefulShutdown(child, platform);
+        verbose(`Polite-quit to editor child PID ${child}: ${ok ? 'sent' : 'failed'}`);
+        if (ok) sent = true;
+      }
+    }
     if (!sent && !options.force) {
       spinner.error(`Could not ask PID ${pid} to quit (no window to close); re-run with --force to stop it.`);
       process.exit(1);

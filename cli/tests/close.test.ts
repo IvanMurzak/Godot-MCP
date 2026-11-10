@@ -7,6 +7,7 @@ import {
   isGodotProjectRoot,
   resolveCloseProjectPath,
   resolveEditorPid,
+  isConsoleWrapper,
 } from '../src/commands/close.js';
 import { runCliAsync } from './helpers/cli.js';
 
@@ -139,5 +140,17 @@ describe('close — CLI smoke', () => {
     const { stdout, exitCode } = await runCliAsync(['close', tmpDir]);
     expect(exitCode).toBe(0);
     expect(stdout).toContain('no running editor for project');
+  });
+});
+
+describe('close — isConsoleWrapper', () => {
+  it('detects the _console build, quoted or not', () => {
+    expect(isConsoleWrapper('C:\\Godot\\Godot_v4.5.1-stable_mono_win64_console.exe --editor --path C:\\p')).toBe(true);
+    expect(isConsoleWrapper('"C:\\Program Files\\Godot\\godot_console.exe" --editor --path "C:\\p"')).toBe(true);
+  });
+
+  it('does not match the windowed editor or a path that merely contains the word', () => {
+    expect(isConsoleWrapper('C:\\Godot\\Godot_v4.5.1-stable_mono_win64.exe --editor --path C:\\p')).toBe(false);
+    expect(isConsoleWrapper('/usr/bin/godot --editor --path /home/u/my_consoleapp')).toBe(false);
   });
 });
