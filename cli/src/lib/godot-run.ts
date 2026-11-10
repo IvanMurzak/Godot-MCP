@@ -1,0 +1,128 @@
+// One headless Godot process with a hard timeout: output captured, the whole process tree killed on timeout (test
+// runners and imports are known to hang). Library-safe: no console output, no `process.exit`, never throws.
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn, spawnSync } from 'child_process';
+import { editorLaunchEnv } from '../utils/godot-editor.js';
+import { GODOT_BANNER_RE, stripAnsi } from './godot-log.js';
+
+export interface GodotRunOptions {
+  binary: string;
+  args: string[];
+  cwd: string;
+  timeoutMs: number;
+  /** Extra environment (on top of `process.env` and the .NET workaround every editor launch gets). */
+  env?: Record<string, string>;
+  /**
+   * Also pass `--log-file <logFile>`; its content is used when the process printed no Godot banner to stdout
+   * (a GUI-subsystem binary on Windows may print nothing to a pipe).
+   */
+  logFile?: string;
+  /** Each output line as it arrives (ANSI stripped). */
+  onLine?: (line: string) => void;
+  /** Tests. */
+  spawnImpl?: typeof spawn;
+  killTreeImpl?: (pid: number) => void;
+}
+
+export interface GodotRunResult {
+  /** Process exit code; null when killed or it could not start. */
+  exitCode: number | null;
+  timedOut: boolean;
+  /** Combined stdout + stderr (or the log file), ANSI stripped. */
+  output: string;
+  durationMs: number;
+  /** The process could not be started. */
+  spawnError?: string;
+}
+
+/** Kill a process and all its children: `taskkill /T /F` on Windows, the process group on POSIX. */
+export function killProcessTree(pid: number): void {
+  try {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    } else {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        process.kill(pid, 'SIGKILL');
+      }
+    }
+  } catch {
+    // already gone
+  }
+}
+
+export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
+  const started = Date.now();
+  // Before the args: anything after a `--` belongs to the script (OS.get_cmdline_user_args()).
+  const args = options.logFile ? ['--log-file', options.logFile, ...options.args] : options.args;
+  if (options.logFile) {
+    try {
+      fs.mkdirSync(path.dirname(options.logFile), { recursive: true });
+      fs.rmSync(options.logFile, { force: true });
+    } catch {
+      // the log file is only a fallback
+    }
+  }
+
+  return new Promise((resolve) => {
+    let output = '';
+    let pending = '';
+    let settled = false;
+    let timedOut = false;
+    const finish = (exitCode: number | null, spawnError?: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (pending) options.onLine?.(stripAnsi(pending));
+      let text = stripAnsi(output);
+      if (!GODOT_BANNER_RE.test(text) && options.logFile) {
+        try {
+          const fromFile = stripAnsi(fs.readFileSync(options.logFile, 'utf-8'));
+          if (fromFile.trim().length > 0) text = fromFile;
+        } catch {
+          // no log file either
+        }
+      }
+      resolve({ exitCode, timedOut, output: text, durationMs: Date.now() - started, ...(spawnError ? { spawnError } : {}) });
+    };
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = (options.spawnImpl ?? spawn)(options.binary, args, {
+        cwd: options.cwd,
+        env: editorLaunchEnv(options.env),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        // POSIX: own process group so a timeout kills the whole tree.
+        detached: process.platform !== 'win32',
+      });
+    } catch (err) {
+      resolve({ exitCode: null, timedOut: false, output: '', durationMs: Date.now() - started, spawnError: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      if (child.pid !== undefined) (options.killTreeImpl ?? killProcessTree)(child.pid);
+      // A killed tree closes its pipes; resolve anyway should a grandchild keep them open.
+      setTimeout(() => finish(null), 5_000).unref();
+    }, options.timeoutMs);
+
+    const onData = (chunk: Buffer | string): void => {
+      const text = chunk.toString();
+      output += text;
+      if (!options.onLine) return;
+      pending += text;
+      const parts = pending.split(/\r?\n/);
+      pending = parts.pop() ?? '';
+      for (const line of parts) options.onLine(stripAnsi(line));
+    };
+    child.stdout?.on('data', onData);
+    child.stderr?.on('data', onData);
+    child.on('error', (err) => finish(null, err.message));
+    child.on('close', (code) => finish(timedOut ? null : code));
+  });
+}

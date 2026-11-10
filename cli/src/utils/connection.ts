@@ -13,6 +13,8 @@ import {
 } from './machine-store.js';
 import { deriveProjectIdentityV2 } from './project-identity.js';
 import { readProjectMarker, isLocalhostUrl } from './project-marker.js';
+import { ExitCode } from './exit-codes.js';
+import { exitWithError } from './output.js';
 
 // --- Godot MCP connection constants (mirror addons/godot_mcp GodotMcpConfig). ---
 
@@ -55,8 +57,7 @@ export function isGodotProject(dir: string): boolean {
 export function resolveProjectPath(positionalPath: string | undefined, options: ConnectionOptions): string {
   const resolved = path.resolve(positionalPath ?? options.path ?? process.cwd());
   if ((positionalPath !== undefined || options.path !== undefined) && !fs.existsSync(resolved)) {
-    ui.error(`Project path does not exist: ${resolved}`);
-    process.exit(1);
+    exitWithError(ExitCode.Usage, 'USAGE', `Project path does not exist: ${resolved}`);
   }
   return resolved;
 }
@@ -74,9 +75,12 @@ export function resolveAndValidateProjectPath(positionalPath: string | undefined
   }
 
   if (!isGodotProject(resolved)) {
-    ui.error(`Not a Godot project (missing project.godot): ${resolved}`);
-    ui.info('Provide a Godot project path as an argument, or use --url to connect to a server directly.');
-    process.exit(1);
+    exitWithError(
+      ExitCode.Usage,
+      'USAGE',
+      `Not a Godot project (missing project.godot): ${resolved}\n` +
+        'Provide a Godot project path as an argument, or use --url to connect to a server directly.',
+    );
   }
 
   return resolved;

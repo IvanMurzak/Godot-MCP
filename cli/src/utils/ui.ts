@@ -11,17 +11,27 @@ export function setVerbose(enabled: boolean): void {
 
 export function verbose(msg: string): void {
   if (verboseEnabled) {
-    if (isTTY()) {
-      console.log(chalk.dim(`[verbose] ${msg}`));
-    } else {
-      console.log(`[verbose] ${msg}`);
-    }
+    out(isTTY() ? chalk.dim(`[verbose] ${msg}`) : `[verbose] ${msg}`);
   }
+}
+
+// --- Machine output (--format json|ndjson): stdout carries only the envelope ---
+let machineOutput = false;
+
+/** Route every human-readable line (and spinner) to stderr without colour, keeping stdout for the envelope. */
+export function setMachineOutput(enabled: boolean): void {
+  machineOutput = enabled;
+}
+
+/** A human-readable line: stdout normally, plain stderr in machine mode. */
+function out(line: string): void {
+  if (machineOutput) process.stderr.write(stripAnsi(line) + '\n');
+  else console.log(line);
 }
 
 // --- TTY detection ---
 function isTTY(): boolean {
-  return !!process.stdout.isTTY;
+  return !machineOutput && !!process.stdout.isTTY;
 }
 
 /**
@@ -138,9 +148,9 @@ export function configureStyledHelp(cmd: Command, appVersion?: string): Command 
  */
 export function success(msg: string): void {
   if (isTTY()) {
-    console.log(`${chalk.green('✔')}  ${msg}`);
+    out(`${chalk.green('✔')}  ${msg}`);
   } else {
-    console.log(`SUCCESS: ${msg}`);
+    out(`SUCCESS: ${msg}`);
   }
 }
 
@@ -162,9 +172,9 @@ export function error(msg: string): void {
  */
 export function info(msg: string): void {
   if (isTTY()) {
-    console.log(`${chalk.blue('ℹ')}  ${msg}`);
+    out(`${chalk.blue('ℹ')}  ${msg}`);
   } else {
-    console.log(`INFO: ${msg}`);
+    out(`INFO: ${msg}`);
   }
 }
 
@@ -174,9 +184,9 @@ export function info(msg: string): void {
  */
 export function warn(msg: string): void {
   if (isTTY()) {
-    console.log(`${chalk.yellow('⚠')}  ${chalk.yellow(msg)}`);
+    out(`${chalk.yellow('⚠')}  ${chalk.yellow(msg)}`);
   } else {
-    console.log(`WARN: ${msg}`);
+    out(`WARN: ${msg}`);
   }
 }
 
@@ -184,14 +194,14 @@ export function warn(msg: string): void {
  * Print a bold cyan section heading.
  */
 export function heading(msg: string): void {
-  console.log(`\n${chalk.bold.cyan(msg)}`);
+  out(`\n${chalk.bold.cyan(msg)}`);
 }
 
 /**
  * Print a formatted key-value label.
  */
 export function label(key: string, value: string): void {
-  console.log(`  ${chalk.bold(key + ':')} ${value}`);
+  out(`  ${chalk.bold(key + ':')} ${value}`);
 }
 
 /**
@@ -199,14 +209,14 @@ export function label(key: string, value: string): void {
  * Methods are safe to call but produce no ANSI output.
  */
 function createNoOpSpinner(text: string): Spinner {
-  console.log(text);
+  out(text);
   const self: Spinner = {
     start: () => self,
     stop: () => self,
-    success: (msg?: string) => { if (msg) console.log(`SUCCESS: ${msg}`); return self; },
+    success: (msg?: string) => { if (msg) out(`SUCCESS: ${msg}`); return self; },
     error: (msg?: string) => { if (msg) console.error(`ERROR: ${msg}`); return self; },
-    warning: (msg?: string) => { if (msg) console.log(`WARN: ${msg}`); return self; },
-    info: (msg?: string) => { if (msg) console.log(`INFO: ${msg}`); return self; },
+    warning: (msg?: string) => { if (msg) out(`WARN: ${msg}`); return self; },
+    info: (msg?: string) => { if (msg) out(`INFO: ${msg}`); return self; },
     clear: () => self,
     get text() { return text; },
     set text(value: string) { text = value; },
@@ -258,14 +268,14 @@ export function badge(visible: boolean): string {
  * Print a feature row with a styled badge and name.
  */
 export function featureRow(name: string, visible: boolean): void {
-  console.log(`    ${badge(visible)} ${name}`);
+  out(`    ${badge(visible)} ${name}`);
 }
 
 /**
  * Print a divider line.
  */
 export function divider(): void {
-  console.log(chalk.dim('─'.repeat(50)));
+  out(chalk.dim('─'.repeat(50)));
 }
 
 /**

@@ -1,16 +1,21 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as ui from './ui.js';
 import { verbose } from './ui.js';
 import { parseJsonStrict, JsonParseError } from './json-parse.js';
+import { ExitCode } from './exit-codes.js';
+import { exitWithError, parseIntFlag } from './output.js';
 
 export interface InputOptions {
   input?: string;
   inputFile?: string;
 }
 
+function usage(message: string): never {
+  return exitWithError(ExitCode.Usage, 'USAGE', message);
+}
+
 /**
- * Parse tool input from --input, --input-file, or stdin.
+ * Parse tool input from --input, --input-file, or stdin. Bad input is a usage error (exit 2).
  *
  * - `--input-file -` or `--input-file /dev/stdin` reads from stdin (cross-platform).
  * - `--input-file <path>` reads from a file.
@@ -27,19 +32,12 @@ export function parseInput(options: InputOptions): string {
       try {
         content = fs.readFileSync(0, 'utf-8');
       } catch {
-        ui.error('Failed to read from stdin.');
-        process.exit(1);
+        usage('Failed to read from stdin.');
       }
-      if (!content.trim()) {
-        ui.error('No input received from stdin.');
-        process.exit(1);
-      }
+      if (!content.trim()) usage('No input received from stdin.');
     } else {
       const filePath = path.resolve(options.inputFile);
-      if (!fs.existsSync(filePath)) {
-        ui.error(`Input file does not exist: ${filePath}`);
-        process.exit(1);
-      }
+      if (!fs.existsSync(filePath)) usage(`Input file does not exist: ${filePath}`);
       content = fs.readFileSync(filePath, 'utf-8');
     }
 
@@ -47,12 +45,7 @@ export function parseInput(options: InputOptions): string {
       parseJsonStrict(content);
     } catch (err) {
       const source = isStdin ? 'stdin' : options.inputFile;
-      if (err instanceof JsonParseError) {
-        ui.error(`--input-file content from '${source}' must be valid JSON\n${err.message}`);
-      } else {
-        ui.error(`--input-file content from '${source}' must be valid JSON`);
-      }
-      process.exit(1);
+      usage(`--input-file content from '${source}' must be valid JSON` + (err instanceof JsonParseError ? `\n${err.message}` : ''));
     }
 
     return content;
@@ -63,24 +56,14 @@ export function parseInput(options: InputOptions): string {
       const result = parseJsonStrict(options.input);
       return result.raw;
     } catch (err) {
-      if (err instanceof JsonParseError) {
-        ui.error(`--input must be valid JSON\n${err.message}`);
-      } else {
-        ui.error('--input must be valid JSON');
-      }
-      process.exit(1);
+      usage('--input must be valid JSON' + (err instanceof JsonParseError ? `\n${err.message}` : ''));
     }
   }
 
   return '{}';
 }
 
-/** A whole-number flag value (commander supplies the default as text), or exit with an error. */
+/** A whole-number flag value (commander supplies the default as text), or exit 2. */
 export function parsePositiveIntFlag(raw: string, flagName: string, allowZero = false): number {
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0 || (value === 0 && !allowZero)) {
-    ui.error(`${flagName} must be a ${allowZero ? 'non-negative' : 'positive'} whole number, got "${raw}"`);
-    process.exit(1);
-  }
-  return value;
+  return parseIntFlag(raw, flagName, allowZero);
 }

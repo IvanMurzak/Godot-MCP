@@ -62,19 +62,19 @@ describe('status — CLI smoke', () => {
     expect(stdout).toContain('--timeout');
   });
 
-  it('exits 1 for an invalid --timeout value', async () => {
+  it('exits 2 (usage) for an invalid --timeout value', async () => {
     const { stdout, exitCode } = await runCliAsync(['status', '--url', 'http://localhost:1', '--timeout', '0']);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Invalid --timeout value');
   });
 
-  it('exits 1 when the path is not a Godot project and no --url is given', async () => {
+  it('exits 2 (usage) when the path is not a Godot project and no --url is given', async () => {
     const { stdout, exitCode } = await runCliAsync(['status', tmpDir]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Not a Godot project');
   });
 
-  it('exits 1 when the server is unreachable (connection refused)', async () => {
+  it('exits 7 when the server is unreachable (connection refused)', async () => {
     const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
       'status',
@@ -83,7 +83,7 @@ describe('status — CLI smoke', () => {
       '--timeout',
       '1500',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(7);
     expect(stdout).toContain('connection refused');
     expect(stdout).toContain('not reachable');
   });

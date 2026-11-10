@@ -62,7 +62,7 @@ describe('wait-for-ready — CLI smoke', () => {
     expect(stdout).toContain('--interval');
   });
 
-  it('exits 1 for an invalid --timeout value', async () => {
+  it('exits 2 (usage) for an invalid --timeout value', async () => {
     const { stdout, exitCode } = await runCliAsync([
       'wait-for-ready',
       '--url',
@@ -70,11 +70,11 @@ describe('wait-for-ready — CLI smoke', () => {
       '--timeout',
       '0',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Invalid --timeout value');
   });
 
-  it('exits 1 for an invalid --interval value', async () => {
+  it('exits 2 (usage) for an invalid --interval value', async () => {
     const { stdout, exitCode } = await runCliAsync([
       'wait-for-ready',
       '--url',
@@ -82,17 +82,17 @@ describe('wait-for-ready — CLI smoke', () => {
       '--interval',
       '-1',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Invalid --interval value');
   });
 
-  it('exits 1 when the path is not a Godot project and no --url is given', async () => {
+  it('exits 2 (usage) when the path is not a Godot project and no --url is given', async () => {
     const { stdout, exitCode } = await runCliAsync(['wait-for-ready', tmpDir]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Not a Godot project');
   });
 
-  it('times out and exits 1 when the server never comes up', async () => {
+  it('times out and exits 14 (timeout) when the server never comes up', async () => {
     const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
       'wait-for-ready',
@@ -103,7 +103,7 @@ describe('wait-for-ready — CLI smoke', () => {
       '--interval',
       '400',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(14);
     expect(stdout).toContain('Timed out');
   });
 

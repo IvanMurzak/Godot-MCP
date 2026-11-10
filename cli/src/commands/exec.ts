@@ -5,8 +5,10 @@ import { verbose } from '../utils/ui.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import { resolveAndValidateProjectPath, resolveSessionConnection } from '../utils/connection.js';
 import { parsePositiveIntFlag } from '../utils/input.js';
+import { ExitCode } from '../utils/exit-codes.js';
+import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
 import { DEFAULT_EXEC_TIMEOUT_MS, execCode, readToolResponse } from '../lib/exec.js';
-import { buildFailureMessage } from './run-tool-builder.js';
+import { buildFailureMessage, ensureFailureExit, toolFailureExit } from './run-tool-builder.js';
 
 interface ExecCliOptions {
   path?: string;
@@ -22,6 +24,7 @@ interface ExecCliOptions {
   raw?: boolean;
   url?: string;
   token?: string;
+  format?: string;
 }
 
 function collect(value: string, previous: string[]): string[] {
@@ -38,7 +41,7 @@ function readCode(code: string | undefined, file: string | undefined): string {
   return text;
 }
 
-export const execCommand = new Command('exec')
+export const execCommand = addFormatOption(new Command('exec')
   .description('Run C# in the Godot editor; starts a headless editor when none is open and keeps it warm')
   .argument('[code]', 'C# snippet: statements, the last expression is the result')
   .option('--path <path>', 'Godot project path (default: current directory)')
@@ -53,8 +56,9 @@ export const execCommand = new Command('exec')
   .option('--editor-path <path>', 'Explicit path to the Godot editor executable')
   .option('--raw', 'Print the raw tool response JSON')
   .option('--url <url>', 'Local MCP server URL (default: the project\'s local port)')
-  .option('--token <token>', 'Bearer token (default: GODOT_MCP_TOKEN)')
+  .option('--token <token>', 'Bearer token (default: GODOT_MCP_TOKEN)'))
   .action(async (codeArg: string | undefined, options: ExecCliOptions) => {
+    const output = new CommandOutput('exec', parseFormat(options.format));
     const idleSeconds = parsePositiveIntFlag(options.idle, '--idle', true);
     const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout');
     const timeoutMs = parsePositiveIntFlag(options.timeout, '--timeout');
@@ -62,12 +66,11 @@ export const execCommand = new Command('exec')
     try {
       code = readCode(codeArg, options.file);
     } catch (err) {
-      ui.error(err instanceof Error ? err.message : String(err));
-      process.exit(1);
+      return output.fail(ExitCode.Usage, 'USAGE', err instanceof Error ? err.message : String(err));
     }
 
     const projectPath = resolveAndValidateProjectPath(undefined, { path: options.path });
-    const spinner = options.raw ? null : ui.startSpinner('Connecting...');
+    const spinner = options.raw || output.machine ? null : ui.startSpinner('Connecting...');
     const result = await execCode({
       projectPath,
       code,
@@ -83,32 +86,37 @@ export const execCommand = new Command('exec')
       onStatus: (message) => {
         verbose(message);
         if (spinner) spinner.text = message;
+        else if (output.machine) output.progress(message);
       },
     });
 
     spinner?.stop();
     if (result.kind === 'failure') {
-      if (options.raw && result.toolFailure?.data !== undefined) {
-        process.stdout.write(JSON.stringify(result.toolFailure.data));
-      } else if (result.toolFailure && result.toolFailure.reason !== 'http-error') {
-        // Timeout, refused, reset: the same hints as run-tool.
-        const failure = result.toolFailure;
-        ui.error(buildFailureMessage(failure, { toolName: 'script-execute', endpoint: failure.endpoint, raw: false, timeoutMs, errorNoun: 'tool' }));
-      } else {
-        ui.error(result.message);
-      }
-      process.exit(1);
+      const mapped = result.toolFailure ? toolFailureExit(result.toolFailure) : ensureFailureExit(result.reason as Exclude<typeof result.reason, 'tool-failed'>);
+      // Timeout, refused, reset: the same hints as run-tool.
+      const message = result.toolFailure && result.toolFailure.reason !== 'http-error'
+        ? buildFailureMessage(result.toolFailure, { toolName: 'script-execute', endpoint: result.toolFailure.endpoint, raw: false, timeoutMs, errorNoun: 'tool' })
+        : result.message;
+      if (output.machine) output.finish(mapped.exitCode, result.toolFailure?.data ?? null, [{ code: mapped.code, message }]);
+      if (options.raw && result.toolFailure?.data !== undefined) process.stdout.write(JSON.stringify(result.toolFailure.data));
+      else ui.error(message);
+      process.exit(mapped.exitCode);
     }
 
     verbose(`Ran on ${result.baseUrl} (editor: ${result.editor})`);
+    const response = readToolResponse(result.data);
+    if (output.machine) {
+      const data = { editor: result.editor, url: result.baseUrl, output: response.text, response: result.data };
+      if (!response.ok) output.finish(ExitCode.CommandFailed, data, [{ code: 'TOOL_FAILED', message: response.text }]);
+      output.finish(ExitCode.Success, data);
+    }
     if (options.raw) {
       process.stdout.write(typeof result.data === 'string' ? result.data : JSON.stringify(result.data));
-      return;
+      process.exit(response.ok ? ExitCode.Success : ExitCode.CommandFailed);
     }
-    const response = readToolResponse(result.data);
     if (!response.ok) {
       ui.error(response.text);
-      process.exit(1);
+      process.exit(ExitCode.CommandFailed);
     }
     console.log(response.text);
   });

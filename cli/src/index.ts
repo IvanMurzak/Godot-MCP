@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, CommanderError } from 'commander';
 import { createRequire } from 'module';
 import { buildCommand } from './commands/build.js';
 import { loginCommand } from './commands/login.js';
@@ -17,6 +17,14 @@ import { installPluginCommand } from './commands/install-plugin.js';
 import { installExtensionCommand } from './commands/install-extension.js';
 import { removePluginCommand } from './commands/remove-plugin.js';
 import { execCommand } from './commands/exec.js';
+import { checkCommand } from './commands/check.js';
+import { createCommandsCommand } from './commands/commands.js';
+import { exportCommand } from './commands/export.js';
+import { importCommand } from './commands/import.js';
+import { runScriptCommand } from './commands/run-script.js';
+import { testCommand } from './commands/test.js';
+import { ExitCode } from './utils/exit-codes.js';
+import { formatFromArgv, writeEnvelope } from './utils/output.js';
 import { configureStyledHelp, error as uiError, setVerbose } from './utils/ui.js';
 import { checkForUpdate, isRunningViaNpx, printUpdateNotification } from './utils/update-check.js';
 
@@ -34,20 +42,26 @@ program
 // Register all subcommands
 const subcommands = [
   buildCommand,
+  checkCommand,
   closeCommand,
+  createCommandsCommand(() => program, pkg.version),
   configureCommand,
   createProjectCommand,
   execCommand,
+  exportCommand,
+  importCommand,
   installPluginCommand,
   installExtensionCommand,
   loginCommand,
   openCommand,
   removePluginCommand,
+  runScriptCommand,
   runToolCommand,
   runSystemToolCommand,
   setupMcpCommand,
   setupSkillsCommand,
   statusCommand,
+  testCommand,
   createUpdateCommand(pkg.version),
   waitForReadyCommand,
 ];
@@ -55,8 +69,12 @@ const subcommands = [
 for (const cmd of subcommands) {
   cmd.option('-v, --verbose', 'Enable verbose diagnostic output');
   configureStyledHelp(cmd);
+  // Parse errors throw a CommanderError (handled below) instead of exiting 1.
+  cmd.exitOverride();
   program.addCommand(cmd);
 }
+
+program.exitOverride();
 
 // Apply styled help to root (after subcommands so banner knows about them)
 configureStyledHelp(program, pkg.version);
@@ -85,6 +103,19 @@ program.parseAsync()
     }
   })
   .catch((err) => {
+    if (err instanceof CommanderError) {
+      // --help / --version are not errors.
+      if (err.exitCode === 0) process.exit(ExitCode.Success);
+      // Commander already printed the message to stderr; machine formats also get the envelope on stdout.
+      const args = process.argv.slice(2);
+      const format = formatFromArgv(args);
+      if (format === 'json' || format === 'ndjson') {
+        const command = program.commands.find((c) => args.includes(c.name()))?.name() ?? program.name();
+        const message = err.message.replace(/^error: /, '');
+        writeEnvelope(format, { success: false, command, data: null, errors: [{ code: 'USAGE', message }], warnings: [] });
+      }
+      process.exit(ExitCode.Usage);
+    }
     uiError((err as Error).message || String(err));
-    process.exit(1);
+    process.exit(ExitCode.Error);
   });
