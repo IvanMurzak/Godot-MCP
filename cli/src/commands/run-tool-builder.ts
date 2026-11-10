@@ -3,7 +3,7 @@ import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath } from '../utils/connection.js';
-import { connectionForCommand, localEditorRefusal } from '../utils/editor-connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { parseInput } from '../utils/input.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
@@ -156,8 +156,8 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     // never one for whatever Godot project the current directory happens to be.
     const explicitProject = positionalPath !== undefined || options.path !== undefined;
     const ownsUrl = !options.url || explicitProject || normalizeUrl(options.url) === normalizeUrl(localProjectUrl(projectPath));
-    // Never for a Cloud project on a signed-in machine (its hub URL is not local anyway, unless a dev hub runs on localhost).
-    const canStart = options.start !== false && !localEditorRefusal(conn) && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
+    // Never for a Cloud connection (even a dev hub on localhost): a signed-in machine is never switched to a local server.
+    const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
     if (result.kind === 'failure' && result.reason === 'connection-refused' && canStart) {
       note('No editor answered; starting a headless editor...');
       const editor = await ensureEditor({

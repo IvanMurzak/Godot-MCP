@@ -29,7 +29,6 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'EXPORT_FAILED'
   | 'NOT_AUTHENTICATED'
-  | 'CLOUD_PROJECT'
   | 'ERROR';
 
 export interface EnvelopeError {
