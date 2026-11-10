@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { buildCommand } from './commands/build.js';
 import { loginCommand } from './commands/login.js';
 import { openCommand } from './commands/open.js';
+import { RQL_RECIPES, rqlCommand } from './commands/rql.js';
 import { runToolCommand } from './commands/run-tool.js';
 import { runSystemToolCommand } from './commands/run-system-tool.js';
 import { statusCommand } from './commands/status.js';
@@ -27,7 +28,7 @@ import { testCommand } from './commands/test.js';
 import { toolsCommand } from './commands/tools.js';
 import { ExitCode } from './utils/exit-codes.js';
 import { CommandExit, failActive } from './utils/output.js';
-import { configureStyledHelp, error as uiError, setVerbose } from './utils/ui.js';
+import { configureStyledHelp, error as uiError, setRootRecipes, setVerbose } from './utils/ui.js';
 import { checkForUpdate, isRunningViaNpx, printUpdateNotification } from './utils/update-check.js';
 
 const require = createRequire(import.meta.url);
@@ -57,6 +58,7 @@ const subcommands = [
   loginCommand,
   openCommand,
   removePluginCommand,
+  rqlCommand,
   runScriptCommand,
   runToolCommand,
   runSystemToolCommand,
@@ -80,6 +82,7 @@ for (const cmd of subcommands) {
 program.exitOverride();
 
 // Apply styled help to root (after subcommands so banner knows about them)
+setRootRecipes(RQL_RECIPES);
 configureStyledHelp(program, pkg.version);
 
 // Wire verbose flag before any command executes

@@ -86,8 +86,10 @@ describe('run-tool (builder) — CLI smoke', () => {
         'run-tool', 'ping', '--url', srv.url, '--timeout', '3000',
       ]);
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('ping completed');
+      // Text mode prints the answer alone: no heading, endpoint or spinner lines.
       expect(stdout).toContain('/api/tools/ping');
+      expect(stdout).not.toContain('Run Tool');
+      expect(stdout).not.toContain('completed');
     } finally {
       await srv.close();
     }

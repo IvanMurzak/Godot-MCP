@@ -11,8 +11,9 @@ import { CommandOutput, addFormatOption, parseFormat, parseIntFlag, type ErrorCo
 import { ensureEditor, type EnsureEditorResult } from '../lib/session.js';
 import { toolErrorText } from '../lib/exec.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from '../lib/types.js';
+import { rqlErrorHint, toolResponseText } from '../lib/rql.js';
 
-interface BuilderOptions {
+export interface BuilderOptions {
   /** CLI subcommand name, e.g. `'run-tool'`. */
   name: string;
   /** `description()` text for the commander command. */
@@ -34,7 +35,7 @@ interface BuilderOptions {
   invoke: (opts: RunToolOptions) => Promise<RunToolResult>;
 }
 
-interface CliOptions {
+export interface RunToolCliOptions {
   path?: string;
   url?: string;
   token?: string;
@@ -110,115 +111,121 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
       .option('--no-build', 'Do not build the C# assembly before starting an editor')
       .option('--editor-path <path>', 'Godot editor executable for a started editor')
       .option('--ready-timeout <ms>', 'How long to wait for a started editor to become ready', String(DEFAULT_SESSION_READY_TIMEOUT_MS)),
-  ).action(async (toolName: string, positionalPath: string | undefined, options: CliOptions) => {
-    const output = new CommandOutput(cfg.name, parseFormat(options.format));
-    const human = !options.raw && !output.machine;
-    // Validate flags first so a bad value short-circuits before we read --input-file or hit the network.
-    const timeoutMs = parseIntFlag(options.timeout, '--timeout');
-    const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
+  ).action((toolName: string, positionalPath: string | undefined, options: RunToolCliOptions) =>
+    runToolAction(cfg, toolName, positionalPath, options));
+}
 
-    // Resolve path + connection up front so the heading and verbose output
-    // reflect the final endpoint before the HTTP call fires.
-    const projectPath = resolveAndValidateProjectPath(positionalPath, options);
-    // Cloud mode: the hub with the sign-in; never signed in: the local server (warning); unusable sign-in: refuse.
-    const conn = await connectionForCommand(output, projectPath, options);
-    const { url: baseUrl, token } = conn;
-    const body = parseInput(options);
-    let endpoint = `${baseUrl}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
-    const authSource = options.token ? '--token flag' : 'config/env';
+/** Call one tool and print its answer (`run-tool`, and `rql` with the RQL tool it picks); a failure exits. */
+export async function runToolAction(
+  cfg: BuilderOptions,
+  toolName: string,
+  positionalPath: string | undefined,
+  options: RunToolCliOptions,
+  /** Runs after a successful call printed its answer, before the command ends. */
+  onSuccess?: () => void,
+): Promise<void> {
+  const output = new CommandOutput(cfg.name, parseFormat(options.format));
+  const human = !options.raw && !output.machine;
+  // Validate flags first so a bad value short-circuits before we read --input-file or hit the network.
+  const timeoutMs = parseIntFlag(options.timeout, '--timeout');
+  const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
 
-    verbose(`${cfg.verboseLabel}: ${toolName}`);
-    verbose(`Endpoint: ${endpoint}`);
-    verbose(`Body: ${body}`);
-    if (token) verbose(`Authorization header set (source: ${authSource})`);
+  // Resolve path + connection up front so the heading and verbose output
+  // reflect the final endpoint before the HTTP call fires.
+  const projectPath = resolveAndValidateProjectPath(positionalPath, options);
+  // Cloud mode: the hub with the sign-in; never signed in: the local server (warning); unusable sign-in: refuse.
+  const conn = await connectionForCommand(output, projectPath, options);
+  const { url: baseUrl, token } = conn;
+  const body = parseInput(options);
+  let endpoint = `${baseUrl}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
+  const authSource = options.token ? '--token flag' : 'config/env';
 
-    if (human) {
-      ui.heading(cfg.headingLabel);
-      ui.label('Tool', toolName);
-      ui.label('URL', endpoint);
-      if (token) ui.label('Auth', `from ${authSource}`);
-      ui.divider();
-    }
+  verbose(`${cfg.verboseLabel}: ${toolName}`);
+  verbose(`Endpoint: ${endpoint}`);
+  verbose(`Body: ${body}`);
+  if (token) verbose(`Authorization header set (source: ${authSource})`);
 
-    const spinner = human ? ui.startSpinner(`Calling ${toolName}...`) : null;
-    const call = (url: string) => cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
-    let result = await call(baseUrl);
-    // Status lines: the spinner (text), the progress stream (json/ndjson), plain stderr with --raw (stdout is the payload).
-    const note = (message: string): void => {
-      if (spinner) spinner.text = message;
-      else if (options.raw && !output.machine) process.stderr.write(message + '\n');
-      else output.progress(message);
-    };
+  // Text mode prints the answer alone (agents re-read every line on each later turn); --verbose adds the endpoint.
+  const spinner = human && process.stdout.isTTY ? ui.startSpinner(`Calling ${toolName}...`) : null;
+  const call = (url: string) => cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
+  let result = await call(baseUrl);
+  // Status lines: the spinner (text), the progress stream (json/ndjson), plain stderr with --raw (stdout is the payload).
+  const note = (message: string): void => {
+    if (spinner) spinner.text = message;
+    else if (options.raw && !output.machine) process.stderr.write(message + '\n');
+    else output.progress(message);
+  };
 
-    // No editor answers on the project's local server: start a headless one (exec's policy: a running editor is
-    // reused and never closed), then retry.
-    // With an explicit --url, start only the editor of a project that was named, or whose own local server that is:
-    // never one for whatever Godot project the current directory happens to be.
-    const explicitProject = positionalPath !== undefined || options.path !== undefined;
-    const ownsUrl = !options.url || explicitProject || normalizeUrl(options.url) === normalizeUrl(localProjectUrl(projectPath));
-    // Never for a Cloud connection (even a dev hub on localhost): a signed-in machine is never switched to a local server.
-    const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
-    if (result.kind === 'failure' && result.reason === 'connection-refused' && canStart) {
-      note('No editor answered; starting a headless editor...');
-      const editor = await ensureEditor({
-        projectPath,
-        url: baseUrl,
-        ...(token ? { token } : {}),
-        ...(options.editorPath ? { editorPath: options.editorPath } : {}),
-        readyTimeoutMs,
-        build: options.build !== false,
-        onStatus: (message) => {
-          verbose(message);
-          note(message);
-        },
-      });
-      if (editor.kind === 'failure') {
-        spinner?.stop();
-        const mapped = ensureFailureExit(editor.reason);
-        return output.fail(mapped.exitCode, mapped.code, `Could not start an editor: ${editor.message}`);
-      }
-      const { ensured, godot } = editor;
-      verbose(`Editor ${ensured.source} on ${ensured.ready}`);
-      endpoint = `${ensured.ready}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
-      if (spinner) spinner.text = `Calling ${toolName}...`;
-      result = await call(ensured.ready);
-      if (options.once && ensured.source === 'started') {
-        note('Closing the started editor...');
-        const closed = await godot.session.closeOwned();
-        if (closed.kind === 'closed') {
-          if (!spinner) note(`Closed the editor this call started (PID ${closed.pid}).`);
-        } else {
-          output.warnings.push(`The editor this call started was not closed (${closed.kind}).`);
-          note(`WARN: The editor this call started was not closed (${closed.kind}).`);
-        }
-      }
-    }
-
-    if (result.kind === 'success') {
-      const toolError = isToolErrorResponse(result.data);
-      if (toolError) spinner?.error(`${toolName} returned an error`);
-      else spinner?.success(`${toolName} completed`);
-      if (options.raw && !output.machine) {
-        process.stdout.write(stringifyForRaw(result.data));
-      } else if (human) {
-        if (!toolError) ui.success('Response:');
-        console.log(typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2));
-      }
-      if (toolError) {
-        return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
-      }
-      return output.finish(ExitCode.Success, result.data ?? null);
-    }
-
-    spinner?.stop();
-    handleFailure(result, output, {
-      toolName,
-      endpoint,
-      raw: options.raw,
-      timeoutMs,
-      errorNoun: cfg.errorNoun,
+  // No editor answers on the project's local server: start a headless one (exec's policy: a running editor is
+  // reused and never closed), then retry.
+  // With an explicit --url, start only the editor of a project that was named, or whose own local server that is:
+  // never one for whatever Godot project the current directory happens to be.
+  const explicitProject = positionalPath !== undefined || options.path !== undefined;
+  const ownsUrl = !options.url || explicitProject || normalizeUrl(options.url) === normalizeUrl(localProjectUrl(projectPath));
+  // Never for a Cloud connection (even a dev hub on localhost): a signed-in machine is never switched to a local server.
+  const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
+  if (result.kind === 'failure' && result.reason === 'connection-refused' && canStart) {
+    note('No editor answered; starting a headless editor...');
+    const editor = await ensureEditor({
+      projectPath,
+      url: baseUrl,
+      ...(token ? { token } : {}),
+      ...(options.editorPath ? { editorPath: options.editorPath } : {}),
+      readyTimeoutMs,
+      build: options.build !== false,
+      onStatus: (message) => {
+        verbose(message);
+        note(message);
+      },
     });
+    if (editor.kind === 'failure') {
+      spinner?.stop();
+      const mapped = ensureFailureExit(editor.reason);
+      return output.fail(mapped.exitCode, mapped.code, `Could not start an editor: ${editor.message}`);
+    }
+    const { ensured, godot } = editor;
+    verbose(`Editor ${ensured.source} on ${ensured.ready}`);
+    endpoint = `${ensured.ready}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
+    if (spinner) spinner.text = `Calling ${toolName}...`;
+    result = await call(ensured.ready);
+    if (options.once && ensured.source === 'started') {
+      note('Closing the started editor...');
+      const closed = await godot.session.closeOwned();
+      if (closed.kind === 'closed') {
+        if (!spinner) note(`Closed the editor this call started (PID ${closed.pid}).`);
+      } else {
+        output.warnings.push(`The editor this call started was not closed (${closed.kind}).`);
+        note(`WARN: The editor this call started was not closed (${closed.kind}).`);
+      }
+    }
+  }
+
+  if (result.kind === 'success') {
+    const toolError = isToolErrorResponse(result.data);
+    spinner?.stop();
+    if (options.raw && !output.machine) {
+      process.stdout.write(stringifyForRaw(result.data));
+    } else if (human) {
+      const text = toolResponseText(result.data);
+      if (toolError) ui.error(withRqlHint(`${toolName} returned an error: ${text ?? toolErrorMessage(result.data, toolName)}`));
+      else console.log(text ?? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)));
+    }
+    if (toolError) {
+      return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
+    }
+    onSuccess?.();
+    return output.finish(ExitCode.Success, result.data ?? null);
+  }
+
+  spinner?.stop();
+  handleFailure(result, output, {
+    toolName,
+    endpoint,
+    raw: options.raw,
+    timeoutMs,
+    errorNoun: cfg.errorNoun,
   });
+
 }
 
 function toolErrorMessage(data: unknown, toolName: string): string {
@@ -243,7 +250,8 @@ function stringifyForRaw(data: unknown): string {
 function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, ctx: FailureContext): never {
   const mapped = toolFailureExit(failure);
   if (failure.reason === 'http-error') {
-    const hint = httpFailureHint(failure.httpStatus, ctx.toolName);
+    const rqlHint = rqlErrorHint(toolErrorText(failure));
+    const hint = rqlHint ? `hint: ${rqlHint}` : httpFailureHint(failure.httpStatus, ctx.toolName);
     const text = toolErrorText(failure);
     const message = `${text}${/^HTTP \d/.test(text) ? '' : ` (HTTP ${failure.httpStatus})`}${hint ? ` ${hint}` : ''}`;
     if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message }]);
@@ -291,4 +299,9 @@ export function httpFailureHint(httpStatus: number | undefined, toolName: string
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function withRqlHint(message: string): string {
+  const hint = rqlErrorHint(message);
+  return hint ? `${message}\nhint: ${hint}` : message;
 }
