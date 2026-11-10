@@ -4,6 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **The exit codes, `--format`, the result envelope, the `commands` manifest and the local-server fallback rule
+  now come from `@baizor/gamedev-cli-core` 0.9.0** (one contract for the three engine CLIs). `commands --format json` lists the commands in registration order, adds `globalOptions` and option `choices`, leaves out hidden options (`close --url`) and has reworded exit-code descriptions; `--format` is trimmed, the last one on the command line wins (up to `--`), and a bad value reports `--format must be one of: …`; a `UsageError` reaching the entry point exits 2 (`USAGE`); the envelope is written synchronously, and a json/ndjson command that exits without one still leaves one on stdout. An unreadable
+  sign-in no longer prints PowerShell's DPAPI exception, and a forced close of an editor godot-cli started also kills its
+  child processes.
 - **`tools [name]`** lists the editor's AI tools (MCP `tools/list`, starting a headless editor when none answers; cached in
   `.ai-game-dev/tools.json`), and with a name shows its arguments and an example `run-tool` call. A tool that does not
   exist (HTTP 404) now prints the server's error and points to `godot-cli tools`; the raw response only with `--verbose`.

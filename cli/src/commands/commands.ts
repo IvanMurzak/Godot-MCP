@@ -1,42 +1,8 @@
 import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
-import { EXIT_CODE_TABLE, ExitCode } from '../utils/exit-codes.js';
+import { buildCommandManifest } from '@baizor/gamedev-cli-core';
+import { ExitCode } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
-
-export interface CommandManifestEntry {
-  name: string;
-  description: string;
-  arguments: Array<{ name: string; required: boolean; variadic: boolean; description: string }>;
-  options: Array<{ flags: string; description: string; default?: unknown }>;
-}
-
-export interface CommandManifest {
-  name: string;
-  version: string;
-  commands: CommandManifestEntry[];
-  exitCodes: typeof EXIT_CODE_TABLE;
-}
-
-/** A machine-readable manifest of every subcommand of `program`, generated from the commander tree. */
-export function buildCommandManifest(program: Command, version: string): CommandManifest {
-  const commands = program.commands.map((cmd) => ({
-    name: cmd.name(),
-    description: cmd.description(),
-    arguments: cmd.registeredArguments.map((a) => ({
-      name: a.name(),
-      required: a.required,
-      variadic: a.variadic,
-      description: a.description,
-    })),
-    options: cmd.options.map((o) => ({
-      flags: o.flags,
-      description: o.description,
-      ...(o.defaultValue !== undefined ? { default: o.defaultValue as unknown } : {}),
-    })),
-  }));
-  commands.sort((a, b) => a.name.localeCompare(b.name));
-  return { name: program.name(), version, commands, exitCodes: EXIT_CODE_TABLE };
-}
 
 /** `commands`: needs the finished program, so it is created with a getter. */
 export function createCommandsCommand(getProgram: () => Command, version: string): Command {

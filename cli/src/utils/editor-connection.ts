@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { decideLocalFallback, machineCredentialStatus, signedInButUnusableMessage } from '@baizor/gamedev-cli-core';
 import { verbose } from './ui.js';
 import { ExitCode } from './exit-codes.js';
 import type { CommandOutput } from './output.js';
@@ -167,13 +168,11 @@ export function projectConnectionMode(projectPath: string): GodotConnectionMode 
  * per-project store and the legacy project credential are all absent. `project` = the per-project sign-in exists.
  */
 export function signInState(projectPath: string): 'missing' | 'machine' | 'project' {
-  if (openProjectStore(projectPath).readState().status !== 'missing' || fs.existsSync(getCredentialsPath(projectPath))) return 'project';
-  return openMachineStore().readState().status !== 'missing' ? 'machine' : 'missing';
+  if (machineCredentialStatus(openProjectStore(projectPath)) !== 'missing' || fs.existsSync(getCredentialsPath(projectPath))) return 'project';
+  return machineCredentialStatus(openMachineStore()) !== 'missing' ? 'machine' : 'missing';
 }
 
-export const SIGNED_IN_BUT_UNUSABLE_MESSAGE = 'This machine is signed in to ai-game.dev, but the sign-in cannot be used right now '
-  + '(expired, revoked, unreadable, or the credential store is busy). Run `godot-cli login` to sign in again, or retry. '
-  + 'The project stays in Cloud mode: the CLI does not switch it to a local server.';
+export const SIGNED_IN_BUT_UNUSABLE_MESSAGE = signedInButUnusableMessage('godot-cli');
 
 export const PROJECT_SIGNED_IN_BUT_UNUSABLE_MESSAGE = 'This project is signed in to ai-game.dev, but the sign-in cannot be used right now '
   + '(expired, revoked, unreadable, or the credential store is busy). Run `godot-cli login --project <path>` to sign in '
@@ -228,9 +227,11 @@ export async function resolveEditorConnection(
 
   const cloudUrl = envCloud ? ensureMcpHubPath(envCloud) : project.cloudUrl;
   const token = explicitToken ?? project.envFileToken ?? await d.readCloudToken(projectPath);
-  if (token) return { url: cloudUrl, token, cloud: true, localFallback: false };
-  const state = d.signInState(projectPath);
-  if (state !== 'missing') {
+  // The shared fallback rule: any sign-in (this machine's or the project's) keeps the project in Cloud mode.
+  const state = token ? undefined : d.signInState(projectPath);
+  const decision = decideLocalFallback({ cloudSignInMissing: !token, credentialStatus: state === 'missing' ? 'missing' : 'ok' });
+  if (decision === 'use-cloud') return { url: cloudUrl, token, cloud: true, localFallback: false };
+  if (decision === 'refuse-signed-in') {
     return {
       url: cloudUrl, token: undefined, cloud: true, localFallback: false,
       signInRequired: state === 'project' ? PROJECT_SIGNED_IN_BUT_UNUSABLE_MESSAGE : SIGNED_IN_BUT_UNUSABLE_MESSAGE,
