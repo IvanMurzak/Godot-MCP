@@ -2,7 +2,8 @@ import { Command } from 'commander';
 import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
-import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath, resolveConnection } from '../utils/connection.js';
+import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath } from '../utils/connection.js';
+import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
 import { parseInput } from '../utils/input.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
@@ -119,7 +120,11 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     // Resolve path + connection up front so the heading and verbose output
     // reflect the final endpoint before the HTTP call fires.
     const projectPath = resolveAndValidateProjectPath(positionalPath, options);
-    const { url: baseUrl, token } = await resolveConnection(projectPath, options);
+    // Cloud mode: the hub with the sign-in; never signed in: the local server (warning); unusable sign-in: refuse.
+    const conn = await resolveEditorConnection(projectPath, options);
+    if (conn.signInRequired) return output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
+    if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+    const { url: baseUrl, token } = conn;
     const body = parseInput(options);
     let endpoint = `${baseUrl}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
     const authSource = options.token ? '--token flag' : 'config/env';

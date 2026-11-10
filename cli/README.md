@@ -170,6 +170,15 @@ The cloud paths carry the `/mcp` hub segment so the request reaches the hub rath
 backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` to target a
 local/self-hosted server explicitly.
 
+`run-tool`, `run-system-tool` and `exec` replace step 6 with the **project's connection mode**, read the way the addon
+reads it (`GODOT_MCP_CONNECTION_MODE`, the project's `.env`, the persisted `user://godot-mcp-config.json`, else Cloud,
+the addon's default). Custom mode uses the local server above. Cloud mode uses the cloud hub with the machine's sign-in
+(no editor is started: only an editor connected to ai-game.dev answers). If this machine has **never** signed in to
+ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is
+persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6,
+`NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. An explicit `--url` / `--token` is used
+as is.
+
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 ## `exec`
@@ -244,7 +253,7 @@ envelope on stdout:
 other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
 In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
 `TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
-`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`. `--raw` keeps working as before.
+`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`. `--raw` keeps working as before.
 
 ## Headless commands (`check`, `import`, `test`, `export`, `run-script`)
 

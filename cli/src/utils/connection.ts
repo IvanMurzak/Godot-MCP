@@ -91,7 +91,7 @@ export function resolveAndValidateProjectPath(positionalPath: string | undefined
  * from an environment value, mirroring the addon's `GodotMcpConfig.NormalizeEnv`
  * so `GODOT_MCP_TOKEN="abc"` yields `abc`.
  */
-function normalizeEnv(raw: string | undefined): string | undefined {
+export function normalizeEnv(raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;
   const trimmed = raw.trim();
   if (trimmed.length === 0) return undefined;
@@ -120,11 +120,13 @@ function ensureMcpHubPath(baseUrl: string): string {
 }
 
 /** A resolved connection target: the base URL + whether it is the cloud hub. */
-interface ResolvedTarget {
+export interface ResolvedTarget {
   /** The base URL to which `<base>/api/tools/<name>` is appended. */
   url: string;
   /** True when the target is the cloud hub — a persisted cloud token then applies. */
   isCloud: boolean;
+  /** Nothing named a server: the project's derived local port (step 6). */
+  derived?: boolean;
 }
 
 /**
@@ -142,7 +144,7 @@ interface ResolvedTarget {
  *      the addon binds locally (fix B; replaces the dead `http://localhost:8080`). An
  *      explicit marker `portOverride` still wins over the hash-derived port.
  */
-function resolveTargetUrl(projectPath: string, options: ConnectionOptions): ResolvedTarget {
+export function resolveTargetUrl(projectPath: string, options: ConnectionOptions): ResolvedTarget {
   if (options.url) {
     const url = options.url.replace(/\/$/, '');
     verbose(`Using explicit --url: ${url}`);
@@ -187,7 +189,7 @@ function resolveTargetUrl(projectPath: string, options: ConnectionOptions): Reso
 
   const url = localProjectUrl(projectPath);
   verbose(`Using derived local port fallback: ${url}`);
-  return { url, isCloud: false };
+  return { url, isCloud: false, derived: true };
 }
 
 /**
@@ -248,7 +250,7 @@ export async function resolveConnection(
  * Returns undefined when signed out / the store is unusable — the command then proceeds
  * unauthenticated exactly as before (the server answers 401 and the user is pointed at `login`).
  */
-async function resolveCloudAccessToken(projectPath: string): Promise<string | undefined> {
+export async function resolveCloudAccessToken(projectPath: string): Promise<string | undefined> {
   // 1. Per-project store (a `login --project` credential). Its unusable states are surfaced
   // honestly (04 §1 / F11.4): an UNREADABLE store is never silently shadowed by the machine
   // account — that would run the command as a different account than the project chose.

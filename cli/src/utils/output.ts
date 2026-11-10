@@ -28,6 +28,7 @@ export type ErrorCode =
   | 'PROJECT_OPEN'
   | 'NOT_FOUND'
   | 'EXPORT_FAILED'
+  | 'NOT_AUTHENTICATED'
   | 'ERROR';
 
 export interface EnvelopeError {
@@ -80,9 +81,11 @@ export class CommandOutput<F extends string = OutputFormat> {
     }
   }
 
+  /** A warning: in the envelope (machine formats), on stderr in text (stdout may be a result being piped). */
   warn(message: string): void {
     this.warnings.push(message);
-    if (!this.machine) ui.warn(message);
+    if (!this.machine) process.stderr.write(`WARN: ${message}
+`);
   }
 
   /**

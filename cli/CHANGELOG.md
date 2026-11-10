@@ -22,6 +22,10 @@ All notable changes to `godot-cli` are documented in this file.
   commands: one `{success, command, data, errors, warnings}` envelope on stdout (also for argument errors), logs on
   stderr (ndjson: one JSON event per line). `commands [--format json]` prints a manifest of every command, its
   arguments and options, and the exit codes.
+- **`run-tool`, `run-system-tool` and `exec` follow the project's connection mode.** Without `--url` / env / marker they
+  read the mode the addon uses (env, project `.env`, persisted config, default Cloud): Cloud goes to ai-game.dev with
+  the sign-in; a machine that never signed in falls back to the project's local server with a warning; a sign-in that
+  cannot be used fails with `NOT_AUTHENTICATED` (exit 6) instead of switching to a local server.
 - **`run-tool` / `run-system-tool` start a headless editor** when the call is refused on the project's local server,
   like `exec` (a running editor is reused and never closed). `--no-start` turns it off; `--once` closes the editor
   afterwards when this call started it; `--no-build`, `--editor-path`, `--ready-timeout`.
