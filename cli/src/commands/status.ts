@@ -1,7 +1,8 @@
 import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
-import { resolveAndValidateProjectPath, resolveConnection } from '../utils/connection.js';
+import { resolveAndValidateProjectPath } from '../utils/connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { findGodotProcess } from '../utils/godot-process.js';
 import { probe } from '../utils/probe.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -27,7 +28,9 @@ export const statusCommand = addFormatOption(
   const output = new CommandOutput('status', parseFormat(options.format));
   const timeoutMs = parseIntFlag(options.timeout, '--timeout');
   const projectPath = resolveAndValidateProjectPath(positionalPath, options);
-  const { url: serverUrl, token } = await resolveConnection(projectPath, options);
+  // The server the project's editor serves: its mode decides (Cloud with the sign-in; never signed in: the local one).
+  const conn = await connectionForCommand(output, projectPath, options);
+  const { url: serverUrl, token } = conn;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) {

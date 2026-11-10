@@ -270,6 +270,8 @@ export interface OpenProjectOptions {
   mode?: OpenProjectConnectionMode;
   /** Log level — sets `GODOT_MCP_LOG_LEVEL`. */
   logLevel?: string;
+  /** The plugin starts the local MCP server itself (sets GODOT_MCP_START_SERVER=true): a Custom-mode open with nobody to press the dock's button. */
+  startServer?: boolean;
   /**
    * Starts the editor in place of the default detached `child_process.spawn` (an embedder that launches processes
    * its own way). See {@link EditorSpawnImpl}.
@@ -332,6 +334,7 @@ export interface OpenEnvInputs {
   auth?: OpenProjectOptions['auth'];
   mode?: OpenProjectOptions['mode'];
   logLevel?: OpenProjectOptions['logLevel'];
+  startServer?: OpenProjectOptions['startServer'];
 }
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ import { exportCommand } from './commands/export.js';
 import { importCommand } from './commands/import.js';
 import { runScriptCommand } from './commands/run-script.js';
 import { testCommand } from './commands/test.js';
+import { toolsCommand } from './commands/tools.js';
 import { ExitCode } from './utils/exit-codes.js';
 import { CommandExit, failActive, formatFromArgv, writeEnvelope } from './utils/output.js';
 import { configureStyledHelp, error as uiError, setVerbose } from './utils/ui.js';
@@ -62,6 +63,7 @@ const subcommands = [
   setupSkillsCommand,
   statusCommand,
   testCommand,
+  toolsCommand,
   createUpdateCommand(pkg.version),
   waitForReadyCommand,
 ];

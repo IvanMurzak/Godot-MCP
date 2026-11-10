@@ -138,6 +138,17 @@ export function configureStyledHelp(cmd: Command, appVersion?: string): Command 
 
       // Footer
       if (isRoot) {
+        lines.push(chalk.bold('Everyday workflow (run in the project folder; an editor is started headless when needed):'));
+        for (const [cmd, what] of [
+          ['godot-cli tools [name]', "the editor's AI tools; with a name: its arguments and an example call"],
+          ['godot-cli run-tool <name> --input <json>', 'run one (scene / node / resource / script edits, queries via rql-query)'],
+          ['godot-cli exec <C#>', 'run C# in the editor'],
+          ['godot-cli check', 'GDScript and C# errors without an editor (CI gate)'],
+          ['godot-cli test', 'run GUT / gdUnit4 tests'],
+          ['godot-cli status / close', 'is an editor connected; stop it'],
+          ['godot-cli commands --format json', 'every command, option and exit code, machine-readable'],
+        ]) lines.push(`  ${chalk.yellow(cmd.padEnd(42))} ${chalk.dim(what)}`);
+        lines.push('');
         lines.push(
           chalk.dim('Run ') +
           chalk.yellow('godot-cli <command> --help') +

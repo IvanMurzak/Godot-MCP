@@ -24,3 +24,4 @@ export { testCommand } from './commands/test.js';
 export { exportCommand } from './commands/export.js';
 export { runScriptCommand } from './commands/run-script.js';
 export { createCommandsCommand } from './commands/commands.js';
+export { toolsCommand } from './commands/tools.js';

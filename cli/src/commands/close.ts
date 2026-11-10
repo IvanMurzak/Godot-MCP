@@ -4,7 +4,7 @@ import * as path from 'path';
 import { platform as nodePlatform } from 'os';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
-import { findGodotProcess } from '../utils/godot-process.js';
+import { childProcessIds, findGodotProcess } from '../utils/godot-process.js';
 import {
   isProcessAlive,
   sendGracefulShutdown,
@@ -16,6 +16,7 @@ import { resolveSessionConnection } from '../utils/connection.js';
 import { createGodotSession } from '../lib/session.js';
 
 export interface CloseOptions {
+  path?: string;
   timeout?: string;
   force?: boolean;
   ownedOnly?: boolean;
@@ -56,24 +57,37 @@ export function parseTimeoutSeconds(raw: string | undefined): number | null {
 
 /** Resolve the editor PID for a given project path, or null when not running. */
 export function resolveEditorPid(projectPath: string): number | null {
+  return resolveEditorProcess(projectPath)?.pid ?? null;
+}
+
+/** The editor process of the project, and whether it is the `_console` wrapper (its child is the editor). */
+function resolveEditorProcess(projectPath: string): { pid: number; consoleWrapper: boolean } | null {
   const proc = findGodotProcess(projectPath);
-  if (proc) {
-    verbose(`Godot editor PID ${proc.pid} matched for project`);
-    return proc.pid;
-  }
-  return null;
+  if (!proc) return null;
+  verbose(`Godot editor PID ${proc.pid} matched for project`);
+  return { pid: proc.pid, consoleWrapper: isConsoleWrapper(proc.commandLine) };
+}
+
+/** Whether a command line runs Godot's `_console` build: a windowless wrapper whose child is the editor. */
+export function isConsoleWrapper(commandLine: string): boolean {
+  // Only the program itself: a project path such as `D:\games\space_console` must not count.
+  const program = commandLine.match(/^\s*(?:"([^"]+)"|(\S+))/);
+  const exe = program?.[1] ?? program?.[2] ?? '';
+  return /_console(\.exe)?$/i.test(path.basename(exe.replace(/\\/g, '/')));
 }
 
 export const closeCommand = new Command('close')
   .description('Gracefully terminate the Godot editor instance running for a given project path')
   .argument('[path]', 'Path to the Godot project (defaults to current directory)')
+  .option('--path <path>', 'Path to the Godot project (same as [path])')
   .option('--timeout <seconds>', `Polite-quit timeout in seconds (default: ${DEFAULT_TIMEOUT_SECONDS})`, String(DEFAULT_TIMEOUT_SECONDS))
   .option('--force', 'Hard-kill the editor if it does not exit within --timeout')
   .option('--owned-only', 'Close only an editor started by godot-cli (exec / open --headless); never a user editor')
   // Hidden fallback: a lease written by godot-cli 0.30.0 (cli-core 0.7.0) does not record the editor's server.
   .addOption(new Option('--url <url>', 'With --owned-only: the local MCP server of that editor, for a lease without one').hideHelp())
   .option('--token <token>', 'With --owned-only: bearer token (default: GODOT_MCP_TOKEN)')
-  .action(async (positionalPath: string | undefined, options: CloseOptions) => {
+  .action(async (positionalArg: string | undefined, options: CloseOptions) => {
+    const positionalPath = positionalArg ?? options.path;
     const projectPath = resolveCloseProjectPath(positionalPath, process.cwd());
     verbose(`close invoked for project: ${projectPath}`);
 
@@ -93,14 +107,16 @@ export const closeCommand = new Command('close')
       process.exit(1);
     }
 
-    if (options.ownedOnly) {
-      // The local port is derived from the path as typed (exec / open --headless do not resolve links either).
-      await closeOwned(path.resolve(positionalPath ?? process.cwd()), timeoutSeconds, options);
-      return;
-    }
+    // The local port is derived from the path as typed (exec / open --headless do not resolve links either).
+    const leasePath = path.resolve(positionalPath ?? process.cwd());
+    // An editor godot-cli started (exec, run-tool, tools, open --headless) is windowless: ask its plugin to save and
+    // quit through the lease instead of a window close it cannot receive. --owned-only stops there.
+    const closedOwned = await closeOwned(leasePath, timeoutSeconds, options, options.ownedOnly === true);
+    if (closedOwned || options.ownedOnly) return;
 
     const platform = nodePlatform() as SupportedPlatform;
-    const pid = resolveEditorPid(projectPath);
+    const editor = resolveEditorProcess(projectPath);
+    const pid = editor?.pid ?? null;
 
     if (pid === null) {
       ui.success(`no running editor for project at ${projectPath}`);
@@ -115,14 +131,29 @@ export const closeCommand = new Command('close')
     ui.divider();
 
     const spinner = ui.startSpinner(`Sending polite-quit to PID ${pid}...`);
-    const sent = sendGracefulShutdown(pid, platform);
-    if (!sent) {
-      spinner.error(`Failed to deliver polite-quit signal to PID ${pid}`);
+    // A console-subsystem editor (the `_console` build) or a windowless one cannot be asked politely on Windows.
+    let sent = sendGracefulShutdown(pid, platform);
+    // The `_console` wrapper has no window, but the editor it runs has: ask that one, and wait for both to exit.
+    const waitPids = [pid];
+    if (!sent && editor!.consoleWrapper) {
+      for (const child of childProcessIds(pid)) {
+        const ok = sendGracefulShutdown(child, platform);
+        verbose(`Polite-quit to editor child PID ${child}: ${ok ? 'sent' : 'failed'}`);
+        if (ok) {
+          sent = true;
+          waitPids.push(child);
+        }
+      }
+    }
+    if (!sent && !options.force) {
+      spinner.error(`Could not ask PID ${pid} to quit (no window to close); re-run with --force to stop it.`);
       process.exit(1);
     }
 
-    spinner.text = `Waiting up to ${timeoutSeconds}s for PID ${pid} to exit...`;
-    const exited = await waitForExit(pid, timeoutSeconds * 1000, platform);
+    if (sent) spinner.text = `Waiting up to ${timeoutSeconds}s for PID ${pid} to exit...`;
+    const exited = sent
+      ? (await Promise.all(waitPids.map((p) => waitForExit(p, timeoutSeconds * 1000, platform)))).every(Boolean)
+      : false;
 
     if (exited) {
       spinner.success(`Godot editor (PID ${pid}) exited cleanly`);
@@ -138,7 +169,8 @@ export const closeCommand = new Command('close')
     }
 
     spinner.text = `Force-killing PID ${pid}...`;
-    const killed = sendForceKill(pid, platform);
+    // Not /T for a user's GUI editor: its children may be a running game or an external script editor.
+    const killed = sendForceKill(pid, platform, editor!.consoleWrapper);
     if (!killed) {
       spinner.error(`Failed to force-kill PID ${pid}`);
       process.exit(1);
@@ -159,25 +191,28 @@ export const closeCommand = new Command('close')
  * its plugin (a windowless editor gets no WM_CLOSE). Anything else — no lease, a stale lease, a user's editor — is
  * left alone.
  */
-async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions): Promise<void> {
+async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions, report: boolean): Promise<boolean> {
   let session: ReturnType<typeof createGodotSession>['session'];
   try {
     session = createGodotSession({ projectPath, ...resolveSessionConnection(options) }).session;
   } catch (err) {
+    if (!report) {
+      verbose(`No usable session lease: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
     ui.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
-  const spinner = ui.startSpinner('Closing the editor started by godot-cli...');
   const result = await session.closeOwned({ timeoutMs: timeoutSeconds * 1000, force: options.force === true });
   switch (result.kind) {
     case 'closed':
-      spinner.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
-      return;
+      ui.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
+      return true;
     case 'not-owned':
-      spinner.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
-      return;
+      if (report) ui.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
+      return false;
     case 'still-running':
-      spinner.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
+      ui.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
       process.exit(1);
   }
 }

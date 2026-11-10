@@ -97,6 +97,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `export <preset> <output>` | Export a preset headless (`--debug`, `--pack`); checks the export templates first and the output afterwards. |
 | `run-script <script> [args...]` | Run a one-shot `SceneTree` GDScript (`godot --headless -s`); exit 0 only after `quit(0)`. |
 | `commands` | Machine-readable manifest of every command, its arguments and options, and the exit codes (`--format json`). |
+| `tools [name]` | The editor's AI tools (MCP `tools/list`; starts a headless editor when none answers, caches the list in `.ai-game-dev/tools.json`, git-ignored). With a name: its description, arguments and an example `run-tool` call. `--refresh` asks the editor again; `--no-start` uses the cache or the built-in list. |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
 | `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |

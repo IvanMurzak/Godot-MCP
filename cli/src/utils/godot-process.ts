@@ -46,6 +46,25 @@ export function findGodotProcess(projectPath: string): GodotProcess | null {
 }
 
 /**
+ * Windows: the PIDs of a process's direct Godot children (the `_console` wrapper's editor; not its conhost).
+ * Empty elsewhere or on error.
+ */
+export function childProcessIds(pid: number): number[] {
+  if (platform() !== 'win32') return [];
+  try {
+    const filter = `ParentProcessId=${pid} AND Name LIKE '%godot%'`;
+    const out = execFileSync(
+      'powershell.exe',
+      ['-NoProfile', '-Command', `(Get-CimInstance Win32_Process -Filter "${filter}").ProcessId`],
+      { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    return out.split(/\s+/).map((s) => parseInt(s, 10)).filter((n) => Number.isFinite(n) && n > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * List all running Godot editor processes with their project paths. Matches
  * any process whose name contains "godot" (covers `Godot.exe`, `Godot_mono.exe`,
  * `godot_mono_console.exe`, the macOS `Godot` binary, and Linux extracted

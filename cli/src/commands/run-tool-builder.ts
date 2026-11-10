@@ -3,7 +3,7 @@ import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath } from '../utils/connection.js';
-import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { parseInput } from '../utils/input.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
@@ -121,9 +121,7 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     // reflect the final endpoint before the HTTP call fires.
     const projectPath = resolveAndValidateProjectPath(positionalPath, options);
     // Cloud mode: the hub with the sign-in; never signed in: the local server (warning); unusable sign-in: refuse.
-    const conn = await resolveEditorConnection(projectPath, options);
-    if (conn.signInRequired) return output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
-    if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+    const conn = await connectionForCommand(output, projectPath, options);
     const { url: baseUrl, token } = conn;
     const body = parseInput(options);
     let endpoint = `${baseUrl}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
@@ -244,17 +242,16 @@ function stringifyForRaw(data: unknown): string {
 function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, ctx: FailureContext): never {
   const mapped = toolFailureExit(failure);
   if (failure.reason === 'http-error') {
-    const message = `HTTP ${failure.httpStatus}: ${toolErrorText(failure)}`;
+    const hint = httpFailureHint(failure.httpStatus, ctx.toolName);
+    const text = toolErrorText(failure);
+    const message = `${text}${/^HTTP \d/.test(text) ? '' : ` (HTTP ${failure.httpStatus})`}${hint ? ` ${hint}` : ''}`;
     if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message }]);
     if (ctx.raw) {
       process.stdout.write(stringifyForRaw(failure.data));
     } else {
-      ui.error(`HTTP ${failure.httpStatus}: ${failure.message}`);
-      if (failure.data !== undefined) {
-        ui.info(
-          typeof failure.data === 'string' ? failure.data : JSON.stringify(failure.data, null, 2),
-        );
-      }
+      // The server's own error text, and what to do next; the raw response only with --verbose.
+      ui.error(message);
+      verbose(`Response: ${typeof failure.data === 'string' ? failure.data : JSON.stringify(failure.data)}`);
     }
     process.exit(mapped.exitCode);
   }
@@ -279,6 +276,16 @@ export function buildFailureMessage(failure: RunToolFailure, ctx: FailureContext
     default:
       return failure.message;
   }
+}
+
+/**
+ * The next step after an HTTP failure: list the tools on a 404; on 400 read the tool's arguments (422 is the tool's
+ * own failure, e.g. a missing file: its text says what is wrong).
+ */
+export function httpFailureHint(httpStatus: number | undefined, toolName: string): string | undefined {
+  if (httpStatus === 404) return 'Run `godot-cli tools` to list the tools this editor has.';
+  if (httpStatus === 400) return `Run \`godot-cli tools ${toolName}\` for its arguments.`;
+  return undefined;
 }
 
 function capitalize(s: string): string {
