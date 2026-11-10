@@ -12,12 +12,16 @@ using com.IvanMurzak.McpPlugin;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
+    /// <summary>
+    /// How to install godot-cli. Its id is not <c>godot-cli</c>: that skill (how to USE the CLI, from a cold start) is
+    /// written by <c>godot-cli setup-skills</c> from the CLI's own help data, and the editor must not overwrite it.
+    /// </summary>
     [AiSkillType]
     public static class Skill_Cli
     {
-        public const string SkillId = "godot-cli";
+        public const string SkillId = "godot-cli-install";
 
-        [AiSkill(SkillId, "Install and use godot-cli: Node.js requirements, npm installation, npx, tool calls, JSON input files and troubleshooting.")]
+        [AiSkill(SkillId, "Install godot-cli and the Godot-MCP addon: Node.js requirements, npm installation, npx and troubleshooting. How to use the CLI: the godot-cli skill.")]
         public static string Markdown => BuildMarkdown(IsWindows);
 
         public static string BuildMarkdown(bool windows) => FormatPlatform(Template, windows);
@@ -56,32 +60,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "\n" +
             "Replace the leading `@CLI@` with `@NPX@ godot-cli` in subsequent examples when using this option.\n" +
             "\n" +
-            "## Call tools\n" +
+            "## Use it\n" +
             "\n" +
-            "Run commands from the game project's root directory. The target editor or game must be running with its MCP plugin connected.\n" +
-            "The following read-only example lists the available RQL sources and types in the editor:\n" +
-            "\n" +
-            "```@SHELL@\n" +
-            "@CLI@ status\n" +
-            "@CLI@ run-tool rql-schema --input '{}'\n" +
-            "```\n" +
-            "\n" +
-            "For input files, create a UTF-8 JSON file and pass its path. This example makes the same read-only call:\n" +
+            "Run commands in the game project's folder; the first editor command starts a headless editor itself.\n" +
+            "The `godot-cli` skill has the workflow (RQL recipes, exit codes). To write it into an agent's skills folder:\n" +
             "\n" +
             "```@SHELL@\n" +
-            "@WRITE_JSON@\n" +
-            "@CLI@ run-tool rql-schema --input-file args.json\n" +
+            "@CLI@ setup-skills claude-code\n" +
             "```\n" +
             "\n" +
-            "Replace `rql-schema` and the JSON with the tool name and arguments from its individual skill.\n" +
-            "Use command-specific `--help` for options. RQL tools require an editor; a game exposes only its registered runtime tools.\n" +
+            "`@CLI@ setup-skills --list` shows the other agents. A project without an `addons/godot_mcp` folder needs `@CLI@ install-plugin` once.\n" +
             "\n" +
             "## Troubleshooting\n" +
             "\n" +
             "- `node` or `@NPM@` not found: finish installing Node.js, check PATH, and reopen the terminal.\n" +
             "- `@CLI@` not found: reopen the terminal, check the npm global executable directory in PATH, or use `@NPX@ godot-cli`.\n" +
             "- Global npm installation denied: use a user-owned Node.js installation or the npx alternative.\n" +
-            "- Connection unavailable: check the project directory and ensure its editor or game and MCP plugin are running and connected.\n" +
+            "- Exit 7 (editor unreachable): check that the project has the `addons/godot_mcp` folder, then read the message for the cause.\n" +
             "\n" +
             "For optional asset-generation and Blender workflows, consult the `ai-game-dev-app` skill.\n" +
             "";
@@ -97,10 +92,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 .Replace("@NPX@", windows ? "npx.cmd" : "npx")
                 .Replace("@NODE_SETUP@", windows
                     ? "Use the Windows installer and reopen PowerShell. The examples use .cmd launchers to avoid npm PowerShell execution-policy restrictions."
-                    : "On macOS with Homebrew, `brew install node@22` may require adding its executable directory to PATH.")
-                .Replace("@WRITE_JSON@", windows
-                    ? "[System.IO.File]::WriteAllText((Join-Path $PWD 'args.json'), '{}')"
-                    : "printf '%s\\n' '{}' > args.json");
+                    : "On macOS with Homebrew, `brew install node@22` may require adding its executable directory to PATH.");
         }
 
         public static string ToolCommand(string command, string toolName, string json, bool windows)

@@ -1,27 +1,22 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getAgentById, getAgentIds } from '../utils/agents.js';
-import { buildSkillFiles } from '../utils/skills.js';
+import { buildGuideFiles, isRetiredSkillName, SKILL_METADATA } from '../utils/skill-guides.js';
 import { emitProgress } from './progress.js';
 import { requireExistingPath } from './validation.js';
 import type { SetupSkillsOptions, SetupSkillsResult } from './types.js';
 
 /**
- * Generate AI-agent skill files for a Godot project under the selected agent's
- * `skillsPath`. Library-safe: no stdout noise, no `process.exit`, no throws past
- * the public boundary.
+ * Write the agent skills into the selected agent's `skillsPath` under a Godot project: the `godot-cli` skill (cold-start
+ * workflow, RQL recipes, exit codes, `references/` for depth) and `ai-game-dev-app`. Generated LOCALLY from the CLI's
+ * own data (`lib/cli-guide.ts`, also the source of the root --help): no server, no editor, no network.
+ * Library-safe: no stdout noise, no `process.exit`, no throws past the public boundary.
  *
- * Unlike the Unity CLI (which POSTs to a running editor's skill-generate HTTP
- * endpoint), this generates the files LOCALLY from the Godot-MCP tool-family
- * catalog — no server and no running editor are required. The content describes
- * the `godot_mcp` addon's tool families (`Tool_Node`, `Tool_Scene`, …), NOT
- * Unity tool names.
+ * Per-tool skills are the addon's job (it generates them from its registered tools whenever the editor runs). The
+ * `godot-mcp` / `godot-mcp-<family>` folders earlier versions wrote from a hand-written catalog are removed; anything
+ * else under the skills folder is untouched.
  *
- * Idempotent: re-running rewrites the same bytes and prunes any
- * `godot-mcp*` skill directories the current catalog no longer emits (so a
- * shrunk catalog does not leave stale family dirs behind). A
- * `SKILL.md`-per-family directory is written under
- * `<projectPath>/<agent.skillsPath>`.
+ * Idempotent: re-running rewrites the same bytes.
  */
 export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkillsResult> {
   const warnings: string[] = [];
@@ -76,24 +71,29 @@ export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkills
       message: `Generating ${agent.name} skills in ${skillsDir}`,
     });
 
-    const skillFiles = buildSkillFiles();
+    const skillFiles = buildGuideFiles();
     const filesWritten: string[] = [];
 
-    // Prune orphaned `godot-mcp*` family dirs the current catalog no longer
-    // emits, so a shrunk catalog does not leave stale SKILL.md dirs behind.
-    // Only our own generated dirs (top-level segment of each emitted path) are
-    // ever removed — unrelated content under skillsDir is untouched.
-    const emittedDirs = new Set(skillFiles.map((f) => f.relativePath.split('/')[0]));
+    // `godot-mcp` / `godot-mcp-<family>` is this CLI's retired namespace (the addon never writes those names); a folder
+    // there is removed only when it carries our generated-by marker, so a user's own skill of that name stays.
+    const marker = `generated-by: ${SKILL_METADATA['generated-by']}`;
+    const removed: string[] = [];
     if (fs.existsSync(skillsDir)) {
       for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-        if (
-          entry.isDirectory() &&
-          (entry.name === 'godot-mcp' || entry.name.startsWith('godot-mcp-')) &&
-          !emittedDirs.has(entry.name)
-        ) {
-          fs.rmSync(path.join(skillsDir, entry.name), { recursive: true, force: true });
+        if (!entry.isDirectory() || !isRetiredSkillName(entry.name)) continue;
+        const dir = path.join(skillsDir, entry.name);
+        const skillMd = path.join(dir, 'SKILL.md');
+        if (fs.existsSync(skillMd) && fs.readFileSync(skillMd, 'utf-8').includes(marker)) {
+          fs.rmSync(dir, { recursive: true, force: true });
+          removed.push(dir);
         }
       }
+    }
+
+    // An addon from before godot-cli-install writes its install guide over godot-cli/SKILL.md on every editor start.
+    const addonGuides = path.join(projectPath, 'addons', 'godot_mcp', 'Runtime', 'Skills', 'Skill_Guides.cs');
+    if (fs.existsSync(addonGuides) && fs.readFileSync(addonGuides, 'utf-8').includes('SkillId = "godot-cli";')) {
+      warnings.push('The project\'s Godot-MCP addon is older and replaces the godot-cli skill whenever the editor starts: update it (godot-cli update).');
     }
 
     for (const file of skillFiles) {
@@ -124,6 +124,7 @@ export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkills
       agentId: agent.id,
       skillsDir,
       filesWritten,
+      removed,
       warnings,
     };
   } catch (err: unknown) {

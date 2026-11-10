@@ -167,6 +167,8 @@ export interface SetupSkillsSuccess {
   skillsDir: string;
   /** Absolute paths of every skill file written, in write order. */
   filesWritten: string[];
+  /** Skill folders an earlier version generated (`godot-mcp`, `godot-mcp-<family>`) that were removed. */
+  removed: string[];
   warnings: string[];
 }
 

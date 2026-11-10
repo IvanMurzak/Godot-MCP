@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import yoctoSpinner, { type Spinner } from 'yocto-spinner';
 import type { Command, Help } from 'commander';
+import { CODE_COMMANDS, EDITOR_COMMANDS, EDITOR_START, ROOT_RQL_RECIPES, RQL_RECIPES, type CommandRow } from '../lib/cli-guide.js';
 
 // --- Verbose mode ---
 let verboseEnabled = false;
@@ -52,44 +53,26 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1B\[[0-9;]*m/g, '');
 }
 
-/** The root help's featured commands: how an agent gets from nothing to a working call. */
-const ROOT_EDITOR_COMMANDS: ReadonlyArray<readonly [string, string, string]> = [
-  ['rql', "rql '<query>'", 'read or change scenes, nodes, resources (RQL; recipes below)'],
-  ['exec', "exec '<C#>'", 'C# in the editor'],
-  ['tools', 'tools [name]', "the editor's AI tools, or one in detail; run-tool <name> --input '<json>' calls one"],
-];
-const ROOT_CODE_COMMANDS: ReadonlyArray<readonly [string, string, string]> = [
-  ['check', 'check', 'GDScript and C# errors (file:line), no editor needed'],
-  ['test', 'test', 'run GUT / gdUnit4 tests'],
-];
-/** How many of `rql --help`'s recipes the root help shows. */
-const ROOT_RQL_RECIPES = 7;
-
-/** RQL recipes: [query, what it does]. */
-export type RqlRecipes = ReadonlyArray<readonly [string, string]>;
-
 /**
  * The root help: short on purpose (agents read it first, and every later turn re-reads it): the everyday commands, the
  * other command names, and the RQL recipes most tasks need. Each command's own --help has the details.
  */
-function formatRootHelp(target: Command, helper: Help, appVersion: string | undefined, recipes: RqlRecipes): string {
+function formatRootHelp(target: Command, helper: Help, appVersion: string | undefined): string {
   const name = target.name();
-  const featured = new Set([...ROOT_EDITOR_COMMANDS, ...ROOT_CODE_COMMANDS].map(([cmd]) => cmd));
-  const row = ([, usage, what]: readonly [string, string, string]) => `  ${chalk.yellow(usage.padEnd(26))} ${chalk.dim(what)}`;
+  const featured = new Set([...EDITOR_COMMANDS, ...CODE_COMMANDS].map(([cmd]) => cmd));
+  const row = ([, usage, what]: CommandRow) => `  ${chalk.yellow(usage.padEnd(26))} ${chalk.dim(what)}`;
   const others = helper.visibleCommands(target).map((c) => c.name()).filter((c) => !featured.has(c) && c !== 'help');
   const lines = [
     `${chalk.bold.cyan('Godot-MCP CLI')}${appVersion ? ` v${appVersion}` : ''}: drive the Godot editor of the project in the current folder (or --path <dir>).`,
     '',
-    chalk.bold('Editor work (the first call starts a headless editor and keeps it warm; no open / status needed):'),
-    ...ROOT_EDITOR_COMMANDS.map(row),
+    chalk.bold(`Editor work (${EDITOR_START}):`),
+    ...EDITOR_COMMANDS.map(row),
     chalk.bold('Code:'),
-    ...ROOT_CODE_COMMANDS.map(row),
+    ...CODE_COMMANDS.map(row),
     `${chalk.bold('More commands:')} ${others.join(' ')}`,
   ];
-  if (recipes.length > 0) {
-    lines.push('', chalk.bold('RQL recipes (strings inside the query take double quotes):'));
-    for (const [query, what] of recipes.slice(0, ROOT_RQL_RECIPES)) lines.push(`  ${chalk.yellow(`rql '${query}'`)}  ${chalk.dim(`# ${what}`)}`);
-  }
+  lines.push('', chalk.bold('RQL recipes (strings inside the query take double quotes):'));
+  for (const [query, what] of RQL_RECIPES.slice(0, ROOT_RQL_RECIPES)) lines.push(`  ${chalk.yellow(`rql '${query}'`)}  ${chalk.dim(`# ${what}`)}`);
   lines.push(
     '',
     chalk.dim(`Details: ${name} <command> --help (rql --help: operators, more recipes). Machine-readable output: --format json.`),
@@ -105,10 +88,10 @@ function formatRootHelp(target: Command, helper: Help, appVersion: string | unde
  *
  * @param appVersion - The CLI version string, shown in the root help.
  */
-export function configureStyledHelp(cmd: Command, appVersion?: string, rootRecipes: RqlRecipes = []): Command {
+export function configureStyledHelp(cmd: Command, appVersion?: string): Command {
   cmd.configureHelp({
     formatHelp(target: Command, helper: Help): string {
-      if (!target.parent) return formatRootHelp(target, helper, appVersion, rootRecipes);
+      if (!target.parent) return formatRootHelp(target, helper, appVersion);
       const lines: string[] = [];
 
       // A plain line, not a box: agents read this help, and box borders cost as much as the text again.

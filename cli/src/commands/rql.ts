@@ -6,7 +6,7 @@ import { runTool } from '../lib/run-tool.js';
 import { resolveAndValidateProjectPath } from '../utils/connection.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
-import type { RqlRecipes } from '../utils/ui.js';
+import { RQL_LANGUAGE, RQL_RECIPES } from '../lib/cli-guide.js';
 import { runToolAction, type RunToolCall, type RunToolCliOptions } from './run-tool-builder.js';
 
 interface RqlCliOptions extends Omit<RunToolCliOptions, 'input' | 'inputFile'> {
@@ -15,19 +15,6 @@ interface RqlCliOptions extends Omit<RunToolCliOptions, 'input' | 'inputFile'> {
   dryRun?: boolean;
   maxTargets?: string;
 }
-
-/** The recipes `rql --help` shows; the root help shows the first ones. */
-export const RQL_RECIPES: RqlRecipes = [
-  ['editor | call OpenScene("res://scenes/forest.tscn")', 'open a scene (writes no file): nodes lists the EDITED scene only'],
-  ['editor | call NewScene("res://scenes/cave.tscn", "Node2D", "Cave")', 'create, save and open a scene (path, root class, root name)'],
-  ['editor | call CreateNode("OmniLight3D", {name: "Lamp", position: [1, 3, 0]})', 'a new node under the scene root (meters, Y up)'],
-  ['nodes | where name starts-with "Tree" | select name class Position', 'read'],
-  ['nodes | where name contains "Enemy" | count', 'count'],
-  ['nodes | where name starts-with "Rock" | set Scale = Scale * 1.5', 'change (vectors compute per axis)'],
-  ['editor | call SaveScene()', 'write the edited scene to its .tscn; prints the files written'],
-  ['nodes | where name == "Old" | call Free()', 'delete'],
-  ['godot.resources("StandardMaterial3D") | select path props["albedo_color"]', 'resources of a class'],
-];
 
 /** How `rql` calls a tool: as run-tool does. */
 const RQL_CALL: RunToolCall = {
@@ -42,8 +29,7 @@ const RQL_HELP_FOOTER = [
   'Recipes:',
   ...RQL_RECIPES.map(([query, what]) => `  ${query}  # ${what}`),
   '',
-  'Stages: where, select a b, sort x [desc], first N, count, get <member>, set a = expr, call Method(args).',
-  'Operators: == != < <= > >= and or not, contains, starts-with, ends-with, x in [a, b], $ is Node3D.',
+  ...RQL_LANGUAGE,
   'Quote the query with single quotes; strings inside it take double quotes (a shell that strips them: -f <file> or -f -).',
   'A receipt (set / call) lists every change, so a separate check is rarely needed; scene edits stay unsaved until',
   'SaveScene() (resource files and project settings are saved at once).',
