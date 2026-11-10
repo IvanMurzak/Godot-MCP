@@ -21,6 +21,11 @@ export interface ExecDeps extends EnsureEditorDeps {
 }
 
 export interface ExecCodeOptions extends EnsureEditorOptions {
+  /**
+   * Run on this server as is, starting no editor (Cloud mode: the ai-game.dev hub, where only an editor the user
+   * connected answers).
+   */
+  remoteUrl?: string;
   code: string;
   usings?: string[];
   include?: string[];
@@ -61,12 +66,19 @@ export type ExecCodeResult = ExecCodeSuccess | ExecCodeFailure;
  * tool calls, so the next call stays warm.
  */
 export async function execCode(options: ExecCodeOptions): Promise<ExecCodeResult> {
-  const editor = await ensureEditor(options);
-  if (editor.kind === 'failure') return editor;
-  const { ensured } = editor;
+  let baseUrl: string;
+  let source: EnsureResult<string>['source'];
+  if (options.remoteUrl) {
+    baseUrl = options.remoteUrl;
+    source = 'foreign';
+  } else {
+    const editor = await ensureEditor(options);
+    if (editor.kind === 'failure') return editor;
+    baseUrl = editor.ensured.ready;
+    source = editor.ensured.source;
+  }
 
   options.onStatus?.('Running...');
-  const baseUrl = ensured.ready;
   const result = await (options.deps?.invoke ?? runTool)({
     toolName: SCRIPT_EXECUTE_TOOL,
     url: baseUrl,
@@ -77,7 +89,7 @@ export async function execCode(options: ExecCodeOptions): Promise<ExecCodeResult
   if (result.kind === 'failure') {
     return { kind: 'failure', success: false, reason: 'tool-failed', baseUrl, toolFailure: result, message: toolErrorText(result), error: result.error };
   }
-  return { kind: 'success', success: true, baseUrl, editor: ensured.source, data: result.data };
+  return { kind: 'success', success: true, baseUrl, editor: source, data: result.data };
 }
 
 /** Request body for `script-execute`; empty lists are left out. */

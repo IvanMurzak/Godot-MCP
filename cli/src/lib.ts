@@ -18,6 +18,24 @@ export { execCode, readToolResponse, buildScriptExecuteInput, SCRIPT_EXECUTE_TOO
 export type { ExecCodeOptions, ExecCodeResult, ExecCodeSuccess, ExecCodeFailure } from './lib/exec.js';
 export { createGodotSession, ensureEditor, SESSION_CLOSE_TOOL } from './lib/session.js';
 export type { GodotSession, GodotSessionOptions, EnsureEditorOptions, EnsureEditorResult } from './lib/session.js';
+// Editor-less headless commands (check / import / test / export / run-script): verdicts from logs and report files,
+// never from Godot's exit code. Failures carry `reason` (HeadlessFailureReason) and `message`.
+export { checkProject } from './lib/check.js';
+export type { CheckOptions, CheckResult, CheckReport } from './lib/check.js';
+export { importProject } from './lib/import-project.js';
+export type { ImportResult, ImportReport } from './lib/import-project.js';
+export { runTests, detectTestRunners } from './lib/run-tests.js';
+export type { RunTestsOptions, RunTestsResult, TestsReport, TestRunner } from './lib/run-tests.js';
+export { exportProject, readExportPresets } from './lib/export-project.js';
+export type { ExportOptions, ExportResult, ExportReport, ExportMode, ExportPreset } from './lib/export-project.js';
+export { runScript } from './lib/run-script.js';
+export type { RunScriptOptions, RunScriptResult, RunScriptReport } from './lib/run-script.js';
+export type { HeadlessBaseOptions, HeadlessFailureReason, HeadlessStep } from './lib/headless.js';
+export { parseGodotLog, parseMsbuildOutput, formatDiagnostic } from './lib/godot-log.js';
+export type { Diagnostic, DiagnosticSeverity, DiagnosticSource } from './lib/godot-log.js';
+export { parseJUnit } from './lib/junit.js';
+export type { JUnitReport, JUnitCase } from './lib/junit.js';
+export { ExitCode, EXIT_CODE_TABLE } from './utils/exit-codes.js';
 export { buildProject } from './lib/build.js';
 export { createProject } from './lib/create-project.js';
 export { runTool, runSystemTool } from './lib/run-tool.js';

@@ -89,8 +89,14 @@ npx godot-cli install-plugin /path/to/godot/project
 | `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)). |
 | `exec [code]` | Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm. |
 | `build [path]` | Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching. |
-| `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. |
-| `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). |
+| `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. When no editor answers on the project's local server it starts a headless one like `exec` (`--no-start` disables; `--once` closes it after the call). |
+| `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). Same auto-start as `run-tool`. |
+| `check [path]` | CI gate without a running editor: import, `dotnet build`, editor boot and a GDScript load check, judged from the logs (see [headless commands](#headless-commands-check-import-test-export-run-script)). |
+| `import [path]` | `godot --headless --import`, failing on import and script errors in the log. |
+| `test [path]` | Run the project's GUT or gdUnit4 tests headless with a hard timeout; verdict from the JUnit report and the log. |
+| `export <preset> <output>` | Export a preset headless (`--debug`, `--pack`); checks the export templates first and the output afterwards. |
+| `run-script <script> [args...]` | Run a one-shot `SceneTree` GDScript (`godot --headless -s`); exit 0 only after `quit(0)`. |
+| `commands` | Machine-readable manifest of every command, its arguments and options, and the exit codes (`--format json`). |
 | `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
 | `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
@@ -164,6 +170,15 @@ The cloud paths carry the `/mcp` hub segment so the request reaches the hub rath
 backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` to target a
 local/self-hosted server explicitly.
 
+`run-tool`, `run-system-tool` and `exec` replace step 6 with the **project's connection mode**, read the way the addon
+reads it (`GODOT_MCP_CONNECTION_MODE`, the project's `.env`, the persisted `user://godot-mcp-config.json`, else Cloud,
+the addon's default). Custom mode uses the local server above. Cloud mode uses the cloud hub with the machine's sign-in
+(no editor is started: only an editor connected to ai-game.dev answers). If this machine has **never** signed in to
+ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is
+persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6,
+`NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. An explicit `--url` / `--token` is used
+as is.
+
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 ## `exec`
@@ -178,7 +193,7 @@ godot-cli exec 'Helper.Twice(21)' --include helpers       # .cs files/folders un
 
 The code is plain statements; the last expression is the result. The output is the value (`Type: value`) and,
 under `logs:`, what the code printed (`Console`; `GD.Print` / push_warning / push_error with Godot.NET.Sdk 4.5+). A compile error points
-at the snippet's line (`snippet.cs(2,12)`) and exits 1.
+at the snippet's line (`snippet.cs(2,12)`) and exits 6.
 
 - **A running editor of the project** (yours, with a window, or one `godot-cli` started) is reused and never closed.
   Yours must serve the project's **local** server (dock: Custom mode, server started).
@@ -200,6 +215,88 @@ call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.g
 `GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call, default 310000: just over the
 server's 5-minute `tool-timeout`),
 `--no-build`, `--editor-path`, `--token`, `--raw`.
+
+`run-tool` / `run-system-tool` follow the same policy when the call is refused on a **local** URL of a Godot project:
+they start a headless editor (building C# first unless `--no-build`), then retry. A running editor is reused and never
+closed; `--once` closes the editor afterwards only when this call started it. `--no-start` turns this off, and a cloud
+or remote URL never starts anything. Options: `--editor-path`, `--ready-timeout <ms>`.
+
+## Exit codes and output formats
+
+Exit codes are shared with `unity-mcp-cli` and `unreal-mcp-cli` (`godot-cli commands --format json` lists them):
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Generic or unclassified error; also a run interrupted by Ctrl+C / SIGTERM (the Godot process tree is killed) |
+| 2 | Usage error: unknown command or option, bad flag value or argument (`--help` / `--version` exit 0) |
+| 6 | The command ran and failed: the tool returned an error, script or compilation errors, no test verdict |
+| 7 | The editor or MCP server is unreachable (also HTTP 502) |
+| 8 | Tests ran and at least one failed (a suite-level setup/teardown failure counts) |
+| 14 | Timeout (also HTTP 504) |
+| 17 | The server is busy (HTTP 503); the call was not executed |
+| 18 | The editor is blocked by a modal dialog (reserved: not detectable in a headless Godot) |
+
+`update --check` still exits 2 when something is outdated.
+
+`--format text|json|ndjson` (default `text`) is accepted by `run-tool`, `run-system-tool`, `exec`, `status`,
+`wait-for-ready`, `check`, `import`, `test`, `export`, `run-script` and `commands`. `json` prints exactly one
+envelope on stdout:
+
+```json
+{ "success": false, "command": "check", "data": { "...": "..." },
+  "errors": [{ "code": "SCRIPT_ERRORS", "message": "res://player.gd:12: error: Expected expression." }],
+  "warnings": [] }
+```
+
+`ndjson` prints events on stderr, one JSON object per line (`{"type":"progress","command":…,"message":…}`, and every
+other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
+In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
+`TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
+`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`. `--raw` keeps working as before.
+
+## Headless commands (`check`, `import`, `test`, `export`, `run-script`)
+
+These run Godot without an editor session and need no MCP server. Godot's exit code is not a verdict in headless mode
+(an `--import` with a GDScript parse error, or an addon that fails to load, still exits 0), so each command judges the
+run from its log (`SCRIPT ERROR`, `ERROR:`, `Parse Error`), a marker that proves the step ran, and the files it must
+produce. Each process gets a hard `--timeout` (the whole Godot process tree is killed: exit 14). Logs and scratch
+scripts go to `<project>/.godot/godot-cli/`. `check`, `import`, `test` and `export` refuse a project that is open in an
+editor (exit 6, `PROJECT_OPEN`: an import fights that editor over `.godot/`); `--allow-open` overrides it, `close`
+stops a `godot-cli` editor. The binary comes from `--editor-path`, `GODOT_BIN`, `PATH` or the usual install folders.
+
+```bash
+godot-cli check                     # 0 clean, 6 SCRIPT_ERRORS / COMPILATION_FAILED, 14 timeout
+godot-cli check --strict            # GDScript and C# compiler warnings fail too
+godot-cli test --format github      # ::error annotations; 0 pass, 8 failures, 6 no verdict / no runner
+godot-cli export "Windows Desktop" build/game.exe
+godot-cli run-script tools/migrate.gd -- --dry-run
+```
+
+- **`check [path] [--strict] [--include-addons]`** runs four separate processes (a single cold
+  `--build-solutions --quit` crashes on C# `[Tool]` plugins): `--headless --import`; `dotnet build` for a C# project
+  (errors as `file(line,col): error CS…`); `--headless --editor --quit`, which must print `[Godot-MCP] plugin loaded`
+  when the addon is enabled; and a GDScript pass that loads every `.gd` under `res://` (`res://addons/` only with
+  `--include-addons`) and reports parse errors as `res://file:line`. `--strict` also fails on GDScript warnings (the
+  project's Warn-level warnings raised to errors in memory, never saved) and C# `CS` warnings. Engine messages (a
+  plugin's runtime warnings, for example) are listed as warnings and never fail the check.
+- **`import [path]`** fails on script errors (`SCRIPT_ERRORS`) and on resources that fail to import (`IMPORT_FAILED`).
+- **`test [path]`** finds GUT (`addons/gut`) or gdUnit4 (`addons/gdUnit4`), imports the project (`--no-import` skips
+  it), and runs the runner's command-line script with a JUnit report (`-gjunit_xml_file`, or gdUnit4 `-rd`; gdUnit4
+  runs with `--ignoreHeadlessMode -c`). Exit 0 when all tests pass, 8 on failures, 6 (`TEST_RUN_ERROR`) when there is
+  no report, no test ran, or a test script failed to load (its tests are missing from the report, so it must not pass),
+  6 (`NOT_FOUND`) with an install hint when no runner is installed. `--runner gut|gdunit4`, `--dir <dir>` (repeatable;
+  default `res://test`, `res://tests`, or GUT's `.gutconfig.json`), `--filter <text>` (test scripts whose file name
+  contains it), `--output <file>` (copy the JUnit XML), `--format text|json|ndjson|github`.
+- **`export <preset> <output> [--debug|--pack]`** checks that `export_presets.cfg` has the preset and that the export
+  templates for the editor's version are installed (unless `--pack` or the preset names its own template), runs
+  `--export-release|--export-debug|--export-pack`, and fails (`EXPORT_FAILED`) unless the output file exists, is not
+  empty and was written by this run, and the log has no export errors (Godot writes the executable and exits 0 even
+  when, say, the C# publish failed for want of a `.sln`).
+- **`run-script <script> [args...]`** runs `godot --headless --path <project> -s <script> -- <args>`: the script
+  extends `SceneTree` or `MainLoop` and ends with `quit(code)`. Exit 0 for `quit(0)`; 6 for another code
+  (`data.scriptExitCode`) or a script that failed to load; 14 on `--timeout` (default 300000 ms). It does not import,
+  so it also runs while an editor has the project open.
 
 ## `login`
 
@@ -333,6 +430,9 @@ import { openProject, runTool, setupMcp, installPlugin, installExtension, execCo
 // The shared extension catalog + lookup helpers are exported too, so a GUI (the app)
 // can render the same list the dock + CLI install from:
 import { EXTENSIONS_CATALOG, findExtension } from 'godot-cli';
+
+// The headless commands, their log/JUnit parsers and the exit codes:
+import { checkProject, importProject, runTests, exportProject, runScript, parseGodotLog, parseJUnit, ExitCode } from 'godot-cli';
 ```
 
 Every function returns a discriminated union (`{ kind: 'success', ... }` / `{ kind: 'failure', error }`)

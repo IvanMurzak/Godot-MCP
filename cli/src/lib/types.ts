@@ -196,6 +196,8 @@ export interface BuildProjectOptions {
   /** Injectable `child_process.spawn` for tests (mock the build). */
   spawnImpl?: typeof import('child_process').spawn;
   onProgress?: ProgressCallback;
+  /** Kill the `dotnet build` process tree and fail after this many ms (default: no limit). */
+  timeoutMs?: number;
 }
 
 export interface BuildProjectSuccess {

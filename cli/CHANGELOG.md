@@ -4,6 +4,32 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Headless commands that judge Godot by its log, not its exit code** (an `--import` with a GDScript parse error or an
+  addon that fails to load still exits 0). `check [path] [--strict]`: a CI gate without an editor (import, `dotnet
+  build`, editor boot with the addon's load marker, a load of every GDScript) reporting `res://file:line` and
+  `file(line,col): error CS…`. `test [path]`: GUT or gdUnit4, headless, hard timeout, verdict from the JUnit report
+  cross-checked with the log (a test script that fails to load does not pass); `--filter`, `--output`, `--format github`.
+  `export <preset> <output> [--debug|--pack]`: checks the templates first and the output file and log afterwards.
+  `import [path]`, and `run-script <file.gd>` (one-shot `SceneTree` script, exit from `quit(code)`). They refuse a
+  project open in an editor (`PROJECT_OPEN`, `--allow-open` overrides). Library: `checkProject`, `importProject`,
+  `runTests`, `exportProject`, `runScript`, `parseGodotLog`, `parseJUnit`.
+- **Exit codes and `--format` shared with unity-mcp-cli and unreal-mcp-cli.** 0 success, 1 unclassified, 2 usage
+  (also unknown options, which exited 1), 6 command failed (a tool answering `status: "error"` or an HTTP error
+  other than 502/503/504, script or compilation errors), 7 unreachable (was 1; also HTTP 502), 8 tests failed (a
+  suite-level setup/teardown failure counts), 14 timeout (`wait-for-ready` timed out with 1; also HTTP 504), 17 busy
+  (HTTP 503), 18 awaiting input. A headless run stopped by Ctrl+C / SIGTERM kills the Godot process tree and exits 1.
+  `--format text|json|ndjson` on `run-tool`, `run-system-tool`, `exec`, `status`, `wait-for-ready` and the new
+  commands: one `{success, command, data, errors, warnings}` envelope on stdout (also for argument errors), logs on
+  stderr (ndjson: one JSON event per line). `commands [--format json]` prints a manifest of every command, its
+  arguments and options, and the exit codes.
+- **`run-tool`, `run-system-tool` and `exec` follow the project's connection mode.** Without `--url` / env / marker they
+  read the mode the addon uses (env, project `.env`, persisted config, default Cloud): Cloud goes to ai-game.dev with
+  the sign-in; a machine that never signed in falls back to the project's local server with a warning; a sign-in that
+  cannot be used fails with `NOT_AUTHENTICATED` (exit 6) instead of switching to a local server.
+- **`run-tool` / `run-system-tool` start a headless editor** when the call is refused on the project's local server,
+  like `exec` (a running editor is reused and never closed). `--no-start` turns it off; `--once` closes the editor
+  afterwards when this call started it; `--no-build`, `--editor-path`, `--ready-timeout`.
+
 - **`update` updates everything.** `update [path]` brings the project's addon and installed extensions to their latest
   versions, then updates the CLI itself (it used to update only the CLI). From a subfolder it finds the project; outside a
   project it updates only the CLI. `--check` reports (exit 2 when something is outdated); `--no-self`, `--no-project` and

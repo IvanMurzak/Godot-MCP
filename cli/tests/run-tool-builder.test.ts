@@ -53,29 +53,29 @@ describe('run-tool (builder) — CLI smoke', () => {
     expect(stdout).toContain('--timeout');
   });
 
-  it('exits 1 for an invalid --timeout value', async () => {
+  it('exits 2 (usage) for an invalid --timeout value', async () => {
     const { stdout, exitCode } = await runCliAsync([
       'run-tool', 'ping', '--url', 'http://127.0.0.1:1', '--timeout', 'nope',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Invalid --timeout value');
   });
 
-  it('exits 1 with the connection-refused failure copy when the server is down', async () => {
+  it('exits 7 (unreachable) with the connection-refused failure copy when the server is down', async () => {
     const deadPort = await findDeadPort();
     const { stdout, exitCode } = await runCliAsync([
       'run-tool', 'ping', '--url', `http://127.0.0.1:${deadPort}`, '--timeout', '1500',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(7);
     expect(stdout).toContain('Connection refused');
     expect(stdout).toContain('Failed to call tool');
   });
 
-  it('exits 1 and rejects malformed --input JSON', async () => {
+  it('exits 2 (usage) and rejects malformed --input JSON', async () => {
     const { stdout, exitCode } = await runCliAsync([
       'run-tool', 'ping', '--url', 'http://127.0.0.1:1', '--input', 'not-json',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('--input must be valid JSON');
   });
 
@@ -143,11 +143,11 @@ describe('run-tool (builder) — CLI smoke', () => {
     }
   });
 
-  it('exits 1 when --input-file does not exist', async () => {
+  it('exits 2 (usage) when --input-file does not exist', async () => {
     const { stdout, exitCode } = await runCliAsync([
       'run-tool', 'ping', '--url', 'http://127.0.0.1:1', '--input-file', '/no/such/file.json',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(2);
     expect(stdout).toContain('Input file does not exist');
   });
 });
@@ -179,7 +179,7 @@ describe('run-system-tool (builder) — CLI smoke', () => {
     const { stdout, exitCode } = await runCliAsync([
       'run-system-tool', 'health', '--url', `http://127.0.0.1:${deadPort}`, '--timeout', '1500',
     ]);
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(7);
     expect(stdout).toContain('Failed to call system tool');
   });
 });

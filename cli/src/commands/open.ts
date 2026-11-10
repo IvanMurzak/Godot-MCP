@@ -10,7 +10,7 @@ import {
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
 import type { EditorSession } from '@baizor/gamedev-cli-core';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
-import { parsePositiveIntFlag } from '../utils/input.js';
+import { parseIntFlag } from '../utils/output.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import type { OpenProjectAuthOption, OpenProjectConnectionMode } from '../lib/types.js';
 import { pidSuffix } from '../lib/progress.js';
@@ -244,8 +244,8 @@ async function openHeadless(
   projectPath: string,
   options: { url?: string; token?: string; editorPath?: string; build?: boolean; idleTimeout: string; readyTimeout: string },
 ): Promise<void> {
-  const idleSeconds = parsePositiveIntFlag(options.idleTimeout, '--idle-timeout', true);
-  const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout');
+  const idleSeconds = parseIntFlag(options.idleTimeout, '--idle-timeout', true);
+  const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
   const spinner = ui.startSpinner('Connecting...');
   const result = await ensureEditor({
     projectPath,
