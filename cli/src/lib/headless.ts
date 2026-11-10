@@ -19,7 +19,8 @@ export type HeadlessFailureReason =
   | 'import-failed'
   | 'export-failed'
   | 'tests-failed'
-  | 'test-run-error';
+  | 'test-run-error'
+  | 'interrupted';
 
 /** One Godot / dotnet process a headless command ran. */
 export interface HeadlessStep {
@@ -70,6 +71,13 @@ export function headlessFailure(reason: HeadlessFailureReason, message: string):
 export type HeadlessResult<R> =
   | ({ kind: 'success'; success: true } & R)
   | (HeadlessFailure & Partial<R>);
+
+/** The failure of a run that was stopped (SIGINT/SIGTERM, or the timeout), else undefined. */
+export function stoppedRun(run: GodotRunResult, what: string): HeadlessFailure | undefined {
+  if (run.interrupted) return headlessFailure('interrupted', `${what} was interrupted (the Godot process tree was killed).`);
+  if (run.timedOut) return headlessFailure('timeout', `${what} timed out (the Godot process tree was killed).`);
+  return undefined;
+}
 
 /** The failure of a run that never printed Godot's banner. */
 export function notStarted(reason: HeadlessFailureReason, run: GodotRunResult): HeadlessFailure {
@@ -143,8 +151,11 @@ export async function runGodotStep(
     args: fullArgs,
     cwd: ctx.projectPath,
     timeoutMs,
+    killOnSignal: true,
     logFile: path.join(ctx.workDir, 'logs', `${name}.log`),
     ...extra,
+    // Godot runs dotnet for C# (export): no MSBuild node reuse or build server that would outlive it.
+    env: { MSBUILDDISABLENODEREUSE: '1', DOTNET_CLI_USE_MSBUILD_SERVER: '0', UseSharedCompilation: 'false', ...extra.env },
   });
   ctx.steps.push({ name, command: [ctx.binary, ...fullArgs], exitCode: result.exitCode, timedOut: result.timedOut, durationMs: result.durationMs });
   return result;
@@ -169,7 +180,8 @@ export interface ImportStepResult {
 export async function runImportStep(ctx: HeadlessContext, onLine?: (line: string) => void): Promise<ImportStepResult> {
   const result = await runGodotStep(ctx, 'import', ['--import'], onLine ? { onLine } : {});
   const diagnostics = parseGodotLog(result.output);
-  if (result.timedOut) return { result, diagnostics, failure: headlessFailure('timeout', 'The import timed out (the Godot process tree was killed).') };
+  const stopped = stoppedRun(result, 'The import');
+  if (stopped) return { result, diagnostics, failure: stopped };
   if (!engineRan(result)) {
     return { result, diagnostics, failure: notStarted('import-failed', result) };
   }

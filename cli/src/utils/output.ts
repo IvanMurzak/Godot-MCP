@@ -57,7 +57,10 @@ export class CommandOutput<F extends string = OutputFormat> {
   readonly warnings: string[] = [];
 
   constructor(readonly command: string, readonly format: F) {
-    ui.setMachineOutput(this.machine);
+    // ndjson: every human line on stderr is an event too, so stderr stays parseable line by line.
+    ui.setMachineOutput(this.machine, format === 'ndjson'
+      ? (level, message) => JSON.stringify({ type: 'log', command, level, message })
+      : undefined);
     active = this as CommandOutput<string>;
   }
 
@@ -82,10 +85,14 @@ export class CommandOutput<F extends string = OutputFormat> {
     if (!this.machine) ui.warn(message);
   }
 
-  /** Emit the envelope (machine formats) and exit. Text output is the caller's job before calling this. */
+  /**
+   * Emit the envelope (machine formats) and end the command. Text output is the caller's job before calling this.
+   * The process exits once stdout is flushed (a write to a TTY or a macOS pipe is asynchronous: an immediate
+   * `process.exit` can cut a large result short); until then a {@link CommandExit} unwinds the action.
+   */
   finish(exitCode: ExitCodeValue, data: unknown, errors: EnvelopeError[] = []): never {
     if (this.machine) writeEnvelope(this.format, { success: exitCode === ExitCode.Success, command: this.command, data: data ?? null, errors, warnings: this.warnings });
-    process.exit(exitCode);
+    exitAfterFlush(exitCode);
   }
 
   /** Fail with one error: printed with `ui.error` in text, in the envelope otherwise. */
@@ -96,6 +103,34 @@ export class CommandOutput<F extends string = OutputFormat> {
 }
 
 let active: CommandOutput<string> | undefined;
+
+/** Thrown by {@link exitAfterFlush} to stop the action; the entry point ignores it (the exit is already scheduled). */
+export class CommandExit extends Error {
+  constructor(readonly exitCode: number) {
+    super(`exit ${exitCode}`);
+  }
+}
+
+/** Exit with `exitCode` once stdout and stderr have flushed; throws {@link CommandExit} to unwind the caller. */
+export function exitAfterFlush(exitCode: number): never {
+  process.exitCode = exitCode;
+  let pending = 2;
+  const done = (): void => {
+    if (--pending === 0) process.exit(exitCode);
+  };
+  process.stdout.write('', done);
+  process.stderr.write('', done);
+  throw new CommandExit(exitCode);
+}
+
+/**
+ * An unexpected error escaped a command: report it through the active command's envelope (exit 1) when one runs
+ * in a machine format. Returns false when there is none (the caller prints it).
+ */
+export function failActive(err: unknown): boolean {
+  if (!active?.machine) return false;
+  return active.fail(ExitCode.Error, 'ERROR', err instanceof Error ? err.message : String(err));
+}
 
 /** Write an envelope to stdout in `format` (json: pretty-printed, anything else: one line). */
 export function writeEnvelope(format: string, envelope: Envelope): void {

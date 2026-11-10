@@ -38,7 +38,11 @@ export function parseInput(options: InputOptions): string {
     } else {
       const filePath = path.resolve(options.inputFile);
       if (!fs.existsSync(filePath)) usage(`Input file does not exist: ${filePath}`);
-      content = fs.readFileSync(filePath, 'utf-8');
+      try {
+        content = fs.readFileSync(filePath, 'utf-8');
+      } catch (err) {
+        usage(`Cannot read --input-file ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     try {

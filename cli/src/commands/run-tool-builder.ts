@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
-import { isGodotProject, resolveAndValidateProjectPath, resolveConnection } from '../utils/connection.js';
+import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath, resolveConnection } from '../utils/connection.js';
 import { parseInput } from '../utils/input.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
@@ -67,7 +67,11 @@ export function toolFailureExit(failure: RunToolFailure): { exitCode: ExitCodeVa
     case 'network-error':
       return { exitCode: ExitCode.Unreachable, code: 'UNREACHABLE' };
     case 'http-error':
-      return failure.httpStatus === 503 ? { exitCode: ExitCode.Busy, code: 'BUSY' } : { exitCode: ExitCode.CommandFailed, code: 'TOOL_FAILED' };
+      if (failure.httpStatus === 503) return { exitCode: ExitCode.Busy, code: 'BUSY' };
+      // A gateway that gave up on the editor (504) or could not reach it (502).
+      if (failure.httpStatus === 504) return { exitCode: ExitCode.Timeout, code: 'TIMEOUT' };
+      if (failure.httpStatus === 502) return { exitCode: ExitCode.Unreachable, code: 'UNREACHABLE' };
+      return { exitCode: ExitCode.CommandFailed, code: 'TOOL_FAILED' };
     case 'invalid-input':
       return { exitCode: ExitCode.Usage, code: 'USAGE' };
     default:
@@ -136,13 +140,22 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     const spinner = human ? ui.startSpinner(`Calling ${toolName}...`) : null;
     const call = (url: string) => cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
     let result = await call(baseUrl);
+    // Status lines: the spinner (text), the progress stream (json/ndjson), plain stderr with --raw (stdout is the payload).
+    const note = (message: string): void => {
+      if (spinner) spinner.text = message;
+      else if (options.raw && !output.machine) process.stderr.write(message + '\n');
+      else output.progress(message);
+    };
 
     // No editor answers on the project's local server: start a headless one (exec's policy: a running editor is
     // reused and never closed), then retry.
-    const canStart = options.start !== false && isLocalhostUrl(baseUrl) && isGodotProject(projectPath);
+    // With an explicit --url, start only the editor of a project that was named, or whose own local server that is:
+    // never one for whatever Godot project the current directory happens to be.
+    const explicitProject = positionalPath !== undefined || options.path !== undefined;
+    const ownsUrl = !options.url || explicitProject || normalizeUrl(options.url) === normalizeUrl(localProjectUrl(projectPath));
+    const canStart = options.start !== false && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
     if (result.kind === 'failure' && result.reason === 'connection-refused' && canStart) {
-      if (spinner) spinner.text = 'No editor answered; starting a headless editor...';
-      else output.progress('No editor answered; starting a headless editor...');
+      note('No editor answered; starting a headless editor...');
       const editor = await ensureEditor({
         projectPath,
         url: baseUrl,
@@ -152,8 +165,7 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
         build: options.build !== false,
         onStatus: (message) => {
           verbose(message);
-          if (spinner) spinner.text = message;
-          else if (output.machine) output.progress(message);
+          note(message);
         },
       });
       if (editor.kind === 'failure') {
@@ -167,10 +179,14 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
       if (spinner) spinner.text = `Calling ${toolName}...`;
       result = await call(ensured.ready);
       if (options.once && ensured.source === 'started') {
-        if (spinner) spinner.text = 'Closing the started editor...';
+        note('Closing the started editor...');
         const closed = await godot.session.closeOwned();
-        if (closed.kind === 'closed') output.progress(`Closed the editor this call started (PID ${closed.pid}).`);
-        else output.warn(`The editor this call started was not closed (${closed.kind}).`);
+        if (closed.kind === 'closed') {
+          if (!spinner) note(`Closed the editor this call started (PID ${closed.pid}).`);
+        } else {
+          output.warnings.push(`The editor this call started was not closed (${closed.kind}).`);
+          note(`WARN: The editor this call started was not closed (${closed.kind}).`);
+        }
       }
     }
 
@@ -208,6 +224,10 @@ function toolErrorMessage(data: unknown, toolName: string): string {
   if (typeof response.error === 'string') return response.error;
   if (typeof response.message === 'string') return response.message;
   return `${toolName} returned status "error"`;
+}
+
+function normalizeUrl(url: string): string {
+  return url.replace(/\/+$/, '').toLowerCase();
 }
 
 function stringifyForRaw(data: unknown): string {

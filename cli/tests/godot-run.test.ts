@@ -55,6 +55,26 @@ describe('runGodot', () => {
     expect(r.output).toContain('from file');
   });
 
+  it('kills the tree on SIGINT and reports the run as interrupted, then removes its signal listeners', async () => {
+    const file = script('hang2.js', 'setInterval(() => {}, 1000);');
+    const before = process.listenerCount('SIGINT');
+    const killed: number[] = [];
+    const running = runGodot({
+      binary: process.execPath, args: [file], cwd: dir, timeoutMs: 60_000, killOnSignal: true,
+      killTreeImpl: (pid) => {
+        killed.push(pid);
+        process.kill(pid, 'SIGKILL');
+      },
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    process.emit('SIGINT', 'SIGINT');
+    const r = await running;
+    expect(r.interrupted).toBe(true);
+    expect(r.timedOut).toBe(false);
+    expect(killed).toHaveLength(1);
+    expect(process.listenerCount('SIGINT')).toBe(before);
+  });
+
   it('reports a binary that cannot start', async () => {
     const r = await runGodot({ binary: path.join(dir, 'no-such-godot.exe'), args: [], cwd: dir, timeoutMs: 5_000 });
     expect(r.exitCode).toBeNull();

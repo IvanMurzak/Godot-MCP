@@ -8,6 +8,7 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  stoppedRun,
   notStarted,
   prepareHeadless,
   runGodotStep,
@@ -60,7 +61,8 @@ export async function runScript(options: RunScriptOptions): Promise<RunScriptRes
   const report: RunScriptReport = { projectPath: ctx.projectPath, script, scriptExitCode: run.exitCode, output: run.output, steps: ctx.steps, diagnostics };
   const fail = (failure: HeadlessFailure): RunScriptResult => ({ ...failure, ...report });
 
-  if (run.timedOut) return fail(headlessFailure('timeout', 'The script timed out (the Godot process tree was killed).'));
+  const stopped = stoppedRun(run, 'The script');
+  if (stopped) return fail(stopped);
   if (!engineRan(run)) return fail(notStarted('script-errors', run));
   const loadErrors = diagnostics.filter((d) => d.severity === 'error' && d.phase === 'load');
   if (loadErrors.length > 0) return fail(headlessFailure('script-errors', `The script failed to load (${loadErrors.length} error(s)).`));

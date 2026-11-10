@@ -9,7 +9,9 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  stoppedRun,
   notStarted,
+  remainingMs,
   prepareHeadless,
   runGodotStep,
   type HeadlessBaseOptions,
@@ -21,7 +23,7 @@ import {
 export type ExportMode = 'release' | 'debug' | 'pack';
 
 /** Log errors that mean the export itself failed (other engine errors, e.g. a plugin's runtime noise, do not). */
-const EXPORT_ERROR_RE = /export|exception|solution|publish|template|cannot save|failed to (?:save|write|open|copy)/i;
+const EXPORT_ERROR_RE = /export|solution file|publish|template|cannot save|failed to (?:save|write|open|copy)/i;
 
 export interface ExportOptions extends HeadlessBaseOptions {
   preset: string;
@@ -109,10 +111,19 @@ export function templatesRoot(binary: string, platform: NodeJS.Platform = proces
   return path.join(process.env.XDG_DATA_HOME ?? path.join(home, '.local', 'share'), 'godot', 'export_templates');
 }
 
-function godotVersion(binary: string): string | undefined {
-  const run = spawnSync(binary, ['--version'], { encoding: 'utf-8', timeout: 30_000, windowsHide: true });
+/**
+ * The editor's version: `--version` (stdout; a GUI build may print nothing to a pipe), else the official file name
+ * (`Godot_v4.5.1-stable_mono_win64.exe` → `4.5.1.stable.mono`).
+ */
+export function godotVersion(binary: string, timeoutMs: number): string | undefined {
+  const run = spawnSync(binary, ['--version'], { encoding: 'utf-8', timeout: Math.max(1, Math.min(30_000, timeoutMs)), windowsHide: true });
   const line = (run.stdout ?? '').split(/\r?\n/).map((l) => l.trim()).find((l) => /^\d+\.\d+/.test(l));
-  return line;
+  return line ?? versionFromFileName(path.basename(binary));
+}
+
+export function versionFromFileName(name: string): string | undefined {
+  const m = /^godot_v(\d+\.\d+(?:\.\d+)?)-(stable|dev\d*|alpha\d*|beta\d*|rc\d*)(_mono)?/i.exec(name);
+  return m ? `${m[1]}.${m[2]}${m[3] ? '.mono' : ''}` : undefined;
 }
 
 export async function exportProject(options: ExportOptions): Promise<ExportResult> {
@@ -133,7 +144,7 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
   // A .pck/.zip pack needs no templates; a preset with its own template file does not use the installed ones.
   const custom = mode === 'debug' ? preset.customTemplateDebug : preset.customTemplateRelease;
   if (mode !== 'pack' && custom === '') {
-    const version = options.godotVersion ?? godotVersion(ctx.binary);
+    const version = options.godotVersion ?? godotVersion(ctx.binary, remainingMs(ctx));
     if (!version) return fail(headlessFailure('export-failed', `Could not read the Godot version (${ctx.binary} --version).`));
     const versionDir = templatesVersionDir(version);
     const dir = path.join(templatesRoot(ctx.binary), versionDir);
@@ -156,7 +167,8 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
   options.onProgress?.(`Exporting "${options.preset}" (${mode}) to ${output}...`);
   const run = await runGodotStep(ctx, 'export', [`--export-${mode}`, options.preset, output]);
   report.diagnostics = parseGodotLog(run.output).filter((d) => d.severity === 'error');
-  if (run.timedOut) return fail(headlessFailure('timeout', 'The export timed out (the Godot process tree was killed).'));
+  const stopped = stoppedRun(run, 'The export');
+  if (stopped) return fail(stopped);
   if (!engineRan(run)) return fail(notStarted('export-failed', run));
 
   let stat: fs.Stats | undefined;
@@ -166,13 +178,14 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
     stat = undefined;
   }
   // Allow for coarse file-system timestamps when deciding the file is this run's.
-  if (!stat || !stat.isFile() || stat.size === 0 || stat.mtimeMs < startedAt - 2_000) {
+  // A macOS export is an .app folder.
+  if (!stat || !(stat.isFile() || stat.isDirectory()) || (stat.isFile() && stat.size === 0) || stat.mtimeMs < startedAt - 2_000) {
     const detail = report.diagnostics[0]?.message;
     return fail(headlessFailure('export-failed', `The export produced no output file at ${output} (exit ${run.exitCode})${detail ? `: ${detail}` : ''}.`));
   }
-  report.sizeBytes = stat.size;
+  if (stat.isFile()) report.sizeBytes = stat.size;
   // Godot writes the executable and the .pck even when a step failed (e.g. the C# publish: no .sln) and exits 0.
-  const exportErrors = report.diagnostics.filter((d) => d.source === 'gdscript' || EXPORT_ERROR_RE.test(d.message));
+  const exportErrors = report.diagnostics.filter((d) => (d.source === 'gdscript' && d.phase === 'load') || EXPORT_ERROR_RE.test(d.message));
   if (exportErrors.length > 0) {
     report.diagnostics = exportErrors;
     return fail(headlessFailure('export-failed', `The export logged ${exportErrors.length} error(s): ${exportErrors[0].message}`));

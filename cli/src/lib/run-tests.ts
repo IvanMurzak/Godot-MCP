@@ -8,6 +8,7 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  stoppedRun,
   notStarted,
   prepareHeadless,
   runGodotStep,
@@ -116,6 +117,8 @@ export function runnerArgs(
       ...(dirs.length > 0 ? [`-gdir=${dirs.join(',')}`] : []),
       ...(options.filter ? [`-gselect=${options.filter}`] : []),
       `-gjunit_xml_file=${options.junitFile}`,
+      // A .gutconfig.json with junit_xml_timestamp would rename the report.
+      '-gjunit_xml_timestamp=false',
     ];
   }
   const dirs = options.dirs ?? defaultTestDirs(options.projectPath);
@@ -183,13 +186,14 @@ export async function runTests(options: RunTestsOptions): Promise<RunTestsResult
   if (!options.skipImport) {
     progress('Importing the project (godot --headless --import)...');
     const imported = await runImportStep(ctx);
-    if (imported.failure?.reason === 'timeout') return fail(imported.failure);
+    if (imported.failure?.reason === 'timeout' || imported.failure?.reason === 'interrupted') return fail(imported.failure);
   }
 
   progress(`Running ${TEST_RUNNERS[runner].label} tests...`);
   const run = await runGodotStep(ctx, 'test', runnerArgs(runner, { projectPath: ctx.projectPath, ...(dirs ? { dirs } : {}), ...(options.filter ? { filter: options.filter } : {}), junitFile, reportDir }));
   report.loadErrors = parseGodotLog(run.output).filter((d) => d.severity === 'error' && d.source === 'gdscript' && d.phase === 'load' && !d.file?.startsWith('res://addons/'));
-  if (run.timedOut) return fail(headlessFailure('timeout', `The ${TEST_RUNNERS[runner].label} run timed out (the Godot process tree was killed).`));
+  const stopped = stoppedRun(run, `The ${TEST_RUNNERS[runner].label} run`);
+  if (stopped) return fail(stopped);
   if (!engineRan(run)) return fail(notStarted('test-run-error', run));
 
   const xmlFile = runner === 'gut' ? junitFile : findGdUnitReport(reportDir);
@@ -203,8 +207,10 @@ export async function runTests(options: RunTestsOptions): Promise<RunTestsResult
     return fail(headlessFailure('test-run-error', `Unreadable JUnit report ${xmlFile}: ${err instanceof Error ? err.message : String(err)}`));
   }
 
-  const { failures, errors, tests } = report.report;
+  const { failures, errors, tests, suiteFailures } = report.report;
   if (failures + errors > 0) return fail(headlessFailure('tests-failed', `${failures + errors} of ${tests} test(s) failed.`));
+  // A suite-level setup/teardown failure leaves every case passing.
+  if (suiteFailures > 0) return fail(headlessFailure('tests-failed', `${suiteFailures} suite-level failure(s) (setup/teardown) although no test case failed.`));
   if (report.loadErrors.length > 0) {
     return fail(headlessFailure('test-run-error', `${report.loadErrors.length} test script(s) failed to load, so their tests never ran.`));
   }

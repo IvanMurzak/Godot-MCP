@@ -17,16 +17,26 @@ export function verbose(msg: string): void {
 
 // --- Machine output (--format json|ndjson): stdout carries only the envelope ---
 let machineOutput = false;
+let machineLine: ((level: 'info' | 'error', message: string) => string) | undefined;
 
-/** Route every human-readable line (and spinner) to stderr without colour, keeping stdout for the envelope. */
-export function setMachineOutput(enabled: boolean): void {
+/**
+ * Route every human-readable line (and spinner) to stderr without colour, keeping stdout for the envelope.
+ * `wrap` turns each line into an event (ndjson).
+ */
+export function setMachineOutput(enabled: boolean, wrap?: (level: 'info' | 'error', message: string) => string): void {
   machineOutput = enabled;
+  machineLine = enabled ? wrap : undefined;
 }
 
-/** A human-readable line: stdout normally, plain stderr in machine mode. */
-function out(line: string): void {
-  if (machineOutput) process.stderr.write(stripAnsi(line) + '\n');
-  else console.log(line);
+/** A human-readable line: stdout normally, plain (or wrapped) stderr in machine mode. */
+function out(line: string, level: 'info' | 'error' = 'info'): void {
+  if (!machineOutput) {
+    if (level === 'error') console.error(line);
+    else console.log(line);
+    return;
+  }
+  const plain = stripAnsi(line);
+  process.stderr.write((machineLine ? machineLine(level, plain) : plain) + '\n');
 }
 
 // --- TTY detection ---
@@ -160,9 +170,9 @@ export function success(msg: string): void {
  */
 export function error(msg: string): void {
   if (isTTY()) {
-    console.error(`${chalk.red('✖')}  ${chalk.red(msg)}`);
+    out(`${chalk.red('✖')}  ${chalk.red(msg)}`, 'error');
   } else {
-    console.error(`ERROR: ${msg}`);
+    out(`ERROR: ${msg}`, 'error');
   }
 }
 
@@ -214,7 +224,7 @@ function createNoOpSpinner(text: string): Spinner {
     start: () => self,
     stop: () => self,
     success: (msg?: string) => { if (msg) out(`SUCCESS: ${msg}`); return self; },
-    error: (msg?: string) => { if (msg) console.error(`ERROR: ${msg}`); return self; },
+    error: (msg?: string) => { if (msg) out(`ERROR: ${msg}`, 'error'); return self; },
     warning: (msg?: string) => { if (msg) out(`WARN: ${msg}`); return self; },
     info: (msg?: string) => { if (msg) out(`INFO: ${msg}`); return self; },
     clear: () => self,

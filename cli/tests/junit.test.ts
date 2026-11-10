@@ -68,6 +68,15 @@ describe('parseJUnit', () => {
     expect(r.cases[1].message).toBe('boom <x>');
   });
 
+  it('counts suite-level (setup/teardown) failures that no test case carries', () => {
+    const declared = parseJUnit('<testsuites><testsuite name="s" tests="1" failures="1"><testcase name="a"/></testsuite></testsuites>');
+    expect(declared).toMatchObject({ failures: 0, suiteFailures: 1 });
+    const orphan = parseJUnit('<testsuite name="s" failures="1"><testcase name="a"/><failure message="after_all crashed"/></testsuite>');
+    expect(orphan.suiteFailures).toBe(1);
+    expect(parseJUnit(GUT_XML).suiteFailures).toBe(0);
+    expect(parseJUnit(GDUNIT_XML).suiteFailures).toBe(0);
+  });
+
   it('throws on a document without test suites', () => {
     expect(() => parseJUnit('<html></html>')).toThrow(/not a JUnit report/);
   });

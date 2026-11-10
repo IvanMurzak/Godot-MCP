@@ -18,6 +18,8 @@ const REASON_EXIT: Record<HeadlessFailureReason, { exitCode: ExitCodeValue; code
   'export-failed': { exitCode: ExitCode.CommandFailed, code: 'EXPORT_FAILED' },
   'tests-failed': { exitCode: ExitCode.TestsFailed, code: 'TESTS_FAILED' },
   'test-run-error': { exitCode: ExitCode.CommandFailed, code: 'TEST_RUN_ERROR' },
+  // Ctrl+C / SIGTERM: not a verdict on the project.
+  interrupted: { exitCode: ExitCode.Error, code: 'ERROR' },
 };
 
 export interface HeadlessCliOptions {

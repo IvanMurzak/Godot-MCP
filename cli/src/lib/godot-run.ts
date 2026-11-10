@@ -19,6 +19,8 @@ export interface GodotRunOptions {
    * (a GUI-subsystem binary on Windows may print nothing to a pipe).
    */
   logFile?: string;
+  /** Kill the tree and report `interrupted` on SIGINT / SIGTERM (CLI use; a library host keeps its own handling). */
+  killOnSignal?: boolean;
   /** Each output line as it arrives (ANSI stripped). */
   onLine?: (line: string) => void;
   /** Tests. */
@@ -35,6 +37,8 @@ export interface GodotRunResult {
   durationMs: number;
   /** The process could not be started. */
   spawnError?: string;
+  /** This CLI got SIGINT / SIGTERM while the process ran; its tree was killed. */
+  interrupted?: boolean;
 }
 
 /** Kill a process and all its children: `taskkill /T /F` on Windows, the process group on POSIX. */
@@ -72,10 +76,13 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
     let pending = '';
     let settled = false;
     let timedOut = false;
+    let interrupted = false;
+    let detachSignals = (): void => undefined;
     const finish = (exitCode: number | null, spawnError?: string): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      detachSignals();
       if (pending) options.onLine?.(stripAnsi(pending));
       let text = stripAnsi(output);
       if (!GODOT_BANNER_RE.test(text) && options.logFile) {
@@ -86,7 +93,7 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
           // no log file either
         }
       }
-      resolve({ exitCode, timedOut, output: text, durationMs: Date.now() - started, ...(spawnError ? { spawnError } : {}) });
+      resolve({ exitCode, timedOut, output: text, durationMs: Date.now() - started, ...(spawnError ? { spawnError } : {}), ...(interrupted ? { interrupted } : {}) });
     };
 
     let child: ReturnType<typeof spawn>;
@@ -104,12 +111,29 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
       return;
     }
 
-    const timer = setTimeout(() => {
-      timedOut = true;
+    const killTree = (): void => {
       if (child.pid !== undefined) (options.killTreeImpl ?? killProcessTree)(child.pid);
       // A killed tree closes its pipes; resolve anyway should a grandchild keep them open.
       setTimeout(() => finish(null), 5_000).unref();
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree();
     }, options.timeoutMs);
+    // Ctrl+C / SIGTERM: the POSIX child runs in its own process group and never sees the signal, and on Windows
+    // Godot's children survive it; kill the tree and let the caller report the interruption.
+    const onSignal = (): void => {
+      interrupted = true;
+      killTree();
+    };
+    if (options.killOnSignal) {
+      process.once('SIGINT', onSignal);
+      process.once('SIGTERM', onSignal);
+      detachSignals = () => {
+        process.removeListener('SIGINT', onSignal);
+        process.removeListener('SIGTERM', onSignal);
+      };
+    }
 
     const onData = (chunk: Buffer | string): void => {
       const text = chunk.toString();
@@ -123,6 +147,11 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
     child.stdout?.on('data', onData);
     child.stderr?.on('data', onData);
     child.on('error', (err) => finish(null, err.message));
-    child.on('close', (code) => finish(timedOut ? null : code));
+    child.on('close', (code) => finish(timedOut || interrupted ? null : code));
+    // A grandchild that inherited the pipes (an MSBuild node, the C# compiler server) can keep them open long after
+    // Godot exited: give the output 2 s to drain, then finish on the exit itself.
+    child.on('exit', (code) => {
+      setTimeout(() => finish(timedOut || interrupted ? null : code), 2_000).unref();
+    });
   });
 }

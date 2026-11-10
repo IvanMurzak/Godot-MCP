@@ -20,6 +20,7 @@ import {
 import {
   engineRan,
   headlessFailure,
+  stoppedRun,
   notStarted,
   prepareHeadless,
   remainingMs,
@@ -50,6 +51,8 @@ func _walk(dir: String, out: Array, include_addons: bool) -> void:
 \t\tvar p := dir.path_join(name)
 \t\tif name.begins_with("."):
 \t\t\tpass
+\t\telif d.current_is_dir() and FileAccess.file_exists(p.path_join(".gdignore")):
+\t\t\tpass  # Godot skips a folder with a .gdignore
 \t\telif d.current_is_dir():
 \t\t\tif include_addons or p != "res://addons":
 \t\t\t\t_walk(p, out, include_addons)
@@ -59,7 +62,10 @@ func _walk(dir: String, out: Array, include_addons: bool) -> void:
 
 func _load_ok(path: String) -> bool:
 \tvar s = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
-\treturn s != null and s is Script and s.can_instantiate()
+\tif s == null or not (s is Script):
+\t\treturn false
+\t# An @abstract script (4.5+) loads fine but cannot be instantiated.
+\treturn s.can_instantiate() or (s.has_method("is_abstract") and s.is_abstract())
 
 func _init() -> void:
 \tvar args := OS.get_cmdline_user_args()
@@ -96,7 +102,7 @@ export interface CheckOptions extends HeadlessBaseOptions {
   /** Also load the GDScript under res://addons/ (skipped by default: editor-only addon scripts do not load outside the editor). */
   includeAddons?: boolean;
   /** Tests. */
-  build?: (projectPath: string) => Promise<BuildProjectResult>;
+  build?: (projectPath: string, timeoutMs: number) => Promise<BuildProjectResult>;
 }
 
 export interface CheckReport {
@@ -143,7 +149,9 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
   // 1. Import.
   progress('Importing the project (godot --headless --import)...');
   const imported = await runImportStep(ctx);
-  collect(imported.diagnostics);
+  // Informational only: the import runs before the C# build (a fresh checkout's C# plugin fails to load here), and
+  // the GDScript pass below reports every script error again with its line.
+  engineMessages.push(...imported.diagnostics);
   if (imported.failure && imported.failure.reason !== 'script-errors') return fail(imported.failure);
 
   // 2. C# build.
@@ -151,7 +159,7 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
   if (findProjectCsproj(ctx.projectPath, []) !== null) {
     progress('Building C# (dotnet build)...');
     const started = Date.now();
-    const built = await (options.build ?? ((p: string) => buildProject({ projectPath: p })))(ctx.projectPath);
+    const built = await (options.build ?? ((p: string, timeoutMs: number) => buildProject({ projectPath: p, timeoutMs })))(ctx.projectPath, remainingMs(ctx));
     const output = built.kind === 'success' ? built.output ?? '' : built.errorMessage;
     ctx.steps.push({ name: 'dotnet-build', command: ['dotnet', 'build'], exitCode: built.kind === 'success' ? 0 : 1, timedOut: false, durationMs: Date.now() - started });
     const compiler = parseMsbuildOutput(output);
@@ -170,7 +178,8 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
   if (!compileFailed) {
     progress('Booting the editor (godot --headless --editor --quit)...');
     const editor = await runGodotStep(ctx, 'editor', ['--editor', '--quit']);
-    if (editor.timedOut) return fail(headlessFailure('timeout', 'The editor boot timed out (the Godot process tree was killed).'));
+    const editorStopped = stoppedRun(editor, 'The editor boot');
+    if (editorStopped) return fail(editorStopped);
     if (!engineRan(editor)) return fail(headlessFailure('script-errors', `The editor did not start (exit ${editor.exitCode}).`));
     collect(parseGodotLog(editor.output));
     if (addon.enabled) {
@@ -186,7 +195,8 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
   const script = writeCliScript(ctx, 'check.gd', CHECK_SCRIPT);
   const userArgs = [...(options.strict ? ['--strict'] : []), ...(options.includeAddons ? ['--include-addons'] : [])];
   const checked = await runGodotStep(ctx, 'gdscript', ['-s', script, ...(userArgs.length > 0 ? ['--', ...userArgs] : [])]);
-  if (checked.timedOut) return fail(headlessFailure('timeout', 'The GDScript check timed out (the Godot process tree was killed).'));
+  const checkStopped = stoppedRun(checked, 'The GDScript check');
+  if (checkStopped) return fail(checkStopped);
   const markers = cliMarkerLines(checked.output);
   const done = markers.map((m) => /^check-done files=(\d+) failed=(\d+) warned=(\d+)/.exec(m)).find((m) => m !== null);
   if (!engineRan(checked) || !done) {

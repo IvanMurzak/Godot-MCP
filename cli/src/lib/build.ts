@@ -3,6 +3,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { resolveProjectPath, isGodotProjectDir } from './open.js';
 import { emitProgress } from './progress.js';
+import { killProcessTree } from './godot-run.js';
 import type { BuildProjectOptions, BuildProjectResult } from './types.js';
 
 /**
@@ -113,7 +114,7 @@ export async function buildProject(options: BuildProjectOptions): Promise<BuildP
       command: [dotnetBin, ...args].join(' '),
     });
 
-    const run = await runDotnet(dotnetBin, args, projectPath, options.spawnImpl);
+    const run = await runDotnet(dotnetBin, args, projectPath, options.spawnImpl, options.timeoutMs);
 
     if (run.code !== 0) {
       const detail = run.output.trim();
@@ -169,12 +170,15 @@ export function runDotnet(
   args: string[],
   cwd: string,
   spawnImpl: typeof spawn = spawn,
+  timeoutMs?: number,
 ): Promise<DotnetRun> {
   return new Promise((resolve) => {
     let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (run: DotnetRun): void => {
       if (settled) return;
       settled = true;
+      if (timer) clearTimeout(timer);
       resolve(run);
     };
 
@@ -188,6 +192,13 @@ export function runDotnet(
     }
 
     let output = '';
+    // A hung restore or build: kill the whole tree (MSBuild nodes included) and fail.
+    if (timeoutMs !== undefined && timeoutMs > 0) {
+      timer = setTimeout(() => {
+        if (child.pid !== undefined) killProcessTree(child.pid);
+        finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` });
+      }, timeoutMs);
+    }
     child.stdout?.on('data', (chunk: Buffer | string) => {
       output += chunk.toString();
     });

@@ -18,6 +18,11 @@ export interface JUnitReport {
   failures: number;
   errors: number;
   skipped: number;
+  /**
+   * Failures not attributed to a test case: a suite-level setup/teardown failure (a `<failure>` / `<error>` outside any
+   * `<testcase>`, or a `<testsuite failures|errors>` count above its failing cases). They fail the run.
+   */
+  suiteFailures: number;
   cases: JUnitCase[];
 }
 
@@ -45,7 +50,8 @@ function attrs(raw: string): Record<string, string> {
 /** Parse a JUnit XML document. Throws when it holds no `<testsuite>` / `<testsuites>` element. */
 export function parseJUnit(xml: string): JUnitReport {
   const cases: JUnitCase[] = [];
-  const suites: string[] = [];
+  const suites: Array<{ name: string; declared: number; firstCase: number; orphans: number }> = [];
+  let suiteFailures = 0;
   let sawRoot = false;
   let current: JUnitCase | undefined;
   let outcomeStart = -1;
@@ -60,8 +66,18 @@ export function parseJUnit(xml: string): JUnitReport {
     }
     if (tag === 'testsuite') {
       sawRoot = true;
-      if (closing) suites.pop();
-      else if (!selfClosing) suites.push(attrs(rawAttrs).name ?? '');
+      if (closing) {
+        const suite = suites.pop();
+        if (suite) {
+          const failing = cases.slice(suite.firstCase).filter((c) => c.status === 'failed' || c.status === 'error').length;
+          suiteFailures += Math.max(suite.orphans, suite.declared - failing);
+        }
+        continue;
+      }
+      const a = attrs(rawAttrs);
+      const declared = (Number(a.failures) || 0) + (Number(a.errors) || 0);
+      if (selfClosing) suiteFailures += declared;
+      else suites.push({ name: a.name ?? '', declared, firstCase: cases.length, orphans: 0 });
       continue;
     }
     if (tag === 'testcase') {
@@ -72,7 +88,7 @@ export function parseJUnit(xml: string): JUnitReport {
       const a = attrs(rawAttrs);
       const time = a.time !== undefined ? Number(a.time) : undefined;
       current = {
-        suite: suites[suites.length - 1] ?? '',
+        suite: suites[suites.length - 1]?.name ?? '',
         name: a.name ?? '',
         ...(a.classname ? { classname: a.classname } : {}),
         ...(a.file ? { file: a.file } : {}),
@@ -84,7 +100,10 @@ export function parseJUnit(xml: string): JUnitReport {
       continue;
     }
     // failure / error / skipped
-    if (!current) continue;
+    if (!current) {
+      if (!closing && tag !== 'skipped' && suites.length > 0) suites[suites.length - 1].orphans++;
+      continue;
+    }
     if (closing) {
       if (tag === outcomeTag && outcomeStart >= 0) {
         const body = decodeXml(xml.slice(outcomeStart, at)).trim();
@@ -112,6 +131,7 @@ export function parseJUnit(xml: string): JUnitReport {
     failures: count('failed'),
     errors: count('error'),
     skipped: count('skipped'),
+    suiteFailures,
     cases,
   };
 }

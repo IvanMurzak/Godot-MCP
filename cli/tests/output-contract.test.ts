@@ -63,6 +63,8 @@ describe('exit codes', () => {
     expect(f('connection-refused')).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
     expect(f('http-error', 503)).toEqual({ exitCode: 17, code: 'BUSY' });
     expect(f('http-error', 422)).toEqual({ exitCode: 6, code: 'TOOL_FAILED' });
+    expect(f('http-error', 504)).toEqual({ exitCode: 14, code: 'TIMEOUT' });
+    expect(f('http-error', 502)).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
     expect(f('invalid-input')).toEqual({ exitCode: 2, code: 'USAGE' });
     expect(f('unknown')).toEqual({ exitCode: 1, code: 'ERROR' });
     expect(isToolErrorResponse({ status: 'error' })).toBe(true);
@@ -113,6 +115,39 @@ describe('CLI output contract', () => {
     const { stdout, exitCode } = await runCli(['status', '--bogus', '--format', 'json']);
     expect(exitCode).toBe(2);
     expect(JSON.parse(stdout)).toMatchObject({ success: false, command: 'status', errors: [{ code: 'USAGE' }] });
+  });
+
+  it('names the command from the first non-option argument, and accepts --format in any case', async () => {
+    const { stdout, exitCode } = await runCli(['status', '--path', 'build', '--format', 'JSON', '--bogus']);
+    expect(exitCode).toBe(2);
+    expect(JSON.parse(stdout).command).toBe('status');
+  });
+
+  it('an unreadable --input-file is a USAGE envelope, and ndjson stderr is all JSON events', async () => {
+    const r = await runCli(['run-tool', 'x', '--url', 'http://127.0.0.1:1', '--input-file', tmp, '--format', 'json']);
+    expect(r.exitCode).toBe(2);
+    expect(JSON.parse(r.stdout).errors[0].code).toBe('USAGE');
+    const port = await deadPort();
+    const nd = await runCli(['status', '--url', `http://127.0.0.1:${port}`, '--timeout', '2000', '--format', 'ndjson', '--verbose']);
+    expect(nd.exitCode).toBe(7);
+    const lines = nd.stderr.trim().split(/\r?\n/).filter((l) => l.length > 0);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) expect(['log', 'progress']).toContain(JSON.parse(line).type);
+  });
+
+  it('a large json result reaches stdout whole', async () => {
+    const big = 'x'.repeat(300_000);
+    const server = await startServer((res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'success', structured: { result: big } }));
+    });
+    try {
+      const r = await runCli(['run-system-tool', 'ping', '--url', server.url, '--format', 'json']);
+      expect(r.exitCode).toBe(0);
+      expect(JSON.parse(r.stdout).data.structured.result).toHaveLength(300_000);
+    } finally {
+      await server.close();
+    }
   });
 
   it('validation errors exit 2 with a USAGE envelope', async () => {

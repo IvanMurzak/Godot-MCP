@@ -6,7 +6,7 @@ import { checkProject, CHECK_SCRIPT, isAddonEnabled } from '../src/lib/check.js'
 import { importProject } from '../src/lib/import-project.js';
 import { prepareHeadless, type HeadlessDeps } from '../src/lib/headless.js';
 import { detectTestRunners, runTests, runnerArgs } from '../src/lib/run-tests.js';
-import { exportProject, readExportPresets, templatesRoot, templatesVersionDir } from '../src/lib/export-project.js';
+import { exportProject, readExportPresets, templatesRoot, templatesVersionDir, versionFromFileName } from '../src/lib/export-project.js';
 import { runScript, scriptPathForGodot } from '../src/lib/run-script.js';
 import type { GodotRunOptions, GodotRunResult } from '../src/lib/godot-run.js';
 import type { BuildProjectResult } from '../src/lib/types.js';
@@ -185,7 +185,7 @@ describe('runTests', () => {
   it('builds the GUT and gdUnit4 command lines', () => {
     installGut();
     expect(runnerArgs('gut', { projectPath: project, junitFile: 'J.xml', reportDir: 'R', filter: 'player' })).toEqual([
-      '-s', 'res://addons/gut/gut_cmdln.gd', '-gexit', '-ginclude_subdirs', '-gdir=res://test', '-gselect=player', '-gjunit_xml_file=J.xml',
+      '-s', 'res://addons/gut/gut_cmdln.gd', '-gexit', '-ginclude_subdirs', '-gdir=res://test', '-gselect=player', '-gjunit_xml_file=J.xml', '-gjunit_xml_timestamp=false',
     ]);
     fs.writeFileSync(path.join(project, 'test', 'player_test.gd'), '');
     fs.writeFileSync(path.join(project, 'test', 'enemy_test.gd'), '');
@@ -218,6 +218,14 @@ describe('runTests', () => {
     expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: hung.deps, skipImport: true })).toMatchObject({ reason: 'timeout' });
   });
 
+  it('fails on a suite-level failure with no failing case, and reports an interruption as such', async () => {
+    installGut();
+    const suite = fakeDeps(gutWrites('<testsuites><testsuite name="t" failures="1"><testcase name="a"/></testsuite></testsuites>'));
+    expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: suite.deps, skipImport: true })).toMatchObject({ reason: 'tests-failed' });
+    const stopped = fakeDeps(() => ({ interrupted: true, exitCode: null }));
+    expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: stopped.deps, skipImport: true })).toMatchObject({ reason: 'interrupted' });
+  });
+
   it('imports first unless skipped', async () => {
     installGut();
     const { deps, calls } = fakeDeps(gutWrites(GUT_PASS));
@@ -236,6 +244,9 @@ describe('exportProject', () => {
     expect(templatesVersionDir('4.4.stable.official.abc')).toBe('4.4.stable');
     expect(templatesVersionDir('4.6.beta2.mono.official.x')).toBe('4.6.beta2.mono');
     expect(templatesRoot('/x/godot', 'linux')).toMatch(/godot[\\/]export_templates$/);
+    expect(versionFromFileName('Godot_v4.5.1-stable_mono_win64_console.exe')).toBe('4.5.1.stable.mono');
+    expect(versionFromFileName('Godot_v4.4-stable_linux.x86_64')).toBe('4.4.stable');
+    expect(versionFromFileName('godot')).toBeUndefined();
   });
 
   it('fails on an unknown preset and on missing templates before running Godot', async () => {

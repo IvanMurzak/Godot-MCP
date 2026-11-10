@@ -24,7 +24,7 @@ import { importCommand } from './commands/import.js';
 import { runScriptCommand } from './commands/run-script.js';
 import { testCommand } from './commands/test.js';
 import { ExitCode } from './utils/exit-codes.js';
-import { formatFromArgv, writeEnvelope } from './utils/output.js';
+import { CommandExit, failActive, formatFromArgv, writeEnvelope } from './utils/output.js';
 import { configureStyledHelp, error as uiError, setVerbose } from './utils/ui.js';
 import { checkForUpdate, isRunningViaNpx, printUpdateNotification } from './utils/update-check.js';
 
@@ -103,18 +103,27 @@ program.parseAsync()
     }
   })
   .catch((err) => {
+    // A command finished through its output: the exit is scheduled once stdout has flushed.
+    if (err instanceof CommandExit) return;
     if (err instanceof CommanderError) {
       // --help / --version are not errors.
       if (err.exitCode === 0) process.exit(ExitCode.Success);
       // Commander already printed the message to stderr; machine formats also get the envelope on stdout.
       const args = process.argv.slice(2);
-      const format = formatFromArgv(args);
+      const format = formatFromArgv(args)?.toLowerCase();
       if (format === 'json' || format === 'ndjson') {
-        const command = program.commands.find((c) => args.includes(c.name()))?.name() ?? program.name();
+        const first = args.find((a) => !a.startsWith('-'));
+        const command = program.commands.find((c) => c.name() === first)?.name() ?? program.name();
         const message = err.message.replace(/^error: /, '');
         writeEnvelope(format, { success: false, command, data: null, errors: [{ code: 'USAGE', message }], warnings: [] });
       }
       process.exit(ExitCode.Usage);
+    }
+    try {
+      if (failActive(err)) return;
+    } catch (exit) {
+      if (exit instanceof CommandExit) return;
+      throw exit;
     }
     uiError((err as Error).message || String(err));
     process.exit(ExitCode.Error);

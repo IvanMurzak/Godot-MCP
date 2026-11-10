@@ -116,7 +116,7 @@ export const testCommand = addFormatOption(
     projectPath: result.projectPath,
     runner: result.runner,
     junitFile: options.output && result.junitFile ? path.resolve(options.output) : result.junitFile ?? null,
-    summary: report ? { tests: report.tests, passed: report.passed, failed: report.failures + report.errors, skipped: report.skipped } : null,
+    summary: report ? { tests: report.tests, passed: report.passed, failed: report.failures + report.errors, skipped: report.skipped, suiteFailures: report.suiteFailures } : null,
     failures: failed.map((c) => ({ suite: c.suite, name: c.name, file: caseScript(c) ?? null, line: failureLine(c) ?? null, message: failureSummary(c), details: c.details ?? null })),
     loadErrors,
     steps: result.steps,

@@ -219,12 +219,12 @@ Exit codes are shared with `unity-mcp-cli` and `unreal-mcp-cli` (`godot-cli comm
 | Code | Meaning |
 | --- | --- |
 | 0 | Success |
-| 1 | Generic or unclassified error |
+| 1 | Generic or unclassified error; also a run interrupted by Ctrl+C / SIGTERM (the Godot process tree is killed) |
 | 2 | Usage error: unknown command or option, bad flag value or argument (`--help` / `--version` exit 0) |
 | 6 | The command ran and failed: the tool returned an error, script or compilation errors, no test verdict |
-| 7 | The editor or MCP server is unreachable |
-| 8 | Tests ran and at least one failed |
-| 14 | Timeout |
+| 7 | The editor or MCP server is unreachable (also HTTP 502) |
+| 8 | Tests ran and at least one failed (a suite-level setup/teardown failure counts) |
+| 14 | Timeout (also HTTP 504) |
 | 17 | The server is busy (HTTP 503); the call was not executed |
 | 18 | The editor is blocked by a modal dialog (reserved: not detectable in a headless Godot) |
 
@@ -240,7 +240,8 @@ envelope on stdout:
   "warnings": [] }
 ```
 
-`ndjson` prints `{"type":"progress","command":…,"message":…}` lines on stderr and the envelope as one line on stdout.
+`ndjson` prints events on stderr, one JSON object per line (`{"type":"progress","command":…,"message":…}`, and every
+other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
 In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
 `TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
 `IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`. `--raw` keeps working as before.
