@@ -262,14 +262,12 @@ namespace com.IvanMurzak.Godot.MCP
                 // Idempotent across the hot-reload re-entry path (BootAfterReload): if a prior dock is
                 // still live (Teardown not yet run on this matrix version when the deferred boot lands),
                 // remove + free it before re-creating so we never add a SECOND "AI Game Developer" control.
+                // Unconditional: on 4.6+ the EditorDock wrapper can outlive a disposed _dock (it has no script).
+                RemoveEditorDock();
                 if (_dock != null)
-                {
-                    if (GodotObject.IsInstanceValid(_dock))
-                        RemoveControlFromDocks(_dock);
                     FreeStaleNode(ref _dock);
-                }
                 _dock = new GodotMcpDock(connection);
-                AddControlToDock(DockSlot.RightUl, _dock);
+                AddEditorDock(_dock);
             }
             catch (System.Exception ex)
             {
@@ -277,6 +275,38 @@ namespace com.IvanMurzak.Godot.MCP
                 _dock = null;
             }
         }
+
+#if GODOT4_6_OR_GREATER
+        // Godot 4.6 made AddControlToDock/RemoveControlFromDocks obsolete in favour of AddDock(EditorDock). The
+        // legacy pair is now a shim that wraps the control in an EditorDock titled with the control's name; this
+        // does the same wrapping directly. The 4.3-4.5 floor has no EditorDock, so it keeps the legacy calls.
+        EditorDock? _dockHost;
+
+        void AddEditorDock(Control dock)
+        {
+            _dockHost = new EditorDock { Title = dock.Name, DefaultSlot = EditorDock.DockSlot.RightUl };
+            _dockHost.AddChild(dock);
+            AddDock(_dockHost);
+        }
+
+        void RemoveEditorDock()
+        {
+            if (_dockHost != null && GodotObject.IsInstanceValid(_dockHost))
+            {
+                RemoveDock(_dockHost);
+                _dockHost.QueueFree(); // as the legacy shim does; the caller frees the dock control itself
+            }
+            _dockHost = null;
+        }
+#else
+        void AddEditorDock(Control dock) => AddControlToDock(DockSlot.RightUl, dock);
+
+        void RemoveEditorDock()
+        {
+            if (_dock != null && GodotObject.IsInstanceValid(_dock))
+                RemoveControlFromDocks(_dock);
+        }
+#endif
 
         /// <summary>
         /// Print an informational lifecycle line to the Godot output AND capture it into the
@@ -714,6 +744,11 @@ namespace com.IvanMurzak.Godot.MCP
             // the unload races a live connection's threads.)
             try
             {
+                // Before the _dock checks: on 4.6+ the EditorDock wrapper has no script, so it can still be registered
+                // after Godot disposed _dock on a failed unload — remove it anyway, or the next boot adds a second tab.
+                if (GodotObject.IsInstanceValid(this))
+                    RemoveEditorDock();
+
                 if (_dock != null)
                 {
                     // Skip when Godot has already disposed this plugin or the dock — nothing left for us to free.
@@ -723,9 +758,6 @@ namespace com.IvanMurzak.Godot.MCP
                     }
                     else
                     {
-                    // Remove from the dock slot before freeing so Godot does not hold a dangling control ref.
-                    RemoveControlFromDocks(_dock);
-
                     // SYNCHRONOUS free (Free, not QueueFree) on the unload path. A DEFERRED QueueFree would not
                     // run the dock subtree's own _ExitTree disconnect logic until the next idle frame — AFTER the
                     // ALC unload has already been attempted — leaving the panels' pure-managed C# EVENT

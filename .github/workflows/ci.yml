@@ -67,8 +67,10 @@ jobs:
 
       # Coverage REPORTING only — no failing threshold. Publishes the cobertura report
       # produced by coverlet so progress is measurable; the gate never turns red on low coverage.
+      # A failed job may have run no tests at all: upload only what exists then, so a restore/build failure
+      # does not add a second, misleading "no files found" warning. A green job still warns if coverage is missing.
       - name: Upload .NET coverage report
-        if: always()
+        if: success() || (failure() && hashFiles('TestResults/**/coverage.cobertura.xml') != '')
         uses: actions/upload-artifact@v6
         with:
           name: dotnet-coverage

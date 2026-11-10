@@ -202,8 +202,9 @@ jobs:
       # Coverage REPORTING only — no failing threshold. Publishes the cobertura report
       # produced by coverlet so progress is measurable; the gate never turns red on low coverage.
       # Skipped on chain runs: a chain run uploads ONLY its JSON leg record (owner artifact rule).
+      # A failed job may have run no tests at all: upload only what exists then (see ci.yml).
       - name: Upload .NET coverage report
-        if: always() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
+        if: (success() || (failure() && hashFiles('TestResults/**/coverage.cobertura.xml') != '')) && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
           name: dotnet-coverage
