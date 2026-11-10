@@ -32,7 +32,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains(windows ? "```powershell" : "```bash", guide);
             Assert.DoesNotContain(windows ? "```bash" : "```powershell", guide);
             Assert.Contains(windows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", guide);
-            Assert.Contains("run-tool rql-schema --input '{}'", guide);
+            Assert.Contains("setup-skills claude-code", guide);
+            Assert.DoesNotContain("rql-schema", guide);
             Assert.DoesNotContain("<tool-name>", guide);
             Assert.DoesNotMatch("@[A-Z_]+@", guide);
             Assert.DoesNotContain("<<'EOF'", guide);
@@ -116,7 +117,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 Assert.Contains("godot-cli", tool);
                 Assert.Contains("ai-game-dev-app", tool);
                 Assert.DoesNotContain("npm install", tool);
-                Assert.Contains(Skill_Cli.IsWindows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", File.ReadAllText(Path.Combine(root, "godot-cli", "SKILL.md")));
+                Assert.Contains(Skill_Cli.IsWindows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", File.ReadAllText(Path.Combine(root, "godot-cli-install", "SKILL.md")));
+                Assert.False(Directory.Exists(Path.Combine(root, "godot-cli")), "godot-cli belongs to the CLI's setup-skills");
                 Assert.Contains("Blender", File.ReadAllText(Path.Combine(root, "ai-game-dev-app", "SKILL.md")));
                 Assert.Equal(new[] { "guide-test" }, plugin.McpManager.ToolManager!.GetAllTools().Select(t => t.Name));
             }

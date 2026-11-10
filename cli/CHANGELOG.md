@@ -4,6 +4,11 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`setup-skills` writes a cold-start `godot-cli` skill** instead of the outdated install guide and the ten
+  hand-written tool-family skills: no `status` / `run-tool rql-schema` first, `rql` recipes, `check` / `test`,
+  `--format json` and the exit codes, with `references/rql.md` and `references/install.md` for depth. Offline, from
+  the same source as the root `--help` (`src/lib/cli-guide.ts`). The `godot-mcp*` skills of earlier versions are
+  removed; the addon's own install guide is now `godot-cli-install`, so the editor no longer overwrites `godot-cli`.
 - **`rql '<query>'`: one RQL query without JSON quoting.** A query ending in `set` / `call` goes to `rql-mutate`
   (`--dry-run`, `--max-targets`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` / `-f -`
   reads the query. After a save (`SaveScene()`, `NewScene(...)`, resource edits) it lists the files written, and an

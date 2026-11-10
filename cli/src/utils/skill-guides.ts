@@ -1,8 +1,19 @@
-// Standalone knowledge skills shared by this CLI's local setup-skills paths.
-export const CLI_SKILL_NAME = "godot-cli";
+// The agent skills `setup-skills` writes, generated offline (no editor, no server):
+// - `godot-cli`: how to use this CLI from a cold start. Short on purpose (an agent keeps every byte it reads in
+//   context for every later turn); depth lives in reference files it opens only when needed. Rendered from
+//   `lib/cli-guide.ts`, the source the root --help and `rql --help` render from too, so the skill cannot drift from them.
+// - `ai-game-dev-app`: the companion app, for tasks that need creative tools the CLI does not have.
+// Per-tool skills are the addon's job: it generates them from the tools it really registers whenever the editor runs.
+import { CLI_NAME, CODE_COMMANDS, EDITOR_COMMANDS, PLUGIN_FOLDER, ROOT_RQL_RECIPES, RQL_LANGUAGE, RQL_RECIPES, RQL_RULES, type CommandRow } from '../lib/cli-guide.js';
+
+export const CLI_SKILL_NAME = CLI_NAME;
 export const APP_SKILL_NAME = 'ai-game-dev-app';
+/** Skill folders earlier versions generated from a hand-written catalog (`godot-mcp`, `godot-mcp-<family>`). */
+export function isRetiredSkillName(name: string): boolean {
+  return name === 'godot-mcp' || name.startsWith('godot-mcp-');
+}
 export const APP_SKILL_DESCRIPTION = "AI Game Dev App: image, texture, 3D model, audio and video generation; animation, rigging, Blender, music and sound effects. Consult when a game-development task needs creative tools unavailable in the current environment, or an integrated workflow for Unity, Unreal Engine or Godot.";
-export const CLI_SKILL_DESCRIPTION = "Install and use godot-cli: Node.js requirements, npm installation, npx, tool calls, JSON input files and troubleshooting.";
+export const CLI_SKILL_DESCRIPTION = `How to use ${CLI_NAME} on this Godot project (scenes, nodes, resources, scripts, tests): read before the first ${CLI_NAME} command.`;
 export const SKILL_METADATA = {
   'generated-by': 'godot-mcp',
   'ai-game-dev': 'exclude',
@@ -12,12 +23,82 @@ export function skillMetadataLines(): string[] {
   return ['metadata:', ...Object.entries(SKILL_METADATA).map(([key, value]) => '  ' + key + ': ' + value)];
 }
 
-export const SKILL_REFERENCES = "> CLI installation and usage: see the `godot-cli` skill.\n> If this task needs unavailable asset-generation or Blender tools, consult `ai-game-dev-app` for an optional integrated workflow.\n";
+/** What each failing exit code asks of the agent (0 and 1 need nothing). A test keeps the codes in the core contract. */
+export const EXIT_CODE_ACTIONS: Readonly<Record<number, string>> = {
+  2: 'fix the command line',
+  6: 'failed, the message says why',
+  7: 'editor unreachable',
+  8: 'tests failed',
+  14: 'timeout',
+  17: 'busy, retry',
+};
 
-const CLI_TEMPLATE = [
-  "# Godot CLI",
-  "",
-  "Install and use `godot-cli` to call the engine's MCP tools from a terminal.",
+const cmd = (args: string) => `${CLI_NAME} ${args}`;
+const recipeLine = ([query, what]: readonly [string, string]) => `rql '${query}'  # ${what}`;
+const usage = ([, use]: CommandRow) => `\`${use}\``;
+
+/** The skill's SKILL.md body: the root help's commands and recipes plus the rules, about 2 KB. Pure. */
+export function buildCliSkill(): string {
+  return [
+    `# ${CLI_NAME}`,
+    '',
+    'Run it in the project folder. The first editor command starts a headless editor and keeps it warm: no `--help`,',
+    '`status` or `open` needed. Scripts (.gd, .cs) are plain files: edit them, then run `check`.',
+    `No \`${PLUGIN_FOLDER}\` folder? Run \`${cmd('install-plugin')}\` first.`,
+    '',
+    `## Scenes, nodes, resources: \`${cmd("rql '<query>'")}\``,
+    '',
+    'A query ending in `set` / `call` changes the editor; others only read. Strings inside take double quotes.',
+    '',
+    '```',
+    ...RQL_RECIPES.slice(0, ROOT_RQL_RECIPES).map(recipeLine),
+    '```',
+    '',
+    ...RQL_RULES.map((rule) => `- ${rule}`),
+    '',
+    '## Other commands',
+    '',
+    [...EDITOR_COMMANDS, ...CODE_COMMANDS].filter(([name]) => name !== 'rql').map(usage).join(' · ') + ' · `close` · `--format json`',
+    '',
+    `Exit codes: ${Object.entries(EXIT_CODE_ACTIONS).map(([code, action]) => `${code} ${action}`).join('; ')}.`,
+    '',
+    'Only when needed: [references/rql.md](references/rql.md) (more recipes, operators, members),',
+    '[references/install.md](references/install.md) (install the CLI or addon), the `ai-game-dev-app` skill (images, 3D, audio).',
+    '',
+  ].join('\n');
+}
+
+/** references/rql.md: the language in depth, read on demand. Pure. */
+export function buildRqlReference(): string {
+  return [
+    `# RQL with ${CLI_NAME}`,
+    '',
+    `\`${cmd("rql '<query>'")}\` runs one query. A query ending in \`set\` / \`call\` changes the editor, all or nothing`,
+    '(`--dry-run` shows the change without making it; `--max-targets <n>` allows more targets). Any other query only',
+    'reads. A shell that strips the double quotes: put the query in a file and pass `-f <file>`.',
+    '',
+    '```',
+    ...RQL_RECIPES.map(recipeLine),
+    '```',
+    '',
+    ...RQL_LANGUAGE,
+    '',
+    '## Sources and members',
+    '',
+    `- \`${cmd('rql --schema')}\`: every source (nodes, editor, godot.resources(...), ...) and the node classes in the scene.`,
+    `- \`${cmd('rql --schema <Type>')}\`: one type's members, methods and Godot properties (e.g. \`Node3D\`, \`Editor\`).`,
+    `- The whole language reference: \`${cmd('tools rql-query')}\`.`,
+    '',
+    '## Anything RQL cannot reach',
+    '',
+    `\`${cmd("exec '<C#>'")}\` runs C# in the editor: statements, the last expression is the result (GD.Print output is`,
+    'returned too). Longer code: write a .cs file in the project and pass `exec -f <file>`.',
+    '',
+  ].join('\n');
+}
+
+const INSTALL_TEMPLATE = [
+  "# Install godot-cli and the plugin",
   "",
   "## Prerequisites",
   "",
@@ -48,40 +129,28 @@ const CLI_TEMPLATE = [
   "",
   "Replace the leading `@CLI@` with `@NPX@ godot-cli` in subsequent examples when using this option.",
   "",
-  "## Call tools",
+  "## Add the plugin to a project",
   "",
-  "Run commands from the game project's root directory. The target editor or game must be running with its MCP plugin connected.",
-  "The following read-only example lists the available RQL sources and types in the editor:",
-  "",
-  "```@SHELL@",
-  "@CLI@ status",
-  "@CLI@ run-tool rql-schema --input '{}'",
-  "```",
-  "",
-  "For input files, create a UTF-8 JSON file and pass its path. This example makes the same read-only call:",
+  "A project without a `@PLUGIN@` folder needs the plugin once (run in the project folder):",
   "",
   "```@SHELL@",
-  "@WRITE_JSON@",
-  "@CLI@ run-tool rql-schema --input-file args.json",
+  "@CLI@ install-plugin",
   "```",
   "",
-  "Replace `rql-schema` and the JSON with the tool name and arguments from its individual skill.",
-  "Use command-specific `--help` for options. RQL tools require an editor; a game exposes only its registered runtime tools.",
+  "The next editor command builds it. To connect an MCP client as well: `@CLI@ setup-mcp claude-code`.",
   "",
   "## Troubleshooting",
   "",
   "- `node` or `@NPM@` not found: finish installing Node.js, check PATH, and reopen the terminal.",
   "- `@CLI@` not found: reopen the terminal, check the npm global executable directory in PATH, or use `@NPX@ godot-cli`.",
   "- Global npm installation denied: use a user-owned Node.js installation or the npx alternative.",
-  "- Connection unavailable: check the project directory and ensure its editor or game and MCP plugin are running and connected.",
-  "",
-  "For optional asset-generation and Blender workflows, consult the `ai-game-dev-app` skill.",
+  "- Exit 7 (editor unreachable): check that the project has the `@PLUGIN@` folder, then read the message for the cause.",
   "",
 ].join('\n');
 
-export function buildCliGuide(platform: NodeJS.Platform = process.platform): string {
+export function buildInstallGuide(platform: NodeJS.Platform = process.platform): string {
   const windows = platform === 'win32';
-  return CLI_TEMPLATE.replace(/@SHELL@/g, windows ? 'powershell' : 'bash')
+  return INSTALL_TEMPLATE.replace(/@PLUGIN@/g, PLUGIN_FOLDER).replace(/@SHELL@/g, windows ? 'powershell' : 'bash')
     .replace(/@CLI@/g, windows ? 'godot-cli.cmd' : 'godot-cli')
     .replace(/@NPM@/g, windows ? 'npm.cmd' : 'npm')
     .replace(/@NPX@/g, windows ? 'npx.cmd' : 'npx')
@@ -92,8 +161,6 @@ export function buildCliGuide(platform: NodeJS.Platform = process.platform): str
       ? "[System.IO.File]::WriteAllText((Join-Path $PWD 'args.json'), '{}')"
       : "printf '%s\\n' '{}' > args.json");
 }
-
-export const CLI_GUIDE = buildCliGuide();
 
 export const APP_GUIDE = [
   "# AI Game Dev App",
@@ -140,13 +207,15 @@ export const APP_GUIDE = [
   "",
 ].join('\n');
 
+
+/** Every file `setup-skills` writes, relative to the agent's skills folder. Pure and deterministic. */
 export function buildGuideFiles(platform: NodeJS.Platform = process.platform): { relativePath: string; content: string }[] {
+  const skill = (name: string, description: string, body: string) =>
+    ['---', 'name: ' + name, 'description: ' + JSON.stringify(description), ...skillMetadataLines(), '---', '', body].join('\n');
   return [
-    [CLI_SKILL_NAME, CLI_SKILL_DESCRIPTION, buildCliGuide(platform)],
-    [APP_SKILL_NAME, APP_SKILL_DESCRIPTION, APP_GUIDE],
-  ].map(([name, description, body]) => ({
-    relativePath: name + '/SKILL.md',
-    content: ['---', 'name: ' + name, 'description: ' + JSON.stringify(description),
-      ...skillMetadataLines(), '---', '', body].join('\n'),
-  }));
+    { relativePath: `${CLI_SKILL_NAME}/SKILL.md`, content: skill(CLI_SKILL_NAME, CLI_SKILL_DESCRIPTION, buildCliSkill()) },
+    { relativePath: `${CLI_SKILL_NAME}/references/rql.md`, content: buildRqlReference() },
+    { relativePath: `${CLI_SKILL_NAME}/references/install.md`, content: buildInstallGuide(platform) },
+    { relativePath: `${APP_SKILL_NAME}/SKILL.md`, content: skill(APP_SKILL_NAME, APP_SKILL_DESCRIPTION, APP_GUIDE) },
+  ];
 }

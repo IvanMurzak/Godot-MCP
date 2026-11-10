@@ -45,7 +45,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         protected override string BuildSkillContentMarkdown(ISkillContent skill, string skillName)
         {
             var markdown = base.BuildSkillContentMarkdown(skill, skillName);
-            if (skill.Name == "godot-cli" || skill.Name == "ai-game-dev-app")
+            if (skill.Name == Skill_Cli.SkillId || skill.Name == Skill_App.SkillId)
                 return markdown;
             var sb = new StringBuilder(markdown).AppendLine().AppendLine();
             AppendReferences(sb);
@@ -54,7 +54,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
         private static void AppendReferences(StringBuilder sb)
         {
-            sb.AppendLine("> CLI installation and usage: see the `godot-cli` skill.");
+            sb.AppendLine("> CLI usage: the `godot-cli` skill (`godot-cli setup-skills <agent>` writes it); installation: `godot-cli-install`.");
             sb.AppendLine("> If this task needs unavailable asset-generation or Blender tools, consult `ai-game-dev-app` for an optional integrated workflow.");
             sb.AppendLine();
         }

@@ -43,7 +43,7 @@ The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/u
 - :white_check_mark: **Status check** — detect a running Godot editor and probe MCP-server health
 - :white_check_mark: **Run tools** — execute MCP and system tools directly over the server's HTTP API
 - :white_check_mark: **Setup MCP** — write AI-agent MCP-client config for any supported agent
-- :white_check_mark: **Setup skills** — generate Godot-MCP skill files locally (no live editor required)
+- :white_check_mark: **Setup skills** — write the cold-start `godot-cli` agent skill locally (no live editor required)
 - :white_check_mark: **Wait for ready** — poll until the Godot MCP server answers `ping`
 - :white_check_mark: **Cross-platform** — Windows, macOS, and Linux
 - :white_check_mark: **Library API** — a side-effect-free, typed library surface for embedding
@@ -103,7 +103,7 @@ npx godot-cli install-plugin /path/to/godot/project
 | `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
 | `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
 | `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key. |
-| `setup-skills <agent> [path]` | Generate Godot-MCP skill files (a `SKILL.md`-per-tool-family) under the agent's skills path. `--list` shows each agent's skills support. |
+| `setup-skills <agent> [path]` | Write the `godot-cli` agent skill (cold-start workflow, RQL recipes, exit codes) and `ai-game-dev-app` under the agent's skills path, offline. `--list` shows each agent's skills support. |
 | `configure [path]` | List / show / hide tools, prompts, and resources in the project-local `.godot-mcp/features.json` (`--enable-*` shows, `--disable-*` hides; a hidden tool still runs when called by name). |
 | `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). `--owned-only` closes only an editor `godot-cli` started (`exec` / `open --headless`). |
 | `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
@@ -351,17 +351,19 @@ godot-cli setup-skills cursor ./MyGame        # generate into MyGame/.cursor/ski
 godot-cli setup-skills --list                 # list agents + their skills paths
 ```
 
-The command writes a `SKILL.md`-per-tool-family directory (a `godot-mcp/` overview plus one per family:
-`godot-mcp-node`, `godot-mcp-scene`, `godot-mcp-resource`, …) describing the `godot_mcp` addon's tool
-families. It is **idempotent** — re-running rewrites the same bytes.
+It writes, offline (no editor, no server, no network):
 
-Unlike the Unity CLI — which POSTs to a running editor's `/api/system-tools/unity-skill-generate`
-endpoint — the Godot CLI generates the files **locally** from a built-in catalog, so no server and no
-running editor are required. (The addon now *also* exposes `godot-skill-generate` on
-`/api/system-tools/`, but that path needs a booted editor; local generation is the server-less one.) (The addon
-*additionally* auto-generates skills in-process on plugin boot via
-`GodotMcpConnection.Start` → `GenerateSkillFilesIfNeeded`; the CLI command is the
-server-less, scriptable path that does not need a live editor.)
+- `godot-cli/SKILL.md`: how an agent uses this CLI from a cold start: the first editor command starts a headless
+  editor, `rql` with recipes for scenes, nodes and resources, `check` / `test`, `--format json`, what each exit
+  code means. It is short on purpose (an agent keeps every byte it reads in context); `references/rql.md` and
+  `references/install.md` hold the depth, read only when needed. The recipes come from the same source as
+  `godot-cli --help` and `rql --help`, so the skill and the help cannot drift apart.
+- `ai-game-dev-app/SKILL.md`: the companion app, for creative tools the CLI does not have.
+
+It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-mcp` / `godot-mcp-<family>` skills
+earlier versions generated from a hand-written catalog. Per-tool skills are the addon's job: it generates them from
+the tools it really registers whenever the editor runs (toggle in the addon's Skills panel), together with its
+`godot-cli-install` guide.
 
 ## `install-plugin`
 

@@ -7,7 +7,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { runCliAsync } from './helpers/cli.js';
 import { setupSkills } from '../src/lib/setup-skills.js';
-import { buildSkillFiles, SKILL_FAMILIES } from '../src/utils/skills.js';
+import { EXIT_CODES } from '@baizor/gamedev-cli-core';
+import { buildGuideFiles, EXIT_CODE_ACTIONS } from '../src/utils/skill-guides.js';
+import { ROOT_RQL_RECIPES, RQL_LANGUAGE, RQL_RECIPES } from '../src/lib/cli-guide.js';
 import { getAgentById, agentRegistry } from '../src/utils/agents.js';
 
 // ---------------------------------------------------------------------------
@@ -53,63 +55,54 @@ describe('setup-skills command (CLI surface)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Skill content catalog
+// Skill content: the godot-cli cold-start skill, its references and the App guide
 // ---------------------------------------------------------------------------
 
-describe('skill content (Godot tool families)', () => {
-  it('provides referenced standalone guides and marks every generated document for App exclusion', () => {
-    const files = buildSkillFiles();
-    const cli = files.find(f => f.relativePath === 'godot-cli/SKILL.md');
-    const app = files.find(f => f.relativePath === 'ai-game-dev-app/SKILL.md');
-    expect(cli?.content).toContain(process.platform === 'win32' ? 'npm.cmd install -g godot-cli' : 'npm install -g godot-cli');
-    expect(cli?.content).toContain('node --version');
-    expect(app?.content).toContain('Blender');
-    expect(app?.content).toContain('https://ai-game.dev/download');
-    for (const file of files) {
-      const frontMatter = file.content.slice(0, file.content.indexOf('\n---', 4));
-      expect(frontMatter).toContain('metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude');
-      if (file !== cli) expect(file.content).not.toContain('npm install');
-      if (file !== cli && file !== app) {
-        expect(file.content).toContain('`godot-cli` skill');
-        expect(file.content).toContain('`ai-game-dev-app`');
-      }
+const FILES = ['godot-cli/SKILL.md', 'godot-cli/references/rql.md', 'godot-cli/references/install.md', 'ai-game-dev-app/SKILL.md'];
+const skillMd = () => buildGuideFiles().find((f) => f.relativePath === 'godot-cli/SKILL.md')!.content;
+
+describe('skill content', () => {
+  it('emits the CLI skill, its on-demand references and the App guide, nothing per tool family', () => {
+    expect(buildGuideFiles().map((f) => f.relativePath)).toEqual(FILES);
+  });
+
+  it('marks every skill for App exclusion and gives it a name + description', () => {
+    for (const file of buildGuideFiles().filter((f) => f.relativePath.endsWith('SKILL.md'))) {
+      const name = file.relativePath.split('/')[0];
+      expect(file.content.startsWith(`---\nname: ${name}\ndescription: "`)).toBe(true);
+      expect(file.content).toContain('metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n---');
     }
   });
 
-  it('emits root and family files plus the standalone CLI and App guides', () => {
-    const files = buildSkillFiles();
-    expect(files.length).toBe(SKILL_FAMILIES.length + 3);
-    expect(files[0].relativePath).toBe('godot-mcp/SKILL.md');
+  it('shows the root help\'s recipes; its RQL reference has them all and the language (one source)', () => {
+    RQL_RECIPES.forEach(([query, what], i) => {
+      expect(skillMd().includes(`rql '${query}'  # ${what}`)).toBe(i < ROOT_RQL_RECIPES);
+    });
+    const ref = buildGuideFiles().find((f) => f.relativePath === 'godot-cli/references/rql.md')!.content;
+    for (const [query] of RQL_RECIPES) expect(ref).toContain(`rql '${query}'`);
+    for (const line of RQL_LANGUAGE) expect(ref).toContain(line);
   });
 
-  it('describes Godot tool families, not Unity tool names', () => {
-    const all = buildSkillFiles().map((f) => f.content).join('\n');
-    // Godot tool families / tool names must be present
-    expect(all).toContain('rql-query');
-    expect(all).toContain('rql-mutate');
-    expect(all).toContain('rql-schema');
-    expect(all).toContain('screenshot-viewport');
-    expect(all).toContain('reflection-method-call');
-    expect(all).toContain('godot_mcp');
-    // Unity-specific surface must NOT leak in
-    expect(all).not.toContain('unity-skill-generate');
-    expect(all.toLowerCase()).not.toContain('gameobject');
-    expect(all).not.toContain('MenuItem');
-  });
-
-  it('every skill file has valid YAML frontmatter with a name + description', () => {
-    for (const file of buildSkillFiles()) {
-      expect(file.content.startsWith('---\n')).toBe(true);
-      const fm = file.content.slice(4, file.content.indexOf('\n---', 4));
-      expect(fm).toMatch(/^name: \S/m);
-      expect(fm).toMatch(/^description: /m);
+  it('advises only on exit codes of the shared contract', () => {
+    const contract = new Set(EXIT_CODES.map((e) => e.code));
+    for (const code of Object.keys(EXIT_CODE_ACTIONS).map(Number)) {
+      expect(contract.has(code as never)).toBe(true);
+      expect(skillMd().split('\n').find((l) => l.startsWith('Exit codes: '))).toContain(` ${code} `);
     }
+  });
+
+  it('teaches the cold-start workflow, not the retired one', () => {
+    expect(skillMd()).toContain('install-plugin');
+    expect(skillMd()).not.toContain('rql-schema --input');
+    expect(skillMd()).not.toMatch(/editor must be running/i);
+  });
+
+  it('stays short (the agent re-reads every byte each turn) and uses neutral example names', () => {
+    expect(Buffer.byteLength(skillMd())).toBeLessThan(2600);
+    const all = buildGuideFiles().map((f) => f.content).join('\n');
+    expect(all).not.toMatch(/\b(Arena|Crate|Platform|Level1|EnemyStats|GameMath)\b/);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Generation + idempotency (filesystem)
-// ---------------------------------------------------------------------------
 
 describe('setupSkills generation + idempotency', () => {
   let tmpDir: string;
@@ -137,14 +130,13 @@ describe('setupSkills generation + idempotency', () => {
 
     const expectedDir = path.join(tmpDir, agent!.skillsPath!);
     expect(result.skillsDir).toBe(expectedDir);
-    expect(result.filesWritten.length).toBe(SKILL_FAMILIES.length + 3);
+    expect(result.filesWritten.length).toBe(FILES.length);
 
-    // Root + every family file exist on disk under the agent's skills path.
     for (const file of result.filesWritten) {
       expect(fs.existsSync(file)).toBe(true);
       expect(file.startsWith(expectedDir)).toBe(true);
     }
-    expect(fs.existsSync(path.join(expectedDir, 'godot-mcp', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(expectedDir, 'godot-cli', 'SKILL.md'))).toBe(true);
   });
 
   const unskilledAgentIds = agentRegistry.filter((a) => !a.skillsPath).map((a) => a.id);
@@ -193,27 +185,17 @@ describe('setupSkills generation + idempotency', () => {
     });
   });
 
-  it('prunes orphaned godot-mcp* family dirs on re-run, leaving foreign dirs', async () => {
-    const first = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
-    expect(first.kind).toBe('success');
-    if (first.kind !== 'success') return;
-
-    // A stale family dir the catalog no longer emits, plus a foreign dir.
-    const orphanDir = path.join(first.skillsDir, 'godot-mcp-obsolete');
-    const foreignDir = path.join(first.skillsDir, 'some-other-skill');
-    fs.mkdirSync(orphanDir, { recursive: true });
-    fs.writeFileSync(path.join(orphanDir, 'SKILL.md'), 'STALE\n');
-    fs.mkdirSync(foreignDir, { recursive: true });
-    fs.writeFileSync(path.join(foreignDir, 'SKILL.md'), 'KEEP\n');
-
-    const second = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
-    expect(second.kind).toBe('success');
-
-    // The orphaned godot-mcp* dir is gone; the unrelated dir is untouched.
-    expect(fs.existsSync(orphanDir)).toBe(false);
-    expect(fs.existsSync(foreignDir)).toBe(true);
-    // Current catalog dirs still present.
-    expect(fs.existsSync(path.join(first.skillsDir, 'godot-mcp', 'SKILL.md'))).toBe(true);
+  it('removes the retired godot-mcp* family skills, leaving foreign dirs', async () => {
+    const skillsDir = path.join(tmpDir, '.claude', 'skills');
+    for (const name of ['godot-mcp', 'godot-mcp-node', 'some-other-skill', 'rql-query']) {
+      fs.mkdirSync(path.join(skillsDir, name), { recursive: true });
+      fs.writeFileSync(path.join(skillsDir, name, 'SKILL.md'), 'OLD\n');
+    }
+    const result = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(result.kind === 'success' && result.removed.map((d) => path.basename(d)).sort()).toEqual(['godot-mcp', 'godot-mcp-node']);
+    expect(fs.existsSync(path.join(skillsDir, 'godot-mcp'))).toBe(false);
+    expect(fs.readFileSync(path.join(skillsDir, 'some-other-skill', 'SKILL.md'), 'utf-8')).toBe('OLD\n');
+    expect(fs.existsSync(path.join(skillsDir, 'rql-query', 'SKILL.md'))).toBe(true);
   });
 
   it('overwrites stale content on re-run (regeneration, not append)', async () => {
@@ -221,13 +203,13 @@ describe('setupSkills generation + idempotency', () => {
     expect(first.kind).toBe('success');
     if (first.kind !== 'success') return;
 
-    const rootFile = path.join(first.skillsDir, 'godot-mcp', 'SKILL.md');
-    fs.writeFileSync(rootFile, 'STALE\n');
+    const skillFile = path.join(first.skillsDir, 'godot-cli', 'SKILL.md');
+    fs.writeFileSync(skillFile, 'STALE\n');
 
     const second = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
     expect(second.kind).toBe('success');
-    const after = fs.readFileSync(rootFile, 'utf-8');
+    const after = fs.readFileSync(skillFile, 'utf-8');
     expect(after).not.toContain('STALE');
-    expect(after).toContain('# Godot-MCP');
+    expect(after).toContain('# godot-cli');
   });
 });
