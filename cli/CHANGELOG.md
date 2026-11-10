@@ -4,6 +4,15 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`rql '<query>'`: one RQL query without JSON quoting.** A query ending in `set` / `call` goes to `rql-mutate`
+  (`--dry-run`, `--max-targets`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` / `-f -`
+  reads the query. After a save (`SaveScene()`, `NewScene(...)`, resource edits) it lists the files written, and an
+  operator spelled as in another language (`startsWith`, `like`) gets a hint.
+- **`run-tool` text mode prints the answer alone**: a text answer as its text, without the heading, the Tool / URL /
+  Auth lines, the divider and the spinner lines (`--verbose` adds the endpoint; status lines go to stderr; `--raw` and
+  `--format json` are unchanged).
+- **A shorter root `--help` (5.7 KB -> 1.7 KB)**: the everyday commands, the other command names and seven RQL recipes;
+  a subcommand's help starts with a plain line instead of a box.
 - **The exit codes, `--format`, the result envelope, the `commands` manifest and the local-server fallback rule
   now come from `@baizor/gamedev-cli-core` 0.9.0** (one contract for the three engine CLIs). `commands --format json` lists the commands in registration order, adds `globalOptions` and option `choices`, leaves out hidden options (`close --url`) and has reworded exit-code descriptions; `--format` is trimmed, the last one on the command line wins (up to `--`), and a bad value reports `--format must be one of: …`; a `UsageError` reaching the entry point exits 2 (`USAGE`); the envelope is written synchronously, and a json/ndjson command that exits without one still leaves one on stdout. An unreadable
   sign-in no longer prints PowerShell's DPAPI exception, and a forced close of an editor godot-cli started also kills its

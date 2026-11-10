@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
+import { decodeQueryFile, isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
 import { toolResponseText } from '../src/lib/exec.js';
 
 const dirs: string[] = [];
@@ -77,8 +77,17 @@ describe('rqlToolCall / saveReceipt', () => {
   });
 
   it('names the files a save wrote', () => {
-    expect(saveReceipt(['res://a.tscn'])).toBe('Saved to disk: res://a.tscn');
-    expect(saveReceipt(['a', 'b', 'c'], 2)).toBe('Saved to disk: a, b, +1 more');
-    expect(saveReceipt([])).toMatch(/No scene or resource file/);
+    expect(saveReceipt(['res://a.tscn'], true)).toBe('Saved to disk: res://a.tscn');
+    expect(saveReceipt(['a', 'b', 'c'], false, 2)).toBe('Saved to disk: a, b, +1 more');
+    expect(saveReceipt([], true)).toMatch(/No scene or resource file/);
+    expect(saveReceipt([], false)).toBeUndefined();
+  });
+
+  it('reads || as or, decodes a UTF-16 query file, and knows the other save calls', () => {
+    expect(isRqlMutation('nodes | where name == "a" || name == "b" | set Visible = false')).toBe(true);
+    const text = 'nodes | count';
+    expect(decodeQueryFile(Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')]))).toBe(text);
+    expect(rqlMaySave('editor | call SaveAllScenes()')).toBe(true);
+    expect(rqlMaySave('godot.resources("Material") | set props["x"] = 1')).toBe(true);
   });
 });

@@ -10,7 +10,7 @@ export const RQL_SCHEMA_TOOL = 'rql-schema';
 
 /**
  * The query's top-level stages (split on `|` outside strings, `backtick` identifiers, parentheses, brackets and
- * braces), trimmed.
+ * braces; `||` is RQL's or, not a stage break), trimmed.
  */
 export function rqlStages(query: string): string[] {
   const stages: string[] = [];
@@ -28,6 +28,8 @@ export function rqlStages(query: string): string[] {
       depth++;
     } else if (ch === ')' || ch === ']' || ch === '}') {
       depth = Math.max(0, depth - 1);
+    } else if (ch === '|' && query[i + 1] === '|') {
+      i++;
     } else if (ch === '|' && depth === 0) {
       stages.push(query.slice(start, i).trim());
       start = i + 1;
@@ -49,6 +51,13 @@ export function isRqlMutation(query: string): boolean {
  */
 export function stripToolName(query: string): string {
   return query.replace(/^\s*rql-(query|mutate)\s+/, '');
+}
+
+/** A query file's text: UTF-8, or UTF-16 with a byte-order mark (Windows PowerShell 5.1 writes `>` files so). */
+export function decodeQueryFile(bytes: Buffer): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return bytes.subarray(2).toString('utf16le');
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return Buffer.from(bytes.subarray(2)).swap16().toString('utf16le');
+  return bytes.toString('utf-8').replace(/^﻿/, '');
 }
 
 export interface RqlCallOptions {
@@ -104,11 +113,11 @@ export function rqlErrorHint(toolName: string, message: string): string | undefi
   return undefined;
 }
 
-/** A query that may write files: a scene save, a new scene (saved at its path), a resource edit or creation. */
+/** A query that saves files: a scene save, a new scene (saved at its path), a resource edit or creation. */
 export function rqlMaySave(query: string): boolean {
   // Outside string literals and `identifiers`: where name == "SaveScene(" saves nothing.
   const code = query.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`/g, '""');
-  return /\b(SaveScene|NewScene|CreateResource)\s*\(|godot\.resource\(/.test(code);
+  return /\b(SaveScenes?|SaveAllScenes|NewScene|CreateResource|Save)\s*\(|godot\.resources?\(/.test(code);
 }
 
 /** The Godot files a save writes: scenes and resources. */
@@ -144,9 +153,12 @@ export function resourcesWrittenSince(projectDir: string, sinceMs: number): stri
   return found.sort();
 }
 
-/** The line a save prints: the files it wrote (the first `limit`, then how many more), or that it wrote none. */
-export function saveReceipt(written: readonly string[], limit = 20): string {
-  if (written.length === 0) return 'No scene or resource file of the project changed on disk.';
+/**
+ * The line a change prints: the files it wrote (the first `limit`, then how many more). When it wrote none: that, for a
+ * save (`maySave`); nothing for any other change (scene edits stay unsaved until SaveScene()).
+ */
+export function saveReceipt(written: readonly string[], maySave: boolean, limit = 20): string | undefined {
+  if (written.length === 0) return maySave ? 'No scene or resource file of the project changed on disk.' : undefined;
   const more = written.length > limit ? `, +${written.length - limit} more` : '';
   return `Saved to disk: ${written.slice(0, limit).join(', ')}${more}`;
 }

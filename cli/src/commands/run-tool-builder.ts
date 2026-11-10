@@ -122,8 +122,8 @@ export async function runToolAction(
   toolName: string,
   positionalPath: string | undefined,
   options: RunToolCliOptions,
-  /** Runs after a successful call printed its answer, before the command ends. */
-  onSuccess?: () => void,
+  /** After a successful call printed its answer: when the call went out, and whether the editor runs on this machine. */
+  onSuccess?: (call: { calledAt: number; local: boolean }) => void,
 ): Promise<void> {
   const output = new CommandOutput(cfg.name, parseFormat(options.format));
   const human = !options.raw && !output.machine;
@@ -148,12 +148,18 @@ export async function runToolAction(
 
   // Text mode prints the answer alone (agents re-read every line on each later turn); --verbose adds the endpoint.
   const spinner = human && process.stdout.isTTY ? ui.startSpinner(`Calling ${toolName}...`) : null;
-  const call = (url: string) => cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
+  let calledAt = Date.now();
+  let calledUrl = baseUrl;
+  const call = (url: string) => {
+    calledAt = Date.now();
+    calledUrl = url;
+    return cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
+  };
   let result = await call(baseUrl);
-  // Status lines: the spinner (text), the progress stream (json/ndjson), plain stderr with --raw (stdout is the payload).
+  // Status lines: the spinner (a terminal), the progress stream (json/ndjson), else stderr: stdout is the answer alone.
   const note = (message: string): void => {
     if (spinner) spinner.text = message;
-    else if (options.raw && !output.machine) process.stderr.write(message + '\n');
+    else if (!output.machine) process.stderr.write(message + '\n');
     else output.progress(message);
   };
 
@@ -213,7 +219,7 @@ export async function runToolAction(
     if (toolError) {
       return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
     }
-    onSuccess?.();
+    onSuccess?.({ calledAt, local: !conn.cloud && isLocalhostUrl(calledUrl) });
     return output.finish(ExitCode.Success, result.data ?? null);
   }
 

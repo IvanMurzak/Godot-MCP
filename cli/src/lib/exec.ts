@@ -101,7 +101,6 @@ export function buildScriptExecuteInput(code: string, usings: string[], include:
   };
 }
 
-/** The tool's own error text when the server reports one (`{ error }` / text content), else the call failure. */
 /** The text blocks of a tool answer's `content`, and how many blocks it has in all. */
 function textBlocks(data: unknown): { texts: string[]; blocks: number } {
   const content = (data as { content?: unknown } | null | undefined)?.content;
@@ -118,6 +117,7 @@ export function toolResponseText(data: unknown): string | undefined {
   return texts.length > 0 && texts.length === blocks ? texts.join('\n') : undefined;
 }
 
+/** The tool's own error text when the server reports one (`{ error }` / text content), else the call failure. */
 export function toolErrorText(failure: RunToolFailure): string {
   const data = failure.data as {
     error?: unknown;

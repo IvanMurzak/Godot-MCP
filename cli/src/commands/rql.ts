@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { Command, Option } from 'commander';
 import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
-import { RQL_MUTATE_TOOL, resourcesWrittenSince, rqlMaySave, rqlToolCall, saveReceipt, stripToolName } from '../lib/rql.js';
+import { RQL_MUTATE_TOOL, decodeQueryFile, resourcesWrittenSince, rqlMaySave, rqlToolCall, saveReceipt, stripToolName } from '../lib/rql.js';
 import { runTool } from '../lib/run-tool.js';
 import { resolveAndValidateProjectPath } from '../utils/connection.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -54,7 +54,7 @@ const RQL_HELP_FOOTER = [
 function readQuery(query: string | undefined, file: string | undefined): string | undefined {
   if (query !== undefined && file !== undefined) throw new Error('Pass the query either as an argument or with -f, not both.');
   if (file === undefined) return query;
-  return fs.readFileSync(file === '-' ? 0 : file, 'utf-8').trim();
+  return decodeQueryFile(fs.readFileSync(file === '-' ? 0 : file)).trim();
 }
 
 export const rqlCommand = addFormatOption(
@@ -90,13 +90,13 @@ export const rqlCommand = addFormatOption(
   const call = rqlToolCall(query, { schema: options.schema, dryRun: options.dryRun, maxTargets });
   if ('usage' in call) return output.fail(ExitCode.Usage, 'USAGE', call.usage);
 
-  // A save answers without naming its files; which files it wrote is read from the disk, so nobody re-opens the scene.
-  // Not for an editor reached by --url: its disk may be another machine's.
-  const human = !options.raw && !output.machine;
-  const saveCheck = call.toolName === RQL_MUTATE_TOOL && !options.dryRun && human && options.url === undefined && rqlMaySave(query!)
+  // A save answers without naming its files; which files a change wrote is read from the disk, so nobody re-opens the
+  // scene: only for an editor on this machine, and only files written since the tool call itself.
+  const receiptFor = call.toolName === RQL_MUTATE_TOOL && !options.dryRun && !options.raw && !output.machine
     ? resolveAndValidateProjectPath(undefined, options) : undefined;
-  const startedAt = Date.now();
-  await runToolAction(RQL_CALL, call.toolName, undefined, { ...options, input: JSON.stringify(call.input) }, () => {
-    if (saveCheck !== undefined) console.log(saveReceipt(resourcesWrittenSince(saveCheck, startedAt)));
+  await runToolAction(RQL_CALL, call.toolName, undefined, { ...options, input: JSON.stringify(call.input) }, ({ calledAt, local }) => {
+    if (receiptFor === undefined || !local) return;
+    const receipt = saveReceipt(resourcesWrittenSince(receiptFor, calledAt), rqlMaySave(query!));
+    if (receipt) console.log(receipt);
   });
 });
