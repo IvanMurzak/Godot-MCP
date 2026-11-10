@@ -3,7 +3,7 @@ import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { isGodotProject, resolveAndValidateProjectPath } from '../utils/connection.js';
-import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
@@ -49,10 +49,8 @@ export const toolsCommand = addFormatOption(
 ).action(async (name: string | undefined, options: ToolsCliOptions) => {
   const output = new CommandOutput('tools', parseFormat(options.format));
   const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
-  const projectPath = resolveAndValidateProjectPath(undefined, { path: options.path, ...(options.url ? { url: options.url } : {}) });
-  const conn = await resolveEditorConnection(projectPath, options);
-  if (conn.signInRequired) return output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
-  if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+  const projectPath = resolveAndValidateProjectPath(undefined, options);
+  const conn = await connectionForCommand(output, projectPath, options);
 
   let tools: ToolInfo[] | undefined;
   let source: 'editor' | 'cache' | 'built-in' = 'editor';

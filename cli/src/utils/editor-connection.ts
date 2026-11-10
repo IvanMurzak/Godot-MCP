@@ -8,6 +8,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { verbose } from './ui.js';
+import { ExitCode } from './exit-codes.js';
+import type { CommandOutput } from './output.js';
 import { openMachineStore, openProjectStore } from './machine-store.js';
 import { getCredentialsPath } from './credentials.js';
 import { isLocalhostUrl, readProjectMarker } from './project-marker.js';
@@ -242,4 +244,15 @@ export async function resolveEditorConnection(
 export function localFallbackNote(url: string): string {
   return `Not signed in to ai-game.dev on this machine, so the project's local MCP server (${url}) is used; an editor `
     + 'started now serves it (the project stays in Cloud mode). Run `godot-cli login` to use Cloud mode.';
+}
+
+/**
+ * {@link resolveEditorConnection} for a command: an unusable sign-in fails it (NOT_AUTHENTICATED, exit 6), a local
+ * fallback is warned about (stderr / the envelope).
+ */
+export async function connectionForCommand(output: CommandOutput<string>, projectPath: string, options: ConnectionOptions): Promise<EditorConnection> {
+  const conn = await resolveEditorConnection(projectPath, options);
+  if (conn.signInRequired) output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
+  if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+  return conn;
 }

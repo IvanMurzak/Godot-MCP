@@ -96,23 +96,12 @@ export const closeCommand = new Command('close')
       process.exit(1);
     }
 
-    if (options.ownedOnly) {
-      // The local port is derived from the path as typed (exec / open --headless do not resolve links either).
-      await closeOwned(path.resolve(positionalPath ?? process.cwd()), timeoutSeconds, options);
-      return;
-    }
-
+    // The local port is derived from the path as typed (exec / open --headless do not resolve links either).
+    const leasePath = path.resolve(positionalPath ?? process.cwd());
     // An editor godot-cli started (exec, run-tool, tools, open --headless) is windowless: ask its plugin to save and
-    // quit through the lease, as --owned-only does, instead of a window close it cannot receive.
-    try {
-      const owned = await createGodotSession({ projectPath: path.resolve(positionalPath ?? process.cwd()), ...resolveSessionConnection(options) }).session.ownedSession();
-      if (owned) {
-        await closeOwned(path.resolve(positionalPath ?? process.cwd()), timeoutSeconds, options);
-        return;
-      }
-    } catch (err) {
-      verbose(`No usable session lease: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    // quit through the lease instead of a window close it cannot receive. --owned-only stops there.
+    const closedOwned = await closeOwned(leasePath, timeoutSeconds, options, options.ownedOnly === true);
+    if (closedOwned || options.ownedOnly) return;
 
     const platform = nodePlatform() as SupportedPlatform;
     const pid = resolveEditorPid(projectPath);
@@ -175,25 +164,28 @@ export const closeCommand = new Command('close')
  * its plugin (a windowless editor gets no WM_CLOSE). Anything else — no lease, a stale lease, a user's editor — is
  * left alone.
  */
-async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions): Promise<void> {
+async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions, report: boolean): Promise<boolean> {
   let session: ReturnType<typeof createGodotSession>['session'];
   try {
     session = createGodotSession({ projectPath, ...resolveSessionConnection(options) }).session;
   } catch (err) {
+    if (!report) {
+      verbose(`No usable session lease: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
     ui.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
-  const spinner = ui.startSpinner('Closing the editor started by godot-cli...');
   const result = await session.closeOwned({ timeoutMs: timeoutSeconds * 1000, force: options.force === true });
   switch (result.kind) {
     case 'closed':
-      spinner.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
-      return;
+      ui.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
+      return true;
     case 'not-owned':
-      spinner.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
-      return;
+      if (report) ui.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
+      return false;
     case 'still-running':
-      spinner.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
+      ui.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
       process.exit(1);
   }
 }

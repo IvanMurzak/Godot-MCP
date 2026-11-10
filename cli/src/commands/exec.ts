@@ -6,7 +6,7 @@ import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '
 import { resolveAndValidateProjectPath, resolveSessionConnection } from '../utils/connection.js';
 import { collect } from '../utils/input.js';
 import { ExitCode } from '../utils/exit-codes.js';
-import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
 import { DEFAULT_EXEC_TIMEOUT_MS, execCode, readToolResponse } from '../lib/exec.js';
 import { buildFailureMessage, ensureFailureExit, toolFailureExit } from './run-tool-builder.js';
@@ -68,9 +68,7 @@ export const execCommand = addFormatOption(new Command('exec')
 
     const projectPath = resolveAndValidateProjectPath(undefined, { path: options.path });
     // Cloud mode: through ai-game.dev with the sign-in (no editor is started); never signed in: the local server.
-    const conn = await resolveEditorConnection(projectPath, { ...(options.url ? { url: options.url } : {}), ...(options.token ? { token: options.token } : {}) });
-    if (conn.signInRequired) return output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
-    if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+    const conn = await connectionForCommand(output, projectPath, { ...(options.url ? { url: options.url } : {}), ...(options.token ? { token: options.token } : {}) });
     const spinner = options.raw || output.machine ? null : ui.startSpinner('Connecting...');
     const result = await execCode({
       projectPath,

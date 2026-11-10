@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { resolveAndValidateProjectPath } from '../utils/connection.js';
-import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { connectionForCommand } from '../utils/editor-connection.js';
 import { findGodotProcess } from '../utils/godot-process.js';
 import { probe } from '../utils/probe.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -29,9 +29,7 @@ export const statusCommand = addFormatOption(
   const timeoutMs = parseIntFlag(options.timeout, '--timeout');
   const projectPath = resolveAndValidateProjectPath(positionalPath, options);
   // The server the project's editor serves: its mode decides (Cloud with the sign-in; never signed in: the local one).
-  const conn = await resolveEditorConnection(projectPath, options);
-  if (conn.signInRequired) return output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
-  if (conn.localFallback) output.warn(localFallbackNote(conn.url));
+  const conn = await connectionForCommand(output, projectPath, options);
   const { url: serverUrl, token } = conn;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
