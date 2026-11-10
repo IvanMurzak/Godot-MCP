@@ -25,7 +25,7 @@ export const statusCommand = addFormatOption(
     .option('--timeout <ms>', 'Probe timeout in milliseconds (default: 5000)', '5000'),
 ).action(async (positionalPath: string | undefined, options: StatusOptions) => {
   const output = new CommandOutput('status', parseFormat(options.format));
-  const timeoutMs = parseIntFlag(options.timeout ?? '5000', '--timeout');
+  const timeoutMs = parseIntFlag(options.timeout, '--timeout');
   const projectPath = resolveAndValidateProjectPath(positionalPath, options);
   const { url: serverUrl, token } = await resolveConnection(projectPath, options);
 

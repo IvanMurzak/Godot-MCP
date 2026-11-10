@@ -8,10 +8,12 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  notStarted,
   prepareHeadless,
   runGodotStep,
   type HeadlessBaseOptions,
   type HeadlessFailure,
+  type HeadlessResult,
   type HeadlessStep,
 } from './headless.js';
 
@@ -34,9 +36,7 @@ export interface RunScriptReport {
   diagnostics: Diagnostic[];
 }
 
-export type RunScriptResult =
-  | ({ kind: 'success'; success: true } & RunScriptReport)
-  | ({ kind: 'failure'; success: false; reason: HeadlessFailure['reason']; message: string } & Partial<RunScriptReport>);
+export type RunScriptResult = HeadlessResult<RunScriptReport>;
 
 /** `res://` path of a script inside the project, the absolute path otherwise (Godot loads both). */
 export function scriptPathForGodot(projectPath: string, script: string, cwd = process.cwd()): string {
@@ -61,7 +61,7 @@ export async function runScript(options: RunScriptOptions): Promise<RunScriptRes
   const fail = (failure: HeadlessFailure): RunScriptResult => ({ ...failure, ...report });
 
   if (run.timedOut) return fail(headlessFailure('timeout', 'The script timed out (the Godot process tree was killed).'));
-  if (!engineRan(run)) return fail(headlessFailure('script-errors', `Godot did not start${run.spawnError ? `: ${run.spawnError}` : ''} (exit ${run.exitCode}).`));
+  if (!engineRan(run)) return fail(notStarted('script-errors', run));
   const loadErrors = diagnostics.filter((d) => d.severity === 'error' && d.phase === 'load');
   if (loadErrors.length > 0) return fail(headlessFailure('script-errors', `The script failed to load (${loadErrors.length} error(s)).`));
   if (run.exitCode !== 0) return fail(headlessFailure('script-errors', `The script exited with code ${run.exitCode}.`));

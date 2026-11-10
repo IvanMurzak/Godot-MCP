@@ -39,6 +39,6 @@ export const importCommand = addFormatOption(
   }
   const data = result.projectPath ? { projectPath: result.projectPath, diagnostics, steps: result.steps } : null;
   finishHeadless(output, result, data, result.kind === 'failure'
-    ? diagnostics.filter((d) => d.severity === 'error').flatMap((d) => diagnosticErrors(d.source === 'engine' ? 'IMPORT_FAILED' : 'SCRIPT_ERRORS', [d]))
+    ? diagnosticErrors((d) => (d.source === 'engine' ? 'IMPORT_FAILED' : 'SCRIPT_ERRORS'), diagnostics.filter((d) => d.severity === 'error'))
     : [], 'Imported');
 });

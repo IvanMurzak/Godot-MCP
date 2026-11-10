@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { CommandOutput, addFormatOption, exitWithError, parseFormat } from '../utils/output.js';
 import { ExitCode } from '../utils/exit-codes.js';
+import { collect } from '../utils/input.js';
 import { formatDiagnostic } from '../lib/godot-log.js';
 import { caseScript, failureLine, failureSummary, type JUnitCase } from '../lib/junit.js';
 import { TEST_RUNNERS, runTests, type TestRunner } from '../lib/run-tests.js';
@@ -23,10 +24,6 @@ interface TestCliOptions extends HeadlessCliOptions {
   filter?: string;
   output?: string;
   import?: boolean;
-}
-
-function collect(value: string, previous: string[]): string[] {
-  return [...previous, value];
 }
 
 /** GitHub Actions workflow-command escaping (`%`, CR, LF; plus `:` and `,` in properties). */

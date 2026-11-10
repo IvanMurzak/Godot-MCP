@@ -3,7 +3,7 @@ import * as path from 'path';
 import { verbose } from './ui.js';
 import { parseJsonStrict, JsonParseError } from './json-parse.js';
 import { ExitCode } from './exit-codes.js';
-import { exitWithError, parseIntFlag } from './output.js';
+import { exitWithError } from './output.js';
 
 export interface InputOptions {
   input?: string;
@@ -63,7 +63,7 @@ export function parseInput(options: InputOptions): string {
   return '{}';
 }
 
-/** A whole-number flag value (commander supplies the default as text), or exit 2. */
-export function parsePositiveIntFlag(raw: string, flagName: string, allowZero = false): number {
-  return parseIntFlag(raw, flagName, allowZero);
+/** Commander accumulator for a repeatable option. */
+export function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }

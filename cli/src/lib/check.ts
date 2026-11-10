@@ -8,7 +8,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildProject } from './build.js';
+import { buildProject, findProjectCsproj } from './build.js';
+import { GODOT_MCP_PLUGIN_PATH, parseEnabledPlugins, projectGodotPath } from '../utils/project-godot.js';
 import {
   ADDON_LOADED_MARKER,
   cliMarkerLines,
@@ -19,6 +20,7 @@ import {
 import {
   engineRan,
   headlessFailure,
+  notStarted,
   prepareHeadless,
   remainingMs,
   runGodotStep,
@@ -26,6 +28,7 @@ import {
   writeCliScript,
   type HeadlessBaseOptions,
   type HeadlessFailure,
+  type HeadlessResult,
   type HeadlessStep,
 } from './headless.js';
 import type { BuildProjectResult } from './types.js';
@@ -109,15 +112,12 @@ export interface CheckReport {
   csharp: { built: boolean; skipped: boolean } | null;
 }
 
-export type CheckResult =
-  | ({ kind: 'success'; success: true } & CheckReport)
-  | ({ kind: 'failure'; success: false; reason: HeadlessFailure['reason']; message: string } & Partial<CheckReport>);
+export type CheckResult = HeadlessResult<CheckReport>;
 
 /** True when project.godot enables the Godot-MCP addon. */
 export function isAddonEnabled(projectPath: string): boolean {
   try {
-    const text = fs.readFileSync(path.join(projectPath, 'project.godot'), 'utf-8');
-    return /^enabled\s*=.*res:\/\/addons\/godot_mcp\/plugin\.cfg/m.test(text)
+    return parseEnabledPlugins(fs.readFileSync(projectGodotPath(projectPath), 'utf-8')).includes(GODOT_MCP_PLUGIN_PATH)
       && fs.existsSync(path.join(projectPath, 'addons', 'godot_mcp', 'plugin.cfg'));
   } catch {
     return false;
@@ -148,7 +148,7 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
 
   // 2. C# build.
   let compileFailed = false;
-  if (findRootCsproj(ctx.projectPath)) {
+  if (findProjectCsproj(ctx.projectPath, []) !== null) {
     progress('Building C# (dotnet build)...');
     const started = Date.now();
     const built = await (options.build ?? ((p: string) => buildProject({ projectPath: p })))(ctx.projectPath);
@@ -158,7 +158,7 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
     diagnostics.push(...compiler);
     compileFailed = built.kind === 'failure';
     if (compileFailed && !compiler.some((d) => d.severity === 'error')) {
-      diagnostics.push({ severity: 'error', source: 'csharp', message: firstLine(built.kind === 'failure' ? built.errorMessage : 'dotnet build failed') });
+      diagnostics.push({ severity: 'error', source: 'csharp', message: output.split(/\r?\n/)[0] });
     }
     csharp = { built: !compileFailed, skipped: false };
     if (remainingMs(ctx) <= 0) return fail(headlessFailure('timeout', 'The check timed out during the C# build.'));
@@ -176,7 +176,7 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
     if (addon.enabled) {
       addon.loaded = editor.output.includes(ADDON_LOADED_MARKER);
       if (!addon.loaded) {
-        diagnostics.push({ severity: 'error', source: 'gdscript', file: 'res://addons/godot_mcp/plugin.cfg', message: `The Godot-MCP addon did not load (no "${ADDON_LOADED_MARKER}" line in the editor log).` });
+        diagnostics.push({ severity: 'error', source: 'gdscript', file: GODOT_MCP_PLUGIN_PATH, message: `The Godot-MCP addon did not load (no "${ADDON_LOADED_MARKER}" line in the editor log).` });
       }
     }
   }
@@ -203,30 +203,20 @@ export async function checkProject(options: CheckOptions): Promise<CheckResult> 
     }
   }
 
-  const errors = diagnostics.filter((d) => d.severity === 'error');
-  const warnings = diagnostics.filter((d) => d.severity === 'warning' && isStrictWarning(d));
-  if (errors.some((d) => d.source === 'csharp')) {
-    return fail(headlessFailure('compilation-failed', `C# compilation failed with ${errors.filter((d) => d.source === 'csharp').length} error(s).`));
-  }
+  const failing = failingDiagnostics(diagnostics, options.strict === true);
+  const errors = failing.filter((d) => d.severity === 'error');
+  const compileErrors = errors.filter((d) => d.source === 'csharp').length;
+  if (compileErrors > 0) return fail(headlessFailure('compilation-failed', `C# compilation failed with ${compileErrors} error(s).`));
   if (errors.length > 0) return fail(headlessFailure('script-errors', `${errors.length} script error(s).`));
-  if (options.strict && warnings.length > 0) return fail(headlessFailure('script-errors', `${warnings.length} warning(s) (--strict).`));
+  if (failing.length > 0) return fail(headlessFailure('script-errors', `${failing.length} warning(s) (--strict).`));
   return { kind: 'success', success: true, ...report() };
 }
 
-/** Warnings --strict fails on: GDScript warnings and C# compiler (CS) warnings; package/engine warnings never. */
-export function isStrictWarning(d: Diagnostic): boolean {
-  if (d.source === 'gdscript') return true;
-  return d.source === 'csharp' && /^CS\d+$/.test(d.code ?? '');
-}
-
-function findRootCsproj(projectPath: string): boolean {
-  try {
-    return fs.readdirSync(projectPath).some((n) => n.toLowerCase().endsWith('.csproj'));
-  } catch {
-    return false;
-  }
-}
-
-function firstLine(text: string): string {
-  return text.split(/\r?\n/)[0] ?? text;
+/**
+ * The diagnostics that fail a check: every error, plus with `strict` the GDScript warnings and C# compiler (CS)
+ * warnings (package and engine warnings never).
+ */
+export function failingDiagnostics(diagnostics: Diagnostic[], strict: boolean): Diagnostic[] {
+  return diagnostics.filter((d) => d.severity === 'error'
+    || (strict && (d.source === 'gdscript' || (d.source === 'csharp' && /^CS\d+$/.test(d.code ?? '')))));
 }

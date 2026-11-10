@@ -28,8 +28,8 @@ export const waitForReadyCommand = addFormatOption(
     .option('--interval <ms>', 'Polling interval in milliseconds (default: 3000)', '3000'),
 ).action(async (positionalPath: string | undefined, options: WaitForReadyOptions) => {
   const output = new CommandOutput('wait-for-ready', parseFormat(options.format));
-  const timeoutMs = parseIntFlag(options.timeout ?? '120000', '--timeout');
-  const intervalMs = parseIntFlag(options.interval ?? '3000', '--interval');
+  const timeoutMs = parseIntFlag(options.timeout, '--timeout');
+  const intervalMs = parseIntFlag(options.interval, '--interval');
   const projectPath = resolveAndValidateProjectPath(positionalPath, options);
   const { url: serverUrl, token } = await resolveConnection(projectPath, options);
 

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
-import { checkProject, isStrictWarning } from '../lib/check.js';
+import { checkProject, failingDiagnostics } from '../lib/check.js';
 import {
   addHeadlessOptions,
   diagnosticErrors,
@@ -41,7 +41,7 @@ export const checkCommand = addFormatOption(
   });
 
   const diagnostics = result.diagnostics ?? [];
-  const failing = diagnostics.filter((d) => d.severity === 'error' || (options.strict && isStrictWarning(d)));
+  const failing = failingDiagnostics(diagnostics, options.strict === true);
   for (const m of result.engineMessages ?? []) output.warnings.push(`engine ${m.severity}: ${m.message}`);
   for (const d of diagnostics.filter((x) => x.severity === 'warning' && !options.strict)) output.warnings.push(`${d.file ?? ''}${d.line ? `:${d.line}` : ''} ${d.message}`.trim());
 
@@ -60,7 +60,7 @@ export const checkCommand = addFormatOption(
     steps: result.steps,
   };
   const errors = result.kind === 'failure'
-    ? failing.map((d) => diagnosticErrors(d.source === 'csharp' ? 'COMPILATION_FAILED' : 'SCRIPT_ERRORS', [d])[0])
+    ? diagnosticErrors((d) => (d.source === 'csharp' ? 'COMPILATION_FAILED' : 'SCRIPT_ERRORS'), failing)
     : [];
   finishHeadless(output, result, data, errors, 'No script or compilation errors');
 });

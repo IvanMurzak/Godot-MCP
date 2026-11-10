@@ -4,9 +4,9 @@ import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { DEFAULT_SESSION_IDLE_SECONDS, DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import { resolveAndValidateProjectPath, resolveSessionConnection } from '../utils/connection.js';
-import { parsePositiveIntFlag } from '../utils/input.js';
+import { collect } from '../utils/input.js';
 import { ExitCode } from '../utils/exit-codes.js';
-import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
+import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
 import { DEFAULT_EXEC_TIMEOUT_MS, execCode, readToolResponse } from '../lib/exec.js';
 import { buildFailureMessage, ensureFailureExit, toolFailureExit } from './run-tool-builder.js';
 
@@ -25,10 +25,6 @@ interface ExecCliOptions {
   url?: string;
   token?: string;
   format?: string;
-}
-
-function collect(value: string, previous: string[]): string[] {
-  return [...previous, value];
 }
 
 function readCode(code: string | undefined, file: string | undefined): string {
@@ -59,9 +55,9 @@ export const execCommand = addFormatOption(new Command('exec')
   .option('--token <token>', 'Bearer token (default: GODOT_MCP_TOKEN)'))
   .action(async (codeArg: string | undefined, options: ExecCliOptions) => {
     const output = new CommandOutput('exec', parseFormat(options.format));
-    const idleSeconds = parsePositiveIntFlag(options.idle, '--idle', true);
-    const readyTimeoutMs = parsePositiveIntFlag(options.readyTimeout, '--ready-timeout');
-    const timeoutMs = parsePositiveIntFlag(options.timeout, '--timeout');
+    const idleSeconds = parseIntFlag(options.idle, '--idle', true);
+    const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
+    const timeoutMs = parseIntFlag(options.timeout, '--timeout');
     let code: string;
     try {
       code = readCode(codeArg, options.file);

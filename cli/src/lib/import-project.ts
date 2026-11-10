@@ -2,7 +2,7 @@
 // errors). Library-safe.
 
 import type { Diagnostic } from './godot-log.js';
-import { prepareHeadless, runImportStep, type HeadlessBaseOptions, type HeadlessFailure, type HeadlessStep } from './headless.js';
+import { prepareHeadless, runImportStep, type HeadlessBaseOptions, type HeadlessResult, type HeadlessStep } from './headless.js';
 
 export interface ImportReport {
   projectPath: string;
@@ -10,9 +10,7 @@ export interface ImportReport {
   diagnostics: Diagnostic[];
 }
 
-export type ImportResult =
-  | ({ kind: 'success'; success: true } & ImportReport)
-  | ({ kind: 'failure'; success: false; reason: HeadlessFailure['reason']; message: string } & Partial<ImportReport>);
+export type ImportResult = HeadlessResult<ImportReport>;
 
 export async function importProject(options: HeadlessBaseOptions): Promise<ImportResult> {
   const ctx = prepareHeadless(options);

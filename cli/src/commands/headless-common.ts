@@ -3,11 +3,11 @@
 import type { Command } from 'commander';
 import * as ui from '../utils/ui.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
-import { CommandOutput, exitWithError, parseIntFlag, type EnvelopeError, type ErrorCode } from '../utils/output.js';
+import { CommandOutput, parseIntFlag, type EnvelopeError, type ErrorCode } from '../utils/output.js';
 import { formatDiagnostic, type Diagnostic } from '../lib/godot-log.js';
 import type { HeadlessFailureReason, HeadlessStep } from '../lib/headless.js';
 
-export const REASON_EXIT: Record<HeadlessFailureReason, { exitCode: ExitCodeValue; code: ErrorCode }> = {
+const REASON_EXIT: Record<HeadlessFailureReason, { exitCode: ExitCodeValue; code: ErrorCode }> = {
   'invalid-options': { exitCode: ExitCode.Usage, code: 'USAGE' },
   'not-found': { exitCode: ExitCode.CommandFailed, code: 'NOT_FOUND' },
   'project-open': { exitCode: ExitCode.CommandFailed, code: 'PROJECT_OPEN' },
@@ -38,19 +38,18 @@ export function addHeadlessOptions(cmd: Command, defaultTimeoutMs: number, allow
   return cmd;
 }
 
-/** The project path from `[path]` / `--path` / cwd; a missing directory is a usage error. */
+/** The project path from `[path]` / `--path` / cwd (validated by the library). */
 export function headlessProjectPath(positional: string | undefined, options: HeadlessCliOptions): string {
-  const value = positional ?? options.path ?? process.cwd();
-  return value;
+  return positional ?? options.path ?? process.cwd();
 }
 
 export function headlessTimeout(options: HeadlessCliOptions): number {
   return parseIntFlag(options.timeout, '--timeout');
 }
 
-/** Diagnostics as the envelope's error entries (one per diagnostic, code from the failure). */
-export function diagnosticErrors(code: ErrorCode, diagnostics: Diagnostic[]): EnvelopeError[] {
-  return diagnostics.map((d) => ({ code, message: formatDiagnostic(d) }));
+/** Diagnostics as the envelope's error entries, one per diagnostic; `code` picks each one's error code. */
+export function diagnosticErrors(code: ErrorCode | ((d: Diagnostic) => ErrorCode), diagnostics: Diagnostic[]): EnvelopeError[] {
+  return diagnostics.map((d) => ({ code: typeof code === 'function' ? code(d) : code, message: formatDiagnostic(d) }));
 }
 
 export function printDiagnostics(diagnostics: Diagnostic[]): void {
@@ -86,4 +85,3 @@ export function finishHeadless(
   return output.finish(mapped.exitCode, data, [{ code: mapped.code, message: result.message ?? 'failed' }, ...extraErrors]);
 }
 
-export { exitWithError };

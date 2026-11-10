@@ -8,14 +8,17 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  notStarted,
   prepareHeadless,
   runGodotStep,
   runImportStep,
   type HeadlessBaseOptions,
   type HeadlessFailure,
+  type HeadlessResult,
   type HeadlessStep,
 } from './headless.js';
 import { parseJUnit, type JUnitReport } from './junit.js';
+import { isGodotProjectRoot } from '../utils/project-godot.js';
 
 export type TestRunner = 'gut' | 'gdunit4';
 
@@ -54,9 +57,7 @@ export interface TestsReport {
   loadErrors: Diagnostic[];
 }
 
-export type RunTestsResult =
-  | ({ kind: 'success'; success: true } & TestsReport)
-  | ({ kind: 'failure'; success: false; reason: HeadlessFailure['reason']; message: string } & Partial<TestsReport>);
+export type RunTestsResult = HeadlessResult<TestsReport>;
 
 /** The test runners installed in a project. */
 export function detectTestRunners(projectPath: string): TestRunner[] {
@@ -154,7 +155,8 @@ function findGdUnitReport(reportDir: string): string | undefined {
 
 export async function runTests(options: RunTestsOptions): Promise<RunTestsResult> {
   const projectPath = path.resolve(options.projectPath);
-  const installed = fs.existsSync(path.join(projectPath, 'project.godot')) ? detectTestRunners(projectPath) : [];
+  // Before prepareHeadless: a missing runner is reported without looking for a binary or an open editor.
+  const installed = isGodotProjectRoot(projectPath) ? detectTestRunners(projectPath) : [];
   const runner = options.runner ?? installed[0];
   if (!runner || !installed.includes(runner)) {
     const wanted = options.runner ? [options.runner] : (Object.keys(TEST_RUNNERS) as TestRunner[]);
@@ -169,7 +171,9 @@ export async function runTests(options: RunTestsOptions): Promise<RunTestsResult
   if (ctx.kind === 'failure') return ctx;
   const progress = options.onProgress ?? (() => undefined);
   const dirs = options.dirs?.map((d) => toResPath(ctx.projectPath, d));
-  const runDir = path.join(ctx.workDir, 'test', String(Date.now()));
+  // One report folder, cleared per run (the previous run's reports would otherwise pile up in .godot/).
+  const runDir = path.join(ctx.workDir, 'test');
+  fs.rmSync(runDir, { recursive: true, force: true });
   fs.mkdirSync(runDir, { recursive: true });
   const junitFile = path.join(runDir, 'junit.xml');
   const reportDir = path.join(runDir, 'gdunit-reports');
@@ -186,7 +190,7 @@ export async function runTests(options: RunTestsOptions): Promise<RunTestsResult
   const run = await runGodotStep(ctx, 'test', runnerArgs(runner, { projectPath: ctx.projectPath, ...(dirs ? { dirs } : {}), ...(options.filter ? { filter: options.filter } : {}), junitFile, reportDir }));
   report.loadErrors = parseGodotLog(run.output).filter((d) => d.severity === 'error' && d.source === 'gdscript' && d.phase === 'load' && !d.file?.startsWith('res://addons/'));
   if (run.timedOut) return fail(headlessFailure('timeout', `The ${TEST_RUNNERS[runner].label} run timed out (the Godot process tree was killed).`));
-  if (!engineRan(run)) return fail(headlessFailure('test-run-error', `Godot did not start${run.spawnError ? `: ${run.spawnError}` : ''} (exit ${run.exitCode}).`));
+  if (!engineRan(run)) return fail(notStarted('test-run-error', run));
 
   const xmlFile = runner === 'gut' ? junitFile : findGdUnitReport(reportDir);
   if (!xmlFile || !fs.existsSync(xmlFile)) {

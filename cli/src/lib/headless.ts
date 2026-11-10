@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { findGodotBinary } from '../utils/godot-editor.js';
 import { findGodotProcess } from '../utils/godot-process.js';
+import { isGodotProjectRoot } from '../utils/project-godot.js';
 import { GODOT_BANNER_RE, parseGodotLog, type Diagnostic } from './godot-log.js';
 import { runGodot, type GodotRunOptions, type GodotRunResult } from './godot-run.js';
 
@@ -65,6 +66,16 @@ export function headlessFailure(reason: HeadlessFailureReason, message: string):
   return { kind: 'failure', success: false, reason, message };
 }
 
+/** A headless command's result: its report on success, as much of it as exists on failure. */
+export type HeadlessResult<R> =
+  | ({ kind: 'success'; success: true } & R)
+  | (HeadlessFailure & Partial<R>);
+
+/** The failure of a run that never printed Godot's banner. */
+export function notStarted(reason: HeadlessFailureReason, run: GodotRunResult): HeadlessFailure {
+  return headlessFailure(reason, `Godot did not start${run.spawnError ? `: ${run.spawnError}` : ''} (exit ${run.exitCode}).`);
+}
+
 export interface HeadlessContext {
   kind: 'context';
   projectPath: string;
@@ -88,7 +99,7 @@ export function cliWorkDir(projectPath: string): string {
 export function prepareHeadless(options: HeadlessBaseOptions): HeadlessContext | HeadlessFailure {
   const deps: HeadlessDeps = { ...defaultHeadlessDeps, ...options.deps };
   const projectPath = path.resolve(options.projectPath);
-  if (!fs.existsSync(path.join(projectPath, 'project.godot'))) {
+  if (!isGodotProjectRoot(projectPath)) {
     return headlessFailure('invalid-options', `Not a Godot project (missing project.godot): ${projectPath}`);
   }
   if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) {
@@ -160,7 +171,7 @@ export async function runImportStep(ctx: HeadlessContext, onLine?: (line: string
   const diagnostics = parseGodotLog(result.output);
   if (result.timedOut) return { result, diagnostics, failure: headlessFailure('timeout', 'The import timed out (the Godot process tree was killed).') };
   if (!engineRan(result)) {
-    return { result, diagnostics, failure: headlessFailure('import-failed', `Godot did not start${result.spawnError ? `: ${result.spawnError}` : ''} (exit ${result.exitCode}).`) };
+    return { result, diagnostics, failure: notStarted('import-failed', result) };
   }
   const scriptErrors = diagnostics.filter((d) => d.severity === 'error' && d.source === 'gdscript');
   if (scriptErrors.length > 0) return { result, diagnostics, failure: headlessFailure('script-errors', `${scriptErrors.length} script error(s) during import.`) };

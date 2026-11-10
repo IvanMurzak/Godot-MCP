@@ -136,7 +136,6 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     const spinner = human ? ui.startSpinner(`Calling ${toolName}...`) : null;
     const call = (url: string) => cfg.invoke({ toolName, url, ...(token ? { token } : {}), input: body, timeoutMs });
     let result = await call(baseUrl);
-    let closeStarted: (() => Promise<void>) | undefined;
 
     // No editor answers on the project's local server: start a headless one (exec's policy: a running editor is
     // reused and never closed), then retry.
@@ -164,20 +163,15 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
       }
       const { ensured, godot } = editor;
       verbose(`Editor ${ensured.source} on ${ensured.ready}`);
-      if (options.once && ensured.source === 'started') {
-        closeStarted = async () => {
-          const closed = await godot.session.closeOwned();
-          if (closed.kind === 'closed') output.progress(`Closed the editor this call started (PID ${closed.pid}).`);
-          if (closed.kind !== 'closed') output.warn(`The editor this call started was not closed (${closed.kind}).`);
-        };
-      }
       endpoint = `${ensured.ready}${cfg.routePrefix}/${encodeURIComponent(toolName)}`;
       if (spinner) spinner.text = `Calling ${toolName}...`;
       result = await call(ensured.ready);
-    }
-    if (closeStarted) {
-      if (spinner) spinner.text = 'Closing the started editor...';
-      await closeStarted();
+      if (options.once && ensured.source === 'started') {
+        if (spinner) spinner.text = 'Closing the started editor...';
+        const closed = await godot.session.closeOwned();
+        if (closed.kind === 'closed') output.progress(`Closed the editor this call started (PID ${closed.pid}).`);
+        else output.warn(`The editor this call started was not closed (${closed.kind}).`);
+      }
     }
 
     if (result.kind === 'success') {

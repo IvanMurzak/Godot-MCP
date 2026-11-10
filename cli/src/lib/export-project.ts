@@ -9,10 +9,12 @@ import { parseGodotLog, type Diagnostic } from './godot-log.js';
 import {
   engineRan,
   headlessFailure,
+  notStarted,
   prepareHeadless,
   runGodotStep,
   type HeadlessBaseOptions,
   type HeadlessFailure,
+  type HeadlessResult,
   type HeadlessStep,
 } from './headless.js';
 
@@ -41,9 +43,7 @@ export interface ExportReport {
   diagnostics: Diagnostic[];
 }
 
-export type ExportResult =
-  | ({ kind: 'success'; success: true } & ExportReport)
-  | ({ kind: 'failure'; success: false; reason: HeadlessFailure['reason']; message: string } & Partial<ExportReport>);
+export type ExportResult = HeadlessResult<ExportReport>;
 
 export interface ExportPreset {
   name: string;
@@ -135,7 +135,8 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
   if (mode !== 'pack' && custom === '') {
     const version = options.godotVersion ?? godotVersion(ctx.binary);
     if (!version) return fail(headlessFailure('export-failed', `Could not read the Godot version (${ctx.binary} --version).`));
-    const dir = path.join(templatesRoot(ctx.binary), templatesVersionDir(version));
+    const versionDir = templatesVersionDir(version);
+    const dir = path.join(templatesRoot(ctx.binary), versionDir);
     report.templatesDir = dir;
     let installed = false;
     try {
@@ -144,7 +145,7 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
       installed = false;
     }
     if (!installed) {
-      return fail(headlessFailure('not-found', `Export templates for Godot ${templatesVersionDir(version)} are not installed (expected in ${dir}). Install them from the editor (Editor > Manage Export Templates) or download the .tpz from godotengine.org.`));
+      return fail(headlessFailure('not-found', `Export templates for Godot ${versionDir} are not installed (expected in ${dir}). Install them from the editor (Editor > Manage Export Templates) or download the .tpz from godotengine.org.`));
     }
   } else if (custom !== '' && mode !== 'pack' && !fs.existsSync(custom)) {
     return fail(headlessFailure('not-found', `The preset's custom ${mode} template does not exist: ${custom}`));
@@ -156,7 +157,7 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
   const run = await runGodotStep(ctx, 'export', [`--export-${mode}`, options.preset, output]);
   report.diagnostics = parseGodotLog(run.output).filter((d) => d.severity === 'error');
   if (run.timedOut) return fail(headlessFailure('timeout', 'The export timed out (the Godot process tree was killed).'));
-  if (!engineRan(run)) return fail(headlessFailure('export-failed', `Godot did not start${run.spawnError ? `: ${run.spawnError}` : ''} (exit ${run.exitCode}).`));
+  if (!engineRan(run)) return fail(notStarted('export-failed', run));
 
   let stat: fs.Stats | undefined;
   try {
