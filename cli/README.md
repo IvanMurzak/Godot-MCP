@@ -178,8 +178,9 @@ the addon's default). Custom mode uses the local server above. Cloud mode uses t
 ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is
 persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6,
 `NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. The same holds for `open`, `tools` and
-`open --headless`: on a Cloud project of a signed-in machine `open --headless` starts no editor (exit 6, `CLOUD_PROJECT`,
-or `NOT_AUTHENTICATED` when the sign-in cannot be used). An explicit `--url` / `--token` is used as is.
+`open --headless`: on a Cloud project of a signed-in machine `open --headless` starts no editor and exits 6 (use `open`,
+`run-tool` and `exec`, which go through ai-game.dev). An explicit `--url` / `--token` is used as is; a non-local
+`--url` / `GODOT_MCP_HOST` is called directly by `exec` and refused by `open --headless` (a headless editor is local).
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 

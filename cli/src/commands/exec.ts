@@ -7,6 +7,7 @@ import { resolveAndValidateProjectPath, resolveSessionConnection } from '../util
 import { collect } from '../utils/input.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { connectionForCommand } from '../utils/editor-connection.js';
+import { isLocalhostUrl } from '../utils/project-marker.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
 import { DEFAULT_EXEC_TIMEOUT_MS, execCode, readToolResponse } from '../lib/exec.js';
 import { buildFailureMessage, ensureFailureExit, toolFailureExit } from './run-tool-builder.js';
@@ -81,7 +82,8 @@ export const execCommand = addFormatOption(new Command('exec')
       readyTimeoutMs,
       timeoutMs,
       ...resolveSessionConnection(options),
-      ...(conn.cloud ? { remoteUrl: conn.url, token: conn.token } : {}),
+      // The cloud, or a non-local --url / GODOT_MCP_HOST: talk to that server and start nothing (a session is local only).
+      ...(conn.cloud || !isLocalhostUrl(conn.url) ? { remoteUrl: conn.url, token: conn.token } : {}),
       ...(conn.localFallback ? { url: conn.url } : {}),
       ...(options.editorPath ? { editorPath: options.editorPath } : {}),
       onStatus: (message) => {

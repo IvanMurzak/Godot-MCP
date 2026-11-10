@@ -9,6 +9,8 @@ import {
   godotUserDataDir,
   readProjectConnection,
   readProjectEnvFile,
+  CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE,
+  NOT_LOCAL_SERVER_MESSAGE,
   localEditorRefusal,
   resolveEditorConnection,
   signInState,
@@ -157,15 +159,30 @@ describe('execCode with remoteUrl (Cloud mode)', () => {
 
 describe('localEditorRefusal (no headless editor on a local server for a signed-in Cloud project)', () => {
   const base = { token: undefined, localFallback: false };
-  it('refuses an unusable sign-in (NOT_AUTHENTICATED) and a working one (CLOUD_PROJECT)', () => {
-    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, cloud: true, signInRequired: SIGNED_IN_BUT_UNUSABLE_MESSAGE }))
-      .toEqual({ code: 'NOT_AUTHENTICATED', message: SIGNED_IN_BUT_UNUSABLE_MESSAGE });
-    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, token: 'tok', cloud: true })?.code).toBe('CLOUD_PROJECT');
+  const signedIn = () => true;
+  const neverSignedIn = () => false;
+  it('refuses an unusable sign-in and a working one', () => {
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, cloud: true, signInRequired: SIGNED_IN_BUT_UNUSABLE_MESSAGE }, signedIn))
+      .toBe(SIGNED_IN_BUT_UNUSABLE_MESSAGE);
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, token: 'tok', cloud: true }, signedIn)).toBe(CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE);
   });
 
-  it('allows a never-signed-in fallback, Custom mode and an explicit --url', () => {
-    expect(localEditorRefusal({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: true })).toBeUndefined();
-    expect(localEditorRefusal({ ...base, url: 'http://localhost:5000', cloud: false })).toBeUndefined();
+  it('allows a never-signed-in fallback, a token without a sign-in, Custom mode and a localhost --url', () => {
+    expect(localEditorRefusal({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: true }, neverSignedIn)).toBeUndefined();
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, token: 'env-token', cloud: true }, neverSignedIn)).toBeUndefined();
+    expect(localEditorRefusal({ ...base, url: 'http://localhost:5000', cloud: false }, signedIn)).toBeUndefined();
+  });
+
+  it('refuses a non-local --url / GODOT_MCP_HOST (a session never silently swaps it for the local port)', () => {
+    expect(localEditorRefusal({ ...base, url: 'https://ai-game.dev/mcp', cloud: false }, signedIn)).toBe(NOT_LOCAL_SERVER_MESSAGE);
+  });
+});
+
+describe('resolveEditorConnection: GODOT_MCP_CLOUD_URL moves the hub only', () => {
+  it('a Custom project stays Custom', async () => {
+    process.env.GODOT_MCP_CLOUD_URL = 'https://staging.ai-game.dev';
+    const c = await resolveEditorConnection(project, {}, { projectConnection: () => ({ mode: 'Custom', cloudUrl: CLOUD_MCP_URL }), signInState: () => 'machine' });
+    expect(c).toEqual({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: false });
   });
 });
 

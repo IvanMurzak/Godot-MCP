@@ -13,9 +13,10 @@ All notable changes to `godot-cli` are documented in this file.
   reach it. `status` and `wait-for-ready` follow the project's connection mode like `run-tool`.
 - **A signed-in machine is never switched to a local server.** On a Cloud project, `open --headless` (and the
   auto-start of `run-tool` / `tools`) no longer starts an editor on the project's local server: a sign-in that cannot be
-  used fails with `NOT_AUTHENTICATED` (exit 6), a working one with `CLOUD_PROJECT` (exit 6; use `open`, `run-tool` and
-  `exec`, which go through ai-game.dev, or pass `--url`). A windowed `open` with an unusable sign-in also exits 6
-  instead of starting an editor on a connection it cannot use.
+  used fails with its sign-in message (exit 6), a working one says to use `open`, `run-tool` and `exec`, which go
+  through ai-game.dev (exit 6). A windowed `open` with an unusable sign-in also exits 6 instead of starting an editor
+  on a connection it cannot use. `exec` calls a non-local `--url` / `GODOT_MCP_HOST` directly instead of starting an
+  editor on the local port, and `GODOT_MCP_CLOUD_URL` no longer turns a Custom project into a Cloud one.
 - **`close` closes an editor godot-cli started** through its plugin (as `--owned-only` does) instead of a window close it
   cannot receive. For an editor run by the `_console` build (no window of its own), a plain `close` asks the editor window
   it runs to quit; **`close --force`** stops such an editor and its child process; `close` and `setup-skills` accept `--path`.
