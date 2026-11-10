@@ -102,6 +102,18 @@ export const closeCommand = new Command('close')
       return;
     }
 
+    // An editor godot-cli started (exec, run-tool, tools, open --headless) is windowless: ask its plugin to save and
+    // quit through the lease, as --owned-only does, instead of a window close it cannot receive.
+    try {
+      const owned = await createGodotSession({ projectPath: path.resolve(positionalPath ?? process.cwd()), ...resolveSessionConnection(options) }).session.ownedSession();
+      if (owned) {
+        await closeOwned(path.resolve(positionalPath ?? process.cwd()), timeoutSeconds, options);
+        return;
+      }
+    } catch (err) {
+      verbose(`No usable session lease: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const platform = nodePlatform() as SupportedPlatform;
     const pid = resolveEditorPid(projectPath);
 

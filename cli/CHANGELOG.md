@@ -11,7 +11,8 @@ All notable changes to `godot-cli` are documented in this file.
 - **`open` on a machine that never signed in** gives the editor the project's local server (Custom, the plugin starts
   it; in memory, nothing is persisted) instead of a Cloud connection that cannot work, so `wait-for-ready` / `run-tool`
   reach it. `status` and `wait-for-ready` follow the project's connection mode like `run-tool`.
-- **`close --force`** stops an editor that cannot be asked politely (the `_console` build has no window) and its child
+- **`close` closes an editor godot-cli started** through its plugin (as `--owned-only` does) instead of a window close it
+  cannot receive. **`close --force`** stops an editor that cannot be asked politely (the `_console` build has no window) and its child
   process; `close` and `setup-skills` accept `--path`.
 - **A C# build that fails before an editor start** is reported as its compiler errors (`file(line,col): error CS…`), and
   an editor that never became ready points to `godot-cli check`.
