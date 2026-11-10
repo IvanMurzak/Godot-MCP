@@ -177,8 +177,10 @@ the addon's default). Custom mode uses the local server above. Cloud mode uses t
 (no editor is started: only an editor connected to ai-game.dev answers). If this machine has **never** signed in to
 ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is
 persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6,
-`NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. An explicit `--url` / `--token` is used
-as is.
+`NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. The same holds for `open`, `tools` and
+`open --headless`: on a Cloud project of a signed-in machine `open --headless` starts no editor and exits 6 (use `open`,
+`run-tool` and `exec`, which go through ai-game.dev). An explicit `--url` / `--token` is used as is; a non-local
+`--url` / `GODOT_MCP_HOST` is called directly by `exec` and refused by `open --headless` (a headless editor is local).
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
@@ -254,7 +256,7 @@ envelope on stdout:
 other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
 In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
 `TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
-`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`. `--raw` keeps working as before.
+`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`, `CLOUD_PROJECT`. `--raw` keeps working as before.
 
 ## Headless commands (`check`, `import`, `test`, `export`, `run-script`)
 

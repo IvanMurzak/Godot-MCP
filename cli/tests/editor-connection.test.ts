@@ -9,11 +9,15 @@ import {
   godotUserDataDir,
   readProjectConnection,
   readProjectEnvFile,
+  CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE,
+  NOT_LOCAL_SERVER_MESSAGE,
+  localEditorRefusal,
   resolveEditorConnection,
   signInState,
   type ProjectConnection,
 } from '../src/utils/editor-connection.js';
 import { execCode } from '../src/lib/exec.js';
+import { runCliAsync } from './helpers/cli.js';
 
 const ENV_KEYS = ['GODOT_MCP_HOST', 'GODOT_MCP_CLOUD_URL', 'GODOT_MCP_CONNECTION_MODE', 'GODOT_MCP_TOKEN', 'APPDATA', 'XDG_DATA_HOME', 'AIGD_HOME', 'AI_GAME_DEV_HOME'];
 
@@ -150,5 +154,79 @@ describe('execCode with remoteUrl (Cloud mode)', () => {
     expect(r.kind).toBe('success');
     expect(ensure).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenCalledWith(expect.objectContaining({ url: CLOUD_MCP_URL, token: 'tok' }));
+  });
+});
+
+describe('localEditorRefusal (no headless editor on a local server for a signed-in Cloud project)', () => {
+  const base = { token: undefined, localFallback: false };
+  const signedIn = () => true;
+  const neverSignedIn = () => false;
+  it('refuses an unusable sign-in and a working one', () => {
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, cloud: true, signInRequired: SIGNED_IN_BUT_UNUSABLE_MESSAGE }, signedIn))
+      .toBe(SIGNED_IN_BUT_UNUSABLE_MESSAGE);
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, token: 'tok', cloud: true }, signedIn)).toBe(CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE);
+  });
+
+  it('allows a never-signed-in fallback, a token without a sign-in, Custom mode and a localhost --url', () => {
+    expect(localEditorRefusal({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: true }, neverSignedIn)).toBeUndefined();
+    expect(localEditorRefusal({ ...base, url: CLOUD_MCP_URL, token: 'env-token', cloud: true }, neverSignedIn)).toBeUndefined();
+    expect(localEditorRefusal({ ...base, url: 'http://localhost:5000', cloud: false }, signedIn)).toBeUndefined();
+  });
+
+  it('refuses a non-local --url / GODOT_MCP_HOST (a session never silently swaps it for the local port)', () => {
+    expect(localEditorRefusal({ ...base, url: 'https://ai-game.dev/mcp', cloud: false }, signedIn)).toBe(NOT_LOCAL_SERVER_MESSAGE);
+  });
+});
+
+describe('resolveEditorConnection: GODOT_MCP_CLOUD_URL moves the hub only', () => {
+  it('a Custom project stays Custom', async () => {
+    process.env.GODOT_MCP_CLOUD_URL = 'https://staging.ai-game.dev';
+    const c = await resolveEditorConnection(project, {}, { projectConnection: () => ({ mode: 'Custom', cloudUrl: CLOUD_MCP_URL }), signInState: () => 'machine' });
+    expect(c).toEqual({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: false });
+  });
+});
+
+describe('the CLI on a Cloud project whose sign-in cannot be used (corrupted credentials)', () => {
+  const HOME_KEYS = ['USERPROFILE', 'HOME'];
+  const savedHome: Record<string, string | undefined> = {};
+  let home: string;
+
+  beforeEach(() => {
+    // A throwaway home: the machine store of the real user is never read.
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-home-'));
+    for (const k of HOME_KEYS) {
+      savedHome[k] = process.env[k];
+      process.env[k] = home;
+    }
+    fs.mkdirSync(path.join(project, '.ai-game-dev'), { recursive: true });
+    fs.writeFileSync(path.join(project, '.ai-game-dev', 'credentials.json'), '{ broken');
+  });
+
+  afterEach(() => {
+    for (const k of HOME_KEYS) {
+      if (savedHome[k] === undefined) delete process.env[k];
+      else process.env[k] = savedHome[k];
+    }
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  // A missing --editor-path exits 1 if the CLI goes on to start an editor: exit 6 proves it stopped before that.
+  const missingEditor = path.join(os.tmpdir(), 'no-such-godot.exe');
+
+  it('open --headless: NOT_AUTHENTICATED (exit 6), no local editor', async () => {
+    const r = await runCliAsync(['open', project, '--headless', '--no-build', '--editor-path', missingEditor]);
+    expect(r.exitCode).toBe(6);
+    expect(r.stdout).toContain('signed in to ai-game.dev, but the sign-in cannot be used');
+  });
+
+  it('open (windowed): NOT_AUTHENTICATED (exit 6), no editor on a connection it cannot use', async () => {
+    const r = await runCliAsync(['open', project, '--no-build', '--editor-path', missingEditor]);
+    expect(r.exitCode).toBe(6);
+  });
+
+  it('tools: NOT_AUTHENTICATED (exit 6), no started editor', async () => {
+    const r = await runCliAsync(['tools', '--path', project, '--format', 'json', '--editor-path', missingEditor]);
+    expect(r.exitCode).toBe(6);
+    expect(r.stdout).toContain('"NOT_AUTHENTICATED"');
   });
 });

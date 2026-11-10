@@ -156,7 +156,8 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
     // never one for whatever Godot project the current directory happens to be.
     const explicitProject = positionalPath !== undefined || options.path !== undefined;
     const ownsUrl = !options.url || explicitProject || normalizeUrl(options.url) === normalizeUrl(localProjectUrl(projectPath));
-    const canStart = options.start !== false && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
+    // Never for a Cloud connection (even a dev hub on localhost): a signed-in machine is never switched to a local server.
+    const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(baseUrl) && isGodotProject(projectPath) && ownsUrl;
     if (result.kind === 'failure' && result.reason === 'connection-refused' && canStart) {
       note('No editor answered; starting a headless editor...');
       const editor = await ensureEditor({

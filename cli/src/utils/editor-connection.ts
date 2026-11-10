@@ -220,8 +220,9 @@ export async function resolveEditorConnection(
   if (explicitUrl) return { url: explicitUrl.replace(/\/+$/, ''), token: explicitToken, cloud: false, localFallback: false };
 
   const project = d.projectConnection(projectPath);
+  // GODOT_MCP_CLOUD_URL only moves the hub (as in the addon); it does not turn a Custom project into a Cloud one.
   const envCloud = normalizeEnv(process.env[ENV_CLOUD_URL]);
-  if (project.mode === 'Custom' && !envCloud) {
+  if (project.mode === 'Custom') {
     return { url: project.customHost ?? localProjectUrl(projectPath), token: explicitToken ?? project.envFileToken, cloud: false, localFallback: false };
   }
 
@@ -255,4 +256,24 @@ export async function connectionForCommand(output: CommandOutput<string>, projec
   if (conn.signInRequired) output.fail(ExitCode.CommandFailed, 'NOT_AUTHENTICATED', conn.signInRequired);
   if (conn.localFallback) output.warn(localFallbackNote(conn.url));
   return conn;
+}
+
+export const CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE = 'This project is in Cloud mode and this machine is signed in to '
+  + 'ai-game.dev, so the CLI does not start an editor on a local server for it. Open the editor with a window '
+  + '(`godot-cli open`; it connects to ai-game.dev) and call tools with `godot-cli run-tool` / `godot-cli exec`, which go '
+  + 'through ai-game.dev. To use a local server anyway, pass its URL with --url.';
+
+export const NOT_LOCAL_SERVER_MESSAGE = 'A headless editor runs on a local MCP server, but the server to use is not '
+  + 'local (--url / GODOT_MCP_HOST). Pass a localhost --url, or call tools on that server with `godot-cli run-tool`.';
+
+/**
+ * Why `open --headless` may not start an editor on a local server for this connection (exit 6), or `undefined` when it
+ * may. A signed-in machine is never switched to a local server: an unusable sign-in fails (its NOT_AUTHENTICATED
+ * message), a working one keeps the project on the cloud. A token without a sign-in on this machine (`--token`,
+ * `GODOT_MCP_TOKEN`, the project's `.env`) still gets the local server with that token.
+ */
+export function localEditorRefusal(conn: EditorConnection, signedIn: () => boolean): string | undefined {
+  if (conn.signInRequired) return conn.signInRequired;
+  if (conn.cloud) return signedIn() ? CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE : undefined;
+  return isLocalhostUrl(conn.url) ? undefined : NOT_LOCAL_SERVER_MESSAGE;
 }
