@@ -7,7 +7,6 @@ export const runToolCommand = buildRunToolCommand({
   argDescription: 'Name of the MCP tool to execute',
   routePrefix: '/api/tools',
   verboseLabel: 'Tool',
-  headingLabel: 'Run Tool',
   errorNoun: 'tool',
   invoke: runTool,
 });
