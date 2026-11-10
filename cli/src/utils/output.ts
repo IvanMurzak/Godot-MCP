@@ -1,16 +1,25 @@
-// `--format text|json|ndjson` output contract shared by godot-cli, unity-mcp-cli and unreal-mcp-cli.
+// `--format text|json|ndjson` output contract shared by godot-cli, unity-mcp-cli and unreal-mcp-cli (it lives in
+// @baizor/gamedev-cli-core).
 //
 // json:   stdout carries exactly one pretty-printed envelope; every human-readable line goes to stderr.
 // ndjson: progress lines `{"type":"progress",...}` on stderr, the envelope as one line on stdout.
 // text:   the usual human output.
 
 import type { Command } from 'commander';
+import {
+  CommandOutput as ContractOutput,
+  OUTPUT_FORMATS,
+  UsageError,
+  activeCommandOutput,
+  exitAfterFlush,
+  parseFormat as parseContractFormat,
+  type OutputFormat,
+} from '@baizor/gamedev-cli-core';
 import * as ui from './ui.js';
 import { ExitCode, type ExitCodeValue } from './exit-codes.js';
 
-export type OutputFormat = 'text' | 'json' | 'ndjson';
-
-export const OUTPUT_FORMATS: readonly OutputFormat[] = ['text', 'json', 'ndjson'];
+export { CommandExit, OUTPUT_FORMATS, exitAfterFlush, formatFromArgv } from '@baizor/gamedev-cli-core';
+export type { Envelope, OutputFormat } from '@baizor/gamedev-cli-core';
 
 /** Upper-snake error codes of the envelope. */
 export type ErrorCode =
@@ -36,14 +45,6 @@ export interface EnvelopeError {
   message: string;
 }
 
-export interface Envelope {
-  success: boolean;
-  command: string;
-  data: unknown;
-  errors: EnvelopeError[];
-  warnings: string[];
-}
-
 /** Add `--format` to a command. `extra` lists command-specific formats (e.g. `github`). */
 export function addFormatOption(cmd: Command, extra: readonly string[] = []): Command {
   const formats = [...OUTPUT_FORMATS, ...extra].join('|');
@@ -54,47 +55,31 @@ export function addFormatOption(cmd: Command, extra: readonly string[] = []): Co
  * The output of one command run. Created at the start of an action; in json/ndjson it switches `ui` to stderr so
  * stdout carries only the envelope. Exactly one `finish` per run.
  */
-export class CommandOutput<F extends string = OutputFormat> {
-  readonly warnings: string[] = [];
+export class CommandOutput<F extends string = OutputFormat> extends ContractOutput<ErrorCode> {
+  declare readonly format: F;
 
-  constructor(readonly command: string, readonly format: F) {
+  constructor(command: string, format: F) {
+    super(command, format);
     // ndjson: every human line on stderr is an event too, so stderr stays parseable line by line.
     ui.setMachineOutput(this.machine, format === 'ndjson'
       ? (level, message) => JSON.stringify({ type: 'log', command, level, message })
       : undefined);
-    active = this as CommandOutput<string>;
-  }
-
-  /** json / ndjson: no human output on stdout. */
-  get machine(): boolean {
-    return this.format === 'json' || this.format === 'ndjson';
   }
 
   /** A progress line: ndjson event on stderr, plain stderr line in json, `ui.info` in text. */
-  progress(message: string): void {
-    if (this.format === 'ndjson') {
-      process.stderr.write(JSON.stringify({ type: 'progress', command: this.command, message }) + '\n');
-    } else if (this.format === 'json') {
-      process.stderr.write(message + '\n');
-    } else {
-      ui.info(message);
-    }
-  }
-
-  /** A warning: in the envelope (machine formats), on stderr in text (stdout may be a result being piped). */
-  warn(message: string): void {
-    this.warnings.push(message);
-    if (!this.machine) process.stderr.write(`WARN: ${message}
-`);
+  override progress(message: string): void {
+    if (this.format === 'ndjson') super.progress(message);
+    else if (this.format === 'json') process.stderr.write(message + '\n');
+    else ui.info(message);
   }
 
   /**
    * Emit the envelope (machine formats) and end the command. Text output is the caller's job before calling this.
-   * The process exits once stdout is flushed (a write to a TTY or a macOS pipe is asynchronous: an immediate
-   * `process.exit` can cut a large result short); until then a {@link CommandExit} unwinds the action.
+   * The process exits once stdout is flushed; until then a `CommandExit` unwinds the action.
    */
-  finish(exitCode: ExitCodeValue, data: unknown, errors: EnvelopeError[] = []): never {
-    if (this.machine) writeEnvelope(this.format, { success: exitCode === ExitCode.Success, command: this.command, data: data ?? null, errors, warnings: this.warnings });
+  override finish(exitCode: ExitCodeValue, data: unknown = null, errors: EnvelopeError[] = []): never {
+    for (const err of errors) this.record(err.code, err.message);
+    this.emit(exitCode, data);
     exitAfterFlush(exitCode);
   }
 
@@ -105,25 +90,10 @@ export class CommandOutput<F extends string = OutputFormat> {
   }
 }
 
-let active: CommandOutput<string> | undefined;
-
-/** Thrown by {@link exitAfterFlush} to stop the action; the entry point ignores it (the exit is already scheduled). */
-export class CommandExit extends Error {
-  constructor(readonly exitCode: number) {
-    super(`exit ${exitCode}`);
-  }
-}
-
-/** Exit with `exitCode` once stdout and stderr have flushed; throws {@link CommandExit} to unwind the caller. */
-export function exitAfterFlush(exitCode: number): never {
-  process.exitCode = exitCode;
-  let pending = 2;
-  const done = (): void => {
-    if (--pending === 0) process.exit(exitCode);
-  };
-  process.stdout.write('', done);
-  process.stderr.write('', done);
-  throw new CommandExit(exitCode);
+/** The godot-cli output of the command being run, if one was created. */
+function active(): CommandOutput<string> | undefined {
+  const output = activeCommandOutput();
+  return output instanceof CommandOutput ? output : undefined;
 }
 
 /**
@@ -131,13 +101,9 @@ export function exitAfterFlush(exitCode: number): never {
  * in a machine format. Returns false when there is none (the caller prints it).
  */
 export function failActive(err: unknown): boolean {
-  if (!active?.machine) return false;
-  return active.fail(ExitCode.Error, 'ERROR', err instanceof Error ? err.message : String(err));
-}
-
-/** Write an envelope to stdout in `format` (json: pretty-printed, anything else: one line). */
-export function writeEnvelope(format: string, envelope: Envelope): void {
-  process.stdout.write(format === 'json' ? JSON.stringify(envelope, null, 2) + '\n' : JSON.stringify(envelope) + '\n');
+  const output = active();
+  if (!output?.machine) return false;
+  return output.fail(ExitCode.Error, 'ERROR', err instanceof Error ? err.message : String(err));
 }
 
 /**
@@ -145,7 +111,7 @@ export function writeEnvelope(format: string, envelope: Envelope): void {
  * machine format, else `ui.error`.
  */
 export function exitWithError(exitCode: ExitCodeValue, code: ErrorCode, message: string): never {
-  if (active) active.fail(exitCode, code, message);
+  active()?.fail(exitCode, code, message);
   ui.error(message);
   process.exit(exitCode);
 }
@@ -154,27 +120,14 @@ export function exitWithError(exitCode: ExitCodeValue, code: ErrorCode, message:
  * Parse a `--format` value. An unknown value is a usage error (exit 2), reported in text since the format itself
  * is what is wrong.
  */
-export function parseFormat<F extends string = OutputFormat>(raw: string | undefined, extra: readonly string[] = []): F {
-  const value = (raw ?? 'text').toLowerCase();
-  const allowed = [...OUTPUT_FORMATS, ...extra];
-  if (!allowed.includes(value)) {
-    ui.error(`Invalid --format value: "${raw}". Expected one of: ${allowed.join(', ')}.`);
+export function parseFormat<F extends string = never>(raw: string | undefined, extra: readonly F[] = []): OutputFormat | F {
+  try {
+    return parseContractFormat(raw, extra);
+  } catch (err) {
+    if (!(err instanceof UsageError)) throw err;
+    ui.error(err.message);
     process.exit(ExitCode.Usage);
   }
-  return value as F;
-}
-
-/**
- * The `--format` value in raw argv (for errors commander reports before any action runs), or undefined.
- * Accepts `--format json` and `--format=json`.
- */
-export function formatFromArgv(argv: readonly string[]): string | undefined {
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--format') return argv[i + 1];
-    if (arg.startsWith('--format=')) return arg.slice('--format='.length);
-  }
-  return undefined;
 }
 
 /** Parse a positive (or, with `allowZero`, non-negative) whole-number flag, or exit 2. */
