@@ -256,3 +256,19 @@ export async function connectionForCommand(output: CommandOutput<string>, projec
   if (conn.localFallback) output.warn(localFallbackNote(conn.url));
   return conn;
 }
+
+export const CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE = 'This project is in Cloud mode and this machine is signed in to '
+  + 'ai-game.dev, so the CLI does not start an editor on a local server for it. Open the editor with a window '
+  + '(`godot-cli open`; it connects to ai-game.dev) and call tools with `godot-cli run-tool` / `godot-cli exec`, which go '
+  + 'through ai-game.dev. To use a local server anyway, pass its URL with --url.';
+
+/**
+ * Why the CLI may not start an editor on a local server (a headless session) for this connection, or `undefined` when
+ * it may. A signed-in machine is never switched to a local server: an unusable sign-in is NOT_AUTHENTICATED, a working
+ * one keeps the project on the cloud.
+ */
+export function localEditorRefusal(conn: EditorConnection): { code: 'NOT_AUTHENTICATED' | 'CLOUD_PROJECT'; message: string } | undefined {
+  if (conn.signInRequired) return { code: 'NOT_AUTHENTICATED', message: conn.signInRequired };
+  if (conn.cloud) return { code: 'CLOUD_PROJECT', message: CLOUD_PROJECT_NO_LOCAL_EDITOR_MESSAGE };
+  return undefined;
+}

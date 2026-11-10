@@ -3,7 +3,7 @@ import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { isGodotProject, resolveAndValidateProjectPath } from '../utils/connection.js';
-import { connectionForCommand } from '../utils/editor-connection.js';
+import { connectionForCommand, localEditorRefusal } from '../utils/editor-connection.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
@@ -65,7 +65,7 @@ export const toolsCommand = addFormatOption(
     source = 'cache';
     verbose(`Using ${cache.tools.length} cached tools from ${cache.fetchedAt}`);
   } else {
-    const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(conn.url) && isGodotProject(projectPath);
+    const canStart = options.start !== false && !localEditorRefusal(conn) && isLocalhostUrl(conn.url) && isGodotProject(projectPath);
     if (live.kind === 'failure' && live.reason === 'unreachable' && canStart) {
       output.progress('No editor answered; starting a headless editor to list its tools...');
       const editor = await ensureEditor({

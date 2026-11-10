@@ -8,7 +8,8 @@ import {
   isGodotProjectDir as libIsGodotProjectDir,
 } from '../lib/open.js';
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
-import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { localEditorRefusal, localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
+import { ExitCode } from '../utils/exit-codes.js';
 import type { EditorSession } from '@baizor/gamedev-cli-core';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
 import { parseIntFlag } from '../utils/output.js';
@@ -155,8 +156,9 @@ export const openCommand = new Command('open')
           process.stderr.write(`WARN: ${localFallbackNote(conn.url)}
 `);
         } else if (conn.signInRequired) {
-          process.stderr.write(`WARN: ${conn.signInRequired}
-`);
+          // The editor would come up on a Cloud connection it cannot use (and never on a local server instead).
+          ui.error(conn.signInRequired);
+          process.exit(ExitCode.CommandFailed);
         }
       }
 
@@ -266,10 +268,19 @@ async function openHeadless(
 ): Promise<void> {
   const idleSeconds = parseIntFlag(options.idleTimeout, '--idle-timeout', true);
   const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
+  // A headless editor runs on a local server: never for a Cloud project on a signed-in machine.
+  const conn = await resolveEditorConnection(projectPath, { url: options.url, token: options.token });
+  const refusal = localEditorRefusal(conn);
+  if (refusal) {
+    ui.error(refusal.message);
+    process.exit(ExitCode.CommandFailed);
+  }
+  if (conn.localFallback) process.stderr.write(`WARN: ${localFallbackNote(conn.url)}\n`);
   const spinner = ui.startSpinner('Connecting...');
   const result = await ensureEditor({
     projectPath,
     ...resolveSessionConnection(options),
+    ...(conn.localFallback ? { url: conn.url } : {}),
     ...(options.editorPath ? { editorPath: options.editorPath } : {}),
     build: options.build !== false,
     idleSeconds,
