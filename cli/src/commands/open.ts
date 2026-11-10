@@ -8,6 +8,7 @@ import {
   isGodotProjectDir as libIsGodotProjectDir,
 } from '../lib/open.js';
 import { resolveOpenAuthToken, resolveSessionConnection } from '../utils/connection.js';
+import { localFallbackNote, resolveEditorConnection } from '../utils/editor-connection.js';
 import type { EditorSession } from '@baizor/gamedev-cli-core';
 import { createGodotSession, ensureEditor } from '../lib/session.js';
 import { parseIntFlag } from '../utils/output.js';
@@ -141,6 +142,24 @@ export const openCommand = new Command('open')
 
       // In Cloud mode with no explicit --token / GODOT_MCP_TOKEN, inject the
       // token persisted by `godot-cli login` so `open --mode Cloud` auto-connects.
+      // Nothing chose the connection: follow the project's mode. A machine that never signed in to ai-game.dev gets the
+      // project's local server for this editor (in memory: the project stays in Cloud mode); a signed-in one is never
+      // switched to a local server.
+      let fallbackUrl: string | undefined;
+      const nothingChosen = options.connect !== false && options.url === undefined && options.mode === undefined
+        && options.token === undefined && options.cloudUrl === undefined;
+      if (nothingChosen) {
+        const conn = await resolveEditorConnection(projectPath, {});
+        if (conn.localFallback) {
+          fallbackUrl = conn.url;
+          process.stderr.write(`WARN: ${localFallbackNote(conn.url)}
+`);
+        } else if (conn.signInRequired) {
+          process.stderr.write(`WARN: ${conn.signInRequired}
+`);
+        }
+      }
+
       const authToken = await resolveOpenAuthToken(projectPath, { token: options.token, mode: options.mode });
       if (authToken !== undefined && options.token === undefined) {
         verbose('Using persisted cloud credential (per-project store, legacy fallback, or machine store)');
@@ -156,11 +175,12 @@ export const openCommand = new Command('open')
         build: options.build !== false,
         buildConfiguration: options.buildConfiguration,
         noConnect: options.connect === false,
-        url: options.url,
+        url: options.url ?? fallbackUrl,
+        ...(fallbackUrl ? { startServer: true } : {}),
         cloudUrl: options.cloudUrl,
         token: authToken,
-        auth: options.auth as OpenProjectAuthOption | undefined,
-        mode: options.mode as OpenProjectConnectionMode | undefined,
+        auth: (options.auth ?? (fallbackUrl ? 'None' : undefined)) as OpenProjectAuthOption | undefined,
+        mode: (options.mode ?? (fallbackUrl ? 'Custom' : undefined)) as OpenProjectConnectionMode | undefined,
         logLevel: options.logLevel,
         onProgress: (event) => {
           switch (event.phase) {

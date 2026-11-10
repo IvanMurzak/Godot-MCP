@@ -8,6 +8,7 @@ import {
   ENV_CONNECTION_MODE,
   ENV_HOST,
   ENV_LOG_LEVEL,
+  ENV_START_SERVER,
   ENV_TOKEN,
 } from '../utils/connection.js';
 import { emitProgress, pidSuffix } from './progress.js';
@@ -72,6 +73,7 @@ export function buildOpenEnv(options: OpenEnvInputs): Record<string, string> | u
   if (options.cloudUrl !== undefined) env[ENV_CLOUD_URL] = options.cloudUrl;
   if (options.token !== undefined) env[ENV_TOKEN] = options.token;
   if (options.logLevel !== undefined) env[ENV_LOG_LEVEL] = options.logLevel;
+  if (options.startServer === true) env[ENV_START_SERVER] = 'true';
 
   if (options.auth !== undefined) {
     if (!isValidAuth(options.auth)) {

@@ -2,6 +2,7 @@
 // the project, otherwise start our own (headless by default) connected to the project's LOCAL MCP server, with a
 // lease so only our own editor is ever closed. Library-safe: no console output, no `process.exit`.
 
+import * as fs from 'fs';
 import * as path from 'path';
 import {
   EditorSession,
@@ -27,6 +28,26 @@ import {
   localProjectUrl,
 } from '../utils/connection.js';
 import type { BuildProjectResult } from './types.js';
+import { formatDiagnostic, parseGodotLog, parseMsbuildOutput } from './godot-log.js';
+import { godotUserDataDir } from '../utils/editor-connection.js';
+
+/**
+ * Where a started editor's log is (Godot's own `user://logs/godot.log`) and the script/load errors in it, for a start
+ * that never became ready.
+ */
+export function startupLogHint(projectPath: string): string {
+  const log = path.join(godotUserDataDir(path.resolve(projectPath)), 'logs', 'godot.log');
+  let text: string;
+  try {
+    text = fs.readFileSync(log, 'utf-8');
+  } catch {
+    // A started editor writes no log of its own: `check` reproduces its start (import, build, editor boot) with logs.
+    return '. Run `godot-cli check` to see the script, C# and addon-load errors behind it.';
+  }
+  const errors = parseGodotLog(text).filter((d) => d.severity === 'error' && d.source !== 'engine').slice(0, 5);
+  return `. Its log: ${log}${errors.length > 0 ? `; errors in it:\n${errors.map((d) => `  ${formatDiagnostic(d)}`).join('\n')}` : ''}`
+    + '. `godot-cli check` reproduces the start with logs.';
+}
 
 /** The plugin's system tool that saves and quits a CLI-started editor (a windowless one gets no WM_CLOSE). */
 export const SESSION_CLOSE_TOOL = 'session-close';
@@ -224,7 +245,14 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
   try {
     return { kind: 'success', success: true, godot, ensured: await deps.ensure(godot.session, options.window ? 'window' : 'headless') };
   } catch (err) {
-    if (err instanceof BuildFailedError) return fail('build-failed', err.buildError);
+    if (err instanceof BuildFailedError) {
+      // The compiler errors, not the whole MSBuild transcript.
+      const errors = parseMsbuildOutput(err.buildError.message).filter((x) => x.severity === 'error');
+      if (errors.length === 0) return fail('build-failed', err.buildError);
+      const shown = errors.slice(0, 10).map((x) => `  ${formatDiagnostic(x)}`).join('\n');
+      const more = errors.length > 10 ? `\n  … and ${errors.length - 10} more` : '';
+      return fail('build-failed', new Error(`The C# build failed with ${errors.length} error(s), so no editor was started:\n${shown}${more}`));
+    }
     const sessionError = err instanceof EditorSessionError ? err : undefined;
     let hint = '';
     if (sessionError?.reason === 'not-ready') {
@@ -234,7 +262,7 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
       } else if (sessionError.source === 'started') {
         // The editor this call started never answered (e.g. the addon failed to load): it would never idle out.
         const closed = await godot.session.closeOwned({ timeoutMs: 5_000, force: true });
-        hint = closed.kind === 'closed' ? ` (stopped the unresponsive editor, PID ${closed.pid}; see its log)` : '';
+        hint = (closed.kind === 'closed' ? ` (stopped the unresponsive editor, PID ${closed.pid})` : '') + startupLogHint(options.projectPath);
       } else {
         // Another call's editor: that call may still be waiting for it, so it is not stopped here.
         hint = ' (an editor started by another godot-cli call; `godot-cli close --owned-only --force` stops it)';

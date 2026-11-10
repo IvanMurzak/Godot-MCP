@@ -4,6 +4,18 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`tools [name]`** lists the editor's AI tools (MCP `tools/list`, starting a headless editor when none answers; cached in
+  `.ai-game-dev/tools.json`), and with a name shows its arguments and an example `run-tool` call. A tool that does not
+  exist (HTTP 404) now prints the server's error and points to `godot-cli tools`; the raw response only with `--verbose`.
+  The root `--help` ends with the everyday workflow.
+- **`open` on a machine that never signed in** gives the editor the project's local server (Custom, the plugin starts
+  it; in memory, nothing is persisted) instead of a Cloud connection that cannot work, so `wait-for-ready` / `run-tool`
+  reach it. `status` and `wait-for-ready` follow the project's connection mode like `run-tool`.
+- **`close --force`** stops an editor that cannot be asked politely (the `_console` build has no window) and its child
+  process; `close` and `setup-skills` accept `--path`.
+- **A C# build that fails before an editor start** is reported as its compiler errors (`file(line,col): error CS…`), and
+  an editor that never became ready points to `godot-cli check`.
+
 - **Headless commands that judge Godot by its log, not its exit code** (an `--import` with a GDScript parse error or an
   addon that fails to load still exits 0). `check [path] [--strict]`: a CI gate without an editor (import, `dotnet
   build`, editor boot with the addon's load marker, a load of every GDScript) reporting `res://file:line` and

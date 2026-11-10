@@ -236,7 +236,7 @@ describe('ensureEditor / execCode', () => {
         deps: { ensure: async () => { throw new EditorSessionError(reason, 'nope', source ? { source } : {}); } },
       });
     expect(await fail('not-ready', 'foreign')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringContaining('AI Game Developer dock') });
-    expect(await fail('not-ready', 'started')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: 'nope' });
+    expect(await fail('not-ready', 'started')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringMatching(/^nope. Run `godot-cli check`/) });
     expect(await fail('not-ready', 'owned')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: expect.stringContaining('close --owned-only --force') });
     expect(await fail('exited')).toMatchObject({ kind: 'failure', reason: 'not-ready', message: 'nope' });
     expect(await fail('no-editor-binary')).toMatchObject({ kind: 'failure', reason: 'launch-failed' });

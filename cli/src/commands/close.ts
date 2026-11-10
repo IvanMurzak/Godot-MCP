@@ -16,6 +16,7 @@ import { resolveSessionConnection } from '../utils/connection.js';
 import { createGodotSession } from '../lib/session.js';
 
 export interface CloseOptions {
+  path?: string;
   timeout?: string;
   force?: boolean;
   ownedOnly?: boolean;
@@ -67,13 +68,15 @@ export function resolveEditorPid(projectPath: string): number | null {
 export const closeCommand = new Command('close')
   .description('Gracefully terminate the Godot editor instance running for a given project path')
   .argument('[path]', 'Path to the Godot project (defaults to current directory)')
+  .option('--path <path>', 'Path to the Godot project (same as [path])')
   .option('--timeout <seconds>', `Polite-quit timeout in seconds (default: ${DEFAULT_TIMEOUT_SECONDS})`, String(DEFAULT_TIMEOUT_SECONDS))
   .option('--force', 'Hard-kill the editor if it does not exit within --timeout')
   .option('--owned-only', 'Close only an editor started by godot-cli (exec / open --headless); never a user editor')
   // Hidden fallback: a lease written by godot-cli 0.30.0 (cli-core 0.7.0) does not record the editor's server.
   .addOption(new Option('--url <url>', 'With --owned-only: the local MCP server of that editor, for a lease without one').hideHelp())
   .option('--token <token>', 'With --owned-only: bearer token (default: GODOT_MCP_TOKEN)')
-  .action(async (positionalPath: string | undefined, options: CloseOptions) => {
+  .action(async (positionalArg: string | undefined, options: CloseOptions) => {
+    const positionalPath = positionalArg ?? options.path;
     const projectPath = resolveCloseProjectPath(positionalPath, process.cwd());
     verbose(`close invoked for project: ${projectPath}`);
 
@@ -115,14 +118,15 @@ export const closeCommand = new Command('close')
     ui.divider();
 
     const spinner = ui.startSpinner(`Sending polite-quit to PID ${pid}...`);
+    // A console-subsystem editor (the `_console` build) or a windowless one cannot be asked politely on Windows.
     const sent = sendGracefulShutdown(pid, platform);
-    if (!sent) {
-      spinner.error(`Failed to deliver polite-quit signal to PID ${pid}`);
+    if (!sent && !options.force) {
+      spinner.error(`Could not ask PID ${pid} to quit (no window to close); re-run with --force to stop it.`);
       process.exit(1);
     }
 
-    spinner.text = `Waiting up to ${timeoutSeconds}s for PID ${pid} to exit...`;
-    const exited = await waitForExit(pid, timeoutSeconds * 1000, platform);
+    if (sent) spinner.text = `Waiting up to ${timeoutSeconds}s for PID ${pid} to exit...`;
+    const exited = sent ? await waitForExit(pid, timeoutSeconds * 1000, platform) : false;
 
     if (exited) {
       spinner.success(`Godot editor (PID ${pid}) exited cleanly`);

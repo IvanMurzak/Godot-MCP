@@ -6,6 +6,7 @@ import { setupSkills } from '../lib/setup-skills.js';
 
 interface SetupSkillsCliOptions {
   list?: boolean;
+  path?: string;
 }
 
 function listAgentsWithSkills(): void {
@@ -16,6 +17,7 @@ export const setupSkillsCommand = new Command('setup-skills')
   .description('Generate Godot-MCP skill files for an AI agent under its skills path')
   .argument('[agent-id]', 'Agent to generate skills for (use --list to see all)')
   .argument('[path]', 'Godot project path (defaults to cwd)')
+  .option('--path <path>', 'Godot project path (same as [path])')
   .option('--list', 'List all agents and their skills-support status')
   .action(
     async (
@@ -50,7 +52,7 @@ export const setupSkillsCommand = new Command('setup-skills')
 
       const result = await setupSkills({
         agentId,
-        godotProjectPath: positionalPath,
+        godotProjectPath: positionalPath ?? options.path,
       });
 
       if (result.kind === 'failure') {

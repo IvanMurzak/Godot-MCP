@@ -49,7 +49,8 @@ export function sendForceKill(
 ): boolean {
   try {
     if (os === 'win32') {
-      execFileSync('taskkill', ['/PID', String(pid), '/F'], { encoding: 'utf-8', timeout: 5000, stdio: 'pipe' });
+      // /T: the `_console` build's GUI child too.
+      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { encoding: 'utf-8', timeout: 5000, stdio: 'pipe' });
       return true;
     }
     process.kill(pid, 'SIGKILL');
