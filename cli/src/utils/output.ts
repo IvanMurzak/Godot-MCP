@@ -18,8 +18,8 @@ import {
 import * as ui from './ui.js';
 import { ExitCode, type ExitCodeValue } from './exit-codes.js';
 
-export { CommandExit, OUTPUT_FORMATS, exitAfterFlush, formatFromArgv } from '@baizor/gamedev-cli-core';
-export type { Envelope, OutputFormat } from '@baizor/gamedev-cli-core';
+export { CommandExit, OUTPUT_FORMATS, formatFromArgv } from '@baizor/gamedev-cli-core';
+export type { OutputFormat } from '@baizor/gamedev-cli-core';
 
 /** Upper-snake error codes of the envelope. */
 export type ErrorCode =
