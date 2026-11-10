@@ -187,15 +187,29 @@ describe('setupSkills generation + idempotency', () => {
 
   it('removes the retired godot-mcp* family skills, leaving foreign dirs', async () => {
     const skillsDir = path.join(tmpDir, '.claude', 'skills');
-    for (const name of ['godot-mcp', 'godot-mcp-node', 'some-other-skill', 'rql-query']) {
+    const ours = '---\nname: x\nmetadata:\n  generated-by: godot-mcp\n---\nOLD\n';
+    for (const [name, body] of [['godot-mcp', ours], ['godot-mcp-node', ours], ['godot-mcp-notes', 'MINE\n'], ['some-other-skill', 'OLD\n'], ['rql-query', ours]]) {
       fs.mkdirSync(path.join(skillsDir, name), { recursive: true });
-      fs.writeFileSync(path.join(skillsDir, name, 'SKILL.md'), 'OLD\n');
+      fs.writeFileSync(path.join(skillsDir, name, 'SKILL.md'), body);
     }
     const result = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(result.kind).toBe('success');
     expect(result.kind === 'success' && result.removed.map((d) => path.basename(d)).sort()).toEqual(['godot-mcp', 'godot-mcp-node']);
+    expect(fs.existsSync(path.join(skillsDir, 'godot-mcp-notes', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(skillsDir, 'godot-mcp'))).toBe(false);
     expect(fs.readFileSync(path.join(skillsDir, 'some-other-skill', 'SKILL.md'), 'utf-8')).toBe('OLD\n');
     expect(fs.existsSync(path.join(skillsDir, 'rql-query', 'SKILL.md'))).toBe(true);
+  });
+
+  it('warns when the project\'s addon still writes its own godot-cli skill', async () => {
+    const guides = path.join(tmpDir, 'addons', 'godot_mcp', 'Runtime', 'Skills');
+    fs.mkdirSync(guides, { recursive: true });
+    fs.writeFileSync(path.join(guides, 'Skill_Guides.cs'), 'public const string SkillId = "godot-cli";');
+    const result = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(result.kind === 'success' && result.warnings.join()).toContain('godot-cli update');
+    fs.writeFileSync(path.join(guides, 'Skill_Guides.cs'), 'public const string SkillId = "godot-cli-install";');
+    const current = await setupSkills({ agentId: 'claude-code', godotProjectPath: tmpDir });
+    expect(current.kind === 'success' && current.warnings).toEqual([]);
   });
 
   it('overwrites stale content on re-run (regeneration, not append)', async () => {

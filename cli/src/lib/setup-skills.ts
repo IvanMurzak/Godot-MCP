@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getAgentById, getAgentIds } from '../utils/agents.js';
-import { buildGuideFiles, isRetiredSkillName } from '../utils/skill-guides.js';
+import { buildGuideFiles, isRetiredSkillName, SKILL_METADATA } from '../utils/skill-guides.js';
 import { emitProgress } from './progress.js';
 import { requireExistingPath } from './validation.js';
 import type { SetupSkillsOptions, SetupSkillsResult } from './types.js';
@@ -74,16 +74,26 @@ export async function setupSkills(opts: SetupSkillsOptions): Promise<SetupSkills
     const skillFiles = buildGuideFiles();
     const filesWritten: string[] = [];
 
-    // `godot-mcp` / `godot-mcp-<family>` is this CLI's retired namespace (the addon never writes those names).
+    // `godot-mcp` / `godot-mcp-<family>` is this CLI's retired namespace (the addon never writes those names); a folder
+    // there is removed only when it carries our generated-by marker, so a user's own skill of that name stays.
+    const marker = `generated-by: ${SKILL_METADATA['generated-by']}`;
     const removed: string[] = [];
     if (fs.existsSync(skillsDir)) {
       for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
-        if (entry.isDirectory() && isRetiredSkillName(entry.name)) {
-          const dir = path.join(skillsDir, entry.name);
+        if (!entry.isDirectory() || !isRetiredSkillName(entry.name)) continue;
+        const dir = path.join(skillsDir, entry.name);
+        const skillMd = path.join(dir, 'SKILL.md');
+        if (fs.existsSync(skillMd) && fs.readFileSync(skillMd, 'utf-8').includes(marker)) {
           fs.rmSync(dir, { recursive: true, force: true });
           removed.push(dir);
         }
       }
+    }
+
+    // An addon from before godot-cli-install writes its install guide over godot-cli/SKILL.md on every editor start.
+    const addonGuides = path.join(projectPath, 'addons', 'godot_mcp', 'Runtime', 'Skills', 'Skill_Guides.cs');
+    if (fs.existsSync(addonGuides) && fs.readFileSync(addonGuides, 'utf-8').includes('SkillId = "godot-cli";')) {
+      warnings.push('The project\'s Godot-MCP addon is older and replaces the godot-cli skill whenever the editor starts: update it (godot-cli update).');
     }
 
     for (const file of skillFiles) {

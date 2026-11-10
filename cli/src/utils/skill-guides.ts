@@ -13,7 +13,7 @@ export function isRetiredSkillName(name: string): boolean {
 }
 const APP_SKILL_DESCRIPTION = "AI Game Dev App: image, texture, 3D model, audio and video generation; animation, rigging, Blender, music and sound effects. Consult when a game-development task needs creative tools unavailable in the current environment, or an integrated workflow for Unity, Unreal Engine or Godot.";
 const CLI_SKILL_DESCRIPTION = `How to use ${CLI_NAME} on this Godot project (scenes, nodes, resources, scripts, tests): read before the first ${CLI_NAME} command.`;
-const SKILL_METADATA = {
+export const SKILL_METADATA = {
   'generated-by': 'godot-mcp',
   'ai-game-dev': 'exclude',
 } as const;
@@ -57,7 +57,7 @@ function buildCliSkill(): string {
     '',
     '## Other commands',
     '',
-    [...EDITOR_COMMANDS, ...CODE_COMMANDS].filter(([name]) => name !== 'rql').map(usage).join(' · ') + ' · `close` · `--format json`',
+    [...EDITOR_COMMANDS, ...CODE_COMMANDS].filter(([name]) => name !== 'rql').map(usage).join(' · ') + ' · `close` · most commands take `--format json`',
     '',
     `Exit codes: ${Object.entries(EXIT_CODE_ACTIONS).map(([code, action]) => `${code} ${action}`).join('; ')}.`,
     '',
@@ -91,7 +91,8 @@ function buildRqlReference(): string {
     '## Anything RQL cannot reach',
     '',
     `\`${cmd("exec '<C#>'")}\` runs C# in the editor: statements, the last expression is the result (GD.Print output is`,
-    'returned too). Longer code: write a .cs file in the project and pass `exec -f <file>`.',
+    'returned too). Longer code: write it under `.ai-game-dev/` (a .cs file elsewhere in the project joins the C# build)',
+    'and pass `exec -f <file>`.',
     '',
   ].join('\n');
 }

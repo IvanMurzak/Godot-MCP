@@ -114,7 +114,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n",
                         File.ReadAllText(file).Replace("\r\n", "\n"));
                 var tool = File.ReadAllText(Path.Combine(root, "guide-test", "SKILL.md"));
-                Assert.Contains("godot-cli", tool);
+                Assert.Contains("the `godot-cli` skill", tool);
+                Assert.Contains("installation: `godot-cli-install`", tool);
                 Assert.Contains("ai-game-dev-app", tool);
                 Assert.DoesNotContain("npm install", tool);
                 Assert.Contains(Skill_Cli.IsWindows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", File.ReadAllText(Path.Combine(root, "godot-cli-install", "SKILL.md")));
