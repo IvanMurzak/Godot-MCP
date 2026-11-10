@@ -113,7 +113,7 @@ function isCloudMode(): boolean {
  * to the backend, which 404s (defect A). Trailing slash trimmed; an already-`/mcp`
  * base is left as-is (case-insensitive, idempotent).
  */
-function ensureMcpHubPath(baseUrl: string): string {
+export function ensureMcpHubPath(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/$/, '');
   if (trimmed.toLowerCase().endsWith(MCP_HUB_PATH)) return trimmed;
   return trimmed + MCP_HUB_PATH;

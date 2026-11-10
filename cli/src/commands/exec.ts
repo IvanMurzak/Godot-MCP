@@ -39,7 +39,7 @@ function readCode(code: string | undefined, file: string | undefined): string {
 }
 
 export const execCommand = addFormatOption(new Command('exec')
-  .description('Run C# in the Godot editor; starts a headless editor when none is open and keeps it warm')
+  .description('Run C# in the Godot editor; starts a headless editor when none is open and keeps it warm (Cloud mode with a sign-in: runs in the editor connected to ai-game.dev, starting none)')
   .argument('[code]', 'C# snippet: statements, the last expression is the result')
   .option('--path <path>', 'Godot project path (default: current directory)')
   .option('-f, --file <file>', 'Read the code from a file ("-" for stdin)')

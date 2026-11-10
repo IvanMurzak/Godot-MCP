@@ -1,27 +1,64 @@
 // The connection mode the project's addon runs in, and the connection a command that talks to the editor uses.
 //
 // Owner rule: a machine signed in to ai-game.dev is never switched to a local server. Only a machine that NEVER signed
-// in (machine credential store `missing`) falls back to the project's local server, in memory, with a warning.
+// in (no machine store, no per-project store, no legacy credential) falls back to the project's local server, in
+// memory, with a warning.
 
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { verbose } from './ui.js';
-import { openMachineStore } from './machine-store.js';
+import { openMachineStore, openProjectStore } from './machine-store.js';
+import { getCredentialsPath } from './credentials.js';
+import { isLocalhostUrl, readProjectMarker } from './project-marker.js';
 import {
-  CLOUD_MCP_URL,
+  DEFAULT_CLOUD_BASE_URL,
+  ENV_CLOUD_URL,
   ENV_CONNECTION_MODE,
+  ENV_HOST,
   ENV_TOKEN,
+  ensureMcpHubPath,
   localProjectUrl,
   normalizeEnv,
   resolveCloudAccessToken,
-  resolveTargetUrl,
   type ConnectionOptions,
 } from './connection.js';
 
 export type GodotConnectionMode = 'Cloud' | 'Custom';
 
-/** `[application] config/name` and the custom user-dir settings of project.godot. */
+/** The `GODOT_MCP_*` keys the addon reads from the project's `.env`. */
+const ENV_FILE_KEYS = [ENV_CONNECTION_MODE, ENV_HOST, ENV_CLOUD_URL, ENV_TOKEN];
+
+/** Strip whitespace and one pair of wrapping double or single quotes (the addon's `.env` sanitizer). */
+function sanitizeEnvValue(raw: string): string | undefined {
+  let v = raw.trim();
+  if (v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) v = v.slice(1, -1).trim();
+  return v.length > 0 ? v : undefined;
+}
+
+/** The project's `.env`, parsed like `GodotMcpEnvFile.Parse`: `#` lines skipped, split on the first `=`, last wins. */
+export function readProjectEnvFile(projectPath: string): Record<string, string> {
+  let text: string;
+  try {
+    text = fs.readFileSync(path.join(projectPath, '.env'), 'utf-8');
+  } catch {
+    return {};
+  }
+  const values: Record<string, string> = {};
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.length === 0 || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    if (!ENV_FILE_KEYS.includes(key)) continue;
+    const value = sanitizeEnvValue(line.slice(eq + 1));
+    if (value !== undefined) values[key] = value;
+  }
+  return values;
+}
+
+/** `config/name` and the custom user-dir settings of project.godot. */
 function readProjectUserDirSettings(projectPath: string): { name: string; customDir: string | undefined } {
   let text = '';
   try {
@@ -31,21 +68,25 @@ function readProjectUserDirSettings(projectPath: string): { name: string; custom
   }
   const value = (key: string): string | undefined => {
     const m = new RegExp(`^${key.replace(/\//g, '\\/')}\\s*=\\s*(.+)$`, 'm').exec(text);
-    return m ? m[1].trim().replace(/^"(.*)"$/, '$1') : undefined;
+    if (!m) return undefined;
+    const v = m[1].trim();
+    return v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\') : v;
   };
   const customName = value('config/custom_user_dir_name');
   const useCustom = value('config/use_custom_user_dir') === 'true';
   return { name: value('config/name') ?? '[unnamed project]', customDir: useCustom && customName ? customName : undefined };
 }
 
-/** Godot's OS::get_safe_dir_name: path separators and reserved characters become `-`. */
-function safeDirName(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, '-').trim();
+/** Godot's `String::validate_filename`-style `get_safe_dir_name`: reserved characters become `-`. */
+function safeDirName(name: string, allowPaths: boolean): string {
+  const reserved = allowPaths ? /[:*?"<>|]/g : /[:*?"<>|\\/]/g;
+  return name.replace(reserved, '-').trim().replace(/[. ]+$/, '');
 }
 
 /**
  * The project's `user://` folder, where the addon persists `godot-mcp-config.json`: `app_userdata/<name>` under
- * Godot's data folder, or the custom user dir the project names.
+ * Godot's data folder, or the custom user dir the project names (which may contain `/`). Self-contained editors
+ * (`._sc_`) keep it elsewhere and are not covered.
  */
 export function godotUserDataDir(projectPath: string, platform: NodeJS.Platform = process.platform): string {
   const home = os.homedir();
@@ -55,46 +96,86 @@ export function godotUserDataDir(projectPath: string, platform: NodeJS.Platform 
       ? path.join(home, 'Library', 'Application Support')
       : process.env.XDG_DATA_HOME ?? path.join(home, '.local', 'share');
   const { name, customDir } = readProjectUserDirSettings(projectPath);
-  if (customDir) return path.join(dataRoot, safeDirName(customDir));
-  return path.join(dataRoot, platform === 'linux' ? 'godot' : 'Godot', 'app_userdata', safeDirName(name));
+  if (customDir) return path.join(dataRoot, safeDirName(customDir, true));
+  return path.join(dataRoot, platform === 'linux' ? 'godot' : 'Godot', 'app_userdata', safeDirName(name, false));
 }
 
-/** `GODOT_MCP_CONNECTION_MODE` in the project's `.env` file. */
-function envFileMode(projectPath: string): string | undefined {
+interface PersistedConfig {
+  connectionMode?: unknown;
+  cloudBaseUrl?: unknown;
+}
+
+function readPersistedConfig(projectPath: string): PersistedConfig {
   try {
-    const text = fs.readFileSync(path.join(projectPath, '.env'), 'utf-8');
-    const m = new RegExp(`^\\s*${ENV_CONNECTION_MODE}\\s*=\\s*(.*)$`, 'm').exec(text);
-    return m ? normalizeEnv(m[1].replace(/\s+#.*$/, '')) : undefined;
+    return JSON.parse(fs.readFileSync(path.join(godotUserDataDir(projectPath), 'godot-mcp-config.json'), 'utf-8')) as PersistedConfig;
   } catch {
-    return undefined;
+    return {};
   }
+}
+
+function pickMode(raw: unknown): GodotConnectionMode | undefined {
+  const lower = typeof raw === 'string' ? raw.trim().toLowerCase() : undefined;
+  return lower === 'cloud' ? 'Cloud' : lower === 'custom' ? 'Custom' : undefined;
+}
+
+export interface ProjectConnection {
+  mode: GodotConnectionMode;
+  /** Custom mode: a loopback host the `.env` or the marker names (else the project's derived port). */
+  customHost?: string;
+  /** Cloud mode: the hub URL (`.env`, persisted `cloudBaseUrl`, marker origin, else ai-game.dev). */
+  cloudUrl: string;
+  /** A token from the project's `.env`. */
+  envFileToken?: string;
 }
 
 /**
- * The connection mode the project's addon runs in, by the addon's own precedence: the process env, the project's
- * `.env`, the persisted `user://godot-mcp-config.json`, then Cloud (the addon's default).
+ * The connection the project's addon uses, by the addon's own precedence: process env mode, the `.env` (its mode, or
+ * a loopback host → Custom), the persisted `user://godot-mcp-config.json`, the enrolled marker, then Cloud.
  */
-export function projectConnectionMode(projectPath: string): GodotConnectionMode {
-  const pick = (raw: string | undefined): GodotConnectionMode | undefined => {
-    const lower = raw?.toLowerCase();
-    return lower === 'cloud' ? 'Cloud' : lower === 'custom' ? 'Custom' : undefined;
+export function readProjectConnection(projectPath: string): ProjectConnection {
+  const envFile = readProjectEnvFile(projectPath);
+  const persisted = readPersistedConfig(projectPath);
+  const rawTarget = readProjectMarker(projectPath)?.serverTarget;
+  const marker = typeof rawTarget === 'string' && rawTarget.trim().length > 0 ? rawTarget.trim() : undefined;
+  const fileHost = envFile[ENV_HOST];
+  const mode = pickMode(normalizeEnv(process.env[ENV_CONNECTION_MODE]))
+    ?? pickMode(envFile[ENV_CONNECTION_MODE])
+    ?? (fileHost !== undefined && isLocalhostUrl(fileHost) ? 'Custom' : undefined)
+    ?? pickMode(persisted.connectionMode)
+    ?? (marker !== undefined ? (isLocalhostUrl(marker) ? 'Custom' : 'Cloud') : undefined)
+    ?? 'Cloud';
+  const persistedCloud = typeof persisted.cloudBaseUrl === 'string' && persisted.cloudBaseUrl.trim() ? persisted.cloudBaseUrl.trim() : undefined;
+  const cloudBase = envFile[ENV_CLOUD_URL] ?? persistedCloud ?? (marker !== undefined && !isLocalhostUrl(marker) ? marker : undefined) ?? DEFAULT_CLOUD_BASE_URL;
+  const customHost = fileHost !== undefined && isLocalhostUrl(fileHost) ? fileHost : marker !== undefined && isLocalhostUrl(marker) ? marker : undefined;
+  return {
+    mode,
+    cloudUrl: ensureMcpHubPath(cloudBase),
+    ...(customHost ? { customHost: customHost.replace(/\/+$/, '') } : {}),
+    ...(envFile[ENV_TOKEN] ? { envFileToken: envFile[ENV_TOKEN] } : {}),
   };
-  const fromEnv = pick(normalizeEnv(process.env[ENV_CONNECTION_MODE])) ?? pick(envFileMode(projectPath));
-  if (fromEnv) return fromEnv;
-  try {
-    const file = path.join(godotUserDataDir(projectPath), 'godot-mcp-config.json');
-    const config = JSON.parse(fs.readFileSync(file, 'utf-8')) as { connectionMode?: unknown };
-    const persisted = pick(typeof config.connectionMode === 'string' ? config.connectionMode : undefined);
-    if (persisted) return persisted;
-  } catch {
-    // never opened with the addon, or unreadable: the addon's default
-  }
-  return 'Cloud';
+}
+
+/** The addon's mode for the project (see {@link readProjectConnection}). */
+export function projectConnectionMode(projectPath: string): GodotConnectionMode {
+  return readProjectConnection(projectPath).mode;
+}
+
+/**
+ * Whether this machine (or this project) ever signed in to ai-game.dev: `missing` only when the machine store, the
+ * per-project store and the legacy project credential are all absent. `project` = the per-project sign-in exists.
+ */
+export function signInState(projectPath: string): 'missing' | 'machine' | 'project' {
+  if (openProjectStore(projectPath).readState().status !== 'missing' || fs.existsSync(getCredentialsPath(projectPath))) return 'project';
+  return openMachineStore().readState().status !== 'missing' ? 'machine' : 'missing';
 }
 
 export const SIGNED_IN_BUT_UNUSABLE_MESSAGE = 'This machine is signed in to ai-game.dev, but the sign-in cannot be used right now '
   + '(expired, revoked, unreadable, or the credential store is busy). Run `godot-cli login` to sign in again, or retry. '
   + 'The project stays in Cloud mode: the CLI does not switch it to a local server.';
+
+export const PROJECT_SIGNED_IN_BUT_UNUSABLE_MESSAGE = 'This project is signed in to ai-game.dev, but the sign-in cannot be used right now '
+  + '(expired, revoked, unreadable, or the credential store is busy). Run `godot-cli login --project <path>` to sign in '
+  + 'again, or retry. The project stays in Cloud mode: the CLI does not switch it to a local server.';
 
 export interface EditorConnection {
   url: string;
@@ -108,16 +189,15 @@ export interface EditorConnection {
 }
 
 export interface EditorConnectionDeps {
-  /** The machine credential store's state: `missing` = never signed in on this machine. */
-  credentialState: () => 'ok' | 'missing' | 'unreadable';
+  signInState: (projectPath: string) => 'missing' | 'machine' | 'project';
   /** A usable cloud access token, if any (refreshed through cli-core's provider). */
   readCloudToken: (projectPath: string) => Promise<string | undefined>;
-  connectionMode: (projectPath: string) => GodotConnectionMode;
+  projectConnection: (projectPath: string) => ProjectConnection;
 }
 
 /**
  * The connection of a command that talks to the project's editor (`run-tool`, `run-system-tool`, `exec`).
- * An explicit `--url`, `GODOT_MCP_HOST` or a local marker target is used as is. Otherwise the project's mode decides:
+ * An explicit `--url` or `GODOT_MCP_HOST` (process env) is used as is. Otherwise the project's mode decides:
  * Custom → its local server; Cloud → the cloud hub with the sign-in's (or an explicit) token. Only a machine that
  * NEVER signed in to ai-game.dev falls back to the project's local server. A sign-in that exists but cannot be used
  * is an error: a signed-in machine is never switched to a local server.
@@ -128,22 +208,30 @@ export async function resolveEditorConnection(
   deps: Partial<EditorConnectionDeps> = {},
 ): Promise<EditorConnection> {
   const d: EditorConnectionDeps = {
-    credentialState: () => openMachineStore().readState().status,
+    signInState,
     readCloudToken: resolveCloudAccessToken,
-    connectionMode: projectConnectionMode,
+    projectConnection: readProjectConnection,
     ...deps,
   };
-  const target = resolveTargetUrl(projectPath, options);
   const explicitToken = options.token ?? normalizeEnv(process.env[ENV_TOKEN]);
-  let cloudUrl: string;
-  if (target.isCloud) cloudUrl = target.url;
-  else if (target.derived && d.connectionMode(projectPath) === 'Cloud') cloudUrl = CLOUD_MCP_URL;
-  else return { url: target.url, token: explicitToken, cloud: false, localFallback: false };
+  const explicitUrl = options.url ?? normalizeEnv(process.env[ENV_HOST]);
+  if (explicitUrl) return { url: explicitUrl.replace(/\/+$/, ''), token: explicitToken, cloud: false, localFallback: false };
 
-  const token = explicitToken ?? await d.readCloudToken(projectPath);
+  const project = d.projectConnection(projectPath);
+  const envCloud = normalizeEnv(process.env[ENV_CLOUD_URL]);
+  if (project.mode === 'Custom' && !envCloud) {
+    return { url: project.customHost ?? localProjectUrl(projectPath), token: explicitToken ?? project.envFileToken, cloud: false, localFallback: false };
+  }
+
+  const cloudUrl = envCloud ? ensureMcpHubPath(envCloud) : project.cloudUrl;
+  const token = explicitToken ?? project.envFileToken ?? await d.readCloudToken(projectPath);
   if (token) return { url: cloudUrl, token, cloud: true, localFallback: false };
-  if (d.credentialState() !== 'missing') {
-    return { url: cloudUrl, token: undefined, cloud: true, localFallback: false, signInRequired: SIGNED_IN_BUT_UNUSABLE_MESSAGE };
+  const state = d.signInState(projectPath);
+  if (state !== 'missing') {
+    return {
+      url: cloudUrl, token: undefined, cloud: true, localFallback: false,
+      signInRequired: state === 'project' ? PROJECT_SIGNED_IN_BUT_UNUSABLE_MESSAGE : SIGNED_IN_BUT_UNUSABLE_MESSAGE,
+    };
   }
   const url = localProjectUrl(projectPath);
   verbose(`Cloud mode without an ai-game.dev sign-in on this machine: using the project's local server ${url}`);
