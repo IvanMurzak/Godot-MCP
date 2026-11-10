@@ -117,8 +117,6 @@ export function runnerArgs(
       ...(dirs.length > 0 ? [`-gdir=${dirs.join(',')}`] : []),
       ...(options.filter ? [`-gselect=${options.filter}`] : []),
       `-gjunit_xml_file=${options.junitFile}`,
-      // A .gutconfig.json with junit_xml_timestamp would rename the report.
-      '-gjunit_xml_timestamp=false',
     ];
   }
   const dirs = options.dirs ?? defaultTestDirs(options.projectPath);
@@ -133,8 +131,11 @@ export function runnerArgs(
   ];
 }
 
-/** The newest `results.xml` under a gdUnit4 report dir (`<dir>/report_<n>/results.xml`). */
-function findGdUnitReport(reportDir: string): string | undefined {
+/**
+ * The newest file named like `nameRe` under `root`, `maxDepth` folders deep (gdUnit4: `<dir>/report_<n>/results.xml`;
+ * GUT: `junit.xml` or `junit_<timestamp>.xml` directly in the run folder).
+ */
+export function newestReport(root: string, nameRe: RegExp, maxDepth = 0): string | undefined {
   let best: { file: string; mtime: number } | undefined;
   const walk = (dir: string, depth: number): void => {
     let entries: fs.Dirent[];
@@ -145,14 +146,14 @@ function findGdUnitReport(reportDir: string): string | undefined {
     }
     for (const e of entries) {
       const full = path.join(dir, e.name);
-      if (e.isDirectory() && depth < 3) walk(full, depth + 1);
-      else if (e.isFile() && e.name === 'results.xml') {
+      if (e.isDirectory() && depth < maxDepth) walk(full, depth + 1);
+      else if (e.isFile() && nameRe.test(e.name)) {
         const mtime = fs.statSync(full).mtimeMs;
         if (!best || mtime > best.mtime) best = { file: full, mtime };
       }
     }
   };
-  walk(reportDir, 0);
+  walk(root, 0);
   return best?.file;
 }
 
@@ -196,7 +197,9 @@ export async function runTests(options: RunTestsOptions): Promise<RunTestsResult
   if (stopped) return fail(stopped);
   if (!engineRan(run)) return fail(notStarted('test-run-error', run));
 
-  const xmlFile = runner === 'gut' ? junitFile : findGdUnitReport(reportDir);
+  // GUT renames the report to junit_<timestamp>.xml when junit_xml_timestamp is on (.gutconfig.json; GUT reads any
+  // -gjunit_xml_timestamp value as true): take the newest junit*.xml in this run's folder, which starts empty.
+  const xmlFile = runner === 'gut' ? newestReport(runDir, /^junit.*\.xml$/) : newestReport(reportDir, /^results\.xml$/, 3);
   if (!xmlFile || !fs.existsSync(xmlFile)) {
     return fail(headlessFailure('test-run-error', `${TEST_RUNNERS[runner].label} wrote no JUnit report (exit ${run.exitCode}): no verdict.`));
   }

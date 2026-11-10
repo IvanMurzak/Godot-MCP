@@ -185,7 +185,7 @@ describe('runTests', () => {
   it('builds the GUT and gdUnit4 command lines', () => {
     installGut();
     expect(runnerArgs('gut', { projectPath: project, junitFile: 'J.xml', reportDir: 'R', filter: 'player' })).toEqual([
-      '-s', 'res://addons/gut/gut_cmdln.gd', '-gexit', '-ginclude_subdirs', '-gdir=res://test', '-gselect=player', '-gjunit_xml_file=J.xml', '-gjunit_xml_timestamp=false',
+      '-s', 'res://addons/gut/gut_cmdln.gd', '-gexit', '-ginclude_subdirs', '-gdir=res://test', '-gselect=player', '-gjunit_xml_file=J.xml',
     ]);
     fs.writeFileSync(path.join(project, 'test', 'player_test.gd'), '');
     fs.writeFileSync(path.join(project, 'test', 'enemy_test.gd'), '');
@@ -224,6 +224,16 @@ describe('runTests', () => {
     expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: suite.deps, skipImport: true })).toMatchObject({ reason: 'tests-failed' });
     const stopped = fakeDeps(() => ({ interrupted: true, exitCode: null }));
     expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: stopped.deps, skipImport: true })).toMatchObject({ reason: 'interrupted' });
+  });
+
+  it('finds a GUT report renamed by junit_xml_timestamp', async () => {
+    installGut();
+    const stamped: Responder = (o) => {
+      const arg = o.args.find((a) => a.startsWith('-gjunit_xml_file='))!.slice('-gjunit_xml_file='.length);
+      fs.writeFileSync(path.join(path.dirname(arg), 'junit_1794290674.547.xml'), GUT_PASS);
+      return {};
+    };
+    expect(await runTests({ projectPath: project, timeoutMs: 10_000, deps: fakeDeps(stamped).deps, skipImport: true })).toMatchObject({ kind: 'success' });
   });
 
   it('imports first unless skipped', async () => {

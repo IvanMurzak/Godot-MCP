@@ -14,11 +14,14 @@ All notable changes to `godot-cli` are documented in this file.
   project open in an editor (`PROJECT_OPEN`, `--allow-open` overrides). Library: `checkProject`, `importProject`,
   `runTests`, `exportProject`, `runScript`, `parseGodotLog`, `parseJUnit`.
 - **Exit codes and `--format` shared with unity-mcp-cli and unreal-mcp-cli.** 0 success, 1 unclassified, 2 usage
-  (also unknown options, which exited 1), 6 command failed (a tool answering `status: "error"` or an HTTP error other than 503, script or
-  compilation errors), 7 unreachable (was 1), 8 tests failed, 14 timeout (`wait-for-ready` timed out with 1), 17 busy
-  (HTTP 503), 18 awaiting input. `--format text|json|ndjson` on `run-tool`, `run-system-tool`, `exec`, `status`,
-  `wait-for-ready` and the new commands: one `{success, command, data, errors, warnings}` envelope on stdout, logs on
-  stderr. `commands [--format json]` prints a manifest of every command, its arguments and options, and the exit codes.
+  (also unknown options, which exited 1), 6 command failed (a tool answering `status: "error"` or an HTTP error
+  other than 502/503/504, script or compilation errors), 7 unreachable (was 1; also HTTP 502), 8 tests failed (a
+  suite-level setup/teardown failure counts), 14 timeout (`wait-for-ready` timed out with 1; also HTTP 504), 17 busy
+  (HTTP 503), 18 awaiting input. A headless run stopped by Ctrl+C / SIGTERM kills the Godot process tree and exits 1.
+  `--format text|json|ndjson` on `run-tool`, `run-system-tool`, `exec`, `status`, `wait-for-ready` and the new
+  commands: one `{success, command, data, errors, warnings}` envelope on stdout (also for argument errors), logs on
+  stderr (ndjson: one JSON event per line). `commands [--format json]` prints a manifest of every command, its
+  arguments and options, and the exit codes.
 - **`run-tool` / `run-system-tool` start a headless editor** when the call is refused on the project's local server,
   like `exec` (a running editor is reused and never closed). `--no-start` turns it off; `--once` closes the editor
   afterwards when this call started it; `--no-build`, `--editor-path`, `--ready-timeout`.
