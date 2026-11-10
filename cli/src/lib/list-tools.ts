@@ -3,6 +3,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { ensureAiGameDevGitignore } from '@baizor/gamedev-cli-core';
 import { SKILL_FAMILIES } from '../utils/skills.js';
 
 export interface ToolInfo {
@@ -124,11 +125,7 @@ export function writeToolsCache(projectPath: string, url: string, tools: ToolInf
     const dir = path.dirname(toolsCachePath(projectPath));
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(toolsCachePath(projectPath), JSON.stringify({ fetchedAt: new Date().toISOString(), url, tools }, null, 2));
-    const ignore = path.join(dir, '.gitignore');
-    const current = fs.existsSync(ignore) ? fs.readFileSync(ignore, 'utf-8') : '';
-    if (!current.split(/\r?\n/).includes('tools.json')) {
-      fs.writeFileSync(ignore, `${current}${current && !current.endsWith('\n') ? '\n' : ''}tools.json\n`);
-    }
+    ensureAiGameDevGitignore(projectPath, ['tools.json']);
   } catch {
     // the cache is a convenience
   }

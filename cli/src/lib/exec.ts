@@ -103,9 +103,28 @@ export function buildScriptExecuteInput(code: string, usings: string[], include:
 
 /** The tool's own error text when the server reports one (`{ error }` / text content), else the call failure. */
 export function toolErrorText(failure: RunToolFailure): string {
-  const data = failure.data as { error?: unknown } | string | undefined;
+  const data = failure.data as {
+    error?: unknown;
+    message?: unknown;
+    title?: unknown;
+    detail?: unknown;
+    errors?: unknown;
+    content?: Array<{ type?: string; text?: unknown }>;
+  } | string | undefined;
   if (typeof data === 'string' && data.length > 0) return data;
-  if (data && typeof data === 'object' && typeof data.error === 'string') return data.error;
+  if (data && typeof data === 'object') {
+    if (typeof data.error === 'string') return data.error;
+    const texts = Array.isArray(data.content) ? data.content.filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c.text as string) : [];
+    if (texts.length > 0) return texts.join('\n');
+    if (typeof data.message === 'string') return data.message;
+    // ASP.NET ProblemDetails (a 400 for bad arguments): the title plus the field errors.
+    if (typeof data.title === 'string') {
+      const fields = data.errors && typeof data.errors === 'object'
+        ? Object.entries(data.errors as Record<string, unknown>).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : String(v)}`)
+        : [];
+      return [data.title, typeof data.detail === 'string' ? data.detail : '', ...fields].filter(Boolean).join(' ');
+    }
+  }
   return failure.message;
 }
 

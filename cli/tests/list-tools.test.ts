@@ -15,6 +15,72 @@ import {
 import { httpFailureHint } from '../src/commands/run-tool-builder.js';
 import { buildOpenEnv } from '../src/lib/open.js';
 import { catalogToolIds } from '../src/utils/skills.js';
+import { toolErrorText } from '../src/lib/exec.js';
+import { spawn } from 'child_process';
+import { CLI_PATH } from './helpers/cli.js';
+import { CLI_SPAWN_TIMEOUT_MS } from './helpers/timeouts.js';
+
+function runCli(args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    const child = spawn('node', [CLI_PATH, ...args], { stdio: 'pipe', cwd });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => child.kill(), CLI_SPAWN_TIMEOUT_MS);
+    child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+    child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, exitCode: code ?? 1 });
+    });
+  });
+}
+
+describe('tools command', () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-cli-toolscmd-'));
+    fs.writeFileSync(path.join(tmp, 'project.godot'), 'config_version=5\n');
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it('lists the live tools in one json envelope and does not cache an explicit --url', async () => {
+    const server = await startMcpServer();
+    try {
+      const r = await runCli(['tools', '--path', tmp, '--url', server.url, '--format', 'json']);
+      expect(r.exitCode).toBe(0);
+      const envelope = JSON.parse(r.stdout);
+      expect(envelope).toMatchObject({ success: true, command: 'tools', data: { source: 'editor' } });
+      expect(envelope.data.tools.map((t: { name: string }) => t.name)).toEqual(['a-tool', 'b-tool']);
+      expect(fs.existsSync(path.join(tmp, '.ai-game-dev', 'tools.json'))).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('shows a tool with its example call, and NOT_FOUND (exit 6) for an unknown one', async () => {
+    const server = await startMcpServer();
+    try {
+      const one = await runCli(['tools', 'a-tool', '--path', tmp, '--url', server.url, '--format', 'json']);
+      expect(JSON.parse(one.stdout).data.example).toBe('godot-cli run-tool a-tool --input \'{"q":"<q>"}\'');
+      const none = await runCli(['tools', 'zzz', '--path', tmp, '--url', server.url, '--format', 'json']);
+      expect(none.exitCode).toBe(6);
+      expect(JSON.parse(none.stdout).errors[0].code).toBe('NOT_FOUND');
+    } finally {
+      await server.close();
+    }
+  });
+});
+
+describe('toolErrorText', () => {
+  const failure = (data: unknown) => ({ kind: 'failure' as const, success: false as const, endpoint: '', reason: 'http-error' as const, message: 'Unprocessable Entity', data });
+  it('reads the error from the shapes servers answer with', () => {
+    expect(toolErrorText(failure({ error: 'boom' }))).toBe('boom');
+    expect(toolErrorText(failure({ status: 'error', content: [{ type: 'text', text: 'file not found' }] }))).toBe('file not found');
+    expect(toolErrorText(failure({ title: 'One or more validation errors occurred.', errors: { query: ['required'] } })))
+      .toBe('One or more validation errors occurred. query: required');
+    expect(toolErrorText(failure({ unknown: 1 }))).toBe('Unprocessable Entity');
+  });
+});
 
 /** A Streamable-HTTP MCP server answering initialize and two pages of tools/list over SSE. */
 function startMcpServer(): Promise<{ url: string; requests: string[]; close: () => Promise<void> }> {

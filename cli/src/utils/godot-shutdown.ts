@@ -46,11 +46,12 @@ export function sendGracefulShutdown(
 export function sendForceKill(
   pid: number,
   os: SupportedPlatform = platform() as SupportedPlatform,
+  /** Windows: also its child processes (`/T`) — for the `_console` wrapper, whose child is the editor itself. */
+  tree = false,
 ): boolean {
   try {
     if (os === 'win32') {
-      // /T: the `_console` build's GUI child too.
-      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { encoding: 'utf-8', timeout: 5000, stdio: 'pipe' });
+      execFileSync('taskkill', tree ? ['/PID', String(pid), '/T', '/F'] : ['/PID', String(pid), '/F'], { encoding: 'utf-8', timeout: 5000, stdio: 'pipe' });
       return true;
     }
     process.kill(pid, 'SIGKILL');

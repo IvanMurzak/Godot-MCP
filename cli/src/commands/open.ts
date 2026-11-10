@@ -147,7 +147,7 @@ export const openCommand = new Command('open')
       // switched to a local server.
       let fallbackUrl: string | undefined;
       const nothingChosen = options.connect !== false && options.url === undefined && options.mode === undefined
-        && options.token === undefined && options.cloudUrl === undefined;
+        && options.token === undefined && options.cloudUrl === undefined && options.auth === undefined;
       if (nothingChosen) {
         const conn = await resolveEditorConnection(projectPath, {});
         if (conn.localFallback) {

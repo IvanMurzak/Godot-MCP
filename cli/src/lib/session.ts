@@ -39,9 +39,11 @@ export function startupLogHint(projectPath: string): string {
   const log = path.join(godotUserDataDir(path.resolve(projectPath)), 'logs', 'godot.log');
   let text: string;
   try {
+    // Only a log written during this start (it may be an earlier game run's or session's otherwise).
+    if (Date.now() - fs.statSync(log).mtimeMs > 10 * 60_000) throw new Error('stale');
     text = fs.readFileSync(log, 'utf-8');
   } catch {
-    // A started editor writes no log of its own: `check` reproduces its start (import, build, editor boot) with logs.
+    // No log from this start (the editor's file logging may be off): `check` reproduces the start with logs.
     return '. Run `godot-cli check` to see the script, C# and addon-load errors behind it.';
   }
   const errors = parseGodotLog(text).filter((d) => d.severity === 'error' && d.source !== 'engine').slice(0, 5);

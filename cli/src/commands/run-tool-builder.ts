@@ -243,7 +243,8 @@ function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, c
   const mapped = toolFailureExit(failure);
   if (failure.reason === 'http-error') {
     const hint = httpFailureHint(failure.httpStatus, ctx.toolName);
-    const message = `${toolErrorText(failure)} (HTTP ${failure.httpStatus})${hint ? ` ${hint}` : ''}`;
+    const text = toolErrorText(failure);
+    const message = `${text}${/^HTTP \d/.test(text) ? '' : ` (HTTP ${failure.httpStatus})`}${hint ? ` ${hint}` : ''}`;
     if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message }]);
     if (ctx.raw) {
       process.stdout.write(stringifyForRaw(failure.data));

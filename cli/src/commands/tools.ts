@@ -52,15 +52,19 @@ export const toolsCommand = addFormatOption(
   const projectPath = resolveAndValidateProjectPath(undefined, options);
   const conn = await connectionForCommand(output, projectPath, options);
 
+  // The project's own cache only: written for this project's local server, never for an explicit --url or the hub.
+  const cacheable = !options.url && !conn.cloud && isGodotProject(projectPath);
+  const cached = cacheable ? readToolsCache(projectPath) : undefined;
+  const cache = cached && cached.url === conn.url ? cached : undefined;
   let tools: ToolInfo[] | undefined;
   let source: 'editor' | 'cache' | 'built-in' = 'editor';
-  const cache = options.refresh ? undefined : readToolsCache(projectPath);
-  if (cache) {
+  // A running editor is asked first (the list changes when tools are added); the cache serves a closed editor.
+  let live = await listToolsLive(conn.url, conn.token, 5_000);
+  if (live.kind === 'failure' && cache && !options.refresh) {
     tools = cache.tools;
     source = 'cache';
     verbose(`Using ${cache.tools.length} cached tools from ${cache.fetchedAt}`);
   } else {
-    let live = await listToolsLive(conn.url, conn.token);
     const canStart = options.start !== false && !conn.cloud && isLocalhostUrl(conn.url) && isGodotProject(projectPath);
     if (live.kind === 'failure' && live.reason === 'unreachable' && canStart) {
       output.progress('No editor answered; starting a headless editor to list its tools...');
@@ -80,7 +84,11 @@ export const toolsCommand = addFormatOption(
     }
     if (live.kind === 'success') {
       tools = live.tools;
-      writeToolsCache(projectPath, conn.url, live.tools);
+      if (cacheable) writeToolsCache(projectPath, conn.url, live.tools);
+    } else if (cache) {
+      output.warn(`${live.message} Showing the cached list from ${cache.fetchedAt}.`);
+      tools = cache.tools;
+      source = 'cache';
     } else {
       output.warn(`${live.message} Showing the built-in list (no input schemas); run \`godot-cli tools --refresh\` with an editor running for the full list.`);
       tools = offlineTools();

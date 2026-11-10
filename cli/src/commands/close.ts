@@ -57,12 +57,15 @@ export function parseTimeoutSeconds(raw: string | undefined): number | null {
 
 /** Resolve the editor PID for a given project path, or null when not running. */
 export function resolveEditorPid(projectPath: string): number | null {
+  return resolveEditorProcess(projectPath)?.pid ?? null;
+}
+
+/** The editor process of the project, and whether it is the `_console` wrapper (its child is the editor). */
+function resolveEditorProcess(projectPath: string): { pid: number; consoleWrapper: boolean } | null {
   const proc = findGodotProcess(projectPath);
-  if (proc) {
-    verbose(`Godot editor PID ${proc.pid} matched for project`);
-    return proc.pid;
-  }
-  return null;
+  if (!proc) return null;
+  verbose(`Godot editor PID ${proc.pid} matched for project`);
+  return { pid: proc.pid, consoleWrapper: /_console(.exe)?/i.test(proc.commandLine) };
 }
 
 export const closeCommand = new Command('close')
@@ -104,7 +107,8 @@ export const closeCommand = new Command('close')
     if (closedOwned || options.ownedOnly) return;
 
     const platform = nodePlatform() as SupportedPlatform;
-    const pid = resolveEditorPid(projectPath);
+    const editor = resolveEditorProcess(projectPath);
+    const pid = editor?.pid ?? null;
 
     if (pid === null) {
       ui.success(`no running editor for project at ${projectPath}`);
@@ -143,7 +147,8 @@ export const closeCommand = new Command('close')
     }
 
     spinner.text = `Force-killing PID ${pid}...`;
-    const killed = sendForceKill(pid, platform);
+    // Not /T for a user's GUI editor: its children may be a running game or an external script editor.
+    const killed = sendForceKill(pid, platform, editor!.consoleWrapper);
     if (!killed) {
       spinner.error(`Failed to force-kill PID ${pid}`);
       process.exit(1);
