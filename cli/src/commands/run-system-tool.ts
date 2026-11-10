@@ -7,7 +7,6 @@ export const runSystemToolCommand = buildRunToolCommand({
   argDescription: 'Name of the system tool to execute',
   routePrefix: '/api/system-tools',
   verboseLabel: 'System tool',
-  headingLabel: 'Run System Tool',
   errorNoun: 'system tool',
   invoke: runSystemTool,
 });

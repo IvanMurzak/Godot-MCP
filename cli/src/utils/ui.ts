@@ -45,27 +45,6 @@ function isTTY(): boolean {
 }
 
 /**
- * Draw a Unicode rounded box around text with cyan borders.
- */
-function drawBox(text: string): string {
-  const lines = text.split('\n');
-  const padding = 2;
-  const maxLen = Math.max(...lines.map(l => stripAnsi(l).length));
-  const innerWidth = maxLen + padding * 2;
-  const pad = ' '.repeat(padding);
-
-  const top = chalk.cyan('╭' + '─'.repeat(innerWidth) + '╮');
-  const bottom = chalk.cyan('╰' + '─'.repeat(innerWidth) + '╯');
-  const middle = lines.map(l => {
-    const visible = stripAnsi(l).length;
-    const right = ' '.repeat(maxLen - visible);
-    return chalk.cyan('│') + pad + l + right + pad + chalk.cyan('│');
-  });
-
-  return [top, ...middle, bottom].join('\n');
-}
-
-/**
  * Strip ANSI escape codes from a string.
  */
 function stripAnsi(str: string): string {
@@ -86,18 +65,14 @@ const ROOT_CODE_COMMANDS: ReadonlyArray<readonly [string, string, string]> = [
 /** How many of `rql --help`'s recipes the root help shows. */
 const ROOT_RQL_RECIPES = 7;
 
-let rootRecipes: ReadonlyArray<readonly [string, string]> = [];
-
-/** The RQL recipes the root help shows (set by the CLI entry, so this module does not import the commands). */
-export function setRootRecipes(recipes: ReadonlyArray<readonly [string, string]>): void {
-  rootRecipes = recipes.slice(0, ROOT_RQL_RECIPES);
-}
+/** RQL recipes: [query, what it does]. */
+export type RqlRecipes = ReadonlyArray<readonly [string, string]>;
 
 /**
  * The root help: short on purpose (agents read it first, and every later turn re-reads it): the everyday commands, the
  * other command names, and the RQL recipes most tasks need. Each command's own --help has the details.
  */
-function formatRootHelp(target: Command, helper: Help, appVersion: string | undefined): string {
+function formatRootHelp(target: Command, helper: Help, appVersion: string | undefined, recipes: RqlRecipes): string {
   const name = target.name();
   const featured = new Set([...ROOT_EDITOR_COMMANDS, ...ROOT_CODE_COMMANDS].map(([cmd]) => cmd));
   const row = ([, usage, what]: readonly [string, string, string]) => `  ${chalk.yellow(usage.padEnd(26))} ${chalk.dim(what)}`;
@@ -111,9 +86,9 @@ function formatRootHelp(target: Command, helper: Help, appVersion: string | unde
     ...ROOT_CODE_COMMANDS.map(row),
     `${chalk.bold('More commands:')} ${others.join(' ')}`,
   ];
-  if (rootRecipes.length > 0) {
+  if (recipes.length > 0) {
     lines.push('', chalk.bold('RQL recipes (strings inside the query take double quotes):'));
-    for (const [query, what] of rootRecipes) lines.push(`  ${chalk.yellow(`rql '${query}'`)}  ${chalk.dim(`# ${what}`)}`);
+    for (const [query, what] of recipes.slice(0, ROOT_RQL_RECIPES)) lines.push(`  ${chalk.yellow(`rql '${query}'`)}  ${chalk.dim(`# ${what}`)}`);
   }
   lines.push(
     '',
@@ -128,12 +103,12 @@ function formatRootHelp(target: Command, helper: Help, appVersion: string | unde
  * Call this on every Command instance (root and subcommands)
  * so that --help / -h always renders the fancy UI.
  *
- * @param appVersion - The CLI version string, shown in the root banner.
+ * @param appVersion - The CLI version string, shown in the root help.
  */
-export function configureStyledHelp(cmd: Command, appVersion?: string): Command {
+export function configureStyledHelp(cmd: Command, appVersion?: string, rootRecipes: RqlRecipes = []): Command {
   cmd.configureHelp({
     formatHelp(target: Command, helper: Help): string {
-      if (!target.parent) return formatRootHelp(target, helper, appVersion);
+      if (!target.parent) return formatRootHelp(target, helper, appVersion, rootRecipes);
       const lines: string[] = [];
 
       // A plain line, not a box: agents read this help, and box borders cost as much as the text again.

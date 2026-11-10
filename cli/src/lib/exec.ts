@@ -102,6 +102,22 @@ export function buildScriptExecuteInput(code: string, usings: string[], include:
 }
 
 /** The tool's own error text when the server reports one (`{ error }` / text content), else the call failure. */
+/** The text blocks of a tool answer's `content`, and how many blocks it has in all. */
+function textBlocks(data: unknown): { texts: string[]; blocks: number } {
+  const content = (data as { content?: unknown } | null | undefined)?.content;
+  const blocks = Array.isArray(content) ? (content as Array<{ type?: string; text?: unknown } | null>) : [];
+  return { texts: blocks.filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c!.text as string), blocks: blocks.length };
+}
+
+/**
+ * The text of a tool answer whose content is all text blocks, joined; `undefined` for any other answer (an image, no
+ * content), which keeps its JSON.
+ */
+export function toolResponseText(data: unknown): string | undefined {
+  const { texts, blocks } = textBlocks(data);
+  return texts.length > 0 && texts.length === blocks ? texts.join('\n') : undefined;
+}
+
 export function toolErrorText(failure: RunToolFailure): string {
   const data = failure.data as {
     error?: unknown;
@@ -114,7 +130,7 @@ export function toolErrorText(failure: RunToolFailure): string {
   if (typeof data === 'string' && data.length > 0) return data;
   if (data && typeof data === 'object') {
     if (typeof data.error === 'string') return data.error;
-    const texts = Array.isArray(data.content) ? data.content.filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c.text as string) : [];
+    const { texts } = textBlocks(data);
     if (texts.length > 0) return texts.join('\n');
     if (typeof data.message === 'string') return data.message;
     // ASP.NET ProblemDetails (a 400 for bad arguments): the title plus the field errors.
@@ -140,7 +156,7 @@ export function readToolResponse(data: unknown): { ok: boolean; text: string } {
     structured?: { result?: unknown } | null;
   } | null;
   const ok = response?.status === undefined || response.status === 'success';
-  const texts = (response?.content ?? []).filter((c) => c?.type === 'text' && typeof c.text === 'string').map((c) => c.text!);
+  const { texts } = textBlocks(response);
   if (texts.length > 0) return { ok, text: texts.join('\n') };
 
   const result = response?.structured?.result as {

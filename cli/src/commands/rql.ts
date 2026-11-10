@@ -1,20 +1,23 @@
+import * as fs from 'fs';
 import { Command, Option } from 'commander';
 import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
-import { RQL_MUTATE_TOOL, RQL_QUERY_TOOL, RQL_SCHEMA_TOOL, isRqlMutation, resourcesWrittenSince, rqlMaySave, stripToolName } from '../lib/rql.js';
+import { RQL_MUTATE_TOOL, resourcesWrittenSince, rqlMaySave, rqlToolCall, saveReceipt, stripToolName } from '../lib/rql.js';
 import { runTool } from '../lib/run-tool.js';
 import { resolveAndValidateProjectPath } from '../utils/connection.js';
 import { ExitCode } from '../utils/exit-codes.js';
-import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
-import { runToolAction, type BuilderOptions, type RunToolCliOptions } from './run-tool-builder.js';
+import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
+import type { RqlRecipes } from '../utils/ui.js';
+import { runToolAction, type RunToolCall, type RunToolCliOptions } from './run-tool-builder.js';
 
 interface RqlCliOptions extends Omit<RunToolCliOptions, 'input' | 'inputFile'> {
+  file?: string;
   schema?: string | boolean;
   dryRun?: boolean;
   maxTargets?: string;
 }
 
 /** The recipes `rql --help` shows; the root help shows the first ones. */
-export const RQL_RECIPES: ReadonlyArray<readonly [string, string]> = [
+export const RQL_RECIPES: RqlRecipes = [
   ['editor | call OpenScene("res://scenes/forest.tscn")', 'open a scene (writes no file): nodes lists the EDITED scene only'],
   ['editor | call NewScene("res://scenes/cave.tscn", "Node2D", "Cave")', 'create, save and open a scene (path, root class, root name)'],
   ['editor | call CreateNode("OmniLight3D", {name: "Lamp", position: [1, 3, 0]})', 'a new node under the scene root (meters, Y up)'],
@@ -27,13 +30,10 @@ export const RQL_RECIPES: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /** How `rql` calls a tool: as run-tool does. */
-const RQL_CALL: BuilderOptions = {
+const RQL_CALL: RunToolCall = {
   name: 'rql',
-  description: '',
-  argDescription: '',
   routePrefix: '/api/tools',
   verboseLabel: 'Tool',
-  headingLabel: 'RQL',
   errorNoun: 'tool',
   invoke: runTool,
 };
@@ -44,16 +44,25 @@ const RQL_HELP_FOOTER = [
   '',
   'Stages: where, select a b, sort x [desc], first N, count, get <member>, set a = expr, call Method(args).',
   'Operators: == != < <= > >= and or not, contains, starts-with, ends-with, x in [a, b], $ is Node3D.',
-  'Quote the query with single quotes; strings inside it take double quotes. A receipt (set / call) lists every change,',
-  'so a separate check is rarely needed; scene edits are unsaved until SaveScene() (resource edits save at once).',
+  'Quote the query with single quotes; strings inside it take double quotes (a shell that strips them: -f <file> or -f -).',
+  'A receipt (set / call) lists every change, so a separate check is rarely needed; scene edits stay unsaved until',
+  'SaveScene() (resource files and project settings are saved at once).',
   'Sources, types and members: godot-cli rql --schema [Type]  (full language: godot-cli tools rql-query)',
 ].join('\n');
+
+/** The query from the argument or `-f <file>` (`-f -`: stdin; stdin is never read unasked). */
+function readQuery(query: string | undefined, file: string | undefined): string | undefined {
+  if (query !== undefined && file !== undefined) throw new Error('Pass the query either as an argument or with -f, not both.');
+  if (file === undefined) return query;
+  return fs.readFileSync(file === '-' ? 0 : file, 'utf-8').trim();
+}
 
 export const rqlCommand = addFormatOption(
   new Command('rql')
     .description('Read or change the editor with one RQL query: scenes, nodes, resources (a query ending in set / call changes the editor, any other only reads); starts a headless editor when none answers')
     .argument('[query]', 'RQL query, e.g. \'nodes | where name starts-with "Tree" | count\'')
     .option('--path <path>', 'Godot project path (defaults to cwd)')
+    .option('-f, --file <file>', 'Read the query from a file ("-" for stdin)')
     .option('--schema [type]', 'List the RQL sources (or one type\'s members) instead of running a query')
     .option('--dry-run', 'For set / call: show what would change, change nothing')
     .option('--max-targets <n>', 'For set / call: allow more than 200 targets (up to 1000)')
@@ -69,35 +78,25 @@ export const rqlCommand = addFormatOption(
     .addOption(new Option('--ready-timeout <ms>', 'How long to wait for a started editor to become ready').default(String(DEFAULT_SESSION_READY_TIMEOUT_MS)).hideHelp())
     .addHelpText('after', `\n${RQL_HELP_FOOTER}\n`),
 ).action(async (queryArg: string | undefined, options: RqlCliOptions) => {
-  const query = queryArg === undefined ? undefined : stripToolName(queryArg);
-  let toolName: string;
-  let input: Record<string, unknown>;
-  if (options.schema !== undefined) {
-    toolName = RQL_SCHEMA_TOOL;
-    input = typeof options.schema === 'string' ? { type: options.schema } : {};
-  } else if (query === undefined || query.trim() === '') {
-    const output = new CommandOutput('rql', parseFormat(options.format));
-    return output.fail(ExitCode.Usage, 'USAGE', 'No query given: godot-cli rql \'nodes | where name starts-with "Tree" | count\' (recipes: rql --help)');
-  } else if (isRqlMutation(query)) {
-    toolName = RQL_MUTATE_TOOL;
-    input = {
-      query,
-      ...(options.dryRun ? { dry_run: true } : {}),
-      ...(options.maxTargets !== undefined ? { max_targets: Number(options.maxTargets) } : {}),
-    };
-  } else {
-    toolName = RQL_QUERY_TOOL;
-    input = { query };
+  const output = new CommandOutput('rql', parseFormat(options.format));
+  let query: string | undefined;
+  try {
+    const text = readQuery(queryArg, options.file);
+    query = text === undefined ? undefined : stripToolName(text);
+  } catch (err) {
+    return output.fail(ExitCode.Usage, 'USAGE', err instanceof Error ? err.message : String(err));
   }
+  const maxTargets = options.maxTargets === undefined ? undefined : parseIntFlag(options.maxTargets, '--max-targets');
+  const call = rqlToolCall(query, { schema: options.schema, dryRun: options.dryRun, maxTargets });
+  if ('usage' in call) return output.fail(ExitCode.Usage, 'USAGE', call.usage);
 
   // A save answers without naming its files; which files it wrote is read from the disk, so nobody re-opens the scene.
-  const human = !options.raw && parseFormat(options.format) === 'text';
-  const saveCheck = toolName === RQL_MUTATE_TOOL && !options.dryRun && human && rqlMaySave(query!)
+  // Not for an editor reached by --url: its disk may be another machine's.
+  const human = !options.raw && !output.machine;
+  const saveCheck = call.toolName === RQL_MUTATE_TOOL && !options.dryRun && human && options.url === undefined && rqlMaySave(query!)
     ? resolveAndValidateProjectPath(undefined, options) : undefined;
   const startedAt = Date.now();
-  await runToolAction(RQL_CALL, toolName, undefined, { ...options, input: JSON.stringify(input) }, () => {
-    if (saveCheck === undefined) return;
-    const written = resourcesWrittenSince(saveCheck, startedAt);
-    console.log(written.length > 0 ? `Saved to disk: ${written.join(', ')}` : 'No scene or resource file changed on disk (nothing unsaved?)');
+  await runToolAction(RQL_CALL, call.toolName, undefined, { ...options, input: JSON.stringify(call.input) }, () => {
+    if (saveCheck !== undefined) console.log(saveReceipt(resourcesWrittenSince(saveCheck, startedAt)));
   });
 });

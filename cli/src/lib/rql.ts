@@ -1,5 +1,5 @@
-// `rql` — RQL text straight from the command line: which rql-* tool a query goes to, the text of a tool answer, hints
-// for the RQL slips agents make most, and which files a save wrote. Never prints, never exits.
+// `rql` — RQL text straight from the command line: which rql-* tool a query goes to, hints for the RQL slips agents
+// make most, and which files a save wrote. Never prints, never exits.
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -8,7 +8,10 @@ export const RQL_QUERY_TOOL = 'rql-query';
 export const RQL_MUTATE_TOOL = 'rql-mutate';
 export const RQL_SCHEMA_TOOL = 'rql-schema';
 
-/** The query's top-level stages (split on `|` outside strings, parentheses, brackets and braces), trimmed. */
+/**
+ * The query's top-level stages (split on `|` outside strings, `backtick` identifiers, parentheses, brackets and
+ * braces), trimmed.
+ */
 export function rqlStages(query: string): string[] {
   const stages: string[] = [];
   let depth = 0;
@@ -17,9 +20,9 @@ export function rqlStages(query: string): string[] {
   for (let i = 0; i < query.length; i++) {
     const ch = query[i];
     if (quote) {
-      if (ch === '\\') i++;
+      if (ch === '\\' && quote !== '`') i++;
       else if (ch === quote) quote = undefined;
-    } else if (ch === '"' || ch === '\'') {
+    } else if (ch === '"' || ch === '\'' || ch === '`') {
       quote = ch;
     } else if (ch === '(' || ch === '[' || ch === '{') {
       depth++;
@@ -48,17 +51,32 @@ export function stripToolName(query: string): string {
   return query.replace(/^\s*rql-(query|mutate)\s+/, '');
 }
 
-/**
- * The text blocks of a tool answer (`{ content: [{ type: "text", text }] }`) joined, or `undefined` when it has none —
- * an answer that is not all text keeps its JSON.
- */
-export function toolResponseText(data: unknown): string | undefined {
-  const content = (data as { content?: unknown } | null | undefined)?.content;
-  if (!Array.isArray(content)) return undefined;
-  const texts = content
-    .filter((c): c is { type: string; text: string } => c?.type === 'text' && typeof c.text === 'string')
-    .map((c) => c.text);
-  return texts.length > 0 && texts.length === content.length ? texts.join('\n') : undefined;
+export interface RqlCallOptions {
+  /** `--schema [type]`: true without a type. */
+  schema?: string | boolean;
+  dryRun?: boolean;
+  maxTargets?: number;
+}
+
+/** The rql-* tool and its input for a command-line query, or why the command line is wrong. */
+export function rqlToolCall(query: string | undefined, options: RqlCallOptions):
+  { toolName: string; input: Record<string, unknown> } | { usage: string } {
+  const { schema, dryRun, maxTargets } = options;
+  if (schema !== undefined) {
+    // `rql --schema 'nodes | count'` hands the query to --schema as its value.
+    if (query !== undefined || (typeof schema === 'string' && /[|\s]/.test(schema.trim()))) {
+      return { usage: 'Pass either a query or --schema [type] (a type name), not both.' };
+    }
+    return { toolName: RQL_SCHEMA_TOOL, input: typeof schema === 'string' ? { type: schema } : {} };
+  }
+  if (query === undefined || query.trim() === '') {
+    return { usage: 'No query given: godot-cli rql \'nodes | where name starts-with "Tree" | count\' (recipes: rql --help)' };
+  }
+  if (!isRqlMutation(query)) {
+    if (dryRun || maxTargets !== undefined) return { usage: '--dry-run and --max-targets are for a query ending in set / call.' };
+    return { toolName: RQL_QUERY_TOOL, input: { query } };
+  }
+  return { toolName: RQL_MUTATE_TOOL, input: { query, ...(dryRun ? { dry_run: true } : {}), ...(maxTargets !== undefined ? { max_targets: maxTargets } : {}) } };
 }
 
 /** Operators agents bring from other languages, with RQL's spelling. */
@@ -72,8 +90,12 @@ const OPERATOR_HINTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/^(regex|regexp|match|rlike)$/i, 'RQL spells it matches "regex": where name matches "^Tree[0-9]+$"'],
 ];
 
-/** A hint for an RQL error whose cause is a familiar slip (a camelCase operator, SQL `like`), else `undefined`. */
-export function rqlErrorHint(message: string): string | undefined {
+/**
+ * A hint for a failed RQL tool (`toolName` rql-*) whose error is a familiar slip (an operator spelled as in another
+ * language), else `undefined`.
+ */
+export function rqlErrorHint(toolName: string, message: string): string | undefined {
+  if (!toolName.startsWith('rql-')) return undefined;
   const token = /unexpected '([^']+)'|unknown method '([^']+)'/.exec(message);
   const word = token?.[1] ?? token?.[2];
   if (word) {
@@ -84,7 +106,9 @@ export function rqlErrorHint(message: string): string | undefined {
 
 /** A query that may write files: a scene save, a new scene (saved at its path), a resource edit or creation. */
 export function rqlMaySave(query: string): boolean {
-  return /\b(SaveScene|NewScene|CreateResource)\s*\(|godot\.resource\(/.test(query);
+  // Outside string literals and `identifiers`: where name == "SaveScene(" saves nothing.
+  const code = query.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`/g, '""');
+  return /\b(SaveScene|NewScene|CreateResource)\s*\(|godot\.resource\(/.test(code);
 }
 
 /** The Godot files a save writes: scenes and resources. */
@@ -92,9 +116,9 @@ const SAVED_FILE = /\.(tscn|scn|tres|res)$/i;
 
 /**
  * The scene / resource files of the project (dot folders such as `.godot` and `addons/` left out) modified at or after
- * `sinceMs`, as res:// paths, sorted — what a save call actually wrote. At most `limit`.
+ * `sinceMs`, as res:// paths, sorted — what a save call actually wrote.
  */
-export function resourcesWrittenSince(projectDir: string, sinceMs: number, limit = 20): string[] {
+export function resourcesWrittenSince(projectDir: string, sinceMs: number): string[] {
   const found: string[] = [];
   const walk = (dir: string): void => {
     let entries: fs.Dirent[];
@@ -117,5 +141,12 @@ export function resourcesWrittenSince(projectDir: string, sinceMs: number, limit
     }
   };
   walk(projectDir);
-  return found.sort().slice(0, limit);
+  return found.sort();
+}
+
+/** The line a save prints: the files it wrote (the first `limit`, then how many more), or that it wrote none. */
+export function saveReceipt(written: readonly string[], limit = 20): string {
+  if (written.length === 0) return 'No scene or resource file of the project changed on disk.';
+  const more = written.length > limit ? `, +${written.length - limit} more` : '';
+  return `Saved to disk: ${written.slice(0, limit).join(', ')}${more}`;
 }

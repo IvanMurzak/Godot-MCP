@@ -9,9 +9,9 @@ import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag, type ErrorCode } from '../utils/output.js';
 import { ensureEditor, type EnsureEditorResult } from '../lib/session.js';
-import { toolErrorText } from '../lib/exec.js';
+import { toolErrorText, toolResponseText } from '../lib/exec.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from '../lib/types.js';
-import { rqlErrorHint, toolResponseText } from '../lib/rql.js';
+import { rqlErrorHint } from '../lib/rql.js';
 
 export interface BuilderOptions {
   /** CLI subcommand name, e.g. `'run-tool'`. */
@@ -24,8 +24,6 @@ export interface BuilderOptions {
   routePrefix: string;
   /** Verbose-log label, e.g. `'Tool'` or `'System tool'`. */
   verboseLabel: string;
-  /** Heading printed by `ui.heading`, e.g. `'Run Tool'`. */
-  headingLabel: string;
   /**
    * Lower-case noun used in user-facing failure copy:
    * `Failed to call <noun>:` and `<Capitalized> call timed out…`.
@@ -34,6 +32,9 @@ export interface BuilderOptions {
   /** Library function — `runTool` or `runSystemTool`. */
   invoke: (opts: RunToolOptions) => Promise<RunToolResult>;
 }
+
+/** What `runToolAction` needs of a command: everything but its help texts. */
+export type RunToolCall = Omit<BuilderOptions, 'description' | 'argDescription'>;
 
 export interface RunToolCliOptions {
   path?: string;
@@ -117,7 +118,7 @@ export function buildRunToolCommand(cfg: BuilderOptions): Command {
 
 /** Call one tool and print its answer (`run-tool`, and `rql` with the RQL tool it picks); a failure exits. */
 export async function runToolAction(
-  cfg: BuilderOptions,
+  cfg: RunToolCall,
   toolName: string,
   positionalPath: string | undefined,
   options: RunToolCliOptions,
@@ -206,9 +207,8 @@ export async function runToolAction(
     if (options.raw && !output.machine) {
       process.stdout.write(stringifyForRaw(result.data));
     } else if (human) {
-      const text = toolResponseText(result.data);
-      if (toolError) ui.error(withRqlHint(`${toolName} returned an error: ${text ?? toolErrorMessage(result.data, toolName)}`));
-      else console.log(text ?? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)));
+      if (toolError) ui.error(withRqlHint(toolName, `${toolName} returned an error: ${toolErrorMessage(result.data, toolName)}`));
+      else console.log(toolResponseText(result.data) ?? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)));
     }
     if (toolError) {
       return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
@@ -250,9 +250,9 @@ function stringifyForRaw(data: unknown): string {
 function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, ctx: FailureContext): never {
   const mapped = toolFailureExit(failure);
   if (failure.reason === 'http-error') {
-    const rqlHint = rqlErrorHint(toolErrorText(failure));
-    const hint = rqlHint ? `hint: ${rqlHint}` : httpFailureHint(failure.httpStatus, ctx.toolName);
     const text = toolErrorText(failure);
+    const rqlHint = rqlErrorHint(ctx.toolName, text);
+    const hint = rqlHint ? `hint: ${rqlHint}` : httpFailureHint(failure.httpStatus, ctx.toolName);
     const message = `${text}${/^HTTP \d/.test(text) ? '' : ` (HTTP ${failure.httpStatus})`}${hint ? ` ${hint}` : ''}`;
     if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message }]);
     if (ctx.raw) {
@@ -301,7 +301,8 @@ function capitalize(s: string): string {
   return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function withRqlHint(message: string): string {
-  const hint = rqlErrorHint(message);
+/** `message`, with a hint for a familiar slip when an RQL tool failed. */
+function withRqlHint(toolName: string, message: string): string {
+  const hint = rqlErrorHint(toolName, message);
   return hint ? `${message}\nhint: ${hint}` : message;
 }
