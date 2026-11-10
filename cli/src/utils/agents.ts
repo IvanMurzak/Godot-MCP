@@ -23,12 +23,8 @@ import * as path from 'path';
  * so the Unity `getStdioProps` / `stdioRemoveKeys` surface is intentionally
  * omitted.
  *
- * `skillsPath` mirrors the Unity definition's per-agent skills directory. The
- * Godot CLI does not yet ship a `setup-skills` command (skills are generated
- * addon-side on plugin boot), but the field is
- * populated now so a follow-up `setup-skills` command can consume it without
- * another registry migration. `null` means the agent has no project-local skills
- * directory.
+ * `skillsPath` is the per-agent project-relative folder `setup-skills` writes into (as in the Unity CLI);
+ * `null` means the agent has no project-local skills directory.
  */
 export interface AgentDefinition {
   id: string;

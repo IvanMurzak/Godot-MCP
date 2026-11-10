@@ -14,7 +14,7 @@ function listAgentsWithSkills(): void {
 }
 
 export const setupSkillsCommand = new Command('setup-skills')
-  .description('Generate Godot-MCP skill files for an AI agent under its skills path')
+  .description('Write the godot-cli agent skill (cold-start workflow, RQL recipes, exit codes) and ai-game-dev-app under an AI agent\'s skills path; offline, no editor needed')
   .argument('[agent-id]', 'Agent to generate skills for (use --list to see all)')
   .argument('[path]', 'Godot project path (defaults to cwd)')
   .option('--path <path>', 'Godot project path (same as [path])')

@@ -92,10 +92,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 .Replace("@NPX@", windows ? "npx.cmd" : "npx")
                 .Replace("@NODE_SETUP@", windows
                     ? "Use the Windows installer and reopen PowerShell. The examples use .cmd launchers to avoid npm PowerShell execution-policy restrictions."
-                    : "On macOS with Homebrew, `brew install node@22` may require adding its executable directory to PATH.")
-                .Replace("@WRITE_JSON@", windows
-                    ? "[System.IO.File]::WriteAllText((Join-Path $PWD 'args.json'), '{}')"
-                    : "printf '%s\\n' '{}' > args.json");
+                    : "On macOS with Homebrew, `brew install node@22` may require adding its executable directory to PATH.");
         }
 
         public static string ToolCommand(string command, string toolName, string json, bool windows)

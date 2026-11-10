@@ -9,7 +9,7 @@ import * as path from 'path';
 
 /** A single Godot-MCP tool family and the individual tools it exposes. */
 export interface SkillFamily {
-  /** Stable slug used for the per-family directory name (e.g. `node`). */
+  /** Stable slug of the family (e.g. `node`). */
   id: string;
   /** Human-facing family name (matches the addon's `Tool_<Family>` class). */
   title: string;

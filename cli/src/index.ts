@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 import { buildCommand } from './commands/build.js';
 import { loginCommand } from './commands/login.js';
 import { openCommand } from './commands/open.js';
-import { RQL_RECIPES, rqlCommand } from './commands/rql.js';
+import { rqlCommand } from './commands/rql.js';
 import { runToolCommand } from './commands/run-tool.js';
 import { runSystemToolCommand } from './commands/run-system-tool.js';
 import { statusCommand } from './commands/status.js';
@@ -82,7 +82,7 @@ for (const cmd of subcommands) {
 program.exitOverride();
 
 // Apply styled help to root (after the subcommands: the root help names them)
-configureStyledHelp(program, pkg.version, RQL_RECIPES);
+configureStyledHelp(program, pkg.version);
 
 // Wire verbose flag before any command executes
 program.hook('preAction', (_thisCommand, actionCommand) => {
