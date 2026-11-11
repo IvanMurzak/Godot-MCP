@@ -43,6 +43,19 @@ describe('tools command', () => {
   });
   afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
+  it('a server that drops the connection exits 7 UNREACHABLE (not the built-in list)', async () => {
+    const server = http.createServer((req) => { req.resume(); req.on('end', () => req.socket.destroy()); });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+      const r = await runCli(['tools', '--path', tmp, '--url', url, '--no-start', '--format', 'json']);
+      expect(r.exitCode).toBe(7);
+      expect(JSON.parse(r.stdout).errors[0].code).toBe('UNREACHABLE');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('lists the live tools in one json envelope and does not cache an explicit --url', async () => {
     const server = await startMcpServer();
     try {
