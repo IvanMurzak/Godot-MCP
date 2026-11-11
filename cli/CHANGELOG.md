@@ -4,6 +4,11 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`close` stops the editor's local MCP server too.** The addon runs `gamedev-mcp-server` as a child of the editor and
+  stops it when the editor quits cleanly, but `close --force` hard-kills a GUI editor without its children, so the
+  server kept running. `close` now notes the servers in that editor's process tree before closing it (by parentage, not
+  by command line) and, once the editor is gone, kills each one still running with the processes it started, after
+  checking its PID still names the same process. Another project's or editor's server is never touched.
 - **ReflectorNet 5.5.2.** The `install-plugin` fallback pin (addons without `nuget-deps.json`) follows the addon: its
   reflection caches no longer reserve storage for their full capacity up front (about 1 MB less per converter).
 - **`run-tool` no longer prints a screenshot's base64 in text mode.** A tool answer with an image fell back to the whole
