@@ -21,6 +21,7 @@ export const RQL_RECIPES: RqlRecipes = [
   ['editor | call SaveScene()', 'write the edited scene to its .tscn; prints the files written'],
   ['nodes | where name == "Old" | call Free()', 'delete'],
   ['godot.resources("StandardMaterial3D") | select path props["albedo_color"]', 'resources of a class'],
+  ['nodes | where name == "Lamp" | set props["light_energy"] = 2', 'a Godot property or exported script variable by name: props["..."]'],
 ];
 
 /** How many recipes the root help shows. */
