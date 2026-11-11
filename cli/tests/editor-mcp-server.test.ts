@@ -79,16 +79,25 @@ describe('editor-mcp-server — findServerDescendants', () => {
 const exe = process.platform === 'win32' ? '.exe' : '';
 let binDir: string;
 
-/** Node under the editor's and the server's process names: a hard link (cheap; a copy where links fail). */
+/**
+ * Node under the editor's and the server's process names. POSIX: a hard link (cheap). Windows: a copy, since a link to
+ * the running node.exe could not be deleted afterwards.
+ */
 function nodeAs(name: string): string {
   const target = path.join(binDir, name + exe);
   try {
+    if (process.platform === 'win32') throw new Error('copy');
     fs.linkSync(process.execPath, target);
   } catch {
     fs.copyFileSync(process.execPath, target);
+    fs.chmodSync(target, 0o755);
   }
-  fs.chmodSync(target, 0o755);
   return target;
+}
+
+/** Kill what a test started, unless already seen gone (a dead PID may be reused by now). */
+function cleanup(...pids: number[]): void {
+  for (const pid of pids) if (isProcessAlive(pid)) sendForceKill(pid);
 }
 
 beforeAll(() => {
@@ -98,7 +107,11 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(binDir, { recursive: true, force: true });
+  try {
+    fs.rmSync(binDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch {
+    /* best effort: a just-killed process can still hold its image for a moment */
+  }
 });
 
 /**
@@ -137,8 +150,7 @@ describe('editor-mcp-server — stopOrphanedServers (live processes)', () => {
       expect(await stopOrphanedServers(editorPid, servers)).toEqual([serverPid]);
       expect(isProcessAlive(serverPid)).toBe(false);
     } finally {
-      sendForceKill(editorPid, undefined, true);
-      sendForceKill(serverPid);
+      cleanup(editorPid, serverPid);
     }
   }, 60000);
 
@@ -151,8 +163,7 @@ describe('editor-mcp-server — stopOrphanedServers (live processes)', () => {
       expect(await stopOrphanedServers(editorPid, [{ pid: serverPid, start: undefined }])).toEqual([]);
       expect(isProcessAlive(serverPid)).toBe(true);
     } finally {
-      sendForceKill(editorPid, undefined, true);
-      sendForceKill(serverPid);
+      cleanup(editorPid, serverPid);
     }
   }, 60000);
 });

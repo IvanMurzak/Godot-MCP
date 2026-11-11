@@ -111,10 +111,13 @@ export const closeCommand = new Command('close')
     const editor = resolveEditorProcess(projectPath);
     // The addon runs its local MCP server as the editor's child: note it now, while the editor's tree still shows it.
     const servers = editor ? await findEditorServers(editor.pid) : [];
-    /** After the editor exited: stop its server if the plugin did not (a hard kill gives it no chance). */
-    const stopServers = async (editorPid: number): Promise<void> => {
-      if (editorPid !== editor?.pid) return; // another editor than the one whose servers we noted
-      for (const serverPid of await stopOrphanedServers(editorPid, servers)) {
+    /**
+     * After a close: stop the noted servers the plugin did not (a hard kill gives it no chance). Only once the editor
+     * we noted them under is gone — the lease may name the `_console` wrapper or its editor, so PIDs are not compared.
+     */
+    const stopServers = async (): Promise<void> => {
+      if (!editor) return;
+      for (const serverPid of await stopOrphanedServers(editor.pid, servers)) {
         ui.success(`MCP server (PID ${serverPid}) of the editor stopped`);
       }
     };
@@ -123,9 +126,9 @@ export const closeCommand = new Command('close')
     const leasePath = path.resolve(positionalPath ?? process.cwd());
     // An editor godot-cli started (exec, run-tool, tools, open --headless) is windowless: ask its plugin to save and
     // quit through the lease instead of a window close it cannot receive. --owned-only stops there.
-    const closedOwnedPid = await closeOwned(leasePath, timeoutSeconds, options, options.ownedOnly === true);
-    if (closedOwnedPid !== null) await stopServers(closedOwnedPid);
-    if (closedOwnedPid !== null || options.ownedOnly) return;
+    const closedOwned = await closeOwned(leasePath, timeoutSeconds, options, options.ownedOnly === true);
+    if (closedOwned) await stopServers();
+    if (closedOwned || options.ownedOnly) return;
 
     const platform = nodePlatform() as SupportedPlatform;
     const pid = editor?.pid ?? null;
@@ -169,7 +172,7 @@ export const closeCommand = new Command('close')
 
     if (exited) {
       spinner.success(`Godot editor (PID ${pid}) exited cleanly`);
-      await stopServers(pid);
+      await stopServers();
       process.exit(0);
     }
 
@@ -193,7 +196,7 @@ export const closeCommand = new Command('close')
     const reaped = await waitForExit(pid, 5000, platform);
     if (reaped || !isProcessAlive(pid, platform)) {
       spinner.success(`Godot editor (PID ${pid}) force-killed`);
-      await stopServers(pid);
+      await stopServers();
       process.exit(0);
     }
 
@@ -204,16 +207,16 @@ export const closeCommand = new Command('close')
 /**
  * `close --owned-only`: ask the editor named by our lease (`.ai-game-dev/session.json`) to save and quit through
  * its plugin (a windowless editor gets no WM_CLOSE). Anything else — no lease, a stale lease, a user's editor — is
- * left alone. Returns the PID of the editor it closed, or null.
+ * left alone. Returns whether it closed one.
  */
-async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions, report: boolean): Promise<number | null> {
+async function closeOwned(projectPath: string, timeoutSeconds: number, options: CloseOptions, report: boolean): Promise<boolean> {
   let session: ReturnType<typeof createGodotSession>['session'];
   try {
     session = createGodotSession({ projectPath, ...resolveSessionConnection(options) }).session;
   } catch (err) {
     if (!report) {
       verbose(`No usable session lease: ${err instanceof Error ? err.message : String(err)}`);
-      return null;
+      return false;
     }
     ui.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
@@ -222,10 +225,10 @@ async function closeOwned(projectPath: string, timeoutSeconds: number, options: 
   switch (result.kind) {
     case 'closed':
       ui.success(`Godot editor (PID ${result.pid}) ${result.forced ? 'force-killed' : 'closed'}`);
-      return result.pid;
+      return true;
     case 'not-owned':
       if (report) ui.success(`No editor started by godot-cli is running for ${projectPath}${result.staleLeaseRemoved ? ' (removed a stale lease)' : ''}`);
-      return null;
+      return false;
     case 'still-running':
       ui.error(`Godot editor (PID ${result.pid}) is still running after ${timeoutSeconds}s` + (options.force ? '' : '; re-run with --force'));
       process.exit(1);

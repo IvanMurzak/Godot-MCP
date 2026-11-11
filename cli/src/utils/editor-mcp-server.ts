@@ -36,18 +36,15 @@ export function isMcpServerName(name: string): boolean {
 }
 
 /**
- * The PIDs of every process below `rootPid` (children, grandchildren — the `_console` wrapper runs the editor as its
- * child) that run the server binary. A Windows parent PID can name a dead process whose PID was reused, so a child that
- * started before its supposed parent is not its child.
+ * Every process below `rootPid`: children, grandchildren (the `_console` wrapper runs the editor as its child). A
+ * Windows parent PID can name a dead process whose PID was reused, so a child that started before its supposed parent
+ * is not its child.
  */
-export function findServerDescendants(
-  table: readonly ProcessEntry[],
-  rootPid: number,
-): number[] {
+function descendantsOf(table: readonly ProcessEntry[], rootPid: number): ProcessEntry[] {
   const byPid = new Map(table.map((e) => [e.pid, e]));
   const children = new Map<number, ProcessEntry[]>();
   for (const e of table) children.set(e.ppid, [...(children.get(e.ppid) ?? []), e]);
-  const found: number[] = [];
+  const found: ProcessEntry[] = [];
   const seen = new Set<number>([rootPid]);
   const queue = [rootPid];
   while (queue.length > 0) {
@@ -58,10 +55,15 @@ export function findServerDescendants(
       if (parentStarted !== undefined && entry.startedMs !== undefined && entry.startedMs < parentStarted) continue;
       seen.add(entry.pid);
       queue.push(entry.pid);
-      if (isMcpServerName(entry.name)) found.push(entry.pid);
+      found.push(entry);
     }
   }
   return found;
+}
+
+/** The PIDs of the processes below `rootPid` that run the server binary. */
+export function findServerDescendants(table: readonly ProcessEntry[], rootPid: number): number[] {
+  return descendantsOf(table, rootPid).filter((e) => isMcpServerName(e.name)).map((e) => e.pid);
 }
 
 /** Parse `pid ppid [startedTicks] name` lines (Windows rows carry UTC .NET ticks). */
@@ -113,8 +115,9 @@ export async function findEditorServers(editorPid: number): Promise<EditorServer
 }
 
 /**
- * Once the editor `editorPid` is gone, kill (whole tree) each of its servers still running. A server is skipped while
- * its editor is alive, and when its PID now belongs to another process (start token changed). Returns the PIDs stopped.
+ * Once the editor `editorPid` is gone, kill each of its servers still running, with the processes it started. A server
+ * is skipped while its editor is alive, and when its PID now belongs to another process (start token changed). Returns
+ * the PIDs stopped.
  */
 export async function stopOrphanedServers(editorPid: number, servers: readonly EditorServer[]): Promise<number[]> {
   if (servers.length === 0 || isProcessAlive(editorPid)) return [];
@@ -125,7 +128,17 @@ export async function stopOrphanedServers(editorPid: number, servers: readonly E
       verbose(`MCP server PID ${server.pid} cannot be proven to be the same process; left alone`);
       continue;
     }
+    // POSIX: the server leads no process group (.NET's Process.Start keeps the editor's), so killProcessTree reaches only
+    // the server itself; its children are taken from the table. Windows: `taskkill /T` covers them.
+    const children = platform() === 'win32' ? [] : descendantsOf(listProcessTable(), server.pid);
     await killProcessTree(server.pid);
+    for (const child of children) {
+      try {
+        process.kill(child.pid, 'SIGKILL');
+      } catch {
+        /* already gone */
+      }
+    }
     if (await waitForExit(server.pid, 5000)) stopped.push(server.pid);
     else verbose(`MCP server PID ${server.pid} is still alive after the kill`);
   }
