@@ -9,6 +9,9 @@ All notable changes to `godot-cli` are documented in this file.
   `--format json` and the exit codes, with `references/rql.md` and `references/install.md` for depth. Offline, from
   the same source as the root `--help` (`src/lib/cli-guide.ts`). The `godot-mcp*` skills of earlier versions are
   removed; the addon's own install guide is now `godot-cli-install`, so the editor no longer overwrites `godot-cli`.
+  The skill shows every `rql` recipe, among them a Godot property or script variable by name (`props["..."]`);
+  `references/rql.md` holds the language. Its description says it is for editor work and that editing scripts alone
+  needs only `check`.
 - **`rql '<query>'`: one RQL query without JSON quoting.** A query ending in `set` / `call` goes to `rql-mutate`
   (`--dry-run`, `--max-targets`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` / `-f -`
   reads the query. After a save (`SaveScene()`, `NewScene(...)`, resource edits) it lists the files written, and an
