@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { verbose } from './ui.js';
-import { parseJsonStrict, JsonParseError } from './json-parse.js';
+import { parseJsonStrict, JsonParseError } from '@baizor/gamedev-cli-core';
 import { ExitCode } from './exit-codes.js';
 import { exitWithError } from './output.js';
 

@@ -3,7 +3,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
+import { killProcessTree } from '@baizor/gamedev-cli-core';
 import { editorLaunchEnv } from '../utils/godot-editor.js';
 import { GODOT_BANNER_RE, stripAnsi } from './godot-log.js';
 
@@ -25,7 +26,7 @@ export interface GodotRunOptions {
   onLine?: (line: string) => void;
   /** Tests. */
   spawnImpl?: typeof spawn;
-  killTreeImpl?: (pid: number) => void;
+  killTreeImpl?: (pid: number) => void | Promise<unknown>;
 }
 
 export interface GodotRunResult {
@@ -39,23 +40,6 @@ export interface GodotRunResult {
   spawnError?: string;
   /** This CLI got SIGINT / SIGTERM while the process ran; its tree was killed. */
   interrupted?: boolean;
-}
-
-/** Kill a process and all its children: `taskkill /T /F` on Windows, the process group on POSIX. */
-export function killProcessTree(pid: number): void {
-  try {
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
-    } else {
-      try {
-        process.kill(-pid, 'SIGKILL');
-      } catch {
-        process.kill(pid, 'SIGKILL');
-      }
-    }
-  } catch {
-    // already gone
-  }
 }
 
 export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
@@ -112,9 +96,12 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
     }
 
     const killTree = (): void => {
-      if (child.pid !== undefined) (options.killTreeImpl ?? killProcessTree)(child.pid);
-      // A killed tree closes its pipes; resolve anyway should a grandchild keep them open.
-      setTimeout(() => finish(null), 5_000).unref();
+      const killed = child.pid !== undefined ? (options.killTreeImpl ?? killProcessTree)(child.pid) : undefined;
+      // A killed tree closes its pipes; resolve anyway should a grandchild keep them open — counted from when the
+      // kill is done, so the caller never exits while taskkill still runs.
+      void Promise.resolve(killed)
+        .catch(() => undefined)
+        .then(() => setTimeout(() => finish(null), 5_000).unref());
     };
     const timer = setTimeout(() => {
       timedOut = true;

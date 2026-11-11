@@ -1,4 +1,4 @@
-import { isNewerVersion } from './semver.js';
+import { isNewerVersion } from '@baizor/gamedev-cli-core';
 import {
   ADDON_PACKAGE_REFERENCES,
   ADDON_EMBEDDED_RESOURCES,

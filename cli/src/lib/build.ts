@@ -3,7 +3,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { resolveProjectPath, isGodotProjectDir } from './open.js';
 import { emitProgress } from './progress.js';
-import { killProcessTree } from './godot-run.js';
+import { killProcessTree } from '@baizor/gamedev-cli-core';
 import type { BuildProjectOptions, BuildProjectResult } from './types.js';
 
 /**
@@ -192,11 +192,15 @@ export function runDotnet(
     }
 
     let output = '';
+    let timedOut = false;
     // A hung restore or build: kill the whole tree (MSBuild nodes included) and fail.
     if (timeoutMs !== undefined && timeoutMs > 0) {
       timer = setTimeout(() => {
-        if (child.pid !== undefined) killProcessTree(child.pid);
-        finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` });
+        // From here the run is a timeout, even if the killed child's 'close' arrives first; it resolves only once the
+        // tree is gone, since the caller may exit right after and cut taskkill short.
+        timedOut = true;
+        const killed = child.pid !== undefined ? killProcessTree(child.pid) : Promise.resolve(true);
+        void killed.then(() => finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` }));
       }, timeoutMs);
     }
     child.stdout?.on('data', (chunk: Buffer | string) => {
@@ -206,10 +210,10 @@ export function runDotnet(
       output += chunk.toString();
     });
     child.on('error', (err: Error) => {
-      finish({ code: 127, output: `${output}\nFailed to run "${bin}": ${err.message}` });
+      if (!timedOut) finish({ code: 127, output: `${output}\nFailed to run "${bin}": ${err.message}` });
     });
     child.on('close', (code: number | null) => {
-      finish({ code, output });
+      if (!timedOut) finish({ code, output });
     });
   });
 }
