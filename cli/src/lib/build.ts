@@ -3,7 +3,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { resolveProjectPath, isGodotProjectDir } from './open.js';
 import { emitProgress } from './progress.js';
-import { killProcessTree } from './godot-run.js';
+import { killProcessTree } from '@baizor/gamedev-cli-core';
 import type { BuildProjectOptions, BuildProjectResult } from './types.js';
 
 /**
@@ -195,7 +195,7 @@ export function runDotnet(
     // A hung restore or build: kill the whole tree (MSBuild nodes included) and fail.
     if (timeoutMs !== undefined && timeoutMs > 0) {
       timer = setTimeout(() => {
-        if (child.pid !== undefined) killProcessTree(child.pid);
+        if (child.pid !== undefined) void killProcessTree(child.pid);
         finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` });
       }, timeoutMs);
     }

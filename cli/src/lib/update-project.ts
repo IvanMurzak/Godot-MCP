@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { EXTENSIONS_CATALOG } from '../utils/extensions-catalog.js';
 import { FLOAT_VERSION, parsePackageReferences } from '../utils/extension-install.js';
-import { isNewerVersion } from '../utils/semver.js';
+import { isNewerVersion } from '@baizor/gamedev-cli-core';
 import { findGodotProcess } from '../utils/godot-process.js';
 import { fetchLatestVersion } from '../utils/update-check.js';
 import { runDotnet } from './build.js';

@@ -5,7 +5,7 @@ import { requireGodotProject } from '../lib/validation.js';
 import { findGodotProjectRoot, updateProject, type ProjectUpdateItem } from '../lib/update-project.js';
 import * as ui from '../utils/ui.js';
 import { fetchLatestVersion, formatUpdateAvailable, isRunningViaNpx } from '../utils/update-check.js';
-import { isNewerVersion } from '../utils/semver.js';
+import { isNewerVersion } from '@baizor/gamedev-cli-core';
 
 const PACKAGE_NAME = 'godot-cli';
 
