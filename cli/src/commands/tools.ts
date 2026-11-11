@@ -89,6 +89,10 @@ export const toolsCommand = addFormatOption(
       output.warn(`${live.message} Showing the cached list from ${cache.fetchedAt}.`);
       tools = cache.tools;
       source = 'cache';
+    } else if (live.reason === 'dropped') {
+      // A server answered and dropped the connection: exit 7 UNREACHABLE (as run-tool and the other CLIs), not the
+      // offline list, which stands in for an editor that is not running.
+      return output.fail(ExitCode.Unreachable, 'UNREACHABLE', live.message);
     } else {
       output.warn(`${live.message} Showing the built-in list (no input schemas); run \`godot-cli tools --refresh\` with an editor running for the full list.`);
       tools = offlineTools();

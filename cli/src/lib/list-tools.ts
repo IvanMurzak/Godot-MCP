@@ -15,7 +15,11 @@ export interface ToolInfo {
 
 export type ListToolsResult =
   | { kind: 'success'; tools: ToolInfo[] }
-  | { kind: 'failure'; reason: 'unreachable' | 'timeout' | 'protocol'; message: string };
+  /**
+   * `unreachable`: nothing answers (refused, DNS): an editor may be started, or the offline list shown; `dropped`: a
+   * server took the request and dropped the connection (exit 7 UNREACHABLE, like run-tool).
+   */
+  | { kind: 'failure'; reason: 'unreachable' | 'dropped' | 'timeout' | 'protocol'; message: string };
 
 /** The MCP endpoint of a server base URL (`http://localhost:N` → `/mcp`; a cloud hub URL already ends in `/mcp`). */
 export function mcpEndpoint(baseUrl: string): string {
@@ -90,10 +94,12 @@ export async function listToolsLive(
   } catch (err) {
     const e = err as Error;
     if (e.name === 'AbortError') return { kind: 'failure', reason: 'timeout', message: `No answer from ${endpoint} within ${timeoutMs} ms.` };
-    // The shared transport classification (refused, reset or dropped, DNS, unreachable), as in run-tool.
-    if (networkFailureReason(err) !== undefined) {
-      return { kind: 'failure', reason: 'unreachable', message: `Nothing answers at ${endpoint}.` };
+    // The shared transport classification, as in run-tool: a dropped connection is not "nothing answers".
+    const why = networkFailureReason(err);
+    if (why === 'connection-reset') {
+      return { kind: 'failure', reason: 'dropped', message: `${endpoint} dropped the connection before the tool list arrived.` };
     }
+    if (why !== undefined) return { kind: 'failure', reason: 'unreachable', message: `Nothing answers at ${endpoint}.` };
     return { kind: 'failure', reason: 'protocol', message: e.message };
   } finally {
     clearTimeout(timer);
