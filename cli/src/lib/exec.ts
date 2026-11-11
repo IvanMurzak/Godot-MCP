@@ -117,6 +117,23 @@ export function toolResponseText(data: unknown): string | undefined {
   return texts.length > 0 && texts.length === blocks ? texts.join('\n') : undefined;
 }
 
+/**
+ * A tool answer for the text-mode JSON print: each image block's base64 `data` (a screenshot is megabytes) is replaced
+ * by a note naming its size; everything else is kept. `--format json` / `--raw` keep the data. Pure.
+ */
+export function withoutImageData(data: unknown): unknown {
+  const content = (data as { content?: unknown } | null | undefined)?.content;
+  if (!Array.isArray(content)) return data;
+  return {
+    ...(data as object),
+    content: content.map((block: { type?: string; data?: unknown } | null) =>
+      block?.type === 'image' && typeof block.data === 'string'
+        ? { ...block, data: `<${block.data.length} base64 chars omitted: pass savePath for a file, or --format json for the data>` }
+        : block,
+    ),
+  };
+}
+
 /** The tool's own error text when the server reports one (`{ error }` / text content), else the call failure. */
 export function toolErrorText(failure: RunToolFailure): string {
   const data = failure.data as {
