@@ -1,6 +1,6 @@
 // The one source of the agent-facing usage text: the root --help, `rql --help` and the `godot-cli` agent skill
 // (`setup-skills`) all render from these constants, so the three cannot drift apart.
-// Example names stay neutral (forest, cave, Lamp, Tree, Rock, Enemy): never a name a test or evaluation task uses.
+// Example names stay neutral (forest, cave, Lamp, Tree, Rock, Enemy, Torch): never a name a test or evaluation task uses.
 
 /** RQL recipes: [query, what it does]. */
 export type RqlRecipes = ReadonlyArray<readonly [string, string]>;

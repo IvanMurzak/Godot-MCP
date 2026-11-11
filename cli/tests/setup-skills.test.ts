@@ -77,7 +77,7 @@ describe('skill content', () => {
   it('shows every recipe; its RQL reference adds the language, not the recipes again (one source)', () => {
     for (const [query, what] of RQL_RECIPES) expect(skillMd()).toContain(`rql '${query}'  # ${what}`);
     const ref = buildGuideFiles().find((f) => f.relativePath === 'godot-cli/references/rql.md')!.content;
-    for (const [query] of RQL_RECIPES) expect(ref).not.toContain(`rql '${query}'`);
+    for (const [query] of RQL_RECIPES) expect(ref).not.toContain(query);
     for (const line of RQL_LANGUAGE) expect(ref).toContain(line);
   });
 
