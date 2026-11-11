@@ -10,6 +10,7 @@ All notable changes to `godot-cli` are documented in this file.
   (`connection-reset`), the same in all three engine CLIs (one helper, `networkFailureReason` of
   `@baizor/gamedev-cli-core` ^0.11.1). It was exit 1 `ERROR`, and a body cut off after a 200 was read as an empty
   answer. A connect timeout or an unreachable host (`ETIMEDOUT`, `EHOSTUNREACH`, `ENETUNREACH`) is exit 7 too (was 1).
+  `tools` reads such a drop as "nothing answers" too (it then starts an editor or shows the cached / built-in list).
 - **One failure table shared with `unity-mcp-cli` and `unreal-mcp-cli`.** A failed `run-tool`, `run-system-tool`,
   `exec`, `rql` or `tools` call is classified by `classifyToolFailure` of `@baizor/gamedev-cli-core` ^0.11.0, so all
   three engine CLIs give the same exit code and error code (table in the README, `errorCodes` in

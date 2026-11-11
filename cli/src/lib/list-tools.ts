@@ -3,7 +3,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ensureAiGameDevGitignore } from '@baizor/gamedev-cli-core';
+import { ensureAiGameDevGitignore, networkFailureReason } from '@baizor/gamedev-cli-core';
 import { SKILL_FAMILIES } from '../utils/skills.js';
 
 export interface ToolInfo {
@@ -88,9 +88,10 @@ export async function listToolsLive(
     }
     return { kind: 'success', tools: tools.sort((a, b) => a.name.localeCompare(b.name)) };
   } catch (err) {
-    const e = err as Error & { cause?: { code?: string } };
+    const e = err as Error;
     if (e.name === 'AbortError') return { kind: 'failure', reason: 'timeout', message: `No answer from ${endpoint} within ${timeoutMs} ms.` };
-    if (e.cause?.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNRESET' || e.cause?.code === 'ENOTFOUND') {
+    // The shared transport classification (refused, reset or dropped, DNS, unreachable), as in run-tool.
+    if (networkFailureReason(err) !== undefined) {
       return { kind: 'failure', reason: 'unreachable', message: `Nothing answers at ${endpoint}.` };
     }
     return { kind: 'failure', reason: 'protocol', message: e.message };
