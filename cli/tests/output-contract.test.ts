@@ -8,7 +8,8 @@ import { CLI_PATH } from './helpers/cli.js';
 import { CLI_SPAWN_TIMEOUT_MS } from './helpers/timeouts.js';
 import { ExitCode, EXIT_CODE_TABLE } from '../src/utils/exit-codes.js';
 import { formatFromArgv } from '../src/utils/output.js';
-import { isToolErrorResponse, toolFailureExit } from '../src/commands/run-tool-builder.js';
+import { classifyToolFailure } from '@baizor/gamedev-cli-core';
+import { ensureFailureExit, isToolErrorResponse } from '../src/commands/run-tool-builder.js';
 
 /** Run the CLI keeping stdout and stderr apart (the machine formats own stdout). */
 function runCli(args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -58,13 +59,23 @@ describe('exit codes', () => {
   });
 
   it('map tool-call failures', () => {
-    const f = (reason: string, httpStatus?: number) => toolFailureExit({ kind: 'failure', success: false, endpoint: '', reason: reason as never, message: '', ...(httpStatus ? { httpStatus } : {}) });
+    const f = (reason: string, httpStatus?: number) => classifyToolFailure({ kind: 'failure', success: false, endpoint: '', reason: reason as never, message: '', ...(httpStatus ? { httpStatus } : {}) });
     expect(f('timeout')).toEqual({ exitCode: 14, code: 'TIMEOUT' });
     expect(f('connection-refused')).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
-    expect(f('http-error', 503)).toEqual({ exitCode: 17, code: 'BUSY' });
-    expect(f('http-error', 422)).toEqual({ exitCode: 6, code: 'TOOL_FAILED' });
-    expect(f('http-error', 504)).toEqual({ exitCode: 14, code: 'TIMEOUT' });
-    expect(f('http-error', 502)).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
+    expect(f('http-error', 503)).toEqual({ exitCode: 17, code: 'BUSY', httpStatus: 503 });
+    expect(f('http-error', 422)).toEqual({ exitCode: 6, code: 'TOOL_FAILED', httpStatus: 422 });
+    expect(f('http-error', 504)).toEqual({ exitCode: 14, code: 'TIMEOUT', httpStatus: 504 });
+    expect(f('http-error', 502)).toEqual({ exitCode: 7, code: 'UNREACHABLE', httpStatus: 502 });
+    // The same table as unity-mcp-cli and unreal-mcp-cli (cli-core): an unknown tool, refused credentials, bad arguments.
+    expect(f('http-error', 404)).toEqual({ exitCode: 2, code: 'NOT_FOUND', httpStatus: 404 });
+    expect(f('http-error', 401)).toEqual({ exitCode: 6, code: 'NOT_AUTHENTICATED', httpStatus: 401 });
+    expect(f('http-error', 400)).toEqual({ exitCode: 2, code: 'USAGE', httpStatus: 400 });
+    expect(f('http-error', 500)).toEqual({ exitCode: 6, code: 'TOOL_FAILED', httpStatus: 500 });
+    expect(ensureFailureExit({ reason: 'build-failed' })).toEqual({ exitCode: 6, code: 'COMPILATION_FAILED' });
+    expect(ensureFailureExit({ reason: 'invalid-options' })).toEqual({ exitCode: 2, code: 'USAGE' });
+    expect(ensureFailureExit({ reason: 'not-ready' })).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
+    // Another CLI call held the project's start lock all along: BUSY, as in the other two CLIs.
+    expect(ensureFailureExit({ reason: 'launch-failed', sessionReason: 'lock-busy' })).toEqual({ exitCode: 17, code: 'BUSY' });
     expect(f('invalid-input')).toEqual({ exitCode: 2, code: 'USAGE' });
     expect(f('unknown')).toEqual({ exitCode: 1, code: 'ERROR' });
     expect(isToolErrorResponse({ status: 'error' })).toBe(true);
@@ -150,10 +161,10 @@ describe('CLI output contract', () => {
     }
   });
 
-  it('validation errors exit 2 with a USAGE envelope', async () => {
+  it('a path that is not a project exits 2 with a NOT_FOUND envelope', async () => {
     const { stdout, exitCode } = await runCli(['status', tmp, '--format', 'json']);
     expect(exitCode).toBe(2);
-    expect(JSON.parse(stdout).errors[0].code).toBe('USAGE');
+    expect(JSON.parse(stdout).errors[0].code).toBe('NOT_FOUND');
     expect((await runCli(['check', tmp])).exitCode).toBe(2);
   });
 

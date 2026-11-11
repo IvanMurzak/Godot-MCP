@@ -13,6 +13,7 @@ import {
   activeCommandOutput,
   exitAfterFlush,
   parseFormat as parseContractFormat,
+  type EnvelopeError as ContractEnvelopeError,
   type OutputFormat,
 } from '@baizor/gamedev-cli-core';
 import * as ui from './ui.js';
@@ -40,10 +41,8 @@ export type ErrorCode =
   | 'NOT_AUTHENTICATED'
   | 'ERROR';
 
-export interface EnvelopeError {
-  code: ErrorCode;
-  message: string;
-}
+/** One envelope error (`{code, message, httpStatus?}`): the shared contract's, with this CLI's codes. */
+export type EnvelopeError = ContractEnvelopeError<ErrorCode>;
 
 /** Add `--format` to a command. `extra` lists command-specific formats (e.g. `github`). */
 export function addFormatOption(cmd: Command, extra: readonly string[] = []): Command {
@@ -78,7 +77,7 @@ export class CommandOutput<F extends string = OutputFormat> extends ContractOutp
    * The process exits once stdout is flushed; until then a `CommandExit` unwinds the action.
    */
   override finish(exitCode: ExitCodeValue, data: unknown = null, errors: EnvelopeError[] = []): never {
-    for (const err of errors) this.record(err.code, err.message);
+    for (const err of errors) this.record(err.code, err.message, err.httpStatus);
     this.emit(exitCode, data);
     exitAfterFlush(exitCode);
   }

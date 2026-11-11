@@ -57,7 +57,7 @@ export function isGodotProject(dir: string): boolean {
 export function resolveProjectPath(positionalPath: string | undefined, options: ConnectionOptions): string {
   const resolved = path.resolve(positionalPath ?? options.path ?? process.cwd());
   if ((positionalPath !== undefined || options.path !== undefined) && !fs.existsSync(resolved)) {
-    exitWithError(ExitCode.Usage, 'USAGE', `Project path does not exist: ${resolved}`);
+    exitWithError(ExitCode.Usage, 'NOT_FOUND', `Project path does not exist: ${resolved}`);
   }
   return resolved;
 }
@@ -75,9 +75,10 @@ export function resolveAndValidateProjectPath(positionalPath: string | undefined
   }
 
   if (!isGodotProject(resolved)) {
+    // No project at the path: exit 2 NOT_FOUND, as in unity-mcp-cli and unreal-mcp-cli.
     exitWithError(
       ExitCode.Usage,
-      'USAGE',
+      'NOT_FOUND',
       `Not a Godot project (missing project.godot): ${resolved}\n` +
         'Provide a Godot project path as an argument, or use --url to connect to a server directly.',
     );

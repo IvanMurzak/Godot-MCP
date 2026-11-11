@@ -50,6 +50,8 @@ export interface ExecCodeFailure {
   success: false;
   /** {@link ensureEditor}'s reasons, or `tool-failed`: the call failed. */
   reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason'] | 'tool-failed';
+  /** {@link ensureEditor}'s session reason, when the editor session failed. */
+  sessionReason?: Extract<EnsureEditorResult, { kind: 'failure' }>['sessionReason'];
   /** The server that was called (`tool-failed` only). */
   baseUrl?: string;
   /** The underlying call failure (`tool-failed` only). */

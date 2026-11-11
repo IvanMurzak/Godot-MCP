@@ -10,7 +10,8 @@ import { connectionForCommand } from '../utils/editor-connection.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
 import { DEFAULT_EXEC_TIMEOUT_MS, execCode, readToolResponse } from '../lib/exec.js';
-import { buildFailureMessage, ensureFailureExit, toolFailureExit } from './run-tool-builder.js';
+import { classifyToolFailure } from '@baizor/gamedev-cli-core';
+import { buildFailureMessage, ensureFailureExit } from './run-tool-builder.js';
 
 interface ExecCliOptions {
   path?: string;
@@ -95,12 +96,12 @@ export const execCommand = addFormatOption(new Command('exec')
 
     spinner?.stop();
     if (result.kind === 'failure') {
-      const mapped = result.toolFailure ? toolFailureExit(result.toolFailure) : ensureFailureExit(result.reason as Exclude<typeof result.reason, 'tool-failed'>);
+      const mapped = result.toolFailure ? classifyToolFailure(result.toolFailure) : ensureFailureExit({ reason: result.reason as Exclude<typeof result.reason, 'tool-failed'>, sessionReason: result.sessionReason });
       // Timeout, refused, reset: the same hints as run-tool.
       const message = result.toolFailure && result.toolFailure.reason !== 'http-error'
         ? buildFailureMessage(result.toolFailure, { toolName: 'script-execute', endpoint: result.toolFailure.endpoint, raw: false, timeoutMs, errorNoun: 'tool' })
         : result.message;
-      if (output.machine) output.finish(mapped.exitCode, result.toolFailure?.data ?? null, [{ code: mapped.code, message }]);
+      if (output.machine) output.finish(mapped.exitCode, result.toolFailure?.data ?? null, [{ code: mapped.code, message, httpStatus: mapped.httpStatus }]);
       if (options.raw && result.toolFailure?.data !== undefined) process.stdout.write(JSON.stringify(result.toolFailure.data));
       else ui.error(message);
       process.exit(mapped.exitCode);

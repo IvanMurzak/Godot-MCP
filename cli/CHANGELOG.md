@@ -4,6 +4,21 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **One failure table shared with `unity-mcp-cli` and `unreal-mcp-cli`.** A failed `run-tool`, `run-system-tool`,
+  `exec`, `rql` or `tools` call is classified by `classifyToolFailure` of `@baizor/gamedev-cli-core` ^0.11.0, so all
+  three engine CLIs give the same exit code and error code (table in the README, `errorCodes` in
+  `commands --format json`). The envelope error carries the server's HTTP status: `errors[{code, message, httpStatus}]`.
+  Behaviour changes:
+  - HTTP 404 (no such tool): exit **2** `NOT_FOUND` (was 6 `TOOL_FAILED`); `tools <name>` with no such tool: exit **2**
+    `NOT_FOUND` (was 6).
+  - HTTP 401 / 403: exit 6 `NOT_AUTHENTICATED` (was 6 `TOOL_FAILED`).
+  - HTTP 400 and any other 4xx: exit **2** `USAGE` (was 6 `TOOL_FAILED`); a 422 whose error starts with
+    `[invalid_params]` is `USAGE` too.
+  - HTTP 408: exit 14 `TIMEOUT`; HTTP 429: exit 17 `BUSY` (were 6 `TOOL_FAILED`).
+  - HTTP 503 whose error says no engine plugin is connected: exit **7** `UNREACHABLE` (was 17 `BUSY`).
+  - An editor start that waited out another CLI call's start lock: exit **17** `BUSY` (was 7 `UNREACHABLE`).
+  - A path that does not exist or is not a Godot project (no `project.godot`): error code `NOT_FOUND` (was `USAGE`;
+    exit 2 either way).
 - **`close` stops the editor's local MCP server too.** The addon runs `gamedev-mcp-server` as a child of the editor and
   stops it when the editor quits cleanly, but `close --force` hard-kills a GUI editor without its children, so the
   server kept running. `close` now notes the servers in that editor's process tree before closing it (by parentage, not

@@ -77,7 +77,7 @@ export const toolsCommand = addFormatOption(
         onStatus: (m) => output.progress(m),
       });
       if (editor.kind === 'failure') {
-        const mapped = ensureFailureExit(editor.reason);
+        const mapped = ensureFailureExit(editor);
         return output.fail(mapped.exitCode, mapped.code, `Could not start an editor: ${editor.message}`);
       }
       live = await listToolsLive(editor.ensured.ready, conn.token);
@@ -100,7 +100,7 @@ export const toolsCommand = addFormatOption(
     const tool = tools.find((t) => t.name === name);
     if (!tool) {
       const near = tools.filter((t) => t.name.includes(name) || name.includes(t.name.split('-')[0])).map((t) => t.name).slice(0, 8);
-      return output.fail(ExitCode.CommandFailed, 'NOT_FOUND', `No tool named "${name}".${near.length > 0 ? ` Did you mean: ${near.join(', ')}?` : ''} Run \`godot-cli tools\` for the list.`);
+      return output.fail(ExitCode.Usage, 'NOT_FOUND', `No tool named "${name}".${near.length > 0 ? ` Did you mean: ${near.join(', ')}?` : ''} Run \`godot-cli tools\` for the list.`);
     }
     const example = tool.inputSchema ? exampleCall(tool) : `godot-cli run-tool ${tool.name} --input '{}'`;
     if (!output.machine) {

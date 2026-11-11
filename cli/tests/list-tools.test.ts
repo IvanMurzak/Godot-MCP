@@ -57,13 +57,13 @@ describe('tools command', () => {
     }
   });
 
-  it('shows a tool with its example call, and NOT_FOUND (exit 6) for an unknown one', async () => {
+  it('shows a tool with its example call, and NOT_FOUND (exit 2) for an unknown one', async () => {
     const server = await startMcpServer();
     try {
       const one = await runCli(['tools', 'a-tool', '--path', tmp, '--url', server.url, '--format', 'json']);
       expect(JSON.parse(one.stdout).data.example).toBe('godot-cli run-tool a-tool --input \'{"q":"<q>"}\'');
       const none = await runCli(['tools', 'zzz', '--path', tmp, '--url', server.url, '--format', 'json']);
-      expect(none.exitCode).toBe(6);
+      expect(none.exitCode).toBe(2);
       expect(JSON.parse(none.stdout).errors[0].code).toBe('NOT_FOUND');
     } finally {
       await server.close();
