@@ -8,7 +8,8 @@ import { CLI_PATH } from './helpers/cli.js';
 import { CLI_SPAWN_TIMEOUT_MS } from './helpers/timeouts.js';
 import { ExitCode, EXIT_CODE_TABLE } from '../src/utils/exit-codes.js';
 import { formatFromArgv } from '../src/utils/output.js';
-import { ensureFailureExit, isToolErrorResponse, toolFailureExit } from '../src/commands/run-tool-builder.js';
+import { classifyToolFailure } from '@baizor/gamedev-cli-core';
+import { ensureFailureExit, isToolErrorResponse } from '../src/commands/run-tool-builder.js';
 
 /** Run the CLI keeping stdout and stderr apart (the machine formats own stdout). */
 function runCli(args: string[], cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -58,7 +59,7 @@ describe('exit codes', () => {
   });
 
   it('map tool-call failures', () => {
-    const f = (reason: string, httpStatus?: number) => toolFailureExit({ kind: 'failure', success: false, endpoint: '', reason: reason as never, message: '', ...(httpStatus ? { httpStatus } : {}) });
+    const f = (reason: string, httpStatus?: number) => classifyToolFailure({ kind: 'failure', success: false, endpoint: '', reason: reason as never, message: '', ...(httpStatus ? { httpStatus } : {}) });
     expect(f('timeout')).toEqual({ exitCode: 14, code: 'TIMEOUT' });
     expect(f('connection-refused')).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
     expect(f('http-error', 503)).toEqual({ exitCode: 17, code: 'BUSY', httpStatus: 503 });

@@ -13,6 +13,7 @@ import {
   activeCommandOutput,
   exitAfterFlush,
   parseFormat as parseContractFormat,
+  type EnvelopeError as ContractEnvelopeError,
   type OutputFormat,
 } from '@baizor/gamedev-cli-core';
 import * as ui from './ui.js';
@@ -40,12 +41,8 @@ export type ErrorCode =
   | 'NOT_AUTHENTICATED'
   | 'ERROR';
 
-export interface EnvelopeError {
-  code: ErrorCode;
-  message: string;
-  /** The HTTP status the MCP server answered with, when the failure is an HTTP answer. */
-  httpStatus?: number;
-}
+/** One envelope error (`{code, message, httpStatus?}`): the shared contract's, with this CLI's codes. */
+export type EnvelopeError = ContractEnvelopeError<ErrorCode>;
 
 /** Add `--format` to a command. `extra` lists command-specific formats (e.g. `github`). */
 export function addFormatOption(cmd: Command, extra: readonly string[] = []): Command {

@@ -65,14 +65,6 @@ export interface FailureContext {
   errorNoun: string;
 }
 
-/**
- * Exit code and envelope error code of a failed tool call: the shared table of all three engine CLIs
- * (`classifyToolFailure` in @baizor/gamedev-cli-core, keyed on the server's HTTP status).
- */
-export function toolFailureExit(failure: RunToolFailure): ToolFailureClass {
-  return classifyToolFailure(failure);
-}
-
 /** Exit code and envelope error code when no editor could be obtained (the shared table). */
 export function ensureFailureExit(reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason']): ToolFailureClass {
   return classifyEditorStartFailure({ buildFailed: reason === 'build-failed', invalidInput: reason === 'invalid-options' });
@@ -244,7 +236,7 @@ function stringifyForRaw(data: unknown): string {
 }
 
 function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, ctx: FailureContext): never {
-  const mapped = toolFailureExit(failure);
+  const mapped = classifyToolFailure(failure);
   if (failure.reason === 'http-error') {
     const text = toolErrorText(failure);
     const rqlHint = rqlErrorHint(ctx.toolName, text);
