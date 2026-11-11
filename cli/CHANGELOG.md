@@ -4,6 +4,8 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **ReflectorNet 5.5.2.** The `install-plugin` fallback pin (addons without `nuget-deps.json`) follows the addon: its
+  reflection caches no longer reserve storage for their full capacity up front (about 1 MB less per converter).
 - **`run-tool` no longer prints a screenshot's base64 in text mode.** A tool answer with an image fell back to the whole
   response JSON, so one `screenshot-viewport` call wrote about 2 MB to stdout. The JSON now names the image's size
   instead of its data; `--format json` and `--raw` keep the data, and a screenshot tool's `savePath` writes a file.
