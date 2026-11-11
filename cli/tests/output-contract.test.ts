@@ -71,9 +71,11 @@ describe('exit codes', () => {
     expect(f('http-error', 401)).toEqual({ exitCode: 6, code: 'NOT_AUTHENTICATED', httpStatus: 401 });
     expect(f('http-error', 400)).toEqual({ exitCode: 2, code: 'USAGE', httpStatus: 400 });
     expect(f('http-error', 500)).toEqual({ exitCode: 6, code: 'TOOL_FAILED', httpStatus: 500 });
-    expect(ensureFailureExit('build-failed')).toEqual({ exitCode: 6, code: 'COMPILATION_FAILED' });
-    expect(ensureFailureExit('invalid-options')).toEqual({ exitCode: 2, code: 'USAGE' });
-    expect(ensureFailureExit('not-ready')).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
+    expect(ensureFailureExit({ reason: 'build-failed' })).toEqual({ exitCode: 6, code: 'COMPILATION_FAILED' });
+    expect(ensureFailureExit({ reason: 'invalid-options' })).toEqual({ exitCode: 2, code: 'USAGE' });
+    expect(ensureFailureExit({ reason: 'not-ready' })).toEqual({ exitCode: 7, code: 'UNREACHABLE' });
+    // Another CLI call held the project's start lock all along: BUSY, as in the other two CLIs.
+    expect(ensureFailureExit({ reason: 'launch-failed', sessionReason: 'lock-busy' })).toEqual({ exitCode: 17, code: 'BUSY' });
     expect(f('invalid-input')).toEqual({ exitCode: 2, code: 'USAGE' });
     expect(f('unknown')).toEqual({ exitCode: 1, code: 'ERROR' });
     expect(isToolErrorResponse({ status: 'error' })).toBe(true);

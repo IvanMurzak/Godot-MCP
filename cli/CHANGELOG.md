@@ -16,7 +16,9 @@ All notable changes to `godot-cli` are documented in this file.
     `[invalid_params]` is `USAGE` too.
   - HTTP 408: exit 14 `TIMEOUT`; HTTP 429: exit 17 `BUSY` (were 6 `TOOL_FAILED`).
   - HTTP 503 whose error says no engine plugin is connected: exit **7** `UNREACHABLE` (was 17 `BUSY`).
-  - A path that is not a Godot project (no `project.godot`): error code `NOT_FOUND` (was `USAGE`; exit 2 either way).
+  - An editor start that waited out another CLI call's start lock: exit **17** `BUSY` (was 7 `UNREACHABLE`).
+  - A path that does not exist or is not a Godot project (no `project.godot`): error code `NOT_FOUND` (was `USAGE`;
+    exit 2 either way).
 - **`close` stops the editor's local MCP server too.** The addon runs `gamedev-mcp-server` as a child of the editor and
   stops it when the editor quits cleanly, but `close --force` hard-kills a GUI editor without its children, so the
   server kept running. `close` now notes the servers in that editor's process tree before closing it (by parentage, not

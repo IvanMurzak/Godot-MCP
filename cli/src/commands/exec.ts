@@ -96,7 +96,7 @@ export const execCommand = addFormatOption(new Command('exec')
 
     spinner?.stop();
     if (result.kind === 'failure') {
-      const mapped = result.toolFailure ? classifyToolFailure(result.toolFailure) : ensureFailureExit(result.reason as Exclude<typeof result.reason, 'tool-failed'>);
+      const mapped = result.toolFailure ? classifyToolFailure(result.toolFailure) : ensureFailureExit({ reason: result.reason as Exclude<typeof result.reason, 'tool-failed'>, sessionReason: result.sessionReason });
       // Timeout, refused, reset: the same hints as run-tool.
       const message = result.toolFailure && result.toolFailure.reason !== 'http-error'
         ? buildFailureMessage(result.toolFailure, { toolName: 'script-execute', endpoint: result.toolFailure.endpoint, raw: false, timeoutMs, errorNoun: 'tool' })

@@ -66,8 +66,12 @@ export interface FailureContext {
 }
 
 /** Exit code and envelope error code when no editor could be obtained (the shared table). */
-export function ensureFailureExit(reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason']): ToolFailureClass {
-  return classifyEditorStartFailure({ buildFailed: reason === 'build-failed', invalidInput: reason === 'invalid-options' });
+export function ensureFailureExit(failure: Pick<Extract<EnsureEditorResult, { kind: 'failure' }>, 'reason' | 'sessionReason'>): ToolFailureClass {
+  return classifyEditorStartFailure({
+    buildFailed: failure.reason === 'build-failed',
+    invalidInput: failure.reason === 'invalid-options',
+    sessionReason: failure.sessionReason,
+  });
 }
 
 /** A tool response that carries `status: "error"`: the call reached the tool and the tool failed. */
@@ -168,7 +172,7 @@ export async function runToolAction(
     });
     if (editor.kind === 'failure') {
       spinner?.stop();
-      const mapped = ensureFailureExit(editor.reason);
+      const mapped = ensureFailureExit(editor);
       return output.fail(mapped.exitCode, mapped.code, `Could not start an editor: ${editor.message}`);
     }
     const { ensured, godot } = editor;

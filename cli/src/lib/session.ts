@@ -7,6 +7,7 @@ import * as path from 'path';
 import {
   EditorSession,
   EditorSessionError,
+  type EditorSessionErrorReason,
   godotAdapter,
   mcpReadinessProbe,
   type EditorSessionOptions,
@@ -190,6 +191,8 @@ export type EnsureEditorResult =
        * `launch-failed`: no editor could be started; `not-ready`: its server never answered.
        */
       reason: 'invalid-options' | 'build-failed' | 'launch-failed' | 'not-ready';
+      /** The editor session's own reason, when it failed (`lock-busy`: another CLI call holds the start lock). */
+      sessionReason?: EditorSessionErrorReason;
       message: string;
       error?: Error;
     };
@@ -215,7 +218,8 @@ export async function ensureEditor(options: EnsureEditorOptions): Promise<Ensure
   };
   const fail = (reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason'], err: unknown, hint = '') => {
     const error = err instanceof Error ? err : new Error(String(err));
-    return { kind: 'failure', success: false, reason, message: error.message + hint, error } as const;
+    const sessionReason = err instanceof EditorSessionError ? err.reason : undefined;
+    return { kind: 'failure', success: false, reason, ...(sessionReason ? { sessionReason } : {}), message: error.message + hint, error } as const;
   };
 
   const beforeLaunch = async (projectRoot: string) => {

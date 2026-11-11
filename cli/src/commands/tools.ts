@@ -77,7 +77,7 @@ export const toolsCommand = addFormatOption(
         onStatus: (m) => output.progress(m),
       });
       if (editor.kind === 'failure') {
-        const mapped = ensureFailureExit(editor.reason);
+        const mapped = ensureFailureExit(editor);
         return output.fail(mapped.exitCode, mapped.code, `Could not start an editor: ${editor.message}`);
       }
       live = await listToolsLive(editor.ensured.ready, conn.token);

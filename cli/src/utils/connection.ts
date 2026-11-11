@@ -57,7 +57,7 @@ export function isGodotProject(dir: string): boolean {
 export function resolveProjectPath(positionalPath: string | undefined, options: ConnectionOptions): string {
   const resolved = path.resolve(positionalPath ?? options.path ?? process.cwd());
   if ((positionalPath !== undefined || options.path !== undefined) && !fs.existsSync(resolved)) {
-    exitWithError(ExitCode.Usage, 'USAGE', `Project path does not exist: ${resolved}`);
+    exitWithError(ExitCode.Usage, 'NOT_FOUND', `Project path does not exist: ${resolved}`);
   }
   return resolved;
 }
