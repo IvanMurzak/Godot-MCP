@@ -5,6 +5,7 @@
 // - Errors are returned in `{ kind: 'failure', success: false, ... }`,
 //   never thrown past the public boundary.
 
+import { networkFailureReason } from '@baizor/gamedev-cli-core';
 import type {
   RunToolFailure,
   RunToolFailureReason,
@@ -14,11 +15,6 @@ import type {
 } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-
-interface ErrorCause {
-  code?: string;
-  message?: string;
-}
 
 /**
  * Invoke a regular MCP tool over the Godot plugin's HTTP API.
@@ -79,7 +75,8 @@ async function invokeTool(routePrefix: string, opts: RunToolOptions): Promise<Ru
       signal: controller.signal,
     });
 
-    const text = await safeReadText(response);
+    // A connection dropped mid-body throws here and is classified as such, never read as an empty answer.
+    const text = await response.text();
     const data = parseJsonOrText(text);
 
     if (!response.ok) {
@@ -164,14 +161,6 @@ function serializeInput(input: unknown): { json: string } | { error: Error } {
   }
 }
 
-async function safeReadText(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch {
-    return '';
-  }
-}
-
 function parseJsonOrText(text: string): unknown {
   if (text.length === 0) return undefined;
   try {
@@ -179,11 +168,6 @@ function parseJsonOrText(text: string): unknown {
   } catch {
     return text;
   }
-}
-
-function getCause(err: unknown): ErrorCause | undefined {
-  if (!(err instanceof Error) || !('cause' in err)) return undefined;
-  return err.cause as ErrorCause | undefined;
 }
 
 function classifyFetchError(err: unknown, endpoint: string, timeoutMs: number): RunToolFailure {
@@ -197,12 +181,9 @@ function classifyFetchError(err: unknown, endpoint: string, timeoutMs: number): 
   }
 
   const error = err instanceof Error ? err : new Error(String(err));
-  const causeCode = getCause(err)?.code;
-
-  let reason: RunToolFailureReason = 'unknown';
-  if (causeCode === 'ECONNREFUSED') reason = 'connection-refused';
-  else if (causeCode === 'ECONNRESET') reason = 'connection-reset';
-  else if (causeCode === 'ENOTFOUND' || causeCode === 'EAI_AGAIN') reason = 'network-error';
+  // The transport cause through the error's cause chain (shared with the other engine CLIs): a socket the server
+  // closed before or during the answer is `connection-reset` (exit 7), not `unknown`.
+  const reason: RunToolFailureReason = networkFailureReason(err) ?? 'unknown';
 
   return makeFailure({
     endpoint,
