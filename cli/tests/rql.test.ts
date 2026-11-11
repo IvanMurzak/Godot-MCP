@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { decodeQueryFile, isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
-import { toolResponseText } from '../src/lib/exec.js';
+import { toolResponseText, withoutImageData } from '../src/lib/exec.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -89,5 +89,22 @@ describe('rqlToolCall / saveReceipt', () => {
     expect(decodeQueryFile(Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')]))).toBe(text);
     expect(rqlMaySave('editor | call SaveAllScenes()')).toBe(true);
     expect(rqlMaySave('godot.resources("Material") | set props["x"] = 1')).toBe(true);
+  });
+});
+
+describe('withoutImageData', () => {
+  it('replaces only image data with a size note, keeping the text and the rest of the answer', () => {
+    const answer = { status: 'success', content: [{ type: 'text', text: 'Saved to x.png' }, { type: 'image', mimeType: 'image/png', data: 'A'.repeat(4000) }] };
+    const printed = withoutImageData(answer) as typeof answer;
+    expect(printed.status).toBe('success');
+    expect(printed.content[0]).toEqual(answer.content[0]);
+    expect(printed.content[1]!.mimeType).toBe('image/png');
+    expect(printed.content[1]!.data).toMatch(/^<4000 base64 chars omitted/);
+    expect(answer.content[1]!.data).toHaveLength(4000);
+  });
+
+  it('leaves an answer without content as it is', () => {
+    const answer = { error: 'boom' };
+    expect(withoutImageData(answer)).toBe(answer);
   });
 });

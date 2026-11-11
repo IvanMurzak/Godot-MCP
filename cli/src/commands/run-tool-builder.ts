@@ -9,7 +9,7 @@ import { isLocalhostUrl } from '../utils/project-marker.js';
 import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat, parseIntFlag, type ErrorCode } from '../utils/output.js';
 import { ensureEditor, type EnsureEditorResult } from '../lib/session.js';
-import { toolErrorText, toolResponseText } from '../lib/exec.js';
+import { toolErrorText, toolResponseText, withoutImageData } from '../lib/exec.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from '../lib/types.js';
 import { rqlErrorHint } from '../lib/rql.js';
 
@@ -214,7 +214,8 @@ export async function runToolAction(
       process.stdout.write(stringifyForRaw(result.data));
     } else if (human) {
       if (toolError) ui.error(withRqlHint(toolName, `${toolName} returned an error: ${toolErrorMessage(result.data, toolName)}`));
-      else console.log(toolResponseText(result.data) ?? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)));
+      else console.log(toolResponseText(result.data)
+        ?? (typeof result.data === 'string' ? result.data : JSON.stringify(withoutImageData(result.data), null, 2)));
     }
     if (toolError) {
       return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
