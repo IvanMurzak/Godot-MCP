@@ -1,6 +1,6 @@
 // The one source of the agent-facing usage text: the root --help, `rql --help` and the `godot-cli` agent skill
 // (`setup-skills`) all render from these constants, so the three cannot drift apart.
-// Example names stay neutral (forest, cave, Lamp, Tree, Rock, Enemy, Torch): never a name a test or evaluation task uses.
+// Example names stay neutral (forest, cave, Lamp, Tree, Rock, Enemy): never a name a test or evaluation task uses.
 
 /** RQL recipes: [query, what it does]. */
 export type RqlRecipes = ReadonlyArray<readonly [string, string]>;
@@ -21,7 +21,7 @@ export const RQL_RECIPES: RqlRecipes = [
   ['editor | call SaveScene()', 'write the edited scene to its .tscn; prints the files written'],
   ['nodes | where name == "Old" | call Free()', 'delete'],
   ['godot.resources("StandardMaterial3D") | select path props["albedo_color"]', 'resources of a class'],
-  ['nodes | where name == "Torch" | set props["light_energy"] = 2', 'a Godot property or script variable by name: props["..."]'],
+  ['nodes | where name == "Lamp" | set props["light_energy"] = 2', 'a Godot property or exported script variable by name: props["..."]'],
 ];
 
 /** How many recipes the root help shows. */

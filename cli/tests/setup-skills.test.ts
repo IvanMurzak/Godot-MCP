@@ -105,7 +105,7 @@ describe('skill content', () => {
   it('stays short (the agent re-reads every byte each turn) and uses neutral example names', () => {
     expect(Buffer.byteLength(skillMd())).toBeLessThan(2800);
     const all = buildGuideFiles().map((f) => f.content).join('\n');
-    expect(all).not.toMatch(/\b(Arena|Crate|Platform|Level1|EnemyStats|GameMath)\b/);
+    expect(all).not.toMatch(/\b(Arena|Crate|Platform|Player|speed|Level1|EnemyStats|GameMath)\b/);
   });
 });
 

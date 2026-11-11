@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { fileURLToPath } from 'url';
+import { ROOT_RQL_RECIPES, RQL_RECIPES } from '../src/lib/cli-guide.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = path.resolve(__dirname, '..', 'bin', 'godot-cli.js');
@@ -44,6 +45,14 @@ describe('CLI integration', () => {
       expect(stdout).toContain('remove-plugin');
       expect(stdout).toContain('update');
       expect(stdout).toContain('create-project');
+    });
+
+    it('shows the first ROOT_RQL_RECIPES recipes; the rest only in rql --help', () => {
+      const { stdout, exitCode } = runCli(['--help']);
+      expect(exitCode).toBe(0);
+      RQL_RECIPES.forEach(([query], i) => expect(stdout.includes(`rql '${query}'`)).toBe(i < ROOT_RQL_RECIPES));
+      const rqlHelp = runCli(['rql', '--help']).stdout;
+      for (const [query] of RQL_RECIPES) expect(rqlHelp).toContain(query);
     });
 
     it('registers the setup-skills command (added in #119)', () => {
