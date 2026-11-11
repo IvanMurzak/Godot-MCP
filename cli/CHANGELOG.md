@@ -6,7 +6,7 @@ All notable changes to `godot-cli` are documented in this file.
 
 - **`run-tool` no longer prints a screenshot's base64 in text mode.** A tool answer with an image fell back to the whole
   response JSON, so one `screenshot-viewport` call wrote about 2 MB to stdout. The JSON now names the image's size
-  instead of its data; `--format json` and `--raw` keep the data, and `savePath` writes the picture to a file.
+  instead of its data; `--format json` and `--raw` keep the data, and a screenshot tool's `savePath` writes a file.
 - **`setup-skills` writes a cold-start `godot-cli` skill** instead of the outdated install guide and the ten
   hand-written tool-family skills: no `status` / `run-tool rql-schema` first, `rql` recipes, `check` / `test`,
   `--format json` and the exit codes, with `references/rql.md` and `references/install.md` for depth. Offline, from

@@ -214,10 +214,8 @@ export async function runToolAction(
       process.stdout.write(stringifyForRaw(result.data));
     } else if (human) {
       if (toolError) ui.error(withRqlHint(toolName, `${toolName} returned an error: ${toolErrorMessage(result.data, toolName)}`));
-      else {
-        const json = typeof result.data === 'string' ? result.data : JSON.stringify(withoutImageData(result.data), null, 2);
-        console.log(toolResponseText(result.data) ?? json);
-      }
+      else console.log(toolResponseText(result.data)
+        ?? (typeof result.data === 'string' ? result.data : JSON.stringify(withoutImageData(result.data), null, 2)));
     }
     if (toolError) {
       return output.finish(ExitCode.CommandFailed, result.data ?? null, [{ code: 'TOOL_FAILED', message: toolErrorMessage(result.data, toolName) }]);
