@@ -184,7 +184,8 @@ export const closeCommand = new Command('close')
     spinner.text = `Force-killing PID ${pid}...`;
     // Not /T for a user's GUI editor: its children may be a running game or an external script editor.
     const killed = sendForceKill(pid, platform, editor!.consoleWrapper);
-    if (!killed) {
+    // A failed kill of a process that is gone: the polite quit finished just after the timeout.
+    if (!killed && isProcessAlive(pid, platform)) {
       spinner.error(`Failed to force-kill PID ${pid}`);
       process.exit(1);
     }
