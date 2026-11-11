@@ -343,7 +343,7 @@ package assemblies are not copied next to the game assembly):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.21.0" />
 </ItemGroup>
 
@@ -363,7 +363,7 @@ package assemblies are not copied next to the game assembly):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.1` | Reflection / serialization core |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.2` | Reflection / serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.21.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.1` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |

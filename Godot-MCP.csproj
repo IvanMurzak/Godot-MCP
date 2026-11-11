@@ -16,7 +16,7 @@
     version deterministic.
   -->
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.1" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.21.0" />
   </ItemGroup>
 
