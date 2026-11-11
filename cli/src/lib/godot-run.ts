@@ -99,7 +99,9 @@ export function runGodot(options: GodotRunOptions): Promise<GodotRunResult> {
       const killed = child.pid !== undefined ? (options.killTreeImpl ?? killProcessTree)(child.pid) : undefined;
       // A killed tree closes its pipes; resolve anyway should a grandchild keep them open — counted from when the
       // kill is done, so the caller never exits while taskkill still runs.
-      void Promise.resolve(killed).then(() => setTimeout(() => finish(null), 5_000).unref());
+      void Promise.resolve(killed)
+        .catch(() => undefined)
+        .then(() => setTimeout(() => finish(null), 5_000).unref());
     };
     const timer = setTimeout(() => {
       timedOut = true;
