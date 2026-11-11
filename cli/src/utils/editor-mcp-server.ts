@@ -1,18 +1,19 @@
-import { execFileSync } from 'child_process';
+import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from 'child_process';
 import * as path from 'path';
 import { platform } from 'os';
-import { killProcessTree, readProcessStart } from '@baizor/gamedev-cli-core';
-import { isProcessAlive, waitForExit } from './godot-shutdown.js';
+import { isProcessAlive, killProcessTree, readProcessStart } from '@baizor/gamedev-cli-core';
+import { waitForExit } from './godot-shutdown.js';
 import { verbose } from './ui.js';
 
 /**
  * The local MCP server is launched by the addon (`GodotMcpServerManager.StartServer`) as a child process of the
  * editor. The plugin stops it when the editor quits cleanly, but a hard-killed editor leaves it running. `close`
  * finds it BEFORE the editor goes away — by process parentage, never by command line — and stops it afterwards.
+ * A stopgap for `close` only: a server that watched its parent PID itself would also cover editor crashes.
  */
 
 /** File name of the server binary (`GodotMcpServerView.ExecutableName`), without `.exe`. */
-export const MCP_SERVER_EXECUTABLE = 'gamedev-mcp-server';
+const MCP_SERVER_EXECUTABLE = 'gamedev-mcp-server';
 
 /** One row of the OS process table. `startedMs` is known only on Windows (where parent PIDs go stale). */
 export interface ProcessEntry {
@@ -36,27 +37,28 @@ export function isMcpServerName(name: string): boolean {
 
 /**
  * The PIDs of every process below `rootPid` (children, grandchildren — the `_console` wrapper runs the editor as its
- * child) that `isServer` accepts. A Windows parent PID can name a dead process whose PID was reused, so a child that
+ * child) that run the server binary. A Windows parent PID can name a dead process whose PID was reused, so a child that
  * started before its supposed parent is not its child.
  */
 export function findServerDescendants(
   table: readonly ProcessEntry[],
   rootPid: number,
-  isServer: (entry: ProcessEntry) => boolean = (e) => isMcpServerName(e.name),
 ): number[] {
   const byPid = new Map(table.map((e) => [e.pid, e]));
+  const children = new Map<number, ProcessEntry[]>();
+  for (const e of table) children.set(e.ppid, [...(children.get(e.ppid) ?? []), e]);
   const found: number[] = [];
   const seen = new Set<number>([rootPid]);
   const queue = [rootPid];
   while (queue.length > 0) {
     const parent = queue.shift()!;
     const parentStarted = byPid.get(parent)?.startedMs;
-    for (const entry of table) {
-      if (entry.ppid !== parent || seen.has(entry.pid)) continue;
+    for (const entry of children.get(parent) ?? []) {
+      if (seen.has(entry.pid)) continue;
       if (parentStarted !== undefined && entry.startedMs !== undefined && entry.startedMs < parentStarted) continue;
       seen.add(entry.pid);
       queue.push(entry.pid);
-      if (isServer(entry)) found.push(entry.pid);
+      if (isMcpServerName(entry.name)) found.push(entry.pid);
     }
   }
   return found;
@@ -77,27 +79,24 @@ export function parseProcessTable(output: string, withStart: boolean): ProcessEn
   return rows;
 }
 
-/** The whole process table (PID, parent PID, name), or empty when it cannot be read. */
+const EXEC_OPTIONS: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 };
+
+/**
+ * The process table (PID, parent PID, name), or empty when it cannot be read. On Windows only Godot and server rows:
+ * the addon starts the server straight from the editor, which the `_console` wrapper runs, so no other process sits
+ * between them.
+ */
 export function listProcessTable(): ProcessEntry[] {
   try {
     if (platform() === 'win32') {
       const script =
-        'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) ' +
+        `Get-CimInstance Win32_Process -Filter "Name LIKE '%godot%' OR Name LIKE '${MCP_SERVER_EXECUTABLE}%'" | ` +
+        'ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) ' +
         '$(if ($_.CreationDate) { $_.CreationDate.ToUniversalTime().Ticks } else { 0 }) $($_.Name)" }';
-      const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-        encoding: 'utf-8',
-        timeout: 20000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        maxBuffer: 16 * 1024 * 1024,
-      });
+      const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { ...EXEC_OPTIONS, timeout: 20000 });
       return parseProcessTable(out, true);
     }
-    const out = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm='], {
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 16 * 1024 * 1024,
-    });
+    const out = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm='], { ...EXEC_OPTIONS, timeout: 10000 });
     return parseProcessTable(out, false);
   } catch (err) {
     verbose(`Failed to list processes: ${err instanceof Error ? err.message : String(err)}`);
@@ -106,11 +105,8 @@ export function listProcessTable(): ProcessEntry[] {
 }
 
 /** The MCP server processes the editor `editorPid` started (its own descendants only), with their start tokens. */
-export async function findEditorServers(
-  editorPid: number,
-  isServer?: (entry: ProcessEntry) => boolean,
-): Promise<EditorServer[]> {
-  const pids = findServerDescendants(listProcessTable(), editorPid, isServer);
+export async function findEditorServers(editorPid: number): Promise<EditorServer[]> {
+  const pids = findServerDescendants(listProcessTable(), editorPid);
   const servers = await Promise.all(pids.map(async (pid) => ({ pid, start: await readProcessStart(pid) })));
   for (const s of servers) verbose(`Editor PID ${editorPid} runs MCP server PID ${s.pid}`);
   return servers;

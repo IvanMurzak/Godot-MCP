@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import {
@@ -74,11 +76,40 @@ describe('editor-mcp-server — findServerDescendants', () => {
   });
 });
 
-/** A node "editor" that starts a node "server" child and prints its PID (detached: libuv kills attached children with it on Windows, unlike Godot). */
+const exe = process.platform === 'win32' ? '.exe' : '';
+let binDir: string;
+
+/** Node under the editor's and the server's process names: a hard link (cheap; a copy where links fail). */
+function nodeAs(name: string): string {
+  const target = path.join(binDir, name + exe);
+  try {
+    fs.linkSync(process.execPath, target);
+  } catch {
+    fs.copyFileSync(process.execPath, target);
+  }
+  fs.chmodSync(target, 0o755);
+  return target;
+}
+
+beforeAll(() => {
+  binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-close-'));
+  nodeAs('godot-fake-editor');
+  nodeAs('gamedev-mcp-server');
+});
+
+afterAll(() => {
+  fs.rmSync(binDir, { recursive: true, force: true });
+});
+
+/**
+ * A fake editor that starts a fake server child and prints its PID. Detached: libuv kills attached children with
+ * their parent on Windows, which Godot does not.
+ */
 async function spawnEditorWithServer(): Promise<{ editorPid: number; serverPid: number }> {
-  const script = `const c=require('child_process').spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{stdio:'ignore',detached:true,windowsHide:true});` +
+  const server = JSON.stringify(path.join(binDir, 'gamedev-mcp-server' + exe));
+  const script = `const c=require('child_process').spawn(${server},['-e','setTimeout(()=>{},60000)'],{stdio:'ignore',detached:true,windowsHide:true});` +
     `console.log(c.pid);setTimeout(()=>{},60000);`;
-  const editor = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'] });
+  const editor = spawn(path.join(binDir, 'godot-fake-editor' + exe), ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'] });
   const serverPid = await new Promise<number>((resolve, reject) => {
     editor.stdout!.once('data', (d: Buffer) => resolve(parseInt(d.toString(), 10)));
     editor.once('error', reject);
@@ -86,13 +117,11 @@ async function spawnEditorWithServer(): Promise<{ editorPid: number; serverPid: 
   return { editorPid: editor.pid!, serverPid };
 }
 
-const isNode = (e: ProcessEntry) => path.basename(e.name).toLowerCase().replace(/\.exe$/, '') === 'node';
-
 describe('editor-mcp-server — stopOrphanedServers (live processes)', () => {
   it('stops the server a killed editor left behind, and only after the editor is gone', async () => {
     const { editorPid, serverPid } = await spawnEditorWithServer();
     try {
-      const servers = await findEditorServers(editorPid, isNode);
+      const servers = await findEditorServers(editorPid);
       expect(servers.map((s) => s.pid)).toEqual([serverPid]);
 
       // The editor is alive: its server is not touched.
