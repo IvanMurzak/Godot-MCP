@@ -75,9 +75,10 @@ export function resolveAndValidateProjectPath(positionalPath: string | undefined
   }
 
   if (!isGodotProject(resolved)) {
+    // No project at the path: exit 2 NOT_FOUND, as in unity-mcp-cli and unreal-mcp-cli.
     exitWithError(
       ExitCode.Usage,
-      'USAGE',
+      'NOT_FOUND',
       `Not a Godot project (missing project.godot): ${resolved}\n` +
         'Provide a Godot project path as an argument, or use --url to connect to a server directly.',
     );

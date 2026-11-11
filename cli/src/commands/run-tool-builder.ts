@@ -1,13 +1,18 @@
 import { Command } from 'commander';
-import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
+import {
+  DEFAULT_SESSION_READY_TIMEOUT_MS,
+  classifyEditorStartFailure,
+  classifyToolFailure,
+  type ToolFailureClass,
+} from '@baizor/gamedev-cli-core';
 import * as ui from '../utils/ui.js';
 import { verbose } from '../utils/ui.js';
 import { isGodotProject, localProjectUrl, resolveAndValidateProjectPath } from '../utils/connection.js';
 import { connectionForCommand } from '../utils/editor-connection.js';
 import { parseInput } from '../utils/input.js';
 import { isLocalhostUrl } from '../utils/project-marker.js';
-import { ExitCode, type ExitCodeValue } from '../utils/exit-codes.js';
-import { CommandOutput, addFormatOption, parseFormat, parseIntFlag, type ErrorCode } from '../utils/output.js';
+import { ExitCode } from '../utils/exit-codes.js';
+import { CommandOutput, addFormatOption, parseFormat, parseIntFlag } from '../utils/output.js';
 import { ensureEditor, type EnsureEditorResult } from '../lib/session.js';
 import { toolErrorText, toolResponseText, withoutImageData } from '../lib/exec.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from '../lib/types.js';
@@ -60,33 +65,17 @@ export interface FailureContext {
   errorNoun: string;
 }
 
-/** Exit code and envelope error code of a failed tool call. */
-export function toolFailureExit(failure: RunToolFailure): { exitCode: ExitCodeValue; code: ErrorCode } {
-  switch (failure.reason) {
-    case 'timeout':
-      return { exitCode: ExitCode.Timeout, code: 'TIMEOUT' };
-    case 'connection-refused':
-    case 'connection-reset':
-    case 'network-error':
-      return { exitCode: ExitCode.Unreachable, code: 'UNREACHABLE' };
-    case 'http-error':
-      if (failure.httpStatus === 503) return { exitCode: ExitCode.Busy, code: 'BUSY' };
-      // A gateway that gave up on the editor (504) or could not reach it (502).
-      if (failure.httpStatus === 504) return { exitCode: ExitCode.Timeout, code: 'TIMEOUT' };
-      if (failure.httpStatus === 502) return { exitCode: ExitCode.Unreachable, code: 'UNREACHABLE' };
-      return { exitCode: ExitCode.CommandFailed, code: 'TOOL_FAILED' };
-    case 'invalid-input':
-      return { exitCode: ExitCode.Usage, code: 'USAGE' };
-    default:
-      return { exitCode: ExitCode.Error, code: 'ERROR' };
-  }
+/**
+ * Exit code and envelope error code of a failed tool call: the shared table of all three engine CLIs
+ * (`classifyToolFailure` in @baizor/gamedev-cli-core, keyed on the server's HTTP status).
+ */
+export function toolFailureExit(failure: RunToolFailure): ToolFailureClass {
+  return classifyToolFailure(failure);
 }
 
-/** Exit code and envelope error code when no editor could be obtained. */
-export function ensureFailureExit(reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason']): { exitCode: ExitCodeValue; code: ErrorCode } {
-  if (reason === 'build-failed') return { exitCode: ExitCode.CommandFailed, code: 'COMPILATION_FAILED' };
-  if (reason === 'invalid-options') return { exitCode: ExitCode.Usage, code: 'USAGE' };
-  return { exitCode: ExitCode.Unreachable, code: 'UNREACHABLE' };
+/** Exit code and envelope error code when no editor could be obtained (the shared table). */
+export function ensureFailureExit(reason: Extract<EnsureEditorResult, { kind: 'failure' }>['reason']): ToolFailureClass {
+  return classifyEditorStartFailure({ buildFailed: reason === 'build-failed', invalidInput: reason === 'invalid-options' });
 }
 
 /** A tool response that carries `status: "error"`: the call reached the tool and the tool failed. */
@@ -261,7 +250,7 @@ function handleFailure(failure: RunToolFailure, output: CommandOutput<string>, c
     const rqlHint = rqlErrorHint(ctx.toolName, text);
     const hint = rqlHint ? `hint: ${rqlHint}` : httpFailureHint(failure.httpStatus, ctx.toolName);
     const message = `${text}${/^HTTP \d/.test(text) ? '' : ` (HTTP ${failure.httpStatus})`}${hint ? ` ${hint}` : ''}`;
-    if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message }]);
+    if (output.machine) return output.finish(mapped.exitCode, failure.data ?? null, [{ code: mapped.code, message, httpStatus: mapped.httpStatus }]);
     if (ctx.raw) {
       process.stdout.write(stringifyForRaw(failure.data));
     } else {

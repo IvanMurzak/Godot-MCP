@@ -100,7 +100,7 @@ export const execCommand = addFormatOption(new Command('exec')
       const message = result.toolFailure && result.toolFailure.reason !== 'http-error'
         ? buildFailureMessage(result.toolFailure, { toolName: 'script-execute', endpoint: result.toolFailure.endpoint, raw: false, timeoutMs, errorNoun: 'tool' })
         : result.message;
-      if (output.machine) output.finish(mapped.exitCode, result.toolFailure?.data ?? null, [{ code: mapped.code, message }]);
+      if (output.machine) output.finish(mapped.exitCode, result.toolFailure?.data ?? null, [{ code: mapped.code, message, httpStatus: mapped.httpStatus }]);
       if (options.raw && result.toolFailure?.data !== undefined) process.stdout.write(JSON.stringify(result.toolFailure.data));
       else ui.error(message);
       process.exit(mapped.exitCode);

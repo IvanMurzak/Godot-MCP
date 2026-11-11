@@ -43,6 +43,8 @@ export type ErrorCode =
 export interface EnvelopeError {
   code: ErrorCode;
   message: string;
+  /** The HTTP status the MCP server answered with, when the failure is an HTTP answer. */
+  httpStatus?: number;
 }
 
 /** Add `--format` to a command. `extra` lists command-specific formats (e.g. `github`). */
@@ -78,7 +80,7 @@ export class CommandOutput<F extends string = OutputFormat> extends ContractOutp
    * The process exits once stdout is flushed; until then a `CommandExit` unwinds the action.
    */
   override finish(exitCode: ExitCodeValue, data: unknown = null, errors: EnvelopeError[] = []): never {
-    for (const err of errors) this.record(err.code, err.message);
+    for (const err of errors) this.record(err.code, err.message, err.httpStatus);
     this.emit(exitCode, data);
     exitAfterFlush(exitCode);
   }

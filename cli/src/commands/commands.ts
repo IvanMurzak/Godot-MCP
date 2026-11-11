@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as ui from '../utils/ui.js';
-import { buildCommandManifest } from '@baizor/gamedev-cli-core';
+import { buildCommandManifest, toolFailureCodeLine } from '@baizor/gamedev-cli-core';
 import { ExitCode } from '../utils/exit-codes.js';
 import { CommandOutput, addFormatOption, parseFormat } from '../utils/output.js';
 
@@ -19,6 +19,8 @@ export function createCommandsCommand(getProgram: () => Command, version: string
       }
       ui.heading('Exit codes');
       for (const e of manifest.exitCodes) console.log(`  ${String(e.code).padStart(2)}  ${e.name}: ${e.description}`);
+      ui.heading('Error codes of a failed tool call (errors[].code)');
+      for (const e of manifest.errorCodes) console.log(`  ${toolFailureCodeLine(e)}`);
     }
     output.finish(ExitCode.Success, manifest);
   });

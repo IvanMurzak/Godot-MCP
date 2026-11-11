@@ -233,15 +233,32 @@ Exit codes are shared with `unity-mcp-cli` and `unreal-mcp-cli` (`godot-cli comm
 | --- | --- |
 | 0 | Success |
 | 1 | Generic or unclassified error; also a run interrupted by Ctrl+C / SIGTERM (the Godot process tree is killed) |
-| 2 | Usage error: unknown command or option, bad flag value or argument (`--help` / `--version` exit 0) |
-| 6 | The command ran and failed: the tool returned an error, script or compilation errors, no test verdict |
+| 2 | Usage error: unknown command or option, bad flag value or argument, an unknown tool (`NOT_FOUND`) (`--help` / `--version` exit 0) |
+| 6 | The command ran and failed: the tool returned an error, script or compilation errors, no test verdict, refused credentials |
 | 7 | The editor or MCP server is unreachable (also HTTP 502) |
 | 8 | Tests ran and at least one failed (a suite-level setup/teardown failure counts) |
-| 14 | Timeout (also HTTP 504) |
-| 17 | The server is busy (HTTP 503); the call was not executed |
+| 14 | Timeout (also HTTP 408 / 504) |
+| 17 | The server is busy (HTTP 503 / 429); the call was not executed |
 | 18 | The editor is blocked by a modal dialog (reserved: not detectable in a headless Godot) |
 
 `update --check` still exits 2 when something is outdated.
+
+**A tool call that did not succeed** (`run-tool`, `run-system-tool`, `exec`, `rql`, `tools`) maps to the same exit code
+and error code in all three CLIs (the table lives in `@baizor/gamedev-cli-core`; `commands --format json` lists it as
+`errorCodes`). When the MCP server answered, its HTTP status decides, and the envelope error carries it:
+`errors[{code, message, httpStatus}]`.
+
+| Condition | HTTP status | Exit | `errors[].code` |
+|---|---|---|---|
+| Bad arguments: a bad flag, tool arguments the CLI or the server rejected (any 4xx not listed here) | 400 (a 422 `[invalid_params]`) | `2` | `USAGE` |
+| No tool by that name (list them with `tools`), or no project at the path | 404 | `2` | `NOT_FOUND` |
+| No usable credentials, or the server refused them: sign in with `login` | 401, 403 | `6` | `NOT_AUTHENTICATED` |
+| The tool ran and reported an error (`status: "error"`, any 5xx not listed here) | 409, 422, 500 | `6` | `TOOL_FAILED` |
+| The project's code did not build, so no editor was started | — | `6` | `COMPILATION_FAILED` |
+| Connection refused or reset, no engine plugin connected to the server, plugin lost after the call was sent | 502 | `7` | `UNREACHABLE` |
+| No answer in time: `--timeout`, or the server's own tool timeout | 408, 504 | `14` | `TIMEOUT` |
+| Busy and did not run the call (reloading, rate-limited, another CLI call holds the editor); retry later | 503, 429 | `17` | `BUSY` |
+| Anything else (the call was aborted, an unexpected error) | — | `1` | `ERROR` |
 
 `--format text|json|ndjson` (default `text`) is accepted by `run-tool`, `run-system-tool`, `exec`, `status`,
 `wait-for-ready`, `check`, `import`, `test`, `export`, `run-script` and `commands`. `json` prints exactly one
@@ -257,7 +274,7 @@ envelope on stdout:
 other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
 In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
 `TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
-`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`, `CLOUD_PROJECT`. `--raw` keeps working as before.
+`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`, `CLOUD_PROJECT`, `ERROR`. `--raw` keeps working as before.
 
 ## Headless commands (`check`, `import`, `test`, `export`, `run-script`)
 
