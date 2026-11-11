@@ -195,8 +195,9 @@ export function runDotnet(
     // A hung restore or build: kill the whole tree (MSBuild nodes included) and fail.
     if (timeoutMs !== undefined && timeoutMs > 0) {
       timer = setTimeout(() => {
-        if (child.pid !== undefined) void killProcessTree(child.pid);
-        finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` });
+        // Resolve only once the tree is gone: the caller may exit right after, which would cut taskkill short.
+        const killed = child.pid !== undefined ? killProcessTree(child.pid) : Promise.resolve(true);
+        void killed.then(() => finish({ code: 124, output: `${output}\nTimed out after ${timeoutMs} ms: "${bin}" was killed.` }));
       }, timeoutMs);
     }
     child.stdout?.on('data', (chunk: Buffer | string) => {
