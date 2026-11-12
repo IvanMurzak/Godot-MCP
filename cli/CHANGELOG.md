@@ -5,8 +5,10 @@ All notable changes to `godot-cli` are documented in this file.
 ## Unreleased
 
 - **Dependencies:** commander 15, chalk 6, yocto-spinner 1.2.2; dev: TypeScript 7 (native compiler), vitest 5.
-  The only visible change: a call with too many arguments now names them
-  (`error: too many arguments for 'check'. Expected 1 argument but got 2: a, b.`). commander 15 and chalk 6 declare
+  Two visible changes, both from commander: a call with too many arguments now names them
+  (`error: too many arguments for 'check'. Expected 1 argument but got 2: a, b.`), and a negative number such as `-5` is
+  read as an argument (`exec -1`, `rql --schema -1`, `run-script x.gd -5`) instead of failing with `unknown option '-5'`.
+  commander 15 and chalk 6 declare
   Node.js >= 22.12 / >= 22; `@baizor/gamedev-cli-core` already required Node.js >= 22.14.
 - **A connection dropped mid-call exits 7 `UNREACHABLE`.** A socket the server took and then closed — before the
   answer's headers, in the middle of its body, a reset (`ECONNRESET`, `EPIPE`, undici's `UND_ERR_SOCKET` "other side
