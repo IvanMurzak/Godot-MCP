@@ -93,6 +93,23 @@ describe('editor-mcp-server — executableName', () => {
     expect(path.basename(executableName({ pid: process.pid, ppid: 0, name: 'MainThread' }))).toBe(path.basename(process.execPath));
   });
 
+  it.runIf(process.platform === 'linux')('names a server whose binary was replaced while it runs (` (deleted)` link)', async () => {
+    // The addon updates the server by deleting the running binary and moving the new one in.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-deleted-'));
+    const server = path.join(dir, 'gamedev-mcp-server');
+    fs.copyFileSync(process.execPath, server);
+    fs.chmodSync(server, 0o755);
+    const child = spawn(server, ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' });
+    try {
+      await new Promise<void>((resolve, reject) => child.once('spawn', resolve).once('error', reject));
+      fs.unlinkSync(server);
+      expect(executableName({ pid: child.pid!, ppid: 0, name: 'MainThread' })).toBe(server);
+    } finally {
+      child.kill('SIGKILL');
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('falls back to the table name when the executable cannot be read', () => {
     expect(executableName({ pid: 2147483646, ppid: 0, name: 'gamedev-mcp-ser' })).toBe('gamedev-mcp-ser');
   });

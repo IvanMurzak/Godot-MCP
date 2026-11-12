@@ -63,15 +63,16 @@ function descendantsOf(table: readonly ProcessEntry[], rootPid: number): Process
 }
 
 /**
- * The PIDs of the processes below `rootPid` that run the server binary. `nameOf` gives a row's executable name (by
- * default its table name).
+ * The PIDs of the processes below `rootPid` that run the server binary, by their table name or by the executable name
+ * `nameOf` gives (a server started through a symlink matches only by the former, one whose thread was renamed only by
+ * the latter).
  */
 export function findServerDescendants(
   table: readonly ProcessEntry[],
   rootPid: number,
   nameOf: (entry: ProcessEntry) => string = (e) => e.name,
 ): number[] {
-  return descendantsOf(table, rootPid).filter((e) => isMcpServerName(nameOf(e))).map((e) => e.pid);
+  return descendantsOf(table, rootPid).filter((e) => isMcpServerName(e.name) || isMcpServerName(nameOf(e))).map((e) => e.pid);
 }
 
 /**
