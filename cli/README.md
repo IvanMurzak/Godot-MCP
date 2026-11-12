@@ -2,7 +2,7 @@
   <h1>Godot MCP — <i>CLI</i></h1>
 
 [![npm](https://img.shields.io/npm/v/godot-cli?label=npm&labelColor=333A41 'npm package')](https://www.npmjs.com/package/godot-cli)
-[![Node.js](https://img.shields.io/badge/Node.js-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-5FA04E?logo=nodedotjs&labelColor=333A41 'Node.js')](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.14.0-5FA04E?logo=nodedotjs&labelColor=333A41 'Node.js')](https://nodejs.org/)
 [![License](https://img.shields.io/github/license/IvanMurzak/Godot-MCP?label=License&labelColor=333A41)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE)
 [![Website](https://img.shields.io/badge/website-ai--game.dev-bc6c25?labelColor=333A41)](https://ai-game.dev)
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
@@ -78,7 +78,7 @@ Or run any command ad-hoc with `npx` — no global install required:
 npx godot-cli install-plugin /path/to/godot/project
 ```
 
-> **Requirements:** [Node.js](https://nodejs.org/) `^20.19.0 || >=22.12.0`.
+> **Requirements:** [Node.js](https://nodejs.org/) 22.14 or later.
 
 ![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 

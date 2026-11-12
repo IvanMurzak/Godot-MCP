@@ -226,7 +226,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # (b) godot-mcp-cli node tests (Node 20 & 22).
+  # (b) godot-mcp-cli node tests (Node 22, 24 & 26).
   test-cli:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}

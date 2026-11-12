@@ -9,7 +9,7 @@
 // was added to prevent — shipped in #161/#162, never advertised by the CLI), this
 // test fails — so the CLI catalog can never silently fall behind the addon again.
 //
-// This runs in the existing `test-cli` CI leg (Node 20 & 22) — no Godot binary,
+// This runs in the existing `test-cli` CI leg (Node 22, 24 & 26) — no Godot binary,
 // no .NET build — because it only reads the addon's `.cs` SOURCE text.
 
 import { describe, it, expect, afterEach } from 'vitest';

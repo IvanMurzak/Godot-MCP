@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "\n" +
             "## Prerequisites\n" +
             "\n" +
-            "Node.js ^20.19.0 or >=22.12.0 and npm are required. Node.js 21 is unsupported.\n" +
+            "Node.js 22.14 or later and npm are required.\n" +
             "Check existing installations first:\n" +
             "\n" +
             "```@SHELL@\n" +

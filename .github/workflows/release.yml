@@ -202,7 +202,7 @@ jobs:
       - name: Test
         run: dotnet test Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-build --verbosity normal
 
-  # godot-mcp-cli node tests (Node 20 & 22). Required before a release is cut.
+  # godot-mcp-cli node tests (Node 22, 24 & 26). Required before a release is cut.
   test-cli:
     needs: [check-version-tag]
     uses: ./.github/workflows/test_cli.yml

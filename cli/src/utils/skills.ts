@@ -337,7 +337,7 @@ export function addonToolDirs(repoRoot: string): string[] {
  *
  * Implemented as an explicit walk rather than `readdirSync(dir, { recursive: true })`
  * so the behaviour is identical on every Node version this package supports
- * (`^20.19.0 || >=22.12.0`) — the `withFileTypes` + `recursive` combination reports
+ * (`>=22.14.0`) — the `withFileTypes` + `recursive` combination reports
  * the parent directory through differently-named properties across those releases.
  * Returns absolute paths sorted for deterministic ordering.
  */
