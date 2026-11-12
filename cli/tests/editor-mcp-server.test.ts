@@ -4,6 +4,7 @@ import * as os from 'os';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import {
+  executableName,
   findEditorServers,
   findServerDescendants,
   isMcpServerName,
@@ -73,6 +74,27 @@ describe('editor-mcp-server — findServerDescendants', () => {
   it('follows children when start times are unknown (POSIX)', () => {
     const posix = table.map(({ startedMs: _s, ...rest }) => rest);
     expect(findServerDescendants(posix, 100).sort()).toEqual([102, 300]);
+  });
+
+  it('matches by executable, not by a renamed main thread (Linux comm)', () => {
+    // Node.js 24+ renames its main thread, so Linux `ps -o comm=` shows `MainThread` for a Node-based process.
+    const renamed: ProcessEntry[] = [
+      { pid: 100, ppid: 1, name: 'godot' },
+      { pid: 102, ppid: 100, name: 'MainThread' },
+    ];
+    expect(findServerDescendants(renamed, 100)).toEqual([]);
+    const exePath = (e: ProcessEntry) => (e.pid === 102 ? '/p/.godot/mcp-server/linux-x64/gamedev-mcp-server' : e.name);
+    expect(findServerDescendants(renamed, 100, exePath)).toEqual([102]);
+  });
+});
+
+describe('editor-mcp-server — executableName', () => {
+  it.runIf(process.platform === 'linux')('reads the executable of a live process, not its thread name', () => {
+    expect(path.basename(executableName({ pid: process.pid, ppid: 0, name: 'MainThread' }))).toBe(path.basename(process.execPath));
+  });
+
+  it('falls back to the table name when the executable cannot be read', () => {
+    expect(executableName({ pid: 2147483646, ppid: 0, name: 'gamedev-mcp-ser' })).toBe('gamedev-mcp-ser');
   });
 });
 

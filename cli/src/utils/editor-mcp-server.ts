@@ -1,4 +1,5 @@
 import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
 import { platform } from 'os';
 import { isProcessAlive, killProcessTree, readProcessStart } from '@baizor/gamedev-cli-core';
@@ -61,9 +62,30 @@ function descendantsOf(table: readonly ProcessEntry[], rootPid: number): Process
   return found;
 }
 
-/** The PIDs of the processes below `rootPid` that run the server binary. */
-export function findServerDescendants(table: readonly ProcessEntry[], rootPid: number): number[] {
-  return descendantsOf(table, rootPid).filter((e) => isMcpServerName(e.name)).map((e) => e.pid);
+/**
+ * The PIDs of the processes below `rootPid` that run the server binary. `nameOf` gives a row's executable name (by
+ * default its table name).
+ */
+export function findServerDescendants(
+  table: readonly ProcessEntry[],
+  rootPid: number,
+  nameOf: (entry: ProcessEntry) => string = (e) => e.name,
+): number[] {
+  return descendantsOf(table, rootPid).filter((e) => isMcpServerName(nameOf(e))).map((e) => e.pid);
+}
+
+/**
+ * The executable a process runs. On Linux `ps` reports `comm`, the MAIN THREAD's name, which a process may rename
+ * (Node.js 24+ names it `MainThread`), so the `/proc/<pid>/exe` link is read instead, falling back to `comm` when it
+ * cannot be read (another user's process). Elsewhere the table name already is the executable.
+ */
+export function executableName(entry: ProcessEntry): string {
+  if (platform() !== 'linux') return entry.name;
+  try {
+    return fs.readlinkSync(`/proc/${entry.pid}/exe`).replace(/ \(deleted\)$/, '');
+  } catch {
+    return entry.name;
+  }
 }
 
 /** Parse `pid ppid [startedTicks] name` lines (Windows rows carry UTC .NET ticks). */
@@ -108,7 +130,7 @@ export function listProcessTable(): ProcessEntry[] {
 
 /** The MCP server processes the editor `editorPid` started (its own descendants only), with their start tokens. */
 export async function findEditorServers(editorPid: number): Promise<EditorServer[]> {
-  const pids = findServerDescendants(listProcessTable(), editorPid);
+  const pids = findServerDescendants(listProcessTable(), editorPid, executableName);
   const servers = await Promise.all(pids.map(async (pid) => ({ pid, start: await readProcessStart(pid) })));
   for (const s of servers) verbose(`Editor PID ${editorPid} runs MCP server PID ${s.pid}`);
   return servers;
