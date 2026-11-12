@@ -18,7 +18,7 @@
 // These tests pin it three ways — against the addon source, against a real request, and
 // against the CI harness workflow that actually went red.
 //
-// Runs in the existing `test-cli` CI leg (Node 20 & 22) — no Godot binary, no .NET build,
+// Runs in the existing `test-cli` CI leg (Node 22, 24 & 26) — no Godot binary, no .NET build,
 // because it only reads `.cs` / `.yml` SOURCE text.
 
 import { describe, it, expect } from 'vitest';

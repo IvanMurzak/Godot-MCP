@@ -4,6 +4,9 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **Node.js 22.14 or later is required.** `engines.node` is now `>=22.14.0` (was `^20.19.0 || >=22.12.0`):
+  Node.js 20 is no longer supported. commander 15, chalk 6, vitest 5 and `@baizor/gamedev-cli-core` 0.11.1 already
+  require Node.js 22 or later (cli-core: 22.14). CI tests the CLI on Node.js 22, 24 and 26.
 - **Dependencies:** commander 15, chalk 6, yocto-spinner 1.2.2; dev: TypeScript 7 (native compiler), vitest 5.
   Two visible changes, both from commander: a call with too many arguments now names them
   (`error: too many arguments for 'check'. Expected 1 argument but got 2: a, b.`), and a negative number such as `-5` is

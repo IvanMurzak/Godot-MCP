@@ -1,6 +1,6 @@
 # cli/ — `godot-cli` npm package
 
-Node (`^20.19.0 || >=22.12.0`) TypeScript ESM CLI, the Godot analog of `unity-mcp-cli`: launches the
+Node (22.14 or later) TypeScript ESM CLI, the Godot analog of `unity-mcp-cli`: launches the
 editor with `GODOT_MCP_*` env vars, calls tools over the server HTTP API, writes agent MCP config and
 skills, installs/enables the addon. Published by the addon's `release.yml` at the same version (never alone).
 User-facing detail: [`README.md`](README.md).
