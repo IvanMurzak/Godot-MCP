@@ -142,3 +142,7 @@ Related: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) 
 [Apache-2.0](LICENSE) © Ivan Murzak. The addon also uses [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) and Code-Exec, which have their own license.
 
 That license is the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/): free to use, including in commercial products, except to build a product that competes with the licensor's.
+
+<div align="center">
+  <a href="https://stand-with-ukraine.pp.ua"><img src="https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-rounded.svg" width="28" height="28" alt="Stand with Ukraine" title="Stand with Ukraine"></a>
+</div>

@@ -1,93 +1,55 @@
-<div align="center" width="100%">
-  <h1>Godot MCP — <i>CLI</i></h1>
+<div align="center">
 
-[![npm](https://img.shields.io/npm/v/godot-cli?label=npm&labelColor=333A41 'npm package')](https://www.npmjs.com/package/godot-cli)
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.14.0-5FA04E?logo=nodedotjs&labelColor=333A41 'Node.js')](https://nodejs.org/)
-[![License](https://img.shields.io/github/license/IvanMurzak/Godot-MCP?label=License&labelColor=333A41)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE)
-[![Website](https://img.shields.io/badge/website-ai--game.dev-bc6c25?labelColor=333A41)](https://ai-game.dev)
-[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: install the Godot MCP addon, sign in, set up your AI agent and drive the Godot editor from a terminal" width="100%"/></p>
 
-  <img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/promo/ai-developer-banner-glitch.gif" alt="AI Game Developer" title="Godot MCP CLI" width="100%">
-
-  <p>
-    <a href="https://claude.ai/download"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/claude-64.png" alt="Claude" title="Claude" height="36"></a>&nbsp;&nbsp;
-    <a href="https://openai.com/index/introducing-codex/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/codex-64.png" alt="Codex" title="Codex" height="36"></a>&nbsp;&nbsp;
-    <a href="https://www.cursor.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cursor-64.png" alt="Cursor" title="Cursor" height="36"></a>&nbsp;&nbsp;
-    <a href="https://code.visualstudio.com/docs/copilot/overview"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/github-copilot-64.png" alt="GitHub Copilot" title="GitHub Copilot" height="36"></a>&nbsp;&nbsp;
-    <a href="https://gemini.google.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/gemini-64.png" alt="Gemini" title="Gemini" height="36"></a>&nbsp;&nbsp;
-    <a href="https://antigravity.google/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/antigravity-64.png" alt="Antigravity" title="Antigravity" height="36"></a>&nbsp;&nbsp;
-    <a href="https://code.visualstudio.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/vs-code-64.png" alt="VS Code" title="VS Code" height="36"></a>&nbsp;&nbsp;
-    <a href="https://www.jetbrains.com/rider/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/rider-64.png" alt="Rider" title="Rider" height="36"></a>
-  </p>
+[![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G)
 
 </div>
 
-Cross-platform CLI for **[Godot-MCP](https://github.com/IvanMurzak/Godot-MCP)** — the
-[Godot](https://godotengine.org/) editor addon that bridges LLMs (Claude, Cursor, Copilot, …) with the
-Godot editor via the [Model Context Protocol](https://modelcontextprotocol.io/). Resolve and launch the
-Godot editor with active MCP connections, run tools, configure AI agents, and manage the `godot_mcp`
-addon — all from a single command line.
+**`godot-cli`** is the command line for [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP), the Godot editor addon that connects AI agents (Claude Code, Cursor, Codex, GitHub Copilot, …) to the Godot editor over the [Model Context Protocol](https://modelcontextprotocol.io/). It is the sibling of [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) and [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli), backed by [ai-game.dev](https://ai-game.dev).
 
-The CLI is the Godot analog of [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) and
-[`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli). Backed by **[ai-game.dev](https://ai-game.dev)**.
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor" width="100%"/></p>
 
-> **Licensed under Apache-2.0.**
+## Features
 
-## ![AI Game Developer — Godot SKILLS and MCP](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-features.svg?raw=true)
+✅ **One-command install** — `install-plugin` adds the addon, NuGet references and enables it\
+✅ **Sign in once** — `login` uses the OAuth device flow; the editor picks the credential up\
+✅ **Agent setup** — `setup-mcp` writes the MCP config for Claude Code, Cursor, Codex and more\
+✅ **Editor control** — `open`, `close`, `status` and `wait-for-ready` for a project's editor\
+✅ **Run tools** — `rql`, `exec`, `run-tool` start a headless editor when none is running\
+✅ **Headless CI** — `check`, `import`, `test`, `export` and `run-script` without an open editor\
+✅ **Extensions** — `install-extension` adds optional RQL modules; `update` updates everything
 
-- :white_check_mark: **Open & Connect** — build the project's C# assembly and launch the Godot editor with `GODOT_MCP_*` connection env vars
-- :white_check_mark: **Install plugin** — install the `godot_mcp` addon end-to-end (download release, add NuGet pins + catalog, enable)
-- :white_check_mark: **Install extensions** — add optional Godot-MCP extension packages (RQL modules) to a project
-- :white_check_mark: **Remove plugin** — disable the `godot_mcp` addon in `project.godot`
-- :white_check_mark: **Configure** — show/hide MCP tools, prompts, and resources (what MCP clients see listed)
-- :white_check_mark: **Status check** — detect a running Godot editor and probe MCP-server health
-- :white_check_mark: **Run tools** — execute MCP and system tools directly over the server's HTTP API
-- :white_check_mark: **Setup MCP** — write AI-agent MCP-client config for any supported agent
-- :white_check_mark: **Setup skills** — write the cold-start `godot-cli` agent skill locally (no live editor required)
-- :white_check_mark: **Wait for ready** — poll until the Godot MCP server answers `ping`
-- :white_check_mark: **Cross-platform** — Windows, macOS, and Linux
-- :white_check_mark: **Library API** — a side-effect-free, typed library surface for embedding
+## Quick start
 
-![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
-
-# Quick Start
+Requires [Node.js](https://nodejs.org/) 22.14 or later, and a Godot 4.3+ .NET editor with the .NET 8 SDK.
 
 ```bash
-# Install globally
 npm install -g godot-cli
 
-# Install the godot_mcp addon into a project
-godot-cli install-plugin ./MyGodotProject
-
-# Sign in to the ai-game.dev cloud (OAuth 2.1 device login — once per machine)
-godot-cli login
-
-# Open the project (builds C# first, then launches the editor with MCP connection)
-godot-cli open ./MyGodotProject
-
-# Wait until the MCP server is ready to accept tool calls
-godot-cli wait-for-ready ./MyGodotProject
-
-# Run C# in the editor — starts a headless editor when none is open, keeps it warm 5 minutes
-godot-cli exec 'EditorInterface.Singleton.GetEditedSceneRoot()?.Name' --path ./MyGodotProject
+godot-cli install-plugin ./MyGodotProject          # addon + NuGet references + enable the plugin
+godot-cli login                                    # sign in to ai-game.dev, once per machine
+godot-cli setup-mcp claude-code ./MyGodotProject   # write the agent's MCP config
+godot-cli open ./MyGodotProject                    # build C#, start the editor, connect
+godot-cli wait-for-ready ./MyGodotProject          # wait until the plugin answers
 ```
 
-Or run any command ad-hoc with `npx` — no global install required:
+Run C# or RQL in the editor from the project folder; a headless editor starts when none is open:
 
 ```bash
-npx godot-cli install-plugin /path/to/godot/project
+godot-cli exec 'EditorInterface.Singleton.GetEditedSceneRoot()?.Name'
+godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ```
 
-> **Requirements:** [Node.js](https://nodejs.org/) 22.14 or later.
+Or run any command without installing: `npx godot-cli install-plugin ./MyGodotProject`.
 
-![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
-
-# Commands
+## Commands
 
 | Command | What it does |
 | --- | --- |
 | `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)). |
 | `exec [code]` | Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm. |
+| `create-project [path]` | Scaffold a new Godot project; `--dotnet` also writes a Godot.NET.Sdk `.csproj`, `--name` sets its name. |
 | `build [path]` | Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching. |
 | `rql [query]` | One RQL query from the command line, no JSON: `godot-cli rql 'nodes \| where name starts-with "Tree" \| count'`. A query whose last stage is `set` or `call` goes to `rql-mutate` (`--dry-run`, `--max-targets <n>`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` (`-f -`: stdin) reads the query when a shell strips its quotes. Starts a headless editor like `run-tool`. After `SaveScene()`, `NewScene(...)`, `CreateResource(...)` or a `godot.resource(...)` edit it prints the files written (`Saved to disk: res://scenes/forest.tscn`); an operator spelled as in another language (`startsWith`, `like`) gets a hint with RQL's spelling. `rql --help` lists recipes. |
 | `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. Text mode prints a text answer as its text (`--raw`: the response JSON; `--verbose`: also the endpoint). When no editor answers on the project's local server it starts a headless one like `exec` (`--no-start` disables; `--once` closes it after the call). |
@@ -113,19 +75,12 @@ npx godot-cli install-plugin /path/to/godot/project
 
 ### Build before open (`open` / `build`)
 
-`open` **builds the project's C# assembly before launching the editor**. Godot instantiates an
-enabled addon's `EditorPlugin` as soon as the editor loads — so on a *fresh* first open of a C#
-project that was never built, no assembly exists yet and Godot fails with
-`Unable to load addon script 'res://addons/godot_mcp/Editor/GodotMcpPlugin.cs' … Disabling the addon`.
-Building first guarantees the assembly is present when the addon is instantiated.
+`open` **builds the project's C# assembly before launching the editor**. Godot instantiates an enabled addon's `EditorPlugin` as soon as the editor loads — so on a *fresh* first open of a C# project that was never built, no assembly exists yet and Godot fails with `Unable to load addon script 'res://addons/godot_mcp/Editor/GodotMcpPlugin.cs' … Disabling the addon`. Building first guarantees the assembly is present when the addon is instantiated.
 
 - The build is the same one `godot-cli build` runs: `dotnet build <project>.csproj --configuration Debug`.
 - **GDScript-only projects** (no `.csproj` at the root) are skipped automatically — there is nothing to compile.
-- The build runs **unconditionally** for C# projects; `dotnet build` is incremental, so an up-to-date
-  project is a fast no-op. Pass `--no-build` to `open` to skip it (e.g. you already built, or want to
-  open as fast as possible).
-- If the build **fails**, `open` does **not** launch the editor (launching would just reproduce the
-  disable-addon failure); the error is surfaced instead.
+- The build runs **unconditionally** for C# projects; `dotnet build` is incremental, so an up-to-date project is a fast no-op. Pass `--no-build` to `open` to skip it (e.g. you already built, or want to open as fast as possible).
+- If the build **fails**, `open` does **not** launch the editor (launching would just reproduce the disable-addon failure); the error is surfaced instead.
 
 ### Editor resolution (`open`)
 
@@ -134,8 +89,7 @@ Building first guarantees the assembly is present when the addon is instantiated
 1. `--editor-path <path>` (explicit).
 2. `GODOT_BIN` / `GODOT4_BIN` environment variables.
 3. The first matching Godot binary on `PATH` (the mono build is preferred on Windows).
-4. Per-OS common install directories — Windows prefers the mono build; macOS resolves the
-   `.app/Contents/MacOS/Godot` binary; Linux scans common extracted-binary locations.
+4. Per-OS common install directories — Windows prefers the mono build; macOS resolves the `.app/Contents/MacOS/Godot` binary; Linux scans common extracted-binary locations.
 
 ### Connection env vars
 
@@ -152,38 +106,19 @@ Building first guarantees the assembly is present when the addon is instantiated
 
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
-The server base URL a tool call POSTs to (`<base>/api/tools/<name>`, or
-`<base>/api/system-tools/<name>` for system tools — `status` / `wait-for-ready` probe the system
-tool `ping`) is resolved as:
+The server base URL a tool call POSTs to (`<base>/api/tools/<name>`, or `<base>/api/system-tools/<name>` for system tools — `status` / `wait-for-ready` probe the system tool `ping`) is resolved as:
 
 1. `--url <url>` (explicit override).
 2. `GODOT_MCP_HOST` env (Custom-mode host).
 3. `GODOT_MCP_CLOUD_URL` env → the cloud **`/mcp` hub** URL (`/mcp` is appended if absent).
 4. `GODOT_MCP_CONNECTION_MODE=Cloud` → the default cloud hub `https://ai-game.dev/mcp`.
-5. The **enrolled project marker** (`.ai-game-dev/project.json` `serverTarget`, written by
-   `install-plugin --enroll`): a hosted target routes to its `/mcp` hub, a `localhost` target is used
-   verbatim. This makes an **enrolled cloud project reachable with zero env config** — the persisted
-   cloud credential (per-project store `<project>/.ai-game-dev/`, then the legacy project sink, then
-   `~/.ai-game-dev/credentials.json`) is used automatically, refreshed through expiry.
-6. Local fallback: `http://localhost:<derived-port>`, the deterministic v2 project-path port the
-   editor addon binds locally (a marker `portOverride` wins over the hash-derived port).
+5. The **enrolled project marker** (`.ai-game-dev/project.json` `serverTarget`, written by `install-plugin --enroll`): a hosted target routes to its `/mcp` hub, a `localhost` target is used verbatim. This makes an **enrolled cloud project reachable with zero env config** — the persisted cloud credential (per-project store `<project>/.ai-game-dev/`, then the legacy project sink, then `~/.ai-game-dev/credentials.json`) is used automatically, refreshed through expiry.
+6. Local fallback: `http://localhost:<derived-port>`, the deterministic v2 project-path port the editor addon binds locally (a marker `portOverride` wins over the hash-derived port).
 
-The cloud paths carry the `/mcp` hub segment so the request reaches the hub rather than the cloud
-backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` to target a
-local/self-hosted server explicitly.
+The cloud paths carry the `/mcp` hub segment so the request reaches the hub rather than the cloud backend (which serves no `/api/tools/*`). Pass `--url http://localhost:<port>` to target a local/self-hosted server explicitly.
 
-`run-tool`, `run-system-tool` and `exec` replace step 6 with the **project's connection mode**, read the way the addon
-reads it (`GODOT_MCP_CONNECTION_MODE`, the project's `.env`, the persisted `user://godot-mcp-config.json`, else Cloud,
-the addon's default). Custom mode uses the local server above. Cloud mode uses the cloud hub with the machine's sign-in
-(no editor is started: only an editor connected to ai-game.dev answers). If this machine has **never** signed in to
-ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is
-persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6,
-`NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. The same holds for `open`, `tools` and
-`open --headless`: on a Cloud project of a signed-in machine `open --headless` starts no editor and exits 6 (use `open`,
-`run-tool` and `exec`, which go through ai-game.dev). An explicit `--url` / `--token` is used as is; a non-local
-`--url` / `GODOT_MCP_HOST` is called directly by `exec` and refused by `open --headless` (a headless editor is local).
+`run-tool`, `run-system-tool` and `exec` replace step 6 with the **project's connection mode**, read the way the addon reads it (`GODOT_MCP_CONNECTION_MODE`, the project's `.env`, the persisted `user://godot-mcp-config.json`, else Cloud, the addon's default). Custom mode uses the local server above. Cloud mode uses the cloud hub with the machine's sign-in (no editor is started: only an editor connected to ai-game.dev answers). If this machine has **never** signed in to ai-game.dev, the project's local server is used instead, with a warning (an editor started now serves it; nothing is persisted). A sign-in that exists but cannot be used (expired, revoked, unreadable) is an error (exit 6, `NOT_AUTHENTICATED`): a signed-in machine is never switched to a local server. The same holds for `open`, `tools` and `open --headless`: on a Cloud project of a signed-in machine `open --headless` starts no editor and exits 6 (use `open`, `run-tool` and `exec`, which go through ai-game.dev). An explicit `--url` / `--token` is used as is; a non-local `--url` / `GODOT_MCP_HOST` is called directly by `exec` and refused by `open --headless` (a headless editor is local).
 
-![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
 ## `exec`
 
@@ -195,35 +130,15 @@ godot-cli exec -f snippet.cs --using MyGame.Gameplay      # code from a file ("-
 godot-cli exec 'Helper.Twice(21)' --include helpers       # .cs files/folders under <project>/.ai-game-dev/snippets
 ```
 
-The code is plain statements; the last expression is the result. The output is the value (`Type: value`) and,
-under `logs:`, what the code printed (`Console`; `GD.Print` / push_warning / push_error with Godot.NET.Sdk 4.5+). A compile error points
-at the snippet's line (`snippet.cs(2,12)`) and exits 6.
+The code is plain statements; the last expression is the result. The output is the value (`Type: value`) and, under `logs:`, what the code printed (`Console`; `GD.Print` / push_warning / push_error with Godot.NET.Sdk 4.5+). A compile error points at the snippet's line (`snippet.cs(2,12)`) and exits 6.
 
-- **A running editor of the project** (yours, with a window, or one `godot-cli` started) is reused and never closed.
-  Yours must serve the project's **local** server (dock: Custom mode, server started).
-- **None running:** the C# assembly is built, then a **headless** editor starts (`--headless --editor --path`, or a
-  window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`),
-  which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without
-  tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls build once and
-  start one editor; a user's editor whose local server does not answer is waited for up to 60 s, then reported.
-- `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves
-  and quits it (through the plugin's `session-close` tool — never a user's editor).
+- **A running editor of the project** (yours, with a window, or one `godot-cli` started) is reused and never closed. Yours must serve the project's **local** server (dock: Custom mode, server started).
+- **None running:** the C# assembly is built, then a **headless** editor starts (`--headless --editor --path`, or a window with `--window`) connected to the project's local server (`http://localhost:<derived port>`, or `--url`), which its plugin starts itself. A headless one quits after `--idle <seconds>` (default 300, `0` = never) without tool calls, saving the open scenes that have a file (a windowed one stays open). Parallel calls build once and start one editor; a user's editor whose local server does not answer is waited for up to 60 s, then reported.
+- `open --headless [--idle-timeout <s>]` starts the same session without running code; `close --owned-only` saves and quits it (through the plugin's `session-close` tool — never a user's editor).
 
-Sessions use [`@baizor/gamedev-cli-core`](https://www.npmjs.com/package/@baizor/gamedev-cli-core) `EditorSession`:
-the lease `<project>/.ai-game-dev/session.json` marks an editor as started by the CLI (only such an editor is ever
-closed) and records the server it runs on: while that editor provably lives, later `exec` / `open` / `close` calls
-use that server, whatever `--url` says.
-`<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor: the C# build runs under it, only in the
-call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.gitignore`. The editor receives
-`AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`,
-`GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call, default 310000: just over the
-server's 5-minute `tool-timeout`),
-`--no-build`, `--editor-path`, `--token`, `--raw`.
+Sessions use [`@baizor/gamedev-cli-core`](https://www.npmjs.com/package/@baizor/gamedev-cli-core) `EditorSession`: the lease `<project>/.ai-game-dev/session.json` marks an editor as started by the CLI (only such an editor is ever closed) and records the server it runs on: while that editor provably lives, later `exec` / `open` / `close` calls use that server, whatever `--url` says. `<project>/.ai-game-dev/session.lock` makes concurrent calls start one editor: the C# build runs under it, only in the call that starts the editor. Both files are listed in `<project>/.ai-game-dev/.gitignore`. The editor receives `AIGD_SESSION_IDLE_SECONDS`, `AIGD_SESSION_OWNER=cli` and `AIGD_SESSION_NONCE`, plus `GODOT_MCP_CONNECTION_MODE=Custom`, `GODOT_MCP_HOST` and `GODOT_MCP_START_SERVER=true`. Options: `--ready-timeout <ms>`, `--timeout <ms>` (tool call, default 310000: just over the server's 5-minute `tool-timeout`), `--no-build`, `--editor-path`, `--token`, `--raw`.
 
-`run-tool` / `run-system-tool` follow the same policy when the call is refused on a **local** URL of a Godot project:
-they start a headless editor (building C# first unless `--no-build`), then retry. A running editor is reused and never
-closed; `--once` closes the editor afterwards only when this call started it. `--no-start` turns this off, and a cloud
-or remote URL never starts anything. Options: `--editor-path`, `--ready-timeout <ms>`.
+`run-tool` / `run-system-tool` follow the same policy when the call is refused on a **local** URL of a Godot project: they start a headless editor (building C# first unless `--no-build`), then retry. A running editor is reused and never closed; `--once` closes the editor afterwards only when this call started it. `--no-start` turns this off, and a cloud or remote URL never starts anything. Options: `--editor-path`, `--ready-timeout <ms>`.
 
 ## Exit codes and output formats
 
@@ -243,10 +158,7 @@ Exit codes are shared with `unity-mcp-cli` and `unreal-mcp-cli` (`godot-cli comm
 
 `update --check` still exits 2 when something is outdated.
 
-**A tool call that did not succeed** (`run-tool`, `run-system-tool`, `exec`, `rql`, `tools`) maps to the same exit code
-and error code in all three CLIs (the table lives in `@baizor/gamedev-cli-core`; `commands --format json` lists it as
-`errorCodes`). When the MCP server answered, its HTTP status decides, and the envelope error carries it:
-`errors[{code, message, httpStatus}]`.
+**A tool call that did not succeed** (`run-tool`, `run-system-tool`, `exec`, `rql`, `tools`) maps to the same exit code and error code in all three CLIs (the table lives in `@baizor/gamedev-cli-core`; `commands --format json` lists it as `errorCodes`). When the MCP server answered, its HTTP status decides, and the envelope error carries it: `errors[{code, message, httpStatus}]`.
 
 | Condition | HTTP status | Exit | `errors[].code` |
 |---|---|---|---|
@@ -260,9 +172,7 @@ and error code in all three CLIs (the table lives in `@baizor/gamedev-cli-core`;
 | Busy and did not run the call (reloading, rate-limited, another CLI call holds the editor); retry later | 503, 429 | `17` | `BUSY` |
 | Anything else (the call was aborted, an unexpected error) | — | `1` | `ERROR` |
 
-`--format text|json|ndjson` (default `text`) is accepted by `run-tool`, `run-system-tool`, `exec`, `status`,
-`wait-for-ready`, `check`, `import`, `test`, `export`, `run-script` and `commands`. `json` prints exactly one
-envelope on stdout:
+`--format text|json|ndjson` (default `text`) is accepted by `run-tool`, `run-system-tool`, `exec`, `status`, `wait-for-ready`, `check`, `import`, `test`, `export`, `run-script` and `commands`. `json` prints exactly one envelope on stdout:
 
 ```json
 { "success": false, "command": "check", "data": { "...": "..." },
@@ -270,21 +180,11 @@ envelope on stdout:
   "warnings": [] }
 ```
 
-`ndjson` prints events on stderr, one JSON object per line (`{"type":"progress","command":…,"message":…}`, and every
-other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout.
-In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`,
-`TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`,
-`IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`, `CLOUD_PROJECT`, `ERROR`. `--raw` keeps working as before.
+`ndjson` prints events on stderr, one JSON object per line (`{"type":"progress","command":…,"message":…}`, and every other line as `{"type":"log","command":…,"level":"info|error","message":…}`), and the envelope as one line on stdout. In both, logs, spinners and headings go to stderr without colour. Error codes: `USAGE`, `TOOL_FAILED`, `UNREACHABLE`, `TIMEOUT`, `BUSY`, `AWAITING_INPUT`, `TESTS_FAILED`, `TEST_RUN_ERROR`, `COMPILATION_FAILED`, `SCRIPT_ERRORS`, `IMPORT_FAILED`, `PROJECT_OPEN`, `NOT_FOUND`, `EXPORT_FAILED`, `NOT_AUTHENTICATED`, `CLOUD_PROJECT`, `ERROR`. `--raw` keeps working as before.
 
 ## Headless commands (`check`, `import`, `test`, `export`, `run-script`)
 
-These run Godot without an editor session and need no MCP server. Godot's exit code is not a verdict in headless mode
-(an `--import` with a GDScript parse error, or an addon that fails to load, still exits 0), so each command judges the
-run from its log (`SCRIPT ERROR`, `ERROR:`, `Parse Error`), a marker that proves the step ran, and the files it must
-produce. Each process gets a hard `--timeout` (the whole Godot process tree is killed: exit 14). Logs and scratch
-scripts go to `<project>/.godot/godot-cli/`. `check`, `import`, `test` and `export` refuse a project that is open in an
-editor (exit 6, `PROJECT_OPEN`: an import fights that editor over `.godot/`); `--allow-open` overrides it, `close`
-stops a `godot-cli` editor. The binary comes from `--editor-path`, `GODOT_BIN`, `PATH` or the usual install folders.
+These run Godot without an editor session and need no MCP server. Godot's exit code is not a verdict in headless mode (an `--import` with a GDScript parse error, or an addon that fails to load, still exits 0), so each command judges the run from its log (`SCRIPT ERROR`, `ERROR:`, `Parse Error`), a marker that proves the step ran, and the files it must produce. Each process gets a hard `--timeout` (the whole Godot process tree is killed: exit 14). Logs and scratch scripts go to `<project>/.godot/godot-cli/`. `check`, `import`, `test` and `export` refuse a project that is open in an editor (exit 6, `PROJECT_OPEN`: an import fights that editor over `.godot/`); `--allow-open` overrides it, `close` stops a `godot-cli` editor. The binary comes from `--editor-path`, `GODOT_BIN`, `PATH` or the usual install folders.
 
 ```bash
 godot-cli check                     # 0 clean, 6 SCRIPT_ERRORS / COMPILATION_FAILED, 14 timeout
@@ -294,36 +194,15 @@ godot-cli export "Windows Desktop" build/game.exe
 godot-cli run-script tools/migrate.gd -- --dry-run
 ```
 
-- **`check [path] [--strict] [--include-addons]`** runs four separate processes (a single cold
-  `--build-solutions --quit` crashes on C# `[Tool]` plugins): `--headless --import`; `dotnet build` for a C# project
-  (errors as `file(line,col): error CS…`); `--headless --editor --quit`, which must print `[Godot-MCP] plugin loaded`
-  when the addon is enabled; and a GDScript pass that loads every `.gd` under `res://` (`res://addons/` only with
-  `--include-addons`) and reports parse errors as `res://file:line`. `--strict` also fails on GDScript warnings (the
-  project's Warn-level warnings raised to errors in memory, never saved) and C# `CS` warnings. Engine messages (a
-  plugin's runtime warnings, for example) are listed as warnings and never fail the check.
+- **`check [path] [--strict] [--include-addons]`** runs four separate processes (a single cold `--build-solutions --quit` crashes on C# `[Tool]` plugins): `--headless --import`; `dotnet build` for a C# project (errors as `file(line,col): error CS…`); `--headless --editor --quit`, which must print `[Godot-MCP] plugin loaded` when the addon is enabled; and a GDScript pass that loads every `.gd` under `res://` (`res://addons/` only with `--include-addons`) and reports parse errors as `res://file:line`. `--strict` also fails on GDScript warnings (the project's Warn-level warnings raised to errors in memory, never saved) and C# `CS` warnings. Engine messages (a plugin's runtime warnings, for example) are listed as warnings and never fail the check.
 - **`import [path]`** fails on script errors (`SCRIPT_ERRORS`) and on resources that fail to import (`IMPORT_FAILED`).
-- **`test [path]`** finds GUT (`addons/gut`) or gdUnit4 (`addons/gdUnit4`), imports the project (`--no-import` skips
-  it), and runs the runner's command-line script with a JUnit report (`-gjunit_xml_file`, or gdUnit4 `-rd`; gdUnit4
-  runs with `--ignoreHeadlessMode -c`). Exit 0 when all tests pass, 8 on failures, 6 (`TEST_RUN_ERROR`) when there is
-  no report, no test ran, or a test script failed to load (its tests are missing from the report, so it must not pass),
-  6 (`NOT_FOUND`) with an install hint when no runner is installed. `--runner gut|gdunit4`, `--dir <dir>` (repeatable;
-  default `res://test`, `res://tests`, or GUT's `.gutconfig.json`), `--filter <text>` (test scripts whose file name
-  contains it), `--output <file>` (copy the JUnit XML), `--format text|json|ndjson|github`.
-- **`export <preset> <output> [--debug|--pack]`** checks that `export_presets.cfg` has the preset and that the export
-  templates for the editor's version are installed (unless `--pack` or the preset names its own template), runs
-  `--export-release|--export-debug|--export-pack`, and fails (`EXPORT_FAILED`) unless the output file exists, is not
-  empty and was written by this run, and the log has no export errors (Godot writes the executable and exits 0 even
-  when, say, the C# publish failed for want of a `.sln`).
-- **`run-script <script> [args...]`** runs `godot --headless --path <project> -s <script> -- <args>`: the script
-  extends `SceneTree` or `MainLoop` and ends with `quit(code)`. Exit 0 for `quit(0)`; 6 for another code
-  (`data.scriptExitCode`) or a script that failed to load; 14 on `--timeout` (default 300000 ms). It does not import,
-  so it also runs while an editor has the project open.
+- **`test [path]`** finds GUT (`addons/gut`) or gdUnit4 (`addons/gdUnit4`), imports the project (`--no-import` skips it), and runs the runner's command-line script with a JUnit report (`-gjunit_xml_file`, or gdUnit4 `-rd`; gdUnit4 runs with `--ignoreHeadlessMode -c`). Exit 0 when all tests pass, 8 on failures, 6 (`TEST_RUN_ERROR`) when there is no report, no test ran, or a test script failed to load (its tests are missing from the report, so it must not pass), 6 (`NOT_FOUND`) with an install hint when no runner is installed. `--runner gut|gdunit4`, `--dir <dir>` (repeatable; default `res://test`, `res://tests`, or GUT's `.gutconfig.json`), `--filter <text>` (test scripts whose file name contains it), `--output <file>` (copy the JUnit XML), `--format text|json|ndjson|github`.
+- **`export <preset> <output> [--debug|--pack]`** checks that `export_presets.cfg` has the preset and that the export templates for the editor's version are installed (unless `--pack` or the preset names its own template), runs `--export-release|--export-debug|--export-pack`, and fails (`EXPORT_FAILED`) unless the output file exists, is not empty and was written by this run, and the log has no export errors (Godot writes the executable and exits 0 even when, say, the C# publish failed for want of a `.sln`).
+- **`run-script <script> [args...]`** runs `godot --headless --path <project> -s <script> -- <args>`: the script extends `SceneTree` or `MainLoop` and ends with `quit(code)`. Exit 0 for `quit(0)`; 6 for another code (`data.scriptExitCode`) or a script that failed to load; 14 on `--timeout` (default 300000 ms). It does not import, so it also runs while an editor has the project open.
 
 ## `login`
 
-`godot-cli login` authenticates the editor plugin's **cloud** connection to
-[ai-game.dev](https://ai-game.dev) using the **OAuth 2.1 device-authorization flow** (RFC 8628) — it prints
-a short user code + verification URL, opens your browser, and polls until you approve:
+`godot-cli login` authenticates the editor plugin's **cloud** connection to [ai-game.dev](https://ai-game.dev) using the **OAuth 2.1 device-authorization flow** (RFC 8628) — it prints a short user code + verification URL, opens your browser, and polls until you approve:
 
 ```bash
 godot-cli login                       # sign in once per machine (default)
@@ -334,33 +213,16 @@ godot-cli login --tools-only         # CI/automation: tools credential only (no 
 godot-cli login --yes                # non-interactive: confirm replacing another account's credential
 ```
 
-- By default the credential is saved to the shared **machine store** `~/.ai-game-dev/credentials.json`
-  (`0600` on POSIX / DPAPI on Windows) — sign in **once per machine** and the Godot editor plugin
-  auto-adopts it, so `godot-cli open --mode Cloud` connects with **no `--token`**.
-- The default login signs the whole machine in: the flow requests an **agent-scope** grant and
-  derives the narrower **tools (plugin) credential** from it via RFC 8693 token exchange, so every
-  AI-Game-Dev tool on the machine (engine plugins, CLIs, the desktop App) picks the sign-in up.
-- `--tools-only` mints the tools credential **only** — nothing agent-scoped is stored, the desktop
-  App cannot adopt the sign-in, and the runner shows up as its own revocable device on
-  [ai-game.dev](https://ai-game.dev). Use it for CI and shared automation runners.
-- If the machine already holds a **different account's** credential, login asks before replacing it
-  (declining revokes the just-minted credential and leaves the store untouched). Pass `--yes` to
-  confirm non-interactively.
-- `--project <path>` (or the positional `[path]`) keeps a per-project credential
-  (`<path>/.ai-game-dev/credentials.json`, gitignored) for per-project accounts. The old
-  per-project sink `<path>/.godot-mcp/credentials.json` is **no longer written** — it is still
-  read (and migrated into the machine store on first use) for one release.
-- The flow persists the **full** credential set (access token + rotating refresh token + expiry) — **no
-  personal access token (PAT) is ever minted**. On any failure nothing is written, so an existing
-  credential survives a denied / expired / network error intact. Commands refresh an expired
-  access token automatically (via `@baizor/gamedev-cli-core`), so a signed-in machine stays
-  signed in without re-running `login`.
+- By default the credential is saved to the shared **machine store** `~/.ai-game-dev/credentials.json` (`0600` on POSIX / DPAPI on Windows) — sign in **once per machine** and the Godot editor plugin auto-adopts it, so `godot-cli open --mode Cloud` connects with **no `--token`**.
+- The default login signs the whole machine in: the flow requests an **agent-scope** grant and derives the narrower **tools (plugin) credential** from it via RFC 8693 token exchange, so every AI-Game-Dev tool on the machine (engine plugins, CLIs, the desktop App) picks the sign-in up.
+- `--tools-only` mints the tools credential **only** — nothing agent-scoped is stored, the desktop App cannot adopt the sign-in, and the runner shows up as its own revocable device on [ai-game.dev](https://ai-game.dev). Use it for CI and shared automation runners.
+- If the machine already holds a **different account's** credential, login asks before replacing it (declining revokes the just-minted credential and leaves the store untouched). Pass `--yes` to confirm non-interactively.
+- `--project <path>` (or the positional `[path]`) keeps a per-project credential (`<path>/.ai-game-dev/credentials.json`, gitignored) for per-project accounts. The old per-project sink `<path>/.godot-mcp/credentials.json` is **no longer written** — it is still read (and migrated into the machine store on first use) for one release.
+- The flow persists the **full** credential set (access token + rotating refresh token + expiry) — **no personal access token (PAT) is ever minted**. On any failure nothing is written, so an existing credential survives a denied / expired / network error intact. Commands refresh an expired access token automatically (via `@baizor/gamedev-cli-core`), so a signed-in machine stays signed in without re-running `login`.
 
 ## `setup-skills`
 
-`godot-cli setup-skills <agent> [path]` generates AI-agent **skill files** for a Godot project under the
-selected agent's skills path (e.g. Claude Code's `.claude/skills`). Use `--list` to see every agent and its
-skills support.
+`godot-cli setup-skills <agent> [path]` generates AI-agent **skill files** for a Godot project under the selected agent's skills path (e.g. Claude Code's `.claude/skills`). Use `--list` to see every agent and its skills support.
 
 ```bash
 godot-cli setup-skills claude-code            # generate into ./.claude/skills
@@ -370,22 +232,14 @@ godot-cli setup-skills --list                 # list agents + their skills paths
 
 It writes, offline (no editor, no server, no network):
 
-- `godot-cli/SKILL.md`: how an agent uses this CLI from a cold start: the first editor command starts a headless
-  editor, `rql` with recipes for scenes, nodes and resources, `check` / `test`, `--format json`, what each exit
-  code means. It is short on purpose (an agent keeps every byte it reads in context); `references/rql.md` and
-  `references/install.md` hold the depth, read only when needed. The recipes come from the same source as
-  `godot-cli --help` and `rql --help`, so the skill and the help cannot drift apart.
+- `godot-cli/SKILL.md`: how an agent uses this CLI from a cold start: the first editor command starts a headless editor, `rql` with recipes for scenes, nodes and resources, `check` / `test`, `--format json`, what each exit code means. It is short on purpose (an agent keeps every byte it reads in context); `references/rql.md` and `references/install.md` hold the depth, read only when needed. The recipes come from the same source as `godot-cli --help` and `rql --help`, so the skill and the help cannot drift apart.
 - `ai-game-dev-app/SKILL.md`: the companion app, for creative tools the CLI does not have.
 
-It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-mcp` / `godot-mcp-<family>` skills
-earlier versions generated from a hand-written catalog. Per-tool skills are the addon's job: it generates them from
-the tools it really registers whenever the editor runs (toggle in the addon's Skills panel), together with its
-`godot-cli-install` guide.
+It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-mcp` / `godot-mcp-<family>` skills earlier versions generated from a hand-written catalog. Per-tool skills are the addon's job: it generates them from the tools it really registers whenever the editor runs (toggle in the addon's Skills panel), together with its `godot-cli-install` guide.
 
 ## `install-plugin`
 
-`godot-cli install-plugin [path]` is a **real installer** — it makes a from-scratch terminal install
-produce a working project, in one idempotent command:
+`godot-cli install-plugin [path]` is a **real installer** — it makes a from-scratch terminal install produce a working project, in one idempotent command:
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # download the matching release + install
@@ -395,34 +249,16 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 
 It performs four steps:
 
-1. **Materialize `res://addons/godot_mcp/`.** By default it downloads `godot-mcp-addon-<version>.zip`
-   over HTTPS from **github.com only** (the `IvanMurzak/Godot-MCP` release `v<version>`; the version
-   defaults to the CLI's own version). Non-`github.com` hosts and plain `http` are rejected. With
-   `--source <path>` it copies the addon from a local directory instead (no network) — `<path>` may be a
-   directory that *is* `addons/godot_mcp` or one that *contains* it.
-2. **Add the NuGet packages** the addon needs (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`)
-   to the project's `.csproj`, idempotently — adding when missing, reconciling a stale version, and
-   leaving a correct pin untouched. The versions come from the addon being installed: its
-   `nuget-deps.json` (generated from `Godot-MCP.csproj` into every release zip by the release
-   workflow), or, with `--source` pointing into a Godot-MCP checkout, that checkout's
-   `Godot-MCP.csproj`. Older addon zips
-   without the manifest fall back to the versions built into the CLI, with a warning.
-3. **Embed the extension catalog** (`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json"
-   LogicalName="Godot-MCP.extensions.catalog.json" />`) into the project's `.csproj`, idempotently. Without
-   it the addon's extension registry reads no catalog at editor runtime and the **Extensions panel is
-   empty**. Single-sourced + parity-tested against the addon csproj alongside the pins. It also sets
-   `<EnableDynamicLoading>true</EnableDynamicLoading>` (Godot's template has it; without it a game run from the editor
-   cannot instantiate C# scripts).
+1. **Materialize `res://addons/godot_mcp/`.** By default it downloads `godot-mcp-addon-<version>.zip` over HTTPS from **github.com only** (the `IvanMurzak/Godot-MCP` release `v<version>`; the version defaults to the CLI's own version). Non-`github.com` hosts and plain `http` are rejected. With `--source <path>` it copies the addon from a local directory instead (no network) — `<path>` may be a directory that *is* `addons/godot_mcp` or one that *contains* it.
+2. **Add the NuGet packages** the addon needs (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`) to the project's `.csproj`, idempotently — adding when missing, reconciling a stale version, and leaving a correct pin untouched. The versions come from the addon being installed: its `nuget-deps.json` (generated from `Godot-MCP.csproj` into every release zip by the release workflow), or, with `--source` pointing into a Godot-MCP checkout, that checkout's `Godot-MCP.csproj`. Older addon zips without the manifest fall back to the versions built into the CLI, with a warning.
+3. **Embed the extension catalog** (`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />`) into the project's `.csproj`, idempotently. Without it the addon's extension registry reads no catalog at editor runtime and the **Extensions panel is empty**. Single-sourced + parity-tested against the addon csproj alongside the pins. It also sets `<EnableDynamicLoading>true</EnableDynamicLoading>` (Godot's template has it; without it a game run from the editor cannot instantiate C# scripts).
 4. **Enable the plugin** in `project.godot` `[editor_plugins]`.
 
-It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public
-boundary) and idempotent — re-running on an already-installed project reports no change.
+It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never throws past the public boundary) and idempotent — re-running on an already-installed project reports no change.
 
 ## `install-extension`
 
-`godot-cli install-extension <id> [path]` installs an optional Godot-MCP **extension** (a package that
-adds more AI tool families) into a Godot C# project — the terminal/library channel for the same install
-the in-editor **Extensions** dock performs:
+`godot-cli install-extension <id> [path]` installs an optional Godot-MCP **extension** (a package that adds more AI tool families) into a Godot C# project — the terminal/library channel for the same install the in-editor **Extensions** dock performs:
 
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder ./MyGodotProject   # add/update the PackageReference
@@ -430,18 +266,9 @@ godot-cli install-extension "ProBuilder Tools"                                  
 godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder --version 1.3.0     # override the catalog pin
 ```
 
-- Resolves `<id>` against the **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` —
-  the single source of truth the dock, the CLI, and the app all consume), matching by package id (then
-  name), case-insensitive.
-- Read-modify-writes a `<PackageReference Include="<packageId>" Version="<version>" />` into the project's
-  root `.csproj`: **added** when absent, version **bumped** only when the catalog (or `--version`) pins a
-  newer version, and a **no-op** when already up to date — then asks you to rebuild (`godot-cli build`) so
-  Godot restores + compiles the new package.
-- Behaviorally identical to the dock's `ExtensionInstaller` (the same add / update / no-op + numeric
-  version-compare rules; verified by a shared scenario set on both sides).
-
-> The catalog ships **empty** until the first Godot-MCP extension package is published, so every `<id>` is
-> currently reported as an unknown extension — there is nothing to install yet.
+- Resolves `<id>` against the **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` — the single source of truth the dock, the CLI, and the app all consume), matching by package id (then name), case-insensitive.
+- Read-modify-writes a `<PackageReference Include="<packageId>" Version="<version>" />` into the project's root `.csproj`: **added** when absent, version **bumped** only when the catalog (or `--version`) pins a newer version, and a **no-op** when already up to date — then asks you to rebuild (`godot-cli build`) so Godot restores + compiles the new package.
+- Behaviorally identical to the dock's `ExtensionInstaller` (the same add / update / no-op + numeric version-compare rules; verified by a shared scenario set on both sides).
 
 ## Library API
 
@@ -458,8 +285,7 @@ import { EXTENSIONS_CATALOG, findExtension } from 'godot-cli';
 import { checkProject, importProject, runTests, exportProject, runScript, parseGodotLog, parseJUnit, ExitCode } from 'godot-cli';
 ```
 
-Every function returns a discriminated union (`{ kind: 'success', ... }` / `{ kind: 'failure', error }`)
-and never throws past the public boundary.
+Every function returns a discriminated union (`{ kind: 'success', ... }` / `{ kind: 'failure', error }`) and never throws past the public boundary.
 
 ## Development
 
@@ -469,30 +295,12 @@ npm run build   # tsc → dist/ (ESM)
 npm test        # vitest
 ```
 
-![divider](https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/img/promo/hazzard-divider.svg?raw=true)
 
-# Supported AI Agents
+## Supported AI agents
 
-`godot-cli` writes ready-to-use MCP client configs for every major AI coding agent — run
-`godot-cli setup-mcp <agent> [path]` to wire one up (and `godot-cli setup-skills <agent> [path]` to
-generate its skill files). Use `--list` on either command to see every supported agent.
+`godot-cli` writes ready-to-use MCP client configs for every major AI coding agent — run `godot-cli setup-mcp <agent> [path]` to wire one up (and `godot-cli setup-skills <agent> [path]` to generate its skill files). Use `--list` on either command to see every supported agent.
 
-<div align="center">
-  <p>
-    <a href="https://claude.ai/download"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/claude-64.png" alt="Claude" title="Claude" height="36"></a>&nbsp;&nbsp;
-    <a href="https://openai.com/index/introducing-codex/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/codex-64.png" alt="Codex" title="Codex" height="36"></a>&nbsp;&nbsp;
-    <a href="https://www.cursor.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cursor-64.png" alt="Cursor" title="Cursor" height="36"></a>&nbsp;&nbsp;
-    <a href="https://code.visualstudio.com/docs/copilot/overview"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/github-copilot-64.png" alt="GitHub Copilot" title="GitHub Copilot" height="36"></a>&nbsp;&nbsp;
-    <a href="https://gemini.google.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/gemini-64.png" alt="Gemini" title="Gemini" height="36"></a>&nbsp;&nbsp;
-    <a href="https://antigravity.google/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/antigravity-64.png" alt="Antigravity" title="Antigravity" height="36"></a>&nbsp;&nbsp;
-    <a href="https://code.visualstudio.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/vs-code-64.png" alt="VS Code" title="VS Code" height="36"></a>&nbsp;&nbsp;
-    <a href="https://www.jetbrains.com/rider/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/rider-64.png" alt="Rider" title="Rider" height="36"></a>&nbsp;&nbsp;
-    <a href="https://visualstudio.microsoft.com/"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/visual-studio-64.png" alt="Visual Studio" title="Visual Studio" height="36"></a>&nbsp;&nbsp;
-    <a href="https://github.com/anthropics/claude-code"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/open-code-64.png" alt="Open Code" title="Open Code" height="36"></a>&nbsp;&nbsp;
-    <a href="https://github.com/cline/cline"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/cline-64.png" alt="Cline" title="Cline" height="36"></a>&nbsp;&nbsp;
-    <a href="https://github.com/Kilo-Org/kilocode"><img src="https://github.com/IvanMurzak/Unity-MCP/raw/main/docs/img/mcp-clients/kilo-code-64.png" alt="Kilo Code" title="Kilo Code" height="36"></a>
-  </p>
-</div>
+Supported agents include Claude Code, Claude Desktop, Cursor, VS Code and Visual Studio (Copilot), GitHub Copilot CLI, Rider (Junie), Codex, Gemini, Antigravity, Cline, Open Code, Kilo Code, and a generic `custom` MCP client.
 
 ```bash
 godot-cli setup-mcp --list                    # list every supported agent id
@@ -502,19 +310,10 @@ godot-cli setup-mcp claude-code ./MyGame --oauth    # URL-only: the agent signs 
 godot-cli setup-mcp claude-code ./MyGame --regenerate-key   # new project key; the old one is revoked
 ```
 
-In Cloud mode `setup-mcp` writes a **project key** into the agent config for every agent:
-`Authorization: Bearer agd_pk_…` (Codex: `http_headers`). A project key never expires, is bound to this
-project's pin (it cannot reach any other project on your account), and is created once per project with
-your machine sign-in (`godot-cli login`), then reused from `~/.ai-game-dev/project-keys.json`.
-`--regenerate-key` replaces it and revokes the old one. Without a machine sign-in (or while the server cannot
-issue keys) the config is URL-only and the agent authenticates with its own OAuth; `--oauth` asks for that
-URL-only config explicitly. An explicit `--token` always wins. A local server config (`--url
-http://localhost:…`) never carries a project key.
+In Cloud mode `setup-mcp` writes a **project key** into the agent config for every agent: `Authorization: Bearer agd_pk_…` (Codex: `http_headers`). A project key never expires, is bound to this project's pin (it cannot reach any other project on your account), and is created once per project with your machine sign-in (`godot-cli login`), then reused from `~/.ai-game-dev/project-keys.json`. `--regenerate-key` replaces it and revokes the old one. Without a machine sign-in (or while the server cannot issue keys) the config is URL-only and the agent authenticates with its own OAuth; `--oauth` asks for that URL-only config explicitly. An explicit `--token` always wins. A local server config (`--url http://localhost:…`) never carries a project key.
 
-> For the full Godot-MCP project documentation, see the
-> [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by
-> **[ai-game.dev](https://ai-game.dev)**.
+> For the full Godot-MCP project documentation, see the [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by **[ai-game.dev](https://ai-game.dev)**.
 
 <div align="center">
-  <sub>Made with :orange_heart: for game developers — <a href="https://ai-game.dev">ai-game.dev</a></sub>
+  <a href="https://stand-with-ukraine.pp.ua"><img src="https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-rounded.svg" width="28" height="28" alt="Stand with Ukraine" title="Stand with Ukraine"></a>
 </div>
