@@ -1,15 +1,11 @@
 # Runtime usage (in-game)
 
-The editor plugin connects the **Godot editor**. Godot-MCP can also run inside a **running or exported game**
-(debug or release), so an LLM can read and drive live game state: for example a chess game whose bot moves come
-from an LLM through two tools you write.
+The editor plugin connects the **Godot editor**. Godot-MCP can also run inside a **running or exported game** (debug or release), so an LLM can read and drive live game state: for example a chess game whose bot moves come from an LLM through two tools you write.
 
 Runtime mode differs from the editor on purpose:
 
 - **It never connects by itself.** Your code decides if and when to call `Connect()`.
-- **It exposes nothing by default.** You register every tool (`[AiToolType]`), prompt (`[AiPromptType]`) and
-  resource (`[AiResourceType]`) yourself; each kind is optional. The addon's editor tools are behind `#if TOOLS` and
-  do not compile into an exported game.
+- **It exposes nothing by default.** You register every tool (`[AiToolType]`), prompt (`[AiPromptType]`) and resource (`[AiResourceType]`) yourself; each kind is optional. The addon's editor tools are behind `#if TOOLS` and do not compile into an exported game.
 
 Read [runtime-security.md](runtime-security.md) before you ship a build that calls `GodotMcpRuntime.Initialize`.
 
@@ -70,30 +66,19 @@ public partial class GameMcp : Node
 | `Build()` | Returns a `GodotMcpRuntimeHandle` that is not connected. |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | Open, close, or tear down the connection. |
 
-`Build()` also adds a main-thread dispatcher node to the running `SceneTree` (unless you opt out), so tool handlers
-can use `MainThread.Instance.Run(...)`.
+`Build()` also adds a main-thread dispatcher node to the running `SceneTree` (unless you opt out), so tool handlers can use `MainThread.Instance.Run(...)`.
 
 ## Server URL and token
 
-A game never loads the editor's saved config. It takes the settings from your code (`WithConfig`) and from
-`GODOT_MCP_*` process environment variables or a project `.env` file, which are read live and win over code.
-The variables are listed in [runtime-security.md](runtime-security.md#environment-variables). Custom mode on a
-loopback host with a token is the recommended setup for a game.
+A game never loads the editor's saved config. It takes the settings from your code (`WithConfig`) and from `GODOT_MCP_*` process environment variables or a project `.env` file, which are read live and win over code. The variables are listed in [runtime-security.md](runtime-security.md#environment-variables). Custom mode on a loopback host with a token is the recommended setup for a game.
 
 ## Games run from the editor
 
-A game started with Play (F5) inherits the editor's environment, `GODOT_MCP_HOST` and `GODOT_MCP_TOKEN` included.
-So by default `handle.Connect()` does nothing in such a game and returns `false` (it logs why): the editor stays the
-one plugin the agent talks to. Exported games and games started outside the editor connect normally. To connect a
-game run from the editor too, use `builder.ConnectWhenRunFromEditor()` or `GODOT_MCP_RUNTIME_FROM_EDITOR=1`. A
-GameDev-MCP-Server with plugin roles then keeps both connections and routes tool calls to the editor while it is
-connected.
+A game started with Play (F5) inherits the editor's environment, `GODOT_MCP_HOST` and `GODOT_MCP_TOKEN` included. So by default `handle.Connect()` does nothing in such a game and returns `false` (it logs why): the editor stays the one plugin the agent talks to. Exported games and games started outside the editor connect normally. To connect a game run from the editor too, use `builder.ConnectWhenRunFromEditor()` or `GODOT_MCP_RUNTIME_FROM_EDITOR=1`. A GameDev-MCP-Server with plugin roles then keeps both connections and routes tool calls to the editor while it is connected.
 
 ## A game tool
 
-A runtime tool is written like an editor tool ([custom-tools.md](custom-tools.md)). Mark game-only families
-`Target = ToolTarget.Runtime` so the editor does not register them and the agent reaches the game even while the
-editor is connected.
+A runtime tool is written like an editor tool ([custom-tools.md](custom-tools.md)). Mark game-only families `Target = ToolTarget.Runtime` so the editor does not register them and the agent reaches the game even while the editor is connected.
 
 ```csharp
 using System.ComponentModel;
@@ -130,32 +115,21 @@ public sealed class SceneTreeSummary
 }
 ```
 
-Prompts and resources register the same way: a `partial class` marked `[AiPromptType]` / `[AiResourceType]` with
-members marked `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. A
-resource method returns `ResponseResourceContent[]` (for example `ResponseResourceContent.CreateText(uri, json,
-"application/json")`). All of these types come from the `com.IvanMurzak.McpPlugin` package.
+Prompts and resources register the same way: a `partial class` marked `[AiPromptType]` / `[AiResourceType]` with members marked `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. A resource method returns `ResponseResourceContent[]` (for example `ResponseResourceContent.CreateText(uri, json, "application/json")`). All of these types come from the `com.IvanMurzak.McpPlugin` package.
 
 ## Capturing in-game runtime errors
 
-Editor tools do not see errors raised inside a running game, so an agent could launch the game, read silent logs
-and wrongly decide it is healthy. `builder.WithRuntimeErrorCapture()` closes that gap. It installs three
-best-effort channels and registers `runtime-errors-get` / `runtime-errors-clear`:
+Editor tools do not see errors raised inside a running game, so an agent could launch the game, read silent logs and wrongly decide it is healthy. `builder.WithRuntimeErrorCapture()` closes that gap. It installs three best-effort channels and registers `runtime-errors-get` / `runtime-errors-clear`:
 
-1. **Engine errors (Godot 4.5+)** through `OS.AddLogger`: GDScript runtime errors, `push_error` / `push_warning`
-   and shader errors, with `file`, `line` and `function`. On Godot 4.5+ a GDScript error also carries the full
-   call stack in `frames` (innermost first) and `stackTrace`.
+1. **Engine errors (Godot 4.5+)** through `OS.AddLogger`: GDScript runtime errors, `push_error` / `push_warning` and shader errors, with `file`, `line` and `function`. On Godot 4.5+ a GDScript error also carries the full call stack in `frames` (innermost first) and `stackTrace`.
 2. **C# unhandled exceptions** (`AppDomain.CurrentDomain.UnhandledException`) with the full managed stack trace.
 3. **C# unobserved `Task` exceptions** (`TaskScheduler.UnobservedTaskException`), observed for logging only.
 
-On Godot below 4.5 the engine channel is unavailable; the C# channels still work. `handle.Dispose()` removes the
-hooks. Captured messages and stack traces go to the agent verbatim and can contain paths, user names or secrets,
-so enable capture only on a trusted loopback + token connection.
+On Godot below 4.5 the engine channel is unavailable; the C# channels still work. `handle.Dispose()` removes the hooks. Captured messages and stack traces go to the agent verbatim and can contain paths, user names or secrets, so enable capture only on a trusted loopback + token connection.
 
 ## Running C# in the game
 
-`builder.WithScriptExecute()` lets the agent send C# that the running game compiles with Roslyn and runs on its main
-thread, with the game's own types, autoloads and scene tree. Export builds leave Roslyn out, so the game's
-`.csproj` opts in:
+`builder.WithScriptExecute()` lets the agent send C# that the running game compiles with Roslyn and runs on its main thread, with the game's own types, autoloads and scene tree. Export builds leave Roslyn out, so the game's `.csproj` opts in:
 
 ```xml
 <PropertyGroup>
@@ -164,10 +138,6 @@ thread, with the game's own types, autoloads and scene tree. Export builds leave
 </PropertyGroup>
 ```
 
-A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that
-honours this property; RQL is never shipped. Without the opt-in, `WithScriptExecute()` logs a warning and registers
-nothing.
+A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that honours this property; RQL is never shipped. Without the opt-in, `WithScriptExecute()` logs a warning and registers nothing.
 
-> **This is arbitrary code execution.** Anyone who can call tools on the connection can run any code in the game
-> process. Use it only in dev builds, on a loopback host with a token. Desktop CoreCLR only: NativeAOT and iOS
-> cannot run code generated at run time.
+> **This is arbitrary code execution.** Anyone who can call tools on the connection can run any code in the game process. Use it only in dev builds, on a loopback host with a token. Desktop CoreCLR only: NativeAOT and iOS cannot run code generated at run time.
