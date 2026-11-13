@@ -2,7 +2,7 @@
 
 <p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: install the Godot MCP addon, sign in, set up your AI agent and drive the Godot editor from a terminal" width="100%"/></p>
 
-[![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G)
+[![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) <a href="https://stand-with-ukraine.pp.ua"><img src="https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-square.svg" height="28" alt="Stand with Ukraine" title="Stand with Ukraine"></a>
 
 </div>
 
@@ -311,7 +311,3 @@ godot-cli setup-mcp claude-code ./MyGame --regenerate-key   # new project key; t
 In Cloud mode `setup-mcp` writes a **project key** into the agent config for every agent: `Authorization: Bearer agd_pk_…` (Codex: `http_headers`). A project key never expires, is bound to this project's pin (it cannot reach any other project on your account), and is created once per project with your machine sign-in (`godot-cli login`), then reused from `~/.ai-game-dev/project-keys.json`. `--regenerate-key` replaces it and revokes the old one. Without a machine sign-in (or while the server cannot issue keys) the config is URL-only and the agent authenticates with its own OAuth; `--oauth` asks for that URL-only config explicitly. An explicit `--token` always wins. A local server config (`--url http://localhost:…`) never carries a project key.
 
 > For the full Godot-MCP project documentation, see the [main README](https://github.com/IvanMurzak/Godot-MCP/blob/main/README.md). Backed by **[ai-game.dev](https://ai-game.dev)**.
-
-<div align="center">
-  <a href="https://stand-with-ukraine.pp.ua"><img src="https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-rounded.svg" width="28" height="28" alt="Stand with Ukraine" title="Stand with Ukraine"></a>
-</div>
