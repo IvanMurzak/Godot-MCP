@@ -45,33 +45,31 @@ Or run any command without installing: `npx godot-cli install-plugin ./MyGodotPr
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `open [path]` | Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)). |
-| `exec [code]` | Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm. |
-| `create-project [path]` | Scaffold a new Godot project; `--dotnet` also writes a Godot.NET.Sdk `.csproj`, `--name` sets its name. |
-| `build [path]` | Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching. |
-| `rql [query]` | One RQL query from the command line, no JSON: `godot-cli rql 'nodes \| where name starts-with "Tree" \| count'`. A query whose last stage is `set` or `call` goes to `rql-mutate` (`--dry-run`, `--max-targets <n>`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` (`-f -`: stdin) reads the query when a shell strips its quotes. Starts a headless editor like `run-tool`. After `SaveScene()`, `NewScene(...)`, `CreateResource(...)` or a `godot.resource(...)` edit it prints the files written (`Saved to disk: res://scenes/forest.tscn`); an operator spelled as in another language (`startsWith`, `like`) gets a hint with RQL's spelling. `rql --help` lists recipes. |
-| `run-tool <tool> [path]` | POST to `<url>/api/tools/<tool>` with JSON input. Text mode prints a text answer as its text (`--raw`: the response JSON; `--verbose`: also the endpoint). When no editor answers on the project's local server it starts a headless one like `exec` (`--no-start` disables; `--once` closes it after the call). |
-| `run-system-tool <tool> [path]` | POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). Same auto-start as `run-tool`. |
-| `check [path]` | CI gate without a running editor: import, `dotnet build`, editor boot and a GDScript load check, judged from the logs (see [headless commands](#headless-commands-check-import-test-export-run-script)). |
-| `import [path]` | `godot --headless --import`, failing on import and script errors in the log. |
-| `test [path]` | Run the project's GUT or gdUnit4 tests headless with a hard timeout; verdict from the JUnit report and the log. |
-| `export <preset> <output>` | Export a preset headless (`--debug`, `--pack`); checks the export templates first and the output afterwards. |
-| `run-script <script> [args...]` | Run a one-shot `SceneTree` GDScript (`godot --headless -s`); exit 0 only after `quit(0)`. |
-| `commands` | Machine-readable manifest of every command, its arguments and options, and the exit codes (`--format json`). |
-| `tools [name]` | The editor's AI tools (MCP `tools/list`; starts a headless editor when none answers, caches the list in `.ai-game-dev/tools.json`, git-ignored). With a name: its description, arguments and an example `run-tool` call. `--refresh` asks the editor again; `--no-start` uses the cache or the built-in list. |
-| `status [path]` | Detect a running Godot editor for the project and probe MCP-server health. |
-| `wait-for-ready [path]` | Poll the MCP server until it answers `ping`. |
-| `login [path]` | Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags. |
-| `setup-mcp <agent> [path]` | Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key. |
-| `setup-skills <agent> [path]` | Write the `godot-cli` agent skill (cold-start workflow, RQL recipes, exit codes) and `ai-game-dev-app` under the agent's skills path, offline. `--list` shows each agent's skills support. |
-| `configure [path]` | List / show / hide tools, prompts, and resources in the project-local `.godot-mcp/features.json` (`--enable-*` shows, `--disable-*` hides; a hidden tool still runs when called by name). |
-| `close [path]` | Gracefully stop the Godot editor running for a project (`--force` to hard-kill). Also stops the local MCP server that editor ran, if it outlived it. `--owned-only` closes only an editor `godot-cli` started (`exec` / `open --headless`). |
-| `install-plugin [path]` | Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent. |
-| `install-extension <id> [path]` | Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock. |
-| `remove-plugin [path]` | Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files). |
-| `update [path]` | Update everything: the project's `godot_mcp` addon and installed extensions to their latest versions, then `godot-cli` itself. Outside a project it updates only the CLI. `--check` reports (exit 2 when something is outdated); `--no-self`, `--no-project`, `--no-extensions` skip a step. |
+- **`open [path]`** — Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)).
+- **`exec [code]`** — Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm.
+- **`create-project [path]`** — Scaffold a new Godot project; `--dotnet` also writes a Godot.NET.Sdk `.csproj`, `--name` sets its name.
+- **`build [path]`** — Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching.
+- **`rql [query]`** — One RQL query from the command line, no JSON: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`. A query whose last stage is `set` or `call` goes to `rql-mutate` (`--dry-run`, `--max-targets <n>`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` (`-f -`: stdin) reads the query when a shell strips its quotes. Starts a headless editor like `run-tool`. After `SaveScene()`, `NewScene(...)`, `CreateResource(...)` or a `godot.resource(...)` edit it prints the files written (`Saved to disk: res://scenes/forest.tscn`); an operator spelled as in another language (`startsWith`, `like`) gets a hint with RQL's spelling. `rql --help` lists recipes.
+- **`run-tool <tool> [path]`** — POST to `<url>/api/tools/<tool>` with JSON input. Text mode prints a text answer as its text (`--raw`: the response JSON; `--verbose`: also the endpoint). When no editor answers on the project's local server it starts a headless one like `exec` (`--no-start` disables; `--once` closes it after the call).
+- **`run-system-tool <tool> [path]`** — POST to `<url>/api/system-tools/<tool>` (tools not exposed to MCP clients). Same auto-start as `run-tool`.
+- **`check [path]`** — CI gate without a running editor: import, `dotnet build`, editor boot and a GDScript load check, judged from the logs (see [headless commands](#headless-commands-check-import-test-export-run-script)).
+- **`import [path]`** — `godot --headless --import`, failing on import and script errors in the log.
+- **`test [path]`** — Run the project's GUT or gdUnit4 tests headless with a hard timeout; verdict from the JUnit report and the log.
+- **`export <preset> <output>`** — Export a preset headless (`--debug`, `--pack`); checks the export templates first and the output afterwards.
+- **`run-script <script> [args...]`** — Run a one-shot `SceneTree` GDScript (`godot --headless -s`); exit 0 only after `quit(0)`.
+- **`commands`** — Machine-readable manifest of every command, its arguments and options, and the exit codes (`--format json`).
+- **`tools [name]`** — The editor's AI tools (MCP `tools/list`; starts a headless editor when none answers, caches the list in `.ai-game-dev/tools.json`, git-ignored). With a name: its description, arguments and an example `run-tool` call. `--refresh` asks the editor again; `--no-start` uses the cache or the built-in list.
+- **`status [path]`** — Detect a running Godot editor for the project and probe MCP-server health.
+- **`wait-for-ready [path]`** — Poll the MCP server until it answers `ping`.
+- **`login [path]`** — Authenticate with the ai-game.dev cloud via the OAuth 2.1 device-authorization flow (RFC 8628) — opens a browser, then saves a cloud credential to the shared machine store (`~/.ai-game-dev/credentials.json`) the editor plugin auto-adopts. See the `login` section below for its `--project` / `--base-url` / `--force` / `--tools-only` / `--yes` flags.
+- **`setup-mcp <agent> [path]`** — Write the agent's MCP-client config pointing at the project-pinned `<host>/mcp/p/<pin>` URL (so the agent routes to *this* project's editor). In Cloud mode the config carries this project's key (`Authorization: Bearer agd_pk_…`). Add `--no-pin` for the bare `<host>/mcp` URL, `--oauth` for a URL-only config, `--regenerate-key` to replace the key.
+- **`setup-skills <agent> [path]`** — Write the `godot-cli` agent skill (cold-start workflow, RQL recipes, exit codes) and `ai-game-dev-app` under the agent's skills path, offline. `--list` shows each agent's skills support.
+- **`configure [path]`** — List / show / hide tools, prompts, and resources in the project-local `.godot-mcp/features.json` (`--enable-*` shows, `--disable-*` hides; a hidden tool still runs when called by name).
+- **`close [path]`** — Gracefully stop the Godot editor running for a project (`--force` to hard-kill). Also stops the local MCP server that editor ran, if it outlived it. `--owned-only` closes only an editor `godot-cli` started (`exec` / `open --headless`).
+- **`install-plugin [path]`** — Install the `godot_mcp` addon end-to-end: materialize `res://addons/godot_mcp/` (download the matching GitHub release, or `--source <path>` a local copy), add the NuGet `PackageReference`s the installed addon needs + the extension-catalog `<EmbeddedResource>` to the project `.csproj`, and enable the plugin. Idempotent.
+- **`install-extension <id> [path]`** — Install a Godot-MCP **extension** (an optional RQL-module package) into the project: resolve `<id>` from the shared catalog, add/update its `<PackageReference>` in the project `.csproj`, then rebuild to restore. Idempotent — behaviorally identical to the in-editor dock.
+- **`remove-plugin [path]`** — Disable the `godot_mcp` addon in `project.godot` `[editor_plugins]` (does not delete the addon files).
+- **`update [path]`** — Update everything: the project's `godot_mcp` addon and installed extensions to their latest versions, then `godot-cli` itself. Outside a project it updates only the CLI. `--check` reports (exit 2 when something is outdated); `--no-self`, `--no-project`, `--no-extensions` skip a step.
 
 ### Build before open (`open` / `build`)
 
@@ -258,12 +256,12 @@ It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never thr
 
 ## `install-extension`
 
-`godot-cli install-extension <id> [path]` installs an optional Godot-MCP **extension** (a package that adds more AI tool families) into a Godot C# project — the terminal/library channel for the same install the in-editor **Extensions** dock performs:
+`godot-cli install-extension <id> [path]` installs an optional Godot-MCP **extension** (an optional NuGet package that extends RQL; it adds no tools of its own) into a Godot C# project — the terminal/library channel for the same install the in-editor **Extensions** dock performs:
 
 ```bash
-godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder ./MyGodotProject   # add/update the PackageReference
-godot-cli install-extension "ProBuilder Tools"                                      # resolve by name; default cwd
-godot-cli install-extension com.IvanMurzak.Godot.MCP.ProBuilder --version 1.3.0     # override the catalog pin
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # add/update the PackageReference
+godot-cli install-extension "CSG Tools"                                      # resolve by name; default cwd
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # override the catalog pin
 ```
 
 - Resolves `<id>` against the **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` — the single source of truth the dock, the CLI, and the app all consume), matching by package id (then name), case-insensitive.
