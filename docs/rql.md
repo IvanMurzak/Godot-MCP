@@ -80,7 +80,9 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   committed before the next statement runs, so `…| set …; editor | call SaveScene()` saves the change and leaves the scene
   clean, and `Undo()` in a later statement undoes the earlier one. The first statement that fails stops the rest; the
   earlier ones stay applied. Each statement reads the editor afresh (the request's property-table, group and reference
-  caches are dropped after a statement, `RqlStatementRunner`); edited resource files are saved once, after the call.
+  caches are dropped after a statement, `RqlStatementRunner`); edited resource files are saved once, after the call (a later
+  statement that reads such a file from disk sees it as it was before the call). A dry run previews every statement
+  against the editor as it is: a later statement does not see what an earlier one would change.
 - **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
   an intended bulk change, which stays one all-or-nothing change and one undo action (`RqlTargetLimit`; per statement). Omitted (or 200), no
   budget is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member

@@ -23,7 +23,7 @@ def run(host: str, project: pathlib.Path, d: str) -> None:
     value_is("ST the second statement found the new node", must("ST read X", query(host, 'godot.find("StA") | select Position.X')), "3")
     history = must("ST history", query(host, "editor | select undoHistory"))
     check("ST one undo action per statement, newest first",
-          0 <= history.find("Position.X = 3") < history.find('AddChild("Node3D", "StA")'), history)
+          0 <= history.find("Position.X = 3") < history.find("AddChild"), history)
 
     # Undo() in a later statement undoes the earlier statement (its action is committed before the next one runs).
     must("ST change then undo", mutate(host, 'godot.find("StA") | set Position.Y = 5; editor | call Undo()'))

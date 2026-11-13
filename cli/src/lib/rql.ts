@@ -38,7 +38,7 @@ export function rqlToolCall(query: string | undefined, options: RqlCallOptions):
 
 /**
  * The statements of RQL text: split at each `;` outside strings, quoted identifiers and brackets, blank ones dropped (RQL
- * spec §14; the same scan as RQL's splitStatements, unterminated quotes run to the end).
+ * spec §14; the same scan as RQL's splitStatements, unterminated quotes run to the end; blank-only text gives none).
  */
 export function rqlStatements(text: string): string[] {
   const statements: string[] = [];

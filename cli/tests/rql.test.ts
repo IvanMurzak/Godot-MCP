@@ -82,6 +82,7 @@ describe('rqlToolCall / saveReceipt', () => {
     expect(rqlToolCall(text, { dryRun: true })).toEqual({ toolName: 'rql-mutate', input: { query: text, dry_run: true } });
     expect(rqlToolCall('scenes | count; nodes | count', {})).toEqual({ toolName: 'rql-query', input: { query: 'scenes | count; nodes | count' } });
     expect(isRqlChange('nodes | where name == "x; | set a = 1" | count')).toBe(false);
+    expect(rqlStatements(' ; ;')).toEqual([]);
   });
 
   it('ignores string literals and backtick identifiers', () => {
