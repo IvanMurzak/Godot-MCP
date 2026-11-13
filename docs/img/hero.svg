@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-label="Godot MCP: AI agents such as Claude Code, Cursor, Codex and GitHub Copilot drive the Godot editor through the godot_mcp addon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.55" stop-color="#111a33"/>
+      <stop offset="1" stop-color="#1a1238"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="0.5" stop-color="#a5b4fc"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#06b6d4" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#06b6d4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1200" height="340" rx="20"/></clipPath>
+    <path id="p1" d="M780 82 L930 170"/>
+    <path id="p2" d="M760 170 L930 170"/>
+    <path id="p3" d="M780 258 L930 170"/>
+    <path id="p4" d="M930 170 L1080 82"/>
+    <path id="p5" d="M930 170 L1080 258"/>
+  </defs>
+  <style>
+    .sans { font-family: "Segoe UI", Inter, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+    .mono { font-family: "JetBrains Mono", "Cascadia Code", Consolas, Menlo, monospace; }
+    .ring { transform-origin: 930px 170px; animation: spin 26s linear infinite; }
+    .ring.r2 { animation-duration: 40s; animation-direction: reverse; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse { transform-origin: 930px 170px; animation: pulse 3.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+    .link { stroke-dasharray: 4 7; }
+    .caret { animation: blink 1.1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="340" fill="url(#bg)"/>
+    <rect width="1200" height="340" fill="url(#grid)"/>
+    <circle cx="930" cy="170" r="230" fill="url(#glow)"/>
+    <circle cx="160" cy="300" r="220" fill="url(#glow2)"/>
+
+    <!-- left: title block -->
+    <g class="sans">
+      <rect x="64" y="58" width="300" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.12"/>
+      <circle cx="82" cy="72" r="4" fill="#34d399"><animate attributeName="opacity" values="1;.3;1" dur="2s" repeatCount="indefinite"/></circle>
+      <text x="94" y="77" font-size="13" fill="#cbd5e1" letter-spacing=".4">GODOT 4.3+ · C# EDITOR ADDON</text>
+      <text x="62" y="146" font-size="56" font-weight="700" fill="url(#title)" letter-spacing="-1">Godot MCP</text>
+      <text x="64" y="186" font-size="21" fill="#cbd5e1">Let AI agents work in the Godot editor:</text>
+      <text x="64" y="214" font-size="21" fill="#cbd5e1">scenes, nodes, scripts and resources.</text>
+      <rect x="64" y="246" width="248" height="44" rx="10" fill="#020617" fill-opacity="0.7" stroke="#334155"/>
+      <text class="mono" x="84" y="274" font-size="16" fill="#94a3b8" textLength="192" lengthAdjust="spacing">$ <tspan fill="#e2e8f0">npm i -g </tspan><tspan fill="#67e8f9">godot-cli</tspan></text>
+      <rect class="caret" x="284" y="259" width="8" height="18" fill="#67e8f9"/>
+    </g>
+
+    <!-- right: agents, the addon, the editor -->
+    <g fill="none" stroke-width="1.6">
+      <use href="#p1" class="link" stroke="#67e8f9" stroke-opacity=".7"/>
+      <use href="#p2" class="link" stroke="#a5b4fc" stroke-opacity=".7"/>
+      <use href="#p3" class="link" stroke="#e879f9" stroke-opacity=".7"/>
+      <use href="#p4" class="link" stroke="#34d399" stroke-opacity=".7"/>
+      <use href="#p5" class="link" stroke="#34d399" stroke-opacity=".7"/>
+    </g>
+    <g>
+      <circle r="3.5" fill="#67e8f9"><animateMotion dur="2.2s" repeatCount="indefinite"><mpath href="#p1"/></animateMotion></circle>
+      <circle r="3.5" fill="#a5b4fc"><animateMotion dur="2.6s" begin=".5s" repeatCount="indefinite"><mpath href="#p2"/></animateMotion></circle>
+      <circle r="3.5" fill="#e879f9"><animateMotion dur="2.4s" begin="1s" repeatCount="indefinite"><mpath href="#p3"/></animateMotion></circle>
+      <circle r="3.5" fill="#34d399"><animateMotion dur="2.8s" begin=".2s" repeatCount="indefinite"><mpath href="#p4"/></animateMotion></circle>
+      <circle r="3.5" fill="#34d399"><animateMotion dur="2.8s" begin="1.6s" repeatCount="indefinite"><mpath href="#p5"/></animateMotion></circle>
+    </g>
+
+    <circle class="ring" cx="930" cy="170" r="72" fill="none" stroke="#a5b4fc" stroke-opacity=".35" stroke-dasharray="2 10"/>
+    <circle class="ring r2" cx="930" cy="170" r="92" fill="none" stroke="#67e8f9" stroke-opacity=".18" stroke-dasharray="30 14"/>
+    <g class="pulse">
+      <polygon points="930,114 979,142 979,198 930,226 881,198 881,142" fill="#0b1020" stroke="url(#core)" stroke-width="2.5"/>
+      <polygon points="930,128 967,149 967,191 930,212 893,191 893,149" fill="url(#core)" fill-opacity=".14"/>
+      <text class="mono" x="930" y="167" text-anchor="middle" font-size="14" font-weight="700" fill="#e2e8f0">godot_mcp</text>
+      <text class="mono" x="930" y="186" text-anchor="middle" font-size="11" fill="#94a3b8">24 tools</text>
+    </g>
+
+    <g class="sans" font-size="14" font-weight="600">
+      <g transform="translate(780 82)"><rect x="-64" y="-17" width="128" height="34" rx="17" fill="#0f172a" stroke="#67e8f9" stroke-opacity=".6"/><text y="5" text-anchor="middle" fill="#e2e8f0">Claude Code</text></g>
+      <g transform="translate(700 170)"><rect x="-64" y="-17" width="128" height="34" rx="17" fill="#0f172a" stroke="#a5b4fc" stroke-opacity=".6"/><text y="5" text-anchor="middle" fill="#e2e8f0">Cursor · Codex</text></g>
+      <g transform="translate(780 258)"><rect x="-70" y="-17" width="140" height="34" rx="17" fill="#0f172a" stroke="#e879f9" stroke-opacity=".6"/><text y="5" text-anchor="middle" fill="#e2e8f0">GitHub Copilot</text></g>
+      <g transform="translate(1080 82)"><rect x="-62" y="-17" width="124" height="34" rx="17" fill="#0f172a" stroke="#34d399" stroke-opacity=".6"/><text y="5" text-anchor="middle" fill="#e2e8f0">Scene tree</text></g>
+      <g transform="translate(1080 258)"><rect x="-62" y="-17" width="124" height="34" rx="17" fill="#0f172a" stroke="#34d399" stroke-opacity=".6"/><text y="5" text-anchor="middle" fill="#e2e8f0">Scripts · .tres</text></g>
+    </g>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="339" rx="20" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+</svg>

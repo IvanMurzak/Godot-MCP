@@ -23,7 +23,7 @@ pipelines. **Never bump them here.** The current pins are in `Godot-MCP.csproj` 
 - `addons/godot_mcp/{Runtime,Editor}/Tools/` — runtime-safe / editor-driving tool families: one
   `[AiToolType] partial class Tool_<Family>` per family, one partial-class file per
   `[AiTool("<name>")]` + `[Description]` method. Names mirror Unity-MCP where sensible; full list in
-  README "Tools Reference". New editor data access goes into RQL (an adapter, source, function or
+  [`docs/tools.md`](docs/tools.md). New editor data access goes into RQL (an adapter, source, function or
   `editor` call under `Editor/Rql/`, see [`docs/rql.md`](docs/rql.md)), not a new tool.
 - `Godot-MCP.Tests/` — xUnit CI suite; one `<Subject>Tests.cs` per area.
 - `Godot-Tests/` — headless Godot CI testbed + runtime harness ([`Godot-Tests/README.md`](Godot-Tests/README.md)).
@@ -93,7 +93,7 @@ editors keep answering tool calls with an old build).
   `addons/godot_mcp/nuget-deps.json`, generated into the release zip from `Godot-MCP.csproj` by
   `scripts/write-nuget-deps.mjs` (never committed), or the checkout's csproj for `--source`; the
   constants in `cli/src/utils/addon-deps.ts` (parity-tested against `Godot-MCP.csproj`) are only the
-  fallback for older zips. User-facing steps: README.
+  fallback for older zips. User-facing steps: [`docs/install.md`](docs/install.md).
 - **Editor-only packages.** RQL, Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
   in every csproj (and `editorOnly` in the CLI), so exported games ship none of them. Any addon code using them must
   sit inside `#if TOOLS` (`|| GODOT_MCP_UNIT_TESTS` if xUnit compiles it); `scripts/check-runtime-boundary.py`
@@ -108,7 +108,7 @@ editors keep answering tool calls with an old build).
   context, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin` (stale statics, and a
   GodotSharp copy crashes the editor on its first engine call). Never pin Code-Exec below 0.2.1.
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
-  (`SKILL_FAMILIES`) and the README counts/table; `cli/tests/skills-addon-parity.test.ts` fails on drift.
+  (`SKILL_FAMILIES`) and the counts/tables in `README.md` and `docs/tools.md`; `cli/tests/skills-addon-parity.test.ts` fails on drift.
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by
   `Godot-Tests/fixtures/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
   runnable top to bottom against its fixture scene.

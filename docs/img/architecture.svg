@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" role="img" aria-label="How it works: an AI agent talks MCP to a server (ai-game.dev in Cloud mode, or a local gamedev-mcp-server in Custom mode); the server reaches the godot_mcp editor addon over SignalR; the addon runs its tools on the Godot main thread against your scenes, resources, scripts and project settings">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#151036"/>
+    </linearGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#ffffff" fill-opacity=".06"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1200" height="480" rx="20"/></clipPath>
+    <path id="w1" d="M270 220 L336 220"/>
+    <path id="w2" d="M566 220 L632 220"/>
+    <path id="w3" d="M862 220 L928 220"/>
+    <path id="w1b" d="M336 244 L270 244"/>
+    <path id="w2b" d="M632 244 L566 244"/>
+    <path id="w3b" d="M928 244 L862 244"/>
+    <path id="w4" d="M451 384 L451 420"/>
+  </defs>
+  <style>
+    .sans { font-family: "Segoe UI", Inter, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+    .mono { font-family: "JetBrains Mono", "Cascadia Code", Consolas, Menlo, monospace; }
+    .head { font-size: 12px; letter-spacing: 2px; fill: #64748b; font-weight: 700; }
+    .card { fill: #0f172a; stroke: #1e293b; }
+    .t1 { font-size: 16px; font-weight: 600; fill: #e2e8f0; }
+    .t2 { font-size: 12px; fill: #94a3b8; }
+    .lbl { font-size: 11px; fill: #94a3b8; }
+    .wire { fill: none; stroke-width: 1.6; stroke-dasharray: 4 6; }
+    .chip .box { fill: #111c35; stroke: #273454; }
+    .chip text { font-size: 13px; fill: #cbd5e1; }
+    .chip .hl { fill: #22d3ee; fill-opacity: .08; stroke: #67e8f9; stroke-width: 1.5; opacity: 0; animation: hl 6s ease-in-out infinite; }
+    @keyframes hl { 0%, 18%, 100% { opacity: 0; } 5%, 12% { opacity: 1; } }
+    .c2 .hl { animation-delay: 1s; } .c3 .hl { animation-delay: 2s; } .c4 .hl { animation-delay: 3s; }
+    .c5 .hl { animation-delay: 4s; } .c6 .hl { animation-delay: 5s; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+
+  <g clip-path="url(#frame)" class="sans">
+    <rect width="1200" height="480" fill="url(#bg)"/>
+    <rect width="1200" height="480" fill="url(#dots)"/>
+
+    <text x="40" y="58" class="head">AI AGENT</text>
+    <text x="336" y="58" class="head">MCP SERVER</text>
+    <text x="632" y="58" class="head">GODOT EDITOR ADDON</text>
+    <text x="928" y="58" class="head">YOUR PROJECT</text>
+
+    <!-- wires (request right, result left) -->
+    <g>
+      <use href="#w1" class="wire" stroke="#22d3ee"/><use href="#w1b" class="wire" stroke="#e879f9"/>
+      <use href="#w2" class="wire" stroke="#22d3ee"/><use href="#w2b" class="wire" stroke="#e879f9"/>
+      <use href="#w3" class="wire" stroke="#22d3ee"/><use href="#w3b" class="wire" stroke="#e879f9"/>
+      <use href="#w4" class="wire" stroke="#a5b4fc"/>
+    </g>
+    <text x="303" y="208" text-anchor="middle" class="lbl">MCP</text>
+    <text x="599" y="208" text-anchor="middle" class="lbl">SignalR</text>
+    <text x="895" y="208" text-anchor="middle" class="lbl">main thread</text>
+    <g>
+      <circle r="3.5" fill="#22d3ee"><animateMotion dur="1.2s" repeatCount="indefinite"><mpath href="#w1"/></animateMotion></circle>
+      <circle r="3.5" fill="#22d3ee"><animateMotion dur="1.2s" begin=".4s" repeatCount="indefinite"><mpath href="#w2"/></animateMotion></circle>
+      <circle r="3.5" fill="#22d3ee"><animateMotion dur="1.2s" begin=".8s" repeatCount="indefinite"><mpath href="#w3"/></animateMotion></circle>
+      <circle r="3.5" fill="#e879f9"><animateMotion dur="1.2s" begin="1.2s" repeatCount="indefinite"><mpath href="#w3b"/></animateMotion></circle>
+      <circle r="3.5" fill="#e879f9"><animateMotion dur="1.2s" begin="1.6s" repeatCount="indefinite"><mpath href="#w2b"/></animateMotion></circle>
+      <circle r="3.5" fill="#e879f9"><animateMotion dur="1.2s" begin="2s" repeatCount="indefinite"><mpath href="#w1b"/></animateMotion></circle>
+    </g>
+
+    <!-- column 1: agent -->
+    <rect x="40" y="80" width="230" height="304" rx="14" class="card"/>
+    <text x="60" y="114" class="t1">Any MCP client</text>
+    <text x="60" y="134" class="t2">Chat; the agent calls tools</text>
+    <g class="chip"><rect x="60" y="152" width="190" height="32" rx="8" class="box"/><text x="76" y="173">Claude Code</text></g>
+    <g class="chip"><rect x="60" y="192" width="190" height="32" rx="8" class="box"/><text x="76" y="213">Cursor</text></g>
+    <g class="chip"><rect x="60" y="232" width="190" height="32" rx="8" class="box"/><text x="76" y="253">Codex</text></g>
+    <g class="chip"><rect x="60" y="272" width="190" height="32" rx="8" class="box"/><text x="76" y="293">GitHub Copilot</text></g>
+    <g class="chip"><rect x="60" y="312" width="190" height="32" rx="8" class="box"/><text x="76" y="333">Gemini, Cline, …</text></g>
+
+    <!-- column 2: server -->
+    <rect x="336" y="80" width="230" height="304" rx="14" class="card"/>
+    <text x="356" y="114" class="t1">Routes tool calls</text>
+    <text x="356" y="134" class="t2">Pick one connection mode</text>
+    <rect x="356" y="152" width="190" height="96" rx="10" fill="#111c35" stroke="#67e8f9" stroke-opacity=".55"/>
+    <text x="372" y="178" font-size="12" font-weight="700" fill="#67e8f9" letter-spacing="1">CLOUD · DEFAULT</text>
+    <text x="372" y="202" class="mono" font-size="14" fill="#e2e8f0">ai-game.dev</text>
+    <text x="372" y="226" class="t2">sign in, nothing to host</text>
+    <rect x="356" y="260" width="190" height="104" rx="10" fill="#111c35" stroke="#e879f9" stroke-opacity=".55"/>
+    <text x="372" y="286" font-size="12" font-weight="700" fill="#e879f9" letter-spacing="1">CUSTOM</text>
+    <text x="372" y="310" class="mono" font-size="12" fill="#e2e8f0">gamedev-mcp-server</text>
+    <text x="372" y="332" class="t2">local or self-hosted;</text>
+    <text x="372" y="350" class="t2">the addon can run it</text>
+
+    <!-- column 3: addon -->
+    <rect x="632" y="80" width="230" height="304" rx="14" class="card" stroke="#8b5cf6" stroke-opacity=".6"/>
+    <text x="652" y="114" class="t1 mono" font-size="15">addons/godot_mcp</text>
+    <text x="652" y="134" class="t2">24 tools in 9 families</text>
+    <g class="chip mono c1"><rect x="652" y="152" width="190" height="32" rx="8" class="box"/><rect x="652" y="152" width="190" height="32" rx="8" class="hl"/><text x="668" y="173">rql-query</text></g>
+    <g class="chip mono c2"><rect x="652" y="192" width="190" height="32" rx="8" class="box"/><rect x="652" y="192" width="190" height="32" rx="8" class="hl"/><text x="668" y="213">rql-mutate</text></g>
+    <g class="chip mono c3"><rect x="652" y="232" width="190" height="32" rx="8" class="box"/><rect x="652" y="232" width="190" height="32" rx="8" class="hl"/><text x="668" y="253">rql-schema</text></g>
+    <g class="chip mono c4"><rect x="652" y="272" width="190" height="32" rx="8" class="box"/><rect x="652" y="272" width="190" height="32" rx="8" class="hl"/><text x="668" y="293">script-*</text></g>
+    <g class="chip mono c5"><rect x="652" y="312" width="190" height="32" rx="8" class="box"/><rect x="652" y="312" width="190" height="32" rx="8" class="hl"/><text x="668" y="333">screenshot-*</text></g>
+
+    <!-- column 4: project -->
+    <rect x="928" y="80" width="230" height="304" rx="14" class="card"/>
+    <text x="948" y="114" class="t1">Godot 4.3+ (.NET)</text>
+    <text x="948" y="134" class="t2">RQL edits are undoable</text>
+    <g class="chip"><rect x="948" y="152" width="190" height="32" rx="8" class="box"/><text x="964" y="173">Scene tree, nodes</text></g>
+    <g class="chip"><rect x="948" y="192" width="190" height="32" rx="8" class="box"/><text x="964" y="213">Scenes  .tscn</text></g>
+    <g class="chip"><rect x="948" y="232" width="190" height="32" rx="8" class="box"/><text x="964" y="253">Resources  .tres</text></g>
+    <g class="chip"><rect x="948" y="272" width="190" height="32" rx="8" class="box"/><text x="964" y="293">Scripts  .cs / .gd</text></g>
+    <g class="chip"><rect x="948" y="312" width="190" height="32" rx="8" class="box"/><text x="964" y="333">Project settings</text></g>
+
+    <!-- optional runtime strip -->
+    <rect x="336" y="420" width="822" height="40" rx="10" fill="#0f172a" stroke="#a5b4fc" stroke-opacity=".35" stroke-dasharray="5 5"/>
+    <text x="356" y="445" font-size="13" fill="#cbd5e1"><tspan fill="#a5b4fc" font-weight="700">Optional, in a running game:</tspan> GodotMcpRuntime exposes only the tools you register, after you call Connect()</text>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="479" rx="20" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+</svg>

@@ -1,7 +1,7 @@
 # Runtime (in-game) security contract
 
 Godot-MCP can run **inside a running / exported game build** (debug or release), not only the editor —
-see [Runtime usage (in-game)](../README.md#runtime-usage-in-game) for the full how-to. Running an MCP
+see [Runtime usage (in-game)](runtime.md) for the full how-to. Running an MCP
 connection inside a shipped game opens a **remote-control surface**: anything your registered
 `[AiToolType]` tools can do, a connected MCP client can drive. This document is the security contract
 for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initialize(...)`.
@@ -16,9 +16,8 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   attack surface is exactly the set of `[AiToolType]` classes you opt in via
   `builder.WithToolsFromAssembly(...)` / `builder.WithTools(...)` — no more. With none registered, the
   connection still builds and connects with an empty tool set (exactly Unity-MCP's model).
-- **Editor tool families cannot leak in.** The addon's 7 editor tool families (`Tool_Node`,
-  `Tool_Scene`, `Tool_Resource`, `Tool_FileSystem`, `Tool_Script`, `Tool_Screenshot`, `Tool_Editor`)
-  are gated by `#if TOOLS` and do **not compile** into an exported game build. Even a
+- **Editor tool families cannot leak in.** The addon's editor tool families (`Tool_Rql`, `Tool_Script`,
+  `Tool_Screenshot`, `Tool_Session`) are gated by `#if TOOLS` and do **not compile** into an exported game build. Even a
   `WithToolsFromAssembly(...)` over the addon's own assembly cannot register them.
 - **No persisted-config auto-load.** A game build never silently reads a saved (`user://`) config file —
   that is an editor-only convenience. Host and token come only from your code (`WithConfig`) or from
@@ -79,7 +78,7 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
 compiles it with Roslyn and runs it on its main thread. That is **arbitrary code execution in the game
 process**, with the player's file system and network access. It is OFF by default and it needs a build
 opt-in: an exported game has Code-Exec and Roslyn only when its `.csproj` sets `GodotMcpCodeExecInGame=true`
-and defines `GODOT_MCP_CODE_EXEC_IN_GAME` (README "Running C# in the game"). Without the opt-in the call logs
+and defines `GODOT_MCP_CODE_EXEC_IN_GAME` ([Running C# in the game](runtime.md#running-c-in-the-game)). Without the opt-in the call logs
 a warning and registers nothing.
 
 > **Games started from the editor.** Their build is the editor build (`TOOLS`), so the addon's editor tool

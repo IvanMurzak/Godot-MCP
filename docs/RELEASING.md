@@ -9,7 +9,9 @@ There are two distribution artifacts, both cut from the **same release version**
    - a **Godot Asset Library** entry that points at that repository/version; and
 2. the **`godot-cli`** npm package (`cli/`), published to the public npm registry.
 
-Godot-MCP does **not** publish any NuGet package of its own — see [NuGet](#nuget-decision) below.
+The core addon does **not** publish a NuGet package of its own — see [NuGet](#nuget-decision) below. The optional
+extensions under `extensions/` are separate NuGet packages with their own versions, released by
+`release_extensions.yml` ([EXTENSION-MONOREPO.md](EXTENSION-MONOREPO.md)).
 
 The **MCP server is NOT released from this repo.** The addon consumes the shared
 [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) (binary `gamedev-mcp-server`),
@@ -141,6 +143,7 @@ operations:
 
 The version edit no longer requires opening the web form by hand for routine releases — but the
 **INITIAL** submission (which creates the asset id the automation targets) is still a manual first step.
+The core addon's entry exists: [asset 5245](https://godotengine.org/asset-library/asset/5245).
 
 A **ready-to-paste submission package** — every form field's exact value, plus the icon and preview
 URLs — is maintained at [`docs/assetlib/SUBMISSION.md`](assetlib/SUBMISSION.md). Use it for the manual
@@ -308,7 +311,6 @@ by the maintainer:
   moderator review, and it depends on the maintainer having configured the
   `GODOT_ASSETLIB_USERNAME` / `GODOT_ASSETLIB_PASSWORD` secrets and the `GODOT_ASSETLIB_ASSET_ID`
   variable.)
-- **Adding the addon icon** required by the Asset Library form (none ships today).
 - **Any future NuGet publishing** — new package IDs, `dotnet nuget push` steps, or NuGet
   publish secrets / trusted-publishing config. None exist today and none should be added without an
   explicit maintainer decision (the NuGet model is consume-only; see
