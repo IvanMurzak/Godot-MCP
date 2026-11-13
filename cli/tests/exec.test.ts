@@ -42,9 +42,11 @@ function lease(extra: Partial<SessionLease> = {}): SessionLease {
   return { pid: 40_001, nonce: 'n', engine: 'godot', mode: 'headless', startedAt: '2026-01-01T00:00:00Z', ownedBy: 'cli', hostId: os.hostname(), ...extra };
 }
 
+/** A lease as cli-core 0.12+ writes it: it names its project folder (a lease naming none can only be verified by the
+ * editor's command line, so cli-core treats it as unverifiable here). */
 function writeLease(project: string, extra: Partial<SessionLease> = {}): void {
   fs.mkdirSync(path.join(project, '.ai-game-dev'), { recursive: true });
-  fs.writeFileSync(path.join(project, '.ai-game-dev', 'session.json'), JSON.stringify(lease(extra)));
+  fs.writeFileSync(path.join(project, '.ai-game-dev', 'session.json'), JSON.stringify(lease({ projectRoot: project, ...extra })));
 }
 
 /** OS primitives of a fake editor: spawns count up from 40001; each lives until force-killed. */
@@ -274,6 +276,13 @@ describe('ensureEditor / execCode', () => {
     it('is ignored for a reused pid (another process start time)', async () => {
       const project = tempProject();
       writeLease(project, { serverUrl: 'http://localhost:4321', processStart: 'earlier' });
+      const result = await ensureEditor({ projectPath: project, url: DEAD_URL, processOps: fakeProcessOps().ops, deps: { ensure: capture } });
+      expect(urlOf(result)).toBe(DEAD_URL);
+    });
+
+    it('is ignored for a lease copied with the project (it names another project folder)', async () => {
+      const project = tempProject();
+      writeLease(project, { serverUrl: 'http://localhost:4321', processStart: 'start', projectRoot: path.join(project, '..', 'original') });
       const result = await ensureEditor({ projectPath: project, url: DEAD_URL, processOps: fakeProcessOps().ops, deps: { ensure: capture } });
       expect(urlOf(result)).toBe(DEAD_URL);
     });

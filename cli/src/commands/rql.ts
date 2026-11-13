@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { Command, Option } from 'commander';
 import { DEFAULT_SESSION_READY_TIMEOUT_MS } from '@baizor/gamedev-cli-core';
-import { RQL_MUTATE_TOOL, decodeQueryFile, resourcesWrittenSince, rqlMaySave, rqlToolCall, saveReceipt, stripToolName } from '../lib/rql.js';
+import { RQL_MUTATE_TOOL, RQL_NO_QUERY_USAGE, decodeQueryFile, resourcesWrittenSince, rqlMaySave, rqlToolCall, saveReceipt } from '../lib/rql.js';
 import { runTool } from '../lib/run-tool.js';
 import { resolveAndValidateProjectPath } from '../utils/connection.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -67,14 +67,15 @@ export const rqlCommand = addFormatOption(
   const output = new CommandOutput('rql', parseFormat(options.format));
   let query: string | undefined;
   try {
-    const text = readQuery(queryArg, options.file);
-    query = text === undefined ? undefined : stripToolName(text);
+    query = readQuery(queryArg, options.file);
   } catch (err) {
     return output.fail(ExitCode.Usage, 'USAGE', err instanceof Error ? err.message : String(err));
   }
   const maxTargets = options.maxTargets === undefined ? undefined : parseIntFlag(options.maxTargets, '--max-targets');
-  const call = rqlToolCall(query, { schema: options.schema, dryRun: options.dryRun, maxTargets });
+  // cli-core strips a pasted tool name from each statement and picks rql-query / rql-mutate for the whole text.
+  const call = rqlToolCall(query, { schema: options.schema, dryRun: options.dryRun, maxTargets }, RQL_NO_QUERY_USAGE);
   if ('usage' in call) return output.fail(ExitCode.Usage, 'USAGE', call.usage);
+  const sent = String(call.input['query'] ?? '');
 
   // A save answers without naming its files; which files a change wrote is read from the disk, so nobody re-opens the
   // scene: only for an editor on this machine, and only files written since the tool call itself.
@@ -82,7 +83,7 @@ export const rqlCommand = addFormatOption(
     ? resolveAndValidateProjectPath(undefined, options) : undefined;
   await runToolAction(RQL_CALL, call.toolName, undefined, { ...options, input: JSON.stringify(call.input) }, ({ calledAt, local }) => {
     if (receiptFor === undefined || !local) return;
-    const receipt = saveReceipt(resourcesWrittenSince(receiptFor, calledAt), rqlMaySave(query!));
+    const receipt = saveReceipt(resourcesWrittenSince(receiptFor, calledAt), rqlMaySave(sent));
     if (receipt) console.log(receipt);
   });
 });

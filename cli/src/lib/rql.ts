@@ -4,69 +4,34 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { RQL_MUTATE_TOOL, RQL_QUERY_TOOL, RQL_SCHEMA_TOOL, decodeQueryFile, isRqlMutation, rqlStages, stripToolName } from '@baizor/gamedev-cli-core';
+import {
+  RQL_MUTATE_TOOL,
+  RQL_QUERY_TOOL,
+  RQL_SCHEMA_TOOL,
+  decodeQueryFile,
+  isRqlMutation,
+  rqlStages,
+  rqlToolCall,
+  rqlToolFor,
+  splitRqlStatements,
+  stripToolName,
+} from '@baizor/gamedev-cli-core';
 
-export { RQL_MUTATE_TOOL, RQL_QUERY_TOOL, RQL_SCHEMA_TOOL, decodeQueryFile, isRqlMutation, rqlStages, stripToolName };
+export {
+  RQL_MUTATE_TOOL,
+  RQL_QUERY_TOOL,
+  RQL_SCHEMA_TOOL,
+  decodeQueryFile,
+  isRqlMutation,
+  rqlStages,
+  rqlToolCall,
+  rqlToolFor,
+  splitRqlStatements,
+  stripToolName,
+};
 
-export interface RqlCallOptions {
-  /** `--schema [type]`: true without a type. */
-  schema?: string | boolean;
-  dryRun?: boolean;
-  maxTargets?: number;
-}
-
-/** The rql-* tool and its input for a command-line query, or why the command line is wrong. */
-export function rqlToolCall(query: string | undefined, options: RqlCallOptions):
-  { toolName: string; input: Record<string, unknown> } | { usage: string } {
-  const { schema, dryRun, maxTargets } = options;
-  if (schema !== undefined) {
-    // `rql --schema 'nodes | count'` hands the query to --schema as its value.
-    if (query !== undefined || (typeof schema === 'string' && /[|\s]/.test(schema.trim()))) {
-      return { usage: 'Pass either a query or --schema [type] (a type name), not both.' };
-    }
-    return { toolName: RQL_SCHEMA_TOOL, input: typeof schema === 'string' ? { type: schema } : {} };
-  }
-  if (query === undefined || query.trim() === '') {
-    return { usage: 'No query given: godot-cli rql \'nodes | where name starts-with "Tree" | count\' (recipes: rql --help)' };
-  }
-  if (!isRqlChange(query)) {
-    if (dryRun || maxTargets !== undefined) return { usage: '--dry-run and --max-targets are for a query ending in set / call.' };
-    return { toolName: RQL_QUERY_TOOL, input: { query } };
-  }
-  return { toolName: RQL_MUTATE_TOOL, input: { query, ...(dryRun ? { dry_run: true } : {}), ...(maxTargets !== undefined ? { max_targets: maxTargets } : {}) } };
-}
-
-/**
- * The statements of RQL text: split at each `;` outside strings, quoted identifiers and brackets, blank ones dropped (RQL
- * spec §14; the same scan as RQL's splitStatements, unterminated quotes run to the end; blank-only text gives none).
- */
-export function rqlStatements(text: string): string[] {
-  const statements: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"' || c === "'" || c === '`') {
-      const quote = c;
-      for (i++; i < text.length && text[i] !== quote; i++) if (quote !== '`' && text[i] === '\\') i++;
-    } else if (c === '(' || c === '[' || c === '{') depth++;
-    else if (c === ')' || c === ']' || c === '}') depth = Math.max(0, depth - 1);
-    else if (c === ';' && depth === 0) {
-      statements.push(text.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  statements.push(text.slice(start).trim());
-  return statements.filter((s) => s !== '');
-}
-
-/**
- * Whether RQL text changes the editor (goes to rql-mutate): any of its `;`-separated statements ends in set / call. rql-mutate
- * then refuses text whose other statements do not, before anything runs.
- */
-export function isRqlChange(query: string): boolean {
-  return rqlStatements(query).some(isRqlMutation);
-}
+/** `rql` without a query (core's {@link rqlToolCall} returns it as the usage error). */
+export const RQL_NO_QUERY_USAGE = 'No query given: godot-cli rql \'nodes | where name starts-with "Tree" | count\' (recipes: rql --help)';
 
 /** Operators agents bring from other languages, with RQL's spelling. */
 const OPERATOR_HINTS: ReadonlyArray<readonly [RegExp, string]> = [
