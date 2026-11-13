@@ -4,13 +4,14 @@
 
 <br/>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/IvanMurzak/Godot-MCP/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/IvanMurzak/Godot-MCP?style=flat-square&color=8b5cf6&label=release)](https://github.com/IvanMurzak/Godot-MCP/releases/latest)
-[![npm](https://img.shields.io/npm/v/godot-cli?style=flat-square&color=22d3ee&label=godot-cli)](https://www.npmjs.com/package/godot-cli)
-[![Asset Library](https://img.shields.io/badge/Godot%20Asset%20Library-Godot--MCP-478cbf?style=flat-square)](https://godotengine.org/asset-library/asset/5245)
-![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-a5b4fc?style=flat-square)
-[![License](https://img.shields.io/badge/license-Apache--2.0-34d399?style=flat-square)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-join-7289da?style=flat-square)](https://discord.gg/cfbdMZX99G)
+[![CI](https://img.shields.io/github/actions/workflow/status/IvanMurzak/Godot-MCP/ci.yml?branch=main&label=CI&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=githubactions)](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/IvanMurzak/Godot-MCP?label=release&color=6D28D9&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/releases/latest)
+[![Asset Library](https://img.shields.io/badge/AssetLib-Godot--MCP-6D28D9?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/asset-library/asset/5245)
+[![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli)
+[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/)
+[![.NET](https://img.shields.io/badge/.NET-8-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=dotnet)](https://dotnet.microsoft.com/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G)
 
 </div>
 
@@ -36,16 +37,15 @@ you. Your agent connects to the same server and calls the addon's tools.
 
 ## Features
 
-| | |
-| --- | --- |
-| **One query language for the editor** | [RQL](docs/rql.md) reads and changes nodes, properties, scenes, resources, files, project settings and editor state. Edits are all-or-nothing and undoable. |
-| **C# and GDScript** | Read, create, update, validate and attach `.cs` and `.gd` scripts; build the project's C#. |
-| **Run C# in the editor** | `script-execute` compiles and runs a snippet with the game's own types visible. |
-| **Visual feedback** | Screenshots of the viewport, a camera or a single node, returned to the agent. |
-| **Cloud or self-hosted** | Sign in to ai-game.dev with `godot-cli login`, or run the server locally. |
-| **Extensions** | Optional RQL modules for animation, navigation, tilemaps, particles and popular addons. |
-| **In-game runtime** | Expose your own tools from a running game, opt-in and off by default. |
-| **Your own tools** | Add a tool with one attributed C# method. |
+- ✅ **One query language** — [RQL](docs/rql.md) reads and edits nodes, scenes, resources and settings
+- ✅ **Undoable edits** — RQL changes are all-or-nothing and undo with Ctrl+Z
+- ✅ **C# and GDScript** — create, update, validate and attach `.cs` / `.gd` scripts
+- ✅ **Run C# in the editor** — `script-execute` runs a snippet against your game's types
+- ✅ **Visual feedback** — screenshots of the viewport, a camera or one node
+- ✅ **Cloud or self-hosted** — ai-game.dev sign-in, or a local server the addon runs
+- ✅ **Extensions** — optional RQL modules for animation, navigation, tilemaps and addons
+- ✅ **In-game runtime** — expose your own tools from a running game (off by default)
+- ✅ **Your own tools** — one attributed C# method per tool ([guide](docs/custom-tools.md))
 
 ## Quick start
 
