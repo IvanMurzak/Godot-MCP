@@ -81,6 +81,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return _mentions = index;
         }
 
+        /// <summary>Build <see cref="Mentions"/> again on its next use (a statement of the request may have written files).</summary>
+        internal static void Invalidate() => _mentions = null;
+
         /// <summary>The files that still exist and name <paramref name="resPath"/> as a string (see <see cref="Mentions"/>).</summary>
         internal static IEnumerable<string> MentionsOf(string resPath) =>
             Mentions().TryGetValue(resPath, out var users) ? users.Where(FileAccess.FileExists) : Enumerable.Empty<string>();

@@ -45,7 +45,7 @@ function readQuery(query: string | undefined, file: string | undefined): string 
 
 export const rqlCommand = addFormatOption(
   new Command('rql')
-    .description('Read or change the editor with one RQL query: scenes, nodes, resources (a query ending in set / call changes the editor, any other only reads); starts a headless editor when none answers')
+    .description('Read or change the editor with one RQL query (or several separated by ;): scenes, nodes, resources (a query ending in set / call changes the editor, any other only reads); starts a headless editor when none answers')
     .argument('[query]', 'RQL query, e.g. \'nodes | where name starts-with "Tree" | count\'')
     .option('--path <path>', 'Godot project path (defaults to cwd)')
     .option('-f, --file <file>', 'Read the query from a file ("-" for stdin)')

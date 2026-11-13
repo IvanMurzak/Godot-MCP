@@ -74,8 +74,15 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 - **All-or-nothing.** Every target and value is checked before anything is written; a failure changes nothing.
   `dry_run: true` returns the receipt (`$ref member old new`) without changing anything. The receipt leaves out
   assignments that found the value already set; they are counted (`N unchanged assignment(s) not listed`).
+- **Several statements** (RQL 0.4.0, spec §14). Statements separated by `;` run in order in one call (at most 10), each
+  with its own result block (`[i/n] <statement>`) and its own target limit. `rql-query` runs every one. In `rql-mutate`
+  every statement must end with `set` / `call` (else nothing runs) and is its own all-or-nothing change and undo action,
+  committed before the next statement runs, so `…| set …; editor | call SaveScene()` saves the change and leaves the scene
+  clean, and `Undo()` in a later statement undoes the earlier one. The first statement that fails stops the rest; the
+  earlier ones stay applied. Each statement reads the editor afresh (the request's property-table, group and reference
+  caches are dropped after a statement, `RqlStatementRunner`); edited resource files are saved once, after the call.
 - **Target limit.** A `set` / `call` stage changes at most 200 objects by default; `max_targets` (1–1000) raises it for
-  an intended bulk change, which stays one all-or-nothing call and one undo action (`RqlTargetLimit`). Omitted (or 200), no
+  an intended bulk change, which stays one all-or-nothing change and one undo action (`RqlTargetLimit`; per statement). Omitted (or 200), no
   budget is sent (the default applies); a value outside 1–1000 is refused by RQL (`invalid-value`) before anything runs. A misspelt member
   that leaves a mutation with no target is an `unknown-member` error; a member some Godot type declares (a polymorphic
   `nodes` stream with no node of that type) stays a warning (`RqlGodot.Names.cs`, the engine's `IsKnownMember`, which
@@ -83,7 +90,7 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 - **Godot names.** `$type`, `$ref`, schemas and hints show Godot's class names (`GPUParticles3D`, `CSGBox3D`, `Object`),
   taken from the C# binding's `[GodotClassName]` (the engine's `TypeDisplayName`); `is` and `ref()` accept the C# names
   too. Hints name the tools: `rql-schema` (`SchemaHint`) and `rql-mutate` (`MutateHint`).
-- **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` (Ctrl+Z): a `set` snapshots the stored Godot properties
+- **Undo.** One `EditorUndoRedoManager` action per `rql-mutate` statement (Ctrl+Z): a `set` snapshots the stored Godot properties
   of every changed object and records the differences as do/undo properties. The changed object is the nearest node,
   resource or project-settings object enclosing the write; a plain `Object` held by a node property is snapshotted
   itself, one beneath a view row is a change of the object the row stands for (a tile's `TileData` → its atlas

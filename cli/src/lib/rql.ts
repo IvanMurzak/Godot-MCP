@@ -29,11 +29,43 @@ export function rqlToolCall(query: string | undefined, options: RqlCallOptions):
   if (query === undefined || query.trim() === '') {
     return { usage: 'No query given: godot-cli rql \'nodes | where name starts-with "Tree" | count\' (recipes: rql --help)' };
   }
-  if (!isRqlMutation(query)) {
+  if (!isRqlChange(query)) {
     if (dryRun || maxTargets !== undefined) return { usage: '--dry-run and --max-targets are for a query ending in set / call.' };
     return { toolName: RQL_QUERY_TOOL, input: { query } };
   }
   return { toolName: RQL_MUTATE_TOOL, input: { query, ...(dryRun ? { dry_run: true } : {}), ...(maxTargets !== undefined ? { max_targets: maxTargets } : {}) } };
+}
+
+/**
+ * The statements of RQL text: split at each `;` outside strings, quoted identifiers and brackets, blank ones dropped (RQL
+ * spec §14; the same scan as RQL's splitStatements, unterminated quotes run to the end).
+ */
+export function rqlStatements(text: string): string[] {
+  const statements: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c;
+      for (i++; i < text.length && text[i] !== quote; i++) if (quote !== '`' && text[i] === '\\') i++;
+    } else if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') depth = Math.max(0, depth - 1);
+    else if (c === ';' && depth === 0) {
+      statements.push(text.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  statements.push(text.slice(start).trim());
+  return statements.filter((s) => s !== '');
+}
+
+/**
+ * Whether RQL text changes the editor (goes to rql-mutate): any of its `;`-separated statements ends in set / call. rql-mutate
+ * then refuses text whose other statements do not, before anything runs.
+ */
+export function isRqlChange(query: string): boolean {
+  return rqlStatements(query).some(isRqlMutation);
 }
 
 /** Operators agents bring from other languages, with RQL's spelling. */

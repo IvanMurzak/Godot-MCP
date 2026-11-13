@@ -447,6 +447,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlGuide.cs" Link="Source\Rql\RqlGuide.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStaticCaches.cs" Link="Source\Rql\RqlStaticCaches.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlSetStageBuffer.cs" Link="Source\Rql\RqlSetStageBuffer.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStatementRunner.cs" Link="Source\Rql\RqlStatementRunner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\GodotTypedArrayHint.cs" Link="Source\Rql\GodotTypedArrayHint.cs" />

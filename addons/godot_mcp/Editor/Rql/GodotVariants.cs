@@ -285,6 +285,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
         }
 
+        /// <summary>Drop what the open query scope cached: a statement of the request changed the editor, the next one reads afresh.</summary>
+        public static void ClearScope()
+        {
+            _tables?.Clear();
+            _scoped?.Clear();
+        }
+
         /// <summary>
         /// <paramref name="make"/>'s value for <paramref name="key"/>, made once while a query scope is open (like the property
         /// tables), every time outside one.

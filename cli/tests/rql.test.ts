@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { decodeQueryFile, isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
+import { decodeQueryFile, isRqlChange, isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlStatements, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
 import { toolResponseText, withoutImageData } from '../src/lib/exec.js';
 
 const dirs: string[] = [];
@@ -68,6 +68,20 @@ describe('rqlToolCall / saveReceipt', () => {
     expect(rqlToolCall(undefined, { schema: 'Node3D' })).toEqual({ toolName: 'rql-schema', input: { type: 'Node3D' } });
     expect(rqlToolCall(undefined, { schema: 'nodes | count' })).toHaveProperty('usage');
     expect(rqlToolCall('nodes | count', { dryRun: true })).toHaveProperty('usage');
+  });
+
+  it('splits statements at ; outside strings, identifiers and brackets, and routes a change of several to rql-mutate', () => {
+    expect(rqlStatements('scenes | select name; nodes | count;')).toEqual(['scenes | select name', 'nodes | count']);
+    expect(rqlStatements('nodes | where name == "a;b" | count')).toEqual(['nodes | where name == "a;b" | count']);
+    expect(rqlStatements("nodes | where `x;y` == 1 | select [1; 2] | where name == 'it\\'s;'")).toHaveLength(1);
+    expect(rqlStatements('nodes | where name == "open; | count')).toHaveLength(1);
+    // The last statement reads, an earlier one writes: still a change (the old last-stage rule sent it to rql-query).
+    const text = 'nodes | where name == "A" | set Visible = false; nodes | count';
+    expect(isRqlMutation(text)).toBe(false);
+    expect(isRqlChange(text)).toBe(true);
+    expect(rqlToolCall(text, { dryRun: true })).toEqual({ toolName: 'rql-mutate', input: { query: text, dry_run: true } });
+    expect(rqlToolCall('scenes | count; nodes | count', {})).toEqual({ toolName: 'rql-query', input: { query: 'scenes | count; nodes | count' } });
+    expect(isRqlChange('nodes | where name == "x; | set a = 1" | count')).toBe(false);
   });
 
   it('ignores string literals and backtick identifiers', () => {
