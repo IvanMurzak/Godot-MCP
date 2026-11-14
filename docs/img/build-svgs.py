@@ -23,7 +23,7 @@ def hero_right():
 
 
 K.write(os.path.join(HERE, "hero.svg"), K.hero(
-    title="Godot ", accent="MCP", eyebrow_text="AI Game Developer",
+    title="Godot ", accent="MCP", accent_fx="flow", eyebrow_text="AI Game Developer",
     subtitle=["Let AI agents work in the Godot editor:", "scenes, nodes, scripts and resources."],
     chip_items=["Godot 4.3+ .NET", "24 tools", "RQL", "CLI"], right=hero_right(),
     label="Godot MCP: AI agents work in the Godot editor on scenes, nodes, scripts and resources"))
@@ -63,7 +63,7 @@ K.write(os.path.join(HERE, "terminal.svg"), K.terminal(title="~/games — godot-
 ], label="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor"))
 
 K.write(os.path.join(HERE, "cli-hero.svg"), K.hero(
-    title="godot-", accent="cli", eyebrow_text="Godot MCP command line",
+    title="godot-", accent="cli", accent_fx="flow", eyebrow_text="Godot MCP command line",
     subtitle=["Install the addon, sign in, set up your agent", "and drive the Godot editor from a terminal."],
     chip_items=["Node 22.14+", "npm", "MCP", "RQL"],
     label="godot-cli: install the Godot MCP addon, sign in, set up your AI agent and drive the Godot editor from a terminal"))
