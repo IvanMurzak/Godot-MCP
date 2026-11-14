@@ -12,7 +12,7 @@ default, or a custom local one) through the McpPlugin SignalR client. The editor
 (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql` — PolyForm Shield 1.0.0) is
 **not forked**: it is consumed from nuget.org as `PackageReference`s whose pins are owned by the upstream release
 pipelines. **Never bump them here.** The current pins are in `Godot-MCP.csproj` (mirrored by `Godot-MCP.Tests/`,
-`Godot-Tests/` and `cli/src/utils/addon-deps.ts`; keep them in lockstep) and restated in `README.md` / `docs/`.
+`Godot-Tests/` and `cli/src/utils/addon-deps.ts`; keep them in lockstep). User docs name the packages but not their versions.
 
 ## Layout
 

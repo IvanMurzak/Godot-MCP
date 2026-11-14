@@ -11,7 +11,33 @@
 
 <div dir="rtl">
 
-‏**Godot-MCP** يربط وكلاء الذكاء الاصطناعي (Claude Code وCursor وCodex وGitHub Copilot وGemini أو أي عميل [MCP](https://modelcontextprotocol.io/) آخر) بـ **محرر Godot**. يستطيع الوكيل قراءة مشاهدك وعُقدك ومواردك وسكربتاتك وتعديلها، وتشغيل C# في المحرر، والاطلاع على لقطات الشاشة. وهو إضافة محرر مكتوبة بـ C# لـ Godot 4.3+ (.NET) ترافقها أداة سطر أوامر هي [`godot-cli`](../cli/docs/README.ar.md)، وهو النظير الخاص بـ Godot لمشروع [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
+‏**Godot-MCP** يربط وكلاء الذكاء الاصطناعي (Claude Code وCursor وCodex وGitHub Copilot وGemini أو أي عميل [MCP](https://modelcontextprotocol.io/) آخر) بـ **محرر Godot**. يستطيع الوكيل قراءة مشاهدك وعُقدك ومواردك وسكربتاتك وتعديلها، وبناء C# وتشغيله، والاطلاع على لقطات الشاشة. وهو إضافة محرر ترافقها أداة سطر أوامر هي [`godot-cli`](../cli/docs/README.ar.md)، وهو النظير الخاص بـ Godot لمشروع [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
+
+‏**المتطلبات:** **إصدار .NET** من محرر Godot 4.3+ و**.NET 8 SDK**، يُثبَّت مرة واحدة. يمكن أن تبقى سكربتاتك بلغة GDScript. تحتاج أداة `godot-cli` الاختيارية إلى Node.js 22.14+.
+
+<a id="why"></a>
+## لماذا Godot-MCP
+
+‏✅ ‏**من Godot 4.3 إلى 4.7** — يُختبر كل إصدار في CI على 4.3 و4.4 و4.5 و4.6 و4.7\
+‏✅ ‏**بناء C# حقيقي** — يشغّل `script-build` الأمر `dotnet build` ويعيد أخطاء المترجم\
+‏✅ ‏**فحص GDScript** — يعيد `script-validate` تشخيصات التحليل والترجمة لملفات `.gd`\
+‏✅ ‏**تعديلات ذرّية قابلة للتراجع** — تُطبَّق تغييرات الاستعلام كلها أو لا شيء، وكل منها يُلغى بـ Ctrl+Z واحدة\
+‏✅ ‏**لقطات الشاشة** — نافذة العرض، أو كاميرا، أو عقدة واحدة تُعرض منفردة، تُعاد إلى الوكيل\
+‏✅ ‏**أدوات وقت التشغيل** — السجلات وانعكاس C# وأخطاء وقت التشغيل من لعبة قيد التشغيل (اختياري)\
+‏✅ ‏**سحابة مجانية أو محلي بالكامل** — ai-game.dev افتراضيًا (بلا منافذ مفتوحة)، أو خادم محلي بلا حساب\
+‏✅ ‏**بلا قياس عن بُعد (telemetry)** — لا ترسل الإضافة ولا `godot-cli` أي بيانات استخدام أو تحليلات
+
+<a id="gdscript"></a>
+## تعمل مع مشاريع GDScript
+
+تبقى شيفرة لعبتك بلغة GDScript. الإضافة نفسها مكتوبة بـ C#، لذا يحتاج المشروع إلى بضع خطوات تُنفَّذ مرة واحدة:
+
+‏✅ ‏**محرر Godot .NET** — افتح المشروع في إصدار .NET من Godot 4.3+ (المشروع نفسه، والمشاهد نفسها)\
+‏✅ ‏**.NET 8 SDK** — يُثبَّت مرة واحدة لكل جهاز\
+‏✅ ‏**حل C# (C# solution)** — لمشروع قائم: **Project → Tools → C# → Create C# solution**؛ ولمشروع جديد: `create-project --dotnet`\
+‏✅ ‏**الإضافة** — يضيفها `godot-cli install-plugin` مع مراجع NuGet الخاصة بها ويفعّلها
+
+‏**هل يحتاج مشروع GDScript فقط إلى حل C#؟** نعم، مرة واحدة: الإضافة مكتوبة بـ C# وتُترجم ضمن تجميعة C# الخاصة بالمشروع. يضيف **Create C# solution** ملف `.csproj` وملف `.sln` في جذر المشروع. لا تتغير سكربتات `.gd` ولا المشاهد ولا الموارد، وتعمل كما كانت؛ ويقرأ الوكيل GDScript ويكتبها ويتحقق منها أيضًا. بعد ذلك تستخدم عمليات التصدير قوالب التصدير الخاصة بـ .NET في Godot وتتضمن تجميعات وقت التشغيل الصغيرة للإضافة، والتي تبقى غير نشطة ما لم تستدعِ شيفرتك `GodotMcpRuntime.Initialize()` ([كيف تستبعدها](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)).
 
 </div>
 
@@ -32,61 +58,178 @@
 
 <div dir="rtl">
 
-تتصل الإضافة بخادم MCP: الخادم المستضاف [ai-game.dev](https://ai-game.dev) افتراضيًا، أو خادمك الخاص [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) الذي تستطيع الإضافة تنزيله وتشغيله نيابةً عنك. يتصل وكيلك بالخادم نفسه ويستدعي أدوات الإضافة.
+تتصل الإضافة بخادم MCP، ويتصل وكيلك بالخادم نفسه ويستدعي أدوات الإضافة. الخادم إما [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) محلي تنزّله الإضافة وتشغّله نيابةً عنك، وإما المُرحِّل (relay) المستضاف [ai-game.dev](https://ai-game.dev). لا تفتح الإضافة أي منفذ خاص بها.
 
-<a id="features"></a>
-## الميزات
+‏Cloud هو الوضع الافتراضي لأنه لا يحتاج إلى منافذ مفتوحة ويتجنب تعارض المنافذ مع البرامج الأخرى؛ وهو مجاني. الوضع المحلي بديل كامل للعمل دون اتصال أو في بيئة معزولة (air-gapped).
 
-‏✅ ‏**لغة استعلام واحدة** — [RQL](rql.md) تقرأ وتعدّل العقد والمشاهد والموارد والإعدادات\
-‏✅ ‏**تعديلات قابلة للتراجع** — تغييرات RQL تُطبَّق كلها أو لا شيء، وتُلغى بـ Ctrl+Z\
-‏✅ ‏**C# وGDScript** — إنشاء سكربتات `.cs` / `.gd` وتحديثها والتحقق منها وإرفاقها\
-‏✅ ‏**تشغيل C# في المحرر** — `script-execute` يشغّل مقتطفًا على أنواع لعبتك\
-‏✅ ‏**تغذية راجعة مرئية** — لقطات شاشة لنافذة العرض أو لكاميرا أو لعقدة واحدة\
-‏✅ ‏**سحابي أو مستضاف ذاتيًا** — تسجيل دخول إلى ai-game.dev، أو خادم محلي تشغّله الإضافة\
-‏✅ ‏**الامتدادات** — وحدات RQL اختيارية للحركة والتنقل وخرائط البلاطات والإضافات\
-‏✅ ‏**داخل اللعبة** — اعرض أدواتك من لعبة قيد التشغيل (معطّل افتراضيًا)\
-‏✅ ‏**أدواتك الخاصة** — دالة C# واحدة ذات سمة لكل أداة ([الدليل](custom-tools.ar.md))
+<a id="stability"></a>
+### الاستقرار
+
+- ‏**ترقيم الإصدارات:** تُصدَر الإضافة و`godot-cli` دائمًا برقم الإصدار نفسه؛ اقرأ [ملاحظات الإصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest) قبل التحديث.
+- ‏**ما الذي يتغير بين الإصدارات:** قد يغيّر الإصدار إصدارات NuGet التي تحتاجها الإضافة وإصدار GameDev-MCP-Server الذي تنزّله. يكتب `godot-cli update` (أو `install-plugin`) إصدارات NuGet المطابقة للإضافة التي تثبّتها، وتجلب الإضافة الخادم المطابق لها بنفسها.
+- ‏**بوابة الإصدار:** لا يُصدَر أي إصدار إلا بعد نجاح اختبارات .NET واختبارات CLI واختبارات محرر Godot 4.3–4.7.
+- ‏**سجل التغييرات:** يسرد كل [إصدار على GitHub](https://github.com/IvanMurzak/Godot-MCP/releases) التغييرات المدمجة فيه؛ ويحتفظ `godot-cli` أيضًا بـ [سجل تغييرات](../cli/CHANGELOG.md).
 
 <a id="quick-start"></a>
 ## البدء السريع
 
-المتطلبات: Godot 4.3 أو أحدث، **إصدار .NET** (إصدار GDScript فقط لا يستطيع ترجمة الإضافة)، و.NET 8 SDK، وNode.js 22.14+ لـ `godot-cli`.
+ثبّت `godot-cli` (Node.js 22.14+) وأضف الإضافة إلى مشروعك:
 
 </div>
 
 ```bash
 npm install -g godot-cli
-
-godot-cli create-project --dotnet ./MyGodotProject    # optional: a new Godot C# project
 godot-cli install-plugin ./MyGodotProject             # addon + NuGet references + enable the plugin
-godot-cli login                                       # sign in to ai-game.dev (browser, once per machine)
+```
+
+<div dir="rtl">
+
+ثم اختر كيف يصل الوكيل إلى المحرر. كلاهما إعداد كامل. ‏Cloud هو الافتراضي في الإضافة: بلا منافذ مفتوحة، وبلا تعارض منافذ مع البرامج الأخرى، ومجاني. الوضع المحلي يُبقي كل شيء على جهازك، للعمل دون اتصال أو في بيئة معزولة.
+
+‏**الخيار A: محلي، بلا حساب.** تبقى استدعاءات الأدوات على جهازك.
+
+1. ‏**اضبط رمزًا (token).** افتح المشروع في محرر Godot .NET. في لوحة **AI Game Developer** اختر **Custom**، واضبط **Authorization → token**، واضغط **Generate** ثم **Start Server**. دوّن **Server URL** (`http://localhost:<port>`، بمنفذ مشتق من مسار المشروع).
+   أو اختر رمزًا بنفسك، وافتح المحرر به من الطرفية، ثم اضغط **Start Server**:
+   `godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>`
+2. ‏**اربط وكيلك** بالرمز نفسه:
+
+</div>
+
+```bash
+godot-cli setup-mcp claude-code ./MyGodotProject --url http://localhost:<port> --token <token>
+```
+
+<div dir="rtl">
+
+> ‏**بدون رمز** يستخدم الخادم المحلي التفويض `none`. يستمع على واجهة loopback فقط، فلا تصل إليه إلا البرامج الموجودة على حاسوبك.
+> في هذه الحالة يشغّل `godot-cli open ./MyGodotProject` المحرر وخادمه المحلي في خطوة واحدة ويطبع عنوان URL لاستخدامه مع `setup-mcp --url`.
+
+‏**الخيار B: سحابة ai-game.dev.** سجّل الدخول مرة واحدة لكل جهاز؛ بعدها تحمل إعدادات الوكلاء مفتاحًا مرتبطًا بهذا المشروع.
+
+</div>
+
+```bash
+godot-cli login                                       # OAuth device login in the browser
 godot-cli setup-mcp claude-code ./MyGodotProject      # write the agent's MCP config
 godot-cli open ./MyGodotProject                       # build C#, start the editor, connect
 ```
 
 <div dir="rtl">
 
-ثم اطلب من وكيلك: *"أنشئ 3 مكعبات على دائرة نصف قطرها 2."*
+ثم اطلب من وكيلك: *«أنشئ 3 مكعبات على دائرة نصف قطرها 2.»*
 
-‏`godot-cli setup-mcp --list` يعرض كل الوكلاء المدعومين. للتثبيت من تبويب **AssetLib** في المحرر، أو من [ملف zip للإصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest)، أو يدويًا، اتبع [install.ar.md](install.ar.md): يحتاج ملف `.csproj` للمشروع حينها إلى مراجع NuGet التالية.
+للتثبيت من تبويب **AssetLib** في المحرر، أو من [ملف zip لإصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest)، أو يدويًا، اتبع [دليل التثبيت اليدوي](install.ar.md): يحتاج ملف `.csproj` للمشروع حينها إلى مراجع NuGet الخاصة بالإضافة (`com.IvanMurzak.ReflectorNet` و`com.IvanMurzak.McpPlugin`، والحزم الخاصة بالمحرر فقط `com.IvanMurzak.Rql` و`com.IvanMurzak.CodeExec` و`com.IvanMurzak.CodeExec.Roslyn` و`Microsoft.CodeAnalysis.CSharp`) بإصدارات الإصدار الذي تثبّته.
 
-| الحزمة | الإصدار |
-| --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.5.2` |
-| `com.IvanMurzak.McpPlugin` | `8.22.2` |
-| `com.IvanMurzak.Rql` | `0.3.0` (للمحرر فقط) |
-| `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` | `0.4.1` (للمحرر فقط) |
-| `Microsoft.CodeAnalysis.CSharp` | `4.12.0` (للمحرر فقط) |
+<a id="relay"></a>
+### ما الذي يمر عبر ai-game.dev
 
-<a id="usage"></a>
-## الاستخدام
+في وضع Cloud فقط. يوجّه المُرحِّل استدعاءات الأدوات بين وكيلك والمحرر. ولا يخزّن ما ترسله: لا محتوى للطلبات أو الاستجابات، ولا محادثات، ولا شيفرة مصدرية، ولا ملفات مشروع أو أصول. يحتفظ بالبيانات الوصفية فقط لمدة 90 يومًا: عنوان IP، والوقت والمدة، واسم الأداة وعدد الاستدعاءات، وحجم الطلب والاستجابة، وأحداث MCP (النوع، والحالة، واسم الأداة، والأخطاء). في الوضع المحلي يتواصل المحرر والخادم عبر localhost فقط.
 
-تحدّث مع وكيلك بلغة عادية؛ وهو يختار الأدوات. ومن مجلد المشروع يمكنك استدعاء الأدوات نفسها من الطرفية:
+<a id="clients"></a>
+## اربط عميل الذكاء الاصطناعي
+
+يكتب `godot-cli setup-mcp <agent> ./MyGodotProject` الإعدادات نيابةً عنك (يعرض `godot-cli setup-mcp --list` معرّفات كل الوكلاء). اسم مُدخل الخادم هو `ai-game-developer`؛ و`<url>` هو العنوان الذي يطبعه `setup-mcp`. في وضع Cloud يحمل المُدخل أيضًا `Authorization: Bearer agd_pk_…`، وهو مفتاح لا يصل إلا إلى هذا المشروع.
+
+</div>
+
+<details>
+<summary><b>Claude Code</b> — <code>.mcp.json</code> في المشروع</summary>
+
+```bash
+godot-cli setup-mcp claude-code ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>Cursor</b> — <code>.cursor/mcp.json</code></summary>
+
+```bash
+godot-cli setup-mcp cursor ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>VS Code (Copilot)</b> — <code>.vscode/mcp.json</code></summary>
+
+```bash
+godot-cli setup-mcp vscode-copilot ./MyGodotProject
+```
+
+```json
+{ "servers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>Codex</b> — <code>.codex/config.toml</code></summary>
+
+```bash
+godot-cli setup-mcp codex ./MyGodotProject
+```
+
+```toml
+[mcp_servers.ai-game-developer]
+enabled = true
+url = "<url>"
+tool_timeout_sec = 300
+startup_timeout_sec = 30
+```
+
+<div dir="rtl">
+
+في وضع Cloud يوضع المفتاح في `http_headers`.
+
+</div>
+</details>
+
+<details>
+<summary><b>Gemini CLI</b> — <code>.gemini/settings.json</code></summary>
+
+```bash
+godot-cli setup-mcp gemini ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<div dir="rtl">
+
+مدعومة أيضًا: Claude Desktop وVisual Studio (Copilot) وGitHub Copilot CLI وRider (Junie) وAntigravity وCline وOpen Code وKilo Code وعميل عام `custom` ([مرجع CLI](../cli/docs/README.ar.md#supported-ai-agents)).
+
+<a id="what-the-agent-can-do"></a>
+## ما الذي يستطيع الوكيل فعله
+
+يأتي Godot-MCP مع **24 أداة مدمجة** في **9 عائلات**. لا تكتب أنت الاستعلامات: يقرأ الوكيل دليل RQL المرفق بالأدوات (`rql-schema`، ومهارة `godot-rql`) ويكتبها بنفسه.
+
+| القدرة | الأدوات | اطلب من وكيلك |
+| --- | --- | --- |
+| المشاهد والعقد | `rql-query`, `rql-mutate` | *«أضف DirectionalLight3D إلى المشهد الرئيسي واحفظه.»* |
+| التعديلات الجماعية | `rql-mutate` | *«أخفِ كل عقدة يبدأ اسمها بـ Enemy.»* |
+| الموارد وإعدادات المشروع | `rql-query`, `rql-mutate` | *«أضف إجراء إدخال jump مربوطًا بمفتاح Space.»* |
+| البحث في الواجهة البرمجية | `rql-schema` | *«ما خصائص Godot التي يملكها CharacterBody3D؟»* |
+| السكربتات (GDScript وC#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *«اكتب سكربت GDScript يدوّر هذه العقدة وأرفقه بها.»* |
+| بناء C# | `script-build` | *«ابنِ مشروع C# وأصلح الأخطاء.»* |
+| تشغيل C# في المحرر | `script-execute` | *«احسب عدد عقد MeshInstance3D في المشهد المفتوح.»* |
+| رؤية النتيجة | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *«التقط لقطة شاشة لنافذة العرض وتحقق من الإضاءة.»* |
+| اللعبة قيد التشغيل (اختياري) | `console-*`, `reflection-*`, `runtime-errors-*` | *«افحص اللعبة قيد التشغيل بحثًا عن أخطاء وقت تشغيل جديدة.»* |
+
+‏`ping` و`session-close` و`godot-skill-create` و`godot-skill-generate` أدوات نظام لـ `godot-cli` وللإعداد؛ ولا يراها الوكلاء. كل الأدوات ووسائطها: [مرجع الأدوات](tools.ar.md).
+
+تعمل الأدوات نفسها من الطرفية داخل مجلد المشروع (يبدأ محرر بلا واجهة إذا لم يكن هناك محرر قيد التشغيل):
 
 </div>
 
 ```bash
-godot-cli rql 'nodes | where class == "OmniLight3D" | select name props["light_energy"]'
 godot-cli rql 'nodes | where name starts-with "Enemy" | set Visible = false'
 godot-cli exec '1 + 2'        # → System.Int32: 3
 godot-cli tools               # list the editor's tools
@@ -94,25 +237,23 @@ godot-cli tools               # list the editor's tools
 
 <div dir="rtl">
 
-عندما لا يكون أي محرر قيد التشغيل، تشغّل هذه الأوامر محررًا بلا واجهة (headless) للمشروع. كل الأوامر موجودة في [مرجع CLI](../cli/docs/README.ar.md).
+<a id="security"></a>
+## الأمان
 
-<a id="tools"></a>
-### الأدوات
-
-يأتي Godot-MCP مع **24 أداة مدمجة** في **9 عائلات**:
-
-| العائلة | الأدوات |
+| المجال | ما ينطبق |
 | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` |
-| **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` |
-| **console**, **reflection**, **runtime-errors** | السجلات وانعكاس C# والتقاط الأخطاء داخل لعبة قيد التشغيل |
-| **ping**, **session**, **skills** | أدوات نظام لـ `godot-cli` والإعداد، لا تظهر للوكلاء |
+| ‏**الخادم المحلي** | يستمع على واجهة loopback فقط. تفويضه الافتراضي هو `none`، لذا تستطيع أي عملية على جهازك استدعاءه. لاشتراط رمز Bearer اختر `token` في اللوحة، أو اضبط `GODOT_MCP_TOKEN`، أو افتح المحرر بـ `godot-cli open <path> --mode Custom --auth Required --token <token>`. |
+| ‏**فحص Origin** | يرد الخادم بـ `403` على أي طلب يحمل ترويسة `Origin` غير مسموح بها، في كل أوضاع التفويض (حماية من DNS rebinding). |
+| ‏**إضافة المحرر** | لا تفتح أي منفذ؛ بل تتصل هي بالخادم. لا يبدأ جسر تحكم للتطوير فقط على `127.0.0.1` إلا مع `GODOT_MCP_DEV_CONTROL=1`. |
+| ‏**Cloud** | تحمل إعدادات الوكلاء مفتاحًا مرتبطًا بمشروع واحد؛ ويستخدم المحرر تسجيل الدخول على جهازك. لا يُرسَل رمز حسابك إلا إلى ai-game.dev أو إلى خادم localhost. لا يخزّن المُرحِّل أي محتوى للطلبات أو الاستجابات، ويحتفظ بالبيانات الوصفية فقط لمدة 90 يومًا. |
+| ‏**الرموز المخزّنة** | يحفظ المحرر رمزه بصيغة JSON صريحة في `user://godot-mcp-config.json`؛ تعامل مع هذا الملف كسرّ. |
+| ‏**الألعاب المُصدَّرة** | لا يعمل شيء داخل اللعبة ما لم تستدعِ شيفرتك `GodotMcpRuntime.Initialize(...)` و`Connect()`، ومع الأدوات التي تسجّلها أنت فقط. التقاط الأخطاء وC# داخل اللعبة يُفعَّل كل منهما على حدة ([أمان وقت التشغيل](runtime-security.ar.md)). |
+| ‏**ما لا تتم حمايته** | تغيّر استدعاءات الأدوات مشروعك وتشغّل C# في المحرر: استخدم نظام التحكم بالإصدارات، ولا تعرّض أبدًا خادمًا بتفويض `none` لأي شبكة. |
 
-كل أداة ووسيط: [tools.ar.md](tools.ar.md).
+التفاصيل: [الاتصال والخادم](connection.ar.md) و[README الخاص بـ GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server#readme).
 
 <a id="extensions"></a>
-### الامتدادات
+## الامتدادات
 
 الامتدادات حزم NuGet اختيارية توسّع RQL؛ ولا تضيف أدوات خاصة بها.
 
@@ -127,24 +268,24 @@ godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject
 | الامتداد | ما يضيفه | المتطلبات |
 | --- | --- | --- |
 | [Animation](../extensions/Godot-AI-Animation/README.md) | مكتبات AnimationPlayer ومساراتها ومفاتيحها | |
-| [Beehave](../extensions/Godot-AI-Beehave/README.md) | أشجار السلوك وعقدها | الإضافة [Beehave](https://github.com/bitbrain/beehave) |
+| [Beehave](../extensions/Godot-AI-Beehave/README.md) | أشجار السلوك وعقدها | إضافة [Beehave](https://github.com/bitbrain/beehave) |
 | [CSG](../extensions/Godot-AI-CSG/README.md) | أشكال CSG بأبعاد مُتحقَّق منها | |
-| [Dialogic](../extensions/Godot-AI-Dialogic/README.md) | الخطوط الزمنية والشخصيات | الإضافة [Dialogic](https://github.com/dialogic-godot/dialogic)، Godot 4.4+ |
+| [Dialogic](../extensions/Godot-AI-Dialogic/README.md) | الخطوط الزمنية والشخصيات | إضافة [Dialogic](https://github.com/dialogic-godot/dialogic)، Godot 4.4+ |
 | [GridMap](../extensions/Godot-AI-GridMap/README.md) | إعدادات GridMap وصفوف الخلايا وتحرير الخلايا | |
-| [Navigation](../extensions/Godot-AI-Navigation/README.md) | وكلاء التنقل والمناطق والروابط والتحضير (baking) | |
+| [Navigation](../extensions/Godot-AI-Navigation/README.md) | وكلاء التنقل ومناطقه وروابطه، والخَبز (baking) | |
 | [Particles](../extensions/Godot-AI-Particles/README.md) | جسيمات GPU في 2D و3D | |
-| [PhantomCamera](../extensions/Godot-AI-PhantomCamera/README.md) | كاميرات افتراضية، والتتبع والتوجيه نحو هدف | الإضافة [Phantom Camera](https://github.com/ramokz/phantom-camera)، Godot 4.4+ |
-| [Terrain3D](../extensions/Godot-AI-Terrain3D/README.md) | مصدر التضاريس وحجم المنطقة والمواد | الإضافة [Terrain3D](https://github.com/TokisanGames/Terrain3D)، Godot 4.4+ |
+| [PhantomCamera](../extensions/Godot-AI-PhantomCamera/README.md) | كاميرات افتراضية، والتتبع والنظر (follow / look-at) | إضافة [Phantom Camera](https://github.com/ramokz/phantom-camera)، Godot 4.4+ |
+| [Terrain3D](../extensions/Godot-AI-Terrain3D/README.md) | مصدر التضاريس وحجم المنطقة والمواد | إضافة [Terrain3D](https://github.com/TokisanGames/Terrain3D)، Godot 4.4+ |
 | [Tilemap](../extensions/Godot-AI-Tilemap/README.md) | صفوف خلايا TileMapLayer وتحرير الخلايا | |
 
-ثبّت بنفسك أي إضافة خارجية مطلوبة في المشروع؛ ويستطيع قسم **Extensions** في اللوحة تثبيتها كلها.
+ثبّت إضافة الطرف الثالث المطلوبة في المشروع بنفسك؛ ويستطيع قسم **Extensions** في اللوحة تثبيتها كلها.
 
 <a id="documentation"></a>
 ## التوثيق
 
 | الصفحة | محتواها |
 | --- | --- |
-| [التثبيت اليدوي](install.ar.md) | AssetLib، ملف zip للإصدار، مراجع NuGet، إعداد الوكيل |
+| [التثبيت اليدوي](install.ar.md) | ‏AssetLib، ملف zip للإصدار، مراجع NuGet، إعداد الوكيل |
 | [الاتصال والخادم](connection.ar.md) | وضعا Cloud وCustom، المتغيرات، الخادم |
 | [مرجع الأدوات](tools.ar.md) | كل أداة ووسائطها، لقطات الشاشة، الامتدادات |
 | [RQL في Godot-MCP](rql.md) | المصادر، الدوال، الكتابة، التراجع والحفظ |
@@ -176,8 +317,6 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 <a id="license"></a>
 ## الترخيص
 
-‏[Apache-2.0](../LICENSE) © Ivan Murzak. تستخدم الإضافة أيضًا [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) وCode-Exec، ولكل منهما ترخيصه الخاص.
-
-هذا الترخيص هو [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/): مجاني الاستخدام، بما في ذلك في المنتجات التجارية، إلا لبناء منتج ينافس منتجات المرخِّص.
+‏**يستطيع مطورو الألعاب استخدام كل شيء بحرية، بما في ذلك الألعاب التجارية.** ‏Godot-MCP مرخّص بموجب [Apache-2.0](../LICENSE). أما اعتمادياته من جهة المحرر، RQL وCode-Exec، فتستخدم [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)، التي لا تقيّد إلا الشركات التي تبني أدوات ذكاء اصطناعي منافسة لتطوير الألعاب.
 
 </div>

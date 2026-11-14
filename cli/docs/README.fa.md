@@ -124,6 +124,16 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+پیش‌فرض پلاگین Cloud (ai-game.dev) است: به هیچ پورت بازی نیاز ندارد، از تداخل پورت با برنامه‌های دیگر جلوگیری می‌کند و رایگان است. برای سرور محلی‌ای که توکنی به انتخاب خودتان می‌خواهد (کار آفلاین یا در محیط ایزوله)، ویرایشگر را در حالت Custom با آن توکن باز کنید، سپس در داک **Start Server** را بزنید (`Required` مجوزدهی `token` را انتخاب می‌کند):
+
+</div>
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
+<div dir="rtl">
+
 <a id="server-url-resolution-run-tool--status--wait-for-ready"></a>
 ### تعیین URL سرور (`run-tool` / `status` / `wait-for-ready`)
 
@@ -292,7 +302,7 @@ godot-cli setup-skills --list                 # list agents + their skills paths
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # download the matching release + install
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # pin a specific addon release
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # pin a specific addon release
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # offline / dev copy
 ```
 
@@ -317,7 +327,7 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # add/update the PackageReference
 godot-cli install-extension "CSG Tools"                                      # resolve by name; default cwd
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # override the catalog pin
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # override the catalog pin
 ```
 
 <div dir="rtl">

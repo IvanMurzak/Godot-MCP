@@ -9,7 +9,7 @@
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## حالت Cloud (پیش‌فرض): ai-game.dev
 
-پلاگین به `https://ai-game.dev` وصل می‌شود؛ شما هیچ سروری اجرا نمی‌کنید.
+پلاگین به `https://ai-game.dev` وصل می‌شود؛ شما هیچ سروری اجرا نمی‌کنید. ‏Cloud پیش‌فرض است چون به هیچ پورت بازی نیاز ندارد و از تداخل پورت با برنامه‌های دیگر جلوگیری می‌کند؛ و رایگان است. رله هیچ محتوای درخواست یا پاسخی را ذخیره نمی‌کند و فقط فراداده (metadata) را به مدت ۹۰ روز نگه می‌دارد.
 
 یک بار با `godot-cli login` وارد شوید. این دستور از OAuth 2.1 device flow (RFC 8628) استفاده می‌کند: یک کد کوتاه چاپ می‌کند، مرورگرتان را باز می‌کند و پس از تأیید شما، یک اعتبارنامه در مخزن دستگاه (`~/.ai-game-dev/credentials.json`) ذخیره می‌کند. پلاگین ویرایشگر آن را برمی‌دارد، پس توکنی برای کپی کردن وجود ندارد.
 
@@ -23,12 +23,12 @@
 <a id="custom-mode-your-own-server"></a>
 ## حالت Custom: سرور خودتان
 
-پلاگین به URL سروری که انتخاب می‌کنید وصل می‌شود: یک سرور محلی یا یک سرور خودمیزبان.
+پلاگین به URL سروری که انتخاب می‌کنید وصل می‌شود: یک سرور محلی یا یک سرور خودمیزبان. از آن برای کار آفلاین یا در محیط ایزوله (air-gapped) استفاده کنید.
 
 | متغیر | کاربرد | پیش‌فرض |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | روی `Custom` تنظیم کنید. | `Cloud` |
-| `GODOT_MCP_HOST` | ‏URL سرور، یک URL مطلق http(s). | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | ‏URL سرور، یک URL مطلق http(s). | `http://localhost:<port>`، با پورتی که از مسیر پروژه به دست می‌آید |
 | `GODOT_MCP_TOKEN` | توکن Bearer که به آن سرور فرستاده می‌شود. تنظیم آن مجوزدهی `token` را انتخاب می‌کند. | ندارد |
 | `GODOT_MCP_AUTH_OPTION` | ‏`none` / `oauth` / `token`؛ قاعده‌ی بالا را نادیده می‌گیرد. | انتخاب ذخیره‌شده، وگرنه `none` |
 
@@ -36,8 +36,18 @@
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # only if the server requires auth
+```
+
+<div dir="rtl">
+
+‏`godot-cli open` آن‌ها را برایتان تنظیم می‌کند. برای سرور محلی‌ای که توکنی به انتخاب خودتان می‌خواهد، ویرایشگر را با آن توکن باز کنید، سپس در داک **Start Server** را بزنید (`--auth Required` مجوزدهی `token` را انتخاب می‌کند):
+
+</div>
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 <div dir="rtl">
@@ -58,7 +68,9 @@ export GODOT_MCP_HOST=http://localhost:8080
 
 - فایل `gamedev-mcp-server-<rid>.zip` نسخه‌ی سنجاق‌شده را از طریق HTTPS از ریلیز GitHubِ GameDev-MCP-Server دانلود می‌کند (`win-x64`، `win-x86`، `win-arm64`، `linux-x64`، `linux-arm64`، `osx-x64`، `osx-arm64`)؛
 - آن را در `.godot/mcp-server/<rid>/` کش می‌کند و فقط وقتی نسخه‌ی سنجاق‌شده تغییر کند دوباره دانلود می‌کند؛
-- آن را روی پورتِ **Server URL** شما (پیش‌فرض `http://localhost:8080`) اجرا می‌کند و به آن وصل می‌شود.
+- آن را روی پورتِ **Server URL** شما (به طور پیش‌فرض پورتی که از مسیر پروژه به دست می‌آید) اجرا می‌کند و به آن وصل می‌شود.
+
+سرور فقط روی loopback گوش می‌دهد و به درخواستی با هدر `Origin` غیرمجاز پاسخ `403` می‌دهد (دفاع در برابر DNS rebinding). از مجوزدهی‌ای که در داک انتخاب شده استفاده می‌کند: با `none` هر پروسه‌ای روی دستگاه شما می‌تواند آن را فراخوانی کند، با `token` به توکن Bearer نیاز دارد. قواعد bind، مجوزدهی و Origin: [README سرور GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server#readme).
 
 ‏**Stop Server** آن را متوقف می‌کند؛ بستن ویرایشگر هم آن را متوقف می‌کند. URL دانلود فقط از نسخه‌ی سنجاق‌شده و پلتفرم شما ساخته می‌شود. در حالت آفلاین، پلاگین یک هشدار در لاگ می‌نویسد و سرور اجرا نمی‌شود. در CI (`CI` / `GITHUB_ACTIONS`) دانلود انجام نمی‌شود.
 

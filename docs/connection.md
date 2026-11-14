@@ -6,7 +6,7 @@ The editor plugin connects to an MCP server in one of two modes. Set the mode in
 
 ## Cloud mode (default): ai-game.dev
 
-The plugin connects to `https://ai-game.dev`; you run no server.
+The plugin connects to `https://ai-game.dev`; you run no server. Cloud is the default because it needs no open ports and avoids port conflicts with other programs; it is free. The relay stores no request or response content and keeps only metadata, for 90 days.
 
 Sign in once with `godot-cli login`. It uses the OAuth 2.1 device flow (RFC 8628): it prints a short code, opens your browser and, after you approve, saves a credential to the machine store (`~/.ai-game-dev/credentials.json`). The editor plugin picks it up, so there is no token to copy.
 
@@ -19,7 +19,7 @@ Sign in once with `godot-cli login`. It uses the OAuth 2.1 device flow (RFC 8628
 
 ## Custom mode: your own server
 
-The plugin connects to a server URL you choose: a local server, or a self-hosted one.
+The plugin connects to a server URL you choose: a local server, or a self-hosted one. Use it for offline or air-gapped work.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -32,6 +32,12 @@ The plugin connects to a server URL you choose: a local server, or a self-hosted
 export GODOT_MCP_CONNECTION_MODE=Custom
 export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # only if the server requires auth
+```
+
+`godot-cli open` sets them for you. For a local server that requires a token you choose, open the editor with it, then press **Start Server** in the dock (`--auth Required` selects `token` authorization):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 - A token set in the environment (or in the project `.env` in Custom mode) also applies to a local server the editor starts and to agent configs written with **Configure**. It is not saved to the config file.

@@ -110,6 +110,12 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+アドオンの既定は Cloud(ai-game.dev)です: 開放ポートが不要で、他のプログラムとのポート競合を避けられ、無料です。自分で選んだトークンを要求するローカルサーバーを使う場合(オフラインやエアギャップ環境での作業)は、そのトークンを指定して Custom モードでエディターを開き、ドックで **Start Server** を押します(`Required` で `token` 認可が選択されます):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
 <a id="server-url-resolution-run-tool--status--wait-for-ready"></a>
 ### サーバー URL の解決(`run-tool` / `status` / `wait-for-ready`)
 
@@ -256,7 +262,7 @@ godot-cli setup-skills --list                 # エージェントとそのス�
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # 対応するリリースをダウンロードしてインストール
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # 特定のアドオンリリースに固定
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # 特定のアドオンリリースに固定
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # オフライン / 開発用コピー
 ```
 
@@ -277,7 +283,7 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # PackageReference を追加/更新
 godot-cli install-extension "CSG Tools"                                      # 名前で解決。既定は cwd
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # カタログの固定バージョンを上書き
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # カタログの固定バージョンを上書き
 ```
 
 - `<id>` を**共有拡張カタログ**(`addons/godot_mcp/extensions.catalog.json` — ドック、CLI、アプリがすべて参照する唯一の情報源)に照らして解決します。パッケージ ID(次に名前)で、大文字小文字を区別せずに照合します。

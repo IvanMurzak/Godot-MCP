@@ -110,6 +110,12 @@ O ejecuta cualquier comando sin instalar: `npx godot-cli install-plugin ./MyGodo
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+El modo predeterminado del addon es Cloud (ai-game.dev): no necesita puertos abiertos, evita conflictos de puertos con otros programas y es gratuito. Para un servidor local que exija un token elegido por ti (trabajo sin conexión o en entornos aislados), abre el editor en modo Custom con ese token y luego pulsa **Start Server** en el dock (`Required` selecciona la autorización `token`):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
 <a id="server-url-resolution-run-tool--status--wait-for-ready"></a>
 ### Resolución de la URL del servidor (`run-tool` / `status` / `wait-for-ready`)
 
@@ -256,7 +262,7 @@ Es **idempotente**: volver a ejecutarlo reescribe los mismos bytes. Elimina los 
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # descargar la release correspondiente + instalar
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # fijar una release concreta del addon
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # fijar una release concreta del addon
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # copia sin conexión / de desarrollo
 ```
 
@@ -277,7 +283,7 @@ Es seguro como biblioteca (devuelve una unión `{ kind: 'success' | 'failure' }`
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # añadir/actualizar el PackageReference
 godot-cli install-extension "CSG Tools"                                      # resolver por nombre; cwd por defecto
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # sustituir la versión fijada del catálogo
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # sustituir la versión fijada del catálogo
 ```
 
 - Resuelve `<id>` en el **catálogo compartido de extensiones** (`addons/godot_mcp/extensions.catalog.json`, la única fuente de verdad que consumen el dock, la CLI y la app), buscando por id de paquete (luego por nombre), sin distinguir mayúsculas.

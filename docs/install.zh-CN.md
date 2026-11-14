@@ -7,7 +7,7 @@
 <a id="requirements"></a>
 ## 要求
 
-- **Godot 4.3 或更高版本的 .NET（mono）版。** 标准的仅 GDScript 版本无法编译该插件。插件的 csproj 以 `Godot.NET.Sdk/4.3.0` 作为最低版本；CI 测试 Godot 4.3 至 4.7。
+- **Godot 4.3 或更高版本的 .NET（mono）版。** 你的游戏代码可以继续使用 GDScript，但插件是 C#：请用 .NET 版编辑器打开项目，并为其提供一个 C# 项目文件（`.csproj`）。对于现有的 GDScript 项目，执行一次 **Project → Tools → C# → Create C# solution** 即可。插件的 csproj 以 `Godot.NET.Sdk/4.3.0` 作为最低版本；CI 测试 Godot 4.3、4.4、4.5、4.6 和 4.7。
 - **.NET 8 SDK**（`net8.0`）。
 
 <a id="1-add-the-addon"></a>
@@ -22,20 +22,20 @@
 <a id="2-add-the-nuget-packages-and-the-extension-catalog"></a>
 ## 2. 添加 NuGet 包和扩展目录
 
-Godot 会把项目中的所有 `.cs` 文件编译成一个程序集，因此项目的 `.csproj` 必须引用插件所用的包。请严格使用以下版本（与插件的 `Godot-MCP.csproj` 一致）：
+Godot 会把项目中的所有 `.cs` 文件编译成一个程序集，因此项目的 `.csproj` 必须引用插件所用的包。请严格使用你安装的发布版对应的版本：`godot-cli install-plugin` 会替你写入它们，发布版 zip 在 `addons/godot_mcp/nuget-deps.json` 中列出它们，每个发布标签的 `Godot-MCP.csproj` 中也都有它们（[最新发布版](https://github.com/IvanMurzak/Godot-MCP/releases/latest)）：
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
 </ItemGroup>
 
 <!-- 仅编辑器：导出的游戏（ExportDebug / ExportRelease）不包含 RQL 和 Roslyn。 -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
 <!-- 嵌入扩展目录，否则停靠面板的 Extensions 列表为空。 -->

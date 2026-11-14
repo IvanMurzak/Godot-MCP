@@ -7,7 +7,7 @@
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## Cloud 模式（默认）：ai-game.dev
 
-插件连接到 `https://ai-game.dev`；你无需运行任何服务器。
+插件连接到 `https://ai-game.dev`；你无需运行任何服务器。Cloud 是默认模式，因为它无需开放端口，并能避免与其他程序发生端口冲突；而且它是免费的。中继不存储请求或响应内容，只保留元数据，保存 90 天。
 
 用 `godot-cli login` 登录一次即可。它使用 OAuth 2.1 设备授权流程（RFC 8628）：打印一个短代码，打开浏览器，你批准后将凭据保存到本机存储（`~/.ai-game-dev/credentials.json`）。编辑器插件会自动读取它，因此无需复制任何令牌。
 
@@ -21,19 +21,25 @@
 <a id="custom-mode-your-own-server"></a>
 ## Custom 模式：你自己的服务器
 
-插件连接到你选择的服务器 URL：本地服务器或自托管服务器。
+插件连接到你选择的服务器 URL：本地服务器或自托管服务器。适用于离线或物理隔离（air-gapped）环境。
 
 | 变量 | 用途 | 默认值 |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | 设为 `Custom`。 | `Cloud` |
-| `GODOT_MCP_HOST` | 服务器 URL，绝对的 http(s) URL。 | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | 服务器 URL，绝对的 http(s) URL。 | `http://localhost:<port>`，端口由项目路径推导得出 |
 | `GODOT_MCP_TOKEN` | 发送给该服务器的 Bearer 令牌。设置后即选择 `token` 授权。 | 无 |
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`；覆盖上一行的规则。 | 已保存的选择，否则为 `none` |
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # 仅当服务器要求认证时
+```
+
+`godot-cli open` 会替你设置这些变量。对于要求使用你自选令牌的本地服务器，请用该令牌打开编辑器，然后在停靠面板中点击 **Start Server**（`--auth Required` 选择 `token` 授权）：
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 - 在环境变量中（或 Custom 模式下在项目 `.env` 中）设置的令牌，也会用于编辑器启动的本地服务器以及通过 **Configure** 写入的智能体配置。它不会保存到配置文件中。
@@ -52,7 +58,9 @@ export GODOT_MCP_HOST=http://localhost:8080
 
 - 通过 HTTPS 从 GameDev-MCP-Server 的 GitHub 发布版下载固定版本的 `gamedev-mcp-server-<rid>.zip`（`win-x64`、`win-x86`、`win-arm64`、`linux-x64`、`linux-arm64`、`osx-x64`、`osx-arm64`）；
 - 将其缓存在 `.godot/mcp-server/<rid>/` 中，仅在固定版本变化时重新下载；
-- 在你的 **Server URL** 所指端口（默认 `http://localhost:8080`）上启动它并连接。
+- 在你的 **Server URL** 所指端口（默认是由项目路径推导出的端口）上启动它并连接。
+
+服务器只监听回环地址，并对带有不允许的 `Origin` 头的请求返回 `403`（防御 DNS 重绑定）。它使用停靠面板中选择的授权方式：`none` 时你机器上的任何进程都可以调用它，`token` 时需要 Bearer 令牌。绑定、授权和 Origin 规则：[GameDev-MCP-Server README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme)。
 
 **Stop Server** 会停止服务器；关闭编辑器也会停止它。下载 URL 仅由固定版本和你的平台决定。离线时，插件记录一条警告，服务器不会启动。在 CI 下（`CI` / `GITHUB_ACTIONS`）会跳过下载。
 

@@ -7,7 +7,7 @@
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## Cloud モード(既定): ai-game.dev
 
-プラグインは `https://ai-game.dev` に接続します。サーバーを動かす必要はありません。
+プラグインは `https://ai-game.dev` に接続します。サーバーを動かす必要はありません。Cloud が既定なのは、開放ポートが不要で、他のプログラムとのポート競合を避けられるからです。無料で使えます。リレーはリクエストやレスポンスの内容を保存せず、メタデータのみを 90 日間保持します。
 
 `godot-cli login` で 1 回サインインします。OAuth 2.1 デバイスフロー(RFC 8628)を使い、短いコードを表示してブラウザを開き、承認後に資格情報をマシンストア(`~/.ai-game-dev/credentials.json`)に保存します。エディタープラグインがそれを取得するので、トークンをコピーする必要はありません。
 
@@ -21,19 +21,25 @@
 <a id="custom-mode-your-own-server"></a>
 ## Custom モード: 独自のサーバー
 
-プラグインは、あなたが選んだサーバー URL に接続します: ローカルサーバー、またはセルフホストのサーバーです。
+プラグインは、あなたが選んだサーバー URL に接続します: ローカルサーバー、またはセルフホストのサーバーです。オフラインやエアギャップ環境での作業に使います。
 
 | 変数 | 用途 | 既定値 |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | `Custom` に設定。 | `Cloud` |
-| `GODOT_MCP_HOST` | サーバー URL。絶対 http(s) URL。 | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | サーバー URL。絶対 http(s) URL。 | `http://localhost:<port>`(ポートはプロジェクトのパスから決まる) |
 | `GODOT_MCP_TOKEN` | そのサーバーに送る Bearer トークン。設定すると `token` 認可が選択される。 | なし |
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`。上記のルールを上書きする。 | 保存された選択、なければ `none` |
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # サーバーが認証を要求する場合のみ
+```
+
+`godot-cli open` がこれらを設定してくれます。自分で選んだトークンを要求するローカルサーバーを使うには、そのトークンを指定してエディターを開き、ドックで **Start Server** を押します(`--auth Required` で `token` 認可が選択されます):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 - 環境変数(または Custom モードではプロジェクトの `.env`)で設定したトークンは、エディターが起動するローカルサーバーや、**Configure** で書き込むエージェント設定にも適用されます。設定ファイルには保存されません。
@@ -52,7 +58,9 @@ Custom モードで、ドックの **Server** カードを開き、**Start Serve
 
 - 固定されたバージョンの `gamedev-mcp-server-<rid>.zip` を、GameDev-MCP-Server の GitHub リリースから HTTPS でダウンロードする(`win-x64`、`win-x86`、`win-arm64`、`linux-x64`、`linux-arm64`、`osx-x64`、`osx-arm64`)。
 - `.godot/mcp-server/<rid>/` にキャッシュし、固定バージョンが変わったときだけ再ダウンロードする。
-- **Server URL** のポート(既定 `http://localhost:8080`)で起動し、接続する。
+- **Server URL** のポート(既定ではプロジェクトのパスから決まるポート)で起動し、接続する。
+
+サーバーはループバックでのみ待ち受け、許可されていない `Origin` ヘッダーを持つリクエストには `403` を返します(DNS リバインディング対策)。ドックで選んだ認可を使います: `none` ではマシン上のどのプロセスからも呼び出せ、`token` では Bearer トークンが必要です。バインド、認可、Origin のルール: [GameDev-MCP-Server の README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme)。
 
 **Stop Server** で停止します。エディターを閉じても停止します。ダウンロード URL は固定バージョンとプラットフォームだけから決まります。オフラインの場合、アドオンは警告をログに出し、サーバーは起動しません。CI(`CI` / `GITHUB_ACTIONS`)ではダウンロードはスキップされます。
 

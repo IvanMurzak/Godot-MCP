@@ -7,7 +7,7 @@
 <a id="requirements"></a>
 ## Requisitos
 
-- **Godot 4.3 o posterior, edición .NET (mono).** La versión estándar solo GDScript no puede compilar el addon. El csproj del addon fija `Godot.NET.Sdk/4.3.0` como mínimo; la CI prueba de Godot 4.3 a 4.7.
+- **Godot 4.3 o posterior, edición .NET (mono).** El código de tu juego puede seguir en GDScript, pero el addon es C#: abre el proyecto con la versión .NET del editor y dale un archivo de proyecto C# (`.csproj`). En un proyecto GDScript existente usa una vez **Project → Tools → C# → Create C# solution**. El csproj del addon fija `Godot.NET.Sdk/4.3.0` como mínimo; la CI prueba Godot 4.3, 4.4, 4.5, 4.6 y 4.7.
 - **SDK de .NET 8** (`net8.0`).
 
 <a id="1-add-the-addon"></a>
@@ -22,20 +22,20 @@ Elige una opción:
 <a id="2-add-the-nuget-packages-and-the-extension-catalog"></a>
 ## 2. Añadir los paquetes NuGet y el catálogo de extensiones
 
-Godot compila todos los archivos `.cs` del proyecto en un único ensamblado, así que el `.csproj` del proyecto debe referenciar los paquetes que usa el addon. Usa exactamente estas versiones (coinciden con el `Godot-MCP.csproj` del addon):
+Godot compila todos los archivos `.cs` del proyecto en un único ensamblado, así que el `.csproj` del proyecto debe referenciar los paquetes que usa el addon. Usa exactamente las versiones de la release que instalas: `godot-cli install-plugin` las escribe por ti, un zip de release las lista en `addons/godot_mcp/nuget-deps.json` y cada tag de release las tiene en su `Godot-MCP.csproj` ([última release](https://github.com/IvanMurzak/Godot-MCP/releases/latest)):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
 </ItemGroup>
 
 <!-- Solo editor: los juegos exportados (ExportDebug / ExportRelease) no incluyen RQL ni Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
 <!-- Incrusta el catálogo de extensiones; si no, la lista Extensions del dock queda vacía. -->

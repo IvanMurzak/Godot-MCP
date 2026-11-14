@@ -19,20 +19,20 @@ Pick one:
 
 ## 2. Add the NuGet packages and the extension catalog
 
-Godot compiles every `.cs` file in the project into one assembly, so the project's `.csproj` must reference the packages the addon uses. Use exactly these versions (they match the addon's `Godot-MCP.csproj`):
+Godot compiles every `.cs` file in the project into one assembly, so the project's `.csproj` must reference the packages the addon uses. Use exactly the versions of the release you install: `godot-cli install-plugin` writes them for you, a release zip lists them in `addons/godot_mcp/nuget-deps.json`, and every release tag has them in its `Godot-MCP.csproj` ([latest release](https://github.com/IvanMurzak/Godot-MCP/releases/latest)):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
 <!-- Embed the extension catalog, or the dock's Extensions list is empty. -->

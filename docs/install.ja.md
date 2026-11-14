@@ -7,7 +7,7 @@
 <a id="requirements"></a>
 ## 要件
 
-- **Godot 4.3 以降の .NET(mono)版。** 標準の GDScript 専用ビルドではアドオンをコンパイルできません。アドオンの csproj は下限として `Godot.NET.Sdk/4.3.0` を固定しており、CI は Godot 4.3 から 4.7 までをテストしています。
+- **Godot 4.3 以降の .NET(mono)版。** ゲームのコードは GDScript のままでかまいませんが、アドオンは C# です: プロジェクトを .NET 版のエディターで開き、C# プロジェクトファイル(`.csproj`)を用意してください。既存の GDScript プロジェクトでは **Project → Tools → C# → Create C# solution** を 1 回実行します。アドオンの csproj は下限として `Godot.NET.Sdk/4.3.0` を固定しており、CI は Godot 4.3、4.4、4.5、4.6、4.7 をテストしています。
 - **.NET 8 SDK**(`net8.0`)。
 
 <a id="1-add-the-addon"></a>
@@ -22,20 +22,20 @@
 <a id="2-add-the-nuget-packages-and-the-extension-catalog"></a>
 ## 2. NuGet パッケージと拡張カタログを追加する
 
-Godot はプロジェクト内のすべての `.cs` ファイルをひとつのアセンブリにコンパイルするため、プロジェクトの `.csproj` はアドオンが使うパッケージを参照する必要があります。必ず次のバージョンを使ってください(アドオンの `Godot-MCP.csproj` と一致しています):
+Godot はプロジェクト内のすべての `.cs` ファイルをひとつのアセンブリにコンパイルするため、プロジェクトの `.csproj` はアドオンが使うパッケージを参照する必要があります。インストールするリリースのバージョンを正確に使ってください: `godot-cli install-plugin` が書き込んでくれます。リリースの zip では `addons/godot_mcp/nuget-deps.json` に一覧があり、各リリースタグの `Godot-MCP.csproj` にも記載されています([最新リリース](https://github.com/IvanMurzak/Godot-MCP/releases/latest)):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
 </ItemGroup>
 
 <!-- エディターのみ: エクスポートしたゲーム(ExportDebug / ExportRelease)には RQL も Roslyn も含まれない。 -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
 <!-- 拡張カタログを埋め込む。埋め込まないとドックの Extensions 一覧が空になる。 -->

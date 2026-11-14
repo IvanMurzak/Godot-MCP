@@ -110,6 +110,12 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+插件的默认模式是 Cloud（ai-game.dev）：它无需开放端口，能避免与其他程序发生端口冲突，而且免费。对于要求使用你自选令牌的本地服务器（离线或物理隔离环境），请用该令牌以 Custom 模式打开编辑器，然后在停靠面板中点击 **Start Server**（`Required` 选择 `token` 授权）：
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
 <a id="server-url-resolution-run-tool--status--wait-for-ready"></a>
 ### 服务器 URL 解析（`run-tool` / `status` / `wait-for-ready`）
 
@@ -256,7 +262,7 @@ godot-cli setup-skills --list                 # 列出智能体及其 skills 路
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # 下载匹配的发布版并安装
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # 固定某个插件发布版
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # 固定某个插件发布版
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # 离线 / 开发副本
 ```
 
@@ -277,7 +283,7 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # 添加/更新 PackageReference
 godot-cli install-extension "CSG Tools"                                      # 按名称解析；默认当前目录
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # 覆盖目录中固定的版本
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # 覆盖目录中固定的版本
 ```
 
 - 根据**共享扩展目录**（`addons/godot_mcp/extensions.catalog.json`——停靠面板、CLI 和应用共同使用的唯一事实来源）解析 `<id>`，先按包 id 匹配（再按名称），不区分大小写。

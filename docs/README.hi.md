@@ -9,7 +9,33 @@
 
 </div>
 
-**Godot-MCP** AI एजेंट्स (Claude Code, Cursor, Codex, GitHub Copilot, Gemini या कोई भी दूसरा [MCP](https://modelcontextprotocol.io/) client) को **Godot editor** से जोड़ता है। एजेंट आपके scenes, nodes, resources और scripts पढ़ और बदल सकता है, editor में C# चला सकता है, और screenshots देख सकता है। यह Godot 4.3+ (.NET) के लिए एक C# editor addon है, साथ में एक CLI [`godot-cli`](../cli/docs/README.hi.md) भी है, और यह [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) का Godot वाला भाई है।
+**Godot-MCP** AI एजेंट्स (Claude Code, Cursor, Codex, GitHub Copilot, Gemini या कोई भी दूसरा [MCP](https://modelcontextprotocol.io/) client) को **Godot editor** से जोड़ता है। एजेंट आपके scenes, nodes, resources और scripts पढ़ और बदल सकता है, C# build करके चला सकता है, और screenshots देख सकता है। यह एक editor addon है, साथ में एक CLI [`godot-cli`](../cli/docs/README.hi.md) भी है, और यह [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) का Godot वाला भाई है।
+
+**ज़रूरतें:** Godot 4.3+ editor का **.NET build** और **.NET 8 SDK**, जो एक बार install होता है। आपकी scripts GDScript में ही रह सकती हैं। वैकल्पिक `godot-cli` के लिए Node.js 22.14+ चाहिए।
+
+<a id="why"></a>
+## Godot-MCP क्यों
+
+✅ **Godot 4.3 से 4.7** — हर release CI में 4.3, 4.4, 4.5, 4.6 और 4.7 पर test होती है\
+✅ **असली C# builds** — `script-build` `dotnet build` चलाता है और compiler errors लौटाता है\
+✅ **GDScript checks** — `script-validate` `.gd` files के parse और compile diagnostics लौटाता है\
+✅ **Undo होने वाले, atomic edits** — एक query के बदलाव या तो सब लागू होते हैं या कोई नहीं, हर एक एक Ctrl+Z से undo\
+✅ **Screenshots** — viewport, कोई camera, या अकेले render किया गया एक node, एजेंट को लौटाया जाता है\
+✅ **Runtime tools** — चलते हुए game से logs, C# reflection और runtime errors (opt-in)\
+✅ **मुफ़्त cloud या पूरी तरह लोकल** — default रूप से ai-game.dev (कोई open port नहीं), या बिना account के लोकल server\
+✅ **कोई telemetry नहीं** — addon और `godot-cli` कोई usage या analytics data नहीं भेजते
+
+<a id="gdscript"></a>
+## GDScript प्रोजेक्ट्स के साथ काम करता है
+
+आपका game code GDScript में ही रहता है। Addon खुद C# में है, इसलिए प्रोजेक्ट को कुछ steps एक बार करने होते हैं:
+
+✅ **Godot .NET editor** — प्रोजेक्ट को Godot 4.3+ के .NET build में खोलें (वही प्रोजेक्ट, वही scenes)\
+✅ **.NET 8 SDK** — हर मशीन पर एक बार install\
+✅ **C# solution** — मौजूदा प्रोजेक्ट: **Project → Tools → C# → Create C# solution**; नया प्रोजेक्ट: `create-project --dotnet`\
+✅ **Addon** — `godot-cli install-plugin` इसे, इसके NuGet references के साथ, जोड़ता है और enable करता है
+
+**क्या सिर्फ़ GDScript वाले प्रोजेक्ट को C# solution चाहिए?** हाँ, एक बार: addon C# में है और प्रोजेक्ट की C# assembly में compile होता है। **Create C# solution** प्रोजेक्ट root में एक `.csproj` और एक `.sln` file जोड़ता है। आपकी `.gd` scripts, scenes और resources नहीं बदलते और पहले की तरह चलते हैं; एजेंट GDScript को भी पढ़ता, लिखता और validate करता है। इसके बाद exports Godot के .NET export templates इस्तेमाल करते हैं और उनमें addon की छोटी runtime assemblies शामिल होती हैं, जो तब तक निष्क्रिय रहती हैं जब तक आपका code `GodotMcpRuntime.Initialize()` call न करे ([इन्हें बाहर कैसे रखें](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users))।
 
 <p align="center">
   <img src="img/terminal.svg" alt="एक terminal session: godot-cli addon install करता है, sign in करता है, Claude Code को configure करता है और editor खोलता है" width="100%"/>
@@ -22,79 +48,178 @@
   <img src="img/architecture.svg" alt="AI एजेंट एक server (ai-game.dev, या लोकल gamedev-mcp-server) से MCP पर बात करता है; server SignalR के ज़रिए godot_mcp editor addon तक पहुँचता है; addon tools को Godot main thread पर चलाता है" width="100%"/>
 </p>
 
-Addon एक MCP server से connect होता है: default रूप से hosted [ai-game.dev](https://ai-game.dev) से, या आपके अपने [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) से, जिसे addon आपके लिए download करके चला सकता है। आपका एजेंट उसी server से connect होता है और addon के tools को call करता है।
+Addon बाहर की ओर एक MCP server से connect होता है, और आपका एजेंट उसी server से connect होकर addon के tools को call करता है। Server या तो एक लोकल [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) होता है जिसे addon आपके लिए download करके चलाता है, या hosted [ai-game.dev](https://ai-game.dev) relay। Addon अपना कोई port नहीं खोलता।
 
-<a id="features"></a>
-## फ़ीचर्स
+Cloud default है क्योंकि इसमें कोई port खोलना नहीं पड़ता और दूसरे programs से port conflicts नहीं होते; यह मुफ़्त है। लोकल mode offline या air-gapped काम के लिए एक पूरा विकल्प है।
 
-✅ **एक query language** — [RQL](rql.md) nodes, scenes, resources और settings पढ़ता और edit करता है\
-✅ **Undo होने वाले edits** — RQL बदलाव all-or-nothing होते हैं और Ctrl+Z से undo होते हैं\
-✅ **C# और GDScript** — `.cs` / `.gd` scripts बनाएँ, अपडेट करें, validate और attach करें\
-✅ **Editor में C# चलाएँ** — `script-execute` आपके game के types पर एक snippet चलाता है\
-✅ **विज़ुअल फ़ीडबैक** — viewport, किसी camera या एक node के screenshots\
-✅ **Cloud या self-hosted** — ai-game.dev sign-in, या addon द्वारा चलाया गया लोकल server\
-✅ **Extensions** — animation, navigation, tilemaps और addons के लिए वैकल्पिक RQL modules\
-✅ **In-game runtime** — चलते हुए game से अपने tools expose करें (default रूप से बंद)\
-✅ **आपके अपने tools** — हर tool के लिए एक attributed C# method ([गाइड](custom-tools.hi.md))
+<a id="stability"></a>
+### स्थिरता
+
+- **Versioning:** addon और `godot-cli` हमेशा एक ही version number के साथ ship होते हैं; update करने से पहले [release notes](https://github.com/IvanMurzak/Godot-MCP/releases/latest) पढ़ें।
+- **Versions के बीच क्या बदलता है:** एक release addon के लिए ज़रूरी NuGet versions और उसके द्वारा download किया जाने वाला GameDev-MCP-Server version बदल सकती है। `godot-cli update` (या `install-plugin`) वही NuGet versions लिखता है जो आपके install किए addon से मेल खाते हैं, और addon मेल खाने वाला server खुद ले आता है।
+- **Release gate:** release तभी बनती है जब .NET tests, CLI tests और Godot 4.3–4.7 editor tests pass हो जाते हैं।
+- **बदलावों का इतिहास:** हर [GitHub release](https://github.com/IvanMurzak/Godot-MCP/releases) अपने merged बदलावों की सूची देती है; `godot-cli` एक [changelog](../cli/CHANGELOG.md) भी रखता है।
 
 <a id="quick-start"></a>
 ## क्विक स्टार्ट
 
-ज़रूरतें: Godot 4.3 या नया, **.NET edition** (सिर्फ़ GDScript वाला build addon को compile नहीं कर सकता), .NET 8 SDK, और `godot-cli` के लिए Node.js 22.14+।
+`godot-cli` (Node.js 22.14+) install करें और addon को अपने प्रोजेक्ट में जोड़ें:
 
 ```bash
 npm install -g godot-cli
-
-godot-cli create-project --dotnet ./MyGodotProject    # वैकल्पिक: एक नया Godot C# प्रोजेक्ट
 godot-cli install-plugin ./MyGodotProject             # addon + NuGet references + plugin enable करना
-godot-cli login                                       # ai-game.dev में sign in (browser, हर मशीन पर एक बार)
+```
+
+फिर चुनें कि एजेंट editor तक कैसे पहुँचे। दोनों पूरे setups हैं। Cloud addon का default है: कोई open port नहीं, दूसरे programs से port conflicts नहीं, और मुफ़्त। लोकल सब कुछ आपकी मशीन पर रखता है, offline या air-gapped काम के लिए।
+
+**विकल्प A: लोकल, बिना account।** Tool calls आपकी मशीन पर ही रहती हैं।
+
+1. **Token सेट करें।** प्रोजेक्ट को Godot .NET editor में खोलें। **AI Game Developer** dock में **Custom** चुनें, **Authorization → token** सेट करें, **Generate** दबाएँ, फिर **Start Server**। **Server URL** नोट करें (`http://localhost:<port>`, प्रोजेक्ट path से निकाला गया port)।
+   या खुद एक token चुनें, terminal से उसके साथ editor खोलें, फिर **Start Server** दबाएँ:
+   `godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>`
+2. **अपने एजेंट को connect करें**, उसी token के साथ:
+
+```bash
+godot-cli setup-mcp claude-code ./MyGodotProject --url http://localhost:<port> --token <token>
+```
+
+> **Token के बिना** लोकल server authorization `none` इस्तेमाल करता है। यह सिर्फ़ loopback पर सुनता है, इसलिए सिर्फ़ आपके अपने कंप्यूटर के programs ही उस तक पहुँच सकते हैं।
+> उस स्थिति में `godot-cli open ./MyGodotProject` editor और उसका लोकल server एक ही step में शुरू करता है और `setup-mcp --url` के लिए URL print करता है।
+
+**विकल्प B: ai-game.dev cloud।** हर मशीन पर एक बार sign in करें; उसके बाद एजेंट configs में इस प्रोजेक्ट से बंधी एक key होती है।
+
+```bash
+godot-cli login                                       # browser में OAuth device login
 godot-cli setup-mcp claude-code ./MyGodotProject      # एजेंट का MCP config लिखें
 godot-cli open ./MyGodotProject                       # C# build, editor शुरू, connect
 ```
 
 फिर अपने एजेंट से कहें: *"2 radius के एक circle में 3 cubes बनाओ।"*
 
-`godot-cli setup-mcp --list` हर supported एजेंट दिखाता है। Editor के **AssetLib** tab से, किसी [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) से या हाथ से install करने के लिए [install.hi.md](install.hi.md) देखें: तब प्रोजेक्ट की `.csproj` में ये NuGet references चाहिए।
+Editor के **AssetLib** tab से, किसी [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) से या हाथ से install करने के लिए [install.hi.md](install.hi.md) देखें: तब प्रोजेक्ट की `.csproj` में addon के NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, और सिर्फ़-editor वाले `com.IvanMurzak.Rql`, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` और `Microsoft.CodeAnalysis.CSharp`) उसी release के versions पर चाहिए जिसे आप install कर रहे हैं।
 
-| Package | Version |
-| --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.5.2` |
-| `com.IvanMurzak.McpPlugin` | `8.22.2` |
-| `com.IvanMurzak.Rql` | `0.3.0` (सिर्फ़ editor) |
-| `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` | `0.4.1` (सिर्फ़ editor) |
-| `Microsoft.CodeAnalysis.CSharp` | `4.12.0` (सिर्फ़ editor) |
+<a id="relay"></a>
+### ai-game.dev से क्या गुज़रता है
 
-<a id="usage"></a>
-## इस्तेमाल
+सिर्फ़ Cloud mode में। Relay आपके एजेंट और editor के बीच tool calls को route करता है। आप जो भेजते हैं, वह store नहीं करता: न request या response का content, न conversations, source code, project files या assets। यह सिर्फ़ metadata रखता है, 90 दिनों तक: IP address, समय और अवधि, tool का नाम और call count, request और response का size, और MCP events (type, status, tool का नाम, errors)। लोकल mode में editor और server सिर्फ़ localhost पर बात करते हैं।
 
-अपने एजेंट से सामान्य भाषा में बात करें; tools वह खुद चुनता है। प्रोजेक्ट फ़ोल्डर से आप वही tools terminal में भी call कर सकते हैं:
+<a id="clients"></a>
+## अपना AI client connect करें
+
+`godot-cli setup-mcp <agent> ./MyGodotProject` आपके लिए config लिखता है (`godot-cli setup-mcp --list` हर agent id दिखाता है)। Server entry का नाम `ai-game-developer` है; `<url>` वह URL है जो `setup-mcp` print करता है। Cloud mode में entry में `Authorization: Bearer agd_pk_…` भी होता है, एक key जो सिर्फ़ इसी प्रोजेक्ट तक पहुँचती है।
+
+<details>
+<summary><b>Claude Code</b> — प्रोजेक्ट में <code>.mcp.json</code></summary>
 
 ```bash
-godot-cli rql 'nodes | where class == "OmniLight3D" | select name props["light_energy"]'
+godot-cli setup-mcp claude-code ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>Cursor</b> — <code>.cursor/mcp.json</code></summary>
+
+```bash
+godot-cli setup-mcp cursor ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>VS Code (Copilot)</b> — <code>.vscode/mcp.json</code></summary>
+
+```bash
+godot-cli setup-mcp vscode-copilot ./MyGodotProject
+```
+
+```json
+{ "servers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+<details>
+<summary><b>Codex</b> — <code>.codex/config.toml</code></summary>
+
+```bash
+godot-cli setup-mcp codex ./MyGodotProject
+```
+
+```toml
+[mcp_servers.ai-game-developer]
+enabled = true
+url = "<url>"
+tool_timeout_sec = 300
+startup_timeout_sec = 30
+```
+
+Cloud mode में key `http_headers` में जाती है।
+</details>
+
+<details>
+<summary><b>Gemini CLI</b> — <code>.gemini/settings.json</code></summary>
+
+```bash
+godot-cli setup-mcp gemini ./MyGodotProject
+```
+
+```json
+{ "mcpServers": { "ai-game-developer": { "type": "http", "url": "<url>" } } }
+```
+</details>
+
+ये भी supported हैं: Claude Desktop, Visual Studio (Copilot), GitHub Copilot CLI, Rider (Junie), Antigravity, Cline, Open Code, Kilo Code और एक generic `custom` client ([CLI reference](../cli/docs/README.hi.md#supported-ai-agents))।
+
+<a id="what-the-agent-can-do"></a>
+## एजेंट क्या कर सकता है
+
+Godot-MCP में **9 families** में **24 built-in tools** आते हैं। Queries आपको नहीं लिखनी पड़तीं: एजेंट tools के साथ आने वाली RQL गाइड (`rql-schema`, `godot-rql` skill) पढ़ता है और उन्हें खुद लिखता है।
+
+| क्षमता | Tools | अपने एजेंट से कहें |
+| --- | --- | --- |
+| Scenes और nodes | `rql-query`, `rql-mutate` | *"Main scene में एक DirectionalLight3D जोड़ो और उसे save करो।"* |
+| Bulk edits | `rql-mutate` | *"हर वह node छिपा दो जिसका नाम Enemy से शुरू होता है।"* |
+| Resources और project settings | `rql-query`, `rql-mutate` | *"Space से bound एक jump input action जोड़ो।"* |
+| API देखना | `rql-schema` | *"CharacterBody3D में कौन-सी Godot properties होती हैं?"* |
+| Scripts (GDScript और C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *"एक GDScript लिखो जो इस node को घुमाए, और उसे attach करो।"* |
+| C# build करना | `script-build` | *"C# प्रोजेक्ट build करो और errors ठीक करो।"* |
+| Editor में C# चलाना | `script-execute` | *"खुले scene में MeshInstance3D nodes गिनो।"* |
+| नतीजा देखना | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Viewport का screenshot लो और lighting जाँचो।"* |
+| चलता हुआ game (opt-in) | `console-*`, `reflection-*`, `runtime-errors-*` | *"चलते हुए game में नए runtime errors जाँचो।"* |
+
+`ping`, `session-close`, `godot-skill-create` और `godot-skill-generate` `godot-cli` और setup के लिए system tools हैं; एजेंट्स उन्हें नहीं देखते। हर tool और argument: [tools.hi.md](tools.hi.md)।
+
+वही tools terminal से भी, प्रोजेक्ट फ़ोल्डर में, काम करते हैं (कोई editor न चल रहा हो तो एक headless editor शुरू होता है):
+
+```bash
 godot-cli rql 'nodes | where name starts-with "Enemy" | set Visible = false'
 godot-cli exec '1 + 2'        # → System.Int32: 3
 godot-cli tools               # editor के tools की सूची
 ```
 
-जब कोई editor नहीं चल रहा होता, तो ये commands प्रोजेक्ट के लिए एक headless editor शुरू कर देते हैं। हर command [CLI reference](../cli/docs/README.hi.md) में है।
+<a id="security"></a>
+## सुरक्षा
 
-<a id="tools"></a>
-### Tools
-
-Godot-MCP में **9 families** में **24 built-in tools** आते हैं:
-
-| Family | Tools |
+| क्षेत्र | क्या लागू होता है |
 | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` |
-| **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` |
-| **console**, **reflection**, **runtime-errors** | चलते हुए game के अंदर logs, C# reflection और error capture |
-| **ping**, **session**, **skills** | `godot-cli` और setup के लिए system tools, एजेंट्स को नहीं दिखते |
+| **लोकल server** | सिर्फ़ loopback पर सुनता है। इसका default authorization `none` है, इसलिए आपकी मशीन का कोई भी process इसे call कर सकता है। Bearer token ज़रूरी करने के लिए dock में `token` चुनें, `GODOT_MCP_TOKEN` सेट करें, या editor को `godot-cli open <path> --mode Custom --auth Required --token <token>` से खोलें। |
+| **Origin checks** | Server हर authorization mode में, ऐसे request को जिसका `Origin` header allowed नहीं है, `403` लौटाता है (DNS-rebinding से बचाव)। |
+| **Editor addon** | कोई port नहीं खोलता; यह बाहर की ओर server से connect होता है। `127.0.0.1` पर सिर्फ़ development वाला एक control bridge केवल `GODOT_MCP_DEV_CONTROL=1` होने पर शुरू होता है। |
+| **Cloud** | एजेंट configs में एक ही प्रोजेक्ट से बंधी key होती है; editor आपकी मशीन का sign-in इस्तेमाल करता है। आपका account token सिर्फ़ ai-game.dev या किसी localhost server को जाता है। Relay request या response का content store नहीं करता और सिर्फ़ metadata रखता है, 90 दिनों तक। |
+| **Stored tokens** | Editor अपना token `user://godot-mcp-config.json` में सादे JSON के रूप में save करता है; उस file को secret मानें। |
+| **Exported games** | Game में कुछ भी तब तक नहीं चलता जब तक आपका code `GodotMcpRuntime.Initialize(...)` और `Connect()` call न करे, और तब भी सिर्फ़ वही tools जो आप register करते हैं। Error capture और game के अंदर C# अलग-अलग opt-ins हैं ([runtime security](runtime-security.hi.md))। |
+| **सुरक्षित नहीं** | Tool calls आपका प्रोजेक्ट बदलती हैं और editor में C# चलाती हैं: version control इस्तेमाल करें, और authorization `none` वाले server को कभी network पर expose न करें। |
 
-हर tool और argument: [tools.hi.md](tools.hi.md)।
+विवरण: [Connection और server](connection.hi.md) और [GameDev-MCP-Server README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme)।
 
 <a id="extensions"></a>
-### Extensions
+## Extensions
 
 Extensions वैकल्पिक NuGet packages हैं जो RQL को बढ़ाते हैं; वे अपने कोई tools नहीं जोड़ते।
 
@@ -150,6 +275,4 @@ Conventions, headless editor smoke test और मुख्य pitfalls [AGENTS.
 <a id="license"></a>
 ## लाइसेंस
 
-[Apache-2.0](../LICENSE) © Ivan Murzak. Addon [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) और Code-Exec का भी इस्तेमाल करता है, जिनका अपना license है।
-
-वह license [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) है: commercial products समेत इस्तेमाल के लिए मुफ़्त, सिवाय licensor के product से competition करने वाला product बनाने के।
+**Game developers सब कुछ मुफ़्त में इस्तेमाल कर सकते हैं, commercial games में भी।** Godot-MCP [Apache-2.0](../LICENSE) के तहत है। इसकी editor-side dependencies RQL और Code-Exec [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) इस्तेमाल करती हैं, जो सिर्फ़ उन कंपनियों पर रोक लगाता है जो game development के लिए competing AI tools बनाती हैं।

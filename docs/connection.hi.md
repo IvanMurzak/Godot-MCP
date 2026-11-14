@@ -7,7 +7,7 @@ Editor plugin दो में से किसी एक mode में MCP ser
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## Cloud mode (default): ai-game.dev
 
-Plugin `https://ai-game.dev` से connect होता है; आपको कोई server नहीं चलाना पड़ता।
+Plugin `https://ai-game.dev` से connect होता है; आपको कोई server नहीं चलाना पड़ता। Cloud default है क्योंकि इसमें कोई port खोलना नहीं पड़ता और दूसरे programs से port conflicts नहीं होते; यह मुफ़्त है। Relay request या response का content store नहीं करता और सिर्फ़ metadata रखता है, 90 दिनों तक।
 
 `godot-cli login` से एक बार sign in करें। यह OAuth 2.1 device flow (RFC 8628) इस्तेमाल करता है: एक छोटा code print करता है, आपका browser खोलता है और, आपके approve करने के बाद, credential को machine store (`~/.ai-game-dev/credentials.json`) में save करता है। Editor plugin उसे ले लेता है, इसलिए कोई token copy नहीं करना पड़ता।
 
@@ -21,19 +21,25 @@ Plugin `https://ai-game.dev` से connect होता है; आपको �
 <a id="custom-mode-your-own-server"></a>
 ## Custom mode: आपका अपना server
 
-Plugin आपके चुने server URL से connect होता है: एक लोकल server, या self-hosted।
+Plugin आपके चुने server URL से connect होता है: एक लोकल server, या self-hosted। Offline या air-gapped काम के लिए इसे इस्तेमाल करें।
 
 | Variable | उद्देश्य | Default |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | `Custom` पर सेट करें। | `Cloud` |
-| `GODOT_MCP_HOST` | Server URL, एक absolute http(s) URL। | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | Server URL, एक absolute http(s) URL। | `http://localhost:<port>`, प्रोजेक्ट path से निकाला गया port |
 | `GODOT_MCP_TOKEN` | उस server को भेजा जाने वाला bearer token। इसे सेट करने से `token` authorization चुना जाता है। | कोई नहीं |
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`; ऊपर वाले नियम को override करता है। | saved choice, नहीं तो `none` |
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # सिर्फ़ तब जब server को auth चाहिए
+```
+
+`godot-cli open` इन्हें आपके लिए सेट करता है। ऐसे लोकल server के लिए जिसे आपका चुना हुआ token चाहिए, editor को उस token के साथ खोलें, फिर dock में **Start Server** दबाएँ (`--auth Required` से `token` authorization चुना जाता है):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 - Environment में (या Custom mode में प्रोजेक्ट की `.env` में) सेट किया token editor द्वारा शुरू किए गए लोकल server पर और **Configure** से लिखे गए एजेंट configs पर भी लागू होता है। यह config file में save नहीं होता।
@@ -52,7 +58,9 @@ Custom mode में dock का **Server** card खोलें और **Start
 
 - pinned version के लिए `gamedev-mcp-server-<rid>.zip` को GameDev-MCP-Server GitHub release से HTTPS पर download करता है (`win-x64`, `win-x86`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`);
 - उसे `.godot/mcp-server/<rid>/` में cache करता है और pinned version बदलने पर ही दोबारा download करता है;
-- उसे आपके **Server URL** के port (default `http://localhost:8080`) पर शुरू करता है और उससे connect होता है।
+- उसे आपके **Server URL** के port (default रूप से प्रोजेक्ट path से निकाला गया port) पर शुरू करता है और उससे connect होता है।
+
+Server सिर्फ़ loopback पर सुनता है और जिस request का `Origin` header allowed नहीं है, उसे `403` लौटाता है (DNS-rebinding से बचाव)। यह dock में चुना गया authorization इस्तेमाल करता है: `none` के साथ आपकी मशीन का कोई भी process इसे call कर सकता है, `token` के साथ इसे bearer token चाहिए। Bind, authorization और Origin के नियम: [GameDev-MCP-Server README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme)।
 
 **Stop Server** उसे रोकता है; editor बंद करने पर भी वह रुक जाता है। Download URL सिर्फ़ pinned version और आपके platform से बनता है। Offline होने पर addon warning log करता है और server शुरू नहीं होता। CI (`CI` / `GITHUB_ACTIONS`) में download skip हो जाता है।
 

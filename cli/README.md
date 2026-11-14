@@ -104,6 +104,12 @@ Or run any command without installing: `npx godot-cli install-plugin ./MyGodotPr
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+The addon's default is Cloud (ai-game.dev): it needs no open ports, avoids port conflicts with other programs, and is free. For a local server that requires a token you choose (offline or air-gapped work), open the editor in Custom mode with it, then press **Start Server** in the dock (`Required` selects `token` authorization):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
 The server base URL a tool call POSTs to (`<base>/api/tools/<name>`, or `<base>/api/system-tools/<name>` for system tools — `status` / `wait-for-ready` probe the system tool `ping`) is resolved as:
@@ -243,7 +249,7 @@ It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # download the matching release + install
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # pin a specific addon release
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # pin a specific addon release
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # offline / dev copy
 ```
 
@@ -263,7 +269,7 @@ It is library-safe (returns a `{ kind: 'success' | 'failure' }` union; never thr
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # add/update the PackageReference
 godot-cli install-extension "CSG Tools"                                      # resolve by name; default cwd
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # override the catalog pin
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # override the catalog pin
 ```
 
 - Resolves `<id>` against the **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` — the single source of truth the dock, the CLI, and the app all consume), matching by package id (then name), case-insensitive.

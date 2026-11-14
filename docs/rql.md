@@ -5,9 +5,8 @@ The data layer of the editor tools is RQL (Reflection Query Language, the NuGet 
 per operation, the same one Unity-MCP 1.0 uses. McpPlugin and its tool plumbing are unchanged; ReflectorNet stays the
 data layer of the in-game runtime (`GodotMcpRuntime`) and of the editor's `Json` tool format.
 
-RQL is licensed under the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/): free
-to use, including in commercial products, except to provide a product that competes with the licensor's products.
-The addon itself stays Apache-2.0.
+Game developers can use RQL freely, commercial games included. Its [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)
+restricts only companies that build competing AI tools for game development. The addon itself stays Apache-2.0.
 
 ## Tools
 

@@ -9,7 +9,7 @@
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## وضع Cloud (الافتراضي): ai-game.dev
 
-يتصل المكوّن الإضافي بـ `https://ai-game.dev`؛ ولا تشغّل أنت أي خادم.
+يتصل المكوّن الإضافي بـ `https://ai-game.dev`؛ ولا تشغّل أنت أي خادم. ‏Cloud هو الوضع الافتراضي لأنه لا يحتاج إلى منافذ مفتوحة ويتجنب تعارض المنافذ مع البرامج الأخرى؛ وهو مجاني. لا يخزّن المُرحِّل (relay) أي محتوى للطلبات أو الاستجابات، ويحتفظ بالبيانات الوصفية فقط لمدة 90 يومًا.
 
 سجّل الدخول مرة واحدة باستخدام `godot-cli login`. يستخدم تدفق الجهاز في OAuth 2.1 (RFC 8628): يطبع رمزًا قصيرًا، ويفتح متصفحك، وبعد موافقتك يحفظ بيانات اعتماد في مخزن الجهاز (`~/.ai-game-dev/credentials.json`). يلتقطها المكوّن الإضافي للمحرر، فلا رمز (token) تحتاج إلى نسخه.
 
@@ -23,12 +23,12 @@
 <a id="custom-mode-your-own-server"></a>
 ## وضع Custom: خادمك الخاص
 
-يتصل المكوّن الإضافي بعنوان خادم تختاره: خادم محلي، أو خادم تستضيفه بنفسك.
+يتصل المكوّن الإضافي بعنوان خادم تختاره: خادم محلي، أو خادم تستضيفه بنفسك. استخدمه للعمل دون اتصال أو في بيئة معزولة (air-gapped).
 
 | المتغير | الغرض | القيمة الافتراضية |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | اضبطه على `Custom`. | `Cloud` |
-| `GODOT_MCP_HOST` | عنوان الخادم، وهو عنوان http(s) مطلق. | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | عنوان الخادم، وهو عنوان http(s) مطلق. | `http://localhost:<port>`، بمنفذ مشتق من مسار المشروع |
 | `GODOT_MCP_TOKEN` | رمز Bearer المُرسل إلى ذلك الخادم. ضبطه يختار التفويض `token`. | لا شيء |
 | `GODOT_MCP_AUTH_OPTION` | ‏`none` / `oauth` / `token`؛ يتجاوز القاعدة السابقة. | الخيار المحفوظ، وإلا `none` |
 
@@ -36,8 +36,18 @@
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # only if the server requires auth
+```
+
+<div dir="rtl">
+
+يضبطها `godot-cli open` نيابةً عنك. لخادم محلي يتطلب رمزًا تختاره بنفسك، افتح المحرر بهذا الرمز، ثم اضغط **Start Server** في اللوحة (يختار `--auth Required` التفويض `token`):
+
+</div>
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 ```
 
 <div dir="rtl">
@@ -58,7 +68,9 @@ export GODOT_MCP_HOST=http://localhost:8080
 
 - تنزّل `gamedev-mcp-server-<rid>.zip` للإصدار المثبّت عبر HTTPS من إصدار GameDev-MCP-Server على GitHub (`win-x64` و`win-x86` و`win-arm64` و`linux-x64` و`linux-arm64` و`osx-x64` و`osx-arm64`)؛
 - تخزّنه مؤقتًا في `.godot/mcp-server/<rid>/` ولا تنزّله مجددًا إلا عند تغيّر الإصدار المثبّت؛
-- تشغّله على منفذ **Server URL** الخاص بك (الافتراضي `http://localhost:8080`) وتتصل به.
+- تشغّله على منفذ **Server URL** الخاص بك (افتراضيًا منفذ مشتق من مسار المشروع) وتتصل به.
+
+يستمع الخادم على واجهة loopback فقط، ويرد بـ `403` على أي طلب يحمل ترويسة `Origin` غير مسموح بها (حماية من DNS rebinding). يستخدم التفويض المختار في اللوحة: مع `none` تستطيع أي عملية على جهازك استدعاءه، ومع `token` يتطلب رمز Bearer. قواعد الربط والتفويض وOrigin: [README الخاص بـ GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server#readme).
 
 يوقفه **Stop Server**؛ ويوقفه إغلاق المحرر أيضًا. يأتي عنوان التنزيل من الإصدار المثبّت ومنصتك فقط. عند انعدام الاتصال تسجّل الإضافة تحذيرًا ولا يبدأ الخادم. تحت CI (`CI` / `GITHUB_ACTIONS`) يُتخطّى التنزيل.
 

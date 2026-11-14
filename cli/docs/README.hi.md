@@ -110,6 +110,12 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 | `--mode Cloud\|Custom` | `GODOT_MCP_CONNECTION_MODE` |
 | `--log-level <level>` | `GODOT_MCP_LOG_LEVEL` |
 
+Addon का default Cloud (ai-game.dev) है: इसमें कोई port खोलना नहीं पड़ता, दूसरे programs से port conflicts नहीं होते, और यह मुफ़्त है। अगर आपको ऐसा लोकल server चाहिए जिसके लिए आपका चुना हुआ token ज़रूरी हो (offline या air-gapped काम के लिए), तो editor को उस token के साथ Custom mode में खोलें, फिर dock में **Start Server** दबाएँ (`Required` से `token` authorization चुना जाता है):
+
+```bash
+godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
+```
+
 <a id="server-url-resolution-run-tool--status--wait-for-ready"></a>
 ### Server URL resolution (`run-tool` / `status` / `wait-for-ready`)
 
@@ -256,7 +262,7 @@ godot-cli setup-skills --list                 # एजेंट्स + उन�
 
 ```bash
 godot-cli install-plugin ./MyGodotProject                      # मेल खाती release download + install
-godot-cli install-plugin --version 0.11.1 ./MyGodotProject     # किसी ख़ास addon release को pin करें
+godot-cli install-plugin --version <x.y.z> ./MyGodotProject   # किसी ख़ास addon release को pin करें
 godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject   # offline / dev copy
 ```
 
@@ -277,7 +283,7 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 ```bash
 godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG ./MyGodotProject   # PackageReference जोड़ें/अपडेट करें
 godot-cli install-extension "CSG Tools"                                      # नाम से resolve; default cwd
-godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version 1.1.1     # catalog pin override करें
+godot-cli install-extension com.IvanMurzak.Godot.MCP.CSG --version <x.y.z>   # catalog pin override करें
 ```
 
 - `<id>` को **shared extension catalog** (`addons/godot_mcp/extensions.catalog.json` — सच्चाई का एकमात्र source जिसे dock, CLI और app सभी इस्तेमाल करते हैं) के against resolve करता है, package id (फिर name) से, case-insensitive मिलान करके।

@@ -21,7 +21,7 @@
 ✅ **Undoable, atomic edits** — a query's changes apply all or nothing, one Ctrl+Z each\
 ✅ **Screenshots** — viewport, a camera, or one node rendered alone, returned to the agent\
 ✅ **Runtime tools** — logs, C# reflection and runtime errors from a running game (opt-in)\
-✅ **Local, no account** — a local server on your machine; the ai-game.dev cloud is optional\
+✅ **Free cloud or fully local** — ai-game.dev by default (no open ports), or a local server with no account\
 ✅ **No telemetry** — the addon and `godot-cli` send no usage or analytics data
 
 ## Works with GDScript projects
@@ -47,9 +47,11 @@ Your game code stays GDScript. The addon itself is C#, so the project needs a fe
 
 The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own.
 
+Cloud is the default because it needs no open ports and avoids port conflicts with other programs; it is free. Local mode is a full alternative for offline or air-gapped work.
+
 ### Stability
 
-- **Versioning:** 0.MINOR.PATCH. The addon and `godot-cli` always ship with the same version number; read the release notes before you update.
+- **Versioning:** the addon and `godot-cli` always ship with the same version number; read the [release notes](https://github.com/IvanMurzak/Godot-MCP/releases/latest) before you update.
 - **What changes between versions:** a release can move the NuGet versions the addon needs and the GameDev-MCP-Server version it downloads. `godot-cli update` (or `install-plugin`) writes the NuGet versions that match the addon you install, and the addon fetches its matching server itself.
 - **Release gate:** a release is cut only after the .NET tests, the CLI tests and the Godot 4.3–4.7 editor tests pass.
 - **Change history:** every [GitHub release](https://github.com/IvanMurzak/Godot-MCP/releases) lists its merged changes; `godot-cli` also keeps a [changelog](cli/CHANGELOG.md).
@@ -63,11 +65,13 @@ npm install -g godot-cli
 godot-cli install-plugin ./MyGodotProject             # addon + NuGet references + enable the plugin
 ```
 
-Then pick how the agent reaches the editor. Both are complete setups.
+Then pick how the agent reaches the editor. Both are complete setups. Cloud is the addon's default: no open ports, no port conflicts with other programs, and free. Local keeps everything on your machine, for offline or air-gapped work.
 
 **Option A: local, no account.** Tool calls stay on your machine.
 
 1. **Set a token.** Open the project in the Godot .NET editor. In the **AI Game Developer** dock choose **Custom**, set **Authorization → token**, press **Generate**, then **Start Server**. Note the **Server URL** (`http://localhost:<port>`, a port derived from the project path).
+   Or choose a token yourself, open the editor with it from a terminal, then press **Start Server**:
+   `godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>`
 2. **Connect your agent** with the same token:
 
 ```bash
@@ -87,19 +91,11 @@ godot-cli open ./MyGodotProject                       # build C#, start the edit
 
 Then ask your agent: *"Create 3 cubes in a circle with radius 2."*
 
-To install from the editor's **AssetLib** tab, from a [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest), or by hand, follow [docs/install.md](docs/install.md): the project's `.csproj` then needs these NuGet references.
-
-| Package | Version |
-| --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.5.2` |
-| `com.IvanMurzak.McpPlugin` | `8.22.2` |
-| `com.IvanMurzak.Rql` | `0.3.0` (editor only) |
-| `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` | `0.4.1` (editor only) |
-| `Microsoft.CodeAnalysis.CSharp` | `4.12.0` (editor only) |
+To install from the editor's **AssetLib** tab, from a [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest), or by hand, follow [docs/install.md](docs/install.md): the project's `.csproj` then needs the addon's NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, and the editor-only `com.IvanMurzak.Rql`, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp`) at the versions of the release you install.
 
 ### What goes through ai-game.dev
 
-Only in Cloud mode. The relay routes tool calls between your agent and the editor and, per its [privacy policy](https://ai-game.dev/legal/privacy), does not inspect or store their contents. It logs metadata: IP address, time and duration, tool name and call count, request and response size, and MCP events (type, status, tool name, errors). It does not collect your conversations, source code, project files or assets. In local mode the editor and the server talk only over localhost.
+Only in Cloud mode. The relay routes tool calls between your agent and the editor. It does not store what you send: no request or response content, no conversations, source code, project files or assets. It keeps only metadata, for 90 days: IP address, time and duration, tool name and call count, request and response size, and MCP events (type, status, tool name, errors). In local mode the editor and the server talk only over localhost.
 
 ## Connect your AI client
 
@@ -203,10 +199,10 @@ godot-cli tools               # list the editor's tools
 
 | Area | What applies |
 | --- | --- |
-| **Local server** | Listens on loopback only. Its default authorization is `none`, so any process on your machine can call it. Choose `token` in the dock (or set `GODOT_MCP_TOKEN`) to require a bearer token. |
+| **Local server** | Listens on loopback only. Its default authorization is `none`, so any process on your machine can call it. Choose `token` in the dock, set `GODOT_MCP_TOKEN`, or open the editor with `godot-cli open <path> --mode Custom --auth Required --token <token>` to require a bearer token. |
 | **Origin checks** | The server answers `403` to a request with a non-allowed `Origin` header, in every authorization mode (DNS-rebinding defense). |
 | **Editor addon** | Opens no port; it connects out to the server. A dev-only control bridge on `127.0.0.1` starts only with `GODOT_MCP_DEV_CONTROL=1`. |
-| **Cloud** | Agent configs carry a key bound to one project; the editor uses your machine sign-in. Your account token goes only to ai-game.dev or a localhost server. |
+| **Cloud** | Agent configs carry a key bound to one project; the editor uses your machine sign-in. Your account token goes only to ai-game.dev or a localhost server. The relay stores no request or response content and keeps only metadata, for 90 days. |
 | **Stored tokens** | The editor saves its token as plain JSON in `user://godot-mcp-config.json`; treat that file as a secret. |
 | **Exported games** | Nothing runs in a game unless your code calls `GodotMcpRuntime.Initialize(...)` and `Connect()`, with only the tools you register. Error capture and in-game C# are separate opt-ins ([runtime security](docs/runtime-security.md)). |
 | **Not protected** | Tool calls change your project and run C# in the editor: use version control, and never expose a server with authorization `none` to a network. |
@@ -266,6 +262,4 @@ Related: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) 
 
 ## License
 
-Godot-MCP is [Apache-2.0](LICENSE); its editor-side dependencies RQL and Code-Exec use the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), which allows any use, commercial included, except offering a product that competes with them or with the licensor's products built on them.
-
-**For a commercial game team:** you may use all of it to build, ship and sell your games; what the Shield license rules out is offering a product that competes with RQL, Code-Exec or the licensor's products that use them.
+**Game developers can use everything freely, commercial games included.** Godot-MCP is [Apache-2.0](LICENSE). Its editor-side dependencies RQL and Code-Exec use the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), which restricts only companies that build competing AI tools for game development.

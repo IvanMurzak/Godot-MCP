@@ -9,7 +9,7 @@
 <a id="requirements"></a>
 ## المتطلبات
 
-- ‏**Godot 4.3 أو أحدث، إصدار .NET (mono).** إصدار GDScript القياسي وحده لا يستطيع ترجمة الإضافة. يثبّت ملف csproj الخاص بالإضافة `Godot.NET.Sdk/4.3.0` حدًّا أدنى؛ ويختبر CI الإصدارات من Godot 4.3 إلى 4.7.
+- ‏**Godot 4.3 أو أحدث، إصدار .NET (mono).** يمكن أن تبقى شيفرة لعبتك بلغة GDScript، لكن الإضافة مكتوبة بـ C#: افتح المشروع في إصدار .NET من المحرر، وأعطه ملف مشروع C# (`.csproj`). لمشروع GDScript قائم استخدم **Project → Tools → C# → Create C# solution** مرة واحدة. يثبّت ملف csproj الخاص بالإضافة `Godot.NET.Sdk/4.3.0` حدًّا أدنى؛ ويختبر CI إصدارات Godot 4.3 و4.4 و4.5 و4.6 و4.7.
 - ‏ **.NET 8 SDK** (`net8.0`).
 
 <a id="1-add-the-addon"></a>
@@ -24,22 +24,22 @@
 <a id="2-add-the-nuget-packages-and-the-extension-catalog"></a>
 ## 2. أضِف حزم NuGet وفهرس الامتدادات
 
-يترجم Godot كل ملف `.cs` في المشروع إلى تجميعة واحدة، لذا يجب أن يشير ملف `.csproj` للمشروع إلى الحزم التي تستخدمها الإضافة. استخدم هذه الإصدارات بالضبط (فهي تطابق `Godot-MCP.csproj` الخاص بالإضافة):
+يترجم Godot كل ملف `.cs` في المشروع إلى تجميعة واحدة، لذا يجب أن يشير ملف `.csproj` للمشروع إلى الحزم التي تستخدمها الإضافة. استخدم بالضبط إصدارات الإصدار (release) الذي تثبّته: يكتبها `godot-cli install-plugin` نيابةً عنك، ويسردها ملف zip الخاص بكل إصدار في `addons/godot_mcp/nuget-deps.json`، ويحتويها كل وسم إصدار في ملف `Godot-MCP.csproj` الخاص به ([أحدث إصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest)):
 
 </div>
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
-  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 </ItemGroup>
 
 <!-- Embed the extension catalog, or the dock's Extensions list is empty. -->
