@@ -1,6 +1,6 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: پلاگین Godot MCP را نصب کنید، وارد شوید، عامل هوش مصنوعی خود را راه‌اندازی کنید و ویرایشگر Godot را از ترمینال هدایت کنید" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli: پلاگین Godot MCP را نصب کنید، وارد شوید، عامل هوش مصنوعی خود را راه‌اندازی کنید و ویرایشگر Godot را از ترمینال هدایت کنید" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
@@ -14,7 +14,7 @@
 
 </div>
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="یک نشست ترمینال: godot-cli پلاگین را نصب می‌کند، وارد حساب می‌شود، Claude Code را پیکربندی می‌کند و ویرایشگر را باز می‌کند" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="یک نشست ترمینال: godot-cli پلاگین را نصب می‌کند، وارد حساب می‌شود، Claude Code را پیکربندی می‌کند و ویرایشگر را باز می‌کند" width="100%"/></p>
 
 <div dir="rtl">
 

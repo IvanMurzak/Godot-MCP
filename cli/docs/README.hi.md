@@ -1,6 +1,6 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: Godot MCP addon install करें, sign in करें, अपना AI एजेंट set up करें और terminal से Godot editor चलाएँ" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli: Godot MCP addon install करें, sign in करें, अपना AI एजेंट set up करें और terminal से Godot editor चलाएँ" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
@@ -10,7 +10,7 @@
 
 **`godot-cli`** [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP) की command line है। Godot-MCP वह Godot editor addon है जो AI एजेंट्स (Claude Code, Cursor, Codex, GitHub Copilot, …) को [Model Context Protocol](https://modelcontextprotocol.io/) के ज़रिए Godot editor से जोड़ता है। यह [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) और [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli) का भाई है, और [ai-game.dev](https://ai-game.dev) पर आधारित है।
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="एक terminal session: godot-cli addon install करता है, sign in करता है, Claude Code को configure करता है और editor खोलता है" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="एक terminal session: godot-cli addon install करता है, sign in करता है, Claude Code को configure करता है और editor खोलता है" width="100%"/></p>
 
 <a id="features"></a>
 ## फ़ीचर्स

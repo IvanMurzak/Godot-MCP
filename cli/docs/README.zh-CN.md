@@ -1,6 +1,6 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli：安装 Godot MCP 插件、登录、配置你的 AI 智能体，并在终端中操控 Godot 编辑器" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli：安装 Godot MCP 插件、登录、配置你的 AI 智能体，并在终端中操控 Godot 编辑器" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
@@ -10,7 +10,7 @@
 
 **`godot-cli`** 是 [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP) 的命令行工具。Godot-MCP 是一个 Godot 编辑器插件，通过 [Model Context Protocol](https://modelcontextprotocol.io/) 将 AI 智能体（Claude Code、Cursor、Codex、GitHub Copilot 等）连接到 Godot 编辑器。它是 [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) 和 [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli) 的姊妹工具，由 [ai-game.dev](https://ai-game.dev) 提供支持。
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="终端会话：godot-cli 安装插件、登录、配置 Claude Code 并打开编辑器" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="终端会话：godot-cli 安装插件、登录、配置 Claude Code 并打开编辑器" width="100%"/></p>
 
 <a id="features"></a>
 ## 功能

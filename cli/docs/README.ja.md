@@ -1,6 +1,6 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: Godot MCP アドオンのインストール、サインイン、AI エージェントのセットアップ、ターミナルからの Godot エディター操作" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli: Godot MCP アドオンのインストール、サインイン、AI エージェントのセットアップ、ターミナルからの Godot エディター操作" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
@@ -10,7 +10,7 @@
 
 **`godot-cli`** は [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP) のコマンドラインです。Godot-MCP は、AI エージェント(Claude Code、Cursor、Codex、GitHub Copilot など)を [Model Context Protocol](https://modelcontextprotocol.io/) で Godot エディターにつなぐエディターアドオンです。[`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) と [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli) の兄弟分で、[ai-game.dev](https://ai-game.dev) が支えています。
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="ターミナルセッション: godot-cli がアドオンをインストールし、サインインし、Claude Code を設定してエディターを開く" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="ターミナルセッション: godot-cli がアドオンをインストールし、サインインし、Claude Code を設定してエディターを開く" width="100%"/></p>
 
 <a id="features"></a>
 ## 特長

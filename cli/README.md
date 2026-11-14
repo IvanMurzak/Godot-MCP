@@ -1,16 +1,16 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: install the Godot MCP addon, sign in, set up your AI agent and drive the Godot editor from a terminal" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli: install the Godot MCP addon, sign in, set up your AI agent and drive the Godot editor from a terminal" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
-**English** · [中文](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.zh-CN.md) · [日本語](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.ja.md) · [Español](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.es.md) · [فارسی](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.fa.md) · [हिन्दी](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.hi.md) · [العربية](https://github.com/IvanMurzak/Godot-MCP/blob/docs/readme-refresh/cli/docs/README.ar.md)
+**English** · [中文](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.zh-CN.md) · [日本語](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.ja.md) · [Español](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.es.md) · [فارسی](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.fa.md) · [हिन्दी](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.hi.md) · [العربية](https://github.com/IvanMurzak/Godot-MCP/blob/main/cli/docs/README.ar.md)
 
 </div>
 
 **`godot-cli`** is the command line for [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP), the Godot editor addon that connects AI agents (Claude Code, Cursor, Codex, GitHub Copilot, …) to the Godot editor over the [Model Context Protocol](https://modelcontextprotocol.io/). It is the sibling of [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) and [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli), backed by [ai-game.dev](https://ai-game.dev).
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor" width="100%"/></p>
 
 ## Features
 

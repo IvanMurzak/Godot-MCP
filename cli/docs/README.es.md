@@ -1,6 +1,6 @@
 <div align="center">
 
-<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/cli-hero.svg" alt="godot-cli: instala el addon Godot MCP, inicia sesión, configura tu agente de IA y controla el editor de Godot desde una terminal" width="100%"/></p>
+<p><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/cli-hero.svg" alt="godot-cli: instala el addon Godot MCP, inicia sesión, configura tu agente de IA y controla el editor de Godot desde una terminal" width="100%"/></p>
 
 [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) [![Node](https://img.shields.io/badge/Node-22.14%2B-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=nodedotjs)](https://nodejs.org/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://github.com/IvanMurzak/Godot-MCP/blob/main/LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
@@ -10,7 +10,7 @@
 
 **`godot-cli`** es la línea de comandos de [Godot-MCP](https://github.com/IvanMurzak/Godot-MCP), el addon del editor de Godot que conecta agentes de IA (Claude Code, Cursor, Codex, GitHub Copilot, …) con el editor de Godot mediante el [Model Context Protocol](https://modelcontextprotocol.io/). Es hermana de [`unity-mcp-cli`](https://www.npmjs.com/package/unity-mcp-cli) y [`unreal-mcp-cli`](https://www.npmjs.com/package/unreal-mcp-cli), respaldada por [ai-game.dev](https://ai-game.dev).
 
-<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/docs/readme-refresh/docs/img/terminal.svg" alt="Una sesión de terminal: godot-cli instala el addon, inicia sesión, configura Claude Code y abre el editor" width="100%"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/docs/img/terminal.svg" alt="Una sesión de terminal: godot-cli instala el addon, inicia sesión, configura Claude Code y abre el editor" width="100%"/></p>
 
 <a id="features"></a>
 ## Funciones
