@@ -9,14 +9,29 @@
 
 </div>
 
-**Godot-MCP** connects AI agents (Claude Code, Cursor, Codex, GitHub Copilot, Gemini or any other [MCP](https://modelcontextprotocol.io/) client) to the **Godot editor**. The agent can read and change your scenes, nodes, resources and scripts, run C# in the editor, and look at screenshots. It is a C# editor addon with a companion CLI, [`godot-cli`](cli/README.md), and the Godot sibling of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
+**Godot-MCP** connects AI agents (Claude Code, Cursor, Codex, GitHub Copilot, Gemini or any other [MCP](https://modelcontextprotocol.io/) client) to the **Godot editor**. The agent can read and change your scenes, nodes, resources and scripts, build and run C#, and look at screenshots. It is an editor addon with a companion CLI, [`godot-cli`](cli/README.md), and the Godot sibling of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
-| At a glance | |
-| --- | --- |
-| **GDScript projects** | Supported: your game code can stay GDScript. The addon itself is C#, so you need the Godot **.NET** editor build and a C# project file (`.csproj`) in the project. |
-| **Godot versions** | 4.3 or later, .NET build. CI tests 4.3, 4.4, 4.5, 4.6 and 4.7 (on Linux) before every release. |
-| **Account** | Not needed. Without a sign-in the editor runs a local MCP server on your machine; the [ai-game.dev](https://ai-game.dev) cloud is optional. |
-| **Status** | 0.x releases ([latest](https://github.com/IvanMurzak/Godot-MCP/releases/latest)), published to the Godot Asset Library, GitHub Releases and npm. |
+## Why Godot-MCP
+
+✅ **Godot 4.3 to 4.7** — every release is tested in CI on 4.3, 4.4, 4.5, 4.6 and 4.7\
+✅ **Real C# builds** — `script-build` runs `dotnet build` and returns the compiler errors\
+✅ **GDScript checks** — `script-validate` returns parse and compile diagnostics for `.gd` files\
+✅ **Undoable, atomic edits** — a query's changes apply all or nothing, one Ctrl+Z each\
+✅ **Screenshots** — viewport, a camera, or one node rendered alone, returned to the agent\
+✅ **Runtime tools** — logs, C# reflection and runtime errors from a running game (opt-in)\
+✅ **Local, no account** — a local server on your machine; the ai-game.dev cloud is optional\
+✅ **No telemetry** — the addon and `godot-cli` send no usage or analytics data
+
+## Works with GDScript projects
+
+Your game code stays GDScript. The addon itself is C#, so the project needs a few one-time steps:
+
+✅ **Godot .NET editor** — open the project in the .NET build of Godot 4.3+ (same project, same scenes)\
+✅ **.NET 8 SDK** — installed once per machine\
+✅ **C# solution** — existing project: **Project → Tools → C# → Create C# solution**; new: `create-project --dotnet`\
+✅ **The addon** — `godot-cli install-plugin` adds it, its NuGet references, and enables it
+
+You keep your `.gd` scripts, scenes and resources as they are; the agent reads, writes and validates GDScript too.
 
 <p align="center">
   <img src="docs/img/terminal.svg" alt="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor" width="100%"/>
@@ -28,41 +43,29 @@
   <img src="docs/img/architecture.svg" alt="An AI agent talks MCP to a server (ai-game.dev, or a local gamedev-mcp-server); the server reaches the godot_mcp editor addon over SignalR; the addon runs tools on the Godot main thread" width="100%"/>
 </p>
 
-The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own.
-
-## Features
-
-✅ **One query language** — [RQL](docs/rql.md) reads and edits nodes, scenes, resources and settings\
-✅ **Undoable edits** — RQL changes are all-or-nothing and undo with Ctrl+Z\
-✅ **C# and GDScript** — create, update, validate and attach `.cs` / `.gd` scripts\
-✅ **Run C# in the editor** — `script-execute` runs a snippet against your game's types\
-✅ **Visual feedback** — screenshots of the viewport, a camera or one node\
-✅ **Local or cloud** — a local server on your machine, or the optional ai-game.dev relay\
-✅ **Extensions** — optional RQL modules for animation, navigation, tilemaps and addons\
-✅ **In-game runtime** — expose your own tools from a running game (off by default)\
-✅ **Your own tools** — one attributed C# method per tool ([guide](docs/custom-tools.md))
+The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own. Releases are 0.x ([latest](https://github.com/IvanMurzak/Godot-MCP/releases/latest)), published to the Godot Asset Library, GitHub Releases and npm.
 
 ## Quick start
 
-Requirements: Godot 4.3+ **.NET build**, the .NET 8 SDK, and Node.js 22.14+ for `godot-cli`.
+Requirements: the Godot 4.3+ .NET build, the .NET 8 SDK, and Node.js 22.14+ for `godot-cli`.
 
 ```bash
 npm install -g godot-cli
-
-godot-cli create-project --dotnet ./MyGodotProject    # optional: a new Godot C# project
 godot-cli install-plugin ./MyGodotProject             # addon + NuGet references + enable the plugin
 ```
 
-An existing GDScript project needs a `.csproj` first: in the Godot .NET editor use **Project → Tools → C# → Create C# solution**, then run `install-plugin`.
+Then pick how the agent reaches the editor. Both are complete setups.
 
-**Local, no account.** Skip `login`. `open` builds the C#, starts the editor, and the editor starts the project's local server; `open` prints its URL (`http://localhost:<port>`, a port derived from the project path).
+**Option A: local, no account.** Tool calls stay on your machine. `open` builds the C#, starts the editor, and the editor starts the project's local server; `open` prints its URL (`http://localhost:<port>`, a port derived from the project path).
 
 ```bash
 godot-cli open ./MyGodotProject
 godot-cli setup-mcp claude-code ./MyGodotProject --url http://localhost:<port>   # the URL open printed
 ```
 
-**Cloud (ai-game.dev).** Sign in once per machine; agent configs then carry a key bound to this project.
+The local server listens on loopback only, so its default authorization is `none`: only programs on your own computer can reach it. To require a token as well, choose **Authorization → token** in the dock's Custom mode (**Generate** creates one) and pass the same secret to `setup-mcp --token <secret>`.
+
+**Option B: ai-game.dev cloud.** Sign in once per machine; agent configs then carry a key bound to this project.
 
 ```bash
 godot-cli login                                       # OAuth device login in the browser
@@ -251,8 +254,4 @@ Related: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) 
 
 ## License
 
-This repository is [Apache-2.0](LICENSE) © Ivan Murzak.
-
-Two editor-side dependencies, [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) and Code-Exec, use the PolyForm Shield license.
-
-The [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) allows any use, commercial included, except providing a product that competes with that software or with a product its licensor provides using it. Your exported game never contains RQL, and contains Code-Exec only if you opt in to in-game C#.
+Godot-MCP is [Apache-2.0](LICENSE); its editor-side dependencies RQL and Code-Exec use the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), which allows any use, commercial included, except offering a product that competes with them or with the licensor's products built on them.
