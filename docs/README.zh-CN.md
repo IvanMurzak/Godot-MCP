@@ -50,8 +50,6 @@
 
 插件主动连接到一个 MCP 服务器，你的智能体连接到同一个服务器并调用插件的工具。服务器可以是插件替你下载并运行的本地 [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server)，也可以是托管的 [ai-game.dev](https://ai-game.dev) 中继。插件自身不开放任何端口。
 
-Cloud 是默认模式，因为它无需开放端口，并能避免与其他程序发生端口冲突；而且它是免费的。本地模式是完整的替代方案，适用于离线或物理隔离（air-gapped）环境。
-
 <a id="stability"></a>
 ### 稳定性
 

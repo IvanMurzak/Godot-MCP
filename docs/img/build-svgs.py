@@ -25,7 +25,7 @@ def hero_right():
 K.write(os.path.join(HERE, "hero.svg"), K.hero(
     title="Godot ", accent="MCP", accent_fx="flow", eyebrow_text="AI Game Developer",
     subtitle=["Let AI agents work in the Godot editor:", "scenes, nodes, scripts and resources."],
-    chip_items=["Godot 4.3+ .NET", "24 tools", "RQL", "CLI"], right=hero_right(),
+    chip_items=["Godot 4.3+ .NET", "C# & GDScript", "RQL", "CLI"], right=hero_right(),
     label="Godot MCP: AI agents work in the Godot editor on scenes, nodes, scripts and resources"))
 
 lbl = lambda x, y, t: f'<text x="{x}" y="{y}" text-anchor="middle" class="m" font-size="16" fill="{K.SECOND}">{t}</text>'
@@ -40,7 +40,7 @@ body = (K.eyebrow(140, 64, "AI agent", "middle") + K.eyebrow(455, 64, "MCP serve
         + K.card(30, 135, 220, 180, "AI agent", "Claude Code · Codex", accent="blue", sub2="Cursor · Copilot · …")
         + K.card(330, 115, 250, 100, "ai-game.dev", "Cloud, the default", accent="red", mono_title=True)
         + K.card(330, 235, 250, 100, "gamedev-mcp-server", "Custom: local or hosted", accent="red", mono_title=True)
-        + K.card(660, 135, 250, 180, "addons/godot_mcp", "24 tools, 9 families", accent="blue",
+        + K.card(660, 135, 250, 180, "addons/godot_mcp", "MCP tools for the editor", accent="blue",
                  mono_title=True, sub2="RQL, scripts, screenshots")
         + K.card(960, 135, 210, 180, "Your project", "scenes, nodes,", accent="green", sub2="scripts, resources")
         + f'<text x="600" y="410" text-anchor="middle" class="s" font-size="18" fill="{K.SECOND}">'

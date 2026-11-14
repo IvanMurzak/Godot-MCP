@@ -47,8 +47,6 @@ Your game code stays GDScript. The addon itself is C#, so the project needs a fe
 
 The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own.
 
-Cloud is the default because it needs no open ports and avoids port conflicts with other programs; it is free. Local mode is a full alternative for offline or air-gapped work.
-
 ### Stability
 
 - **Versioning:** the addon and `godot-cli` always ship with the same version number; read the [release notes](https://github.com/IvanMurzak/Godot-MCP/releases/latest) before you update.

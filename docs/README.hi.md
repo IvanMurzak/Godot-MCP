@@ -50,8 +50,6 @@
 
 Addon बाहर की ओर एक MCP server से connect होता है, और आपका एजेंट उसी server से connect होकर addon के tools को call करता है। Server या तो एक लोकल [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) होता है जिसे addon आपके लिए download करके चलाता है, या hosted [ai-game.dev](https://ai-game.dev) relay। Addon अपना कोई port नहीं खोलता।
 
-Cloud default है क्योंकि इसमें कोई port खोलना नहीं पड़ता और दूसरे programs से port conflicts नहीं होते; यह मुफ़्त है। लोकल mode offline या air-gapped काम के लिए एक पूरा विकल्प है।
-
 <a id="stability"></a>
 ### स्थिरता
 

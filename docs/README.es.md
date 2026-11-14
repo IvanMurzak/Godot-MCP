@@ -50,8 +50,6 @@ El código de tu juego sigue en GDScript. El addon en sí es C#, así que el pro
 
 El addon se conecta a un servidor MCP, y tu agente se conecta al mismo servidor y llama a las herramientas del addon. El servidor es un [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) local que el addon descarga y ejecuta por ti, o el relay alojado de [ai-game.dev](https://ai-game.dev). El addon no abre ningún puerto propio.
 
-Cloud es el modo predeterminado porque no necesita puertos abiertos y evita conflictos de puertos con otros programas; es gratuito. El modo local es una alternativa completa para trabajar sin conexión o en entornos aislados (air-gapped).
-
 <a id="stability"></a>
 ### Estabilidad
 
