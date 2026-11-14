@@ -99,7 +99,7 @@ Editor के **AssetLib** tab से, किसी [release zip](https://github
 <a id="relay"></a>
 ### ai-game.dev से क्या गुज़रता है
 
-सिर्फ़ Cloud mode में। Relay stateless है: यह आपके एजेंट और editor के बीच tool calls को उनका content inspect या persist किए बिना route करता है, और आपकी conversations, source code, project files, assets या scene data collect नहीं करता। यह request metadata (IP address, समय और अवधि, tool का नाम और call count, request और response का size) और MCP event metadata (event type, timing, status, session identifiers, tool, prompt या resource का नाम, और error details) record करता है। इन records का इस्तेमाल 90 दिनों की rolling window के भीतर होता है। विवरण: [Privacy Policy](https://ai-game.dev/legal/privacy)। लोकल mode में editor और server सिर्फ़ localhost पर बात करते हैं।
+सिर्फ़ Cloud mode में। Relay stateless है: यह आपके एजेंट और editor के बीच tool calls को उनका content inspect या persist किए बिना route करता है, और आपकी conversations, source code, project files, assets या scene data collect नहीं करता। यह request metadata (IP address, समय और अवधि, HTTP status code और request path, tool का नाम और call count, request और response का size, endpoint और client type) और MCP event metadata (event type, timing, status, session identifiers, tool, prompt या resource का नाम, और error details) record करता है। इन records का इस्तेमाल मुख्य रूप से 90 दिनों की rolling window के भीतर होता है; policy किसी तय अवधि के बाद delete करने का वादा नहीं करती। विवरण: [Privacy Policy](https://ai-game.dev/legal/privacy)। लोकल mode में editor और server सिर्फ़ localhost पर बात करते हैं।
 
 <a id="clients"></a>
 ## अपना AI client connect करें

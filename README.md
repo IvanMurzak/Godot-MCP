@@ -93,7 +93,7 @@ To install from the editor's **AssetLib** tab, from a [release zip](https://gith
 
 ### What goes through ai-game.dev
 
-Only in Cloud mode. The relay is stateless: it routes tool calls between your agent and the editor without inspecting or persisting their contents, and it does not collect your conversations, source code, project files, assets or scene data. It records request metadata (IP address, time and duration, tool name and call count, request and response size) and MCP event metadata (event type, timing, status, session identifiers, the tool, prompt or resource name, and error details). These records are used within a rolling 90-day window. Details: [Privacy Policy](https://ai-game.dev/legal/privacy). In local mode the editor and the server talk only over localhost.
+Only in Cloud mode. The relay is stateless: it routes tool calls between your agent and the editor without inspecting or persisting their contents, and it does not collect your conversations, source code, project files, assets or scene data. It records request metadata (IP address, time and duration, HTTP status code and request path, tool name and call count, request and response size, endpoint and client type) and MCP event metadata (event type, timing, status, session identifiers, the tool, prompt or resource name, and error details). These records are used primarily within a rolling 90-day window; the policy does not promise deletion at a fixed age. Details: [Privacy Policy](https://ai-game.dev/legal/privacy). In local mode the editor and the server talk only over localhost.
 
 ## Connect your AI client
 
