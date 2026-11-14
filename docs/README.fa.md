@@ -13,7 +13,7 @@
 
 ‏**Godot-MCP** عامل‌های هوش مصنوعی (Claude Code، Cursor، Codex، GitHub Copilot، Gemini یا هر کلاینت [MCP](https://modelcontextprotocol.io/) دیگری) را به **ویرایشگر Godot** وصل می‌کند. عامل می‌تواند صحنه‌ها، نودها، ریسورس‌ها و اسکریپت‌های شما را بخواند و تغییر دهد، کد C# را بیلد و اجرا کند و اسکرین‌شات‌ها را ببیند. این یک پلاگین (addon) ویرایشگر است همراه با یک CLI به نام [`godot-cli`](../cli/docs/README.fa.md)، و همتای Godotِ [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
-‏**پیش‌نیازها:** **بیلد .NET** ویرایشگر Godot 4.3+‎ و **.NET 8 SDK** که یک بار نصب می‌شود. اسکریپت‌های شما می‌توانند GDScript بمانند. ‏`godot-cli` (اختیاری) به Node.js 22.14+‎ نیاز دارد.
+‏**پیش‌نیازها:** **بیلد .NET** ویرایشگر Godot 4.3+‎ و **.NET 8 SDK** که یک بار نصب می‌شود. اسکریپت‌های شما می‌توانند GDScript بمانند. ‏`godot-cli` (اختیاری) به Node.js 22.14+‎ نیاز دارد. روی Windows،‏ macOS و Linux کار می‌کند.
 
 <a id="why"></a>
 ## چرا Godot-MCP

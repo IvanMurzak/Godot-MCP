@@ -11,7 +11,7 @@
 
 **Godot-MCP** 将 AI 智能体（Claude Code、Cursor、Codex、GitHub Copilot、Gemini 或任何其他 [MCP](https://modelcontextprotocol.io/) 客户端）连接到 **Godot 编辑器**。智能体可以读取和修改你的场景、节点、资源和脚本，构建并运行 C#，并查看截图。它是一个编辑器插件，配套 CLI 为 [`godot-cli`](../cli/docs/README.zh-CN.md)，也是 [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) 的 Godot 姊妹项目。
 
-**要求：** Godot 4.3+ 编辑器的 **.NET 版**，以及 **.NET 8 SDK**（只需安装一次）。你的脚本可以继续使用 GDScript。可选的 `godot-cli` 需要 Node.js 22.14+。
+**要求：** Godot 4.3+ 编辑器的 **.NET 版**，以及 **.NET 8 SDK**（只需安装一次）。你的脚本可以继续使用 GDScript。可选的 `godot-cli` 需要 Node.js 22.14+。支持 Windows、macOS 和 Linux。
 
 <a id="why"></a>
 ## 为什么选择 Godot-MCP

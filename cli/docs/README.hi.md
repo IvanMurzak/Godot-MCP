@@ -26,7 +26,7 @@
 <a id="quick-start"></a>
 ## क्विक स्टार्ट
 
-[Node.js](https://nodejs.org/) 22.14 या नया, और .NET 8 SDK के साथ Godot 4.3+ .NET editor चाहिए।
+[Node.js](https://nodejs.org/) 22.14 या नया, और .NET 8 SDK के साथ Godot 4.3+ .NET editor चाहिए। Windows, macOS और Linux पर काम करता है।
 
 ```bash
 npm install -g godot-cli

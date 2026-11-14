@@ -11,6 +11,7 @@
 
 - ‏**Godot 4.3 أو أحدث، إصدار .NET (mono).** يمكن أن تبقى شيفرة لعبتك بلغة GDScript، لكن الإضافة مكتوبة بـ C#: افتح المشروع في إصدار .NET من المحرر، وأعطه ملف مشروع C# (`.csproj`). لمشروع GDScript قائم استخدم **Project → Tools → C# → Create C# solution** مرة واحدة. يثبّت ملف csproj الخاص بالإضافة `Godot.NET.Sdk/4.3.0` حدًّا أدنى؛ ويختبر CI إصدارات Godot 4.3 و4.4 و4.5 و4.6 و4.7.
 - ‏ **.NET 8 SDK** (`net8.0`).
+- ‏ **Windows أو macOS أو Linux.** يعمل Godot-MCP على الأنظمة الثلاثة.
 
 <a id="1-add-the-addon"></a>
 ## 1. أضِف الإضافة

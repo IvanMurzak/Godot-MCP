@@ -32,7 +32,7 @@
 <a id="quick-start"></a>
 ## شروع سریع
 
-به [Node.js](https://nodejs.org/) 22.14 یا جدیدتر و یک ویرایشگر Godot 4.3+‎ نسخه‌ی .NET همراه با .NET 8 SDK نیاز دارد.
+به [Node.js](https://nodejs.org/) 22.14 یا جدیدتر و یک ویرایشگر Godot 4.3+‎ نسخه‌ی .NET همراه با .NET 8 SDK نیاز دارد. روی Windows،‏ macOS و Linux کار می‌کند.
 
 </div>
 

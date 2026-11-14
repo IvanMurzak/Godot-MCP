@@ -13,7 +13,7 @@
 
 ‏**Godot-MCP** يربط وكلاء الذكاء الاصطناعي (Claude Code وCursor وCodex وGitHub Copilot وGemini أو أي عميل [MCP](https://modelcontextprotocol.io/) آخر) بـ **محرر Godot**. يستطيع الوكيل قراءة مشاهدك وعُقدك ومواردك وسكربتاتك وتعديلها، وبناء C# وتشغيله، والاطلاع على لقطات الشاشة. وهو إضافة محرر ترافقها أداة سطر أوامر هي [`godot-cli`](../cli/docs/README.ar.md)، وهو النظير الخاص بـ Godot لمشروع [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
-‏**المتطلبات:** **إصدار .NET** من محرر Godot 4.3+ و**.NET 8 SDK**، يُثبَّت مرة واحدة. يمكن أن تبقى سكربتاتك بلغة GDScript. تحتاج أداة `godot-cli` الاختيارية إلى Node.js 22.14+.
+‏**المتطلبات:** **إصدار .NET** من محرر Godot 4.3+ و**.NET 8 SDK**، يُثبَّت مرة واحدة. يمكن أن تبقى سكربتاتك بلغة GDScript. تحتاج أداة `godot-cli` الاختيارية إلى Node.js 22.14+. يعمل على Windows وmacOS وLinux.
 
 <a id="why"></a>
 ## لماذا Godot-MCP

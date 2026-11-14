@@ -26,7 +26,7 @@
 <a id="quick-start"></a>
 ## 快速开始
 
-需要 [Node.js](https://nodejs.org/) 22.14 或更高版本，以及带 .NET 8 SDK 的 Godot 4.3+ .NET 编辑器。
+需要 [Node.js](https://nodejs.org/) 22.14 或更高版本，以及带 .NET 8 SDK 的 Godot 4.3+ .NET 编辑器。支持 Windows、macOS 和 Linux。
 
 ```bash
 npm install -g godot-cli

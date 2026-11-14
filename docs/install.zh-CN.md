@@ -9,6 +9,7 @@
 
 - **Godot 4.3 或更高版本的 .NET（mono）版。** 你的游戏代码可以继续使用 GDScript，但插件是 C#：请用 .NET 版编辑器打开项目，并为其提供一个 C# 项目文件（`.csproj`）。对于现有的 GDScript 项目，执行一次 **Project → Tools → C# → Create C# solution** 即可。插件的 csproj 以 `Godot.NET.Sdk/4.3.0` 作为最低版本；CI 测试 Godot 4.3、4.4、4.5、4.6 和 4.7。
 - **.NET 8 SDK**（`net8.0`）。
+- **Windows、macOS 或 Linux。** Godot-MCP 在这三个系统上都能运行。
 
 <a id="1-add-the-addon"></a>
 ## 1. 添加插件

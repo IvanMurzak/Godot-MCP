@@ -11,7 +11,7 @@
 
 **Godot-MCP** は、AI エージェント(Claude Code、Cursor、Codex、GitHub Copilot、Gemini、その他任意の [MCP](https://modelcontextprotocol.io/) クライアント)を **Godot エディター**につなぎます。エージェントはシーン、ノード、リソース、スクリプトを読み取って変更し、C# をビルドして実行し、スクリーンショットを確認できます。コンパニオン CLI [`godot-cli`](../cli/docs/README.ja.md) が付属するエディターアドオンで、[Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) の Godot 版です。
 
-**必要なもの:** Godot 4.3+ エディターの **.NET 版**と **.NET 8 SDK**(一度インストールするだけ)。スクリプトは GDScript のままでかまいません。オプションの `godot-cli` には Node.js 22.14+ が必要です。
+**必要なもの:** Godot 4.3+ エディターの **.NET 版**と **.NET 8 SDK**(一度インストールするだけ)。スクリプトは GDScript のままでかまいません。オプションの `godot-cli` には Node.js 22.14+ が必要です。Windows、macOS、Linux で動作します。
 
 <a id="why"></a>
 ## Godot-MCP を選ぶ理由

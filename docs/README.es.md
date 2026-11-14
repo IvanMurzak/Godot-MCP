@@ -11,7 +11,7 @@
 
 **Godot-MCP** conecta agentes de IA (Claude Code, Cursor, Codex, GitHub Copilot, Gemini o cualquier otro cliente [MCP](https://modelcontextprotocol.io/)) con el **editor de Godot**. El agente puede leer y modificar tus escenas, nodos, recursos y scripts, compilar y ejecutar C# y ver capturas de pantalla. Es un addon de editor con una CLI complementaria, [`godot-cli`](../cli/docs/README.es.md), y el hermano para Godot de [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
-**Requisitos:** la **versión .NET** del editor de Godot 4.3+ y el **SDK de .NET 8**, que se instala una sola vez. Tus scripts pueden seguir en GDScript. La `godot-cli` opcional necesita Node.js 22.14+.
+**Requisitos:** la **versión .NET** del editor de Godot 4.3+ y el **SDK de .NET 8**, que se instala una sola vez. Tus scripts pueden seguir en GDScript. La `godot-cli` opcional necesita Node.js 22.14+. Funciona en Windows, macOS y Linux.
 
 <a id="why"></a>
 ## Por qué Godot-MCP
