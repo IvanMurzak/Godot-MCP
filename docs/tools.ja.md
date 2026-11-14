@@ -2,7 +2,7 @@
 
 # ツールリファレンス
 
-Godot-MCP には **9 ファミリー**、**24 個の組み込みツール**があります。エディターのデータ層は [RQL](rql.md)(Reflection Query Language)です: `rql-query`、`rql-mutate`、`rql-schema` は、操作ごとに 1 つのツールを使う代わりに、ひとつのクエリでシーンのノード、Godot のプロパティ、リソース、ファイル、シーン、エディターの状態を読み取り、変更します。
+Godot-MCP の組み込みツールは、Godot エディターでできることのほぼすべてをカバーし、以下のファミリーに分類されています。ツールはコンパクトなので、エージェントに必要な呼び出しもトークンも少なくて済みます([RQL のエージェント評価で測定](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md))。エディターのデータ層は [RQL](rql.md)(Reflection Query Language)です: `rql-query`、`rql-mutate`、`rql-schema` は、操作ごとに 1 つのツールを使う代わりに、ひとつのクエリでシーンのノード、Godot のプロパティ、リソース、ファイル、シーン、エディターの状態を読み取り、変更します。
 
 既定の `toolFormat`(`Rql`)では、他のツールは RQL の値を引数に取り、コンパクトなテキストを返します。`Json` では ReflectorNet の JSON スキーマと結果のままになります。スクリーンショットは PNG 画像を返します。すべてのエディターツールは、アドオンを有効にした時点で使えます。
 

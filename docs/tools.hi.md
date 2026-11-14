@@ -2,7 +2,7 @@
 
 # Tools reference
 
-Godot-MCP में **9 families** में **24 built-in tools** आते हैं। Editor की data layer [RQL](rql.md) (Reflection Query Language) है: `rql-query`, `rql-mutate` और `rql-schema` हर operation के लिए एक tool की बजाय एक ही query में scene nodes, Godot properties, resources, files, scenes और editor state पढ़ते और बदलते हैं।
+Godot-MCP के built-in tools, Godot editor में आप जो कुछ भी कर सकते हैं उसका लगभग सब कुछ cover करते हैं, और नीचे दी गई families में बंटे हैं। ये compact हैं, इसलिए एजेंट को कम calls और कम tokens लगते हैं ([RQL के agent evaluation में मापा गया](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md))। Editor की data layer [RQL](rql.md) (Reflection Query Language) है: `rql-query`, `rql-mutate` और `rql-schema` हर operation के लिए एक tool की बजाय एक ही query में scene nodes, Godot properties, resources, files, scenes और editor state पढ़ते और बदलते हैं।
 
 Default `toolFormat` (`Rql`) के साथ बाकी tools arguments के रूप में RQL values लेते हैं और compact text लौटाते हैं; `Json` ReflectorNet के JSON schemas और results रखता है। Screenshots एक PNG image लौटाते हैं। Addon enable होते ही हर editor tool उपलब्ध हो जाता है।
 

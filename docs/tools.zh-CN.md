@@ -2,7 +2,7 @@
 
 # 工具参考
 
-Godot-MCP 内置 **24 个工具**，分为 **9 个系列**。编辑器的数据层是 [RQL](rql.md)（Reflection Query Language）：`rql-query`、`rql-mutate` 和 `rql-schema` 用一条查询读取和修改场景节点、Godot 属性、资源、文件、场景和编辑器状态，而不是每种操作一个工具。
+Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，按下列系列分组。它们很紧凑，因此智能体需要更少的调用和更少的 token（[在 RQL 的智能体评估中测得](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md)）。编辑器的数据层是 [RQL](rql.md)（Reflection Query Language）：`rql-query`、`rql-mutate` 和 `rql-schema` 用一条查询读取和修改场景节点、Godot 属性、资源、文件、场景和编辑器状态，而不是每种操作一个工具。
 
 在默认的 `toolFormat`（`Rql`）下，其他工具以 RQL 值作为参数并返回紧凑的文本；`Json` 则保留 ReflectorNet 的 JSON schema 和结果。截图返回 PNG 图像。插件启用后，所有编辑器工具即可使用。
 

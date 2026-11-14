@@ -108,7 +108,7 @@ editors keep answering tool calls with an old build).
   context, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin` (stale statics, and a
   GodotSharp copy crashes the editor on its first engine call). Never pin Code-Exec below 0.2.1.
 - **Tool families are mirrored.** Adding/removing a tool or family: update `cli/src/utils/skills.ts`
-  (`SKILL_FAMILIES`) and the counts/tables in `README.md` and `docs/tools.md`; `cli/tests/skills-addon-parity.test.ts` fails on drift.
+  (`SKILL_FAMILIES`) and the tables in `README.md` and `docs/tools.md` (no tool counts in docs); `cli/tests/skills-addon-parity.test.ts` fails on drift.
 - **RQL guide examples run live.** `Editor/Rql/RqlGuide.cs` examples are mirrored by
   `Godot-Tests/fixtures/rql-guide-examples.json` (xUnit parity) and executed in order by `scripts/smoke_rql.py`; keep them
   runnable top to bottom against its fixture scene.

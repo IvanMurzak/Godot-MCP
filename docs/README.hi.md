@@ -101,7 +101,7 @@ Editor के **AssetLib** tab से, किसी [release zip](https://github
 <a id="relay"></a>
 ### ai-game.dev से क्या गुज़रता है
 
-सिर्फ़ Cloud mode में। Relay आपके एजेंट और editor के बीच tool calls को route करता है। आप जो भेजते हैं, वह store नहीं करता: न request या response का content, न conversations, source code, project files या assets। यह सिर्फ़ metadata रखता है, 90 दिनों तक: IP address, समय और अवधि, tool का नाम और call count, request और response का size, और MCP events (type, status, tool का नाम, errors)। लोकल mode में editor और server सिर्फ़ localhost पर बात करते हैं।
+सिर्फ़ Cloud mode में। Relay stateless है: यह आपके एजेंट और editor के बीच tool calls को उनका content inspect या persist किए बिना route करता है, और आपकी conversations, source code, project files, assets या scene data collect नहीं करता। यह request metadata (IP address, समय और अवधि, tool का नाम और call count, request और response का size) और MCP event metadata (event type, timing, status, session identifiers, tool, prompt या resource का नाम, और error details) record करता है। इन records का इस्तेमाल 90 दिनों की rolling window के भीतर होता है। विवरण: [Privacy Policy](https://ai-game.dev/legal/privacy)। लोकल mode में editor और server सिर्फ़ localhost पर बात करते हैं।
 
 <a id="clients"></a>
 ## अपना AI client connect करें
@@ -179,7 +179,10 @@ godot-cli setup-mcp gemini ./MyGodotProject
 <a id="what-the-agent-can-do"></a>
 ## एजेंट क्या कर सकता है
 
-Godot-MCP में **9 families** में **24 built-in tools** आते हैं। Queries आपको नहीं लिखनी पड़तीं: एजेंट tools के साथ आने वाली RQL गाइड (`rql-schema`, `godot-rql` skill) पढ़ता है और उन्हें खुद लिखता है।
+**Coverage:** Godot editor में आप जो कुछ भी कर सकते हैं, एजेंट लगभग वह सब कर सकता है: scenes, nodes, resources, project settings, scripts, C# builds, screenshots और चलता हुआ game।\
+**Efficiency:** tools compact हैं, इसलिए एजेंट को कम calls और कम tokens लगते हैं और वह तेज़ी से और सस्ते में काम करता है। यह tests में मापा गया है: एक sandbox game world पर [RQL के agent evaluation](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md) में एक task में RQL के साथ 2–3 tool calls और लगभग 8k tokens लगे, जबकि पारंपरिक find / get / set reflection tools के साथ लगभग 37 calls और 169k tokens।
+
+Queries आपको नहीं लिखनी पड़तीं: एजेंट tools के साथ आने वाली RQL गाइड (`rql-schema`, `godot-rql` skill) पढ़ता है और उन्हें खुद लिखता है।
 
 | क्षमता | Tools | अपने एजेंट से कहें |
 | --- | --- | --- |
@@ -211,7 +214,7 @@ godot-cli tools               # editor के tools की सूची
 | **लोकल server** | सिर्फ़ loopback पर सुनता है। इसका default authorization `none` है, इसलिए आपकी मशीन का कोई भी process इसे call कर सकता है। Bearer token ज़रूरी करने के लिए dock में `token` चुनें, `GODOT_MCP_TOKEN` सेट करें, या editor को `godot-cli open <path> --mode Custom --auth Required --token <token>` से खोलें। |
 | **Origin checks** | Server हर authorization mode में, ऐसे request को जिसका `Origin` header allowed नहीं है, `403` लौटाता है (DNS-rebinding से बचाव)। |
 | **Editor addon** | कोई port नहीं खोलता; यह बाहर की ओर server से connect होता है। `127.0.0.1` पर सिर्फ़ development वाला एक control bridge केवल `GODOT_MCP_DEV_CONTROL=1` होने पर शुरू होता है। |
-| **Cloud** | एजेंट configs में एक ही प्रोजेक्ट से बंधी key होती है; editor आपकी मशीन का sign-in इस्तेमाल करता है। आपका account token सिर्फ़ ai-game.dev या किसी localhost server को जाता है। Relay request या response का content store नहीं करता और सिर्फ़ metadata रखता है, 90 दिनों तक। |
+| **Cloud** | एजेंट configs में एक ही प्रोजेक्ट से बंधी key होती है; editor आपकी मशीन का sign-in इस्तेमाल करता है। आपका account token सिर्फ़ ai-game.dev या किसी localhost server को जाता है। Relay stateless है: यह tool calls का content inspect या persist नहीं करता ([Privacy Policy](https://ai-game.dev/legal/privacy))। |
 | **Stored tokens** | Editor अपना token `user://godot-mcp-config.json` में सादे JSON के रूप में save करता है; उस file को secret मानें। |
 | **Exported games** | Game में कुछ भी तब तक नहीं चलता जब तक आपका code `GodotMcpRuntime.Initialize(...)` और `Connect()` call न करे, और तब भी सिर्फ़ वही tools जो आप register करते हैं। Error capture और game के अंदर C# अलग-अलग opt-ins हैं ([runtime security](runtime-security.hi.md))। |
 | **सुरक्षित नहीं** | Tool calls आपका प्रोजेक्ट बदलती हैं और editor में C# चलाती हैं: version control इस्तेमाल करें, और authorization `none` वाले server को कभी network पर expose न करें। |

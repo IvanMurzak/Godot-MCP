@@ -6,7 +6,7 @@ The editor plugin connects to an MCP server in one of two modes. Set the mode in
 
 ## Cloud mode (default): ai-game.dev
 
-The plugin connects to `https://ai-game.dev`; you run no server. Cloud is the default because it needs no open ports and avoids port conflicts with other programs; it is free. The relay stores no request or response content and keeps only metadata, for 90 days.
+The plugin connects to `https://ai-game.dev`; you run no server. Cloud is the default because it needs no open ports and avoids port conflicts with other programs; it is free. The relay is stateless: it routes tool calls without inspecting or persisting their contents, and records request and MCP event metadata ([Privacy Policy](https://ai-game.dev/legal/privacy)).
 
 Sign in once with `godot-cli login`. It uses the OAuth 2.1 device flow (RFC 8628): it prints a short code, opens your browser and, after you approve, saves a credential to the machine store (`~/.ai-game-dev/credentials.json`). The editor plugin picks it up, so there is no token to copy.
 

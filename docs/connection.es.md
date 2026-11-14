@@ -7,7 +7,7 @@ El plugin del editor se conecta a un servidor MCP en uno de dos modos. Elige el 
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## Modo Cloud (predeterminado): ai-game.dev
 
-El plugin se conecta a `https://ai-game.dev`; no ejecutas ningún servidor. Cloud es el modo predeterminado porque no necesita puertos abiertos y evita conflictos de puertos con otros programas; es gratuito. El relay no almacena el contenido de las peticiones ni de las respuestas y solo conserva metadatos, durante 90 días.
+El plugin se conecta a `https://ai-game.dev`; no ejecutas ningún servidor. Cloud es el modo predeterminado porque no necesita puertos abiertos y evita conflictos de puertos con otros programas; es gratuito. El relay no tiene estado: enruta las llamadas a herramientas sin inspeccionar ni conservar su contenido, y registra metadatos de las peticiones y de los eventos MCP ([Política de privacidad](https://ai-game.dev/legal/privacy)).
 
 Inicia sesión una vez con `godot-cli login`. Usa el flujo de dispositivo de OAuth 2.1 (RFC 8628): muestra un código corto, abre tu navegador y, cuando apruebas, guarda una credencial en el almacén del equipo (`~/.ai-game-dev/credentials.json`). El plugin del editor la recoge, así que no hay ningún token que copiar.
 

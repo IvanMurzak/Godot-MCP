@@ -7,7 +7,7 @@
 <a id="cloud-mode-default-ai-gamedev"></a>
 ## Cloud 模式（默认）：ai-game.dev
 
-插件连接到 `https://ai-game.dev`；你无需运行任何服务器。Cloud 是默认模式，因为它无需开放端口，并能避免与其他程序发生端口冲突；而且它是免费的。中继不存储请求或响应内容，只保留元数据，保存 90 天。
+插件连接到 `https://ai-game.dev`；你无需运行任何服务器。Cloud 是默认模式，因为它无需开放端口，并能避免与其他程序发生端口冲突；而且它是免费的。中继是无状态的：它转发工具调用，不检查也不持久保存其内容，并记录请求和 MCP 事件的元数据（[隐私政策](https://ai-game.dev/legal/privacy)）。
 
 用 `godot-cli login` 登录一次即可。它使用 OAuth 2.1 设备授权流程（RFC 8628）：打印一个短代码，打开浏览器，你批准后将凭据保存到本机存储（`~/.ai-game-dev/credentials.json`）。编辑器插件会自动读取它，因此无需复制任何令牌。
 

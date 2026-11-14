@@ -101,7 +101,7 @@ Para instalar desde la pestaña **AssetLib** del editor, desde un [zip de releas
 <a id="relay"></a>
 ### Qué pasa por ai-game.dev
 
-Solo en modo Cloud. El relay enruta las llamadas a herramientas entre tu agente y el editor. No almacena lo que envías: ni contenido de peticiones o respuestas, ni conversaciones, código fuente, archivos del proyecto o assets. Solo conserva metadatos, durante 90 días: dirección IP, hora y duración, nombre de la herramienta y número de llamadas, tamaño de la petición y de la respuesta, y eventos MCP (tipo, estado, nombre de la herramienta, errores). En modo local, el editor y el servidor solo se comunican a través de localhost.
+Solo en modo Cloud. El relay no tiene estado: enruta las llamadas a herramientas entre tu agente y el editor sin inspeccionar ni conservar su contenido, y no recopila tus conversaciones, código fuente, archivos del proyecto, assets ni datos de escena. Registra metadatos de las peticiones (dirección IP, hora y duración, nombre de la herramienta y número de llamadas, tamaño de la petición y de la respuesta) y metadatos de eventos MCP (tipo de evento, tiempos, estado, identificadores de sesión, nombre de la herramienta, del prompt o del recurso, y detalles de errores). Estos registros se usan dentro de una ventana móvil de 90 días. Detalles: [Política de privacidad](https://ai-game.dev/legal/privacy). En modo local, el editor y el servidor solo se comunican a través de localhost.
 
 <a id="clients"></a>
 ## Conecta tu cliente de IA
@@ -179,7 +179,10 @@ También compatibles: Claude Desktop, Visual Studio (Copilot), GitHub Copilot CL
 <a id="what-the-agent-can-do"></a>
 ## Qué puede hacer el agente
 
-Godot-MCP incluye **24 herramientas integradas** en **9 familias**. No escribes consultas: el agente lee la guía de RQL que acompaña a las herramientas (`rql-schema`, el skill `godot-rql`) y las escribe él mismo.
+**Cobertura:** el agente puede hacer prácticamente todo lo que tú puedes hacer en el editor de Godot: escenas, nodos, recursos, ajustes del proyecto, scripts, compilaciones de C#, capturas de pantalla y un juego en ejecución.\
+**Eficiencia:** las herramientas son compactas, así que el agente necesita menos llamadas y menos tokens y trabaja más rápido y más barato. Está medido en pruebas: en la [evaluación de agentes de RQL](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md) sobre un mundo de juego de prueba (sandbox), una tarea requirió 2–3 llamadas a herramientas y unos 8k tokens con RQL, frente a unas 37 llamadas y 169k tokens con herramientas de reflexión convencionales de tipo find / get / set.
+
+No escribes consultas: el agente lee la guía de RQL que acompaña a las herramientas (`rql-schema`, el skill `godot-rql`) y las escribe él mismo.
 
 | Capacidad | Herramientas | Pídele a tu agente |
 | --- | --- | --- |
@@ -211,7 +214,7 @@ godot-cli tools               # listar las herramientas del editor
 | **Servidor local** | Solo escucha en loopback. Su autorización predeterminada es `none`, así que cualquier proceso de tu equipo puede llamarlo. Elige `token` en el dock, define `GODOT_MCP_TOKEN` o abre el editor con `godot-cli open <path> --mode Custom --auth Required --token <token>` para exigir un token bearer. |
 | **Comprobación de Origin** | El servidor responde `403` a una petición con una cabecera `Origin` no permitida, en cualquier modo de autorización (defensa contra DNS rebinding). |
 | **Addon del editor** | No abre ningún puerto; se conecta hacia fuera al servidor. Un puente de control solo para desarrollo en `127.0.0.1` solo se inicia con `GODOT_MCP_DEV_CONTROL=1`. |
-| **Nube** | Las configuraciones de agente llevan una clave vinculada a un único proyecto; el editor usa el inicio de sesión de tu equipo. El token de tu cuenta solo va a ai-game.dev o a un servidor localhost. El relay no almacena contenido de peticiones ni de respuestas y solo conserva metadatos, durante 90 días. |
+| **Nube** | Las configuraciones de agente llevan una clave vinculada a un único proyecto; el editor usa el inicio de sesión de tu equipo. El token de tu cuenta solo va a ai-game.dev o a un servidor localhost. El relay no tiene estado: no inspecciona ni conserva el contenido de las llamadas a herramientas ([Política de privacidad](https://ai-game.dev/legal/privacy)). |
 | **Tokens guardados** | El editor guarda su token como JSON plano en `user://godot-mcp-config.json`; trata ese archivo como un secreto. |
 | **Juegos exportados** | No se ejecuta nada en un juego salvo que tu código llame a `GodotMcpRuntime.Initialize(...)` y a `Connect()`, y solo con las herramientas que registres. La captura de errores y el C# dentro del juego se activan por separado ([seguridad en runtime](runtime-security.es.md)). |
 | **Sin protección** | Las llamadas a herramientas modifican tu proyecto y ejecutan C# en el editor: usa control de versiones y nunca expongas a una red un servidor con autorización `none`. |

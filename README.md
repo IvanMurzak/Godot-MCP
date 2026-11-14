@@ -95,7 +95,7 @@ To install from the editor's **AssetLib** tab, from a [release zip](https://gith
 
 ### What goes through ai-game.dev
 
-Only in Cloud mode. The relay routes tool calls between your agent and the editor. It does not store what you send: no request or response content, no conversations, source code, project files or assets. It keeps only metadata, for 90 days: IP address, time and duration, tool name and call count, request and response size, and MCP events (type, status, tool name, errors). In local mode the editor and the server talk only over localhost.
+Only in Cloud mode. The relay is stateless: it routes tool calls between your agent and the editor without inspecting or persisting their contents, and it does not collect your conversations, source code, project files, assets or scene data. It records request metadata (IP address, time and duration, tool name and call count, request and response size) and MCP event metadata (event type, timing, status, session identifiers, the tool, prompt or resource name, and error details). These records are used within a rolling 90-day window. Details: [Privacy Policy](https://ai-game.dev/legal/privacy). In local mode the editor and the server talk only over localhost.
 
 ## Connect your AI client
 
@@ -171,7 +171,10 @@ Also supported: Claude Desktop, Visual Studio (Copilot), GitHub Copilot CLI, Rid
 
 ## What the agent can do
 
-Godot-MCP ships **24 built-in tools** in **9 families**. You do not write queries: the agent reads the RQL guide that comes with the tools (`rql-schema`, the `godot-rql` skill) and writes them itself.
+**Coverage:** the agent can do virtually anything you can do in the Godot editor: scenes, nodes, resources, project settings, scripts, C# builds, screenshots and a running game.\
+**Efficiency:** the tools are compact, so the agent needs fewer calls and fewer tokens and works faster and cheaper. This is measured in tests: in [RQL's agent evaluation](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md) on a sandbox game world, a task took 2–3 tool calls and about 8k tokens with RQL, against about 37 calls and 169k tokens with conventional find / get / set reflection tools.
+
+You do not write queries: the agent reads the RQL guide that comes with the tools (`rql-schema`, the `godot-rql` skill) and writes them itself.
 
 | Capability | Tools | Ask your agent |
 | --- | --- | --- |
@@ -202,7 +205,7 @@ godot-cli tools               # list the editor's tools
 | **Local server** | Listens on loopback only. Its default authorization is `none`, so any process on your machine can call it. Choose `token` in the dock, set `GODOT_MCP_TOKEN`, or open the editor with `godot-cli open <path> --mode Custom --auth Required --token <token>` to require a bearer token. |
 | **Origin checks** | The server answers `403` to a request with a non-allowed `Origin` header, in every authorization mode (DNS-rebinding defense). |
 | **Editor addon** | Opens no port; it connects out to the server. A dev-only control bridge on `127.0.0.1` starts only with `GODOT_MCP_DEV_CONTROL=1`. |
-| **Cloud** | Agent configs carry a key bound to one project; the editor uses your machine sign-in. Your account token goes only to ai-game.dev or a localhost server. The relay stores no request or response content and keeps only metadata, for 90 days. |
+| **Cloud** | Agent configs carry a key bound to one project; the editor uses your machine sign-in. Your account token goes only to ai-game.dev or a localhost server. The relay is stateless: it does not inspect or persist tool-call contents ([Privacy Policy](https://ai-game.dev/legal/privacy)). |
 | **Stored tokens** | The editor saves its token as plain JSON in `user://godot-mcp-config.json`; treat that file as a secret. |
 | **Exported games** | Nothing runs in a game unless your code calls `GodotMcpRuntime.Initialize(...)` and `Connect()`, with only the tools you register. Error capture and in-game C# are separate opt-ins ([runtime security](docs/runtime-security.md)). |
 | **Not protected** | Tool calls change your project and run C# in the editor: use version control, and never expose a server with authorization `none` to a network. |
