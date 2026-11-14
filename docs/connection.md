@@ -24,13 +24,13 @@ The plugin connects to a server URL you choose: a local server, or a self-hosted
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `GODOT_MCP_CONNECTION_MODE` | Set to `Custom`. | `Cloud` |
-| `GODOT_MCP_HOST` | Server URL, an absolute http(s) URL. | `http://localhost:8080` |
+| `GODOT_MCP_HOST` | Server URL, an absolute http(s) URL. | `http://localhost:<port>`, a port derived from the project path |
 | `GODOT_MCP_TOKEN` | Bearer token sent to that server. Setting it selects `token` authorization. | none |
 | `GODOT_MCP_AUTH_OPTION` | `none` / `oauth` / `token`; overrides the rule above. | saved choice, else `none` |
 
 ```bash
 export GODOT_MCP_CONNECTION_MODE=Custom
-export GODOT_MCP_HOST=http://localhost:8080
+export GODOT_MCP_HOST=http://localhost:<port>
 # export GODOT_MCP_TOKEN=...   # only if the server requires auth
 ```
 
@@ -48,7 +48,9 @@ In Custom mode, open the dock's **Server** card and press **Start Server**. The 
 
 - downloads `gamedev-mcp-server-<rid>.zip` for the pinned version over HTTPS from the GameDev-MCP-Server GitHub release (`win-x64`, `win-x86`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`);
 - caches it in `.godot/mcp-server/<rid>/` and downloads again only when the pinned version changes;
-- starts it on the port of your **Server URL** (default `http://localhost:8080`) and connects to it.
+- starts it on the port of your **Server URL** (by default a port derived from the project path) and connects to it.
+
+The server listens on loopback only and answers `403` to a request with a non-allowed `Origin` header (DNS-rebinding defense). It uses the authorization chosen in the dock: with `none` any process on your machine can call it, with `token` it requires the bearer token. Bind, authorization and Origin rules: [GameDev-MCP-Server README](https://github.com/IvanMurzak/GameDev-MCP-Server#readme).
 
 **Stop Server** stops it; closing the editor stops it too. The download URL comes only from the pinned version and your platform. Offline, the addon logs a warning and the server does not start. Under CI (`CI` / `GITHUB_ACTIONS`) the download is skipped.
 
