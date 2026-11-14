@@ -143,7 +143,7 @@ configuration required. The **runtime-errors**, **console** and **reflection** f
 | Family | Tools | What it does |
 | --- | --- | --- |
 | **ping** | `ping` | Lightweight readiness probe — echoes a message back, or returns `pong`. Verifies the end-to-end MCP path (editor → SignalR → tool dispatch). **System tool** — reachable over the server's `/api/system-tools/` HTTP surface, not advertised to AI agents in `tools/list`. |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `classes`, `console`, `editor`, `project`, `settings`, `inputActions`, `autoloads`, `groups`, `layers`, `tools` (every MCP tool, hidden ones included) sources; `rql-schema "<extension>"` prints an installed extension's guide; `godot.find` / `godot.group` / `godot.resources` / `godot.resource` / `godot.callable`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free / Connect / Disconnect / AddToGroup / RemoveFromGroup; project settings, input map, autoloads, layer names, TileSets, Themes, ShaderMaterial parameters and MeshLibraries; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / CreateFolder / DeleteFolder / Reimport. All-or-nothing and undoable. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor with RQL: `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `classes`, `console`, `editor`, `project`, `settings`, `inputActions`, `autoloads`, `groups`, `layers`, `tools` (every MCP tool, hidden ones included) sources; `rql-schema "<extension>"` prints an installed extension's guide; `godot.find` / `godot.group` / `godot.resources` / `godot.resource` / `godot.callable`; node calls AddChild / InstantiateScene / Duplicate / Reparent / MoveChild / Free / Connect / Disconnect / AddToGroup / RemoveFromGroup; project settings, input map, autoloads, layer names, TileSets, Themes, ShaderMaterial parameters and MeshLibraries; editor calls NewScene / OpenScene / SaveScene / CreateResource / MoveResource / DeleteResource / CreateFolder / DeleteFolder / Reimport. All-or-nothing and undoable; several statements per call, separated by `;`. See [docs/rql.md](docs/rql.md) and the `godot-rql` skill. |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | CRUD on C# (`.cs`) and GDScript (`.gd`) files, attaching a script to a node, validating GDScript, building the project's C# (the result arrives after Godot's assembly reload), and running C# in the editor ([Code-Exec](https://github.com/IvanMurzak/Code-Exec)). |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a specific camera, or an isolated node render, returned as a PNG image the LLM can inspect. Optional `savePath` also writes the PNG inside the project. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the log collector (`GD.Print`/`GD.PushWarning`/`GD.PushError`). In the editor, the RQL `console` source. |
@@ -343,13 +343,13 @@ package assemblies are not copied next to the game assembly):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.22.2" />
+  <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.3" />
+  <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.23.1" />
 </ItemGroup>
 
 <!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="0.4.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="4.12.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -363,9 +363,9 @@ package assemblies are not copied next to the game assembly):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.2` | Reflection / serialization core |
-| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.22.2` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.3.0` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | `5.5.3` | Reflection / serialization core |
+| [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | `8.23.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`; carries the shared `AgentConfig` module) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | `0.4.0` | RQL, the editor tools' data layer (licensed separately under PolyForm Shield — see [License](#license)) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) | `0.4.1` | Code-Exec runtime behind `script-execute` (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | `0.4.1` | Code-Exec's Roslyn adapter, shipped as source (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | `4.12.0` | Roslyn, the C# compiler `script-execute` runs (its dependencies match .NET 8) |
