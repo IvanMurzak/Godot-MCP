@@ -11,6 +11,8 @@
 
 **Godot-MCP** connects AI agents (Claude Code, Cursor, Codex, GitHub Copilot, Gemini or any other [MCP](https://modelcontextprotocol.io/) client) to the **Godot editor**. The agent can read and change your scenes, nodes, resources and scripts, build and run C#, and look at screenshots. It is an editor addon with a companion CLI, [`godot-cli`](cli/README.md), and the Godot sibling of [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
+**Requirements:** the **.NET build** of the Godot 4.3+ editor and the **.NET 8 SDK**, installed once. Your scripts can stay GDScript. The optional `godot-cli` needs Node.js 22.14+.
+
 ## Why Godot-MCP
 
 ✅ **Godot 4.3 to 4.7** — every release is tested in CI on 4.3, 4.4, 4.5, 4.6 and 4.7\
@@ -43,11 +45,18 @@ You keep your `.gd` scripts, scenes and resources as they are; the agent reads, 
   <img src="docs/img/architecture.svg" alt="An AI agent talks MCP to a server (ai-game.dev, or a local gamedev-mcp-server); the server reaches the godot_mcp editor addon over SignalR; the addon runs tools on the Godot main thread" width="100%"/>
 </p>
 
-The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own. Releases are 0.x ([latest](https://github.com/IvanMurzak/Godot-MCP/releases/latest)), published to the Godot Asset Library, GitHub Releases and npm.
+The addon connects out to an MCP server, and your agent connects to the same server and calls the addon's tools. The server is either a local [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) that the addon downloads and runs for you, or the hosted [ai-game.dev](https://ai-game.dev) relay. The addon opens no port of its own.
+
+### Stability
+
+- **Versioning:** 0.MINOR.PATCH. The addon and `godot-cli` always ship with the same version number; read the release notes before you update.
+- **Releases:** 10 releases from 22 October to 12 November 2026 ([all releases](https://github.com/IvanMurzak/Godot-MCP/releases)), each published to GitHub Releases and npm; the [Asset Library entry](https://godotengine.org/asset-library/asset/5245) is at 0.39.1.
+- **Release gate:** a release is cut only after the .NET tests, the CLI tests and the Godot 4.3–4.7 editor tests pass.
+- **Change history:** every [GitHub release](https://github.com/IvanMurzak/Godot-MCP/releases) lists its merged changes; `godot-cli` also keeps a [changelog](cli/CHANGELOG.md).
 
 ## Quick start
 
-Requirements: the Godot 4.3+ .NET build, the .NET 8 SDK, and Node.js 22.14+ for `godot-cli`.
+Install `godot-cli` (Node.js 22.14+) and add the addon to your project:
 
 ```bash
 npm install -g godot-cli
@@ -63,7 +72,9 @@ godot-cli open ./MyGodotProject
 godot-cli setup-mcp claude-code ./MyGodotProject --url http://localhost:<port>   # the URL open printed
 ```
 
-The local server listens on loopback only, so its default authorization is `none`: only programs on your own computer can reach it. To require a token as well, choose **Authorization → token** in the dock's Custom mode (**Generate** creates one) and pass the same secret to `setup-mcp --token <secret>`.
+> **Default authorization is `none`.** The local server listens on loopback only, so only programs on your own computer can reach it.
+> To require a token: in the dock's Custom mode choose **Authorization → token** (**Generate** creates one), then run
+> `godot-cli setup-mcp claude-code ./MyGodotProject --url http://localhost:<port> --token <secret>`.
 
 **Option B: ai-game.dev cloud.** Sign in once per machine; agent configs then carry a key bound to this project.
 
