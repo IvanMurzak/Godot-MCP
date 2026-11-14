@@ -1,3 +1,5 @@
+**English** · [中文](install.zh-CN.md) · [日本語](install.ja.md) · [Español](install.es.md) · [فارسی](install.fa.md) · [हिन्दी](install.hi.md) · [العربية](install.ar.md)
+
 # Manual installation
 
 `godot-cli install-plugin ./MyGodotProject` does every step on this page in one idempotent command (see the [README](../README.md#quick-start)). Use this page for an Asset Library install or a hand-managed project.

@@ -1,3 +1,5 @@
+**English** · [中文](runtime.zh-CN.md) · [日本語](runtime.ja.md) · [Español](runtime.es.md) · [فارسی](runtime.fa.md) · [हिन्दी](runtime.hi.md) · [العربية](runtime.ar.md)
+
 # Runtime usage (in-game)
 
 The editor plugin connects the **Godot editor**. Godot-MCP can also run inside a **running or exported game** (debug or release), so an LLM can read and drive live game state: for example a chess game whose bot moves come from an LLM through two tools you write.

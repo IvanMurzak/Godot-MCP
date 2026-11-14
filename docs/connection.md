@@ -1,3 +1,5 @@
+**English** · [中文](connection.zh-CN.md) · [日本語](connection.ja.md) · [Español](connection.es.md) · [فارسی](connection.fa.md) · [हिन्दी](connection.hi.md) · [العربية](connection.ar.md)
+
 # Connection and server
 
 The editor plugin connects to an MCP server in one of two modes. Set the mode in the editor dock, or override it at process start with `GODOT_MCP_*` environment variables (useful for CI, headless runs and local development). The environment always wins over the saved config. `godot-cli open` passes these for you through `--mode`, `--url`, `--cloud-url` and `--token`.

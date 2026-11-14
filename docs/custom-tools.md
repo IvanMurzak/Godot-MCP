@@ -1,3 +1,5 @@
+**English** · [中文](custom-tools.zh-CN.md) · [日本語](custom-tools.ja.md) · [Español](custom-tools.es.md) · [فارسی](custom-tools.fa.md) · [हिन्दी](custom-tools.hi.md) · [العربية](custom-tools.ar.md)
+
 # Custom tools
 
 Add your own MCP tools in the project's C# code. A tool family is a `partial class` marked `[AiToolType]`; each tool is a method marked `[AiTool("tool-name", …)]`, with a `[Description]` on the method and on each parameter so the LLM knows when and how to call it.

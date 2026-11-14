@@ -1,3 +1,5 @@
+**English** · [中文](tools.zh-CN.md) · [日本語](tools.ja.md) · [Español](tools.es.md) · [فارسی](tools.fa.md) · [हिन्दी](tools.hi.md) · [العربية](tools.ar.md)
+
 # Tools reference
 
 Godot-MCP ships **24 built-in tools** in **9 families**. The editor's data layer is [RQL](rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` and `rql-schema` read and change scene nodes, Godot properties, resources, files, scenes and editor state in one query instead of one tool per operation.
