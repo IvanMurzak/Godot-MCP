@@ -17,7 +17,7 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.23.1" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.24.0" />
   </ItemGroup>
 
   <!--
