@@ -260,7 +260,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         /// the data exposed over the connection. Enable it <b>only on a trusted connection</b>: prefer a
         /// loopback host (<c>http://localhost:…</c> / <c>127.0.0.1</c>) with <c>AuthOption =
         /// Consts.MCP.Server.AuthOption.token</c> and a real token — never an unauthenticated public interface
-        /// in a release build. See <c>docs/runtime-security.md</c> and the README "Security: opt-in only" section.
+        /// in a release build. See <c>docs/runtime-security.md</c>.
         /// </para>
         ///
         /// Returns <c>this</c> for chaining.

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-label="An AI agent talks MCP to a server (ai-game.dev, or a local gamedev-mcp-server); the server reaches the godot_mcp editor addon over SignalR; the addon changes your scenes, nodes, scripts and resources">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#080F17"/><stop offset="1" stop-color="#030609"/></linearGradient>
+    <radialGradient id="hzR" cx="0.18" cy="0" r="0.6"><stop offset="0" stop-color="#FF002A" stop-opacity="0.16"/><stop offset="1" stop-color="#FF002A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hzB" cx="0.85" cy="0" r="0.6"><stop offset="0" stop-color="#3B9BFF" stop-opacity="0.14"/><stop offset="1" stop-color="#3B9BFF" stop-opacity="0"/></radialGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#A8C2D2" fill-opacity="0.08"/></pattern>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF002A" stop-opacity="0"/><stop offset="0.3" stop-color="#FF2448" stop-opacity="0.6"/><stop offset="0.7" stop-color="#3B9BFF" stop-opacity="0.55"/><stop offset="1" stop-color="#3B9BFF" stop-opacity="0"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0C1620"/><stop offset="1" stop-color="#070D14"/></linearGradient>
+    <linearGradient id="logoL" gradientUnits="userSpaceOnUse" x1="512" y1="190" x2="512" y2="785"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#8395AD"/></linearGradient>
+    <linearGradient id="logoR" gradientUnits="userSpaceOnUse" x1="512" y1="190" x2="512" y2="785"><stop offset="0" stop-color="#E1E8F1"/><stop offset="1" stop-color="#455974"/></linearGradient>
+    <linearGradient id="logoB" gradientUnits="userSpaceOnUse" x1="512" y1="190" x2="512" y2="785"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#AABBD0"/></linearGradient>
+    <radialGradient id="logoGlow"><stop offset="0" stop-color="#6FA8D0" stop-opacity=".18"/><stop offset="1" stop-color="#6FA8D0" stop-opacity="0"/></radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF5A73"/><stop offset="1" stop-color="#6FA8D0"/></linearGradient>
+    <clipPath id="frame"><rect width="1200" height="460" rx="18"/></clipPath>
+  </defs>
+  <style>
+    .s { font-family: Inter, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif; } .m { font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, Menlo, monospace; white-space: pre; }
+    .pulse { animation: pulse 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes pulse { 0%,100% { opacity: .85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
+    .spin { animation: spin 40s linear infinite; transform-box: fill-box; transform-origin: center; }
+    .spin.r { animation-duration: 60s; animation-direction: reverse; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .blink { animation: blink 1.1s steps(1) infinite; } @keyframes blink { 50% { opacity: 0; } }
+
+    .gl { pointer-events: none; }
+    .gl-r { fill: #FF2448; opacity: 0; animation: glr 2.8s steps(1) infinite; }
+    .gl-c { fill: #2EE6FF; opacity: 0; animation: glc 2.8s steps(1) infinite; }
+    .gl-s { opacity: 0; animation: gls 2.8s steps(1) infinite; }
+    .gl-base { animation: glb 2.8s steps(1) infinite; }
+    @keyframes glr { 0% { opacity:.75; transform:translate(-2px,0) } 6% { transform:translate(-4px,1px) } 9% { transform:translate(-1px,-1px) }
+      12% { opacity:.55; transform:translate(-2px,0) } 40% { opacity:.85; transform:translate(-6px,1px) } 43% { transform:translate(3px,-1px) }
+      46% { opacity:.55; transform:translate(-2px,0) } 72% { opacity:.9; transform:translate(-5px,2px) } 75% { transform:translate(-1px,0) } 78% { opacity:.6; transform:translate(-2px,0) } }
+    @keyframes glc { 0% { opacity:.7; transform:translate(2px,0) } 6% { transform:translate(4px,-1px) } 9% { transform:translate(1px,1px) }
+      12% { opacity:.5; transform:translate(2px,0) } 40% { opacity:.85; transform:translate(6px,-1px) } 43% { transform:translate(-3px,1px) }
+      46% { opacity:.5; transform:translate(2px,0) } 72% { opacity:.9; transform:translate(5px,-2px) } 75% { transform:translate(1px,0) } 78% { opacity:.55; transform:translate(2px,0) } }
+    @keyframes gls { 0%,39%,47%,71%,79%,100% { opacity:0; transform:none } 40% { opacity:1; transform:translate(9px,0) } 43% { opacity:1; transform:translate(-7px,0) }
+      72% { opacity:1; transform:translate(-10px,0) } 75% { opacity:1; transform:translate(6px,0) } }
+    @keyframes glb { 0%,100% { transform:none } 40% { transform:translate(1px,0) } 43% { transform:translate(-1px,0) } 46% { transform:none }
+      72% { transform:translate(-1px,1px) } 75% { transform:none } }
+    
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="460" fill="url(#bg)"/><rect width="1200" height="460" fill="url(#hzR)"/><rect width="1200" height="460" fill="url(#hzB)"/>
+    <rect width="1200" height="460" fill="url(#dots)"/>
+    <text x="140" y="64" text-anchor="middle" class="s" font-size="16" font-weight="700" letter-spacing="2.4" fill="#FF5A73">AI AGENT</text><text x="455" y="64" text-anchor="middle" class="s" font-size="16" font-weight="700" letter-spacing="2.4" fill="#FF5A73">MCP SERVER</text><text x="785" y="64" text-anchor="middle" class="s" font-size="16" font-weight="700" letter-spacing="2.4" fill="#FF5A73">GODOT ADDON</text><text x="1065" y="64" text-anchor="middle" class="s" font-size="16" font-weight="700" letter-spacing="2.4" fill="#FF5A73">YOUR PROJECT</text><path id="w5" d="M250 225 C290 225 290 165 330 165" fill="none" stroke="#FF5A73" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="4 6"/><circle r="4" fill="#FF5A73"><animateMotion dur="1.8s" begin="-0.0s" repeatCount="indefinite"><mpath href="#w5"/></animateMotion></circle><path id="w6" d="M250 225 C290 225 290 285 330 285" fill="none" stroke="#FF5A73" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="4 6"/><circle r="4" fill="#FF5A73"><animateMotion dur="1.8s" begin="-0.9s" repeatCount="indefinite"><mpath href="#w6"/></animateMotion></circle><path id="w7" d="M580 165 C620 165 620 225 660 225" fill="none" stroke="#6FA8D0" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="4 6"/><circle r="4" fill="#6FA8D0"><animateMotion dur="1.9s" begin="-0.0s" repeatCount="indefinite"><mpath href="#w7"/></animateMotion></circle><path id="w8" d="M580 285 C620 285 620 225 660 225" fill="none" stroke="#6FA8D0" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="4 6"/><circle r="4" fill="#6FA8D0"><animateMotion dur="1.9s" begin="-0.9s" repeatCount="indefinite"><mpath href="#w8"/></animateMotion></circle><path id="w9" d="M910 225 L960 225" fill="none" stroke="#22C55E" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="4 6"/><circle r="4" fill="#22C55E"><animateMotion dur="1.4s" begin="-0.0s" repeatCount="indefinite"><mpath href="#w9"/></animateMotion></circle><text x="290" y="120" text-anchor="middle" class="m" font-size="16" fill="#A8C2D2">MCP</text><text x="620" y="120" text-anchor="middle" class="m" font-size="16" fill="#A8C2D2">SignalR</text><rect x="30" y="135" width="220" height="180" rx="14" fill="url(#card)" stroke="rgba(111,168,208,0.16)"/><rect x="30" y="147" width="3" height="156" rx="1.5" fill="#6FA8D0"/><text x="52" y="221.0" class="s" font-size="20" font-weight="700" fill="#FAFFFD">AI agent</text><text x="52" y="247.0" class="s" font-size="16" fill="#8AA6B8">Claude Code · Codex</text><text x="52" y="269.0" class="s" font-size="16" fill="#8AA6B8">Cursor · Copilot · …</text><rect x="330" y="115" width="250" height="100" rx="14" fill="url(#card)" stroke="rgba(111,168,208,0.16)"/><rect x="330" y="127" width="3" height="76" rx="1.5" fill="#FF5A73"/><text x="352" y="161.0" class="m" font-size="19" font-weight="700" fill="#FAFFFD">ai-game.dev</text><text x="352" y="187.0" class="s" font-size="16" fill="#8AA6B8">Cloud, the default</text><rect x="330" y="235" width="250" height="100" rx="14" fill="url(#card)" stroke="rgba(111,168,208,0.16)"/><rect x="330" y="247" width="3" height="76" rx="1.5" fill="#FF5A73"/><text x="352" y="281.0" class="m" font-size="19" font-weight="700" fill="#FAFFFD">gamedev-mcp-server</text><text x="352" y="307.0" class="s" font-size="16" fill="#8AA6B8">Custom: local or hosted</text><rect x="660" y="135" width="250" height="180" rx="14" fill="url(#card)" stroke="rgba(111,168,208,0.16)"/><rect x="660" y="147" width="3" height="156" rx="1.5" fill="#6FA8D0"/><text x="682" y="221.0" class="m" font-size="19" font-weight="700" fill="#FAFFFD">addons/godot_mcp</text><text x="682" y="247.0" class="s" font-size="16" fill="#8AA6B8">MCP tools for the editor</text><text x="682" y="269.0" class="s" font-size="16" fill="#8AA6B8">RQL, scripts, screenshots</text><rect x="960" y="135" width="210" height="180" rx="14" fill="url(#card)" stroke="rgba(111,168,208,0.16)"/><rect x="960" y="147" width="3" height="156" rx="1.5" fill="#22C55E"/><text x="982" y="221.0" class="s" font-size="20" font-weight="700" fill="#FAFFFD">Your project</text><text x="982" y="247.0" class="s" font-size="16" fill="#8AA6B8">scenes, nodes,</text><text x="982" y="269.0" class="s" font-size="16" fill="#8AA6B8">scripts, resources</text><text x="600" y="410" text-anchor="middle" class="s" font-size="18" fill="#A8C2D2">Optional: a running game exposes only the tools you register (GodotMcpRuntime).</text>
+    <rect x="0" y="458" width="1200" height="2" fill="url(#rule)"/>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="459" rx="18" fill="none" stroke="rgba(111,168,208,0.16)"/>
+</svg>

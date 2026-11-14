@@ -188,7 +188,7 @@ describe('skills.ts ⇄ addon tool-family parity (CI cross-check)', () => {
       inAddonNotInCatalog,
       `Addon tool families with NO entry in cli/src/utils/skills.ts § SKILL_FAMILIES: ` +
         `[${inAddonNotInCatalog.join(', ')}]. Add a SkillFamily whose \`title\` is the ` +
-        `\`Tool_<Family>\` suffix (and update the README family count).`,
+        `\`Tool_<Family>\` suffix (and list the family in docs/tools.md).`,
     ).toEqual([]);
 
     expect(
@@ -231,12 +231,12 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
     const inAddonNotInCatalog = addon.filter((t) => !catalog.includes(t));
     const inCatalogNotInAddon = catalog.filter((t) => !addon.includes(t));
 
-    // Human-readable diagnostics pointing the maintainer at skills.ts + README.
+    // Human-readable diagnostics pointing the maintainer at skills.ts + docs/tools.md.
     expect(
       inAddonNotInCatalog,
       `Addon tools with NO entry in cli/src/utils/skills.ts § SKILL_FAMILIES: ` +
         `[${inAddonNotInCatalog.join(', ')}]. Add the tool to its family's \`tools\` array ` +
-        `(and update README.md's Tools Reference + count).`,
+        `(and list it in docs/tools.md).`,
     ).toEqual([]);
 
     expect(
@@ -251,7 +251,7 @@ describe('skills.ts ⇄ addon tool-ID parity (per-tool drift-guard)', () => {
 });
 
 describe('docs single-source: counts + McpPlugin version derive from addon source + csproj', () => {
-  // The doc surfaces (README headline + Asset Library submission template + its
+  // The Asset Library surfaces (submission template + its
   // mirrored SUBMISSION.md) must state the SAME tool/family count
   // the addon actually ships, and the Asset Library template must state the SAME
   // McpPlugin version the csproj pins. Deriving the expected values from the addon
@@ -266,8 +266,8 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   }
 
   // Tolerances baked into the regexes (verified against the real files):
-  // - `N built-in Tools` is CASE-INSENSITIVE — README:46 capitalizes "Tools".
-  // - `N families` is bold/word-boundary tolerant — README wraps "**8 families**".
+  // - `N built-in Tools` is CASE-INSENSITIVE.
+  // - `N families` is bold/word-boundary tolerant.
   function toolCountRe(): RegExp {
     return new RegExp(`${expectedToolCount} built-in tools`, 'i');
   }
@@ -281,7 +281,6 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   });
 
   const countDocs = [
-    'README.md',
     '.github/assetlib/edit.hbs',
     'docs/assetlib/SUBMISSION.md',
   ];
@@ -303,6 +302,15 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
         `${rel} should reference "${expectedFamilyCount} families" (bold/spacing tolerant). ` +
           `If the addon's family count changed, update ${rel} to match discoverAddonToolFamilies().`,
       ).toBe(true);
+    });
+  }
+
+  // User docs describe tools by coverage, not by count (the count changes with every new tool).
+  for (const rel of ['README.md', 'docs/tools.md']) {
+    it(`${rel} states no tool or family count`, () => {
+      const text = readRepoFile(rel);
+      expect(text, `${rel} should not state a tool count`).not.toMatch(/\b\d+\s+(?:built-in\s+)?tools\b/i);
+      expect(text, `${rel} should not state a family count`).not.toMatch(/\b\d+\s+(?:tool\s+)?families\b/i);
     });
   }
 
@@ -347,7 +355,9 @@ describe('docs single-source: counts + McpPlugin version derive from addon sourc
   // `ReflectorNet.Utils`) and bare-name prose such as the historical
   // `'ReflectorNet, Version=5.3.1.0'` exception text.
   // The agent index (AGENTS.md) is deliberately NOT gated: it must not restate pins at all.
-  const PIN_DOCS = ['README.md', 'docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
+  // User docs (README.md, docs/install.md) name the packages without versions (no time-sensitive facts), so they
+  // are not gated; `godot-cli install-plugin` writes the matching versions.
+  const PIN_DOCS = ['docs/ARCHITECTURE.md', 'docs/RELEASING.md'];
   const PINNED_PACKAGES = ['com.IvanMurzak.ReflectorNet', 'com.IvanMurzak.McpPlugin', 'com.IvanMurzak.Rql'];
 
   /** Escape a literal package id so it cannot act as a regex pattern (`.` above all). */

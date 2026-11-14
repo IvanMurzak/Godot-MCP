@@ -18,8 +18,8 @@ Nothing here ships with the addon (`.gitattributes` export-ignores it) and nothi
 
 Each script's header has the details. stdout carries only JSON-RPC; every log goes to stderr.
 
-The editor registers **14 tools**: `rql-*` (3), `screenshot-*` (3) and `script-*` (8), each with a title and annotations.
-The README's "24 built-in tools" also counts the `console-*`, `reflection-*` and `runtime-errors-*` families (they serve a
+The editor registers the `rql-*`, `screenshot-*` and `script-*` tools, each with a title and annotations.
+The README's tool table also lists the `console-*`, `reflection-*` and `runtime-errors-*` families (they serve a
 running game, so the editor never registers them) and the system tools (`ping`, `godot-skill-*`, `session-close`), which
 are not part of `tools/list`.
 
