@@ -10,7 +10,7 @@ Default `toolFormat` (`Rql`) के साथ बाकी tools arguments क�
 
 | Family | Tools | क्या करता है |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Live editor को query करना और बदलना। All-or-nothing और undo होने लायक। [rql.md](rql.md) देखें। |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Live editor को query करना और बदलना। All-or-nothing और undo होने लायक; एक call में `;` से अलग कई statements। [rql.md](rql.md) देखें। |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C# (`.cs`) और GDScript (`.gd`) files, node पर script attach करना, GDScript validation, प्रोजेक्ट का C# build करना, और editor में C# चलाना। |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Editor viewport, किसी camera, या अकेले render किए एक node को PNG के रूप में capture करना जिसे LLM देख सके। |
 | **console** | `console-get-logs`, `console-clear-logs` | चलते हुए game में: इकट्ठे logs पढ़ना और clear करना। |

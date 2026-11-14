@@ -10,7 +10,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 
 | ファミリー | ツール | 機能 |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 実行中のエディターを照会・変更。すべてか無しかで、元に戻せる。[rql.md](rql.md) を参照。 |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 実行中のエディターを照会・変更。すべてか無しかで、元に戻せる。1 回の呼び出しで `;` 区切りの複数ステートメントを実行できる。[rql.md](rql.md) を参照。 |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C#(`.cs`)と GDScript(`.gd`)のファイル、ノードへのスクリプトのアタッチ、GDScript の検証、プロジェクトの C# のビルド、エディターでの C# の実行。 |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | エディターのビューポート、カメラ、単独でレンダリングした 1 つのノードを、LLM が見られる PNG としてキャプチャ。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 実行中のゲームで: 収集したログの読み取りとクリア。 |

@@ -23,8 +23,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// <summary>
     /// The write side of the engine: undo, dirty marking and saving.
     /// <list type="bullet">
-    /// <item><b>Undo.</b> One <see cref="EditorUndoRedoManager"/> action per <see cref="Mutate"/> (two when it touched both
-    /// scene nodes and other objects: Godot keeps one undo history per scene plus a global one). <c>set</c>: the Godot
+    /// <item><b>Undo.</b> One <see cref="EditorUndoRedoManager"/> action per <see cref="Mutate"/> statement (two when it touched
+    /// both scene nodes and other objects: Godot keeps one undo history per scene plus a global one); a request of several
+    /// statements (<c>;</c>) commits each one's action before the next runs, so a later <c>SaveScene()</c> or <c>Undo()</c> sees it. <c>set</c>: the Godot
     /// properties (storage usage) of every changed object are snapshotted before the write and the differences become
     /// do/undo properties. Structural calls (AddChild, InstantiateScene, Duplicate, Free, Reparent, MoveChild) apply their
     /// change immediately and register do/undo methods through <see cref="RecordUndo"/>. Actions are committed with
@@ -58,6 +59,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly List<UndoStep> _otherUndo = new List<UndoStep>();
         private static readonly List<Resource> _toSave = new List<Resource>();
         private static readonly HashSet<Resource> _toSaveSet = new HashSet<Resource>();
+        // The file resources the running statement changed: its undo action saves them again on undo / redo.
+        private static readonly List<Resource> _actionFiles = new List<Resource>();
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
         private static bool _settingsChanged;
 
@@ -105,6 +108,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _otherUndo.Clear();
             _toSave.Clear();
             _toSaveSet.Clear();
+            _actionFiles.Clear();
             _removed.Clear();
             _settingsChanged = false;
             _changedAutoloads = null;
@@ -125,7 +129,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             QueryResult result;
             try
             {
-                result = RunQuery(() => Engine.Execute(query, RqlTargetLimit.BudgetsFor(maxTargets), new QueryOptions { AllowMutation = true, DryRun = dryRun }));
+                var budgets = RqlTargetLimit.BudgetsFor(maxTargets);
+                var options = new QueryOptions { AllowMutation = true, DryRun = dryRun };
+                var statements = _mutating == 1 ? RqlParser.SplitStatements(query) : null;
+                result = RunQuery(() => statements is { Count: > 1 }
+                    ? RqlStatementRunner.Run(statements, options, plan => Engine.Execute(plan, budgets, options), StatementFinished)
+                    : Engine.Execute(query, budgets, options));
             }
             finally
             {
@@ -145,6 +154,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             foreach (var problem in problems)
                 result.Diagnostics.Add(Diagnostic.Warning("not-saved", problem));
             return result;
+        }
+
+        // A statement of a request of several finished (RqlStatementRunner): a set stage of it that never committed was rolled
+        // back (its setters' undo steps go with it), the rest becomes the statement's own undo action, named after it. What the
+        // request cached about the editor (property tables, packed groups, string references, class / scene property lists) may
+        // be stale now, so the next statement reads afresh.
+        private static void StatementFinished(string statement)
+        {
+            _setStages.DiscardAbove(_mutating - 1);
+            CommitUndo(statement);
+            GodotVariants.ClearScope();
+            InvalidateGroups();
+            _sceneChanging = false;
+            RqlReferences.Invalidate();
+            _propertyTables.Clear();
         }
 
         /// <summary>
@@ -279,12 +303,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                     case Resource resource when IsFileResource(resource):
                         // Saved only when a Godot property actually changed: writing the same value again does not
                         // rewrite the file (the replaced resource-modify's "no modifications, not re-saved" rule).
-                        if (propertiesChanged && _toSaveSet.Add(resource)) _toSave.Add(resource);
+                        if (propertiesChanged) SaveAfter(resource);
                         break;
                     case Resource resource when propertiesChanged:
                         // A sub-resource built into a resource file (a TileSet's atlas source, a mesh's material): saved
                         // with that file. One built into a scene marks the scene unsaved.
-                        if (ContainerFile(resource) is { } container) { if (_toSaveSet.Add(container)) _toSave.Add(container); }
+                        if (ContainerFile(resource) is { } container) SaveAfter(container);
                         else sceneChanged = true;
                         break;
                     case GodotObject settings when propertiesChanged && Settings.RqlProject.Is(settings):
@@ -293,6 +317,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 }
             }
             if (sceneChanged) MarkSceneUnsaved();
+        }
+
+        // A file resource the mutation changed: saved after it, and again by the running statement's undo / redo.
+        private static void SaveAfter(Resource file)
+        {
+            if (_toSaveSet.Add(file)) _toSave.Add(file);
+            if (!_actionFiles.Contains(file)) _actionFiles.Add(file);
         }
 
         // The numbers of a written rotation: a Vector3 / Vector2 or one angle.
@@ -418,7 +449,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             else
             {
                 var name = HistoryStepText.ActionName(query);
-                AddResaveSteps(_otherUndo, _toSave);
+                AddResaveSteps(_otherUndo, _actionFiles);
                 // Split over the two histories: the parts are named so editor | call Undo() / Redo() step both.
                 var split = _sceneUndo.Count > 0 && _otherUndo.Count > 0;
                 Commit(undo, _sceneUndo, EditedRoot(), split ? name + HistoryStepText.ScenePart : name);
@@ -426,6 +457,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             }
             _removed.Clear();
             _snapshots.Clear();
+            _explicitUndo.Clear();
+            _actionFiles.Clear();
         }
 
         // The context that files an action under the global history, whatever objects its steps touch (Godot would file

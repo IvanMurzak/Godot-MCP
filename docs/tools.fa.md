@@ -12,7 +12,7 @@
 
 | خانواده | ابزارها | چه می‌کند |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | کوئری و تغییر ویرایشگرِ زنده. همه یا هیچ و قابل بازگردانی. [rql.md](rql.md) را ببینید. |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | کوئری و تغییر ویرایشگرِ زنده. همه یا هیچ و قابل بازگردانی؛ چند دستور در یک فراخوانی، جدا شده با `;`. [rql.md](rql.md) را ببینید. |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | فایل‌های C# (`.cs`) و GDScript (`.gd`)، اتصال اسکریپت به نود، اعتبارسنجی GDScript، بیلد C# پروژه و اجرای C# در ویرایشگر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | گرفتن تصویر از viewport ویرایشگر، یک دوربین، یا یک نود که به‌تنهایی رندر شده، به صورت PNG که LLM می‌تواند ببیند. |
 | **console** | `console-get-logs`, `console-clear-logs` | در بازیِ در حال اجرا: خواندن و پاک کردن لاگ‌های جمع‌آوری‌شده. |

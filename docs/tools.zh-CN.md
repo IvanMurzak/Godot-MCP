@@ -10,7 +10,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 
 | 系列 | 工具 | 作用 |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 查询和修改实时编辑器。要么全部生效、要么全不生效，且可撤销。见 [rql.md](rql.md)。 |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 查询和修改实时编辑器。要么全部生效、要么全不生效，且可撤销；一次调用可执行多条以 `;` 分隔的语句。见 [rql.md](rql.md)。 |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C#（`.cs`）和 GDScript（`.gd`）文件、将脚本挂载到节点、GDScript 校验、构建项目的 C#，以及在编辑器中运行 C#。 |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | 截取编辑器视口、某个相机或单独渲染的单个节点，生成 LLM 可以查看的 PNG。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 在运行中的游戏内：读取和清除收集到的日志。 |

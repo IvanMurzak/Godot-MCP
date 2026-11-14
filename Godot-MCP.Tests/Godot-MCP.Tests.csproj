@@ -46,9 +46,9 @@
     <!-- Same pins as Godot-MCP.csproj; never bumped here (owned by the upstream release pipeline).
          com.IvanMurzak.McpPlugin is needed because GodotMcpConfig extends its ConnectionConfig and
          Tool_Ping uses its [AiTool]/[AiToolType] attributes — both pure-managed and CI-friendly. -->
-    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.2" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.22.2" />
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0" />
+    <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.3" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.23.1" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.4.0" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.4.1" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.4.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
@@ -447,6 +447,7 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlGuide.cs" Link="Source\Rql\RqlGuide.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStaticCaches.cs" Link="Source\Rql\RqlStaticCaches.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlSetStageBuffer.cs" Link="Source\Rql\RqlSetStageBuffer.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStatementRunner.cs" Link="Source\Rql\RqlStatementRunner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\GodotTypedArrayHint.cs" Link="Source\Rql\GodotTypedArrayHint.cs" />

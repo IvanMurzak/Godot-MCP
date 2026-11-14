@@ -141,7 +141,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "- Vectors and colors the host marks as component-wise compute component by component: set Scale = Scale * 1.5, Position + [0, 1, 0], Position - Offset, -Velocity, v / 2. Adding a number to a vector is a type-mismatch (add [x, y, z] instead); quaternions and other types without that mark stay type-mismatch. Lists of numbers are vectors too: [x, 0, z] * k, [1, 2] + [3, 4]. Vector functions work on both: length(v) (or v.length(), magnitude), normalize(v), distance(a, b), dot(a, b), lerp(a, b, t); len(x) stays the size of a string or list.\n" +
             "- Trigonometry is in radians: sin, cos, tan, asin, acos, atan, atan2(y, x), pi(), deg(x), rad(x); trigonometric results are rounded (sin(pi()) is 0). In a set value or call argument $count is the number of items entering the stage ($index runs 0 to $count - 1), so set position = [5 * cos(2 * pi() * $index / $count), 0, 5 * sin(2 * pi() * $index / $count)] lays the items out on a circle of radius 5.\n" +
             "- A missing map entry reads as null: props[\"k\"] == null and props[\"k\"] is null are true without the entry, and has(props[\"k\"]) tests whether it exists. A misspelt member is not null: it stays unknown and is reported.\n" +
-            "- Arguments by name: call Method({name: value, ...}) with one object literal that no overload takes as a whole binds each key to the parameter of that name; parameters left out keep their defaults, and an unknown name fails listing the parameters: range(0, 10) | call " + RuleNamedExample + ". Engine objects (scene objects, nodes, actors) are never built from an object literal: pass an existing one, e.g. ref(\"Type#id\"). Value-like assets and owned subobjects that the host marks are built from a typed literal: set mesh = {$type: \"TypeName\", size: 2}.\n";
+            "- Arguments by name: call Method({name: value, ...}) with one object literal that no overload takes as a whole binds each key to the parameter of that name; parameters left out keep their defaults, and an unknown name fails listing the parameters: range(0, 10) | call " + RuleNamedExample + ". Engine objects (scene objects, nodes, actors) are never built from an object literal: pass an existing one, e.g. ref(\"Type#id\"). Value-like assets and owned subobjects that the host marks are built from a typed literal: set mesh = {$type: \"TypeName\", size: 2}.\n" +
+            "- Several statements in one call: separate them with ; and they run in order, each with its own result block headed [i/n] (at most 10 per call). A read runs every statement. In a change every statement must end with set or call and is its own all-or-nothing change that sees the earlier ones; nothing runs unless every statement parses and ends with set or call, and the first one that fails (a misspelt member included) stops the rest (the earlier changes stay).\n";
 
         /// <summary>
         /// rql-query examples, one per line ("  &lt;query&gt;"); run in order by the live CI smoke against its fixture scene.
@@ -251,11 +252,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public const string QueryDescription =
             DocsLead + "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
-            "exploratory calls. Changes need rql-mutate.\n\n" + Language + "\n\nExamples:\n" + QueryExampleText;
+            "exploratory calls; independent reads go in one call separated by ; (a result block each). Changes need rql-mutate.\n\n" + Language + "\n\nExamples:\n" + QueryExampleText;
 
         public const string MutateDescription =
             DocsLead + "Change the live Godot editor with an RQL query whose last stage is set or call. All-or-nothing: every target and " +
-            "value is checked before anything is written; a failure changes nothing. Undoable in the editor (Ctrl+Z). Scene " +
+            "value is checked before anything is written; a failure changes nothing. Several changes in one call: separate statements with ; — each ends with set or " +
+            "call and is its own all-or-nothing change and undo step; nothing runs unless every statement parses, and the first " +
+            "failure stops the rest (earlier changes stay). Undoable in the editor (Ctrl+Z). Scene " +
             "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
             "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
@@ -274,8 +277,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "nodes (AddChild / CreateNode create those; pass an existing node by godot.find(\"Name\"), path or ref): set Position = " +
             "{x: 1, y: 2, z: 3}; set Mesh = {$type: \"BoxMesh\", Size: [1, 2, 1]} builds a new resource of a concrete class. Map entries " +
             "streamed by get write through their map: … | get colors | where Key starts-with \"Button/\" | set Value = \"#ffffff\". " +
-            "Up to 200 targets per call; for an intended bulk change of more objects pass max_targets = the match count (at most " +
-            "1000): still one all-or-nothing, undoable call. Nodes inside a scene " +
+            "Up to 200 targets per statement; for an intended bulk change of more objects pass max_targets = the match count (at most " +
+            "1000): still all-or-nothing and one undo step. Nodes inside a scene " +
             "instance take property changes (saved as overrides; the instance gets Editable Children) but are removed, renamed " +
             "or moved in their own scene.\n\n" +
             QuerySyntaxShort;
@@ -293,8 +296,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>rql-mutate's max_targets argument (the numbers are <see cref="RqlTargetLimit"/>'s, checked by a test).</summary>
         public const string MaxTargetsDescription =
-            "Most objects the set / call stage may change (default 200, at most 1000). Raise it to the match count for an intended " +
-            "bulk change of more objects: the call stays all-or-nothing and one undo step.";
+            "Most objects the set / call stage of each statement may change (default 200, at most 1000). Raise it to the match count for an intended " +
+            "bulk change of more objects: the statement stays all-or-nothing and one undo step.";
 
         public const string SchemaDescription =
             DocsLead + "Without a type: RQL sources, functions, the installed extensions (Particles, Tilemap …), and the node classes present in " +

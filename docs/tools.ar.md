@@ -12,7 +12,7 @@
 
 | العائلة | الأدوات | ما تفعله |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | الاستعلام عن المحرر الحي وتغييره. كل شيء أو لا شيء، وقابل للتراجع. انظر [rql.md](rql.md). |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | الاستعلام عن المحرر الحي وتغييره. كل شيء أو لا شيء، وقابل للتراجع؛ عدة عبارات في استدعاء واحد، مفصولة بـ `;`. انظر [rql.md](rql.md). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | ملفات C# (`.cs`) وGDScript (`.gd`)، وإرفاق سكربت بعقدة، والتحقق من GDScript، وبناء كود C# للمشروع، وتشغيل C# في المحرر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | التقاط نافذة عرض المحرر، أو كاميرا، أو عقدة واحدة مرسومة وحدها، كصورة PNG يراها النموذج اللغوي. |
 | **console** | `console-get-logs`, `console-clear-logs` | في لعبة قيد التشغيل: قراءة السجلات المجمّعة ومسحها. |

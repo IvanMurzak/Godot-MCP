@@ -10,7 +10,7 @@ Las familias **console**, **reflection** y **runtime-errors** sirven a un *juego
 
 | Familia | Herramientas | Qué hace |
 | --- | --- | --- |
-| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Consultar y modificar el editor en vivo. Todo o nada, y reversible. Consulta [rql.md](rql.md). |
+| **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Consultar y modificar el editor en vivo. Todo o nada, y reversible; varias sentencias por llamada, separadas por `;`. Consulta [rql.md](rql.md). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | Archivos C# (`.cs`) y GDScript (`.gd`), adjuntar un script a un nodo, validación de GDScript, compilar el C# del proyecto y ejecutar C# en el editor. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capturar el viewport del editor, una cámara o un nodo renderizado por separado, como un PNG que el LLM puede ver. |
 | **console** | `console-get-logs`, `console-clear-logs` | En un juego en marcha: leer y borrar los logs recopilados. |
