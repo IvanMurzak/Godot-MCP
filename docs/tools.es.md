@@ -1,4 +1,4 @@
-[English](tools.md) · [中文](tools.zh-CN.md) · [日本語](tools.ja.md) · **Español** · [فارسی](tools.fa.md) · [हिन्दी](tools.hi.md) · [العربية](tools.ar.md)
+[English](tools.md) · [中文](tools.zh-CN.md) · [日本語](tools.ja.md) · **Español** · [Português](tools.pt-BR.md) · [فارسی](tools.fa.md) · [हिन्दी](tools.hi.md) · [العربية](tools.ar.md)
 
 # Referencia de herramientas
 

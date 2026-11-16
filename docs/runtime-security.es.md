@@ -1,4 +1,4 @@
-[English](runtime-security.md) · [中文](runtime-security.zh-CN.md) · [日本語](runtime-security.ja.md) · **Español** · [فارسی](runtime-security.fa.md) · [हिन्दी](runtime-security.hi.md) · [العربية](runtime-security.ar.md)
+[English](runtime-security.md) · [中文](runtime-security.zh-CN.md) · [日本語](runtime-security.ja.md) · **Español** · [Português](runtime-security.pt-BR.md) · [فارسی](runtime-security.fa.md) · [हिन्दी](runtime-security.hi.md) · [العربية](runtime-security.ar.md)
 
 # Contrato de seguridad del runtime (dentro del juego)
 

@@ -1,4 +1,4 @@
-[English](install.md) · [中文](install.zh-CN.md) · **日本語** · [Español](install.es.md) · [فارسی](install.fa.md) · [हिन्दी](install.hi.md) · [العربية](install.ar.md)
+[English](install.md) · [中文](install.zh-CN.md) · **日本語** · [Español](install.es.md) · [Português](install.pt-BR.md) · [فارسی](install.fa.md) · [हिन्दी](install.hi.md) · [العربية](install.ar.md)
 
 # 手動インストール
 

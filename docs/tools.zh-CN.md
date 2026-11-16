@@ -1,4 +1,4 @@
-[English](tools.md) · **中文** · [日本語](tools.ja.md) · [Español](tools.es.md) · [فارسی](tools.fa.md) · [हिन्दी](tools.hi.md) · [العربية](tools.ar.md)
+[English](tools.md) · **中文** · [日本語](tools.ja.md) · [Español](tools.es.md) · [Português](tools.pt-BR.md) · [فارسی](tools.fa.md) · [हिन्दी](tools.hi.md) · [العربية](tools.ar.md)
 
 # 工具参考
 

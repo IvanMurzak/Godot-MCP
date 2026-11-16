@@ -1,4 +1,4 @@
-[English](custom-tools.md) · [中文](custom-tools.zh-CN.md) · [日本語](custom-tools.ja.md) · [Español](custom-tools.es.md) · **فارسی** · [हिन्दी](custom-tools.hi.md) · [العربية](custom-tools.ar.md)
+[English](custom-tools.md) · [中文](custom-tools.zh-CN.md) · [日本語](custom-tools.ja.md) · [Español](custom-tools.es.md) · [Português](custom-tools.pt-BR.md) · **فارسی** · [हिन्दी](custom-tools.hi.md) · [العربية](custom-tools.ar.md)
 
 <div dir="rtl">
 

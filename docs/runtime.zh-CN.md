@@ -1,4 +1,4 @@
-[English](runtime.md) · **中文** · [日本語](runtime.ja.md) · [Español](runtime.es.md) · [فارسی](runtime.fa.md) · [हिन्दी](runtime.hi.md) · [العربية](runtime.ar.md)
+[English](runtime.md) · **中文** · [日本語](runtime.ja.md) · [Español](runtime.es.md) · [Português](runtime.pt-BR.md) · [فارسی](runtime.fa.md) · [हिन्दी](runtime.hi.md) · [العربية](runtime.ar.md)
 
 # 运行时用法（游戏内）
 

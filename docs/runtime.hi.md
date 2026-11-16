@@ -1,4 +1,4 @@
-[English](runtime.md) · [中文](runtime.zh-CN.md) · [日本語](runtime.ja.md) · [Español](runtime.es.md) · [فارسی](runtime.fa.md) · **हिन्दी** · [العربية](runtime.ar.md)
+[English](runtime.md) · [中文](runtime.zh-CN.md) · [日本語](runtime.ja.md) · [Español](runtime.es.md) · [Português](runtime.pt-BR.md) · [فارسی](runtime.fa.md) · **हिन्दी** · [العربية](runtime.ar.md)
 
 # Runtime इस्तेमाल (in-game)
 

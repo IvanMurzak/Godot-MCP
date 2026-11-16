@@ -1,4 +1,4 @@
-[English](install.md) · [中文](install.zh-CN.md) · [日本語](install.ja.md) · [Español](install.es.md) · **فارسی** · [हिन्दी](install.hi.md) · [العربية](install.ar.md)
+[English](install.md) · [中文](install.zh-CN.md) · [日本語](install.ja.md) · [Español](install.es.md) · [Português](install.pt-BR.md) · **فارسی** · [हिन्दी](install.hi.md) · [العربية](install.ar.md)
 
 <div dir="rtl">
 

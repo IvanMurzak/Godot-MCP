@@ -1,4 +1,4 @@
-[English](connection.md) · [中文](connection.zh-CN.md) · [日本語](connection.ja.md) · [Español](connection.es.md) · [فارسی](connection.fa.md) · **हिन्दी** · [العربية](connection.ar.md)
+[English](connection.md) · [中文](connection.zh-CN.md) · [日本語](connection.ja.md) · [Español](connection.es.md) · [Português](connection.pt-BR.md) · [فارسی](connection.fa.md) · **हिन्दी** · [العربية](connection.ar.md)
 
 # Connection और server
 

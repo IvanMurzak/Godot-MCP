@@ -1,4 +1,4 @@
-[English](runtime-security.md) · [中文](runtime-security.zh-CN.md) · **日本語** · [Español](runtime-security.es.md) · [فارسی](runtime-security.fa.md) · [हिन्दी](runtime-security.hi.md) · [العربية](runtime-security.ar.md)
+[English](runtime-security.md) · [中文](runtime-security.zh-CN.md) · **日本語** · [Español](runtime-security.es.md) · [Português](runtime-security.pt-BR.md) · [فارسی](runtime-security.fa.md) · [हिन्दी](runtime-security.hi.md) · [العربية](runtime-security.ar.md)
 
 # ランタイム(ゲーム内)のセキュリティ契約
 

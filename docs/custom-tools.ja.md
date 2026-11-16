@@ -1,4 +1,4 @@
-[English](custom-tools.md) · [中文](custom-tools.zh-CN.md) · **日本語** · [Español](custom-tools.es.md) · [فارسی](custom-tools.fa.md) · [हिन्दी](custom-tools.hi.md) · [العربية](custom-tools.ar.md)
+[English](custom-tools.md) · [中文](custom-tools.zh-CN.md) · **日本語** · [Español](custom-tools.es.md) · [Português](custom-tools.pt-BR.md) · [فارسی](custom-tools.fa.md) · [हिन्दी](custom-tools.hi.md) · [العربية](custom-tools.ar.md)
 
 # 独自ツール
 

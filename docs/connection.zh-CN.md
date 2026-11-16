@@ -1,4 +1,4 @@
-[English](connection.md) · **中文** · [日本語](connection.ja.md) · [Español](connection.es.md) · [فارسی](connection.fa.md) · [हिन्दी](connection.hi.md) · [العربية](connection.ar.md)
+[English](connection.md) · **中文** · [日本語](connection.ja.md) · [Español](connection.es.md) · [Português](connection.pt-BR.md) · [فارسی](connection.fa.md) · [हिन्दी](connection.hi.md) · [العربية](connection.ar.md)
 
 # 连接与服务器
 
