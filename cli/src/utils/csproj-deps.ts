@@ -133,9 +133,14 @@ function desiredCondition(ref: AddonPackageReference, existing: string | undefin
   return canonical && KNOWN_EDITOR_ONLY_IDS.has(ref.id) ? undefined : existing;
 }
 
+/** The Condition this addon's embed elements carry: `Exists('<include>')`. */
+function desiredEmbedCondition(res: AddonEmbeddedResource): string {
+  return `Exists('${res.include}')`;
+}
+
 /** Render the canonical self-closing element for a required embedded resource. */
 function renderEmbed(res: AddonEmbeddedResource): string {
-  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" />`;
+  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${desiredEmbedCondition(res)}" />`;
 }
 
 /**
@@ -261,6 +266,9 @@ export function addAddonPackageReferences(
  *  - a project that already embeds the resource with the right LogicalName (no change);
  *  - a project that embeds the same Include with a DIFFERENT LogicalName (reconciles
  *    in place);
+ *  - an element written by an older CLI with no Condition (upgraded in place to
+ *    `Condition="Exists('<include>')"` — an unconditional item breaks the build with
+ *    CS1566 when the gitignored addon dir is absent); a project's own Condition stays;
  * Re-running `install-plugin` therefore never duplicates the `<EmbeddedResource>`.
  */
 export function addAddonEmbeddedResources(
@@ -285,7 +293,13 @@ export function addAddonEmbeddedResources(
     }
     const logicalMatch = match[0].match(/\bLogicalName\s*=\s*"([^"]*)"/i);
     const existingLogical = logicalMatch ? logicalMatch[1] : '';
-    if (existingLogical === res.logicalName) {
+    const conditionMatch = match[0].match(/\bCondition\s*=\s*"([^"]*)"/i);
+    const existingCondition = conditionMatch ? conditionMatch[1] : undefined;
+    // The Condition the element should carry: a missing one becomes the canonical `Exists('<include>')`
+    // (an unconditional item breaks the build with CS1566 when the gitignored addon dir is absent);
+    // any other Condition is the project's own and stays (same rule as `desiredCondition` for references).
+    const desired = existingCondition === undefined ? desiredEmbedCondition(res) : existingCondition;
+    if (existingLogical === res.logicalName && existingCondition === desired) {
       changes.push({ include: res.include, action: 'unchanged', logicalName: res.logicalName });
       continue;
     }

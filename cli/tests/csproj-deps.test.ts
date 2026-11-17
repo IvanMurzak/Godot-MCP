@@ -142,7 +142,7 @@ const FRESH_CSPROJ_EMBED = `<Project Sdk="Godot.NET.Sdk/4.3.0">
 </Project>
 `;
 
-const EXPECTED_EMBED = `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" />`;
+const EXPECTED_EMBED = `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Condition="Exists('${CATALOG.include}')" />`;
 
 describe('addAddonEmbeddedResources — fresh csproj (no EmbeddedResource)', () => {
   it('appends a new ItemGroup with the catalog embed before </Project>', () => {
@@ -161,8 +161,9 @@ describe('addAddonEmbeddedResources — fresh csproj (no EmbeddedResource)', () 
     expect(twice.changed).toBe(false);
     expect(twice.text).toBe(once);
     expect(twice.changes.every((c) => c.action === 'unchanged')).toBe(true);
-    // Exactly one occurrence of the embed Include — no duplication.
-    expect(once.match(new RegExp(escapeRe(CATALOG.include), 'g'))?.length).toBe(1);
+    // Exactly one <EmbeddedResource> element — no duplication. (The include path now also
+    // appears inside the Condition, so count elements, not path occurrences.)
+    expect(once.match(/<EmbeddedResource\b/g)?.length).toBe(1);
   });
 });
 
@@ -183,8 +184,41 @@ describe('addAddonEmbeddedResources — different LogicalName present (reconcile
     if (change?.action === 'updated') {
       expect(change.from).toBe('Stale.Name.json');
     }
-    // No duplicate Include.
-    expect(text.match(new RegExp(escapeRe(CATALOG.include), 'g'))?.length).toBe(1);
+    // No duplicate element.
+    expect(text.match(/<EmbeddedResource\b/g)?.length).toBe(1);
+  });
+});
+
+describe('addAddonEmbeddedResources — Condition', () => {
+  const oldCliElement = `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" />`;
+  const csprojWith = (element: string) => `<Project Sdk="Godot.NET.Sdk/4.3.0">
+  <ItemGroup>
+    ${element}
+  </ItemGroup>
+</Project>
+`;
+
+  it('upgrades an element written by an older CLI (no Condition) to the guarded form', () => {
+    const { text, changed, changes } = addAddonEmbeddedResources(csprojWith(oldCliElement));
+    expect(changed).toBe(true);
+    expect(text).toContain(EXPECTED_EMBED);
+    const change = changes.find((c) => c.include === CATALOG.include);
+    expect(change?.action).toBe('updated');
+    // Second pass is a no-op.
+    const again = addAddonEmbeddedResources(text);
+    expect(again.changed).toBe(false);
+    expect(again.text).toBe(text);
+    expect(again.changes.every((c) => c.action === 'unchanged')).toBe(true);
+  });
+
+  it('keeps a project-owned Condition on the element', () => {
+    const own = csprojWith(
+      `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Condition="'$(Configuration)' == 'Debug'" />`,
+    );
+    const { text, changed, changes } = addAddonEmbeddedResources(own);
+    expect(changed).toBe(false);
+    expect(text).toBe(own);
+    expect(changes.every((c) => c.action === 'unchanged')).toBe(true);
   });
 });
 
