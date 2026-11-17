@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       targetFramework:
-        description: "TargetFramework of the testbed project (net8.0 = the addon's floor; net10.0 = a user project on .NET 10)."
+        description: "TargetFramework of the testbed project: net8.0 (the addon's floor) or net10.0 (a user project on .NET 10; installs the .NET 10 SDK)."
         required: false
         default: "net8.0"
         type: string
@@ -74,14 +74,12 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      # A project targeting net10.0 needs the .NET 10 SDK to build and its runtime to run.
-      - name: Setup .NET 8 + 10 (net10.0 leg)
+      # A project targeting net10.0 needs the .NET 10 SDK to build and its runtime to run (installed beside 8).
+      - name: Setup .NET 10 (net10.0 leg)
         if: inputs.targetFramework == 'net10.0'
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          dotnet-version: "10.0.x"
 
       # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
       - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
