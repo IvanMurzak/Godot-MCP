@@ -15,6 +15,7 @@ using System.Threading;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
 using Godot;
+using FileAccess = Godot.FileAccess;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {

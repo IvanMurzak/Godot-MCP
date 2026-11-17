@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using FileAccess = Godot.FileAccess;
 using Rql;
 
 namespace com.IvanMurzak.Godot.MCP.Dialogic

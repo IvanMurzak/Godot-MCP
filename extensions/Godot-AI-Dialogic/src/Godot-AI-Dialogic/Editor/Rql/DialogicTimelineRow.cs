@@ -9,6 +9,7 @@
 #if TOOLS
 #nullable enable
 using Godot;
+using FileAccess = Godot.FileAccess;
 using Rql;
 
 namespace com.IvanMurzak.Godot.MCP.Dialogic

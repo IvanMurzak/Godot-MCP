@@ -18,6 +18,7 @@ using com.IvanMurzak.Godot.MCP.Editor.Rql.Settings;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
+using FileAccess = Godot.FileAccess;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {

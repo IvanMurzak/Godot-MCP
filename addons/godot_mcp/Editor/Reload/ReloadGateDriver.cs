@@ -17,6 +17,7 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
 using com.IvanMurzak.McpPlugin;
 using Godot;
+using Timer = Godot.Timer;
 
 namespace com.IvanMurzak.Godot.MCP.Reload
 {
