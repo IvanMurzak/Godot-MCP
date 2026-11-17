@@ -74,6 +74,12 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Check the targetFramework input
+        if: inputs.targetFramework != 'net8.0' && inputs.targetFramework != 'net10.0'
+        run: |
+          echo "::error::targetFramework '${{ inputs.targetFramework }}' is not supported here (net8.0 or net10.0)."
+          exit 1
+
       # A project targeting net10.0 needs the .NET 10 SDK to build and its runtime to run (installed beside 8).
       - name: Setup .NET 10 (net10.0 leg)
         if: inputs.targetFramework == 'net10.0'

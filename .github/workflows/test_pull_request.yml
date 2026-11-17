@@ -285,8 +285,8 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
 
   # (c') the same addon-load smoke on a testbed that targets net10.0 (a user project on .NET 10), newest
-  #      Godot only. Not a chain leg: skipped on a dispatched (chain) run, whose declared Godot widths it
-  #      would break; its job key matches no chain leg glob.
+  #      Godot only. Skipped on a dispatched (chain) run: its record's job (`test-godot-plugin`) matches the
+  #      train's `test-godot-*` glob, and a sixth record would break that leg's declared width of 5.
   net10-godot-4-7:
     needs: changes
     if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && needs.changes.outputs.docs_only != 'true' }}
@@ -488,7 +488,7 @@ jobs:
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
   # (d') the runtime harness (game + live editor RQL / script-execute / reload smokes) on a testbed that
-  #      targets net10.0. Not a chain leg, as (c').
+  #      targets net10.0. Skipped on a dispatched (chain) run, as (c') (`runtime-harness*` width).
   net10-runtime-harness-4-7:
     needs: [resolve-server-version]
     if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && needs.resolve-server-version.result == 'success' }}

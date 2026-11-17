@@ -390,7 +390,7 @@ jobs:
     # from-scratch e2e-install) across the FULL Godot matrix (4.3 → 4.7). This MUST stay
     # in lockstep with test_pull_request.yml's matrix so a green PR can never produce a
     # red release gate — when you add/remove a Godot version, edit BOTH files together.
-    # The runtime-harness-4-{3..7} legs are deliberately NOT in this `needs:` array: they
+    # The runtime-harness-4-{3..7} (and net10-runtime-harness-4-7) legs are deliberately NOT in this `needs:` array: they
     # are an end-to-end INTEGRATION harness that downloads an external server release and
     # runs a live, concurrency-sensitive roundtrip — a transient harness flake or an
     # unavailable upstream server release must NEVER block a Godot-MCP release. They still

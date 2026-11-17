@@ -7,7 +7,7 @@
 ## Requirements
 
 - **Godot 4.3 or later, .NET (mono) edition.** Your game code can stay GDScript, but the addon is C#: open the project in the .NET editor build, and give it a C# project file (`.csproj`). For an existing GDScript project use **Project → Tools → C# → Create C# solution** once. The addon's csproj pins `Godot.NET.Sdk/4.3.0` as its floor; CI tests Godot 4.3, 4.4, 4.5, 4.6 and 4.7.
-- **.NET 8, 9 or 10 SDK.** The project may target `net8.0` (the minimum), `net9.0` or `net10.0`: the addon ships as source and compiles with your project's `TargetFramework`, which `godot-cli install-plugin` never changes. CI tests `net8.0` and `net10.0`. On .NET 10, read the [known reload issue](custom-tools.md#known-issue-crash-or-hang-after-a-reload-on-net-10).
+- **.NET 8, 9 or 10 SDK.** The project may target `net8.0` (the minimum), `net9.0` or `net10.0`: the addon ships as source and compiles with your project's `TargetFramework`, which `godot-cli install-plugin` never changes. CI tests `net8.0` and `net10.0`. If the .NET 10 runtime is installed, whatever your `TargetFramework` (the Godot editor runs on the newest installed runtime), read the [known reload issue](custom-tools.md#known-issue-crash-or-hang-after-a-reload-on-net-10).
 - **Windows, macOS or Linux.** Godot-MCP works on all three.
 
 ## 1. Add the addon
