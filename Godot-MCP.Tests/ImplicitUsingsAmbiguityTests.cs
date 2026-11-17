@@ -42,6 +42,7 @@ global using global::System.Threading.Tasks;
         public static TheoryData<string, string[]> Builds => new()
         {
             { "editor", new[] { "TOOLS", "GODOT", "GODOT4", "GODOT4_5_OR_GREATER", "GODOT4_6_OR_GREATER" } },
+            { "editor-4.3", new[] { "TOOLS", "GODOT", "GODOT4" } },
             { "export", new[] { "GODOT", "GODOT4" } },
         };
 
@@ -56,7 +57,8 @@ global using global::System.Threading.Tasks;
 
             var sourceRoots = new[] { Path.Combine(repoRoot, "addons", "godot_mcp") }
                 .Concat(Directory.EnumerateDirectories(Path.Combine(repoRoot, "extensions"), "Godot-AI-*")
-                    .Select(module => Path.Combine(module, "src")));
+                    .Select(module => Path.Combine(module, "src")))
+                .Append(Path.Combine(repoRoot, "templates", "extension", "src"));
             var files = sourceRoots
                 .SelectMany(root => Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
                 .Where(f => !f.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
@@ -77,6 +79,8 @@ global using global::System.Threading.Tasks;
                 trees,
                 References(),
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+            // Without GodotSharp a bare Timer would bind to System.Threading.Timer alone and the check would pass on nothing.
+            Assert.NotNull(compilation.GetTypeByMetadataName("Godot.FileAccess"));
 
             var ambiguous = compilation.GetDiagnostics()
                 .Where(d => d.Id == "CS0104")
