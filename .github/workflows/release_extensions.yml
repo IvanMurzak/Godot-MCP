@@ -51,9 +51,12 @@ jobs:
             exit 1
           fi
           python scripts/extension_release.py plan --only "$SELECTION"
+      # The xUnit projects target net8.0;net10.0.
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
       - name: Unit tests and release tooling
         run: |
           python -m unittest discover -s scripts/tests -v

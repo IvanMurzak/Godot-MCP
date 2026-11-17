@@ -11,7 +11,9 @@
     E2E (tests/e2e/e2e-tools.json), which runs every guide example.
   -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- The sources ship to consumers and compile with THEIR project's TargetFramework: net8.0 is the floor
+         (Godot 4.x C#), net10.0 the newest supported. Compile and test under both. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.PhantomCamera.Tests</RootNamespace>

@@ -313,6 +313,30 @@ describe('installPlugin — skipMaterialize', () => {
   });
 });
 
+// The addon ships as source and compiles with the user's TargetFramework: net8.0 is the floor, newer ones
+// (net9.0, net10.0) are supported. The installer must accept them and never rewrite the user's TFM.
+describe('installPlugin — a project on a newer .NET', () => {
+  it.each(['net9.0', 'net10.0'])('installs into a %s project and keeps its TargetFramework', async (tfm) => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gmcp-tfm-'));
+    const csprojFile = path.join(tmp, 'MyGame.csproj');
+    fs.writeFileSync(path.join(tmp, 'project.godot'), MINIMAL_PROJECT);
+    fs.writeFileSync(csprojFile, CSPROJ.replace('net8.0', tfm));
+    try {
+      const result = await installPlugin({ godotProjectPath: tmp, skipMaterialize: true });
+      expect(result.kind).toBe('success');
+      const csprojText = fs.readFileSync(csprojFile, 'utf-8');
+      expect(csprojText).toContain(`<TargetFramework>${tfm}</TargetFramework>`);
+      expect(csprojText).not.toContain('net8.0');
+      const refs = parseCsprojPackageReferences(csprojText);
+      for (const dep of ADDON_PACKAGE_REFERENCES) {
+        expect(refs.find((r) => r.id === dep.id)?.version).toBe(dep.version);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
 // ---- NuGet versions come from the INSTALLED addon, not from this CLI build ----
 // Versions deliberately unlike ADDON_PACKAGE_REFERENCES, so a test can only pass when the
 // installer read them from the addon (or the checkout) rather than the built-in constants.

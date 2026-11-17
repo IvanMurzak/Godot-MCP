@@ -183,10 +183,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup .NET 8
+      # The xUnit projects target net8.0;net10.0 (the addon ships as source and compiles with the user's TFM).
+      - name: Setup .NET 8 + 10
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore Godot-MCP.sln
@@ -237,6 +240,14 @@ jobs:
     uses: ./.github/workflows/test_godot_plugin.yml
     with:
       godotVersion: "4.7.0"
+
+  # The same smoke on a testbed that targets net10.0 (a user project on .NET 10); mirrors test_pull_request.yml.
+  net10-godot-4-7:
+    needs: [check-version-tag]
+    uses: ./.github/workflows/test_godot_plugin.yml
+    with:
+      godotVersion: "4.7.0"
+      targetFramework: "net10.0"
 
   # in-session-rebuild dock-survival guard across the Godot engine matrix (mono):
   # boots a headless editor held open with the dev-control bridge, triggers a genuine
@@ -357,6 +368,15 @@ jobs:
       serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
       advisory: true
 
+  net10-runtime-harness-4-7:
+    needs: [check-version-tag]
+    uses: ./.github/workflows/test_godot_runtime_harness.yml
+    with:
+      godotVersion: "4.7.0"
+      targetFramework: "net10.0"
+      serverVersion: ${{ needs.check-version-tag.outputs.server_version }}
+      advisory: true
+
   # --- BUILD (runs on every dispatch, dry or real; after the full test set) ---
 
   # Build + test + package the addon zip (the Godot deliverable — there is no compiled
@@ -387,6 +407,7 @@ jobs:
         test-godot-4-5,
         test-godot-4-6,
         test-godot-4-7,
+        net10-godot-4-7,
         dock-reload-4-3,
         dock-reload-4-4,
         dock-reload-4-5,
@@ -409,10 +430,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup .NET 8
+      # The xUnit projects target net8.0;net10.0 (the addon ships as source and compiles with the user's TFM).
+      - name: Setup .NET 8 + 10
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       # Sanity build + test before producing the zip, so a release is never cut
       # on a red commit. Godot.NET.Sdk is a NuGet SDK -> no Godot binary needed.
@@ -497,6 +521,7 @@ jobs:
         test-godot-4-5,
         test-godot-4-6,
         test-godot-4-7,
+        net10-godot-4-7,
         dock-reload-4-3,
         dock-reload-4-4,
         dock-reload-4-5,

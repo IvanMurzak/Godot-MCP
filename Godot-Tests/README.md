@@ -15,14 +15,17 @@ external checkout or junction.
   `com.IvanMurzak.McpPlugin`,
   RQL, Code-Exec + Roslyn, at the versions pinned there), so the addon's C# compiles into the project
   assembly. Excluded from `../Godot-MCP.sln` so the `dotnet build (.NET 8)` gate is
-  unaffected.
+  unaffected. Its `TargetFramework` is `net8.0` (the addon's floor) unless the
+  `GodotMcpTestTargetFramework` property (or env var) names another one.
 - No game content, no scenes, no committed addon copy.
 
 ## How CI uses it
 
-`.github/workflows/test_godot_plugin.yml` (reusable, input `godotVersion`):
+`.github/workflows/test_godot_plugin.yml` (reusable, inputs `godotVersion` and optional
+`targetFramework`, default `net8.0`):
 
-1. installs the requested Godot **mono** binary + .NET 8,
+1. installs the requested Godot **mono** binary + .NET 8 (+ .NET 10 for a `net10.0` leg, which
+   sets `GodotMcpTestTargetFramework` so the project, as a user's may, targets `net10.0`),
 2. **copies** `../addons/godot_mcp` into `Godot-Tests/addons/godot_mcp` (a dev
    junction does not survive checkout in CI; the copy is `.gitignore`d here),
 3. imports the project once (`<godot> --headless --path Godot-Tests --import --quit`)
@@ -35,7 +38,8 @@ external checkout or junction.
    and **fails the job** unless `[Godot-MCP] plugin loaded` appears with no
    `FileNotFoundException` / addon-load exception.
 
-`.github/workflows/test_pull_request.yml` fans this out once per matrix version
+`.github/workflows/test_pull_request.yml` fans this out once per matrix version, plus a
+`net10.0` leg on the newest Godot (`net10-godot-*`, and `net10-runtime-harness-*` for the harness below),
 alongside the `dotnet build (.NET 8)` + xUnit job and the `godot-mcp-cli` node
 tests. The live matrix only runs in the PR's own GitHub CI run (the runners
 download Godot).

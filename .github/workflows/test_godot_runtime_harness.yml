@@ -39,6 +39,11 @@ on:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
         type: string
+      targetFramework:
+        description: "TargetFramework of the testbed project (net8.0 = the addon's floor; net10.0 = a user project on .NET 10)."
+        required: false
+        default: "net8.0"
+        type: string
       serverVersion:
         description: "GameDev-MCP-Server release version to download + run (the addon's pinned ServerVersion)."
         required: false
@@ -70,7 +75,7 @@ env:
 
 jobs:
   runtime-harness:
-    name: runtime harness ${{ inputs.godotVersion }} (mono)
+    name: runtime harness ${{ inputs.godotVersion }} (mono)${{ inputs.targetFramework != 'net8.0' && format(' {0}', inputs.targetFramework) || '' }}
     runs-on: ubuntu-latest
     # Job-level continue-on-error is not allowed on a caller job that `uses:` a reusable
     # workflow, so the advisory switch lives here, driven by the `advisory` input.
@@ -85,6 +90,11 @@ jobs:
       # REMOVE this once .NET 10 servicing ships the backport (dotnet/runtime#136481).
       DOTNET_ThreadPool_ThreadsToKeepAlive: "-1"
       TEST_PROJECT: Godot-Tests
+      # Godot-Tests.csproj reads it as its TargetFramework (MSBuild takes env vars as properties, so the
+      # editor's own rebuilds in the reload smoke see it too).
+      GodotMcpTestTargetFramework: ${{ inputs.targetFramework }}
+      # Unique per leg: artifact names (a net10.0 leg shares its Godot version with a net8.0 leg).
+      LEG_ID: ${{ inputs.godotVersion }}${{ inputs.targetFramework != 'net8.0' && format('-{0}', inputs.targetFramework) || '' }}
       # Fixed local port the server listens on and the game connects to (loopback, auth=none).
       SERVER_PORT: "5400"
       SERVER_VERSION: ${{ inputs.serverVersion }}
@@ -104,6 +114,15 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
+
+      # A project targeting net10.0 needs the .NET 10 SDK to build and its runtime to run.
+      - name: Setup .NET 8 + 10 (net10.0 leg)
+        if: inputs.targetFramework == 'net10.0'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin) and
       # publishes the linux-x64 gamedev-mcp-server.
@@ -298,6 +317,12 @@ jobs:
             cat build.log || true
             exit 1
           fi
+          # The assembly must target the leg's framework (guards the TargetFramework override).
+          if ! grep -qF "\"tfm\": \"${GodotMcpTestTargetFramework}\"" "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.runtimeconfig.json; then
+            echo "::error::Godot-MCP-Tests.dll does not target ${GodotMcpTestTargetFramework}."
+            cat "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.runtimeconfig.json || true
+            exit 1
+          fi
 
       - name: Run the headless game harness + assert a live tool roundtrip
         id: harness
@@ -453,7 +478,7 @@ jobs:
         shell: bash
         env:
           GODOT_VERSION: ${{ inputs.godotVersion }}
-          CHAIN_FIXTURE_DIR: ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}
+          CHAIN_FIXTURE_DIR: ${{ runner.temp }}/chain-fixture-godot-${{ env.LEG_ID }}
         run: |
           set +e
           PY=${{ env.CHAIN_PY }}
@@ -580,10 +605,10 @@ jobs:
         if: ${{ always() && (steps.chain_fixture.outputs.verdict == 'fixture-missing' || steps.chain_fixture.outputs.verdict == 'contract-change' || steps.chain_fixture.outputs.verdict == 'error') && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/') }}
         uses: actions/upload-artifact@v6
         with:
-          name: chain-fixture-godot-${{ inputs.godotVersion }}
+          name: chain-fixture-godot-${{ env.LEG_ID }}
           path: |
-            ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/fresh.jsonl
-            ${{ runner.temp }}/chain-fixture-godot-${{ inputs.godotVersion }}/diff.txt
+            ${{ runner.temp }}/chain-fixture-godot-${{ env.LEG_ID }}/fresh.jsonl
+            ${{ runner.temp }}/chain-fixture-godot-${{ env.LEG_ID }}/diff.txt
           if-no-files-found: warn
           retention-days: 1
 
@@ -600,7 +625,7 @@ jobs:
         if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
-          name: runtime-harness-${{ inputs.godotVersion }}-logs
+          name: runtime-harness-${{ env.LEG_ID }}-logs
           path: |
             import.log
             build.log
@@ -635,7 +660,7 @@ jobs:
           fi
           ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job runtime-harness \
             --edges Godot-Tests/Godot-Tests.csproj --edges server-binary \
-            --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" \
+            --matrix "${{ env.LEG_ID }}" --engine godot --engine-version "${{ inputs.godotVersion }}" \
             --tier T3 --job-status "${{ job.status }}" \
             "${extra[@]}" \
             --out chain-leg.json
