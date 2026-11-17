@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using com.IvanMurzak.Godot.MCP.Tools;
 using Godot;
+using FileAccess = Godot.FileAccess;
 using Rql.Execution;
 
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql
