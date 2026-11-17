@@ -220,6 +220,19 @@ describe('addAddonEmbeddedResources — Condition', () => {
     expect(text).toBe(own);
     expect(changes.every((c) => c.action === 'unchanged')).toBe(true);
   });
+
+  it('keeps a project-owned Condition when reconciling a stale LogicalName', () => {
+    const ownCondition = `'$(Configuration)' == 'Debug' and '$'!=''`;
+    const { text, changed, changes } = addAddonEmbeddedResources(
+      csprojWith(`<EmbeddedResource Include="${CATALOG.include}" LogicalName="Stale.Name.json" Condition="${ownCondition}" />`),
+    );
+    expect(changed).toBe(true);
+    expect(text).toContain(
+      `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Condition="${ownCondition}" />`,
+    );
+    expect(changes.find((c) => c.include === CATALOG.include)?.action).toBe('updated');
+    expect(text.match(/<EmbeddedResource\b/g)?.length).toBe(1);
+  });
 });
 
 describe('addAddonEmbeddedResources — existing EmbeddedResource ItemGroup', () => {

@@ -138,9 +138,12 @@ function desiredEmbedCondition(res: AddonEmbeddedResource): string {
   return `Exists('${res.include}')`;
 }
 
-/** Render the canonical self-closing element for a required embedded resource. */
-function renderEmbed(res: AddonEmbeddedResource): string {
-  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${desiredEmbedCondition(res)}" />`;
+/**
+ * Render the canonical self-closing element for a required embedded resource. `condition`
+ * defaults to the guard; a project-owned Condition is passed in so a reconcile keeps it.
+ */
+function renderEmbed(res: AddonEmbeddedResource, condition: string = desiredEmbedCondition(res)): string {
+  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${condition}" />`;
 }
 
 /**
@@ -304,7 +307,8 @@ export function addAddonEmbeddedResources(
       continue;
     }
     // Reconcile in place: replace the whole element with the canonical embed.
-    text = text.replace(re, renderEmbed(res));
+    // Function replacer: a project-owned Condition may contain `$'` / `$&`, which a string replacement expands.
+    text = text.replace(re, () => renderEmbed(res, desired));
     changes.push({ include: res.include, action: 'updated', from: existingLogical, logicalName: res.logicalName });
   }
 
