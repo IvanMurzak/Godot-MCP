@@ -50,10 +50,7 @@ global using global::System.Threading.Tasks;
         [MemberData(nameof(Builds))]
         public void ShippedSources_CompileWithoutAmbiguity_UnderImplicitUsings(string build, string[] symbols)
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Godot-MCP.csproj"))) dir = dir.Parent;
-            Assert.NotNull(dir);
-            var repoRoot = dir!.FullName;
+            var repoRoot = ToolAnnotationsTests.RepoRoot();
 
             var sourceRoots = new[] { Path.Combine(repoRoot, "addons", "godot_mcp") }
                 .Concat(Directory.EnumerateDirectories(Path.Combine(repoRoot, "extensions"), "Godot-AI-*")

@@ -138,10 +138,7 @@ function desiredEmbedCondition(res: AddonEmbeddedResource): string {
   return `Exists('${res.include}')`;
 }
 
-/**
- * Render the canonical self-closing element for a required embedded resource. `condition`
- * defaults to the guard; a project-owned Condition is passed in so a reconcile keeps it.
- */
+/** Render the self-closing element for a required embedded resource (default Condition: the guard). */
 function renderEmbed(res: AddonEmbeddedResource, condition: string = desiredEmbedCondition(res)): string {
   return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${condition}" />`;
 }
@@ -296,19 +293,15 @@ export function addAddonEmbeddedResources(
     }
     const logicalMatch = match[0].match(/\bLogicalName\s*=\s*"([^"]*)"/i);
     const existingLogical = logicalMatch ? logicalMatch[1] : '';
-    const conditionMatch = match[0].match(/\bCondition\s*=\s*"([^"]*)"/i);
-    const existingCondition = conditionMatch ? conditionMatch[1] : undefined;
-    // The Condition the element should carry: a missing one becomes the canonical `Exists('<include>')`
-    // (an unconditional item breaks the build with CS1566 when the gitignored addon dir is absent);
-    // any other Condition is the project's own and stays (same rule as `desiredCondition` for references).
-    const desired = existingCondition === undefined ? desiredEmbedCondition(res) : existingCondition;
-    if (existingLogical === res.logicalName && existingCondition === desired) {
+    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
+    // Missing Condition → the canonical guard; a project-owned Condition stays.
+    if (existingLogical === res.logicalName && existingCondition !== undefined) {
       changes.push({ include: res.include, action: 'unchanged', logicalName: res.logicalName });
       continue;
     }
     // Reconcile in place: replace the whole element with the canonical embed.
     // Function replacer: a project-owned Condition may contain `$'` / `$&`, which a string replacement expands.
-    text = text.replace(re, () => renderEmbed(res, desired));
+    text = text.replace(re, () => renderEmbed(res, existingCondition));
     changes.push({ include: res.include, action: 'updated', from: existingLogical, logicalName: res.logicalName });
   }
 

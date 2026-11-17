@@ -271,11 +271,6 @@ describe('addAddonPackageReferences + addAddonEmbeddedResources — combined sca
   });
 });
 
-/** Escape a string for use inside a RegExp (test-local helper). */
-function escapeRe(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 describe('addAddonPackageReferences — third-party pins are a floor', () => {
   const refs = [
     { id: 'com.IvanMurzak.Rql', version: '0.1.1' },
