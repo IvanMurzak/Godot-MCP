@@ -313,8 +313,9 @@ describe('installPlugin — skipMaterialize', () => {
   });
 });
 
-// The addon ships as source and compiles with the user's TargetFramework: net8.0 is the floor, newer ones
-// (net9.0, net10.0) are supported. The installer must accept them and never rewrite the user's TFM.
+// The addon ships as source and compiles with the user's TargetFramework: net8.0 is the floor, net10.0 the
+// recommended one (.NET 9 is out of support and not a documented target). Whatever the TFM, the installer must accept
+// the project and never rewrite it.
 describe('installPlugin — a project on a newer .NET', () => {
   it.each(['net9.0', 'net10.0'])('installs into a %s project and keeps its TargetFramework', async (tfm) => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gmcp-tfm-'));

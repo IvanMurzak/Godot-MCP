@@ -100,13 +100,17 @@ def consumer(folder, sdk, selected, version, feed, cache, framework):
     return csproj
 
 
-def compile_consumer(project, selected, version, cache, log, framework):
-    env = {**os.environ, 'NUGET_PACKAGES': str(cache)}
-    run(['dotnet', 'build', project, '-c', 'Debug'], env=env, log=log)
-    # The built assembly must target the requested framework (a net10.0 leg must not silently build net8.0).
+def check_target_framework(project, framework):
+    """The built assembly must target the requested framework (a net10.0 leg must not silently build net8.0)."""
     runtime = read_json(project.parent / '.godot/mono/temp/bin/Debug' / (project.stem + '.runtimeconfig.json'))
     if runtime['runtimeOptions'].get('tfm') != framework:
         raise ValueError(f'Consumer {project.parent.name} does not target {framework}: {runtime}')
+
+
+def compile_consumer(project, selected, version, cache, log, framework):
+    env = {**os.environ, 'NUGET_PACKAGES': str(cache)}
+    run(['dotnet', 'build', project, '-c', 'Debug'], env=env, log=log)
+    check_target_framework(project, framework)
     # Evaluate the actual NuGet-imported Compile items after restore. A cache may
     # contain every package; only declared packages may inject source into this assembly.
     evaluated = json.loads(run(['dotnet', 'msbuild', project, '-getItem:Compile', '-verbosity:quiet'], env=env))

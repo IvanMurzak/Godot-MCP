@@ -317,6 +317,24 @@ class SuiteGuards(unittest.TestCase):
             self.assertEqual('0.1.1', extensions.modules(root)[-1]['version'])
 
 
+class ConsumerTargetFramework(unittest.TestCase):
+    def test_built_runtimeconfig_must_match_the_requested_framework(self):
+        # This test module shares the script's name, so load the script by path.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('extension_suite', extensions.ROOT / 'scripts/test_extensions.py')
+        suite = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(suite)
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary) / 'GodotExtensionTests.csproj'
+            output = Path(temporary) / '.godot/mono/temp/bin/Debug'
+            output.mkdir(parents=True)
+            (output / 'GodotExtensionTests.runtimeconfig.json').write_text(
+                json.dumps({'runtimeOptions': {'tfm': 'net8.0'}}), encoding='utf-8')
+            suite.check_target_framework(project, 'net8.0')
+            with self.assertRaisesRegex(ValueError, 'does not target net10.0'):
+                suite.check_target_framework(project, 'net10.0')
+
+
 class CorePinParity(unittest.TestCase):
     def test_extensions_and_template_pin_the_core_versions(self):
         # Drift here broke a release-train leg with NU1605 (an extension's ReflectorNet pin was
