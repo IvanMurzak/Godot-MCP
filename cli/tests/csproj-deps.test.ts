@@ -235,6 +235,43 @@ describe('addAddonEmbeddedResources — Condition', () => {
   });
 });
 
+describe('addAddonEmbeddedResources — in-place patch keeps the element', () => {
+  const wrap = (element: string) => `<Project Sdk="Godot.NET.Sdk/4.3.0">
+  <ItemGroup>
+    ${element}
+  </ItemGroup>
+</Project>
+`;
+
+  it('adds only the guard to an unconditional element, keeping its other attributes', () => {
+    const { text, changes } = addAddonEmbeddedResources(
+      wrap(`<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Visible="false" />`),
+    );
+    expect(text).toContain(
+      `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Visible="false" Condition="Exists('${CATALOG.include}')" />`,
+    );
+    expect(changes[0]?.action).toBe('updated');
+    expect(addAddonEmbeddedResources(text).changed).toBe(false);
+  });
+
+  it('keeps a single-quoted project Condition', () => {
+    const own = wrap(
+      `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Condition='Exists("x")' />`,
+    );
+    const { text, changed } = addAddonEmbeddedResources(own);
+    expect(changed).toBe(false);
+    expect(text).toBe(own);
+  });
+
+  it('adds a missing LogicalName and the guard to a bare element', () => {
+    const { text } = addAddonEmbeddedResources(wrap(`<EmbeddedResource Include="${CATALOG.include}"></EmbeddedResource>`));
+    expect(text).toContain(
+      `<EmbeddedResource Include="${CATALOG.include}" LogicalName="${CATALOG.logicalName}" Condition="Exists('${CATALOG.include}')"></EmbeddedResource>`,
+    );
+    expect(text.match(/<EmbeddedResource\b/g)?.length).toBe(1);
+  });
+});
+
 describe('addAddonEmbeddedResources — existing EmbeddedResource ItemGroup', () => {
   it('groups the catalog embed into the existing EmbeddedResource ItemGroup', () => {
     const existing = `<Project Sdk="Godot.NET.Sdk/4.3.0">

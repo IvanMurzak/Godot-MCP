@@ -4,6 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`install-plugin` guards the extension-catalog embed with `Exists()`.** The `<EmbeddedResource>` it writes now carries
+  `Condition="Exists('addons/godot_mcp/extensions.catalog.json')"`, so a clone that gitignores `addons/` builds (it
+  failed with `CS1566`) and the extension list is empty until the addon is installed. A re-run adds the guard to an
+  element an older CLI wrote; a Condition the project wrote stays (#511, thanks @Jrbesse).
 - **`rql` takes several statements separated by `;`.** The addon's `rql-query` / `rql-mutate` run them in one call (one
   result block each). `rql` now sends text to `rql-mutate` when any statement ends in `set` / `call` (it looked at the last
   stage of the whole text): text that mixes a change and a read (`… | set …; nodes | count`) gets `rql-mutate`'s refusal

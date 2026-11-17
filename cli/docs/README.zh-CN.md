@@ -270,7 +270,7 @@ godot-cli install-plugin --source ./Godot-MCP/addons/godot_mcp ./MyGodotProject 
 
 1. **生成 `res://addons/godot_mcp/`。** 默认情况下，它通过 HTTPS **仅从 github.com** 下载 `godot-mcp-addon-<version>.zip`（`IvanMurzak/Godot-MCP` 的发布版 `v<version>`；版本默认为 CLI 自身的版本）。非 `github.com` 的主机和普通 `http` 会被拒绝。使用 `--source <path>` 时，它改为从本地目录复制插件（不联网）——`<path>` 可以*就是* `addons/godot_mcp` 目录，也可以是*包含*它的目录。
 2. **添加插件所需的 NuGet 包**（`com.IvanMurzak.ReflectorNet`、`com.IvanMurzak.McpPlugin`）到项目的 `.csproj`，且是幂等的——缺失时添加，版本过旧时校正，版本正确时保持不变。版本来自正在安装的插件：其 `nuget-deps.json`（由发布工作流从 `Godot-MCP.csproj` 生成到每个发布版 zip 中），或者当 `--source` 指向 Godot-MCP 检出目录时，来自该检出的 `Godot-MCP.csproj`。没有该清单的旧版插件 zip 会回退到 CLI 内置的版本，并给出警告。
-3. **嵌入扩展目录**（`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />`）到项目的 `.csproj`，且是幂等的。没有它，插件的扩展注册表在编辑器运行时读不到任何目录，**Extensions 面板为空**。它与版本固定一样只有单一来源，并与插件的 csproj 做一致性测试。它还会设置 `<EnableDynamicLoading>true</EnableDynamicLoading>`（Godot 的模板自带；没有它，从编辑器运行的游戏无法实例化 C# 脚本）。
+3. **嵌入扩展目录**（`<EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" Condition="Exists('addons/godot_mcp/extensions.catalog.json')" />`）到项目的 `.csproj`，且是幂等的。没有它，插件的扩展注册表在编辑器运行时读不到任何目录，**Extensions 面板为空**。它与版本固定一样只有单一来源，并与插件的 csproj 做一致性测试。它还会设置 `<EnableDynamicLoading>true</EnableDynamicLoading>`（Godot 的模板自带；没有它，从编辑器运行的游戏无法实例化 C# 脚本）。
 4. 在 `project.godot` 的 `[editor_plugins]` 中**启用插件**。
 
 它对库调用是安全的（返回 `{ kind: 'success' | 'failure' }` 联合类型；从不在公共边界之外抛出异常）且是幂等的——在已安装的项目上重新运行会报告没有变化。

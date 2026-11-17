@@ -38,7 +38,7 @@ Godot compiles every `.cs` file in the project into one assembly, so the project
 
 <!-- Embed the extension catalog, or the dock's Extensions list is empty. -->
 <ItemGroup>
-  <EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" />
+  <EmbeddedResource Include="addons/godot_mcp/extensions.catalog.json" LogicalName="Godot-MCP.extensions.catalog.json" Condition="Exists('addons/godot_mcp/extensions.catalog.json')" />
 </ItemGroup>
 ```
 

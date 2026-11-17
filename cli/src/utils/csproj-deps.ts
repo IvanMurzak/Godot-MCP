@@ -138,9 +138,16 @@ function desiredEmbedCondition(res: AddonEmbeddedResource): string {
   return `Exists('${res.include}')`;
 }
 
-/** Render the self-closing element for a required embedded resource (default Condition: the guard). */
-function renderEmbed(res: AddonEmbeddedResource, condition: string = desiredEmbedCondition(res)): string {
-  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${condition}" />`;
+/** Render the canonical self-closing element for a required embedded resource. */
+function renderEmbed(res: AddonEmbeddedResource): string {
+  return `<EmbeddedResource Include="${res.include}" LogicalName="${res.logicalName}" Condition="${desiredEmbedCondition(res)}" />`;
+}
+
+/** Append an attribute to an existing `<EmbeddedResource ...>` element (self-closing or with an end tag). */
+function addEmbedAttribute(element: string, attribute: string): string {
+  return element.replace(/\s*(\/>|><\/EmbeddedResource>)$/i, (_m, end: string) =>
+    ` ${attribute}${end === '/>' ? ' />' : end}`,
+  );
 }
 
 /**
@@ -291,17 +298,27 @@ export function addAddonEmbeddedResources(
       missing.push(res);
       continue;
     }
-    const logicalMatch = match[0].match(/\bLogicalName\s*=\s*"([^"]*)"/i);
-    const existingLogical = logicalMatch ? logicalMatch[1] : '';
-    const existingCondition = /\bCondition\s*=\s*"([^"]*)"/i.exec(match[0])?.[1];
-    // Missing Condition → the canonical guard; a project-owned Condition stays.
-    if (existingLogical === res.logicalName && existingCondition !== undefined) {
+    // Attributes in either quote style. A Condition already on the element (any Condition) is the project's own
+    // and stays; a missing one gets the `Exists()` guard (an older CLI wrote the element unconditionally).
+    const element = match[0];
+    const logicalMatch = /\bLogicalName\s*=\s*(["'])(.*?)\1/is.exec(element);
+    const existingLogical = logicalMatch ? logicalMatch[2] : '';
+    const hasCondition = /\bCondition\s*=\s*(["']).*?\1/is.test(element);
+    if (existingLogical === res.logicalName && hasCondition) {
       changes.push({ include: res.include, action: 'unchanged', logicalName: res.logicalName });
       continue;
     }
-    // Reconcile in place: replace the whole element with the canonical embed.
-    // Function replacer: a project-owned Condition may contain `$'` / `$&`, which a string replacement expands.
-    text = text.replace(re, () => renderEmbed(res, existingCondition));
+    // Patch in place, keeping every other attribute. Function replacers: attribute values may hold `$'` / `$&`.
+    let patched = element;
+    if (logicalMatch) {
+      if (existingLogical !== res.logicalName) {
+        patched = patched.replace(logicalMatch[0], () => `LogicalName="${res.logicalName}"`);
+      }
+    } else {
+      patched = addEmbedAttribute(patched, `LogicalName="${res.logicalName}"`);
+    }
+    if (!hasCondition) patched = addEmbedAttribute(patched, `Condition="${desiredEmbedCondition(res)}"`);
+    text = text.replace(re, () => patched);
     changes.push({ include: res.include, action: 'updated', from: existingLogical, logicalName: res.logicalName });
   }
 
