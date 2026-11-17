@@ -80,7 +80,11 @@ jobs:
           GODOT_VERSION: ${{ inputs.godotVersion }}
           TARGET_FRAMEWORK: ${{ inputs.targetFramework }}
         # --target-framework rejects anything but net8.0 / net10.0 and checks every built consumer targets it.
-        run: python scripts/test_extensions.py --sdk "$GODOT_VERSION" --target-framework "$TARGET_FRAMEWORK" --godot "$(command -v godot)" --skip-unit --prove-isolation
+        # The isolation canary does not depend on the TFM: the net8.0 legs prove it, a net10.0 leg skips its 3 builds.
+        run: |
+          extra=()
+          if [ "$TARGET_FRAMEWORK" = net8.0 ]; then extra+=(--prove-isolation); fi
+          python scripts/test_extensions.py --sdk "$GODOT_VERSION" --target-framework "$TARGET_FRAMEWORK" --godot "$(command -v godot)" --skip-unit "${extra[@]}"
       - name: Record release-train identity
         id: chain_record
         if: always()

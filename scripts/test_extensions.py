@@ -155,7 +155,7 @@ def isolation_canary(isolated, combined, cache, output):
         log=output / 'canary-clean-build.log')
 
 
-def prepare(sdk, output, *, framework='net8.0', prove_isolation=False):
+def prepare(sdk, output, *, framework, prove_isolation=False):
     selected = [module for module in modules() if compatible(module, sdk)]
     feed, cache = output / 'feed', output / 'packages'
     feed.mkdir(parents=True)
