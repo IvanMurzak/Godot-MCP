@@ -423,6 +423,7 @@ jobs:
         extension-suite-4-5,
         extension-suite-4-6,
         extension-suite-4-7,
+        net10-extension-suite-4-7,
       ]
     outputs:
       zip_name: ${{ steps.package.outputs.zip_name }}
@@ -1026,3 +1027,11 @@ jobs:
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.7.0"
+
+  # The extension suite with net10.0 consumers; mirrors test_pull_request.yml.
+  net10-extension-suite-4-7:
+    needs: [dotnet-build-test]
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"
+      targetFramework: "net10.0"

@@ -91,9 +91,16 @@ jobs:
     uses: ./.github/workflows/test_extensions.yml
     with:
       godotVersion: "4.7.0"
+  # The newest Godot again with net10.0 consumers (mirrors test_pull_request.yml's net10-extension-suite-4-7).
+  godot-4-7-net10:
+    needs: validate
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"
+      targetFramework: "net10.0"
 
   publish:
-    needs: [validate, cli, godot-4-3, godot-4-4, godot-4-5, godot-4-6, godot-4-7]
+    needs: [validate, cli, godot-4-3, godot-4-4, godot-4-5, godot-4-6, godot-4-7, godot-4-7-net10]
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:

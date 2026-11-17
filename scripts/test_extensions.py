@@ -35,14 +35,14 @@ def unit_tests(output):
         print(project, '\n'.join(summary), flush=True)
 
 
-def consumer(folder, sdk, selected, version, feed, cache):
+def consumer(folder, sdk, selected, version, feed, cache, framework):
     folder.mkdir(parents=True)
     shutil.copytree(ROOT / 'addons/godot_mcp', folder / 'addons/godot_mcp',
                     ignore=shutil.ignore_patterns('bin', 'obj', '.godot', '*.uid'))
     assembly = 'GodotExtensionTests'
     project = ET.Element('Project', Sdk='Godot.NET.Sdk/' + sdk)
     properties = ET.SubElement(project, 'PropertyGroup')
-    for key, value in {'TargetFramework': 'net8.0', 'EnableDynamicLoading': 'true',
+    for key, value in {'TargetFramework': framework, 'EnableDynamicLoading': 'true',
                        'Nullable': 'enable', 'AssemblyName': assembly}.items():
         ET.SubElement(properties, key).text = value
     group = ET.SubElement(project, 'ItemGroup')
@@ -100,9 +100,17 @@ def consumer(folder, sdk, selected, version, feed, cache):
     return csproj
 
 
-def compile_consumer(project, selected, version, cache, log):
+def check_target_framework(project, framework):
+    """The built assembly must target the requested framework (a net10.0 leg must not silently build net8.0)."""
+    runtime = read_json(project.parent / '.godot/mono/temp/bin/Debug' / (project.stem + '.runtimeconfig.json'))
+    if runtime['runtimeOptions'].get('tfm') != framework:
+        raise ValueError(f'Consumer {project.parent.name} does not target {framework}: {runtime}')
+
+
+def compile_consumer(project, selected, version, cache, log, framework):
     env = {**os.environ, 'NUGET_PACKAGES': str(cache)}
     run(['dotnet', 'build', project, '-c', 'Debug'], env=env, log=log)
+    check_target_framework(project, framework)
     # Evaluate the actual NuGet-imported Compile items after restore. A cache may
     # contain every package; only declared packages may inject source into this assembly.
     evaluated = json.loads(run(['dotnet', 'msbuild', project, '-getItem:Compile', '-verbosity:quiet'], env=env))
@@ -151,7 +159,7 @@ def isolation_canary(isolated, combined, cache, output):
         log=output / 'canary-clean-build.log')
 
 
-def prepare(sdk, output, *, prove_isolation=False):
+def prepare(sdk, output, *, framework, prove_isolation=False):
     selected = [module for module in modules() if compatible(module, sdk)]
     feed, cache = output / 'feed', output / 'packages'
     feed.mkdir(parents=True)
@@ -163,8 +171,8 @@ def prepare(sdk, output, *, prove_isolation=False):
         verify_package(archive, module, version=version)
     projects = {}
     for name, subset in [('core', [])] + [(m['name'], [m]) for m in selected] + [('combined', selected)]:
-        project = consumer(output / name, sdk, subset, version, feed, cache)
-        compile_consumer(project, subset, version, cache, output / (name + '-build.log'))
+        project = consumer(output / name, sdk, subset, version, feed, cache, framework)
+        compile_consumer(project, subset, version, cache, output / (name + '-build.log'), framework)
         projects[name] = project
         print(f'Compiled {name}: {len(subset)} extension(s), exact packed-source inclusion verified', flush=True)
     if prove_isolation:
@@ -173,12 +181,12 @@ def prepare(sdk, output, *, prove_isolation=False):
     # references. Compile that distribution separately while keeping the live
     # editor on the existing combined NuGet consumer. No extra editor launch.
     from assetlib_extensions import pack_archive, extract_archive
-    asset_project = consumer(output / 'assetlib', sdk, [], version, feed, cache)
+    asset_project = consumer(output / 'assetlib', sdk, [], version, feed, cache, framework)
     for module in selected:
         package = feed / f"{module['packageId']}.{version}.nupkg"
         archive = pack_archive(module, package, output / 'assetlib-archives', package_version=version)
         extract_archive(archive, asset_project.parent)
-    compile_consumer(asset_project, [], version, cache, output / 'assetlib-build.log')
+    compile_consumer(asset_project, [], version, cache, output / 'assetlib-build.log', framework)
     env = {**os.environ, 'NUGET_PACKAGES': str(cache)}
     evaluated = json.loads(run(['dotnet', 'msbuild', asset_project, '-getItem:Compile', '-verbosity:quiet'], env=env))
     compiled = {Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
@@ -187,7 +195,7 @@ def prepare(sdk, output, *, prove_isolation=False):
     actual = {path for path in compiled if path.is_relative_to(source_folder.resolve())}
     if not expected or expected != actual:
         raise ValueError('Asset Library consumer did not compile the exact installed archive sources')
-    plan = {'sdk': sdk, 'ciVersion': version, 'modules': [m['name'] for m in selected],
+    plan = {'sdk': sdk, 'targetFramework': framework, 'ciVersion': version, 'modules': [m['name'] for m in selected],
             'project': str(projects['combined']), 'nugetCache': str(cache)}
     (output / 'suite.json').write_text(json.dumps(plan, indent=2) + '\n')
     return plan
@@ -202,6 +210,8 @@ def main():
     parser.add_argument('--unit-only', action='store_true')
     parser.add_argument('--skip-unit', action='store_true', help='CI: unit tests already ran in the required parent job')
     parser.add_argument('--prove-isolation', action='store_true')
+    parser.add_argument('--target-framework', default='net8.0', choices=['net8.0', 'net10.0'],
+                        help='TargetFramework of the generated consumers (net8.0 is the addon floor)')
     args = parser.parse_args()
     if not args.unit_only and not args.prepare_only and not args.godot:
         parser.error('Full suite requires --godot; --prepare-only explicitly omits live tests')
@@ -211,7 +221,7 @@ def main():
     if not args.skip_unit:
         unit_tests(output)
     if not args.unit_only:
-        plan = prepare(args.sdk, output, prove_isolation=args.prove_isolation)
+        plan = prepare(args.sdk, output, framework=args.target_framework, prove_isolation=args.prove_isolation)
         if not args.prepare_only:
             from extension_live import live, released_server
             server = args.server or os.environ.get('GODOT_MCP_SERVER_PATH') or released_server(output / 'server')

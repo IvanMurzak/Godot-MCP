@@ -8,7 +8,7 @@
 ## 要求
 
 - **Godot 4.3 或更高版本的 .NET（mono）版。** 你的游戏代码可以继续使用 GDScript，但插件是 C#：请用 .NET 版编辑器打开项目，并为其提供一个 C# 项目文件（`.csproj`）。对于现有的 GDScript 项目，执行一次 **Project → Tools → C# → Create C# solution** 即可。插件的 csproj 以 `Godot.NET.Sdk/4.3.0` 作为最低版本；CI 测试 Godot 4.3、4.4、4.5、4.6 和 4.7。
-- **.NET 8、9 或 10 SDK**。项目可以面向 `net8.0`（最低）、`net9.0` 或 `net10.0`：插件以源码形式分发，并使用你项目的 `TargetFramework` 编译，`godot-cli install-plugin` 从不修改它。CI 测试 `net8.0` 和 `net10.0`。如果安装了 .NET 10 运行时，无论你的 `TargetFramework` 是什么（Godot 编辑器使用已安装的最新运行时），请阅读[重载的已知问题](custom-tools.zh-CN.md)。
+- **.NET 10 SDK（推荐）；仍支持 .NET 8**。项目可以面向 `net10.0` 或 `net8.0`（最低；.NET 9 已停止支持，未经测试）：插件以源码形式分发，并使用你项目的 `TargetFramework` 编译，`godot-cli install-plugin` 从不修改它。CI 测试 `net8.0` 和 `net10.0`。如果安装了 .NET 10 运行时，无论你的 `TargetFramework` 是什么（Godot 编辑器使用已安装的最新运行时），请阅读[重载的已知问题](custom-tools.zh-CN.md)。
 - **Windows、macOS 或 Linux。** Godot-MCP 在这三个系统上都能运行。
 
 <a id="1-add-the-addon"></a>

@@ -3,7 +3,7 @@
 <p><img src="img/hero.svg" alt="Godot MCP: los agentes de IA trabajan en el editor de Godot a través del addon godot_mcp" width="100%"/></p>
 
 [![CI](https://img.shields.io/github/actions/workflow/status/IvanMurzak/Godot-MCP/ci.yml?branch=main&label=CI&color=15803D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/IvanMurzak/Godot-MCP?label=release&color=2F6F9F&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/releases/latest) [![Asset Library](https://img.shields.io/badge/AssetLib-Godot--MCP-2F6F9F?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/asset-library/asset/5245) [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) \
-[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 8–10](https://img.shields.io/badge/.NET-8%E2%80%9310%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
+[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 10 (8+)](https://img.shields.io/badge/.NET-10%20%288%2B%29%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
 [English](../README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · **Español** · [فارسی](README.fa.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md)
 
@@ -11,7 +11,7 @@
 
 **Godot-MCP** conecta agentes de IA (Claude Code, Cursor, Codex, GitHub Copilot, Gemini o cualquier otro cliente [MCP](https://modelcontextprotocol.io/)) con el **editor de Godot**. El agente puede leer y modificar tus escenas, nodos, recursos y scripts, compilar y ejecutar C# y ver capturas de pantalla. Es un addon de editor con una CLI complementaria, [`godot-cli`](../cli/docs/README.es.md), y el hermano para Godot de [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP).
 
-**Requisitos:** la **versión .NET** del editor de Godot 4.3+ y el **SDK de .NET 8, 9 o 10**, que se instala una sola vez. Tus scripts pueden seguir en GDScript. La `godot-cli` opcional necesita Node.js 22.14+. Funciona en Windows, macOS y Linux.
+**Requisitos:** la **versión .NET** del editor de Godot 4.3+ y el **SDK de .NET 10** (recomendado; .NET 8 sigue siendo compatible), que se instala una sola vez. Tus scripts pueden seguir en GDScript. La `godot-cli` opcional necesita Node.js 22.14+. Funciona en Windows, macOS y Linux.
 
 <a id="why"></a>
 ## Por qué Godot-MCP
@@ -31,7 +31,7 @@
 El código de tu juego sigue en GDScript. El addon en sí es C#, así que el proyecto necesita unos pocos pasos que se hacen una sola vez:
 
 ✅ **Editor .NET de Godot** — abre el proyecto con la versión .NET de Godot 4.3+ (el mismo proyecto, las mismas escenas)\
-✅ **SDK de .NET 8, 9 o 10** — se instala una vez por equipo; el proyecto puede apuntar de `net8.0` (el mínimo) a `net10.0`\
+✅ **SDK de .NET 10** (recomendado; .NET 8 sigue siendo compatible) — se instala una vez por equipo; el proyecto puede apuntar a `net10.0` o a `net8.0` (el mínimo)\
 ✅ **Solución C#** — proyecto existente: **Project → Tools → C# → Create C# solution**; proyecto nuevo: `create-project --dotnet`\
 ✅ **El addon** — `godot-cli install-plugin` lo añade junto con sus referencias NuGet y lo activa
 

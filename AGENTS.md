@@ -81,9 +81,10 @@ editors keep answering tool calls with an old build).
 
 ## Load-bearing gotchas
 
-- **Supported .NET: 8 (minimum) through 10.** The addon ships as source and compiles with the consumer's
+- **Supported .NET: 10 (recommended) and 8 (minimum).** The addon ships as source and compiles with the consumer's
   `TargetFramework`, so `Godot-MCP.csproj` stays `net8.0`; the xUnit projects (core, extensions, template) multi-target
-  `net8.0;net10.0`, and CI's `net10-*` legs build `Godot-Tests/` as `net10.0` (`GodotMcpTestTargetFramework`).
+  `net8.0;net10.0`, and CI's `net10-*` legs build `Godot-Tests/` as `net10.0` (`GodotMcpTestTargetFramework`) and the
+  extension suite's generated consumers as `net10.0` (`scripts/test_extensions.py --target-framework`).
 
 - **Editor-runtime assembly loading.** Godot does not resolve a project's NuGet deps in the editor.
   `Runtime/Connection/GodotMcpAssemblyResolver.cs` hooks `AssemblyLoadContext.Default.Resolving`

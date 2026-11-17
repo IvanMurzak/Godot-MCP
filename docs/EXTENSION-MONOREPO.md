@@ -24,6 +24,9 @@ dependency floors, runs all original unit tests, packs actual source-only packag
 compiles independent consumers, then runs every compatible module's live manifest through one
 editor and one local MCP server. It downloads the core's pinned server and test-only third-party
 addons. Use `--server` to supply that server locally. Owned processes are stopped on success or failure.
+The consumers target `net8.0` (the addon's floor); `--target-framework net10.0` builds them for .NET 10
+(CI's `net10-extension-suite-*` leg) and checks every built assembly targets it. Each `testbed/` builds
+as `net10.0` with `-p:GodotMcpTestTargetFramework=net10.0`.
 `--unit-only` and `--prepare-only` explicitly omit the live editor stage.
 
 Each SDK/profile gets new project and cache directories; editors never migrate a shared project.

@@ -26,7 +26,7 @@
 <a id="quick-start"></a>
 ## クイックスタート
 
-[Node.js](https://nodejs.org/) 22.14 以降と、.NET 8、9 または 10 SDK を備えた Godot 4.3+ .NET エディターが必要です。Windows、macOS、Linux で動作します。
+[Node.js](https://nodejs.org/) 22.14 以降と、.NET 10 SDK(推奨。.NET 8 も引き続きサポート)を備えた Godot 4.3+ .NET エディターが必要です。Windows、macOS、Linux で動作します。
 
 ```bash
 npm install -g godot-cli
