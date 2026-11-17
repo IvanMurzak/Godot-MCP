@@ -147,13 +147,14 @@ jobs:
             10.0.x
 
       # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
-      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+      - name: Setup .NET 8 + 9 + 10 for the chain feed (chain runs only)
         if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
 
       - name: chain python (posix)
         if: runner.os != 'Windows' && env.CHAIN_PY == ''
