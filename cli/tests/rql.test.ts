@@ -2,7 +2,24 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { decodeQueryFile, isRqlMutation, resourcesWrittenSince, rqlErrorHint, rqlMaySave, rqlStages, rqlToolCall, saveReceipt, stripToolName } from '../src/lib/rql.js';
+import {
+  RQL_NO_QUERY_USAGE,
+  decodeQueryFile,
+  isRqlMutation,
+  resourcesWrittenSince,
+  rqlErrorHint,
+  rqlMaySave,
+  rqlStages,
+  rqlToolCall as coreRqlToolCall,
+  rqlToolFor,
+  saveReceipt,
+  splitRqlStatements,
+  stripToolName,
+} from '../src/lib/rql.js';
+
+/** The call `godot-cli rql` makes: cli-core's routing with godot-cli's own usage line. */
+const rqlToolCall = (query: string | undefined, options: Parameters<typeof coreRqlToolCall>[1]) =>
+  coreRqlToolCall(query, options, RQL_NO_QUERY_USAGE);
 import { toolResponseText, withoutImageData } from '../src/lib/exec.js';
 
 const dirs: string[] = [];
@@ -68,6 +85,25 @@ describe('rqlToolCall / saveReceipt', () => {
     expect(rqlToolCall(undefined, { schema: 'Node3D' })).toEqual({ toolName: 'rql-schema', input: { type: 'Node3D' } });
     expect(rqlToolCall(undefined, { schema: 'nodes | count' })).toHaveProperty('usage');
     expect(rqlToolCall('nodes | count', { dryRun: true })).toHaveProperty('usage');
+  });
+
+  it('splits statements at ; outside strings, identifiers and brackets, and routes a change of several to rql-mutate', () => {
+    expect(splitRqlStatements('scenes | select name; nodes | count;')).toEqual(['scenes | select name', 'nodes | count']);
+    expect(splitRqlStatements('nodes | where name == "a;b" | count')).toEqual(['nodes | where name == "a;b" | count']);
+    expect(splitRqlStatements("nodes | where `x;y` == 1 | select [1; 2] | where name == 'it\\'s;'")).toHaveLength(1);
+    expect(splitRqlStatements('nodes | where name == "open; | count')).toHaveLength(1);
+    // The last statement reads, an earlier one writes: still a change (rql-mutate then refuses the read, with RQL's message).
+    const text = 'nodes | where name == "A" | set Visible = false; nodes | count';
+    expect(rqlToolFor(text)).toBe('rql-mutate');
+    expect(rqlToolCall(text, { dryRun: true })).toEqual({ toolName: 'rql-mutate', input: { query: text, dry_run: true } });
+    expect(rqlToolCall('scenes | count; nodes | count', {})).toEqual({ toolName: 'rql-query', input: { query: 'scenes | count; nodes | count' } });
+    expect(rqlToolFor('nodes | where name == "x; | set a = 1" | count')).toBe('rql-query');
+    // text of only separators is RQL's empty query: the usage line, never a call
+    expect(rqlToolCall(' ; ;', {})).toEqual({ usage: RQL_NO_QUERY_USAGE });
+    expect(rqlToolCall(undefined, {})).toEqual({ usage: RQL_NO_QUERY_USAGE });
+    // a tool name pasted in front of each statement is dropped from each
+    expect(rqlToolCall('rql-query scenes | count; rql-query nodes | count', {}))
+      .toEqual({ toolName: 'rql-query', input: { query: 'scenes | count; nodes | count' } });
   });
 
   it('ignores string literals and backtick identifiers', () => {

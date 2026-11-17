@@ -352,7 +352,7 @@ class CorePinParity(unittest.TestCase):
 
 class ReadmeTableParity(unittest.TestCase):
     def test_readme_lists_every_extension_once(self):
-        # README's "Install Additional Skills and Tools" table is hand-written; new_extension.py does not add rows.
+        # README's "Extensions" table is hand-written; new_extension.py does not add rows.
         readme = (extensions.ROOT / 'README.md').read_text(encoding='utf-8')
         pairs = re.findall(r'^\|.*?\]\(extensions/(Godot-AI-[^/)]+)/README\.md\)(.*)$', readme, re.M)
         listed, rows = [name for name, _ in pairs], dict(pairs)

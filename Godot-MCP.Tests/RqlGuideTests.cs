@@ -76,6 +76,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             });
             Assert.EndsWith(rules, RqlGuide.Language);
             Assert.Equal(RqlGuide.SharedRules, rules);
+            // RQL 0.4.0: several statements in one call (;), in the shared rules and both tool descriptions.
+            Assert.Contains("Several statements in one call", RqlGuide.SharedRules);
+            Assert.Contains("separated by ;", RqlGuide.QueryDescription);
+            Assert.Contains("separate statements with ;", RqlGuide.MutateDescription);
             // Godot's own creation calls (real classes, CreateNode's parameter names), no placeholder left; RQL 544a247: the grid
             // example owns its range (150, within the default target limit of 200), and the rules teach trigonometry and $count.
             Assert.StartsWith("range(0, 150) | call editor.CreateNode(", RqlGuide.RuleGridExample);

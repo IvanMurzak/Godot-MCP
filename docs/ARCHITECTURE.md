@@ -215,7 +215,7 @@ the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSh
 `Godot-MCP.csproj` declares each with
 
 ```xml
-<PackageReference Include="com.IvanMurzak.Rql" Version="0.3.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
+<PackageReference Include="com.IvanMurzak.Rql" Version="0.4.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
 ```
 
 (Code-Exec and Roslyn carry a wider condition, see "In-game code execution" below.)
@@ -239,7 +239,7 @@ CI checks the package set of both export configurations without Godot (`scripts/
 
 A game can keep Code-Exec and Roslyn to offer `script-execute` itself (`GodotMcpRuntimeBuilder.WithScriptExecute()`,
 security: [`runtime-security.md`](runtime-security.md)). Its `.csproj` sets the MSBuild property
-`GodotMcpCodeExecInGame=true` and defines `GODOT_MCP_CODE_EXEC_IN_GAME` (README "Running C# in the game"). The three
+`GodotMcpCodeExecInGame=true` and defines `GODOT_MCP_CODE_EXEC_IN_GAME` ([Running C# in the game](runtime.md#running-c-in-the-game)). The three
 Code-Exec packages carry
 
 ```xml

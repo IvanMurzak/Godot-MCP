@@ -20,7 +20,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// The pure parts of the editor's mutation hooks (RqlGodot.Save.cs) over a real RqlEngine: setter undo steps are kept only
-    /// when their set stage commits (RqlSetStageBuffer), and the owner whose snapshot covers a change (RqlMutationOwner).
+    /// when their set stage commits (RqlSetStageBuffer), a request of several statements is one undo action per statement
+    /// (RqlStatementRunner), and the owner whose snapshot covers a change (RqlMutationOwner).
     /// </summary>
     public class RqlMutationHooksTests
     {
@@ -60,6 +61,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             public readonly RqlSetStageBuffer Buffer = new RqlSetStageBuffer();
             public readonly List<string> Committed = new List<string>();
+            /// <summary>The undo actions a request of several statements committed: the statement and its steps.</summary>
+            public readonly List<(string statement, string[] steps)> Actions = new List<(string statement, string[] steps)>();
             public readonly List<Row> Rows;
             public readonly RqlEngine Engine = new RqlEngine();
             public int Depth;
@@ -86,7 +89,30 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                     Buffer.DiscardAbove(Depth);
                 }
             }
+
+            // What RqlGodot.Mutate does with a request of several statements: each statement that ran commits its own action.
+            public QueryResult MutateStatements(string query, bool dryRun = false)
+            {
+                Depth++;
+                try
+                {
+                    var options = new QueryOptions { AllowMutation = true, DryRun = dryRun };
+                    return RqlStatementRunner.Run(RqlParser.SplitStatements(query), options, plan => Engine.Execute(plan, null, options), statement =>
+                    {
+                        Buffer.DiscardAbove(Depth - 1);
+                        Actions.Add((statement, Committed.ToArray()));
+                        Committed.Clear();
+                    });
+                }
+                finally
+                {
+                    Depth--;
+                    Buffer.DiscardAbove(Depth);
+                }
+            }
         }
+
+        private static string Text(QueryResult r) => AgentFormat.Render(r, OutputFormat.Table);
 
         [Fact]
         public void ACommittedSetKeepsItsSetterSteps()
@@ -121,6 +147,83 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             // Completed calls are not rolled back, nor is a failing call's partial change: their steps stay.
             Assert.False(host.Mutate("rows | call Fail()").Ok);
             Assert.Equal(new[] { "a.Fail" }, host.Committed);
+        }
+
+        // ------------------------------------------------------------ several statements (;)
+
+        private const string SetA = "rows | where name == \"a\" | set value = 5";
+
+        [Fact]
+        public void EveryStatementOfAChangeIsItsOwnUndoAction()
+        {
+            var host = new Host();
+            var r = host.MutateStatements(SetA + "; rows | where name == \"b\" | call Touch()");
+            Assert.True(r.Ok, Text(r));
+            Assert.Equal(2, r.Statements!.Count);
+            Assert.Equal(new[] { SetA, "rows | where name == \"b\" | call Touch()" }, host.Actions.Select(a => a.statement));
+            Assert.Equal(new[] { "a.value 0->5" }, host.Actions[0].steps);
+            Assert.Equal(new[] { "b.Touch" }, host.Actions[1].steps);
+            Assert.Contains("[2/2] rows | where name == \"b\" | call Touch()", Text(r));
+        }
+
+        [Fact]
+        public void AFailedStatementKeepsTheEarlierChangesAndStopsTheRest()
+        {
+            var host = new Host();
+            var r = host.MutateStatements(SetA + "; rows | where name == \"b\" | set value = 6, broken = 1; rows | set value = 9");
+            Assert.False(r.Ok);
+            // The first statement stays applied with its undo action; the second rolled back and left no step; the third never ran.
+            Assert.Equal(5, host.Rows[0].value);
+            Assert.Equal(0, host.Rows[1].value);
+            Assert.Equal(2, host.Actions.Count);
+            Assert.Equal(new[] { "a.value 0->5" }, host.Actions[0].steps);
+            Assert.Empty(host.Actions[1].steps);
+            Assert.True(r.Statements![0].Result!.Ok);
+            Assert.False(r.Statements[1].Result!.Ok);
+            Assert.Null(r.Statements[2].Result);
+            Assert.Contains("statement 2 failed", r.Statements[2].Skipped);
+            Assert.Contains("[3/3] rows | set value = 9\nnot run:", Text(r));
+            // The rolled-back stage left nothing open: the next change commits its steps.
+            Assert.True(host.Mutate("rows | where name == \"b\" | set value = 2").Ok);
+            Assert.Equal(new[] { "b.value 0->2" }, host.Committed);
+        }
+
+        [Fact]
+        public void ADryRunOfSeveralStatementsChangesNothing()
+        {
+            var host = new Host();
+            var r = host.MutateStatements(SetA + "; rows | call Touch()", dryRun: true);
+            Assert.True(r.Ok, Text(r));
+            Assert.True(r.DryRun);
+            Assert.All(r.Statements!, s => Assert.True(s.Result!.DryRun));
+            Assert.All(host.Rows, row => Assert.Equal(0, row.value));
+            Assert.All(host.Actions, a => Assert.Empty(a.steps));
+            Assert.Empty(host.Committed);
+        }
+
+        [Fact]
+        public void AStatementWithoutAWriteRunsNoneOfTheChange()
+        {
+            var host = new Host();
+            var r = host.MutateStatements(SetA + "; rows | count");
+            Assert.False(r.Ok);
+            Assert.Equal(0, host.Rows[0].value);
+            Assert.Empty(host.Actions);
+            Assert.Contains("statement 2 is invalid", r.Statements![0].Skipped);
+        }
+
+        [Fact]
+        public void AReadOfSeveralStatementsRunsEveryOne()
+        {
+            var host = new Host();
+            // What rql-query does: the engine runs the statements itself; a failed one does not stop the others.
+            var r = host.Engine.Execute("rows | count; rows | where; rows | where name == \"b\" | select name");
+            Assert.False(r.Ok);
+            var text = Text(r);
+            Assert.Contains("[1/3] rows | count", text);
+            Assert.True(r.Statements![2].Result!.Ok, text);
+            Assert.Throws<ArgumentException>(() => RqlStatementRunner.Run(RqlParser.SplitStatements("rows | count; rows | count"),
+                new QueryOptions(), plan => host.Engine.Execute(plan), _ => { }));
         }
 
         [Fact]

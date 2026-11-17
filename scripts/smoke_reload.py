@@ -12,7 +12,7 @@ carry the gate's retryable message; a call lost with the connection while it goe
 `--editor-log` the editor's output must show no failed unload.
 
 It does NOT launch anything. Start the editor with godot-cli (it sets DOTNET_ThreadPool_ThreadsToKeepAlive=-1, the
-dotnet/runtime#135441 mitigation, see README "Known issue"), or by hand with that variable:
+dotnet/runtime#135441 mitigation, see docs/custom-tools.md "Known issue"), or by hand with that variable:
 
     godot-cli open <project> --headless
     DOTNET_ThreadPool_ThreadsToKeepAlive=-1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\

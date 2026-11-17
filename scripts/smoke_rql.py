@@ -37,6 +37,7 @@ import smoke_rql_agent
 import smoke_rql_feedback
 import smoke_rql_hazards
 import smoke_rql_semantics
+import smoke_rql_statements
 import smoke_rql_values
 import smoke_rql_models
 import smoke_rql_wave4
@@ -309,6 +310,7 @@ def main() -> int:
     smoke_rql_wave6b.run(host, project, d)
     smoke_rql_wave7.run(host, project, d)
     smoke_rql_semantics.run(host, project, d)
+    smoke_rql_statements.run(host, project, d)
     guide_examples(host, project)
     print(f"\n{len(FAILURES)} failure(s)" + (": " + ", ".join(FAILURES) if FAILURES else ""), flush=True)
     return 1 if FAILURES else 0

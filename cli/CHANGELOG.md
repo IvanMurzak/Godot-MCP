@@ -4,6 +4,10 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`rql` takes several statements separated by `;`.** The addon's `rql-query` / `rql-mutate` run them in one call (one
+  result block each). `rql` now sends text to `rql-mutate` when any statement ends in `set` / `call` (it looked at the last
+  stage of the whole text): text that mixes a change and a read (`… | set …; nodes | count`) gets `rql-mutate`'s refusal
+  before anything runs instead of `rql-query`'s, and `--dry-run` / `--max-targets` are accepted for it.
 - **Node.js 22.14 or later is required.** `engines.node` is now `>=22.14.0` (was `^20.19.0 || >=22.12.0`):
   Node.js 20 is no longer supported. commander 15, chalk 6, vitest 5 and `@baizor/gamedev-cli-core` 0.11.1 already
   require Node.js 22 or later (cli-core: 22.14). CI tests the CLI on Node.js 22, 24 and 26.
