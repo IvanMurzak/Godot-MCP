@@ -55,8 +55,8 @@ global using global::System.Threading.Tasks;
             var repoRoot = dir!.FullName;
 
             var sourceRoots = new[] { Path.Combine(repoRoot, "addons", "godot_mcp") }
-                .Concat(Directory.EnumerateDirectories(Path.Combine(repoRoot, "extensions"), "src", SearchOption.AllDirectories)
-                    .Where(d => Path.GetFileName(Path.GetDirectoryName(d)!).StartsWith("Godot-AI-", StringComparison.Ordinal)));
+                .Concat(Directory.EnumerateDirectories(Path.Combine(repoRoot, "extensions"), "Godot-AI-*")
+                    .Select(module => Path.Combine(module, "src")));
             var files = sourceRoots
                 .SelectMany(root => Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
                 .Where(f => !f.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
@@ -80,7 +80,7 @@ global using global::System.Threading.Tasks;
 
             var ambiguous = compilation.GetDiagnostics()
                 .Where(d => d.Id == "CS0104")
-                .Select(d => $"{Path.GetRelativePath(repoRoot, d.Location.SourceTree?.FilePath ?? "?")}"
+                .Select(d => Path.GetRelativePath(repoRoot, d.Location.SourceTree?.FilePath ?? "?")
                     + $"({d.Location.GetLineSpan().StartLinePosition.Line + 1}): {d.GetMessage()}")
                 .Distinct()
                 .ToList();
