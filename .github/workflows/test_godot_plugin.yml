@@ -20,6 +20,11 @@ on:
         description: "Godot mono version to install and boot (e.g. 4.3.0, 4.4.0, 4.5.1)."
         required: true
         type: string
+      targetFramework:
+        description: "TargetFramework of the testbed project: net8.0 (the addon's floor) or net10.0 (a user project on .NET 10; installs the .NET 10 SDK)."
+        required: false
+        default: "net8.0"
+        type: string
       lock:
         description: "chain lock JSON (empty on ordinary runs)"
         required: false
@@ -42,7 +47,7 @@ env:
 
 jobs:
   test-godot-plugin:
-    name: godot ${{ inputs.godotVersion }} (mono)
+    name: godot ${{ inputs.godotVersion }} (mono)${{ inputs.targetFramework != 'net8.0' && format(' {0}', inputs.targetFramework) || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -56,6 +61,10 @@ jobs:
       # The in-repo test project. The addon is copied into <TEST_PROJECT>/addons/
       # at runtime (a dev junction does not survive checkout).
       TEST_PROJECT: Godot-Tests
+      # Godot-Tests.csproj reads it as its TargetFramework (MSBuild takes env vars as properties).
+      GodotMcpTestTargetFramework: ${{ inputs.targetFramework }}
+      # Unique per leg: artifact names (a net10.0 leg shares its Godot version with a net8.0 leg).
+      LEG_ID: ${{ inputs.godotVersion }}${{ inputs.targetFramework != 'net8.0' && format('-{0}', inputs.targetFramework) || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -65,14 +74,28 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Check the targetFramework input
+        if: inputs.targetFramework != 'net8.0' && inputs.targetFramework != 'net10.0'
+        run: |
+          echo "::error::targetFramework '${{ inputs.targetFramework }}' is not supported here (net8.0 or net10.0)."
+          exit 1
+
+      # A project targeting net10.0 needs the .NET 10 SDK to build and its runtime to run (installed beside 8).
+      - name: Setup .NET 10 (net10.0 leg)
+        if: inputs.targetFramework == 'net10.0'
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
       # Chain runs only: the feed builds the net9.0 lower layers (ReflectorNet, McpPlugin).
-      - name: Setup .NET 8 + 9 for the chain feed (chain runs only)
+      - name: Setup .NET 8 + 9 + 10 for the chain feed (chain runs only)
         if: env.CHAIN_LOCK != '' || contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
 
       - name: chain python (posix)
         if: runner.os != 'Windows' && env.CHAIN_PY == ''
@@ -162,6 +185,12 @@ jobs:
             cat build.log || true
             exit 1
           fi
+          # The assembly must target the leg's framework (guards the TargetFramework override).
+          if ! grep -qF "\"tfm\": \"${GodotMcpTestTargetFramework}\"" "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.runtimeconfig.json; then
+            echo "::error::Godot-MCP-Tests.dll does not target ${GodotMcpTestTargetFramework}."
+            cat "${TEST_PROJECT}"/.godot/mono/temp/bin/*/Godot-MCP-Tests.runtimeconfig.json || true
+            exit 1
+          fi
 
       - name: Boot editor headless and assert addon loads
         shell: bash
@@ -205,7 +234,7 @@ jobs:
         if: failure() && env.CHAIN_LOCK == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
-          name: godot-${{ inputs.godotVersion }}-logs
+          name: godot-${{ env.LEG_ID }}-logs
           path: |
             import.log
             build.log
@@ -217,7 +246,7 @@ jobs:
         id: chain_record
         if: always()
         shell: bash
-        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job test-godot-plugin --edges Godot-Tests/Godot-Tests.csproj --matrix "${{ inputs.godotVersion }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
+        run: ${{ env.CHAIN_PY }} .github/scripts/chain_feed.py record --node godot-mcp --job test-godot-plugin --edges Godot-Tests/Godot-Tests.csproj --matrix "${{ env.LEG_ID }}" --engine godot --engine-version "${{ inputs.godotVersion }}" --tier T3 --job-status "${{ job.status }}" --out chain-leg.json
 
       - name: chain leg artifact
         if: always() && steps.chain_record.outputs.artifact_name != ''

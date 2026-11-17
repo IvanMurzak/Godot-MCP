@@ -3,7 +3,7 @@
 <p><img src="img/hero.svg" alt="Godot MCP：AI 智能体通过 godot_mcp 插件在 Godot 编辑器中工作" width="100%"/></p>
 
 [![CI](https://img.shields.io/github/actions/workflow/status/IvanMurzak/Godot-MCP/ci.yml?branch=main&label=CI&color=15803D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/IvanMurzak/Godot-MCP?label=release&color=2F6F9F&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/releases/latest) [![Asset Library](https://img.shields.io/badge/AssetLib-Godot--MCP-2F6F9F?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/asset-library/asset/5245) [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) \
-[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 8](https://img.shields.io/badge/.NET-8%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
+[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 8–10](https://img.shields.io/badge/.NET-8%E2%80%9310%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
 [English](../README.md) · **中文** · [日本語](README.ja.md) · [Español](README.es.md) · [فارسی](README.fa.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md)
 
@@ -11,7 +11,7 @@
 
 **Godot-MCP** 将 AI 智能体（Claude Code、Cursor、Codex、GitHub Copilot、Gemini 或任何其他 [MCP](https://modelcontextprotocol.io/) 客户端）连接到 **Godot 编辑器**。智能体可以读取和修改你的场景、节点、资源和脚本，构建并运行 C#，并查看截图。它是一个编辑器插件，配套 CLI 为 [`godot-cli`](../cli/docs/README.zh-CN.md)，也是 [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) 的 Godot 姊妹项目。
 
-**要求：** Godot 4.3+ 编辑器的 **.NET 版**，以及 **.NET 8 SDK**（只需安装一次）。你的脚本可以继续使用 GDScript。可选的 `godot-cli` 需要 Node.js 22.14+。支持 Windows、macOS 和 Linux。
+**要求：** Godot 4.3+ 编辑器的 **.NET 版**，以及 **.NET 8、9 或 10 SDK**（只需安装一次）。你的脚本可以继续使用 GDScript。可选的 `godot-cli` 需要 Node.js 22.14+。支持 Windows、macOS 和 Linux。
 
 <a id="why"></a>
 ## 为什么选择 Godot-MCP
@@ -31,7 +31,7 @@
 你的游戏代码仍然是 GDScript。插件本身是 C#，因此项目需要几个一次性步骤：
 
 ✅ **Godot .NET 编辑器** — 用 Godot 4.3+ 的 .NET 版打开项目（同一个项目，同样的场景）\
-✅ **.NET 8 SDK** — 每台机器安装一次\
+✅ **.NET 8、9 或 10 SDK** — 每台机器安装一次；项目可以面向 `net8.0`（最低）到 `net10.0`\
 ✅ **C# 解决方案** — 现有项目：**Project → Tools → C# → Create C# solution**；新项目：`create-project --dotnet`\
 ✅ **插件** — `godot-cli install-plugin` 会添加插件及其 NuGet 引用，并启用它
 

@@ -23,8 +23,12 @@
     EXCLUDED from ../Godot-MCP.sln so the existing dotnet build (.NET 8) CI
     gate is unaffected — this project is only ever built by the Godot editor.
   -->
+  <!-- TargetFramework: net8.0 (the addon's floor) unless GodotMcpTestTargetFramework is set. CI's .NET 10 legs set
+       it as a job env var (MSBuild reads env vars as properties, so `dotnet build` and the editor's own rebuilds both
+       see it) to boot the editor and the game on a project that targets net10.0, as a user's project may. -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <GodotMcpTestTargetFramework Condition="'$(GodotMcpTestTargetFramework)' == ''">net8.0</GodotMcpTestTargetFramework>
+    <TargetFramework>$(GodotMcpTestTargetFramework)</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
     <RootNamespace>com.IvanMurzak.Godot.MCP.Tests.Project</RootNamespace>

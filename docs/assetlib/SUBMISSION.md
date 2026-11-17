@@ -62,7 +62,7 @@ The editor is driven with RQL (rql-query / rql-mutate / rql-schema): one query l
 
 Requirements:
 - Godot 4.3+ — the C#/.NET (mono) edition. The standard GDScript-only build cannot compile the addon.
-- .NET 8 SDK.
+- .NET 8, 9 or 10 SDK (the project may target net8.0 through net10.0).
 
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the six NuGet package references the addon depends on:
