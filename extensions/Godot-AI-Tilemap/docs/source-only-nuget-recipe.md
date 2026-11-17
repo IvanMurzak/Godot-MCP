@@ -33,7 +33,7 @@ and our source compiles against *that* exact version.
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.3" />
     <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="8.24.0" />
     <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
-    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.4.0" PrivateAssets="runtime;contentfiles;analyzers;build" />
+    <PackageReference Include="com.IvanMurzak.Rql"         Version="0.4.1" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>
 
   <!-- (3) GodotSharp is needed to COMPILE locally but must NOT be a package dependency. -->
