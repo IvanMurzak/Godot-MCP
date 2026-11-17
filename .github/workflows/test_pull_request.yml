@@ -543,3 +543,14 @@ jobs:
       godotVersion: "4.7.0"
       lock: ${{ inputs.lock }}
       lock_hash8: ${{ inputs.lock_hash8 }}
+
+  # The extension suite (isolated consumers + one live editor) with consumers that target net10.0, newest Godot
+  # only. Skipped on a dispatched (chain) run: its record's job (`extension-suite`) matches the train's
+  # `extension-suite*` glob, and a sixth record would break that leg's declared width of 5.
+  net10-extension-suite-4-7:
+    needs: [dotnet-build-test]
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && needs.dotnet-build-test.result == 'success' }}
+    uses: ./.github/workflows/test_extensions.yml
+    with:
+      godotVersion: "4.7.0"
+      targetFramework: "net10.0"

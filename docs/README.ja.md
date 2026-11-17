@@ -3,7 +3,7 @@
 <p><img src="img/hero.svg" alt="Godot MCP: AI エージェントが godot_mcp アドオンを通じて Godot エディターで作業する" width="100%"/></p>
 
 [![CI](https://img.shields.io/github/actions/workflow/status/IvanMurzak/Godot-MCP/ci.yml?branch=main&label=CI&color=15803D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/IvanMurzak/Godot-MCP?label=release&color=2F6F9F&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=github)](https://github.com/IvanMurzak/Godot-MCP/releases/latest) [![Asset Library](https://img.shields.io/badge/AssetLib-Godot--MCP-2F6F9F?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/asset-library/asset/5245) [![CLI](https://img.shields.io/npm/v/godot-cli?label=CLI&color=BE185D&style=for-the-badge&labelColor=0F172A&logoColor=white&logo=npm)](https://www.npmjs.com/package/godot-cli) \
-[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 8–10](https://img.shields.io/badge/.NET-8%E2%80%9310%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
+[![Godot](https://img.shields.io/badge/Godot-4.3%2B%20.NET-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=godotengine)](https://godotengine.org/) [![.NET 10 (8+)](https://img.shields.io/badge/.NET-10%20%288%2B%29%20SDK-0E7490?style=for-the-badge&labelColor=0F172A&logoColor=white)](https://dotnet.microsoft.com/) [![License](https://img.shields.io/badge/license-Apache--2.0-047857?style=for-the-badge&labelColor=0F172A&logoColor=white)](../LICENSE) [![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=for-the-badge&labelColor=0F172A&logoColor=white&logo=discord)](https://discord.gg/cfbdMZX99G) [![Stand with Ukraine](https://raw.githubusercontent.com/IvanMurzak/IvanMurzak/main/images/ukraine/flag-badge.svg)](https://stand-with-ukraine.pp.ua)
 
 [English](../README.md) · [中文](README.zh-CN.md) · **日本語** · [Español](README.es.md) · [فارسی](README.fa.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md)
 
@@ -11,7 +11,7 @@
 
 **Godot-MCP** は、AI エージェント(Claude Code、Cursor、Codex、GitHub Copilot、Gemini、その他任意の [MCP](https://modelcontextprotocol.io/) クライアント)を **Godot エディター**につなぎます。エージェントはシーン、ノード、リソース、スクリプトを読み取って変更し、C# をビルドして実行し、スクリーンショットを確認できます。コンパニオン CLI [`godot-cli`](../cli/docs/README.ja.md) が付属するエディターアドオンで、[Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) の Godot 版です。
 
-**必要なもの:** Godot 4.3+ エディターの **.NET 版**と **.NET 8、9 または 10 SDK**(一度インストールするだけ)。スクリプトは GDScript のままでかまいません。オプションの `godot-cli` には Node.js 22.14+ が必要です。Windows、macOS、Linux で動作します。
+**必要なもの:** Godot 4.3+ エディターの **.NET 版**と **.NET 10 SDK**(推奨。.NET 8 も引き続きサポート。一度インストールするだけ)。スクリプトは GDScript のままでかまいません。オプションの `godot-cli` には Node.js 22.14+ が必要です。Windows、macOS、Linux で動作します。
 
 <a id="why"></a>
 ## Godot-MCP を選ぶ理由
@@ -31,7 +31,7 @@
 ゲームのコードは GDScript のままです。アドオン自体は C# なので、プロジェクトには一度だけ次の手順が必要です:
 
 ✅ **Godot .NET エディター** — プロジェクトを Godot 4.3+ の .NET 版で開く(同じプロジェクト、同じシーン)\
-✅ **.NET 8、9 または 10 SDK** — マシンごとに一度インストール。プロジェクトのターゲットは `net8.0`(最小)から `net10.0` まで\
+✅ **.NET 10 SDK**(推奨。.NET 8 も引き続きサポート) — マシンごとに一度インストール。プロジェクトのターゲットは `net10.0` または `net8.0`(最小)\
 ✅ **C# ソリューション** — 既存のプロジェクト: **Project → Tools → C# → Create C# solution**、新規: `create-project --dotnet`\
 ✅ **アドオン** — `godot-cli install-plugin` がアドオンと NuGet 参照を追加し、有効化する
 

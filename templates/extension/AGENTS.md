@@ -43,6 +43,7 @@ dotnet build src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj   # the modu
 dotnet test  tests/Godot-AI-YOUR_FEATURE.Tests/Godot-AI-YOUR_FEATURE.Tests.csproj
 dotnet pack  src/Godot-AI-YOUR_FEATURE/Godot-AI-YOUR_FEATURE.csproj -p:Version=0.0.0-ci -o local-nuget
 dotnet build testbed/YOUR_FEATURE-Testbed.csproj                      # consumes the local package (injection proof)
+dotnet build testbed/YOUR_FEATURE-Testbed.csproj -p:GodotMcpTestTargetFramework=net10.0   # the same on .NET 10
 ```
 
 ## Conventions

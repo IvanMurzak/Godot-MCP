@@ -26,7 +26,7 @@
 <a id="quick-start"></a>
 ## Inicio rápido
 
-Requiere [Node.js](https://nodejs.org/) 22.14 o posterior, y un editor Godot 4.3+ .NET con el SDK de .NET 8, 9 o 10. Funciona en Windows, macOS y Linux.
+Requiere [Node.js](https://nodejs.org/) 22.14 o posterior, y un editor Godot 4.3+ .NET con el SDK de .NET 10 (recomendado; .NET 8 sigue siendo compatible). Funciona en Windows, macOS y Linux.
 
 ```bash
 npm install -g godot-cli

@@ -8,7 +8,7 @@
 ## 要件
 
 - **Godot 4.3 以降の .NET(mono)版。** ゲームのコードは GDScript のままでかまいませんが、アドオンは C# です: プロジェクトを .NET 版のエディターで開き、C# プロジェクトファイル(`.csproj`)を用意してください。既存の GDScript プロジェクトでは **Project → Tools → C# → Create C# solution** を 1 回実行します。アドオンの csproj は下限として `Godot.NET.Sdk/4.3.0` を固定しており、CI は Godot 4.3、4.4、4.5、4.6、4.7 をテストしています。
-- **.NET 8、9 または 10 SDK**。プロジェクトのターゲットは `net8.0`(最小)、`net9.0`、`net10.0` のいずれでもかまいません。アドオンはソースで配布され、プロジェクトの `TargetFramework` でコンパイルされます。`godot-cli install-plugin` はそれを変更しません。CI は `net8.0` と `net10.0` をテストします。.NET 10 ランタイムがインストールされている場合は、`TargetFramework` に関係なく(Godot エディターはインストール済みの最新ランタイムで動作します)[リロードの既知の問題](custom-tools.ja.md)をお読みください。
+- **.NET 10 SDK(推奨)。.NET 8 も引き続きサポートされます**。プロジェクトのターゲットは `net10.0` または `net8.0`(最小)です(.NET 9 はサポートが終了しており、テストしていません)。アドオンはソースで配布され、プロジェクトの `TargetFramework` でコンパイルされます。`godot-cli install-plugin` はそれを変更しません。CI は `net8.0` と `net10.0` をテストします。.NET 10 ランタイムがインストールされている場合は、`TargetFramework` に関係なく(Godot エディターはインストール済みの最新ランタイムで動作します)[リロードの既知の問題](custom-tools.ja.md)をお読みください。
 - **Windows、macOS、Linux。** Godot-MCP は 3 つすべてで動作します。
 
 <a id="1-add-the-addon"></a>

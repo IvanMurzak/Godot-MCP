@@ -6,6 +6,11 @@ on:
       godotVersion:
         required: true
         type: string
+      targetFramework:
+        description: "TargetFramework of the generated consumer projects: net8.0 (the addon's floor) or net10.0 (a user project on .NET 10)."
+        required: false
+        default: "net8.0"
+        type: string
       lock:
         default: ""
         type: string
@@ -23,7 +28,7 @@ env:
 
 jobs:
   extension-suite:
-    name: extensions Godot ${{ inputs.godotVersion }} (one editor)
+    name: extensions Godot ${{ inputs.godotVersion }} (one editor)${{ inputs.targetFramework != 'net8.0' && format(' {0}', inputs.targetFramework) || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -34,6 +39,8 @@ jobs:
       # thread-pool threads alive avoids those exits. Fixed upstream by dotnet/runtime#134983;
       # REMOVE this once .NET 10 servicing ships the backport (dotnet/runtime#136481).
       DOTNET_ThreadPool_ThreadsToKeepAlive: "-1"
+      # Unique per leg: artifact names (a net10.0 leg shares its Godot version with a net8.0 leg).
+      LEG_ID: ${{ inputs.godotVersion }}${{ inputs.targetFramework != 'net8.0' && format('-{0}', inputs.targetFramework) || '' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -71,14 +78,16 @@ jobs:
       - name: Independent consumers and one shared live editor
         env:
           GODOT_VERSION: ${{ inputs.godotVersion }}
-        run: python scripts/test_extensions.py --sdk "$GODOT_VERSION" --godot "$(command -v godot)" --skip-unit --prove-isolation
+          TARGET_FRAMEWORK: ${{ inputs.targetFramework }}
+        # --target-framework rejects anything but net8.0 / net10.0 and checks every built consumer targets it.
+        run: python scripts/test_extensions.py --sdk "$GODOT_VERSION" --target-framework "$TARGET_FRAMEWORK" --godot "$(command -v godot)" --skip-unit --prove-isolation
       - name: Record release-train identity
         id: chain_record
         if: always()
         env:
           GODOT_VERSION: ${{ inputs.godotVersion }}
           JOB_STATUS: ${{ job.status }}
-        run: python .github/scripts/chain_feed.py record --node godot-mcp --job extension-suite --edges Godot-MCP.csproj --edges server-binary --edges npm --matrix "$GODOT_VERSION" --engine godot --engine-version "$GODOT_VERSION" --tier T3 --job-status "$JOB_STATUS" --out chain-leg.json
+        run: python .github/scripts/chain_feed.py record --node godot-mcp --job extension-suite --edges Godot-MCP.csproj --edges server-binary --edges npm --matrix "$LEG_ID" --engine godot --engine-version "$GODOT_VERSION" --tier T3 --job-status "$JOB_STATUS" --out chain-leg.json
       - uses: actions/upload-artifact@v6
         if: always() && steps.chain_record.outputs.artifact_name != ''
         with:
@@ -90,7 +99,7 @@ jobs:
         if: inputs.lock == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
-          name: extension-suite-${{ inputs.godotVersion }}
+          name: extension-suite-${{ env.LEG_ID }}
           path: |
             .artifacts/extensions/**/suite.json
             .artifacts/extensions/**/live-result.json
@@ -104,7 +113,7 @@ jobs:
         if: failure() && inputs.lock == '' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'train/')
         uses: actions/upload-artifact@v6
         with:
-          name: extension-failure-${{ inputs.godotVersion }}
+          name: extension-failure-${{ env.LEG_ID }}
           path: .artifacts/extensions/**/*.log
           if-no-files-found: warn
           retention-days: 7
