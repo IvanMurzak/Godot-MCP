@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
+using com.IvanMurzak.McpPlugin;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
@@ -52,6 +53,79 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void Dispose() => ResetState();
 
         static void ResetState() => MainThreadDispatcher.ResetForTests();
+
+        // ---- MCP tool call cancellation (McpPlugin's ToolCallCancellation.Token) ------------------------------
+
+        /// <summary>
+        /// Boots the dispatcher, then dispatches from a background thread (off the "main" thread: queued) inside a call
+        /// with <paramref name="token"/> (McpPlugin's <c>ToolCallCancellation.RunWith</c>, as the plugin runs every tool call).
+        /// </summary>
+        static Task<T> FromCall<T>(CancellationToken token, Func<T> body)
+        {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            Task<T>? task = null;
+            OnBackgroundThread(() => task = ToolCallCancellation.RunWith(token,
+                () => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.RunAsync(body)));
+            return task!;
+        }
+
+        [Fact]
+        public void CancelledCall_IsNotQueued_AndNeverRuns()
+        {
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            var ran = false;
+
+            var task = FromCall(cts.Token, () => ran = true);
+
+            Assert.True(task.IsCanceled);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+            MainThreadDispatcher.DrainForTests();
+            Assert.False(ran);
+        }
+
+        [Fact]
+        public async Task CallCancelledWhileQueued_IsSkipped()
+        {
+            using var cts = new CancellationTokenSource();
+            var ran = false;
+
+            var task = FromCall(cts.Token, () => ran = true);
+            Assert.Equal(1, MainThreadDispatcher.PendingActionCountForTests);
+            cts.Cancel();
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.False(ran);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        }
+
+        [Fact]
+        public async Task CallCancelledWhileRunning_RunsToItsEnd()
+        {
+            using var cts = new CancellationTokenSource();
+
+            var task = FromCall(cts.Token, () =>
+            {
+                cts.Cancel(); // the caller goes away while the body runs on the main thread
+                return 42;
+            });
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.True(task.IsCompletedSuccessfully);
+            Assert.Equal(42, await task);
+        }
+
+        [Fact]
+        public async Task CallNotCancelled_Runs()
+        {
+            using var cts = new CancellationTokenSource();
+
+            var task = FromCall(cts.Token, () => 7);
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.Equal(7, await task);
+        }
 
         // ---- Holding the queue while the editor pumps a nested frame -----------------------------------------
 

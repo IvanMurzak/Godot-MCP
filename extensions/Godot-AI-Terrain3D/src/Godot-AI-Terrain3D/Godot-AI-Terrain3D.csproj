@@ -68,9 +68,9 @@
   -->
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.5.3" />
-    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.24.0" />
+    <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.25.0" />
     <!-- RQL is editor-only: its runtime assets stay private, so a consumer's game export ships no RQL DLL. -->
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.4.1" PrivateAssets="runtime;contentfiles;analyzers;build" />
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.5.0" PrivateAssets="runtime;contentfiles;analyzers;build" />
   </ItemGroup>
 
   <!--
