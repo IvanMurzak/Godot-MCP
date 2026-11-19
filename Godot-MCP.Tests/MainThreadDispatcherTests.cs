@@ -68,25 +68,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
         static readonly AsyncLocal<CancellationToken> _callToken = new AsyncLocal<CancellationToken>();
 
-        /// <summary>Dispatches from a background thread (off the "main" thread: queued) inside a call with <paramref name="token"/>.</summary>
+        /// <summary>
+        /// Boots the dispatcher, then dispatches from a background thread (off the "main" thread: queued) inside a call
+        /// with <paramref name="token"/>.
+        /// </summary>
         static Task<T> FromCall<T>(CancellationToken token, Func<T> body)
         {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             Task<T>? task = null;
-            var caller = new Thread(() =>
+            OnBackgroundThread(() =>
             {
                 _callToken.Value = token;
                 task = com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.RunAsync(body);
             });
-            caller.Start();
-            caller.Join();
             return task!;
         }
 
         [Fact]
         public void CancelledCall_IsNotQueued_AndNeverRuns()
         {
-            GodotMainThread.Install();
-            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             using var cts = new CancellationTokenSource();
             cts.Cancel();
             var ran = false;
@@ -102,8 +103,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public async Task CallCancelledWhileQueued_IsSkipped()
         {
-            GodotMainThread.Install();
-            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             using var cts = new CancellationTokenSource();
             var ran = false;
 
@@ -119,8 +118,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public async Task CallCancelledWhileRunning_RunsToItsEnd()
         {
-            GodotMainThread.Install();
-            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             using var cts = new CancellationTokenSource();
 
             var task = FromCall(cts.Token, () =>
@@ -137,8 +134,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public async Task CallNotCancelled_Runs()
         {
-            GodotMainThread.Install();
-            MainThreadDispatcher.SimulateInstanceEnteredForTests();
             using var cts = new CancellationTokenSource();
 
             var task = FromCall(cts.Token, () => 7);
