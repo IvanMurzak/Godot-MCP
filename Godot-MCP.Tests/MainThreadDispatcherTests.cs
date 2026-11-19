@@ -37,7 +37,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     ///
     /// <para>
     /// <see cref="MainThreadDispatcher"/>'s lifecycle state is <c>static</c> and outlives a single test, so
-    /// each test resets it via the ctor (<see cref="ResetState"/>) and <see cref="Dispose"/>. The
+    /// each test resets it in the ctor and <see cref="Dispose"/>. The
     /// <c>[Collection]</c> attribute serializes these tests against each other (and disables cross-class
     /// parallelism with any future test that touches the same statics) so a concurrent test never observes
     /// mid-mutation state.
@@ -47,11 +47,105 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     [CollectionDefinition(nameof(MainThreadDispatcherTests), DisableParallelization = true)]
     public class MainThreadDispatcherTests : IDisposable
     {
-        public MainThreadDispatcherTests() => ResetState();
+        static readonly Func<CancellationToken> _defaultCallToken = GodotMainThread.CallToken;
 
-        public void Dispose() => ResetState();
+        public MainThreadDispatcherTests()
+        {
+            MainThreadDispatcher.ResetForTests();
+            GodotMainThread.CallToken = () => _callToken.Value;
+        }
 
-        static void ResetState() => MainThreadDispatcher.ResetForTests();
+        public void Dispose()
+        {
+            MainThreadDispatcher.ResetForTests();
+            GodotMainThread.CallToken = _defaultCallToken;
+        }
+
+        // ---- MCP tool call cancellation (McpPlugin's ToolCallCancellation.Token) ------------------------------
+        //
+        // McpPlugin sets its token internally, so the tests fake it with an AsyncLocal (as McpPlugin's is) behind the
+        // GodotMainThread.CallToken seam: outside FromCall the value is CancellationToken.None, as outside a tool call.
+
+        static readonly AsyncLocal<CancellationToken> _callToken = new AsyncLocal<CancellationToken>();
+
+        /// <summary>Dispatches from a background thread (off the "main" thread: queued) inside a call with <paramref name="token"/>.</summary>
+        static Task<T> FromCall<T>(CancellationToken token, Func<T> body)
+        {
+            Task<T>? task = null;
+            var caller = new Thread(() =>
+            {
+                _callToken.Value = token;
+                task = com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.RunAsync(body);
+            });
+            caller.Start();
+            caller.Join();
+            return task!;
+        }
+
+        [Fact]
+        public void CancelledCall_IsNotQueued_AndNeverRuns()
+        {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            var ran = false;
+
+            var task = FromCall(cts.Token, () => ran = true);
+
+            Assert.True(task.IsCanceled);
+            Assert.Equal(0, MainThreadDispatcher.PendingActionCountForTests);
+            MainThreadDispatcher.DrainForTests();
+            Assert.False(ran);
+        }
+
+        [Fact]
+        public async Task CallCancelledWhileQueued_IsSkipped()
+        {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            using var cts = new CancellationTokenSource();
+            var ran = false;
+
+            var task = FromCall(cts.Token, () => ran = true);
+            Assert.Equal(1, MainThreadDispatcher.PendingActionCountForTests);
+            cts.Cancel();
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.False(ran);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        }
+
+        [Fact]
+        public async Task CallCancelledWhileRunning_RunsToItsEnd()
+        {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            using var cts = new CancellationTokenSource();
+
+            var task = FromCall(cts.Token, () =>
+            {
+                cts.Cancel(); // the caller goes away while the body runs on the main thread
+                return 42;
+            });
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.True(task.IsCompletedSuccessfully);
+            Assert.Equal(42, await task);
+        }
+
+        [Fact]
+        public async Task CallNotCancelled_Runs()
+        {
+            GodotMainThread.Install();
+            MainThreadDispatcher.SimulateInstanceEnteredForTests();
+            using var cts = new CancellationTokenSource();
+
+            var task = FromCall(cts.Token, () => 7);
+            MainThreadDispatcher.DrainForTests();
+
+            Assert.Equal(7, await task);
+        }
 
         // ---- Holding the queue while the editor pumps a nested frame -----------------------------------------
 
