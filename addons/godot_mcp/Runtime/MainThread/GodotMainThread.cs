@@ -9,7 +9,6 @@
 */
 #nullable enable
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -46,13 +45,6 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         }
 
         public override bool IsMainThread => MainThreadDispatcher.IsMainThread;
-
-        /// <summary>
-        /// The cancellation token of the MCP tool call running on the calling thread: McpPlugin's
-        /// <see cref="ToolCallCancellation.Token"/>, which fires when the caller went away (<see cref="CancellationToken.None"/>
-        /// outside a tool call). Tests replace it, because McpPlugin sets its token internally.
-        /// </summary>
-        internal static Func<CancellationToken> CallToken { get; set; } = () => ToolCallCancellation.Token;
 
         /// <summary>
         /// Run a pre-existing <paramref name="task"/> to completion, marshalled to the main thread
@@ -102,7 +94,8 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// pump tick (and the bounded teardown drain) free of caller-supplied continuation bodies.
         /// </para>
         /// <para>
-        /// The MCP tool call's cancellation (<see cref="CallToken"/>) is honoured at safe points only: a cancelled
+        /// The MCP tool call's cancellation (McpPlugin's <see cref="ToolCallCancellation.Token"/>, which fires when the
+        /// caller went away; <c>None</c> outside a tool call) is honoured at safe points only: a cancelled
         /// call's body is not queued, and a body whose call is cancelled while it waits in the queue is skipped. Both
         /// complete the task as cancelled. A body that has started always runs to its end.
         /// </para>
@@ -110,7 +103,7 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         static Task<T> Dispatch<T>(Func<T> body)
         {
             // Read on the calling thread: the token flows with the tool call's async context, not to the main thread.
-            var cancel = CallToken();
+            var cancel = ToolCallCancellation.Token;
             if (cancel.IsCancellationRequested)
                 return Task.FromCanceled<T>(cancel);
 

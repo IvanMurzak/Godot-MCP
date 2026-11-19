@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.MainThreadDispatch;
+using com.IvanMurzak.McpPlugin;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
@@ -37,7 +38,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     ///
     /// <para>
     /// <see cref="MainThreadDispatcher"/>'s lifecycle state is <c>static</c> and outlives a single test, so
-    /// each test resets it in the ctor and <see cref="Dispose"/>. The
+    /// each test resets it via the ctor (<see cref="ResetState"/>) and <see cref="Dispose"/>. The
     /// <c>[Collection]</c> attribute serializes these tests against each other (and disables cross-class
     /// parallelism with any future test that touches the same statics) so a concurrent test never observes
     /// mid-mutation state.
@@ -47,41 +48,25 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     [CollectionDefinition(nameof(MainThreadDispatcherTests), DisableParallelization = true)]
     public class MainThreadDispatcherTests : IDisposable
     {
-        static readonly Func<CancellationToken> _defaultCallToken = GodotMainThread.CallToken;
+        public MainThreadDispatcherTests() => ResetState();
 
-        public MainThreadDispatcherTests()
-        {
-            MainThreadDispatcher.ResetForTests();
-            GodotMainThread.CallToken = () => _callToken.Value;
-        }
+        public void Dispose() => ResetState();
 
-        public void Dispose()
-        {
-            MainThreadDispatcher.ResetForTests();
-            GodotMainThread.CallToken = _defaultCallToken;
-        }
+        static void ResetState() => MainThreadDispatcher.ResetForTests();
 
         // ---- MCP tool call cancellation (McpPlugin's ToolCallCancellation.Token) ------------------------------
-        //
-        // McpPlugin sets its token internally, so the tests fake it with an AsyncLocal (as McpPlugin's is) behind the
-        // GodotMainThread.CallToken seam: outside FromCall the value is CancellationToken.None, as outside a tool call.
-
-        static readonly AsyncLocal<CancellationToken> _callToken = new AsyncLocal<CancellationToken>();
 
         /// <summary>
         /// Boots the dispatcher, then dispatches from a background thread (off the "main" thread: queued) inside a call
-        /// with <paramref name="token"/>.
+        /// with <paramref name="token"/> (McpPlugin's <c>ToolCallCancellation.RunWith</c>, as the plugin runs every tool call).
         /// </summary>
         static Task<T> FromCall<T>(CancellationToken token, Func<T> body)
         {
             GodotMainThread.Install();
             MainThreadDispatcher.SimulateInstanceEnteredForTests();
             Task<T>? task = null;
-            OnBackgroundThread(() =>
-            {
-                _callToken.Value = token;
-                task = com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.RunAsync(body);
-            });
+            OnBackgroundThread(() => task = ToolCallCancellation.RunWith(token,
+                () => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.RunAsync(body)));
             return task!;
         }
 
