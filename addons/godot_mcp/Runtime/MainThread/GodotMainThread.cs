@@ -10,6 +10,7 @@
 #nullable enable
 using System;
 using System.Threading.Tasks;
+using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
 
 namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
@@ -92,13 +93,29 @@ namespace com.IvanMurzak.Godot.MCP.MainThreadDispatch
         /// let a re-enqueueing continuation extend the drain inline. Posting continuations off-thread keeps the
         /// pump tick (and the bounded teardown drain) free of caller-supplied continuation bodies.
         /// </para>
+        /// <para>
+        /// The MCP tool call's cancellation (McpPlugin's <see cref="ToolCallCancellation.Token"/>, which fires when the
+        /// caller went away; <c>None</c> outside a tool call) is honoured at safe points only: a cancelled
+        /// call's body is not queued, and a body whose call is cancelled while it waits in the queue is skipped. Both
+        /// complete the task as cancelled. A body that has started always runs to its end.
+        /// </para>
         /// </summary>
         static Task<T> Dispatch<T>(Func<T> body)
         {
+            // Read on the calling thread: the token flows with the tool call's async context, not to the main thread.
+            var cancel = ToolCallCancellation.Token;
+            if (cancel.IsCancellationRequested)
+                return Task.FromCanceled<T>(cancel);
+
             var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             MainThreadDispatcher.Enqueue(() =>
             {
+                if (cancel.IsCancellationRequested)
+                {
+                    tcs.TrySetCanceled(cancel);
+                    return;
+                }
                 try
                 {
                     tcs.SetResult(body());
