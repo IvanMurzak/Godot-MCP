@@ -364,6 +364,33 @@ export function findGodotBinary(
   return null;
 }
 
+/**
+ * The first Godot binary `accept` takes, searched in `extraRoots` (recursively), on `PATH` and in the common install
+ * roots, best-ranked build first within each folder. Used to find a second editor build next to the default one (the
+ * standard build for a Web export). Pure / no spawn.
+ */
+export function findGodotBinaryWhere(
+  accept: (file: string) => boolean,
+  extraRoots: string[] = [],
+  os: NodeJS.Platform = platform(),
+): string | null {
+  const sep = os === 'win32' ? ';' : ':';
+  const pathDirs = (process.env['PATH'] ?? '').split(sep).filter((d) => d.length > 0);
+  const roots: InstallRoot[] = [
+    ...extraRoots.map((p) => ({ path: p, depth: SCAN_MAX_DEPTH })),
+    ...pathDirs.map((p) => ({ path: p, depth: FLAT_SCAN_DEPTH })),
+    ...commonInstallRoots(os),
+  ];
+  const seen = new Set<string>();
+  for (const root of roots) {
+    if (seen.has(root.path)) continue;
+    seen.add(root.path);
+    const hit = scanForGodotBinaries(root.path, os, root.depth).find(accept);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 export interface LaunchEditorCallbacks {
   /** Fired once the OS reports the child process has spawned. */
   onSpawn?: (pid: number | undefined) => void;

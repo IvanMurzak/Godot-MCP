@@ -35,6 +35,8 @@ Your game code stays GDScript. The addon itself is C#, so the project needs a fe
 
 **Does a GDScript-only project need a C# solution?** Yes, once: the addon is C# and compiles into the project's C# assembly. **Create C# solution** adds a `.csproj` and a `.sln` file at the project root. Your `.gd` scripts, scenes and resources are not changed and run as before; the agent reads, writes and validates GDScript too. Exports then use Godot's .NET export templates and include the addon's small runtime assemblies, which stay inactive unless your code calls `GodotMcpRuntime.Initialize()` ([how to leave them out](docs/ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)).
 
+**Can a GDScript project with the addon still export to Web (itch.io, game jams)?** Yes. No Godot 4 .NET editor exports to Web, with or without the addon, but the standard (non-.NET) editor of the same version exports your GDScript game with the addon installed: `godot-cli export Web build/web/index.html` switches to it on its own. Keep developing in the .NET editor. Steps: [Web export](docs/install.md#web-export).
+
 <p align="center">
   <img src="docs/img/terminal.svg" alt="A terminal session: godot-cli installs the addon, signs in, configures Claude Code and opens the editor" width="100%"/>
 </p>

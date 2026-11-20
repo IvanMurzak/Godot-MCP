@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { dotnetRuntimeWorkaroundEnv, findGodotBinary, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
+import { dotnetRuntimeWorkaroundEnv, findGodotBinary, findGodotBinaryWhere, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
 
 // ESM module namespaces are non-configurable, so spying on a named export is
 // not possible; mock the module instead and assert against the mocked spawn.
@@ -293,6 +293,35 @@ describe('findGodotBinary', () => {
       if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
       else process.env['LOCALAPPDATA'] = savedLocalAppData;
     }
+  });
+});
+
+describe('findGodotBinaryWhere', () => {
+  let tmpDir: string;
+  let savedPath: string | undefined;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-where-'));
+    savedPath = process.env['PATH'];
+    process.env['PATH'] = '';
+  });
+  afterEach(() => {
+    if (savedPath === undefined) delete process.env['PATH'];
+    else process.env['PATH'] = savedPath;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('finds the accepted build in an extra root, preferring the _console binary, and skips the rejected ones', () => {
+    const put = (rel: string): string => {
+      const full = path.join(tmpDir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, '');
+      return full;
+    };
+    put('Godot_v4.5.1-stable_mono_win64/Godot_v4.5.1-stable_mono_win64/Godot_v4.5.1-stable_mono_win64_console.exe');
+    put('Godot_v4.5.1-stable_win64/Godot_v4.5.1-stable_win64.exe');
+    const console = put('Godot_v4.5.1-stable_win64/Godot_v4.5.1-stable_win64_console.exe');
+    const standard = (file: string) => !path.basename(file).includes('mono');
+    expect(findGodotBinaryWhere(standard, [tmpDir], 'win32')).toBe(console);
   });
 });
 

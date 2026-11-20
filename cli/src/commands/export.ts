@@ -21,7 +21,7 @@ interface ExportCliOptions extends HeadlessCliOptions {
 export const exportCommand = addFormatOption(
   addHeadlessOptions(
     new Command('export')
-      .description('Export a preset headless; checks the export templates first and the output file afterwards')
+      .description('Export a preset headless; checks the export templates first and the output file afterwards. A Web preset from a .NET editor runs on the standard editor of the same version')
       .argument('<preset>', 'Export preset name (export_presets.cfg)')
       .argument('<output>', 'Output file path')
       .option('--debug', 'Debug export (--export-debug)')
@@ -48,6 +48,7 @@ export const exportCommand = addFormatOption(
     ui.heading('Godot Export');
     ui.label('Preset', `${preset} (${mode})`);
     if (result.output) ui.label('Output', result.output);
+    if (result.editor) ui.label('Editor', result.editor);
     printSteps(result.steps ?? []);
   }
   const data = result.projectPath ? {
@@ -57,6 +58,7 @@ export const exportCommand = addFormatOption(
     output: result.output,
     sizeBytes: result.sizeBytes ?? null,
     templatesDir: result.templatesDir ?? null,
+    editor: result.editor ?? null,
     steps: result.steps,
   } : null;
   finishHeadless(

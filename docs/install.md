@@ -64,6 +64,25 @@ Run `dotnet restore`, then build. No DLLs need copying: at editor runtime the ad
 [Godot-MCP] plugin loaded
 ```
 
+## Web export
+
+Godot 4 .NET editors (4.3 to 4.7) refuse every Web export ("Exporting to Web is currently not supported in Godot 4 when
+using C#/.NET"), and the .NET export templates have no Web template. A **GDScript** game with the addon installed still
+exports to Web from the **standard (non-.NET) editor of the same version**: that editor skips the addon's C# files, and
+the game never runs them.
+
+1. Download the standard Godot editor of the version you use (e.g. `Godot_v4.5.1-stable_win64.exe.zip`) from
+   [godotengine.org](https://godotengine.org/download/archive/) and its **Web** export templates.
+2. Export with `godot-cli export Web build/web/index.html`. Run from a .NET editor, it looks for the standard editor of
+   the same version beside the .NET editor's folder, on `PATH` and in the usual install folders, and exports with it.
+   If it finds none, it says so; pass the path with `--editor-path`. Or open the project in the standard editor and use
+   **Project → Export → Web**. It shows *Unable to load addon script* for `GodotMcpPlugin.cs`: that is expected. The
+   plugin stays enabled, and the .NET editor loads it as before.
+3. Optional: add `addons/godot_mcp/*` to the Web preset's **Resources → Filters to exclude files** (`exclude_filter`).
+   This keeps the addon's icons (about 100 KB) out of the `.pck`.
+
+A game with its own C# scripts cannot be exported to Web in Godot 4. `godot-cli export` stops with that message.
+
 ## 4. Connect an AI agent
 
 Install any MCP client (Claude Code, Claude Desktop, Cursor, VS Code with Copilot, Codex, Gemini, …), then write its config:

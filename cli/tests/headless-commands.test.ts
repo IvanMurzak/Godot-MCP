@@ -6,7 +6,7 @@ import { checkProject, CHECK_SCRIPT, isAddonEnabled } from '../src/lib/check.js'
 import { importProject } from '../src/lib/import-project.js';
 import { prepareHeadless, type HeadlessDeps } from '../src/lib/headless.js';
 import { detectTestRunners, runTests, runnerArgs } from '../src/lib/run-tests.js';
-import { exportProject, readExportPresets, templatesRoot, templatesVersionDir, versionFromFileName } from '../src/lib/export-project.js';
+import { exportProject, gameCsharpScripts, readExportPresets, templatesRoot, templatesVersionDir, versionFromFileName } from '../src/lib/export-project.js';
 import { runScript, scriptPathForGodot } from '../src/lib/run-script.js';
 import type { GodotRunOptions, GodotRunResult } from '../src/lib/godot-run.js';
 import type { BuildProjectResult } from '../src/lib/types.js';
@@ -293,6 +293,70 @@ describe('exportProject', () => {
     const failedNet = writes(BANNER + 'ERROR: Export .NET Project: no solution file was found\n   at: add_message (editor/export/editor_export_platform.h:255)\n');
     expect(await exportProject({ projectPath: project, timeoutMs: 10_000, deps: fakeDeps(failedNet).deps, preset: 'Windows Desktop', output: out, mode: 'pack' }))
       .toMatchObject({ kind: 'failure', reason: 'export-failed' });
+  });
+});
+
+describe('exportProject: Web from a .NET editor', () => {
+  const WEB = '[preset.0]\n\nname="Web"\nplatform="Web"\n\n[preset.0.options]\n\ncustom_template/debug=""\ncustom_template/release="tpl/web_release.zip"\n';
+  const MONO = '4.5.1.stable.mono.official.f62fdbde1';
+  const STANDARD = path.join('std', 'Godot_v4.5.1-stable_win64_console.exe');
+  const out = () => path.join(project, 'build', 'index.html');
+  const writes: Responder = () => {
+    fs.writeFileSync(out(), '<html>');
+    return {};
+  };
+  beforeEach(() => {
+    fs.writeFileSync(path.join(project, 'export_presets.cfg'), WEB.replace('tpl/web_release.zip', path.join(project, 'web_release.zip')));
+    fs.writeFileSync(path.join(project, 'web_release.zip'), 'ZIP');
+  });
+
+  it('exports with the standard editor of the same version', async () => {
+    const { deps, calls } = fakeDeps(writes);
+    const asked: string[] = [];
+    const r = await exportProject({
+      projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion: MONO,
+      findStandardEditor: (version, dotnet) => {
+        asked.push(version, dotnet);
+        return STANDARD;
+      },
+    });
+    expect(r).toMatchObject({ kind: 'success', editor: STANDARD });
+    expect(asked).toEqual(['4.5.1.stable', 'godot.exe']);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].binary).toBe(STANDARD);
+    expect(calls[0].args).toContain('--export-release');
+  });
+
+  it('fails before running Godot when no standard editor is found, or when the game has C# scripts', async () => {
+    const { deps, calls } = fakeDeps(writes);
+    const none = await exportProject({ projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion: MONO, findStandardEditor: () => null });
+    expect(none).toMatchObject({ kind: 'failure', reason: 'not-found' });
+    expect(none.message).toContain('standard (non-.NET) Godot 4.5.1.stable');
+    fs.mkdirSync(path.join(project, 'scripts'));
+    fs.writeFileSync(path.join(project, 'scripts', 'Player.cs'), 'class Player {}');
+    const csharp = await exportProject({ projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion: MONO, findStandardEditor: () => STANDARD });
+    expect(csharp).toMatchObject({ kind: 'failure', reason: 'export-failed' });
+    expect(csharp.message).toContain('res://scripts/Player.cs');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('keeps the given editor when it is already a standard build', async () => {
+    const { deps, calls } = fakeDeps(writes);
+    const r = await exportProject({ projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion: '4.5.1.stable.official.f62fdbde1', findStandardEditor: () => STANDARD });
+    expect(r).toMatchObject({ kind: 'success' });
+    expect(r.editor).toBeUndefined();
+    expect(calls[0].binary).toBe('godot.exe');
+  });
+
+  it('finds game C# outside addons/, dot-folders, bin/, obj/ and .gdignore folders', () => {
+    const put = (rel: string) => {
+      fs.mkdirSync(path.dirname(path.join(project, rel)), { recursive: true });
+      fs.writeFileSync(path.join(project, rel), '');
+    };
+    ['addons/godot_mcp/Editor/GodotMcpPlugin.cs', '.godot/mono/x.cs', 'bin/a.cs', 'obj/Debug/b.cs', 'tools/.gdignore', 'tools/c.cs'].forEach(put);
+    expect(gameCsharpScripts(project)).toEqual([]);
+    put('src/game/Main.cs');
+    expect(gameCsharpScripts(project)).toEqual(['res://src/game/Main.cs']);
   });
 });
 
