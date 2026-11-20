@@ -78,3 +78,14 @@ godot-cli setup-mcp claude-code ./MyGodotProject   # godot-cli setup-mcp --list 
 ```
 
 Editor dock का **Configure** button वही config लिखता है। Default रूप से यह project-pinned cloud URL `<host>/mcp/p/<pin>` इस्तेमाल करता है, ताकि इस फ़ोल्डर में शुरू किया एजेंट कई editors जुड़े होने पर भी इसी प्रोजेक्ट के editor तक पहुँचे; bare `<host>/mcp` URL के लिए `--no-pin` दें। Cloud mode में config में इस प्रोजेक्ट की key होती है (`Authorization: Bearer agd_pk_…`); sign-in के बिना, या `--oauth` के साथ, यह सिर्फ़-URL होता है और एजेंट अपने OAuth से sign in करता है। Connection modes और environment variables: [connection.md](connection.hi.md)।
+
+<a id="web-export"></a>
+## Web export
+
+कोई भी Godot 4 .NET editor (4.3 से 4.7) Web पर export नहीं करता: हर एक "Exporting to Web is currently not supported in Godot 4 when using C#/.NET" कहकर मना कर देता है, और .NET export templates में कोई Web template नहीं है। फिर भी, addon install वाला **GDScript** game **उसी version के standard (non-.NET) editor** से Web पर export हो जाता है। वह editor addon का C# load नहीं कर सकता, और game उसे कभी चलाता भी नहीं। Development .NET editor में ही जारी रखें।
+
+1. किसी भी editor में **Web preset जोड़ें**: **Project → Export… → Add… → Web**। .NET editor इसे जोड़ने देता है; वह सिर्फ़ इससे export करने से मना करता है। Optional: **Resources → Filters to exclude files** में `addons/godot_mcp/*` जोड़ें, जिससे addon के icons (लगभग 100 KB) `.pck` से बाहर रहते हैं।
+2. अपने version का **standard editor लें** [godotengine.org](https://godotengine.org/download/archive/) से (जैसे `Godot_v4.5.1-stable_win64.exe.zip`), और उसके export templates install करें (उस editor में **Editor → Manage Export Templates**, या उसकी `.tpz`)। ये .NET templates से अलग install होते हैं।
+3. **Export करें।** `godot-cli export Web build/web/index.html` (पहला argument preset का नाम है)। जब `godot-cli` द्वारा resolve किया गया editor .NET build हो, तो वह उसकी जगह उसी version के standard editor से export करता है: एक official, बिना rename किया build (`Godot_v4.5.1-stable_win64[_console].exe`, `Godot_v4.5.1-stable_linux.x86_64`) जो .NET editor के फ़ोल्डर के बगल में, `PATH` पर या सामान्य install फ़ोल्डरों में हो। macOS पर, या rename की हुई binary के साथ, उसे `--editor-path` से दें (macOS पर: `Godot.app/Contents/MacOS/Godot`)। या प्रोजेक्ट को standard editor में खोलें और **Project → Export…** इस्तेमाल करें, Web preset चुनें, फिर **Export Project**। वह editor चेतावनी देता है कि प्रोजेक्ट C# इस्तेमाल करता है और `GodotMcpPlugin.cs` के लिए *Unable to load addon script* दिखाता है: दोनों अपेक्षित हैं। Plugin enabled रहता है, और .NET editor उसे पहले की तरह load करता है।
+
+दूसरी C# scripts (game code, या किसी दूसरे addon की) वाला प्रोजेक्ट Godot 4 में Web पर export नहीं हो सकता: Web preset के लिए `godot-cli export` उसी message के साथ रुक जाता है, चाहे वह कोई भी editor इस्तेमाल करे।

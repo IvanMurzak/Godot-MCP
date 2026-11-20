@@ -60,7 +60,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 - **`check [path]`** — 无需运行编辑器的 CI 关卡：导入、`dotnet build`、编辑器启动和 GDScript 加载检查，根据日志判定结果（见[无界面命令](#headless-commands-check-import-test-export-run-script)）。
 - **`import [path]`** — `godot --headless --import`，日志中出现导入错误或脚本错误时失败。
 - **`test [path]`** — 以无界面方式运行项目的 GUT 或 gdUnit4 测试，带硬性超时；根据 JUnit 报告和日志判定结果。
-- **`export <preset> <output>`** — 以无界面方式导出一个预设（`--debug`、`--pack`）；先检查导出模板，之后检查输出。
+- **`export <preset> <output>`** — 以无界面方式导出一个预设（`--debug`、`--pack`）；先检查导出模板，之后检查输出。Web 预设在同一版本的标准（非 .NET）编辑器上运行。
 - **`run-script <script> [args...]`** — 运行一次性的 `SceneTree` GDScript（`godot --headless -s`）；仅在 `quit(0)` 后以 0 退出。
 - **`commands`** — 所有命令及其参数、选项和退出码的机器可读清单（`--format json`）。
 - **`tools [name]`** — 编辑器的 AI 工具（MCP `tools/list`；没有编辑器响应时启动一个无界面编辑器，并将列表缓存到 `.ai-game-dev/tools.json`，已被 git 忽略）。带名称时：输出其描述、参数和一个 `run-tool` 调用示例。`--refresh` 重新向编辑器查询；`--no-start` 使用缓存或内置列表。
@@ -213,7 +213,7 @@ godot-cli run-script tools/migrate.gd -- --dry-run
 - **`check [path] [--strict] [--include-addons]`** 运行四个独立的进程（单个冷启动的 `--build-solutions --quit` 会在 C# `[Tool]` 插件上崩溃）：`--headless --import`；C# 项目的 `dotnet build`（错误格式为 `file(line,col): error CS…`）；`--headless --editor --quit`，当插件启用时必须输出 `[Godot-MCP] plugin loaded`；以及一次 GDScript 检查，加载 `res://` 下的每个 `.gd`（仅在 `--include-addons` 时包含 `res://addons/`），并以 `res://file:line` 报告解析错误。`--strict` 还会在 GDScript 警告（项目中 Warn 级别的警告在内存中提升为错误，从不保存）和 C# `CS` 警告时失败。引擎消息（例如某个插件的运行时警告）作为警告列出，绝不会导致检查失败。
 - **`import [path]`** 在脚本错误（`SCRIPT_ERRORS`）和资源导入失败（`IMPORT_FAILED`）时失败。
 - **`test [path]`** 查找 GUT（`addons/gut`）或 gdUnit4（`addons/gdUnit4`），导入项目（`--no-import` 跳过），并以 JUnit 报告（`-gjunit_xml_file`，或 gdUnit4 的 `-rd`；gdUnit4 以 `--ignoreHeadlessMode -c` 运行）运行测试运行器的命令行脚本。所有测试通过时以 0 退出，有失败时以 8 退出；没有报告、没有运行任何测试，或某个测试脚本加载失败（其测试不会出现在报告中，因此不能算通过）时以 6（`TEST_RUN_ERROR`）退出；未安装测试运行器时以 6（`NOT_FOUND`）退出并给出安装提示。`--runner gut|gdunit4`、`--dir <dir>`（可重复；默认 `res://test`、`res://tests` 或 GUT 的 `.gutconfig.json`）、`--filter <text>`（文件名包含该文本的测试脚本）、`--output <file>`（复制 JUnit XML）、`--format text|json|ndjson|github`。
-- **`export <preset> <output> [--debug|--pack]`** 检查 `export_presets.cfg` 中是否有该预设、编辑器版本对应的导出模板是否已安装（除非使用 `--pack` 或预设指定了自己的模板），运行 `--export-release|--export-debug|--export-pack`，并且除非输出文件存在、非空、由本次运行写入，且日志中没有导出错误，否则以失败（`EXPORT_FAILED`）告终（即使 C# 发布因缺少 `.sln` 而失败，Godot 也会写出可执行文件并以 0 退出）。
+- **`export <preset> <output> [--debug|--pack]`** 检查 `export_presets.cfg` 中是否有该预设、编辑器版本对应的导出模板是否已安装（除非使用 `--pack` 或预设指定了自己的模板），运行 `--export-release|--export-debug|--export-pack`，并且除非输出文件存在、非空、由本次运行写入，且日志中没有导出错误，否则以失败（`EXPORT_FAILED`）告终（即使 C# 发布因缺少 `.sln` 而失败，Godot 也会写出可执行文件并以 0 退出）。没有任何 Godot 4 .NET 编辑器能导出到 Web，因此从 .NET 编辑器运行 `platform="Web"` 的预设时，它会改用同一版本的标准（非 .NET）编辑器：一个未重命名的官方构建（`Godot_v4.5.1-stable_win64[_console].exe`、`Godot_v4.5.1-stable_linux.x86_64`；压缩包不算），位于 .NET 编辑器所在文件夹旁、`PATH` 上或常用安装文件夹中（`data.editor` 会给出它）。macOS 的 `.app` 构建永远不会被找到：请用 `--editor-path` 传入标准编辑器。当项目在 `addons/godot_mcp/` 之外还有 C# 时，Web 预设会在导出运行前失败（`EXPORT_FAILED`：Godot 4 无法将 C# 导出到 Web）；从 .NET 编辑器运行且找不到标准编辑器时也会失败（`NOT_FOUND`：请用 `--editor-path` 传入）。
 - **`run-script <script> [args...]`** 运行 `godot --headless --path <project> -s <script> -- <args>`：脚本继承 `SceneTree` 或 `MainLoop`，并以 `quit(code)` 结束。`quit(0)` 时以 0 退出；其他代码（`data.scriptExitCode`）或脚本加载失败时以 6 退出；`--timeout`（默认 300000 毫秒）时以 14 退出。它不执行导入，因此在编辑器打开该项目时也能运行。
 
 <a id="login"></a>

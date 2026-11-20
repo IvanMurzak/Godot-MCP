@@ -4,6 +4,12 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`export` exports a Web preset from a .NET editor.** No Godot 4 .NET editor exports to Web, so a GDScript project
+  with the Godot-MCP addon could not be exported to Web through `godot-cli`. For a `platform="Web"` preset run from a .NET
+  editor, `export` now uses the standard editor of the same version: an official, unrenamed build beside the .NET
+  editor's folder, on `PATH` or in the usual install folders (`data.editor` names it; on macOS pass it with
+  `--editor-path`). A Web preset fails before the export runs when the project has C# besides `addons/godot_mcp/`
+  (`EXPORT_FAILED`), and, from a .NET editor, when there is no standard editor (`NOT_FOUND`).
 - **`install-plugin` guards the extension-catalog embed with `Exists()`.** The `<EmbeddedResource>` it writes now carries
   `Condition="Exists('addons/godot_mcp/extensions.catalog.json')"`, so a clone that gitignores `addons/` builds (it
   failed with `CS1566`) and the extension list is empty until the addon is installed. A re-run adds the guard to an

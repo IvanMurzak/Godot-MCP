@@ -37,7 +37,9 @@
 ‏✅ ‏**حل C# (C# solution)** — لمشروع قائم: **Project → Tools → C# → Create C# solution**؛ ولمشروع جديد: `create-project --dotnet`\
 ‏✅ ‏**الإضافة** — يضيفها `godot-cli install-plugin` مع مراجع NuGet الخاصة بها ويفعّلها
 
-‏**هل يحتاج مشروع GDScript فقط إلى حل C#؟** نعم، مرة واحدة: الإضافة مكتوبة بـ C# وتُترجم ضمن تجميعة C# الخاصة بالمشروع. يضيف **Create C# solution** ملف `.csproj` وملف `.sln` في جذر المشروع. لا تتغير سكربتات `.gd` ولا المشاهد ولا الموارد، وتعمل كما كانت؛ ويقرأ الوكيل GDScript ويكتبها ويتحقق منها أيضًا. بعد ذلك تستخدم عمليات التصدير قوالب التصدير الخاصة بـ .NET في Godot وتتضمن تجميعات وقت التشغيل الصغيرة للإضافة، والتي تبقى غير نشطة ما لم تستدعِ شيفرتك `GodotMcpRuntime.Initialize()` ([كيف تستبعدها](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)).
+‏**هل يحتاج مشروع GDScript فقط إلى حل C#؟** نعم، مرة واحدة: الإضافة مكتوبة بـ C# وتُترجم ضمن تجميعة C# الخاصة بالمشروع. يضيف **Create C# solution** ملف `.csproj` وملف `.sln` في جذر المشروع. لا تتغير سكربتات `.gd` ولا المشاهد ولا الموارد، وتعمل كما كانت؛ ويقرأ الوكيل GDScript ويكتبها ويتحقق منها أيضًا. بعد ذلك تستخدم عمليات التصدير لسطح المكتب والأجهزة المحمولة قوالب التصدير الخاصة بـ .NET في Godot وتتضمن تجميعات وقت التشغيل الصغيرة للإضافة، والتي تبقى غير نشطة ما لم تستدعِ شيفرتك `GodotMcpRuntime.Initialize()` ([كيف تستبعدها](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)).
+
+‏**هل يمكن لمشروع GDScript مثبّتة فيه الإضافة أن يُصدَّر إلى الويب (itch.io، مسابقات game jam)؟** نعم. لا يصدّر أي محرر Godot 4 .NET إلى الويب، سواء مع الإضافة أو بدونها، لكن المحرر القياسي (غير .NET) من الإصدار نفسه يصدّر لعبتك المكتوبة بـ GDScript والإضافة مثبّتة. يستخدمه `godot-cli export Web build/web/index.html` عندما يعثر عليه (النسخ الرسمية لـ Windows وLinux؛ وعلى macOS مرّره عبر `--editor-path`). واصل التطوير في محرر .NET. الخطوات: [التصدير إلى الويب](install.ar.md#web-export).
 
 </div>
 

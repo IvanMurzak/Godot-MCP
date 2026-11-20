@@ -6,6 +6,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { parseGodotLog, type Diagnostic } from './godot-log.js';
+import { findGodotBuild, versionFromFileName } from '../utils/godot-editor.js';
+
+export { versionFromFileName };
 import {
   engineRan,
   headlessFailure,
@@ -32,6 +35,8 @@ export interface ExportOptions extends HeadlessBaseOptions {
   mode?: ExportMode;
   /** Tests: the editor's version string (`4.5.1.stable.mono.official.f62fdbde1`). */
   godotVersion?: string;
+  /** Tests: finds the standard (non-.NET) editor of a version (`4.5.1.stable`) for a Web export from a .NET editor. */
+  findStandardEditor?: (version: string, near: string) => string | null;
 }
 
 export interface ExportReport {
@@ -41,6 +46,8 @@ export interface ExportReport {
   output: string;
   sizeBytes?: number;
   templatesDir?: string;
+  /** The binary that ran the export: the standard editor that replaced a .NET one for a Web preset. */
+  editor?: string;
   steps: HeadlessStep[];
   diagnostics: Diagnostic[];
 }
@@ -121,9 +128,52 @@ export function godotVersion(binary: string, timeoutMs: number): string | undefi
   return line ?? versionFromFileName(path.basename(binary));
 }
 
-export function versionFromFileName(name: string): string | undefined {
-  const m = /^godot_v(\d+\.\d+(?:\.\d+)?)-(stable|dev\d*|alpha\d*|beta\d*|rc\d*)(_mono)?/i.exec(name);
-  return m ? `${m[1]}.${m[2]}${m[3] ? '.mono' : ''}` : undefined;
+
+/**
+ * The first C# file Godot would see besides the Godot-MCP addon (a `res://` path): a `.cs` outside `addons/godot_mcp/`,
+ * dot-folders, `node_modules`, the root `bin/` and `obj/`, and folders Godot ignores (a `.gdignore`, or a nested
+ * `project.godot`). Godot 4 cannot export C# to Web; only our addon's C# is known to be editor-only.
+ */
+export function gameCsharpScript(projectPath: string): string | undefined {
+  const walk = (dir: string, rel: string): string | undefined => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return undefined;
+    }
+    if (rel !== '' && entries.some((e) => e.name === '.gdignore' || e.name === 'project.godot')) return undefined;
+    if (rel === 'addons/godot_mcp') return undefined;
+    const skipped = rel === '' ? ['bin', 'obj', 'node_modules'] : ['node_modules'];
+    for (const e of entries) {
+      const childRel = rel === '' ? e.name : `${rel}/${e.name}`;
+      if (e.isFile() && e.name.toLowerCase().endsWith('.cs')) return `res://${childRel}`;
+      if (e.isDirectory() && !e.name.startsWith('.') && !skipped.includes(e.name)) {
+        const hit = walk(path.join(dir, e.name), childRel);
+        if (hit) return hit;
+      }
+    }
+    return undefined;
+  };
+  return walk(projectPath, '');
+}
+
+/**
+ * Every Godot 4 .NET editor refuses Web ("not supported in Godot 4 when using C#/.NET"); the standard editor of the same
+ * version exports a GDScript game and skips the addon's C# (it cannot load it, and the game never runs it). Returns the
+ * standard editor and its version, or why there is none.
+ */
+function standardEditorForWeb(
+  dotnetBinary: string,
+  dotnetVersionDir: string,
+  find: (version: string, near: string) => string | null,
+): { binary: string; version: string } | HeadlessFailure {
+  const version = dotnetVersionDir.slice(0, -'.mono'.length);
+  const binary = find(version, dotnetBinary);
+  if (!binary) {
+    return headlessFailure('not-found', `Godot .NET editors cannot export to Web. Pass the standard (non-.NET) Godot ${version} editor with --editor-path, or extract it next to the .NET editor (download: godotengine.org).`);
+  }
+  return { binary, version };
 }
 
 export async function exportProject(options: ExportOptions): Promise<ExportResult> {
@@ -141,10 +191,29 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
     return fail(headlessFailure('not-found', `No export preset named "${options.preset}" in export_presets.cfg${known ? ` (presets: ${known})` : ' (the file is missing or has no presets)'}.`));
   }
 
+  let version = options.godotVersion;
+  if (preset.platform === 'Web') {
+    // The standard editor exports such a game and logs nothing that fails the export: its C# is just missing.
+    const script = gameCsharpScript(ctx.projectPath);
+    if (script) {
+      return fail(headlessFailure('export-failed', `Godot 4 cannot export C# to Web, and this project has C# scripts besides the Godot-MCP addon (${script}). Only GDScript games can be exported to Web.`));
+    }
+    version ??= godotVersion(ctx.binary, remainingMs(ctx));
+    const versionDir = version === undefined ? undefined : templatesVersionDir(version);
+    if (versionDir?.endsWith('.mono')) {
+      const standard = standardEditorForWeb(ctx.binary, versionDir, options.findStandardEditor ?? findGodotBuild);
+      if ('kind' in standard) return fail(standard);
+      options.onProgress?.(`Godot .NET editors cannot export to Web; exporting with the standard editor ${standard.binary}.`);
+      ctx.binary = standard.binary;
+      report.editor = standard.binary;
+      version = standard.version;
+    }
+  }
+
   // A .pck/.zip pack needs no templates; a preset with its own template file does not use the installed ones.
   const custom = mode === 'debug' ? preset.customTemplateDebug : preset.customTemplateRelease;
   if (mode !== 'pack' && custom === '') {
-    const version = options.godotVersion ?? godotVersion(ctx.binary, remainingMs(ctx));
+    version ??= godotVersion(ctx.binary, remainingMs(ctx));
     if (!version) return fail(headlessFailure('export-failed', `Could not read the Godot version (${ctx.binary} --version).`));
     const versionDir = templatesVersionDir(version);
     const dir = path.join(templatesRoot(ctx.binary), versionDir);

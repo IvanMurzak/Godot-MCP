@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { dotnetRuntimeWorkaroundEnv, findGodotBinary, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
+import { dotnetRuntimeWorkaroundEnv, findGodotBinary, findGodotBuild, launchEditor, GODOT_BIN_ENV_VARS } from '../src/utils/godot-editor.js';
 
 // ESM module namespaces are non-configurable, so spying on a named export is
 // not possible; mock the module instead and assert against the mocked spawn.
@@ -293,6 +293,50 @@ describe('findGodotBinary', () => {
       if (savedLocalAppData === undefined) delete process.env['LOCALAPPDATA'];
       else process.env['LOCALAPPDATA'] = savedLocalAppData;
     }
+  });
+});
+
+describe('findGodotBuild', () => {
+  let tmpDir: string;
+  let savedPath: string | undefined;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'godot-build-'));
+    savedPath = process.env['PATH'];
+    process.env['PATH'] = '';
+  });
+  afterEach(() => {
+    if (savedPath === undefined) delete process.env['PATH'];
+    else process.env['PATH'] = savedPath;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('finds the standard build of the version beside the .NET editor, preferring the _console binary', () => {
+    const put = (rel: string): string => {
+      const full = path.join(tmpDir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, '');
+      return full;
+    };
+    const mono = put('mono/Godot_v4.5.1-stable_mono_win64_console.exe');
+    put('std/Godot_v4.4-stable_win64_console.exe');
+    put('std/Godot_v4.5.1-stable_win64.exe');
+    const console = put('std/Godot_v4.5.1-stable_win64_console.exe');
+    expect(findGodotBuild('4.5.1.stable', mono, 'win32')).toBe(console);
+    expect(findGodotBuild('4.5.1.stable.mono', mono, 'win32')).toBe(mono);
+  });
+
+  it('ignores a downloaded archive with the same version-stamped name (Linux)', () => {
+    const put = (rel: string): string => {
+      const full = path.join(tmpDir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, '');
+      return full;
+    };
+    const mono = put('mono/Godot_v4.5.1-stable_mono_linux.x86_64');
+    put('Godot_v4.5.1-stable_linux.x86_64.zip');
+    expect(findGodotBuild('4.5.1.stable', mono, 'linux') ?? '').not.toMatch(/\.zip$/);
+    const binary = put('std/Godot_v4.5.1-stable_linux.x86_64');
+    expect(findGodotBuild('4.5.1.stable', mono, 'linux')).toBe(binary);
   });
 });
 
