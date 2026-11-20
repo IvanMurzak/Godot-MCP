@@ -78,3 +78,14 @@ godot-cli setup-mcp claude-code ./MyGodotProject   # godot-cli setup-mcp --list 
 ```
 
 エディタードックの **Configure** ボタンも同じ設定を書き込みます。既定ではプロジェクトに固定されたクラウド URL `<host>/mcp/p/<pin>` を使うため、このフォルダーで起動したエージェントは、複数のエディターが接続していてもこのプロジェクトのエディターに届きます。素の `<host>/mcp` URL にするには `--no-pin` を渡してください。Cloud モードでは設定にこのプロジェクトのキー(`Authorization: Bearer agd_pk_…`)が含まれます。サインインしていない場合や `--oauth` を指定した場合は URL のみとなり、エージェントは自身の OAuth でサインインします。接続モードと環境変数: [connection.md](connection.ja.md)。
+
+<a id="web-export"></a>
+## Web エクスポート
+
+Godot 4 の .NET エディター(4.3 から 4.7)は、どれも Web にエクスポートできません: いずれも "Exporting to Web is currently not supported in Godot 4 when using C#/.NET" と表示して拒否し、.NET のエクスポートテンプレートには Web テンプレートがありません。それでも、アドオンをインストールした **GDScript** のゲームは、**同じバージョンの標準(非 .NET)エディター**からなら Web にエクスポートできます。そのエディターはアドオンの C# を読み込めませんが、ゲームがそれを実行することはありません。開発は引き続き .NET エディターで行ってください。
+
+1. どちらかのエディターで **Web プリセットを追加します**: **Project → Export… → Add… → Web**。.NET エディターでも追加はでき、拒否されるのはそのプリセットでのエクスポートだけです。任意: **Resources → Filters to exclude files** に `addons/godot_mcp/*` を追加すると、アドオンのアイコン(約 100 KB)が `.pck` に含まれなくなります。
+2. [godotengine.org](https://godotengine.org/download/archive/) から、使っているバージョンの**標準エディターを入手し**(例: `Godot_v4.5.1-stable_win64.exe.zip`)、そのエクスポートテンプレートをインストールします(そのエディターの **Editor → Manage Export Templates**、またはその `.tpz`)。これは .NET テンプレートとは別のインストールです。
+3. **エクスポートします。** `godot-cli export Web build/web/index.html`(最初の引数はプリセット名です)。`godot-cli` が解決したエディターが .NET ビルドの場合は、代わりに同じバージョンの標準エディターでエクスポートします: .NET エディターのフォルダーの隣、`PATH` 上、または一般的なインストールフォルダーにある、名前を変更していない公式ビルド(`Godot_v4.5.1-stable_win64[_console].exe`、`Godot_v4.5.1-stable_linux.x86_64`)です。macOS の場合や、名前を変更したバイナリの場合は `--editor-path` で指定してください(macOS では `Godot.app/Contents/MacOS/Godot`)。または標準エディターでプロジェクトを開き、**Project → Export…** で Web プリセットを選んで **Export Project** を実行します。そのエディターはプロジェクトが C# を使っていると警告し、`GodotMcpPlugin.cs` について *Unable to load addon script* と表示しますが、どちらも想定どおりです。プラグインは有効のままで、.NET エディターはこれまでどおりそれを読み込みます。
+
+ほかの C# スクリプト(ゲームコードや別のアドオンのもの)を含むプロジェクトは、Godot 4 では Web にエクスポートできません: Web プリセットの場合、`godot-cli export` はどのエディターを使っていてもそのメッセージで停止します。

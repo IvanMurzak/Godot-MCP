@@ -35,7 +35,9 @@
 ✅ **C# ソリューション** — 既存のプロジェクト: **Project → Tools → C# → Create C# solution**、新規: `create-project --dotnet`\
 ✅ **アドオン** — `godot-cli install-plugin` がアドオンと NuGet 参照を追加し、有効化する
 
-**GDScript だけのプロジェクトにも C# ソリューションは必要ですか?** はい、一度だけ必要です: アドオンは C# で、プロジェクトの C# アセンブリにコンパイルされます。**Create C# solution** はプロジェクトのルートに `.csproj` と `.sln` ファイルを追加します。`.gd` スクリプト、シーン、リソースは変更されず、これまでどおり動作します。エージェントは GDScript の読み書きと検証も行います。エクスポートでは Godot の .NET エクスポートテンプレートが使われ、アドオンの小さなランタイムアセンブリが含まれますが、コードが `GodotMcpRuntime.Initialize()` を呼ばない限り無効のままです([除外する方法](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users))。
+**GDScript だけのプロジェクトにも C# ソリューションは必要ですか?** はい、一度だけ必要です: アドオンは C# で、プロジェクトの C# アセンブリにコンパイルされます。**Create C# solution** はプロジェクトのルートに `.csproj` と `.sln` ファイルを追加します。`.gd` スクリプト、シーン、リソースは変更されず、これまでどおり動作します。エージェントは GDScript の読み書きと検証も行います。デスクトップとモバイル向けのエクスポートでは Godot の .NET エクスポートテンプレートが使われ、アドオンの小さなランタイムアセンブリが含まれますが、コードが `GodotMcpRuntime.Initialize()` を呼ばない限り無効のままです([除外する方法](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users))。
+
+**アドオンを入れた GDScript プロジェクトでも Web(itch.io、ゲームジャム)にエクスポートできますか?** はい。Godot 4 の .NET エディターは、アドオンの有無にかかわらず Web にエクスポートできませんが、同じバージョンの標準(非 .NET)エディターなら、アドオンをインストールしたままの GDScript ゲームをエクスポートできます。`godot-cli export Web build/web/index.html` は、そのエディターが見つかればそれを使います(Windows と Linux の公式ビルド。macOS では `--editor-path` で指定してください)。開発は引き続き .NET エディターで行ってください。手順: [Web エクスポート](install.ja.md#web-export)。
 
 <p align="center">
   <img src="img/terminal.svg" alt="ターミナルセッション: godot-cli がアドオンをインストールし、サインインし、Claude Code を設定してエディターを開く" width="100%"/>

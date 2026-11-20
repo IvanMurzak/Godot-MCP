@@ -35,7 +35,9 @@
 ✅ **C# 解决方案** — 现有项目：**Project → Tools → C# → Create C# solution**；新项目：`create-project --dotnet`\
 ✅ **插件** — `godot-cli install-plugin` 会添加插件及其 NuGet 引用，并启用它
 
-**纯 GDScript 项目需要 C# 解决方案吗？** 需要，创建一次即可：插件是 C#，会编译进项目的 C# 程序集。**Create C# solution** 会在项目根目录添加一个 `.csproj` 和一个 `.sln` 文件。你的 `.gd` 脚本、场景和资源不会被修改，运行方式与以前相同；智能体同样可以读取、编写和校验 GDScript。之后导出会使用 Godot 的 .NET 导出模板，并包含插件的小型运行时程序集；除非你的代码调用 `GodotMcpRuntime.Initialize()`，否则它们保持不活动状态（[如何将其排除](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)）。
+**纯 GDScript 项目需要 C# 解决方案吗？** 需要，创建一次即可：插件是 C#，会编译进项目的 C# 程序集。**Create C# solution** 会在项目根目录添加一个 `.csproj` 和一个 `.sln` 文件。你的 `.gd` 脚本、场景和资源不会被修改，运行方式与以前相同；智能体同样可以读取、编写和校验 GDScript。之后桌面和移动平台的导出会使用 Godot 的 .NET 导出模板，并包含插件的小型运行时程序集；除非你的代码调用 `GodotMcpRuntime.Initialize()`，否则它们保持不活动状态（[如何将其排除](ARCHITECTURE.md#optional-strictly-zero-bytes-export-exclude-for-dev-only-users)）。
+
+**装有插件的 GDScript 项目还能导出到 Web（itch.io、game jam）吗？** 可以。任何 Godot 4 .NET 编辑器都无法导出到 Web，无论是否装有插件；但同一版本的标准（非 .NET）编辑器可以导出装有插件的 GDScript 游戏。`godot-cli export Web build/web/index.html` 找到它时就会使用它（Windows 和 Linux 官方构建；在 macOS 上请用 `--editor-path` 传入）。日常开发继续使用 .NET 编辑器。步骤：[Web 导出](install.zh-CN.md#web-export)。
 
 <p align="center">
   <img src="img/terminal.svg" alt="终端会话：godot-cli 安装插件、登录、配置 Claude Code 并打开编辑器" width="100%"/>

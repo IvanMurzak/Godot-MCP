@@ -78,3 +78,14 @@ godot-cli setup-mcp claude-code ./MyGodotProject   # godot-cli setup-mcp --list 
 ```
 
 编辑器停靠面板的 **Configure** 按钮会写入相同的配置。默认使用绑定到项目的云端 URL `<host>/mcp/p/<pin>`，这样即使连接了多个编辑器，在此文件夹中启动的智能体也能访问本项目的编辑器；传入 `--no-pin` 则使用不带绑定的 `<host>/mcp` URL。在 Cloud 模式下，配置中带有本项目的密钥（`Authorization: Bearer agd_pk_…`）；未登录或使用 `--oauth` 时，配置只含 URL，智能体通过自己的 OAuth 登录。连接模式和环境变量：[connection.md](connection.zh-CN.md)。
+
+<a id="web-export"></a>
+## Web 导出
+
+任何 Godot 4 .NET 编辑器（4.3 至 4.7）都无法导出到 Web：每个版本都会以 "Exporting to Web is currently not supported in Godot 4 when using C#/.NET" 拒绝，而且 .NET 导出模板中没有 Web 模板。装有插件的 **GDScript** 游戏仍然可以通过**同一版本的标准（非 .NET）编辑器**导出到 Web。该编辑器无法加载插件的 C#，而游戏也从不运行它。日常开发继续使用 .NET 编辑器。
+
+1. 在任一编辑器中**添加 Web 预设**：**Project → Export… → Add… → Web**。.NET 编辑器允许添加它，只是拒绝用它导出。可选：在 **Resources → Filters to exclude files** 中添加 `addons/godot_mcp/*`，这样插件的图标（约 100 KB）就不会进入 `.pck`。
+2. 从 [godotengine.org](https://godotengine.org/download/archive/) **获取你所用版本的标准编辑器**（例如 `Godot_v4.5.1-stable_win64.exe.zip`），并安装它的导出模板（在该编辑器中使用 **Editor → Manage Export Templates**，或使用它的 `.tpz`）。这些模板与 .NET 模板分开安装。
+3. **导出。** `godot-cli export Web build/web/index.html`（第一个参数是预设名称）。当 `godot-cli` 解析到的编辑器是 .NET 构建时，它会改用同一版本的标准编辑器导出：一个未重命名的官方构建（`Godot_v4.5.1-stable_win64[_console].exe`、`Godot_v4.5.1-stable_linux.x86_64`），位于 .NET 编辑器所在文件夹旁、`PATH` 上或常用安装文件夹中。在 macOS 上，或使用重命名过的二进制文件时，请用 `--editor-path` 传入（macOS 上为 `Godot.app/Contents/MacOS/Godot`）。也可以在标准编辑器中打开项目，使用 **Project → Export…**，选择 Web 预设，然后点击 **Export Project**。该编辑器会警告项目使用了 C#，并针对 `GodotMcpPlugin.cs` 显示 *Unable to load addon script*：两者都在预期之中。插件保持启用，.NET 编辑器也会像以前一样加载它。
+
+含有其他 C# 脚本（游戏代码或其他插件的脚本）的项目在 Godot 4 中无法导出到 Web：对于 Web 预设，无论使用哪个编辑器，`godot-cli export` 都会以该消息停止。
