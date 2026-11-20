@@ -324,6 +324,20 @@ describe('findGodotBuild', () => {
     expect(findGodotBuild('4.5.1.stable', mono, 'win32')).toBe(console);
     expect(findGodotBuild('4.5.1.stable.mono', mono, 'win32')).toBe(mono);
   });
+
+  it('ignores a downloaded archive with the same version-stamped name (Linux)', () => {
+    const put = (rel: string): string => {
+      const full = path.join(tmpDir, rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, '');
+      return full;
+    };
+    const mono = put('mono/Godot_v4.5.1-stable_mono_linux.x86_64');
+    put('Godot_v4.5.1-stable_linux.x86_64.zip');
+    expect(findGodotBuild('4.5.1.stable', mono, 'linux') ?? '').not.toMatch(/\.zip$/);
+    const binary = put('std/Godot_v4.5.1-stable_linux.x86_64');
+    expect(findGodotBuild('4.5.1.stable', mono, 'linux')).toBe(binary);
+  });
 });
 
 describe('launchEditor', () => {

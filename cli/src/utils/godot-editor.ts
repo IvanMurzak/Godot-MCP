@@ -375,19 +375,27 @@ export function versionFromFileName(name: string): string | undefined {
   return m ? `${m[1]}.${m[2]}${m[3] ? '.mono' : ''}` : undefined;
 }
 
+/** Downloaded archives carry the same version-stamped names as the binaries inside them. */
+const ARCHIVE_RE = /\.(zip|tpz|7z|dmg|tar|gz|xz|bz2|tgz)$/i;
+
 /**
  * An official binary of the Godot build `version` (`4.5.1.stable`: standard; `4.5.1.stable.mono`: .NET), known by its
- * file name so nothing is started: in the folder of `near` (another editor), in the folder above it (sibling unzipped
- * builds; skipped at a file-system root and `/usr`), on PATH or in the common install roots. Finds the standard editor
- * for a Web export, which no .NET editor can do.
+ * file name so nothing is started (downloaded archives do not count): in the folder of `near` (another editor), in the
+ * folder above it (sibling unzipped builds; only its own files at a file-system root and `/usr`), on PATH or in the
+ * common install roots. Finds the standard editor for a Web export, which no .NET editor can do. A macOS `.app` binary
+ * (`Godot.app/Contents/MacOS/Godot`) has no version in its name, so it is never found.
  */
 export function findGodotBuild(version: string, near: string, os: NodeJS.Platform = platform()): string | null {
   const dir = path.dirname(near);
   const parent = path.dirname(dir);
   const roots: InstallRoot[] = [{ path: dir, depth: FLAT_SCAN_DEPTH }];
-  if (path.dirname(parent) !== parent && !['/usr', '/usr/local'].includes(parent)) roots.push({ path: parent, depth: 2 });
+  const wide = path.dirname(parent) !== parent && !['/usr', '/usr/local'].includes(parent);
+  roots.push({ path: parent, depth: wide ? 2 : FLAT_SCAN_DEPTH });
   roots.push(...pathDirs(os).map((p) => ({ path: p, depth: FLAT_SCAN_DEPTH })), ...commonInstallRoots(os));
-  return firstBinaryIn(roots, os, (file) => versionFromFileName(path.basename(file)) === version);
+  return firstBinaryIn(roots, os, (file) => {
+    const name = path.basename(file);
+    return !ARCHIVE_RE.test(name) && versionFromFileName(name) === version;
+  });
 }
 
 export interface LaunchEditorCallbacks {

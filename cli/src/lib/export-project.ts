@@ -130,9 +130,9 @@ export function godotVersion(binary: string, timeoutMs: number): string | undefi
 
 
 /**
- * The first C# file of the game itself (a `res://` path): a `.cs` outside `addons/`, dot-folders, `node_modules`, the
- * root `bin/` and `obj/`, and folders with a `.gdignore`. Godot 4 cannot export C# to Web; addon C# (ours is
- * editor-only) does not stop it.
+ * The first C# file Godot would see besides the Godot-MCP addon (a `res://` path): a `.cs` outside `addons/godot_mcp/`,
+ * dot-folders, `node_modules`, the root `bin/` and `obj/`, and folders Godot ignores (a `.gdignore`, or a nested
+ * `project.godot`). Godot 4 cannot export C# to Web; only our addon's C# is known to be editor-only.
  */
 export function gameCsharpScript(projectPath: string): string | undefined {
   const walk = (dir: string, rel: string): string | undefined => {
@@ -142,8 +142,9 @@ export function gameCsharpScript(projectPath: string): string | undefined {
     } catch {
       return undefined;
     }
-    if (rel !== '' && entries.some((e) => e.name === '.gdignore')) return undefined;
-    const skipped = rel === '' ? ['addons', 'bin', 'obj', 'node_modules'] : ['node_modules'];
+    if (rel !== '' && entries.some((e) => e.name === '.gdignore' || e.name === 'project.godot')) return undefined;
+    if (rel === 'addons/godot_mcp') return undefined;
+    const skipped = rel === '' ? ['bin', 'obj', 'node_modules'] : ['node_modules'];
     for (const e of entries) {
       const childRel = rel === '' ? e.name : `${rel}/${e.name}`;
       if (e.isFile() && e.name.toLowerCase().endsWith('.cs')) return `res://${childRel}`;
@@ -163,15 +164,10 @@ export function gameCsharpScript(projectPath: string): string | undefined {
  * standard editor and its version, or why there is none.
  */
 function standardEditorForWeb(
-  projectPath: string,
   dotnetBinary: string,
   dotnetVersionDir: string,
   find: (version: string, near: string) => string | null,
 ): { binary: string; version: string } | HeadlessFailure {
-  const script = gameCsharpScript(projectPath);
-  if (script) {
-    return headlessFailure('export-failed', `Godot 4 cannot export C# to Web, and this game has C# scripts (${script}). Only GDScript games can be exported to Web.`);
-  }
   const version = dotnetVersionDir.slice(0, -'.mono'.length);
   const binary = find(version, dotnetBinary);
   if (!binary) {
@@ -197,10 +193,15 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
 
   let version = options.godotVersion;
   if (preset.platform === 'Web') {
+    // The standard editor exports such a game and logs nothing that fails the export: its C# is just missing.
+    const script = gameCsharpScript(ctx.projectPath);
+    if (script) {
+      return fail(headlessFailure('export-failed', `Godot 4 cannot export C# to Web, and this project has C# scripts besides the Godot-MCP addon (${script}). Only GDScript games can be exported to Web.`));
+    }
     version ??= godotVersion(ctx.binary, remainingMs(ctx));
     const versionDir = version === undefined ? undefined : templatesVersionDir(version);
     if (versionDir?.endsWith('.mono')) {
-      const standard = standardEditorForWeb(ctx.projectPath, ctx.binary, versionDir, options.findStandardEditor ?? findGodotBuild);
+      const standard = standardEditorForWeb(ctx.binary, versionDir, options.findStandardEditor ?? findGodotBuild);
       if ('kind' in standard) return fail(standard);
       options.onProgress?.(`Godot .NET editors cannot export to Web; exporting with the standard editor ${standard.binary}.`);
       ctx.binary = standard.binary;

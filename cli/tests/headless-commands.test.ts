@@ -353,12 +353,14 @@ describe('exportProject: Web from a .NET editor', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('fails before running Godot when the game has C# scripts', async () => {
+  it('fails before running Godot when the game has C# scripts, from a .NET or a standard editor', async () => {
     put('scripts/Player.cs');
     const { deps, calls } = fakeDeps(writes);
-    const r = await exportProject({ projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion: MONO, findStandardEditor: () => STANDARD });
-    expect(r).toMatchObject({ kind: 'failure', reason: 'export-failed' });
-    expect(r.message).toContain('res://scripts/Player.cs');
+    for (const godotVersion of [MONO, '4.5.1.stable.official.f62fdbde1']) {
+      const r = await exportProject({ projectPath: project, timeoutMs: 10_000, deps, preset: 'Web', output: out(), godotVersion, findStandardEditor: () => STANDARD });
+      expect(r).toMatchObject({ kind: 'failure', reason: 'export-failed' });
+      expect(r.message).toContain('res://scripts/Player.cs');
+    }
     expect(calls).toHaveLength(0);
   });
 
@@ -370,11 +372,14 @@ describe('exportProject: Web from a .NET editor', () => {
     expect(calls[0].binary).toBe('godot.exe');
   });
 
-  it('finds game C# outside addons/, dot-folders, bin/, obj/, node_modules and .gdignore folders', () => {
-    ['addons/godot_mcp/Editor/GodotMcpPlugin.cs', '.godot/mono/x.cs', 'bin/a.cs', 'obj/Debug/b.cs', 'web/node_modules/m.cs', 'tools/.gdignore', 'tools/c.cs'].forEach(put);
+  it('finds C# outside addons/godot_mcp/, dot-folders, bin/, obj/, node_modules and folders Godot ignores', () => {
+    [
+      'addons/godot_mcp/Editor/GodotMcpPlugin.cs', '.godot/mono/x.cs', 'bin/a.cs', 'obj/Debug/b.cs', 'web/node_modules/m.cs',
+      'tools/.gdignore', 'tools/c.cs', 'samples/demo/project.godot', 'samples/demo/D.cs',
+    ].forEach(put);
     expect(gameCsharpScript(project)).toBeUndefined();
-    put('src/game/Main.cs');
-    expect(gameCsharpScript(project)).toBe('res://src/game/Main.cs');
+    put('addons/other/Node.cs');
+    expect(gameCsharpScript(project)).toBe('res://addons/other/Node.cs');
   });
 });
 
