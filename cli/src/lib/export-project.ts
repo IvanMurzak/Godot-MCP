@@ -6,7 +6,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { parseGodotLog, type Diagnostic } from './godot-log.js';
-import { findGodotBinaryWhere } from '../utils/godot-editor.js';
+import { findGodotBuild, versionFromFileName } from '../utils/godot-editor.js';
+
+export { versionFromFileName };
 import {
   engineRan,
   headlessFailure,
@@ -33,8 +35,8 @@ export interface ExportOptions extends HeadlessBaseOptions {
   mode?: ExportMode;
   /** Tests: the editor's version string (`4.5.1.stable.mono.official.f62fdbde1`). */
   godotVersion?: string;
-  /** Tests: finds a standard (non-.NET) editor of a version (`4.5.1.stable`) for a Web export from a .NET editor. */
-  findStandardEditor?: (version: string, dotnetBinary: string) => string | null;
+  /** Tests: finds the standard (non-.NET) editor of a version (`4.5.1.stable`) for a Web export from a .NET editor. */
+  findStandardEditor?: (version: string, near: string) => string | null;
 }
 
 export interface ExportReport {
@@ -126,49 +128,56 @@ export function godotVersion(binary: string, timeoutMs: number): string | undefi
   return line ?? versionFromFileName(path.basename(binary));
 }
 
-export function versionFromFileName(name: string): string | undefined {
-  const m = /^godot_v(\d+\.\d+(?:\.\d+)?)-(stable|dev\d*|alpha\d*|beta\d*|rc\d*)(_mono)?/i.exec(name);
-  return m ? `${m[1]}.${m[2]}${m[3] ? '.mono' : ''}` : undefined;
-}
 
 /**
- * A standard (non-.NET) editor of `version` (`4.5.1.stable`): an official version-stamped binary (the version is read
- * from the file name, nothing is started) beside the .NET editor's folder, on PATH or in the usual install folders.
+ * The first C# file of the game itself (a `res://` path): a `.cs` outside `addons/`, dot-folders, `node_modules`, the
+ * root `bin/` and `obj/`, and folders with a `.gdignore`. Godot 4 cannot export C# to Web; addon C# (ours is
+ * editor-only) does not stop it.
  */
-export function findStandardEditor(version: string, dotnetBinary: string): string | null {
-  const dir = path.dirname(dotnetBinary);
-  return findGodotBinaryWhere((file) => versionFromFileName(path.basename(file)) === version, [dir, path.dirname(dir)]);
-}
-
-const MAX_GAME_SCRIPTS = 3;
-
-/**
- * Up to three C# files of the game itself (`res://` paths): every `.cs` outside `addons/`, dot-folders, `bin/`, `obj/`
- * and folders with a `.gdignore`. Godot 4 cannot export C# to Web; addon C# (ours is editor-only) does not matter.
- */
-export function gameCsharpScripts(projectPath: string): string[] {
-  const found: string[] = [];
-  const walk = (dir: string, rel: string): void => {
+export function gameCsharpScript(projectPath: string): string | undefined {
+  const walk = (dir: string, rel: string): string | undefined => {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
-      return;
+      return undefined;
     }
-    if (rel !== '' && entries.some((e) => e.name === '.gdignore')) return;
+    if (rel !== '' && entries.some((e) => e.name === '.gdignore')) return undefined;
+    const skipped = rel === '' ? ['addons', 'bin', 'obj', 'node_modules'] : ['node_modules'];
     for (const e of entries) {
-      if (found.length >= MAX_GAME_SCRIPTS) return;
       const childRel = rel === '' ? e.name : `${rel}/${e.name}`;
-      if (e.isDirectory()) {
-        if (e.name.startsWith('.') || (rel === '' && ['addons', 'bin', 'obj'].includes(e.name))) continue;
-        walk(path.join(dir, e.name), childRel);
-      } else if (e.isFile() && e.name.toLowerCase().endsWith('.cs')) {
-        found.push(`res://${childRel}`);
+      if (e.isFile() && e.name.toLowerCase().endsWith('.cs')) return `res://${childRel}`;
+      if (e.isDirectory() && !e.name.startsWith('.') && !skipped.includes(e.name)) {
+        const hit = walk(path.join(dir, e.name), childRel);
+        if (hit) return hit;
       }
     }
+    return undefined;
   };
-  walk(projectPath, '');
-  return found;
+  return walk(projectPath, '');
+}
+
+/**
+ * Every Godot 4 .NET editor refuses Web ("not supported in Godot 4 when using C#/.NET"); the standard editor of the same
+ * version exports a GDScript game and skips the addon's C# (it cannot load it, and the game never runs it). Returns the
+ * standard editor and its version, or why there is none.
+ */
+function standardEditorForWeb(
+  projectPath: string,
+  dotnetBinary: string,
+  dotnetVersionDir: string,
+  find: (version: string, near: string) => string | null,
+): { binary: string; version: string } | HeadlessFailure {
+  const script = gameCsharpScript(projectPath);
+  if (script) {
+    return headlessFailure('export-failed', `Godot 4 cannot export C# to Web, and this game has C# scripts (${script}). Only GDScript games can be exported to Web.`);
+  }
+  const version = dotnetVersionDir.slice(0, -'.mono'.length);
+  const binary = find(version, dotnetBinary);
+  if (!binary) {
+    return headlessFailure('not-found', `Godot .NET editors cannot export to Web. Pass the standard (non-.NET) Godot ${version} editor with --editor-path, or extract it next to the .NET editor (download: godotengine.org).`);
+  }
+  return { binary, version };
 }
 
 export async function exportProject(options: ExportOptions): Promise<ExportResult> {
@@ -187,33 +196,23 @@ export async function exportProject(options: ExportOptions): Promise<ExportResul
   }
 
   let version = options.godotVersion;
-  const readVersion = (): string | undefined => (version ??= godotVersion(ctx.binary, remainingMs(ctx)));
-
-  // Every Godot 4 .NET editor refuses Web ("not supported in Godot 4 when using C#/.NET"); the standard editor of the
-  // same version exports a GDScript game, and skips the addon's C# (it cannot load it, and the game never runs it).
   if (preset.platform === 'Web') {
-    const dotnetVersion = readVersion();
-    if (dotnetVersion && templatesVersionDir(dotnetVersion).endsWith('.mono')) {
-      const scripts = gameCsharpScripts(ctx.projectPath);
-      if (scripts.length > 0) {
-        return fail(headlessFailure('export-failed', `Godot 4 cannot export C# to Web, and this game has C# scripts (${scripts.join(', ')}). Only GDScript games can be exported to Web.`));
-      }
-      const standardVersion = templatesVersionDir(dotnetVersion).replace(/\.mono$/, '');
-      const standard = (options.findStandardEditor ?? findStandardEditor)(standardVersion, ctx.binary);
-      if (!standard) {
-        return fail(headlessFailure('not-found', `Godot .NET editors cannot export to Web. Your game is GDScript, so the standard (non-.NET) Godot ${standardVersion} editor can: download it from godotengine.org, then pass its path with --editor-path (or extract it next to the .NET editor) and run this again. The Godot-MCP addon keeps working in the .NET editor.`));
-      }
-      options.onProgress?.(`Godot .NET editors cannot export to Web; exporting with the standard editor ${standard}.`);
-      ctx.binary = standard;
-      report.editor = standard;
-      version = undefined;
+    version ??= godotVersion(ctx.binary, remainingMs(ctx));
+    const versionDir = version === undefined ? undefined : templatesVersionDir(version);
+    if (versionDir?.endsWith('.mono')) {
+      const standard = standardEditorForWeb(ctx.projectPath, ctx.binary, versionDir, options.findStandardEditor ?? findGodotBuild);
+      if ('kind' in standard) return fail(standard);
+      options.onProgress?.(`Godot .NET editors cannot export to Web; exporting with the standard editor ${standard.binary}.`);
+      ctx.binary = standard.binary;
+      report.editor = standard.binary;
+      version = standard.version;
     }
   }
 
   // A .pck/.zip pack needs no templates; a preset with its own template file does not use the installed ones.
   const custom = mode === 'debug' ? preset.customTemplateDebug : preset.customTemplateRelease;
   if (mode !== 'pack' && custom === '') {
-    const version = readVersion();
+    version ??= godotVersion(ctx.binary, remainingMs(ctx));
     if (!version) return fail(headlessFailure('export-failed', `Could not read the Godot version (${ctx.binary} --version).`));
     const versionDir = templatesVersionDir(version);
     const dir = path.join(templatesRoot(ctx.binary), versionDir);

@@ -267,6 +267,19 @@ function commonInstallRoots(os: NodeJS.Platform): InstallRoot[] {
   return roots;
 }
 
+function pathDirs(os: NodeJS.Platform): string[] {
+  return (process.env['PATH'] ?? '').split(os === 'win32' ? ';' : ':').filter((d) => d.length > 0);
+}
+
+/** The first binary `accept` takes in `roots`, each scanned at its own depth (best-ranked build first per root). */
+function firstBinaryIn(roots: InstallRoot[], os: NodeJS.Platform, accept: (file: string) => boolean = () => true): string | null {
+  for (const root of roots) {
+    const hit = scanForGodotBinaries(root.path, os, root.depth).find(accept);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 /**
  * Search the directories on `PATH` for a matching Godot binary. Pure filesystem
  * lookup — never spawns anything. Each PATH dir is first probed for the fixed
@@ -275,12 +288,8 @@ function commonInstallRoots(os: NodeJS.Platform): InstallRoot[] {
  * best-ranked build (mono `_console` > mono > …) wins.
  */
 function findOnPath(os: NodeJS.Platform): string | null {
-  const pathEnv = process.env['PATH'] ?? '';
-  if (!pathEnv) return null;
-  const sep = os === 'win32' ? ';' : ':';
-  const dirs = pathEnv.split(sep).filter((d) => d.length > 0);
   const names = pathCandidateNames(os);
-  for (const dir of dirs) {
+  for (const dir of pathDirs(os)) {
     // Fast path: fixed candidate names.
     for (const name of names) {
       const candidate = path.join(dir, name);
@@ -354,41 +363,31 @@ export function findGodotBinary(
   // 4. Bounded scan of common install roots. Roots are tried in priority order
   //    at each root's own depth (system bin dirs flat, archive-extraction roots
   //    recursive); within a root the best-ranked, newest build wins.
-  for (const root of commonInstallRoots(os)) {
-    const hits = scanForGodotBinaries(root.path, os, root.depth);
-    if (hits.length > 0) {
-      return hits[0];
-    }
-  }
-
-  return null;
+  return firstBinaryIn(commonInstallRoots(os), os);
 }
 
 /**
- * The first Godot binary `accept` takes, searched in `extraRoots` (recursively), on `PATH` and in the common install
- * roots, best-ranked build first within each folder. Used to find a second editor build next to the default one (the
- * standard build for a Web export). Pure / no spawn.
+ * `Godot_v4.5.1-stable_mono_win64_console.exe` -> `4.5.1.stable.mono`, `Godot_v4.4-stable_linux.x86_64` -> `4.4.stable`;
+ * undefined for a name without a version (`godot`).
  */
-export function findGodotBinaryWhere(
-  accept: (file: string) => boolean,
-  extraRoots: string[] = [],
-  os: NodeJS.Platform = platform(),
-): string | null {
-  const sep = os === 'win32' ? ';' : ':';
-  const pathDirs = (process.env['PATH'] ?? '').split(sep).filter((d) => d.length > 0);
-  const roots: InstallRoot[] = [
-    ...extraRoots.map((p) => ({ path: p, depth: SCAN_MAX_DEPTH })),
-    ...pathDirs.map((p) => ({ path: p, depth: FLAT_SCAN_DEPTH })),
-    ...commonInstallRoots(os),
-  ];
-  const seen = new Set<string>();
-  for (const root of roots) {
-    if (seen.has(root.path)) continue;
-    seen.add(root.path);
-    const hit = scanForGodotBinaries(root.path, os, root.depth).find(accept);
-    if (hit) return hit;
-  }
-  return null;
+export function versionFromFileName(name: string): string | undefined {
+  const m = /^godot_v(\d+\.\d+(?:\.\d+)?)-(stable|dev\d*|alpha\d*|beta\d*|rc\d*)(_mono)?/i.exec(name);
+  return m ? `${m[1]}.${m[2]}${m[3] ? '.mono' : ''}` : undefined;
+}
+
+/**
+ * An official binary of the Godot build `version` (`4.5.1.stable`: standard; `4.5.1.stable.mono`: .NET), known by its
+ * file name so nothing is started: in the folder of `near` (another editor), in the folder above it (sibling unzipped
+ * builds; skipped at a file-system root and `/usr`), on PATH or in the common install roots. Finds the standard editor
+ * for a Web export, which no .NET editor can do.
+ */
+export function findGodotBuild(version: string, near: string, os: NodeJS.Platform = platform()): string | null {
+  const dir = path.dirname(near);
+  const parent = path.dirname(dir);
+  const roots: InstallRoot[] = [{ path: dir, depth: FLAT_SCAN_DEPTH }];
+  if (path.dirname(parent) !== parent && !['/usr', '/usr/local'].includes(parent)) roots.push({ path: parent, depth: 2 });
+  roots.push(...pathDirs(os).map((p) => ({ path: p, depth: FLAT_SCAN_DEPTH })), ...commonInstallRoots(os));
+  return firstBinaryIn(roots, os, (file) => versionFromFileName(path.basename(file)) === version);
 }
 
 export interface LaunchEditorCallbacks {
