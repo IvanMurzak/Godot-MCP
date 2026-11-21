@@ -41,6 +41,8 @@ export interface ConnectionOptions {
   path?: string;
   url?: string;
   token?: string;
+  /** An explicit connection mode (`open --mode`): overrides the project's own. */
+  mode?: 'Cloud' | 'Custom';
 }
 
 /**

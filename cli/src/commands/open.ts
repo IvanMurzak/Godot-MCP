@@ -264,12 +264,14 @@ export const openCommand = new Command('open')
 /** `open --headless`: a ready windowless editor on the project's local server (cli-core EditorSession). */
 async function openHeadless(
   projectPath: string,
-  options: { url?: string; token?: string; editorPath?: string; build?: boolean; idleTimeout: string; readyTimeout: string },
+  options: { url?: string; token?: string; mode?: string; editorPath?: string; build?: boolean; idleTimeout: string; readyTimeout: string },
 ): Promise<void> {
   const idleSeconds = parseIntFlag(options.idleTimeout, '--idle-timeout', true);
   const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
   // A headless editor runs on a local server: never for a Cloud project on a signed-in machine.
-  const conn = await resolveEditorConnection(projectPath, { url: options.url, token: options.token });
+  // `--mode Custom` asks for a local server explicitly: a signed-in machine is not a reason to refuse it.
+  const mode = options.mode === 'Cloud' || options.mode === 'Custom' ? options.mode : undefined;
+  const conn = await resolveEditorConnection(projectPath, { url: options.url, token: options.token, mode });
   const refusal = localEditorRefusal(conn, () => signInState(projectPath) !== 'missing');
   if (refusal) {
     ui.error(refusal);
