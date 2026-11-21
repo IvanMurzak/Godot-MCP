@@ -43,7 +43,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "configuration is unchanged after the call returns. Returns the resolved destination, the agent " +
             "it came from, and the resulting `SKILL.md` count.\n\n" +
             "Note that the addon ALSO auto-generates skills on plugin boot when the dock's \"Auto-generate\" " +
-            "toggle is on; this tool is the explicit, on-demand path.")]
+            "toggle is on (off by default); this tool is the explicit, on-demand path.")]
         [Description("Generate all skills from the tools registered in the Godot project. Writes a " +
             "SKILL.md per registered MCP tool into the selected AI agent's configured skills folder, or " +
             "into 'path' when a project-relative override is supplied. Returns the resolved destination " +

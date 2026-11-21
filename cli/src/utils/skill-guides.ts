@@ -3,7 +3,7 @@
 //   context for every later turn); depth lives in reference files it opens only when needed. Rendered from
 //   `lib/cli-guide.ts`, the source the root --help and `rql --help` render from too, so the skill cannot drift from them.
 // - `ai-game-dev-app`: the companion app, for tasks that need creative tools the CLI does not have.
-// Per-tool skills are the addon's job: it generates them from the tools it really registers whenever the editor runs.
+// Per-tool skills are the addon's job (opt-in from its Skills panel): it generates them from the tools it registers.
 import { CLI_NAME, CODE_COMMANDS, EDITOR_COMMANDS, PLUGIN_FOLDER, RQL_LANGUAGE, RQL_RECIPES, RQL_RULES, type CommandRow } from '../lib/cli-guide.js';
 
 const APP_SKILL_NAME = 'ai-game-dev-app';

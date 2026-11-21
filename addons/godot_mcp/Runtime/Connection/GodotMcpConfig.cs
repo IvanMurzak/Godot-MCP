@@ -408,11 +408,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // We do not reimplement transport — we just opt into staying connected.
             KeepConnected = true;
 
-            // Auto-generate skills is ON by default (owner-approved v1 default): on a fresh install the addon
-            // regenerates the skills-capable agent's SKILL.md files on boot via GenerateSkillFilesIfNeeded(), so the
-            // AI agent sees up-to-date per-tool skills with no manual step. The dock's Skills card exposes a toggle
-            // that persists an override (GenerateSkillFiles is a serialized field on the base ConnectionConfig).
-            GenerateSkillFiles = true;
+            // Auto-generate skills is OFF by default, as in Unity-MCP: an MCP client already gets every tool's
+            // description from tools/list, so writing one SKILL.md per tool into <project>/.claude/skills duplicated
+            // that text into every request of a plain agent session (the App hides them via `ai-game-dev: exclude`,
+            // other clients do not). The dock's Skills card (Generate, or the persisted Auto-generate toggle) opts in.
+            GenerateSkillFiles = false;
         }
 
         // --- Pure resolution helpers (unit-testable; no Godot / SignalR dependency). ---

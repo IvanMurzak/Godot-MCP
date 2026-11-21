@@ -153,9 +153,13 @@ export const agentRegistry: readonly AgentDefinition[] = [
     configFormat: 'json',
     bodyPath: 'mcpServers',
     getConfigPath: (p) => path.join(p, '.mcp.json'),
+    // `alwaysLoad`: Claude Code otherwise defers MCP tools behind its ToolSearch tool, which costs every
+    // session an extra turn (plus the loaded schemas) before the first editor call. The default tool set is
+    // small enough to keep in the prompt, where it is cached across sessions.
     getHttpProps: (url, token, authRequired) => ({
       type: 'http',
       url,
+      alwaysLoad: true,
       ...headersProp('headers', token, authRequired),
     }),
     httpRemoveKeys: ['command', 'args'],

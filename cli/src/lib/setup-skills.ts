@@ -12,7 +12,7 @@ import type { SetupSkillsOptions, SetupSkillsResult } from './types.js';
  * own data (`lib/cli-guide.ts`, also the source of the root --help): no server, no editor, no network.
  * Library-safe: no stdout noise, no `process.exit`, no throws past the public boundary.
  *
- * Per-tool skills are the addon's job (it generates them from its registered tools whenever the editor runs). The
+ * Per-tool skills are the addon's job (opt-in from its Skills panel, generated from its registered tools). The
  * `godot-mcp` / `godot-mcp-<family>` folders earlier versions wrote from a hand-written catalog are removed; anything
  * else under the skills folder is untouched.
  *
