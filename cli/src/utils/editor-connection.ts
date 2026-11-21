@@ -221,7 +221,8 @@ export async function resolveEditorConnection(
   const project = d.projectConnection(projectPath);
   // GODOT_MCP_CLOUD_URL only moves the hub (as in the addon); it does not turn a Custom project into a Cloud one.
   const envCloud = normalizeEnv(process.env[ENV_CLOUD_URL]);
-  if (project.mode === 'Custom') {
+  // An explicit `--mode` (open) wins over the project's mode, as GODOT_MCP_CONNECTION_MODE does.
+  if ((options.mode ?? project.mode) === 'Custom') {
     return { url: project.customHost ?? localProjectUrl(projectPath), token: explicitToken ?? project.envFileToken, cloud: false, localFallback: false };
   }
 

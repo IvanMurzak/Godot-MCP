@@ -66,6 +66,15 @@ describe('resolveEditorConnection (owner rule: a signed-in machine is never swit
     expect(c).toEqual({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: true });
   });
 
+  it('an explicit --mode Custom on a signed-in Cloud project: the local server, no credential lookup', async () => {
+    const never = () => {
+      throw new Error('not consulted');
+    };
+    const c = await resolveEditorConnection(project, { mode: 'Custom' }, { projectConnection: cloudProject, readCloudToken: never, signInState: never });
+    expect(c).toEqual({ url: localProjectUrl(project), token: undefined, cloud: false, localFallback: false });
+    expect(localEditorRefusal(c, () => true)).toBeUndefined();
+  });
+
   it('Custom mode is unaffected: its local server, no credential lookup', async () => {
     const never = () => {
       throw new Error('not consulted');
