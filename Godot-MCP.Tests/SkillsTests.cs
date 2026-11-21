@@ -316,11 +316,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         /// <summary>
-        /// A persisted OFF override survives a round-trip through the config store's serialized layer (without this,
-        /// the constructor's ON default would silently re-win on every boot). Verifies ApplyPersisted copies the flag.
+        /// A persisted choice (OFF or ON) survives a round-trip through the config store's serialized layer instead of
+        /// falling back to the constructor's default. Verifies ApplyPersisted copies the flag.
         /// </summary>
         [Fact]
-        public void GodotMcpConfig_PersistedAutoGenerateOff_IsHonoured()
+        public void GodotMcpConfig_PersistedAutoGenerate_IsHonoured()
         {
             var tempDir = Path.Combine(Path.GetTempPath(), "godot-mcp-skills-test-" + System.Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
