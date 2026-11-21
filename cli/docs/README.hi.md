@@ -253,7 +253,7 @@ godot-cli setup-skills --list                 # एजेंट्स + उन�
 - `godot-cli/SKILL.md`: एजेंट cold start से इस CLI को कैसे इस्तेमाल करे: पहला editor command headless editor शुरू करता है, scenes, nodes और resources के लिए recipes के साथ `rql`, `check` / `test`, `--format json`, हर exit code का मतलब। यह जानबूझकर छोटा है (एजेंट जो भी byte पढ़ता है वह context में रखता है); गहराई `references/rql.md` और `references/install.md` में है, जो सिर्फ़ ज़रूरत पर पढ़ी जाती हैं। Recipes उसी source से आती हैं जिससे `godot-cli --help` और `rql --help`, इसलिए skill और help कभी अलग नहीं हो सकते।
 - `ai-game-dev-app/SKILL.md`: साथी app, उन creative tools के लिए जो CLI में नहीं हैं।
 
-यह **idempotent** है: दोबारा चलाने पर वही bytes फिर लिखे जाते हैं। यह पुराने versions द्वारा हाथ से लिखे catalog से generate किए गए `godot-mcp` / `godot-mcp-<family>` skills हटा देता है। Per-tool skills addon का काम हैं: editor चलने पर वह उन्हें उन tools से generate करता है जो वह सच में register करता है (addon के Skills panel में toggle), साथ में अपनी `godot-cli-install` गाइड भी।
+यह **idempotent** है: दोबारा चलाने पर वही bytes फिर लिखे जाते हैं। यह पुराने versions द्वारा हाथ से लिखे catalog से generate किए गए `godot-mcp` / `godot-mcp-<family>` skills हटा देता है। Per-tool skills addon का काम हैं और opt-in हैं: MCP client पहले से हर tool का description पढ़ता है, इसलिए addon उन्हें (जो tools वह सच में register करता है उनसे, अपनी `godot-cli-install` गाइड के साथ) तभी लिखता है जब आप उसके Skills panel में Generate दबाते हैं या वहाँ Auto-generate चालू करते हैं।
 
 <a id="install-plugin"></a>
 ## `install-plugin`

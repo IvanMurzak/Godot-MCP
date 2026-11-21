@@ -281,20 +281,19 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void PrimeForCtor_GenerateSkillFilesAlreadyOff_IsNoOp()
+        public void PrimeForCtor_GenerateSkillFilesOff_StaysOffButResolvesDestination()
         {
-            // A persisted/user OFF toggle must be honoured: priming must not re-enable generation, and (since the
-            // ctor will not generate) must not bother rewriting the path.
+            // An OFF toggle (the default) must be honoured: priming must not re-enable generation. The destination is
+            // still primed, so turning Auto-generate on from the dock later (McpPlugin regenerates on every tool-list
+            // change) resolves to the agent's folder instead of throwing on the relative default path.
             var claude = GodotAgentConfigurators.GetByAgentId("claude-code");
-            var config = new GodotMcpConfig { GenerateSkillFiles = false };
-            var originalSkillsPath = config.SkillsPath;
-            var originalProjectRoot = config.ProjectRootPath;
+            var config = new GodotMcpConfig();
 
             SkillsBootstrap.PrimeForCtorSkillGeneration(config, claude, ProjectRoot);
 
-            Assert.False(config.GenerateSkillFiles);            // stays OFF
-            Assert.Equal(originalSkillsPath, config.SkillsPath); // untouched
-            Assert.Equal(originalProjectRoot, config.ProjectRootPath); // untouched
+            Assert.False(config.GenerateSkillFiles); // stays OFF
+            Assert.Equal(SkillsPlan.Resolve(claude, ProjectRoot).SkillsDir, config.SkillsPath);
+            Assert.Equal(ProjectRoot, config.ProjectRootPath);
         }
 
         [Fact]

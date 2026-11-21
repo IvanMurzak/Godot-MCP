@@ -3,8 +3,8 @@ import * as path from 'path';
 
 // The Godot-MCP tool-family catalog: the tools the CLI knows without an editor (`godot-cli tools` answers from it
 // when there is no cache of the editor's real list). It used to generate one skill per family as well; those are
-// retired from `setup-skills` (the addon generates per-tool skills from the tools it really registers whenever the
-// editor runs, and the CLI's own `godot-cli` skill must not depend on a hand-written list). A CI cross-check below
+// retired from `setup-skills` (the addon generates per-tool skills, opt-in, from the tools it really registers, and
+// the CLI's own `godot-cli` skill must not depend on a hand-written list). A CI cross-check below
 // keeps the catalog in step with the addon's `[AiToolType]` classes.
 
 /** A single Godot-MCP tool family and the individual tools it exposes. */

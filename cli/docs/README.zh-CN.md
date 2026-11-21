@@ -253,7 +253,7 @@ godot-cli setup-skills --list                 # 列出智能体及其 skills 路
 - `godot-cli/SKILL.md`：智能体如何从冷启动开始使用此 CLI：第一条编辑器命令会启动无界面编辑器，`rql` 及其针对场景、节点和资源的示例，`check` / `test`，`--format json`，以及每个退出码的含义。它有意保持简短（智能体读到的每个字节都会留在上下文中）；`references/rql.md` 和 `references/install.md` 包含深入内容，仅在需要时读取。示例与 `godot-cli --help` 和 `rql --help` 来自同一来源，因此 skill 与帮助信息不会出现偏差。
 - `ai-game-dev-app/SKILL.md`：配套应用，用于 CLI 不具备的创意类工具。
 
-它是**幂等**的：重新运行会写出完全相同的字节。它会移除早期版本根据手写目录生成的 `godot-mcp` / `godot-mcp-<family>` skills。按工具划分的 skills 由插件负责：每当编辑器运行时，插件都会根据其实际注册的工具生成它们（可在插件的 Skills 面板中开关），同时生成其 `godot-cli-install` 指南。
+它是**幂等**的：重新运行会写出完全相同的字节。它会移除早期版本根据手写目录生成的 `godot-mcp` / `godot-mcp-<family>` skills。按工具划分的 skills 由插件负责，且需手动启用：MCP 客户端已经会读取每个工具的描述，因此只有在插件的 Skills 面板中点击 Generate 或开启 Auto-generate 时，插件才会根据其实际注册的工具写出它们（连同其 `godot-cli-install` 指南）。
 
 <a id="install-plugin"></a>
 ## `install-plugin`

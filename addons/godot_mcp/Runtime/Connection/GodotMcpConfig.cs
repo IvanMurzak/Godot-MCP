@@ -411,7 +411,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // Auto-generate skills is OFF by default, as in Unity-MCP: an MCP client already gets every tool's
             // description from tools/list, so writing one SKILL.md per tool into <project>/.claude/skills duplicated
             // that text into every request of a plain agent session (the App hides them via `ai-game-dev: exclude`,
-            // other clients do not). The dock's Skills card toggle (persisted) and `godot-cli setup-skills` opt in.
+            // other clients do not). The dock's Skills card (Generate, or the persisted Auto-generate toggle) opts in.
             GenerateSkillFiles = false;
         }
 

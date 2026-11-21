@@ -53,12 +53,12 @@ namespace com.IvanMurzak.Godot.MCP.UI
         /// touches disk (the actual generation is McpPlugin's, post-Build).
         ///
         /// <list type="bullet">
-        ///   <item>When <paramref name="config"/>'s <see cref="ConnectionConfig.GenerateSkillFiles"/> is already OFF,
-        ///   this is a no-op — the ctor will not generate, so there is nothing to prime.</item>
         ///   <item>When the selected agent SUPPORTS skills, sets <see cref="ConnectionConfig.SkillsPath"/> to the
         ///   ABSOLUTE resolved skills dir and <see cref="ConnectionConfig.ProjectRootPath"/> to
-        ///   <paramref name="projectRoot"/>. The absolute <c>SkillsPath</c> alone removes the throw; the project
-        ///   root is set too so the live config is internally consistent for the post-build swap-and-restore.</item>
+        ///   <paramref name="projectRoot"/>, also when <see cref="ConnectionConfig.GenerateSkillFiles"/> is OFF (the
+        ///   default): the dock's Auto-generate toggle can turn it on later without a restart, and McpPlugin then
+        ///   regenerates on every tool-list change. The absolute <c>SkillsPath</c> alone removes the throw; the
+        ///   project root is set too so the live config is internally consistent for the post-build swap-and-restore.</item>
         ///   <item>When the selected agent does NOT support skills (or none is selected), turns
         ///   <see cref="ConnectionConfig.GenerateSkillFiles"/> OFF so the ctor's generation is skipped — matching
         ///   <c>MaybeAutoGenerateSkills</c>'s "unsupported → return" behaviour, and guaranteeing no stray
@@ -73,11 +73,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             if (config == null)
                 return;
 
-            // Respect a user/persisted OFF toggle: if ctor-time generation is already disabled there is nothing to
-            // prime (and we must not silently re-enable it).
-            if (!config.GenerateSkillFiles)
-                return;
-
             var plan = SkillsPlan.Resolve(agent, projectRoot);
             if (!plan.Supported || string.IsNullOrEmpty(plan.SkillsDir))
             {
@@ -89,7 +84,8 @@ namespace com.IvanMurzak.Godot.MCP.UI
                 return;
             }
 
-            // Point the ctor-time generation at the SAME absolute destination the post-build auto-generate uses.
+            // Point the ctor-time generation at the SAME absolute destination the post-build auto-generate uses (an
+            // OFF toggle stays OFF: only the destination is set, so a later opt-in from the dock resolves too).
             // An absolute SkillsPath makes McpPlugin.ResolveSkillsPath take its rooted branch (Path.GetFullPath),
             // so it no longer requires ProjectRootPath — but we set ProjectRootPath too for config consistency.
             config.SkillsPath = plan.SkillsDir!;
