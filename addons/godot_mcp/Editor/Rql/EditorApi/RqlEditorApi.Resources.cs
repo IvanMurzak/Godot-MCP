@@ -34,7 +34,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var error = ResourceSaver.Save(resource, resPath);
             if (error != Error.Ok) throw new InvalidOperationException($"could not save the new resource to '{resPath}': {error}");
             resource.TakeOverPath(resPath);
-            RqlReimport.Register(resPath);
+            RqlGodot.Wrote(resPath);
             return resource;
         }
 

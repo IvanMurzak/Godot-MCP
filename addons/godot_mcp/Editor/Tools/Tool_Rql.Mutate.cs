@@ -35,7 +35,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         )
         {
             if (query == null) return ResponseCallTool.Error(MissingQueryText);
-            return Run(() => RqlGodot.Mutate(query, dry_run, RqlTargetLimit.Requested(max_targets)));
+            return Run(() => RqlGodot.Mutate(query, dry_run, RqlTargetLimit.Requested(max_targets)), () => RqlGodot.LastSaveNote);
         }
     }
 }

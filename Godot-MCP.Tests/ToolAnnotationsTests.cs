@@ -133,7 +133,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var self = typeof(ToolAnnotationsTests).Assembly;
             var references = AppDomain.CurrentDomain.GetAssemblies()
                 .Concat(new[] { typeof(AiToolAttribute).Assembly, typeof(global::Godot.GodotObject).Assembly })
-                .Where(a => a != self && !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                // An assembly another test loaded from a temp file and has since deleted (the ALC probe) is skipped: reading it
+                // would fail the scan for a reason that has nothing to do with the tools.
+                .Where(a => a != self && !a.IsDynamic && !string.IsNullOrEmpty(a.Location) && System.IO.File.Exists(a.Location))
                 .Select(a => a.Location)
                 .Distinct()
                 .Select(location => MetadataReference.CreateFromFile(location));

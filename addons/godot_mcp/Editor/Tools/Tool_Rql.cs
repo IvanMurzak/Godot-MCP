@@ -41,12 +41,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public const string MoreDryRunRowsNote = "(every target was checked; rql-query reads them)";
 
         /// <summary>A query or mutation: executed on the main thread, its (already encoded) result rendered after the hop.</summary>
-        private static ResponseCallTool Run(Func<QueryResult> execute) => Run(execute, result =>
-        {
-            var text = AgentFormat.Render(result, OutputFormat.Table, AgentFormat.DefaultReceiptRows,
-                result.DryRun ? MoreDryRunRowsNote : MoreReceiptRowsNote);
-            return result.Ok ? ResponseCallTool.Success(text) : ResponseCallTool.Error(text);
-        });
+        /// <paramref name="note"/>, read on the main thread right after <paramref name="execute"/>, becomes the last line (rql-mutate:
+        /// the files the change wrote and the scenes it left unsaved).
+        private static ResponseCallTool Run(Func<QueryResult> execute, Func<string?>? note = null) =>
+            Run(() => (result: execute(), note: note?.Invoke()), done =>
+            {
+                var text = AgentFormat.Render(done.result, OutputFormat.Table, AgentFormat.DefaultReceiptRows,
+                    done.result.DryRun ? MoreDryRunRowsNote : MoreReceiptRowsNote);
+                if (done.note != null) text += "\n" + done.note;
+                return done.result.Ok ? ResponseCallTool.Success(text) : ResponseCallTool.Error(text);
+            });
 
         /// <summary>
         /// Run <paramref name="execute"/> on the editor main thread inside one property-table cache scope (a query asks for

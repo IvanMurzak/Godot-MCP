@@ -207,7 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  editor | call MoveResource(\"res://materials/blue.tres\", \"res://materials/old/blue.tres\")   move / rename a file (its .import / .uid sidecars move with it)\n" +
             "  editor | call DeleteResource(\"res://materials/old/blue.tres\")   delete a file and its sidecars\n" +
             "  editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")   create, save and open a scene (path, root class, root name)\n" +
-            "  editor | call OpenScene(\"res://scenes/level.tscn\")   open a scene file\n" +
+            "  editor | call OpenScene(\"res://scenes/level.tscn\")   open a scene file (a closed scene: OpenScene; the edits; SaveScene, in one call)\n" +
             "  editor | call Reimport([\"res://materials/red.tres\"])   re-import files (no argument: full filesystem scan)\n" +
             "  editor | call ClearConsole()   clear the captured editor log\n" +
             "  nodes | where name starts-with \"Enemy\" | call AddToGroup(\"enemies\")   add nodes to a group (saved with the scene; set groups = [...] replaces them)\n" +
@@ -239,7 +239,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string MutateStages =
             "  set path = expr, ...   assign members (paths may go through structs: set Position.Y = Position.Y + 1); values see each " +
             "target: $ and $index (its position in the stream entering set / call)\n" +
-            "  call Method(args)   invoke a method the tools expose\n";
+            "  call Method(args)   invoke a method the tools expose; call CallMethod(\"snake_name\", [args]) runs any Godot method\n";
 
         public const string MutateExamplesBlock =
             "Examples:\n" + MutateExampleText + "\n" +
@@ -247,6 +247,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "what the game prints and its errors: rql-query gameLog (to run the game and get its errors in one call: the game-run tool). editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
+            "UI: a Control kept at the bottom centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [\"CenterBottom\"]) (it resizes to the minimum size; [\"CenterBottom\", \"KeepSize\"] keeps a sized control's size). " +
+            "A typed array of script resources (class_name): godot.resource(path) | set props[\"items\"] = [{$type: \"Item\", name: \"Sword\", cost: 3}, …].\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
@@ -261,8 +263,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "value is checked before anything is written; a failure changes nothing. Several changes in one call: separate statements with ; — each ends with set or " +
             "call and is its own all-or-nothing change and undo step; nothing runs unless every statement parses, and the first " +
             "failure stops the rest (earlier changes stay). Undoable in the editor (Ctrl+Z). Scene " +
-            "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
-            "to disk automatically. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
+            "edits mark the scene unsaved; edited resource files (res://….tres) are saved " +
+            "to disk automatically; the receipt's last line names the files written and the scenes left unsaved. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated. Destructive " +
             "cleanup over what a query finds (Free, DeleteResource, DeleteFolder on matches, not on paths the user named) takes two turns: list " +

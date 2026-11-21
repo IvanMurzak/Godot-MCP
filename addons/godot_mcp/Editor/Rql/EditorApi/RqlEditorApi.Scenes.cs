@@ -41,7 +41,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (saveError != Error.Ok) throw new InvalidOperationException($"could not save the new scene to '{path}': {saveError}");
             }
             finally { root.Free(); }
-            RqlReimport.Register(path);
+            RqlGodot.Wrote(path);
             EditorToolGuards.ReloadReplacedOpenScene(path);
             return OpenScene(path);
         }
@@ -62,7 +62,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             using (var file = FileAccess.Open(path, FileAccess.ModeFlags.Write)
                 ?? throw new InvalidOperationException($"could not write '{path}': {FileAccess.GetOpenError()}"))
                 file.StoreString(text);
-            RqlReimport.Register(path);
+            RqlGodot.Wrote(path);
             EditorToolGuards.ReloadReplacedOpenScene(path);
             return OpenScene(path);
         }
@@ -159,10 +159,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (path != root.SceneFilePath && FileAccess.FileExists(path))
                     throw new ArgumentException($"a file already exists at '{path}'; save to a new path, or delete that file first with DeleteResource");
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
+                var previousPath = root.SceneFilePath ?? "";
                 Ei.SaveSceneAs(path);
-                RqlReimport.Register(path!);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;
                 if (saved != path) throw new InvalidOperationException($"save-as to '{path}' did not take effect (the scene path is '{saved ?? "none"}')");
+                RqlGodot.SceneSaved(path!, previousPath);
                 return path!;
             }
             var existing = root.SceneFilePath;
@@ -172,11 +173,17 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 throw new InvalidOperationException($"the scene file '{existing}' was deleted; pass a path to save as: SaveScene(\"res://scenes/x.tscn\")");
             var error = Ei.SaveScene();
             if (error != Error.Ok) throw new InvalidOperationException($"could not save '{existing}': {error}");
+            RqlGodot.SceneSaved(existing);
             return existing;
         }
 
         [RqlCallable("save every open scene that has a file")]
-        public void SaveAllScenes() => Ei.SaveAllScenes();
+        public void SaveAllScenes()
+        {
+            Ei.SaveAllScenes();
+            foreach (var scene in Ei.GetOpenScenes())
+                RqlGodot.SceneSaved(scene);
+        }
 
         /// <summary>The <c>scenes</c> source: the scenes open in the editor (tabs), the edited one marked active.</summary>
         public static List<RqlScene> OpenScenes()
