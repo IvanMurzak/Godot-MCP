@@ -8,7 +8,9 @@ flight at that moment used to keep the old assembly alive ("Failed to unload ass
 until the editor restarts). Each round here writes a new C# class with `script-create`, builds it with `script-build`
 (the result arrives after Godot's reload, through the requestId) while other threads keep calling tools, then checks
 that the plugin answers again and that the new class is loaded (`script-execute` uses it). A call answered 503 must
-carry the gate's retryable message; a call lost with the connection while it goes down is only counted. A broken script must come back as compiler errors without a reload. With
+carry the gate's retryable message; a call lost with the connection while it goes down is only counted. Then the built DLL
+is touched about 1 s after the plugin answers, three times (the later reloads land while its connect is still settling). A
+broken script must come back as compiler errors without a reload. With
 `--editor-log` the editor's output must show no failed unload.
 
 It does NOT launch anything. Start the editor with godot-cli (it sets DOTNET_ThreadPool_ThreadsToKeepAlive=-1, the
@@ -128,6 +130,47 @@ class Background:
             t.join(timeout=90)
 
 
+def built_assembly(project: pathlib.Path) -> pathlib.Path | None:
+    """The DLL the plugin's reload gate watches: `.godot/mono/temp/bin/Debug/<assembly_name>.dll`, else the newest
+    configuration's (the rule of ScriptExecuteSource.BuiltAssemblyPath)."""
+    text = (project / "project.godot").read_text(encoding="utf-8", errors="replace")
+    values = {k: v.strip().strip('"') for k, _, v in (line.partition("=") for line in text.splitlines()) if v}
+    name = values.get("project/assembly_name") or values.get("config/name") or "UnnamedProject"
+    dlls = list((project / ".godot" / "mono" / "temp" / "bin").glob(f"*/{name}.dll"))
+    debug = [d for d in dlls if d.parent.name == "Debug"]
+    return (debug or sorted(dlls, key=lambda d: d.stat().st_mtime, reverse=True) or [None])[0]
+
+
+def reload_started(host: str, timeout: float) -> bool:
+    """Whether the plugin stops answering `ping` (its assembly is unloading) within `timeout` seconds."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        _, ok, _ = call(host, "system-tools", "ping", {"message": "reload-smoke"}, timeout=2)
+        if not ok:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def reload_after_connect(host: str, project: pathlib.Path, reconnect: float, times: int = 3) -> None:
+    """
+    Touch the built DLL about 1 s after the plugin answers, `times` times: the first reload starts from a long-connected
+    plugin, every later one ~1.5-2 s after that reload's reconnect, while McpPlugin's connect is still settling (see
+    GodotMcpConnection.OffMainThread) and the teardown must still cancel it. A failed unload shows in --editor-log.
+    """
+    dll = built_assembly(project)
+    if not check("reload right after connect: built assembly found", dll is not None, str(project)):
+        return
+    for k in range(1, times + 1):
+        if not check(f"reload right after connect {k}: plugin answers", wait_connected(host, reconnect) is not None):
+            return
+        time.sleep(1.0)
+        dll.touch()
+        if not check(f"reload right after connect {k}: Godot reloads", reload_started(host, 10)):
+            return
+    check("reload right after connect: plugin answers after the last reload", wait_connected(host, reconnect) is not None)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", required=True)
@@ -174,6 +217,8 @@ def main() -> int:
                   f"in {took:.1f} s" if took is not None else f"no answer in {args.reconnect:.0f} s")
             ok, text = tool(host, "script-execute", {"csharpCode": f"return Round{tag}.Value;"})
             check(f"round {n}: the class built this round is loaded", ok and text.strip().endswith(f": {n}"), text)
+
+        reload_after_connect(host, args.project, args.reconnect)
 
         ok, text = tool(host, "script-create", {"scriptPath": f"res://{FOLDER}/Broken{run}.cs",
                                                 "content": "public class Broken { void F() { int x = } }\n"})
