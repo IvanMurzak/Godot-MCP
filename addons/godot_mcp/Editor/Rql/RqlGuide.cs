@@ -263,7 +263,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "value is checked before anything is written; a failure changes nothing. Several changes in one call: separate statements with ; — each ends with set or " +
             "call and is its own all-or-nothing change and undo step; nothing runs unless every statement parses, and the first " +
             "failure stops the rest (earlier changes stay). Undoable in the editor (Ctrl+Z). Scene " +
-            "edits mark the scene unsaved (save with editor | call SaveScene()); edited resource files (res://….tres) are saved " +
+            "edits mark the scene unsaved; edited resource files (res://….tres) are saved " +
             "to disk automatically; the receipt's last line names the files written and the scenes left unsaved. dry_run=true returns the receipt ($ref, member, old, new) without changing anything. The receipt " +
             "leaves out assignments that found the value already set; they are counted (\"N unchanged assignment(s) not listed\"). Do " +
             "exactly the change requested; a read-only member fails with readonly-member instead of being approximated. Destructive " +
