@@ -80,6 +80,18 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
     ],
   },
   {
+    id: 'game',
+    title: 'Game',
+    summary: 'Run the game windowless for a few seconds and get its errors, warnings and printed output in one call.',
+    tools: [
+      {
+        name: 'game-run',
+        description:
+          'Run the main scene (or a given scene) headless for a few seconds of game time; returns its errors and warnings with GDScript backtraces, then what it printed.',
+      },
+    ],
+  },
+  {
     id: 'screenshot',
     title: 'Screenshot',
     summary: 'Capture the editor viewport, a camera, or an isolated node as an image.',

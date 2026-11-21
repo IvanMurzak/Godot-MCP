@@ -186,6 +186,7 @@ You do not write queries: the agent reads the RQL guide that comes with the tool
 | Build C# | `script-build` | *"Build the C# project and fix the errors."* |
 | Run C# in the editor | `script-execute` | *"Count the MeshInstance3D nodes in the open scene."* |
 | See the result | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Take a screenshot of the viewport and check the lighting."* |
+| Run the game and read its errors | `game-run` | *"Run the game, find the error it prints and fix it."* |
 | Running game (opt-in) | `console-*`, `reflection-*`, `runtime-errors-*` | *"Check the running game for new runtime errors."* |
 
 `ping`, `session-close`, `godot-skill-create` and `godot-skill-generate` are system tools for `godot-cli` and setup; agents do not see them. Every tool and argument: [docs/tools.md](docs/tools.md).

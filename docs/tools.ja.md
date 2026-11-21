@@ -13,6 +13,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 実行中のエディターを照会・変更。すべてか無しかで、元に戻せる。1 回の呼び出しで `;` 区切りの複数ステートメントを実行できる。[rql.md](rql.md) を参照。 |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C#(`.cs`)と GDScript(`.gd`)のファイル、ノードへのスクリプトのアタッチ、GDScript の検証、プロジェクトの C# のビルド、エディターでの C# の実行。 |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | エディターのビューポート、カメラ、単独でレンダリングした 1 つのノードを、LLM が見られる PNG としてキャプチャ。 |
+| **game** | `game-run` | ゲーム(または 1 つのシーン)をウィンドウなしでゲーム時間の数秒間実行し、エラー・警告・出力を 1 回の呼び出しで取得します。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 実行中のゲームで: 収集したログの読み取りとクリア。 |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | 実行中のゲームで: ReflectorNet を使い、読み込まれた任意のアセンブリの C# メソッドを検索・呼び出し。 |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | 実行中のゲームで: GDScript のランタイムエラー、`push_error` / `push_warning`、シェーダーエラー、C# 例外をポーリング。**既定はオフ。** |
@@ -46,6 +47,10 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 - `script-execute`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) を通じ、Roslyn でエディター内の C# をコンパイル・実行。最後の式を結果とする普通の文(独自の `using`、ローカルクラス、`await` が使える)、または静的メソッドを持つクラス。ゲームのコンパイル済みの型が見えます。`include` で `<project>/.ai-game-dev/snippets` からヘルパーの `.cs` ファイルを追加します。値と、コードが出力した内容(`Console`。プロジェクトが Godot.NET.Sdk 4.5+ でビルドされていれば `GD.Print`、push_warning、push_error も)を返します。ターミナルからは: `godot-cli exec '1 + 2'`。
 
 <a id="screenshot"></a>
+## game
+
+- `game-run`: メインシーン(または `scene`)を別プロセスでヘッドレス実行し、ゲーム時間で `seconds` 秒(固定 60 FPS、既定 3、最大 60)動かして、エラーと警告を GDScript のバックトレース付きで、続いて出力内容を返します。保存済みのファイルを実行するので、シーンの変更は先に保存してください。C# の変更には `script-build` が必要です。エディターと並行して動かし続けるゲームには RQL の `editor` ソース(`PlayScene`, `isPlaying`)と `gameLog` を使います。
+
 ## screenshot
 
 - `screenshot-viewport`: エディターのビューポート。

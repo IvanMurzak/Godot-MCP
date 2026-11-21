@@ -244,14 +244,16 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string MutateExamplesBlock =
             "Examples:\n" + MutateExampleText + "\n" +
             "Editor state: editor | set isPlaying = true / false runs / stops the main scene; editor | call PlayScene(\"res://…\") runs one scene; " +
-            "what the game prints and its errors: rql-query gameLog. editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
+            "what the game prints and its errors: rql-query gameLog (to run the game and get its errors in one call: the game-run tool). editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
         public const string QueryDescription =
-            DocsLead + "Run a read-only RQL query against the live Godot editor and return compact rows. One precise query beats many " +
+            DocsLead + "Run a read-only RQL query against the live Godot editor and return compact rows. It reads the scene as the game " +
+            "gets it (instanced sub-scenes expanded, their overrides applied, script variables with their values), so it answers " +
+            "more reliably than reading .tscn / .tres text. One precise query beats many " +
             "exploratory calls; independent reads go in one call separated by ; (a result block each). Changes need rql-mutate.\n\n" + Language + "\n\nExamples:\n" + QueryExampleText;
 
         public const string MutateDescription =

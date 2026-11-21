@@ -13,6 +13,7 @@ Default `toolFormat` (`Rql`) के साथ बाकी tools arguments क�
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Live editor को query करना और बदलना। All-or-nothing और undo होने लायक; एक call में `;` से अलग कई statements। [rql.md](rql.md) देखें। |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C# (`.cs`) और GDScript (`.gd`) files, node पर script attach करना, GDScript validation, प्रोजेक्ट का C# build करना, और editor में C# चलाना। |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Editor viewport, किसी camera, या अकेले render किए एक node को PNG के रूप में capture करना जिसे LLM देख सके। |
+| **game** | `game-run` | Game (या एक scene) को बिना window के game time के कुछ seconds चलाना और उसकी errors, warnings और printed output एक ही call में पाना। |
 | **console** | `console-get-logs`, `console-clear-logs` | चलते हुए game में: इकट्ठे logs पढ़ना और clear करना। |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | चलते हुए game में: ReflectorNet के ज़रिए किसी भी loaded assembly में C# methods ढूँढना और call करना। |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | चलते हुए game में: GDScript runtime errors, `push_error` / `push_warning`, shader errors और C# exceptions को poll करना। **Default रूप से बंद।** |
@@ -46,6 +47,10 @@ Sources में `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `c
 - `script-execute`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) के ज़रिए Roslyn से editor में C# compile करके चलाना। आख़िरी expression को result मानकर सादे statements (अपने `using`s, local classes, `await`), या static method वाली class। Game के compiled types दिखते हैं; `include` `<project>/.ai-game-dev/snippets` से helper `.cs` files जोड़ता है। Value और code ने जो print किया वह लौटाता है (`Console`; प्रोजेक्ट Godot.NET.Sdk 4.5+ से build हो तो `GD.Print`, push_warning और push_error)। Terminal से: `godot-cli exec '1 + 2'`।
 
 <a id="screenshot"></a>
+## game
+
+- `game-run`: main scene (या `scene`) को अलग process में headless, `seconds` के game time तक चलाता है (fixed 60 FPS, default 3, अधिकतम 60) और पहले उसकी errors और warnings उनके GDScript backtraces के साथ, फिर जो उसने print किया वह लौटाता है। यह saved files चलाता है, इसलिए scene के बदलाव पहले save करें; C# बदलावों के लिए `script-build` चाहिए। Editor के साथ चलते रहने वाले game के लिए RQL `editor` source (`PlayScene`, `isPlaying`) और `gameLog` इस्तेमाल करें।
+
 ## screenshot
 
 - `screenshot-viewport`: editor viewport।

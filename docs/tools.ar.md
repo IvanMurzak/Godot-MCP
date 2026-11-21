@@ -15,6 +15,7 @@
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | الاستعلام عن المحرر الحي وتغييره. كل شيء أو لا شيء، وقابل للتراجع؛ عدة عبارات في استدعاء واحد، مفصولة بـ `;`. انظر [rql.md](rql.md). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | ملفات C# (`.cs`) وGDScript (`.gd`)، وإرفاق سكربت بعقدة، والتحقق من GDScript، وبناء كود C# للمشروع، وتشغيل C# في المحرر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | التقاط نافذة عرض المحرر، أو كاميرا، أو عقدة واحدة مرسومة وحدها، كصورة PNG يراها النموذج اللغوي. |
+| **game** | `game-run` | تشغيل اللعبة (أو مشهد واحد) دون نافذة لبضع ثوانٍ من زمن اللعبة والحصول على أخطائها وتحذيراتها ومخرجاتها المطبوعة في استدعاء واحد. |
 | **console** | `console-get-logs`, `console-clear-logs` | في لعبة قيد التشغيل: قراءة السجلات المجمّعة ومسحها. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | في لعبة قيد التشغيل: إيجاد دوال C# واستدعاؤها في أي تجميعة محمّلة عبر ReflectorNet. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | في لعبة قيد التشغيل: استطلاع أخطاء وقت التشغيل في GDScript و`push_error` / `push_warning` وأخطاء المظلِّلات واستثناءات C#. **معطّلة افتراضيًا.** |
@@ -48,6 +49,10 @@
 - ‏`script-execute`: ترجمة C# وتشغيله في المحرر بواسطة Roslyn، عبر [Code-Exec](https://github.com/IvanMurzak/Code-Exec). عبارات عادية يكون آخر تعبير فيها هو النتيجة (مع `using` خاصة، وأصناف محلية، و`await`)، أو صنف بدالة ساكنة. الأنواع المترجمة للعبة مرئية؛ ويضيف `include` ملفات `.cs` مساعدة من `<project>/.ai-game-dev/snippets`. تُعيد القيمة وما طبعه الكود (`Console`؛ و`GD.Print` وpush_warning وpush_error عندما يُبنى المشروع بـ Godot.NET.Sdk 4.5+). من الطرفية: `godot-cli exec '1 + 2'`.
 
 <a id="screenshot"></a>
+## game
+
+- `game-run`: يشغّل المشهد الرئيسي (أو `scene`) دون واجهة في عملية منفصلة لمدة `seconds` من زمن اللعبة (60 إطارًا ثابتًا في الثانية، 3 افتراضيًا، 60 كحد أقصى) ويعيد أخطاءها وتحذيراتها مع تتبّعات GDScript ثم ما طبعته. يشغّل الملفات كما هي محفوظة، لذا احفظ تعديلات المشهد أولًا؛ وتحتاج تعديلات C# إلى `script-build`. للعبة تبقى قيد التشغيل بجانب المحرر استخدم مصدر RQL `editor` (`PlayScene`، `isPlaying`) و`gameLog`.
+
 ## screenshot
 
 - ‏`screenshot-viewport`: نافذة عرض المحرر.

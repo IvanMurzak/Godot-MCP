@@ -194,6 +194,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | C# のビルド | `script-build` | *「C# プロジェクトをビルドしてエラーを直して。」* |
 | エディターで C# を実行 | `script-execute` | *「開いているシーンの MeshInstance3D ノードを数えて。」* |
 | 結果を見る | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *「ビューポートのスクリーンショットを撮ってライティングを確認して。」* |
+| ゲームを実行してエラーを読む | `game-run` | *「ゲームを実行して、出力されるエラーを見つけて直して。」* |
 | 実行中のゲーム(オプトイン) | `console-*`, `reflection-*`, `runtime-errors-*` | *「実行中のゲームに新しいランタイムエラーがないか確認して。」* |
 
 `ping`、`session-close`、`godot-skill-create`、`godot-skill-generate` は `godot-cli` とセットアップ用のシステムツールで、エージェントには表示されません。すべてのツールと引数: [tools.ja.md](tools.ja.md)。

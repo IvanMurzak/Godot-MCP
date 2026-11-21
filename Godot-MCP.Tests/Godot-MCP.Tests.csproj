@@ -225,6 +225,7 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />
+    <Compile Include="..\addons\godot_mcp\Editor\Tools\GameRunOutput.cs" Link="Source\GameRunOutput.cs" />
     <!-- C# reload gate: the admission state machine and the gated tool wrapper (pure-managed). -->
     <Compile Include="..\addons\godot_mcp\Editor\Reload\AssemblyReloadGate.cs" Link="Source\AssemblyReloadGate.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Reload\GatedRunTool.cs" Link="Source\GatedRunTool.cs" />
