@@ -207,7 +207,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "  editor | call MoveResource(\"res://materials/blue.tres\", \"res://materials/old/blue.tres\")   move / rename a file (its .import / .uid sidecars move with it)\n" +
             "  editor | call DeleteResource(\"res://materials/old/blue.tres\")   delete a file and its sidecars\n" +
             "  editor | call NewScene(\"res://scenes/new.tscn\", \"Node2D\", \"Main\")   create, save and open a scene (path, root class, root name)\n" +
-            "  editor | call OpenScene(\"res://scenes/level.tscn\")   open a scene file\n" +
+            "  editor | call OpenScene(\"res://scenes/level.tscn\")   open a scene file (a closed scene: OpenScene; the edits; SaveScene, in one call)\n" +
             "  editor | call Reimport([\"res://materials/red.tres\"])   re-import files (no argument: full filesystem scan)\n" +
             "  editor | call ClearConsole()   clear the captured editor log\n" +
             "  nodes | where name starts-with \"Enemy\" | call AddToGroup(\"enemies\")   add nodes to a group (saved with the scene; set groups = [...] replaces them)\n" +
@@ -239,7 +239,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public const string MutateStages =
             "  set path = expr, ...   assign members (paths may go through structs: set Position.Y = Position.Y + 1); values see each " +
             "target: $ and $index (its position in the stream entering set / call)\n" +
-            "  call Method(args)   invoke a method the tools expose\n";
+            "  call Method(args)   invoke a method the tools expose; call CallMethod(\"snake_name\", [args]) runs any Godot method\n";
 
         public const string MutateExamplesBlock =
             "Examples:\n" + MutateExampleText + "\n" +
@@ -247,12 +247,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "what the game prints and its errors: rql-query gameLog (to run the game and get its errors in one call: the game-run tool). editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
-            "Any Godot method of the targets runs with call CallMethod(\"snake_name\", [args]), e.g. a UI Control kept at the bottom " +
-            "centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [7]) (Control.LayoutPreset: 7 center bottom, 8 center, 15 full rect). " +
-            "To edit a scene that is not open: editor | call OpenScene(path); …; editor | call SaveScene() in one call.\n" +
-            "A data file of your own resource script (class_name), right after creating the scripts: editor | call CreateResource(\"res://data/items.tres\", \"ItemList\"); " +
-            "godot.resource(\"res://data/items.tres\") | set props[\"items\"] = [{$type: \"Item\", name: \"Sword\", cost: 3}, {$type: \"Item\", name: \"Bow\", cost: 5}] " +
-            "(typed arrays of script resources too; saved to disk, no C# needed).\n" +
+            "UI: a Control kept at the bottom centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [\"CenterBottom\"]). " +
+            "A typed array of script resources (class_name): godot.resource(path) | set props[\"items\"] = [{$type: \"Item\", name: \"Sword\", cost: 3}, …].\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
