@@ -122,7 +122,7 @@ editors keep answering tool calls with an old build).
   thread inside this assembly forever and the unload fails ("Giving up", plugin offline). `Editor/Reload/` refuses calls
   while a reload is pending (retryable error), defers Godot's watcher timer for calls in flight, and at teardown refuses
   queued bodies (`MainThreadDispatcher.RefusalReason`) and waits for those calls. Every editor tool is a `GatedRunTool`;
-  verify with `scripts/smoke_reload.py`. The local server the plugin started keeps running across a reload: its
+  verify with `scripts/smoke_reload.py`. McpPlugin's `Connect`/`Disconnect` start off the main thread (`GodotMcpConnection.OffMainThread`): its awaits capture Godot's SynchronizationContext, so a reload during a connect would leave its connection gate held and fail the unload. The local server the plugin started keeps running across a reload: its
   `Process` gets no handler of ours beyond `Exited` (removed at teardown), its output is drained by BCL code, and the
   reloaded plugin takes it back (`GodotMcpLocalServerHandoff`); a live process holding our delegates fails the unload.
 - **One script class per file, named after it.** Godot generates `[ScriptPath]` only when the file name matches the class;
