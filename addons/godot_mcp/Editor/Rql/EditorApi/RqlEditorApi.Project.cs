@@ -200,8 +200,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var config = Load(path) ?? throw new System.InvalidOperationException(Problem(path, key));
             config.SetValue(Section, key, GodotVariants.ToVariant(value));
-            var error = config.Save(ReimportClassifier.ImportSidecarPath(path));
+            var sidecar = ReimportClassifier.ImportSidecarPath(path);
+            var error = config.Save(sidecar);
             if (error != Error.Ok) throw new System.InvalidOperationException($"could not write '{path}.import': {error}");
+            RqlGodot.Wrote(sidecar, refresh: false); // the reimport below refreshes the file itself
             var status = RqlReimport.Run(new[] { path });
             if (status.Contains("NOT imported", System.StringComparison.Ordinal)) throw new System.InvalidOperationException(status);
         }

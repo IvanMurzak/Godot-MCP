@@ -242,18 +242,21 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// A file the running request wrote (a resource, a new scene, project.godot): listed on the receipt and registered for
         /// the editor's filesystem refresh (<see cref="RqlReimport"/>).
         /// </summary>
-        internal static void Wrote(string path)
+        internal static void Wrote(string path, bool refresh = true)
         {
-            if (path != "project.godot") RqlReimport.Register(path);
+            if (refresh) RqlReimport.Register(path);
             if (!_savedFiles.Contains(path)) _savedFiles.Add(path);
         }
 
-        /// <summary>A scene the running request saved (SaveScene, SaveAllScenes): written, and no longer unsaved.</summary>
-        internal static void SceneSaved(string path, bool wasNeverSaved = false)
+        /// <summary>
+        /// A scene the running request saved (SaveScene, SaveAllScenes): written, and no longer unsaved. A save-as also clears
+        /// the scene's previous path (<paramref name="previousPath"/>, empty for a scene that was never saved).
+        /// </summary>
+        internal static void SceneSaved(string path, string? previousPath = null)
         {
             if (string.IsNullOrEmpty(path)) return;
             _unsavedScenes.Remove(path);
-            if (wasNeverSaved) _unsavedScenes.Remove(NeverSavedScene);
+            if (previousPath != null) _unsavedScenes.Remove(previousPath.Length > 0 ? previousPath : NeverSavedScene);
             Wrote(path);
         }
 
@@ -264,8 +267,10 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             if (_savedFiles.Count > 0) parts.Add("saved to disk: " + string.Join(", ", _savedFiles));
             if (_unsavedScenes.Count > 0)
             {
+                // SaveScene() saves the edited scene only: name it only when that is the one scene left unsaved.
+                var edited = EditedRoot()?.SceneFilePath ?? "";
                 var how = _unsavedScenes.Contains(NeverSavedScene) ? "SaveScene(\"res://….tscn\")"
-                    : _unsavedScenes.Count > 1 ? "SaveAllScenes()" : "SaveScene()";
+                    : _unsavedScenes.Count == 1 && _unsavedScenes[0] == edited ? "SaveScene()" : "SaveAllScenes()";
                 parts.Add($"unsaved scene changes: {string.Join(", ", _unsavedScenes)} (editor | call {how} writes them)");
             }
             return parts.Count == 0 ? null : string.Join("; ", parts);
@@ -596,7 +601,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _settingsChanged = false;
             var error = ProjectSettings.Save();
             if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
-            else Wrote("project.godot");
+            else Wrote("project.godot", refresh: false);
             if (_changedAutoloads != null && GodotObject.IsInstanceValid(_changedAutoloads))
                 _changedAutoloads.Call(Settings.RqlProject.UpdateAutoloadMethod);
             _changedAutoloads = null;

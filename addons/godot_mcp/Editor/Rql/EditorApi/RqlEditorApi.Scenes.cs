@@ -159,11 +159,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 if (path != root.SceneFilePath && FileAccess.FileExists(path))
                     throw new ArgumentException($"a file already exists at '{path}'; save to a new path, or delete that file first with DeleteResource");
                 EditorToolGuards.EnsureDirectoryExists(ResPathNormalizer.ParentDir(path));
-                var wasNeverSaved = string.IsNullOrEmpty(root.SceneFilePath);
+                var previousPath = root.SceneFilePath ?? "";
                 Ei.SaveSceneAs(path);
                 var saved = RqlGodot.EditedRoot()?.SceneFilePath;
                 if (saved != path) throw new InvalidOperationException($"save-as to '{path}' did not take effect (the scene path is '{saved ?? "none"}')");
-                RqlGodot.SceneSaved(path!, wasNeverSaved);
+                RqlGodot.SceneSaved(path!, previousPath);
                 return path!;
             }
             var existing = root.SceneFilePath;
