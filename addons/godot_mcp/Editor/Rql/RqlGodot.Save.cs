@@ -63,6 +63,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         private static readonly List<Resource> _actionFiles = new List<Resource>();
         private static readonly HashSet<Node> _removed = new HashSet<Node>();
         private static bool _settingsChanged;
+        // What the running request wrote to disk, and the scenes it left with unsaved changes: the receipt's last line, so
+        // the agent need not read the files back to know what is persisted.
+        private static readonly List<string> _savedFiles = new List<string>();
+        private static readonly List<string> _unsavedScenes = new List<string>();
+        private const string NeverSavedScene = "the edited scene (never saved)";
+
+        /// <summary>The persistence line of the last top-level mutation (null after a dry run or when nothing changed on disk).</summary>
+        internal static string? LastSaveNote { get; private set; }
 
         // The editor's autoload tab when the running mutation changed an autoload: refreshed after saving (held for one mutation only).
         private static Node? _changedAutoloads;
@@ -111,6 +119,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _actionFiles.Clear();
             _removed.Clear();
             _settingsChanged = false;
+            _savedFiles.Clear();
+            _unsavedScenes.Clear();
             _changedAutoloads = null;
             _warnings.Clear();
             _explicitUndo.Clear();
@@ -124,7 +134,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// </summary>
         public static QueryResult Mutate(string query, bool dryRun = false, int? maxTargets = null)
         {
-            if (_mutating == 0) ResetState();
+            if (_mutating == 0)
+            {
+                ResetState();
+                LastSaveNote = null;
+            }
             _mutating++;
             QueryResult result;
             try
@@ -153,6 +167,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             catch (Exception ex) { problems = new List<string> { $"saving failed: {ex.GetType().Name}: {ex.Message}" }; }
             foreach (var problem in problems)
                 result.Diagnostics.Add(Diagnostic.Warning("not-saved", problem));
+            LastSaveNote = SaveNote();
             return result;
         }
 
@@ -217,7 +232,33 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         /// <summary>Mark the edited scene as having unsaved changes.</summary>
         internal static void MarkSceneUnsaved()
         {
-            if (EditedRoot() != null) EditorInterface.Singleton.MarkSceneAsUnsaved();
+            if (EditedRoot() is not { } root) return;
+            EditorInterface.Singleton.MarkSceneAsUnsaved();
+            var scene = root.SceneFilePath is { Length: > 0 } path ? path : NeverSavedScene;
+            if (!_unsavedScenes.Contains(scene)) _unsavedScenes.Add(scene);
+        }
+
+        /// <summary>A scene file the running request wrote (SaveScene, SaveAllScenes): no longer unsaved.</summary>
+        internal static void SceneSaved(string path)
+        {
+            _unsavedScenes.Remove(path);
+            _unsavedScenes.Remove(NeverSavedScene);
+            Saved(path);
+        }
+
+        private static void Saved(string path)
+        {
+            if (!_savedFiles.Contains(path)) _savedFiles.Add(path);
+        }
+
+        /// <summary>"saved to disk: …; unsaved scene changes: …" for the receipt, or null when the request touched no file.</summary>
+        private static string? SaveNote()
+        {
+            var parts = new List<string>();
+            if (_savedFiles.Count > 0) parts.Add("saved to disk: " + string.Join(", ", _savedFiles));
+            if (_unsavedScenes.Count > 0)
+                parts.Add("unsaved scene changes: " + string.Join(", ", _unsavedScenes) + " (editor | call SaveScene() writes them)");
+            return parts.Count == 0 ? null : string.Join("; ", parts);
         }
 
         // ------------------------------------------------------------ engine hooks
@@ -515,8 +556,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         {
             var problems = new List<string>();
             foreach (var resource in _toSave)
-                if (GodotObject.IsInstanceValid(resource) && IsFileResource(resource) && SaveFile(resource) is { } problem)
-                    problems.Add(problem);
+                if (GodotObject.IsInstanceValid(resource) && IsFileResource(resource))
+                {
+                    if (SaveFile(resource) is { } problem) problems.Add(problem);
+                    else Saved(resource.ResourcePath);
+                }
             _toSave.Clear();
             return problems;
         }
@@ -545,6 +589,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             _settingsChanged = false;
             var error = ProjectSettings.Save();
             if (error != Error.Ok) problems.Add($"project.godot could not be saved: {error}");
+            else Saved("project.godot");
             if (_changedAutoloads != null && GodotObject.IsInstanceValid(_changedAutoloads))
                 _changedAutoloads.Call(Settings.RqlProject.UpdateAutoloadMethod);
             _changedAutoloads = null;
