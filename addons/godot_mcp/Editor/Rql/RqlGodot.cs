@@ -73,6 +73,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
                 TypeDisplayName = RqlHostNames.GodotClassName,
             };
             engine.Defaults.BudgetsAdjustable = false;
+            // A scene's node list or a folder's files often run to a few hundred rows; with RQL's default of 50 an agent pages
+            // through them call by call. Rows are compact (a few tokens each), so one longer answer is cheaper than more calls.
+            engine.Defaults.MaxRows = 200;
             RqlTargetLimit.Configure(engine.Mutations);
             RqlLiteralPolicy.Configure(engine.Mutations);
             var knownMembers = new Lazy<HashSet<string>>(() => KnownMemberNames(engine), System.Threading.LazyThreadSafetyMode.PublicationOnly);

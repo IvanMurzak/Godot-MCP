@@ -247,6 +247,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "what the game prints and its errors: rql-query gameLog (to run the game and get its errors in one call: the game-run tool). editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
+            "Any Godot method of the targets runs with call CallMethod(\"snake_name\", [args]), e.g. a UI Control kept at the bottom " +
+            "centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [7]) (Control.LayoutPreset: 7 center bottom, 8 center, 15 full rect). " +
+            "To edit a scene that is not open: editor | call OpenScene(path); …; editor | call SaveScene() in one call.\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
