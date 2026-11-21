@@ -250,6 +250,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "Any Godot method of the targets runs with call CallMethod(\"snake_name\", [args]), e.g. a UI Control kept at the bottom " +
             "centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [7]) (Control.LayoutPreset: 7 center bottom, 8 center, 15 full rect). " +
             "To edit a scene that is not open: editor | call OpenScene(path); …; editor | call SaveScene() in one call.\n" +
+            "A data file of your own resource script (class_name), right after creating the scripts: editor | call CreateResource(\"res://data/items.tres\", \"ItemList\"); " +
+            "godot.resource(\"res://data/items.tres\") | set props[\"items\"] = [{$type: \"Item\", name: \"Sword\", cost: 3}, {$type: \"Item\", name: \"Bow\", cost: 5}] " +
+            "(typed arrays of script resources too; saved to disk, no C# needed).\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
 
