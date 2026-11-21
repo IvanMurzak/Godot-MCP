@@ -546,7 +546,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // Auto-generate the selected agent's skills (SKILL.md-per-tool) when the toggle is ON. Runs AFTER the
             // plugin Build so the tool registry the engine reads from is populated. GenerateSkillFilesIfNeeded only
             // regenerates when the on-disk skills are stale/missing, so this is cheap on a warm boot. Gated by the
-            // GenerateSkillFiles toggle (ON by default) and a no-op when the selected agent does not support skills.
+            // GenerateSkillFiles toggle (OFF by default) and a no-op when the selected agent does not support skills.
             MaybeAutoGenerateSkills(_plugin);
 
             var mode = _config.ActiveMode;

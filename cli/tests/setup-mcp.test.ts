@@ -125,6 +125,7 @@ describe('setupMcp', () => {
     expect(json.mcpServers[SERVER_NAME]).toMatchObject({
       type: 'http',
       url: pinnedFor(tmpDir),
+      alwaysLoad: true,
     });
   });
 

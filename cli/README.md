@@ -241,7 +241,7 @@ It writes, offline (no editor, no server, no network):
 - `godot-cli/SKILL.md`: how an agent uses this CLI from a cold start: the first editor command starts a headless editor, `rql` with recipes for scenes, nodes and resources, `check` / `test`, `--format json`, what each exit code means. It is short on purpose (an agent keeps every byte it reads in context); `references/rql.md` and `references/install.md` hold the depth, read only when needed. The recipes come from the same source as `godot-cli --help` and `rql --help`, so the skill and the help cannot drift apart.
 - `ai-game-dev-app/SKILL.md`: the companion app, for creative tools the CLI does not have.
 
-It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-mcp` / `godot-mcp-<family>` skills earlier versions generated from a hand-written catalog. Per-tool skills are the addon's job: it generates them from the tools it really registers whenever the editor runs (toggle in the addon's Skills panel), together with its `godot-cli-install` guide.
+It is **idempotent**: re-running rewrites the same bytes. It removes the `godot-mcp` / `godot-mcp-<family>` skills earlier versions generated from a hand-written catalog. Per-tool skills are the addon's job and opt-in: an MCP client already reads every tool's description, so the addon writes them (from the tools it really registers, with its `godot-cli-install` guide) only when you press Generate in its Skills panel or turn on Auto-generate there.
 
 ## `install-plugin`
 

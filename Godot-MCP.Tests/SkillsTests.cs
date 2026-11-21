@@ -224,7 +224,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.NotNull(claude);
             Assert.True(claude!.SupportsSkills);
 
-            var config = new GodotMcpConfig(); // GenerateSkillFiles defaults ON, SkillsPath defaults relative "SKILLS"
+            var config = new GodotMcpConfig { GenerateSkillFiles = true }; // opted in; SkillsPath defaults relative "SKILLS"
             SkillsBootstrap.PrimeForCtorSkillGeneration(config, claude, ProjectRoot);
 
             // Still ON (supported agent → ctor generation should run, not be disabled).
@@ -249,7 +249,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var claude = GodotAgentConfigurators.GetByAgentId("claude-code");
             Assert.NotNull(claude);
 
-            var config = new GodotMcpConfig();
+            var config = new GodotMcpConfig { GenerateSkillFiles = true }; // opted in
             SkillsBootstrap.PrimeForCtorSkillGeneration(config, claude, ProjectRoot);
 
             var postBuildDir = SkillsPlan.Resolve(claude, ProjectRoot).SkillsDir; // what MaybeAutoGenerateSkills uses
@@ -264,7 +264,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var noSkills = GodotAgentConfigurators.All.FirstOrDefault(a => !a.SupportsSkills);
             Assert.NotNull(noSkills);
 
-            var config = new GodotMcpConfig();
+            var config = new GodotMcpConfig { GenerateSkillFiles = true }; // opted in
             var originalSkillsPath = config.SkillsPath; // the relative built-in default
             SkillsBootstrap.PrimeForCtorSkillGeneration(config, noSkills, ProjectRoot);
 
@@ -275,7 +275,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void PrimeForCtor_NullAgent_DisablesCtorGeneration()
         {
-            var config = new GodotMcpConfig();
+            var config = new GodotMcpConfig { GenerateSkillFiles = true }; // opted in
             SkillsBootstrap.PrimeForCtorSkillGeneration(config, null, ProjectRoot);
             Assert.False(config.GenerateSkillFiles);
         }
@@ -306,13 +306,13 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Null(ex);
         }
 
-        // --- Config default (auto-generate ON) ---------------------------------------------------------------
+        // --- Config default (auto-generate OFF) --------------------------------------------------------------
 
         [Fact]
-        public void GodotMcpConfig_DefaultsAutoGenerateSkillsOn()
+        public void GodotMcpConfig_DefaultsAutoGenerateSkillsOff()
         {
             var config = new GodotMcpConfig();
-            Assert.True(config.GenerateSkillFiles);
+            Assert.False(config.GenerateSkillFiles);
         }
 
         /// <summary>
@@ -333,9 +333,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 var loaded = GodotMcpConfigStore.Load(path);
                 Assert.NotNull(loaded);
 
-                var target = new GodotMcpConfig(); // constructor seeds ON
+                var target = new GodotMcpConfig { GenerateSkillFiles = true };
                 GodotMcpConfigStore.ApplyPersisted(target, loaded);
                 Assert.False(target.GenerateSkillFiles); // persisted OFF wins
+
+                GodotMcpConfigStore.Save(path, new GodotMcpConfig { GenerateSkillFiles = true });
+                var optedIn = new GodotMcpConfig(); // constructor seeds OFF
+                GodotMcpConfigStore.ApplyPersisted(optedIn, GodotMcpConfigStore.Load(path));
+                Assert.True(optedIn.GenerateSkillFiles); // a persisted opt-in survives a restart
             }
             finally
             {
