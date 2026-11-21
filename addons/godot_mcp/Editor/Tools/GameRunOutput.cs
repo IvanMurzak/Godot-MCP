@@ -23,6 +23,30 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// where it happened and how often), then the last lines the game printed. Lines are parsed like the <c>gameLog</c>
     /// source (<see cref="GameLogText"/>), so both classify Godot's output the same way.
     /// </summary>
+    /// <summary>A run's output lines, bounded: the first and the last <see cref="Keep"/> lines are kept, the middle counted.</summary>
+    public sealed class GameRunLines
+    {
+        public const int Keep = 10_000;
+
+        readonly List<string> _head = new List<string>();
+        readonly Queue<string> _tail = new Queue<string>();
+
+        public int Dropped { get; private set; }
+
+        public void Add(string line)
+        {
+            if (_head.Count < Keep) { _head.Add(line); return; }
+            _tail.Enqueue(line);
+            if (_tail.Count > Keep) { _tail.Dequeue(); Dropped++; }
+        }
+
+        /// <summary>The kept lines in order (the head, then the tail).</summary>
+        public List<string> Lines
+        {
+            get { var all = new List<string>(_head); all.AddRange(_tail); return all; }
+        }
+    }
+
     public static class GameRunOutput
     {
         public const int MaxPrintedLines = 40;
@@ -37,7 +61,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <param name="exitCode">The process exit code; null when it was stopped after <paramref name="stoppedAfterSeconds"/>.</param>
         /// <param name="stoppedAfterSeconds">The real-time limit that stops a run still going.</param>
         /// <param name="lines">stdout and stderr, in arrival order.</param>
-        /// <param name="droppedLines">Lines not collected because the output was too long.</param>
+        /// <param name="droppedLines">Lines from the middle of a very long output that were not kept.</param>
         public static string Format(string what, double seconds, int? exitCode, double stoppedAfterSeconds,
             IReadOnlyList<string> lines, int droppedLines = 0)
         {
@@ -48,7 +72,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 if (e.LogType == "Log")
                 {
-                    if (e.Message.Trim().Length > 0) printed.Add(e.Message.TrimEnd());
+                    // The banner is stripped by Parse only as the first line (stderr may arrive first on a pipe).
+                    if (e.Message.Trim().Length > 0 && !e.Message.StartsWith("Godot Engine v", StringComparison.Ordinal))
+                        printed.Add(e.Message.TrimEnd());
                 }
                 else if (!ExitNoise.Any(n => e.Message.Contains(n, StringComparison.Ordinal)))
                     (e.LogType == "Error" ? errors : warnings).Add(e);
@@ -60,7 +86,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 ? "exit code " + code.ToString(CultureInfo.InvariantCulture)
                 : "still running after " + stoppedAfterSeconds.ToString(CultureInfo.InvariantCulture) + " s of real time, stopped");
             sb.Append(", ").Append(errors.Total).Append(" error(s), ").Append(warnings.Total).Append(" warning(s).");
-            if (droppedLines > 0) sb.Append(" Output cut: the last ").Append(droppedLines).Append(" line(s) were not read.");
+            if (droppedLines > 0) sb.Append(" Output cut: ").Append(droppedLines).Append(" line(s) in the middle were not kept.");
             sb.Append('\n');
             errors.AppendTo(sb, "Errors:");
             warnings.AppendTo(sb, "Warnings:");

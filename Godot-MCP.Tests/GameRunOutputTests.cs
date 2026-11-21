@@ -79,7 +79,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             var text = GameRunOutput.Format("the main scene", 3, null, 30, new string[0], droppedLines: 7);
             Assert.Equal("Ran the main scene for 3 s of game time: still running after 30 s of real time, stopped, 0 error(s), 0 warning(s). " +
-                "Output cut: the last 7 line(s) were not read.", text);
+                "Output cut: 7 line(s) in the middle were not kept.", text);
+        }
+
+        [Fact]
+        public void Lines_KeepHeadAndTail_CountTheMiddle()
+        {
+            var lines = new GameRunLines();
+            var total = 2 * GameRunLines.Keep + 5;
+            for (var i = 1; i <= total; i++) lines.Add("l" + i);
+            var kept = lines.Lines;
+            Assert.Equal(5, lines.Dropped);
+            Assert.Equal(2 * GameRunLines.Keep, kept.Count);
+            Assert.Equal("l1", kept[0]);
+            Assert.Equal("l" + GameRunLines.Keep, kept[GameRunLines.Keep - 1]);
+            Assert.Equal("l" + (GameRunLines.Keep + 6), kept[GameRunLines.Keep]);
+            Assert.Equal("l" + total, kept[^1]);
         }
 
         [Fact]

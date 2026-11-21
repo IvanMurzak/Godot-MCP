@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
@@ -31,8 +32,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public const double DefaultSeconds = 3;
         public const double MaxSeconds = 60;
         const int FramesPerSecond = 60;
-        // A game that prints every frame for a minute writes tens of thousands of lines; the result shows a few dozen.
-        const int MaxCollectedLines = 20_000;
 
         [AiTool
         (
@@ -50,7 +49,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "Nothing is rendered, so errors that need a GPU or a window do not show.")]
         public async Task<string> Run
         (
-            [Description("res:// path of the scene to run; omit for the project's main scene.")]
+            [Description("res:// (or uid://) path of the scene to run; omit for the project's main scene.")]
             string? scene = null,
             [Description("Game time to run, in seconds (fixed 60 frames per second, so a light game finishes faster than real " +
                 "time). Default 3, at most 60.")]
@@ -59,27 +58,69 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             if (double.IsNaN(seconds) || seconds <= 0 || seconds > MaxSeconds)
                 throw new ArgumentException($"'seconds' must be more than 0 and at most {MaxSeconds}.", nameof(seconds));
-            var path = string.IsNullOrWhiteSpace(scene) ? null : scene!.Trim();
-            var (executable, projectDir) = MainThread.Instance.Run(() =>
-            {
-                if (path != null)
-                    EditorToolGuards.RequireResourceExists(path, nameof(scene), $"no scene at '{path}'");
-                else if (string.IsNullOrEmpty(ProjectSettings.GetSetting("application/run/main_scene").AsString()))
-                    throw new InvalidOperationException("the project has no main scene; pass 'scene' (a res:// .tscn path)");
-                return (OS.GetExecutablePath(), ProjectSettings.GlobalizePath("res://"));
-            });
+            var requested = string.IsNullOrWhiteSpace(scene) ? null : scene!.Trim();
+            var (executable, projectDir, scenePath) = MainThread.Instance.Run(() =>
+                (OS.GetExecutablePath(), ProjectSettings.GlobalizePath("res://"), ResolveScene(requested)));
 
-            var args = new List<string> { "--headless", "--path", projectDir, "--fixed-fps", FramesPerSecond.ToString(CultureInfo.InvariantCulture),
-                "--quit-after", ((int)Math.Ceiling(seconds * FramesPerSecond)).ToString(CultureInfo.InvariantCulture) };
-            if (path != null) args.Add(path);
+            // Its own log file: the default one (user://logs/godot.log) is what the gameLog source reads for a game run
+            // with Play, and a run rotates it. The file also keeps stdout and stderr in their real order.
+            var logFile = Path.Combine(Path.GetTempPath(), $"godot-mcp-game-run-{Guid.NewGuid():N}.log");
+            var args = new List<string> { "--headless", "--path", projectDir, "--log-file", logFile,
+                "--fixed-fps", FramesPerSecond.ToString(CultureInfo.InvariantCulture),
+                "--quit-after", ((int)Math.Ceiling(seconds * FramesPerSecond)).ToString(CultureInfo.InvariantCulture), scenePath };
             // A light game runs its game time faster than real time; a heavy or blocked one is stopped after this.
             var limit = Math.Max(30, seconds * 4);
-            var (exitCode, lines, dropped) = await RunProcess(executable, projectDir, args, TimeSpan.FromSeconds(limit)).ConfigureAwait(false);
-            return GameRunOutput.Format(path ?? "the main scene", seconds, exitCode, limit, lines, dropped);
+            try
+            {
+                var (exitCode, piped) = await RunProcess(executable, projectDir, args, TimeSpan.FromSeconds(limit)).ConfigureAwait(false);
+                var output = ReadLog(logFile) ?? piped;
+                return GameRunOutput.Format(requested == null ? $"the main scene ({scenePath})" : scenePath, seconds, exitCode, limit,
+                    output.Lines, output.Dropped);
+            }
+            finally
+            {
+                try { File.Delete(logFile); } catch (IOException) { /* best effort */ } catch (UnauthorizedAccessException) { }
+            }
         }
 
-        /// <summary>Run a process, collecting stdout and stderr in arrival order; null exit code when it hit the limit and was killed.</summary>
-        static async Task<(int? exitCode, List<string> lines, int dropped)> RunProcess(string executable, string workingDir,
+        /// <summary>Main thread: the res:// path of the scene to run (uid:// resolved), or an error the caller can act on.</summary>
+        static string ResolveScene(string? requested)
+        {
+            var path = requested ?? ProjectSettings.GetSetting("application/run/main_scene").AsString();
+            if (string.IsNullOrEmpty(path))
+                throw new InvalidOperationException("the project has no main scene; pass 'scene' (a res:// .tscn path)");
+            if (path.StartsWith("uid://", StringComparison.Ordinal))
+            {
+                var id = ResourceUid.TextToId(path);
+                if (id == ResourceUid.InvalidId || !ResourceUid.HasId(id))
+                    throw new ArgumentException($"no resource has the uid '{path}'", "scene");
+                path = ResourceUid.GetIdPath(id);
+            }
+            // Exists(path, "PackedScene") is true for any loadable file (a .gd too), and Godot runs the main scene instead
+            // of a positional path that is not a scene: check the extension.
+            var ext = System.IO.Path.GetExtension(path).TrimStart('.');
+            if (!ResourceLoader.Exists(path) || Array.IndexOf(ResourceLoader.GetRecognizedExtensionsForType("PackedScene"), ext.ToLowerInvariant()) < 0)
+                throw requested == null
+                    ? new InvalidOperationException($"the main scene '{path}' is not a scene file; pass 'scene' (a res:// .tscn path)")
+                    : new ArgumentException($"'{path}' is not a scene file (.tscn / .scn)", "scene");
+            return path;
+        }
+
+        static GameRunLines? ReadLog(string logFile)
+        {
+            try
+            {
+                if (!File.Exists(logFile)) return null;
+                var output = new GameRunLines();
+                foreach (var line in File.ReadLines(logFile)) output.Add(line);
+                return output.Lines.Count > 0 ? output : null;
+            }
+            catch (IOException) { return null; }
+        }
+
+        /// <summary>Run a process, collecting stdout and stderr; null exit code when it hit the limit and was killed.
+        /// A cancelled tool call stops it too.</summary>
+        static async Task<(int? exitCode, GameRunLines output)> RunProcess(string executable, string workingDir,
             List<string> args, TimeSpan limit)
         {
             var psi = new ProcessStartInfo(executable)
@@ -92,16 +133,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             };
             foreach (var arg in args) psi.ArgumentList.Add(arg);
 
-            var lines = new List<string>();
-            var dropped = 0;
+            var output = new GameRunLines();
             void Collect(object _, DataReceivedEventArgs e)
             {
                 if (e.Data == null) return;
-                lock (lines)
-                {
-                    if (lines.Count < MaxCollectedLines) lines.Add(e.Data);
-                    else dropped++;
-                }
+                lock (output) output.Add(e.Data);
             }
             using var process = new Process { StartInfo = psi };
             process.OutputDataReceived += Collect;
@@ -111,10 +147,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
+            var call = ToolCallCancellation.Token;
             var killed = false;
-            using (var timeout = new CancellationTokenSource(limit))
+            using (var stop = CancellationTokenSource.CreateLinkedTokenSource(call))
             {
-                try { await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false); }
+                stop.CancelAfter(limit);
+                try { await process.WaitForExitAsync(stop.Token).ConfigureAwait(false); }
                 catch (OperationCanceledException)
                 {
                     killed = true;
@@ -123,7 +161,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 }
             }
             await process.WaitForExitAsync().ConfigureAwait(false); // also drains the redirected streams: no more Collect calls
-            return (killed ? null : process.ExitCode, lines, dropped);
+            call.ThrowIfCancellationRequested();
+            return (killed ? null : process.ExitCode, output);
         }
     }
 }
