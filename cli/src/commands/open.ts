@@ -54,7 +54,7 @@ export const openCommand = new Command('open')
   .option('--cloud-url <url>', 'Cloud base URL override (sets GODOT_MCP_CLOUD_URL)')
   .option('--token <token>', 'Auth token (sets GODOT_MCP_TOKEN)')
   .option('--auth <option>', 'Auth option: None or Required (sets GODOT_MCP_AUTH_OPTION)')
-  .option('--mode <mode>', 'Connection mode: Cloud or Custom (sets GODOT_MCP_CONNECTION_MODE)')
+  .option('--mode <mode>', 'Connection mode: Cloud or Custom (sets GODOT_MCP_CONNECTION_MODE; a --headless editor always runs Custom)')
   .option('--log-level <level>', 'Log level: Trace/Debug/Info/Warning/Error/None (sets GODOT_MCP_LOG_LEVEL)')
   .option('--headless', "Start a windowless editor on the project's local MCP server and wait until it is ready (reuses a running one)")
   .option('--idle-timeout <seconds>', 'With --headless: the started editor quits after this many seconds without tool calls (0 = never)', String(DEFAULT_SESSION_IDLE_SECONDS))
@@ -269,9 +269,11 @@ async function openHeadless(
   const idleSeconds = parseIntFlag(options.idleTimeout, '--idle-timeout', true);
   const readyTimeoutMs = parseIntFlag(options.readyTimeout, '--ready-timeout');
   // A headless editor runs on a local server: never for a Cloud project on a signed-in machine.
-  // `--mode Custom` asks for a local server explicitly: a signed-in machine is not a reason to refuse it.
-  const mode = options.mode === 'Cloud' || options.mode === 'Custom' ? options.mode : undefined;
-  const conn = await resolveEditorConnection(projectPath, { url: options.url, token: options.token, mode });
+  // `--mode Custom` asks for a local server explicitly: a signed-in machine is not a reason to refuse it. (A headless editor
+  // always runs Custom, so `--mode Cloud` changes nothing here: the project's own mode decides, as before.)
+  const conn = await resolveEditorConnection(projectPath, {
+    url: options.url, token: options.token, ...(options.mode === 'Custom' ? { mode: 'Custom' as const } : {}),
+  });
   const refusal = localEditorRefusal(conn, () => signInState(projectPath) !== 'missing');
   if (refusal) {
     ui.error(refusal);
