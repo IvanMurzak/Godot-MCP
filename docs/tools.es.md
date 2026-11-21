@@ -13,6 +13,7 @@ Las familias **console**, **reflection** y **runtime-errors** sirven a un *juego
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Consultar y modificar el editor en vivo. Todo o nada, y reversible; varias sentencias por llamada, separadas por `;`. Consulta [rql.md](rql.md). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | Archivos C# (`.cs`) y GDScript (`.gd`), adjuntar un script a un nodo, validación de GDScript, compilar el C# del proyecto y ejecutar C# en el editor. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capturar el viewport del editor, una cámara o un nodo renderizado por separado, como un PNG que el LLM puede ver. |
+| **game** | `game-run` | Ejecutar el juego (o una escena) sin ventana durante unos segundos de tiempo de juego y obtener sus errores, advertencias y salida impresa en una sola llamada. |
 | **console** | `console-get-logs`, `console-clear-logs` | En un juego en marcha: leer y borrar los logs recopilados. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | En un juego en marcha: buscar y llamar métodos C# de cualquier ensamblado cargado mediante ReflectorNet. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | En un juego en marcha: consultar errores de runtime de GDScript, `push_error` / `push_warning`, errores de shader y excepciones de C#. **Desactivado por defecto.** |
@@ -46,6 +47,10 @@ Los orígenes incluyen `nodes`, `root`, `selection`, `scenes`, `files`, `folders
 - `script-execute`: compilar y ejecutar C# en el editor con Roslyn, mediante [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Sentencias simples con la última expresión como resultado (`using` propios, clases locales, `await`), o una clase con un método estático. Los tipos compilados del juego son visibles; `include` añade archivos `.cs` auxiliares de `<project>/.ai-game-dev/snippets`. Devuelve el valor y lo que imprimió el código (`Console`; `GD.Print`, push_warning y push_error cuando el proyecto compila con Godot.NET.Sdk 4.5+). Desde una terminal: `godot-cli exec '1 + 2'`.
 
 <a id="screenshot"></a>
+## game
+
+- `game-run`: ejecuta la escena principal (o `scene`) sin interfaz en un proceso aparte durante `seconds` de tiempo de juego (60 FPS fijos, 3 por defecto, 60 como máximo) y devuelve sus errores y advertencias con sus backtraces de GDScript y luego lo que imprimió. Ejecuta los archivos tal como están guardados, así que guarda antes los cambios de escena; los cambios de C# necesitan `script-build`. Para un juego que sigue ejecutándose junto al editor usa la fuente RQL `editor` (`PlayScene`, `isPlaying`) y `gameLog`.
+
 ## screenshot
 
 - `screenshot-viewport`: el viewport del editor.

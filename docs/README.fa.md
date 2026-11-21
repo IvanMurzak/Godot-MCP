@@ -224,6 +224,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | بیلد C# | `script-build` | *«پروژه‌ی C# را بیلد کن و خطاها را برطرف کن.»* |
 | اجرای C# در ویرایشگر | `script-execute` | *«نودهای MeshInstance3D صحنه‌ی باز را بشمار.»* |
 | دیدن نتیجه | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *«از viewport اسکرین‌شات بگیر و نورپردازی را بررسی کن.»* |
+| اجرای بازی و خواندن خطاهای آن | `game-run` | *«بازی را اجرا کن، خطایی را که چاپ می‌کند پیدا کن و درستش کن.»* |
 | بازیِ در حال اجرا (اختیاری) | `console-*`, `reflection-*`, `runtime-errors-*` | *«بازیِ در حال اجرا را برای خطاهای جدید زمان اجرا بررسی کن.»* |
 
 ‏`ping`، `session-close`، `godot-skill-create` و `godot-skill-generate` ابزارهای سیستمی برای `godot-cli` و راه‌اندازی هستند؛ عامل‌ها آن‌ها را نمی‌بینند. همه‌ی ابزارها و آرگومان‌ها: [مرجع ابزارها](tools.fa.md).

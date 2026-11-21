@@ -194,6 +194,7 @@ Queries आपको नहीं लिखनी पड़तीं: एजे�
 | C# build करना | `script-build` | *"C# प्रोजेक्ट build करो और errors ठीक करो।"* |
 | Editor में C# चलाना | `script-execute` | *"खुले scene में MeshInstance3D nodes गिनो।"* |
 | नतीजा देखना | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Viewport का screenshot लो और lighting जाँचो।"* |
+| Game चलाना और उसकी errors पढ़ना | `game-run` | *"Game चलाओ, जो error वह print करता है उसे ढूँढो और ठीक करो।"* |
 | चलता हुआ game (opt-in) | `console-*`, `reflection-*`, `runtime-errors-*` | *"चलते हुए game में नए runtime errors जाँचो।"* |
 
 `ping`, `session-close`, `godot-skill-create` और `godot-skill-generate` `godot-cli` और setup के लिए system tools हैं; एजेंट्स उन्हें नहीं देखते। हर tool और argument: [tools.hi.md](tools.hi.md)।

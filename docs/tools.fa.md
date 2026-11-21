@@ -15,6 +15,7 @@
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | کوئری و تغییر ویرایشگرِ زنده. همه یا هیچ و قابل بازگردانی؛ چند دستور در یک فراخوانی، جدا شده با `;`. [rql.md](rql.md) را ببینید. |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | فایل‌های C# (`.cs`) و GDScript (`.gd`)، اتصال اسکریپت به نود، اعتبارسنجی GDScript، بیلد C# پروژه و اجرای C# در ویرایشگر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | گرفتن تصویر از viewport ویرایشگر، یک دوربین، یا یک نود که به‌تنهایی رندر شده، به صورت PNG که LLM می‌تواند ببیند. |
+| **game** | `game-run` | اجرای بازی (یا یک صحنه) بدون پنجره برای چند ثانیه از زمان بازی و دریافت خطاها، هشدارها و خروجی چاپ‌شده‌ی آن در یک فراخوانی. |
 | **console** | `console-get-logs`, `console-clear-logs` | در بازیِ در حال اجرا: خواندن و پاک کردن لاگ‌های جمع‌آوری‌شده. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | در بازیِ در حال اجرا: پیدا کردن و فراخوانی متدهای C# در هر اسمبلی بارگذاری‌شده از طریق ReflectorNet. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | در بازیِ در حال اجرا: دریافت خطاهای زمان اجرای GDScript، `push_error` / `push_warning`، خطاهای شیدر و استثناهای C#. **پیش‌فرض خاموش.** |
@@ -48,6 +49,10 @@
 - ‏`script-execute`: کامپایل و اجرای C# در ویرایشگر با Roslyn، از طریق [Code-Exec](https://github.com/IvanMurzak/Code-Exec). دستورهای ساده که آخرین عبارت نتیجه است (با `using`های خودش، کلاس‌های محلی، `await`)، یا یک کلاس با یک متد static. تایپ‌های کامپایل‌شده‌ی بازی قابل مشاهده‌اند؛ `include` فایل‌های کمکی `.cs` را از `<project>/.ai-game-dev/snippets` اضافه می‌کند. مقدار و آنچه کد چاپ کرده را برمی‌گرداند (`Console`؛ و `GD.Print`، push_warning و push_error وقتی پروژه با Godot.NET.Sdk 4.5+‎ بیلد شود). از ترمینال: `godot-cli exec '1 + 2'`.
 
 <a id="screenshot"></a>
+## game
+
+- `game-run`: صحنه‌ی اصلی (یا `scene`) را بدون رابط در یک فرایند جدا به مدت `seconds` از زمان بازی اجرا می‌کند (۶۰ فریم ثابت در ثانیه، پیش‌فرض ۳، حداکثر ۶۰) و خطاها و هشدارها را با backtraceهای GDScript و سپس آنچه چاپ کرده برمی‌گرداند. فایل‌ها را همان‌طور که ذخیره شده‌اند اجرا می‌کند، پس تغییرات صحنه را اول ذخیره کنید؛ تغییرات C# به `script-build` نیاز دارند. برای بازی‌ای که کنار ویرایشگر در حال اجرا می‌ماند از منبع RQL `editor` (`PlayScene`، `isPlaying`) و `gameLog` استفاده کنید.
+
 ## screenshot
 
 - ‏`screenshot-viewport`: viewport ویرایشگر.

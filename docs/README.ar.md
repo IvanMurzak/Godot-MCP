@@ -224,6 +224,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | بناء C# | `script-build` | *«ابنِ مشروع C# وأصلح الأخطاء.»* |
 | تشغيل C# في المحرر | `script-execute` | *«احسب عدد عقد MeshInstance3D في المشهد المفتوح.»* |
 | رؤية النتيجة | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *«التقط لقطة شاشة لنافذة العرض وتحقق من الإضاءة.»* |
+| تشغيل اللعبة وقراءة أخطائها | `game-run` | *«شغّل اللعبة، وابحث عن الخطأ الذي تطبعه وأصلحه.»* |
 | اللعبة قيد التشغيل (اختياري) | `console-*`, `reflection-*`, `runtime-errors-*` | *«افحص اللعبة قيد التشغيل بحثًا عن أخطاء وقت تشغيل جديدة.»* |
 
 ‏`ping` و`session-close` و`godot-skill-create` و`godot-skill-generate` أدوات نظام لـ `godot-cli` وللإعداد؛ ولا يراها الوكلاء. كل الأدوات ووسائطها: [مرجع الأدوات](tools.ar.md).

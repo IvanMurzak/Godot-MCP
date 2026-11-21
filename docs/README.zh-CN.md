@@ -194,6 +194,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | 构建 C# | `script-build` | *"构建 C# 项目并修复错误。"* |
 | 在编辑器中运行 C# | `script-execute` | *"统计当前打开场景中 MeshInstance3D 节点的数量。"* |
 | 查看结果 | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"截取视口截图并检查光照。"* |
+| 运行游戏并读取其错误 | `game-run` | *"运行游戏，找到它打印的错误并修复。"* |
 | 运行中的游戏（需主动开启） | `console-*`, `reflection-*`, `runtime-errors-*` | *"检查运行中的游戏是否有新的运行时错误。"* |
 
 `ping`、`session-close`、`godot-skill-create` 和 `godot-skill-generate` 是供 `godot-cli` 和配置使用的系统工具；智能体看不到它们。所有工具及其参数：[tools.zh-CN.md](tools.zh-CN.md)。

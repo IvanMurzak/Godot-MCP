@@ -13,6 +13,7 @@ The **console**, **reflection** and **runtime-errors** families serve a *running
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Query and change the live editor. All-or-nothing and undoable; several statements per call, separated by `;`. See [rql.md](rql.md). |
 | **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C# (`.cs`) and GDScript (`.gd`) files, attaching a script to a node, GDScript validation, building the project's C#, and running C# in the editor. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a camera, or one node rendered alone, as a PNG the LLM can see. |
+| **game** | `game-run` | Run the game (or one scene) windowless for a few seconds of game time and get its errors, warnings and printed output in one call. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the collected logs. |
 | **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods in any loaded assembly via ReflectorNet. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | In a running game: poll GDScript runtime errors, `push_error` / `push_warning`, shader errors and C# exceptions. **Off by default.** |
@@ -42,6 +43,10 @@ Sources include `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `cla
 - `script-validate`: parse and compile GDScript files and return structured diagnostics.
 - `script-build`: build the project's C# (`dotnet build`, Debug) so new scripts load. The build runs in the background; when it succeeds Godot reloads the C# assembly, the plugin reconnects, and the result (warnings or errors) arrives after the reload. See [C# assembly reloads](custom-tools.md#c-assembly-reloads).
 - `script-execute`: compile and run C# in the editor with Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a static method. The game's compiled types are visible; `include` adds helper `.cs` files from `<project>/.ai-game-dev/snippets`. Returns the value and what the code printed (`Console`; `GD.Print`, push_warning and push_error when the project builds with Godot.NET.Sdk 4.5+). From a terminal: `godot-cli exec '1 + 2'`.
+
+## game
+
+- `game-run`: run the main scene (or `scene`) headless in a separate process for `seconds` of game time (fixed 60 FPS, default 3, at most 60) and return its errors and warnings with their GDScript backtraces, then what it printed. It runs the files as saved, so save scene edits first; C# changes need `script-build`. For a game that keeps running alongside the editor use the RQL `editor` source (`PlayScene`, `isPlaying`) and `gameLog`.
 
 ## screenshot
 

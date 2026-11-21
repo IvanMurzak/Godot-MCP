@@ -194,6 +194,7 @@ No escribes consultas: el agente lee la guía de RQL que acompaña a las herrami
 | Compilar C# | `script-build` | *"Compila el proyecto C# y corrige los errores."* |
 | Ejecutar C# en el editor | `script-execute` | *"Cuenta los nodos MeshInstance3D de la escena abierta."* |
 | Ver el resultado | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Haz una captura del viewport y revisa la iluminación."* |
+| Ejecutar el juego y leer sus errores | `game-run` | *"Ejecuta el juego, encuentra el error que imprime y corrígelo."* |
 | Juego en marcha (opcional) | `console-*`, `reflection-*`, `runtime-errors-*` | *"Comprueba si el juego en marcha tiene errores de runtime nuevos."* |
 
 `ping`, `session-close`, `godot-skill-create` y `godot-skill-generate` son herramientas de sistema para `godot-cli` y la configuración; los agentes no las ven. Todas las herramientas y argumentos: [tools.es.md](tools.es.md).
