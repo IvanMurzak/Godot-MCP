@@ -45,8 +45,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "- `include`: helper `.cs` files or folders (recursive), relative to `<project>/.ai-game-dev/snippets`, compiled with the " +
             "snippet. Godot does not compile that folder into the game.\n\n" +
             ScriptExecuteSource.SkillParameters)]
-        [Description("For what rql-mutate expresses (nodes, properties, resources and resource files, project settings, input " +
-            "actions, signals, saving) use rql-mutate: one line instead of C# to compile. " +
+        [Description("Prefer rql-mutate for scene, resource and project edits: one line instead of C# to compile. " +
             "Compiles and runs C# in the Godot editor: plain statements with the last expression as the result " +
             "(own usings, local classes, await allowed), or a declared class 'className' with static method 'methodName'. " +
             "Returns the result and the printed output (Console; GD.Print on Godot 4.5+). " + ScriptExecuteSource.GuardDescription)]

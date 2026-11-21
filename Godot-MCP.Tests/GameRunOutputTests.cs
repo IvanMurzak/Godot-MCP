@@ -14,7 +14,7 @@ using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
-    /// <summary>The <c>game-run</c> result text: errors and warnings first with their detail lines, exit noise dropped.</summary>
+    /// <summary>The <c>game-run</c> result text: distinct errors and warnings first with where they happened, exit noise dropped.</summary>
     public class GameRunOutputTests
     {
         // A headless run's stdout + stderr (Godot 4.7, a missing spawn point read from data), in arrival order.
@@ -37,27 +37,34 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         };
 
         [Fact]
-        public void Format_ListsErrorsAndWarningsWithDetails_ThenPrinted()
+        public void Format_ListsErrorsAndWarningsWithWhereTheyHappened_ThenPrinted()
         {
             var text = GameRunOutput.Format("the main scene", 3, 0, 30, Run);
 
-            Assert.StartsWith("Ran the main scene for 3 s of game time: exit code 0, 2 error(s), 1 warning(s).\n", text);
-            var errors = text.IndexOf("Errors:\n", System.StringComparison.Ordinal);
-            var warnings = text.IndexOf("Warnings:\n", System.StringComparison.Ordinal);
-            var printed = text.IndexOf("Printed:\n", System.StringComparison.Ordinal);
-            Assert.True(errors > 0 && warnings > errors && printed > warnings, text);
-            Assert.Contains("       [0] _ready (res://scripts/spawner.gd:12)\n", text);
-            Assert.Contains("   at: push_warning", text);
-            Assert.EndsWith("Printed:\nGAME READY\nSPAWNED 3", text);
+            Assert.Equal(
+                "Ran the main scene for 3 s of game time: exit code 0, 2 error(s), 1 warning(s).\n" +
+                "Errors:\n" +
+                "- Node not found: \"Spawnpoints/Spawn_5\" (relative to \"/root/Main/Spawner\").\n" +
+                "  at: get_node (scene/main/node.cpp:1975)\n" +
+                "  GDScript backtrace (most recent call first):\n" +
+                "  [0] _ready (res://scripts/spawner.gd:12)\n" +
+                "- Invalid access to property or key 'position' on a base object of type 'null instance'.\n" +
+                "  at: _ready (res://scripts/spawner.gd:15)\n" +
+                "Warnings:\n" +
+                "- low ammo\n" +
+                "  at: push_warning (core/variant/variant_utility.cpp:1034)\n" +
+                "Printed:\n" +
+                "GAME READY\n" +
+                "SPAWNED 3", text);
         }
 
         [Fact]
-        public void Format_DropsBannerAndExitNoiseWithItsDetail()
+        public void Format_RepeatedError_IsListedOnceWithItsCount()
         {
-            var text = GameRunOutput.Format("the main scene", 3, 0, 30, Run);
-            Assert.DoesNotContain("Godot Engine v", text);
-            Assert.DoesNotContain("leaked at exit", text);
-            Assert.DoesNotContain("object.cpp", text);
+            var perFrame = Enumerable.Repeat(new[] { "ERROR: boom", "   at: _process (res://a.gd:3)" }, 120).SelectMany(x => x).ToArray();
+            var text = GameRunOutput.Format("the main scene", 2, 0, 30, perFrame);
+            Assert.Equal("Ran the main scene for 2 s of game time: exit code 0, 120 error(s), 0 warning(s).\n" +
+                "Errors:\n- boom (x120)\n  at: _process (res://a.gd:3)", text);
         }
 
         [Fact]
@@ -68,10 +75,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void Format_StoppedRun_SaysSo()
+        public void Format_StoppedAndCutRun_SaysSo()
         {
-            var text = GameRunOutput.Format("the main scene", 3, null, 30, new string[0]);
-            Assert.Equal("Ran the main scene for 3 s of game time: still running after 30 s of real time, stopped, 0 error(s), 0 warning(s).", text);
+            var text = GameRunOutput.Format("the main scene", 3, null, 30, new string[0], droppedLines: 7);
+            Assert.Equal("Ran the main scene for 3 s of game time: still running after 30 s of real time, stopped, 0 error(s), 0 warning(s). " +
+                "Output cut: the last 7 line(s) were not read.", text);
         }
 
         [Fact]

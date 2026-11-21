@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet.Utils;
@@ -21,6 +22,8 @@ using Godot;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
+    /// <summary>The game as a whole, run from the editor's project: <c>game-run</c>.</summary>
+    [AiToolType]
     public partial class Tool_Game
     {
         public const string GameRunToolId = "game-run";
@@ -28,6 +31,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public const double DefaultSeconds = 3;
         public const double MaxSeconds = 60;
         const int FramesPerSecond = 60;
+        // A game that prints every frame for a minute writes tens of thousands of lines; the result shows a few dozen.
+        const int MaxCollectedLines = 20_000;
 
         [AiTool
         (
@@ -41,7 +46,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         [Description("Run the game (the main scene, or 'scene') windowless in a separate process for 'seconds' of game time " +
             "and return, in one call, its errors and warnings (with GDScript backtraces) and what it printed. Use it to " +
             "reproduce a runtime error and to check a fix; no play / wait / stop / log reading needed. It runs the files " +
-            "as saved: save scene edits first (rql-mutate editor | call SaveScene()); C# changes need script-build first.")]
+            "as saved: save scene edits first (rql-mutate editor | call SaveScene()); C# changes need script-build first. " +
+            "Nothing is rendered, so errors that need a GPU or a window do not show.")]
         public async Task<string> Run
         (
             [Description("res:// path of the scene to run; omit for the project's main scene.")]
@@ -68,12 +74,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             if (path != null) args.Add(path);
             // A light game runs its game time faster than real time; a heavy or blocked one is stopped after this.
             var limit = Math.Max(30, seconds * 4);
-            var (exitCode, lines) = await RunProcess(executable, projectDir, args, TimeSpan.FromSeconds(limit)).ConfigureAwait(false);
-            return GameRunOutput.Format(path ?? "the main scene", seconds, exitCode, limit, lines);
+            var (exitCode, lines, dropped) = await RunProcess(executable, projectDir, args, TimeSpan.FromSeconds(limit)).ConfigureAwait(false);
+            return GameRunOutput.Format(path ?? "the main scene", seconds, exitCode, limit, lines, dropped);
         }
 
         /// <summary>Run a process, collecting stdout and stderr in arrival order; null exit code when it hit the limit and was killed.</summary>
-        static async Task<(int? exitCode, List<string> lines)> RunProcess(string executable, string workingDir, List<string> args, TimeSpan limit)
+        static async Task<(int? exitCode, List<string> lines, int dropped)> RunProcess(string executable, string workingDir,
+            List<string> args, TimeSpan limit)
         {
             var psi = new ProcessStartInfo(executable)
             {
@@ -86,10 +93,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             foreach (var arg in args) psi.ArgumentList.Add(arg);
 
             var lines = new List<string>();
+            var dropped = 0;
             void Collect(object _, DataReceivedEventArgs e)
             {
                 if (e.Data == null) return;
-                lock (lines) lines.Add(e.Data);
+                lock (lines)
+                {
+                    if (lines.Count < MaxCollectedLines) lines.Add(e.Data);
+                    else dropped++;
+                }
             }
             using var process = new Process { StartInfo = psi };
             process.OutputDataReceived += Collect;
@@ -99,16 +111,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            var exited = process.WaitForExitAsync();
-            var killed = await Task.WhenAny(exited, Task.Delay(limit)).ConfigureAwait(false) != exited;
-            if (killed)
+            var killed = false;
+            using (var timeout = new CancellationTokenSource(limit))
             {
-                try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { /* exited meanwhile */ }
+                try { await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false); }
+                catch (OperationCanceledException)
+                {
+                    killed = true;
+                    try { process.Kill(entireProcessTree: true); }
+                    catch (InvalidOperationException) { /* exited meanwhile */ }
+                }
             }
-            await exited.ConfigureAwait(false); // also drains the redirected streams
-            lock (lines)
-                return (killed ? null : process.ExitCode, new List<string>(lines));
+            await process.WaitForExitAsync().ConfigureAwait(false); // also drains the redirected streams: no more Collect calls
+            return (killed ? null : process.ExitCode, lines, dropped);
         }
     }
 }
