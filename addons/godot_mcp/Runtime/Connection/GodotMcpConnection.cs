@@ -1508,8 +1508,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             try
             {
-                // Off the editor's SynchronizationContext (see OffMainThread): the connect loop holds McpPlugin's
-                // connection gate for ~3 s after the handshake, and a reload in that window must be able to cancel it.
                 var ok = await OffMainThread(() => plugin.Connect()).ConfigureAwait(false);
 
                 // A Reconnect()/Dispose() may have superseded THIS plugin while its connect was in flight (e.g. a

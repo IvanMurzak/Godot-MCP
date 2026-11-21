@@ -9,7 +9,7 @@ until the editor restarts). Each round here writes a new C# class with `script-c
 (the result arrives after Godot's reload, through the requestId) while other threads keep calling tools, then checks
 that the plugin answers again and that the new class is loaded (`script-execute` uses it). A call answered 503 must
 carry the gate's retryable message; a call lost with the connection while it goes down is only counted. Then the built DLL
-is touched about 1 s after the plugin reconnects, a few times (a reload while McpPlugin's connect is still settling). A
+is touched about 1 s after the plugin reconnects, a few times (a reload while its connect is still settling). A
 broken script must come back as compiler errors without a reload. With
 `--editor-log` the editor's output must show no failed unload.
 
@@ -131,18 +131,31 @@ class Background:
 
 
 def built_assembly(project: pathlib.Path) -> pathlib.Path | None:
-    """The project assembly Godot's watcher reloads (`.godot/mono/temp/bin/<config>/<assembly_name>.dll`)."""
+    """The DLL the plugin's reload gate watches: `.godot/mono/temp/bin/Debug/<assembly_name>.dll`, else the newest
+    configuration's (the rule of ScriptExecuteSource.BuiltAssemblyPath)."""
     text = (project / "project.godot").read_text(encoding="utf-8", errors="replace")
     name = next((line.split("=", 1)[1].strip().strip('"') for line in text.splitlines()
                  if line.startswith("project/assembly_name=")), project.name)
-    return next(iter(sorted((project / ".godot" / "mono" / "temp" / "bin").glob(f"*/{name}.dll"))), None)
+    dlls = list((project / ".godot" / "mono" / "temp" / "bin").glob(f"*/{name}.dll"))
+    debug = [d for d in dlls if d.parent.name == "Debug"]
+    return (debug or sorted(dlls, key=lambda d: d.stat().st_mtime, reverse=True) or [None])[0]
+
+
+def reload_started(host: str, timeout: float) -> bool:
+    """Whether the plugin stops answering `ping` (its assembly is unloading) within `timeout` seconds."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        _, ok, _ = call(host, "system-tools", "ping", {"message": "reload-smoke"}, timeout=2)
+        if not ok:
+            return True
+        time.sleep(0.1)
+    return False
 
 
 def reload_after_connect(host: str, project: pathlib.Path, reconnect: float, times: int = 3) -> None:
     """
-    Reload about 1 s after the plugin (re)connects, by touching the built DLL: McpPlugin's connect loop still holds its
-    connection gate then (the post-handshake stability check), and the teardown must still cancel it. When that loop was
-    stuck behind the editor's main thread, the unload failed ("Failed to unload assemblies", caught by --editor-log).
+    Reload about 1 s after the plugin (re)connects, by touching the built DLL: McpPlugin's connect is still settling then
+    (see GodotMcpConnection.OffMainThread), and the teardown must still cancel it. A failed unload shows in --editor-log.
     """
     dll = built_assembly(project)
     if not check("reload right after connect: built assembly found", dll is not None, str(project)):
@@ -152,7 +165,8 @@ def reload_after_connect(host: str, project: pathlib.Path, reconnect: float, tim
             return
         time.sleep(1.0)
         dll.touch()
-        time.sleep(3.0)  # Godot reloads ~0.5 s after the write; the gate refuses calls until then
+        if not check(f"reload right after connect {k}: Godot reloads", reload_started(host, 10)):
+            return
     check("reload right after connect: plugin answers after the last reload", wait_connected(host, reconnect) is not None)
 
 
