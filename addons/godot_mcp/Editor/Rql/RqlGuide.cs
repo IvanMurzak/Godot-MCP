@@ -247,7 +247,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             "what the game prints and its errors: rql-query gameLog (to run the game and get its errors in one call: the game-run tool). editor | call Undo() / Redo() steps the editor's undo history like Ctrl+Z " +
             "(returns the action; rql-query editor | select undoHistory lists the scene's and the global history); editor | call ReloadScene() reloads the edited scene from its file; " +
             "NewScene(path, \"res://base.tscn\") makes an inherited scene.\n" +
-            "UI: a Control kept at the bottom centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [\"CenterBottom\"]). " +
+            "UI: a Control kept at the bottom centre at any window size: call CallMethod(\"set_anchors_and_offsets_preset\", [\"CenterBottom\"]) (it resizes to the minimum size; [\"CenterBottom\", \"KeepSize\"] keeps a sized control's size). " +
             "A typed array of script resources (class_name): godot.resource(path) | set props[\"items\"] = [{$type: \"Item\", name: \"Sword\", cost: 3}, …].\n" +
             "Baking: a VoxelGI node bakes global illumination with call CallMethod(\"bake\") (set its Size around the level first); " +
             "LightmapGI has no scriptable bake in Godot (only the editor toolbar's Bake Lightmaps), so say so instead of reporting a bake.\n";
