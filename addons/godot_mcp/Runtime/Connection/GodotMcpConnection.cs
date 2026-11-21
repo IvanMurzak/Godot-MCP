@@ -1138,11 +1138,23 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             Start();
         }
 
+        /// <summary>
+        /// Start an McpPlugin connect / disconnect on the thread pool. McpPlugin awaits without
+        /// <c>ConfigureAwait(false)</c>, so started from the editor's main thread every continuation of its connection
+        /// loop is posted to Godot's SynchronizationContext. A C# reload blocks the main thread in the teardown, which
+        /// cancels that loop and waits for McpPlugin's connection gate: the cancelled step can then never resume, the
+        /// gate is never released ("Could not acquire gate within timeout", "disconnect-and-drain did not finish"), and
+        /// the queued continuation keeps this assembly loaded ("Failed to unload assemblies").
+        /// </summary>
+        static Task<T> OffMainThread<T>(Func<Task<T>> start) => Task.Run(start);
+
+        static Task OffMainThread(Func<Task> start) => Task.Run(start);
+
         async Task DisconnectAsync(IMcpPlugin plugin)
         {
             try
             {
-                await plugin.Disconnect();
+                await OffMainThread(() => plugin.Disconnect()).ConfigureAwait(false);
                 GodotMcpLog.Info("[Godot-MCP] disconnected.");
             }
             catch (Exception ex)
@@ -1496,12 +1508,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             try
             {
-                var ok = await plugin.Connect();
+                // A teardown (_recoverySuspended) may start before the thread pool runs this: never connect behind it.
+                var ok = await OffMainThread(() => _recoverySuspended ? Task.FromResult(false) : plugin.Connect()).ConfigureAwait(false);
 
                 // A Reconnect()/Dispose() may have superseded THIS plugin while its connect was in flight (e.g. a
-                // rapid Custom<->Cloud mode switch). The new plugin drives its own connect — don't report on a
-                // plugin we no longer own.
-                if (!ReferenceEquals(_plugin, plugin))
+                // rapid Custom<->Cloud mode switch), or a teardown began. The new plugin drives its own connect — don't
+                // report on a plugin we no longer own.
+                if (_recoverySuspended || !ReferenceEquals(_plugin, plugin))
                     return;
 
                 if (ok)
