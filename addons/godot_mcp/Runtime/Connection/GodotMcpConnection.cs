@@ -1508,12 +1508,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
 
             try
             {
-                var ok = await OffMainThread(() => plugin.Connect()).ConfigureAwait(false);
+                // A teardown (_recoverySuspended) may start before the thread pool runs this: never connect behind it.
+                var ok = await OffMainThread(() => _recoverySuspended ? Task.FromResult(false) : plugin.Connect()).ConfigureAwait(false);
 
                 // A Reconnect()/Dispose() may have superseded THIS plugin while its connect was in flight (e.g. a
-                // rapid Custom<->Cloud mode switch). The new plugin drives its own connect — don't report on a
-                // plugin we no longer own.
-                if (!ReferenceEquals(_plugin, plugin))
+                // rapid Custom<->Cloud mode switch), or a teardown began. The new plugin drives its own connect — don't
+                // report on a plugin we no longer own.
+                if (_recoverySuspended || !ReferenceEquals(_plugin, plugin))
                     return;
 
                 if (ok)
