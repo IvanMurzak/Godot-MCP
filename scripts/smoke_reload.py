@@ -155,8 +155,9 @@ def reload_started(host: str, timeout: float) -> bool:
 def reload_after_connect(host: str, project: pathlib.Path, reconnect: float, times: int = 3) -> None:
     """
     Touch the built DLL about 1 s after the plugin answers, `times` times: the first reload starts from a long-connected
-    plugin, every later one ~1.5-2 s after that reload's reconnect, while McpPlugin's connect is still settling (see
-    GodotMcpConnection.OffMainThread) and the teardown must still cancel it. A failed unload shows in --editor-log.
+    plugin, every later one ~1.5-2 s after that reload's reconnect, while McpPlugin's connect is still settling (it holds
+    its connection gate; a continuation queued on the editor's main thread would deadlock the teardown) and the teardown
+    must still cancel it. A failed unload shows in --editor-log.
     """
     dll = built_assembly(project)
     if not check("reload right after connect: built assembly found", dll is not None, str(project)):
