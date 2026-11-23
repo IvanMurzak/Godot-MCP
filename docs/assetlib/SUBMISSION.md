@@ -25,11 +25,11 @@ this file is just the field values. Keep it in sync whenever any field changes.
 | **Asset name** | `Godot-MCP` |
 | **Category** | `Tools` (an Addon-side category — categories are split into Addons / Projects, and picking an Addon category is what makes this entry an Addon and surfaces it in the in-editor *AssetLib* tab; there is no separate "Type" field) |
 | **Godot version** | `4.3` (lowest supported; the addon also runs on 4.4 / 4.5 — a single entry cannot carry multiple engine versions, so each version it should advertise needs its own resubmission) |
-| **Version** | `0.42.0` (must match `addons/godot_mcp/plugin.cfg` `version=` and the `v0.42.0` tag) |
+| **Version** | `0.42.1` (must match `addons/godot_mcp/plugin.cfg` `version=` and the `v0.42.1` tag) |
 | **Repository host** | `GitHub` |
 | **Repository URL** | `https://github.com/IvanMurzak/Godot-MCP` |
 | **Issues URL** | `https://github.com/IvanMurzak/Godot-MCP/issues` |
-| **Download Commit** | the commit hash the `v0.42.0` tag points at — get it with `git rev-list -n1 v0.42.0` (a hash, not the tag name) |
+| **Download Commit** | the commit hash the `v0.42.1` tag points at — get it with `git rev-list -n1 v0.42.1` (a hash, not the tag name) |
 | **License** | `Apache-2.0` |
 | **Icon URL** | `https://raw.githubusercontent.com/IvanMurzak/Godot-MCP/main/addons/godot_mcp/icon.png` (square 512×512 PNG; AssetLib requires square PNG/JPG ≥ 128×128 — SVG is not accepted) |
 
@@ -66,11 +66,11 @@ Requirements:
 
 Important install note: Godot compiles every .cs file under your project into one assembly, so your
 project's .csproj must declare the six NuGet package references the addon depends on:
-  com.IvanMurzak.ReflectorNet     version 5.6.0
-  com.IvanMurzak.McpPlugin        version 8.25.0
+  com.IvanMurzak.ReflectorNet     version 5.6.1
+  com.IvanMurzak.McpPlugin        version 8.25.2
   com.IvanMurzak.Rql              version 0.5.0
-  com.IvanMurzak.CodeExec         version 0.5.0
-  com.IvanMurzak.CodeExec.Roslyn  version 0.5.0
+  com.IvanMurzak.CodeExec         version 0.5.1
+  com.IvanMurzak.CodeExec.Roslyn  version 0.5.1
   Microsoft.CodeAnalysis.CSharp   version 4.12.0
 The last four are editor-only: give them
 Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" so exported games ship
