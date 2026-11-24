@@ -222,13 +222,16 @@ jobs:
           rm -rf "${prefix}"
           mkdir -p "${prefix}"
           ok=0
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if npm install --prefix "${prefix}" --no-audit --no-fund "godot-cli@${CLI_VERSION}"; then
+          # npm lists a new version in the packument minutes before its tarball is on the CDN
+          # (release v0.42.3: 404s for more than 200 s after publish), so allow up to 10 min.
+          attempts=40
+          for attempt in $(seq 1 "${attempts}"); do
+            if npm install --prefix "${prefix}" --no-audit --no-fund --prefer-online "godot-cli@${CLI_VERSION}"; then
               ok=1
               break
             fi
-            echo "npm install godot-cli@${CLI_VERSION} failed (attempt ${attempt}/10); retrying in 20s..."
-            sleep 20
+            echo "npm install godot-cli@${CLI_VERSION} failed (attempt ${attempt}/${attempts}); retrying in 15s..."
+            sleep 15
           done
           if [ "${ok}" != "1" ]; then
             echo "::error::Could not install godot-cli@${CLI_VERSION} from the npm registry."
