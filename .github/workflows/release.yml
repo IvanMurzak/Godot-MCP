@@ -796,8 +796,16 @@ jobs:
   #   vars.GODOT_ASSETLIB_ASSET_ID
   # If they are not configured, the action fails auth (job red) but the release
   # and npm publish are unaffected.
+  #
+  # Runs on the owner's self-hosted Linux host (runner-manager policy on
+  # ivan-ms-a2, selector rm-ivan-ms-a2-linux-x64), not on a GitHub-hosted runner:
+  # since 2026-11-24 Cloudflare in front of godotengine.org answers this
+  # action's login (axios) from GitHub-hosted runners with a bare 403 (no API
+  # `error` body), while the same request from the owner's network is answered
+  # by the Asset Library API. The job is dispatch-only (release.yml has no PR
+  # trigger), so no fork code reaches that host.
   assetlib-edit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rm-ivan-ms-a2-linux-x64]
     needs:
       [
         check-version-tag,

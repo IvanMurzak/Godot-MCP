@@ -166,6 +166,13 @@ job** — but it is isolated: the GitHub Release and the npm `deploy` publish ar
 depend on it). The asset id only exists after the INITIAL submission, so this automation becomes
 effective from the **second** release onward.
 
+The job runs on the owner's self-hosted Linux host (`runs-on: [self-hosted, linux, x64,
+rm-ivan-ms-a2-linux-x64]`, a runner-manager policy on `ivan-ms-a2`, one slot). Since 2026-11-24
+Cloudflare in front of godotengine.org answers the action's login from GitHub-hosted runners with a bare
+403 (no API `error` field), while the same request from the owner's network reaches the API. If that host
+is offline the job waits in the queue (GitHub drops it after 24 h) and the release run stays open until
+it runs; the npm publish and the GitHub Release are already done by then.
+
 The rendered field values (title, description, category, godot_version, license, repo/issues URLs, icon
 URL) live in [`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs); `version_string` and
 `download_commit` are injected at run time from the canonical version (`plugin.cfg` via
