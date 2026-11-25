@@ -161,17 +161,26 @@ is hardcoded). Set these in the repository **Settings → Secrets and variables 
 | `GODOT_ASSETLIB_PASSWORD` | **Secret** | That account's Asset Library password (the action logs in and obtains a session token). |
 | `GODOT_ASSETLIB_ASSET_ID` | **Variable** | The numeric asset id of the existing Godot-MCP entry (assigned by the Asset Library after the INITIAL submission is approved). |
 
-Until all three are configured, the `assetlib-edit` job fails authentication and shows up as a **red
-job** — but it is isolated: the GitHub Release and the npm `deploy` publish are unaffected (they do not
+Until all three are configured, the `assetlib-edit` workflow run fails authentication and shows up
+**red** — but it is isolated: the GitHub Release and the npm `deploy` publish are unaffected (they do not
 depend on it). The asset id only exists after the INITIAL submission, so this automation becomes
 effective from the **second** release onward.
 
-The job runs on the owner's self-hosted Linux host (`runs-on: [self-hosted, linux, x64,
-rm-ivan-ms-a2-linux-x64]`, a runner-manager policy on `ivan-ms-a2`, one slot). Since 2026-11-24
-Cloudflare in front of godotengine.org answers the action's login from GitHub-hosted runners with a bare
-403 (no API `error` field), while the same request from the owner's network reaches the API. If that host
-is offline the job waits in the queue (GitHub drops it after 24 h) and the release run stays open until
-it runs; the npm publish and the GitHub Release are already done by then.
+The `assetlib-edit` job only dispatches [`assetlib_edit.yml`](../.github/workflows/assetlib_edit.yml),
+which does the submission on the owner's self-hosted Linux host (`runs-on: [self-hosted, linux, x64,
+rm-ivan-ms-a2-linux-x64]`, a runner-manager policy on `ivan-ms-a2`, one slot, 10-minute timeout). Since
+2026-11-24 Cloudflare in front of godotengine.org answers the action's login from GitHub-hosted runners
+with a bare 403 (no API `error` field), while the same request from the owner's network reaches the API.
+Being a separate run, it never keeps the release run open: if that host is offline the edit waits in its
+own queue (GitHub drops it after 24 h) and the release, the train and the next release are unaffected.
+So a green release does NOT mean the edit was submitted: check the latest `assetlib-edit` workflow run.
+To re-submit by hand: `gh workflow run assetlib_edit.yml --ref main -f version=X.Y.Z -f commit=<sha of
+tag vX.Y.Z>` (it refuses a commit the tag does not point at).
+
+Trust boundary: runner-manager routes by labels, not by event, so a `pull_request` workflow edited in a
+fork PR could request this host's labels. Fork code is kept off it only by the repository's fork-PR
+approval (required for all external contributors): never approve a fork run that changes
+`.github/workflows/**`.
 
 The rendered field values (title, description, category, godot_version, license, repo/issues URLs, icon
 URL) live in [`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs); `version_string` and
@@ -253,14 +262,14 @@ The Asset Library entry is **edited in place** — you do NOT create a new entry
 INITIAL submission exists and the three GitHub config entries above are set, this is **automated**:
 
 1. Cut the new GitHub Release (bump `plugin.cfg`, merge, dispatch `release.yml` → tags `v<newversion>`).
-2. The `assetlib-edit` job runs after the Release (and its post-publish verification) and submits the edit automatically — it bumps the
+2. The `assetlib-edit` job runs after the Release (and its post-publish verification) and dispatches `assetlib_edit.yml`, which submits the edit — it bumps the
    **Version** to the new `plugin.cfg` semver (`version_string`) and sets **Download Commit** to the
    released commit (`github.sha`). The other field values come from `.github/assetlib/edit.hbs`.
 3. The Godot Asset Library moderator reviews the submitted edit before it goes live (same as a manual
    edit — automation only fills + submits the form, it does not bypass moderation).
 
-If the automated edit fails (red `assetlib-edit` job — e.g. credentials not yet configured, or the
-asset id is wrong), fall back to the manual edit: sign in, open the existing **Godot-MCP** asset, click
+If the automated edit fails (a red `assetlib-edit` workflow run — e.g. credentials not yet configured, or the
+asset id is wrong), re-dispatch it (above) or fall back to the manual edit: sign in, open the existing **Godot-MCP** asset, click
 **Edit**, bump **Version** + **Download Commit** (`git rev-list -n1 v<newversion>`), and submit.
 
 > Keep [`.github/assetlib/edit.hbs`](../.github/assetlib/edit.hbs) and
