@@ -785,8 +785,8 @@ jobs:
 
   # Auto-submit the Godot Asset Library VERSION EDIT for the just-released
   # version. Runs only after the published release was verified end to end.
-  # This job is intentionally ISOLATED: nothing downstream needs it, so an
-  # AssetLib failure shows up as a red job for visibility but never blocks the
+  # This job is intentionally ISOLATED: nothing downstream needs it, so a
+  # failed dispatch shows up as a red job for visibility but never blocks the
   # npm publish or the Release. The one-time INITIAL submission + moderator
   # approval remain manual (see docs/RELEASING.md); this automates the
   # per-release EDIT only.
@@ -794,8 +794,14 @@ jobs:
   # Credentials/ids come ONLY from GitHub-managed config (never hardcoded):
   #   secrets.GODOT_ASSETLIB_USERNAME / secrets.GODOT_ASSETLIB_PASSWORD
   #   vars.GODOT_ASSETLIB_ASSET_ID
-  # If they are not configured, the action fails auth (job red) but the release
-  # and npm publish are unaffected.
+  # (used by assetlib_edit.yml). If they are not configured, that run fails auth
+  # (red) but the release and npm publish are unaffected.
+  #
+  # The submission itself runs in assetlib_edit.yml on the owner's self-hosted
+  # host (see that file for why). This job only DISPATCHES it, from a
+  # GitHub-hosted runner, so this release run never waits for that host. The
+  # dispatched run's outcome is NOT this job's: check the assetlib-edit
+  # workflow's run (and the moderation queue) after a release.
   assetlib-edit:
     runs-on: ubuntu-latest
     needs:
@@ -810,32 +816,17 @@ jobs:
         e2e-published-4-7,
       ]
     if: inputs.dry_run != true
+    permissions:
+      actions: write
     steps:
-      - name: Checkout repository
-        # The action reads the handlebars template (.github/assetlib/edit.hbs)
-        # from the workspace, so the repo must be checked out.
-        uses: actions/checkout@v6
-
-      - name: Submit Asset Library version edit
-        # deep-entertainment/godot-asset-lib-action @ v0.6.0
-        # Pinned to the commit SHA for supply-chain safety (the action runs
-        # arbitrary JS with the AssetLib credentials). Bump the SHA + the
-        # version comment together when upgrading.
-        uses: deep-entertainment/godot-asset-lib-action@056fa4060f062a8b209a5a6744a2726ad48d6bb0 # v0.6.0
+      - name: Dispatch the Asset Library version edit
         env:
-          # Canonical version (from plugin.cfg via check-version-tag) and the
-          # released commit (github.sha is the commit the v<version> tag points
-          # at — release-addon cut the tag on this same commit). The handlebars
-          # template reads these as {{ env.ASSETLIB_VERSION }} and
-          # {{ env.ASSETLIB_DOWNLOAD_COMMIT }}.
-          ASSETLIB_VERSION: ${{ needs.check-version-tag.outputs.version }}
-          ASSETLIB_DOWNLOAD_COMMIT: ${{ github.sha }}
-        with:
-          action: addEdit
-          username: ${{ secrets.GODOT_ASSETLIB_USERNAME }}
-          password: ${{ secrets.GODOT_ASSETLIB_PASSWORD }}
-          assetId: ${{ vars.GODOT_ASSETLIB_ASSET_ID }}
-          assetTemplate: .github/assetlib/edit.hbs
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-version-tag.outputs.version }}
+        run: |
+          gh workflow run assetlib_edit.yml -R "$GITHUB_REPOSITORY" --ref main \
+            -f version="$VERSION" -f commit="$GITHUB_SHA"
+          echo "Dispatched assetlib_edit.yml for $VERSION at $GITHUB_SHA"
 
   # Announce the just-cut GitHub Release in Discord (Unity-MCP parity — see the
   # `publish_discord` job in Unity-MCP's release.yml). LAST: fires only on a real run

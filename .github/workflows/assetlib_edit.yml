@@ -1,0 +1,96 @@
+# Submit the Godot Asset Library VERSION EDIT for one released version.
+#
+# Dispatched by the `assetlib-edit` job of release.yml after a real release was
+# verified (and by hand to re-submit, e.g. `gh workflow run assetlib_edit.yml
+# --ref main -f version=0.42.4 -f commit=<the v0.42.4 tag's commit sha>`).
+# It is a workflow of its own so that the release run never waits for it: it
+# runs on the owner's self-hosted Linux host, and a job queued for an offline
+# host would otherwise keep the release run open (halting the train, which
+# waits for the whole run) and hold the release concurrency group.
+#
+# Why self-hosted: since 2026-11-24 Cloudflare in front of godotengine.org
+# answers this action's login (axios) from GitHub-hosted runners with a bare 403
+# (no Asset Library `error` body), while the same request from the owner's
+# network reaches the API. (release_extensions.yml's own Python client still
+# gets through from GitHub-hosted runners.) The host is the runner-manager
+# policy on ivan-ms-a2 (selector rm-ivan-ms-a2-linux-x64, one slot).
+#
+# Trust boundary: runner-manager routes by labels, not by event, so a
+# pull_request workflow edited in a fork PR could request these labels too.
+# What keeps fork code off the host is the repository's fork-PR approval
+# (all external contributors): never approve a fork run that changes
+# .github/workflows/**.
+#
+# Credentials/ids come ONLY from GitHub-managed config (see docs/RELEASING.md):
+#   secrets.GODOT_ASSETLIB_USERNAME / secrets.GODOT_ASSETLIB_PASSWORD
+#   vars.GODOT_ASSETLIB_ASSET_ID
+
+name: assetlib-edit
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version (plugin.cfg), e.g. 0.42.4"
+        required: true
+        type: string
+      commit:
+        description: "Full commit sha the v<version> tag points at (the edit's download commit)"
+        required: true
+        type: string
+
+concurrency:
+  group: assetlib-edit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  assetlib-edit:
+    runs-on: [self-hosted, linux, x64, rm-ivan-ms-a2-linux-x64]
+    # The login + one POST take seconds; a hung request must not hold the
+    # host's slot for the 6-hour default.
+    timeout-minutes: 10
+    steps:
+      - name: Validate inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version '$VERSION' is not x.y.z"; exit 1; }
+          [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::commit must be a full 40-hex sha"; exit 1; }
+
+      - name: Checkout the released commit
+        # The action reads the handlebars template (.github/assetlib/edit.hbs)
+        # from the workspace.
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit }}
+
+      - name: Check the commit is the v<version> tag
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          git fetch --no-tags --depth=1 origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
+          tagged="$(git rev-parse "v${VERSION}^{commit}")"
+          [ "$tagged" = "$COMMIT" ] || { echo "::error::v${VERSION} points at ${tagged}, not ${COMMIT}"; exit 1; }
+
+      - name: Submit Asset Library version edit
+        # deep-entertainment/godot-asset-lib-action @ v0.6.0
+        # Pinned to the commit SHA for supply-chain safety (the action runs
+        # arbitrary JS with the AssetLib credentials). Bump the SHA + the
+        # version comment together when upgrading.
+        uses: deep-entertainment/godot-asset-lib-action@056fa4060f062a8b209a5a6744a2726ad48d6bb0 # v0.6.0
+        env:
+          # The handlebars template reads these as {{ env.ASSETLIB_VERSION }}
+          # and {{ env.ASSETLIB_DOWNLOAD_COMMIT }}.
+          ASSETLIB_VERSION: ${{ inputs.version }}
+          ASSETLIB_DOWNLOAD_COMMIT: ${{ inputs.commit }}
+        with:
+          action: addEdit
+          username: ${{ secrets.GODOT_ASSETLIB_USERNAME }}
+          password: ${{ secrets.GODOT_ASSETLIB_PASSWORD }}
+          assetId: ${{ vars.GODOT_ASSETLIB_ASSET_ID }}
+          assetTemplate: .github/assetlib/edit.hbs
