@@ -21,12 +21,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
     /// Reflection tool family (<c>reflection-method-*</c>) — the Godot analog of Unity-MCP's
-    /// <c>Tool_Reflection</c>. This family is engine-agnostic: it reuses ReflectorNet's reflection engine
-    /// (<see cref="TypeUtils.AllTypes"/>, <see cref="MethodData"/>, <see cref="MethodWrapper"/>) to find
-    /// and call C# methods (static + instance, public + private) across every loaded assembly. The only
-    /// Godot-specific wiring is the reflector source: it reads <see cref="Reflection.GodotMcpReflector"/>
-    /// (the connection-built reflector with Godot type converters) instead of Unity's
-    /// <c>UnityMcpPluginEditor.Instance.Reflector</c>.
+    /// <c>Tool_Reflection</c>. ReflectorNet finds and describes the methods (<see cref="TypeUtils.AllTypes"/>,
+    /// <see cref="MethodRef"/>, <see cref="MethodData"/>) across every loaded assembly (static + instance, public +
+    /// private); the call's target and arguments are RQL values (<c>RqlValue</c>, converted by the in-game RQL engine).
     ///
     /// <para>
     /// No Godot editor-API surface, so it intentionally lives OUTSIDE <c>#if TOOLS</c>. The find/call

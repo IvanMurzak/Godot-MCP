@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
     /// This type lives OUTSIDE <c>#if TOOLS</c>, so it compiles into an exported game build (where
     /// <c>TOOLS</c> is undefined and the editor <c>EditorPlugin</c>/dock/editor tool families are dropped).
     /// It reuses the existing runtime-agnostic stack — <see cref="GodotMcpConfig"/>,
-    /// <see cref="GodotReflectorFactory"/>, <see cref="McpPluginBuilder"/>, <see cref="GodotMcpReflector"/>,
+    /// <see cref="McpPluginBuilder"/>, the in-game RQL engine (<c>GodotRqlRuntime</c>),
     /// and the <see cref="MainThreadDispatcher"/>/<see cref="GodotMainThread"/> pair — rather than inventing
     /// a parallel transport.
     /// </para>
@@ -122,12 +122,9 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             if (builder.InstallDispatcher)
                 EnsureMainThreadDispatcher();
 
-            // 3) Build the reflector with the Godot value-type / ref converters and publish it as the ambient
-            //    one so tool handlers share the exact converter set (mirrors GodotMcpConnection.Start). The
-            //    editor ResourceLoader resolver (Tool_Resource.InstallReflectionResolver) is intentionally
-            //    NOT installed — it is #if TOOLS editor-only and absent from a game build.
-            Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
-            GodotMcpReflector.Current = reflector;
+            // 3) The reflector only invokes the tool methods (McpPlugin's MethodWrapper): RQL is the value layer of every
+            //    in-game tool (step 4d), so it carries no Godot converters.
+            Reflector reflector = new Reflector();
 
             var version = new McpVersion
             {
@@ -185,7 +182,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             Tools.DeprecatedToolAliases.Register(plugin.McpManager?.ToolManager, reflector);
 
             // 4d) RQL is the value layer of every in-game tool, as in the editor: schemas from RQL's type model, arguments as
-            //     RQL values (a custom class literal {position: (1, 2, 3), target: ref("Node3D#12")}, a node path, res://),
+            //     RQL values (a custom class literal {position: [1, 2, 3], target: ref("Node3D#12")}, a node path, res://),
             //     results as RQL text. No fallback: a game whose tools could not get it does not build a handle.
             try
             {

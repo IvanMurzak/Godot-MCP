@@ -87,7 +87,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             RqlToolBinding.Instance.EngineProvider = () => engine;
             RqlToolBinding.Instance.MainThreadRunner = null;
             RqlToolBinding.Instance.Reset();
-            var reflector = GodotReflectorFactory.CreateDefaultReflector();
+            var reflector = new com.IvanMurzak.ReflectorNet.Reflector();
             var tools = new ToolRunnerCollection(reflector, null)
             {
                 [Echo] = RunTool.CreateFromStaticMethod(reflector, null, Echo, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Echo))!),

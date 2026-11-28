@@ -5,8 +5,8 @@ Godot-MCP connects LLM agents to the [Godot](https://godotengine.org/) editor ov
 server is NOT in this repo: the addon consumes the shared
 [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server).
 
-The addon is a `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) that installs the main-thread dispatcher,
-builds a `Reflector` with Godot type converters, and connects to an MCP server (cloud `ai-game.dev` by
+The addon is a `[Tool]` `EditorPlugin` (`GodotMcpPlugin`) that installs the main-thread dispatcher and RQL as the
+value layer of every tool (ReflectorNet only invokes the tool methods: no Godot converters), and connects to an MCP server (cloud `ai-game.dev` by
 default, or a custom local one) through the McpPlugin SignalR client. The editor tools' data layer is
 [RQL](docs/rql.md) (`rql-query` / `rql-mutate` / `rql-schema`, `Editor/Rql/`). The MCP/reflection/query stack
 (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql` — PolyForm Shield 1.0.0) is

@@ -49,8 +49,7 @@ addons/godot_mcp/
 │   ├── Connection/                   # connection core, config, env/store, logger, resolver,
 │   │                                 #   token gen, server-view (version parse), STJ cache
 │   ├── MainThread/                   # MainThreadDispatcher + GodotMainThread
-│   ├── Reflection/                   # reflector factory + Godot value-type / Variant / Resource-ref /
-│   │                                 #   Node-ref converters + GodotAssemblyUtils
+│   ├── Reflection/                   # GodotAssemblyUtils (the tool / module scan set)
 │   ├── Rql/                          # RQL as the value layer of every tool, editor AND game: value adapters
 │   │                                 #   (GodotValuesModule), tool binding (ToolFormat/), in-game engine
 │   │                                 #   (GodotRqlRuntime)
@@ -102,7 +101,7 @@ The same addon serves two distinct audiences:
 A plugin author installs `addons/godot_mcp/`, enables it in
 *Project → Project Settings → Plugins*, and the `GodotMcpPlugin` `EditorPlugin`
 (`Editor/GodotMcpPlugin.cs`, `#if TOOLS`) boots on editor load: it installs the assembly
-resolver + main-thread dispatcher, builds a `Reflector` with Godot type converters, shows the
+resolver + main-thread dispatcher, installs RQL as the tools' value layer, shows the
 "AI Game Developer" dock, and connects to an MCP server (cloud `ai-game.dev` by default, or a
 custom local server). The editor tool families (`rql-*` — RQL over scene nodes, resources, files, scenes and
 editor state —, `script-*`, `screenshot-*`) drive the live editor. In the editor, the runtime-safe `console-*` /

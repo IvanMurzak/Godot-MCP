@@ -44,7 +44,7 @@ Godot compiles every `.cs` file in the project into one assembly, so the project
 
 | Package | Role |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Reflection and serialization core |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Reflection core: finds and invokes the tool methods (McpPlugin's dependency) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP plugin client |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, the value layer of every tool, in the editor and in a game (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec, behind `csharp-exec` (PolyForm Shield) |

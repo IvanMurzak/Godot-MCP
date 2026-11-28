@@ -20,8 +20,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
     /// Pure-managed coverage for the scene-tree helpers RQL reuses: the path normalizer
-    /// (<see cref="NodePathNormalizer"/>, behind <c>godot.find</c> and NodeRef resolution) and the ambient reflector
-    /// accessor (<see cref="GodotMcpReflector"/>). None of these touch a live Godot SceneTree, so they run in the
+    /// (<see cref="NodePathNormalizer"/>, behind <c>godot.find</c> and NodeRef resolution). None of these touch a live Godot SceneTree, so they run in the
     /// plain xUnit host with no Godot binary. The node editing itself (RQL's Node adapter, <c>#if TOOLS</c>) is
     /// verified by the live CI smoke (scripts/smoke_rql.py).
     /// </summary>
@@ -112,55 +111,4 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
     }
 
-    /// <summary>
-    /// The two <see cref="GodotMcpReflector.GetOrCreate"/> facts that mutate the process-wide
-    /// <see cref="GodotMcpReflector.Current"/> static — extracted out of the otherwise-parallel
-    /// <see cref="NodePathNormalizerTests"/> so they join the serial <see cref="GodotMcpReflectorCurrentCollection"/>
-    /// and can never race another class that touches that static (issue #195: currently unraced, but the same
-    /// bare-mutator antipattern as the other three statics, so it is guarded pre-emptively and enforced by the
-    /// drift-guard). Snapshots/restores <c>Current</c> in the ctor/Dispose so the suite is non-destructive.
-    /// </summary>
-    [Collection(GodotMcpReflectorCurrentCollection.Name)]
-    public class GodotMcpReflectorCurrentTests : System.IDisposable
-    {
-        readonly Reflector? _savedCurrent;
-
-        public GodotMcpReflectorCurrentTests()
-        {
-            _savedCurrent = GodotMcpReflector.Current;
-        }
-
-        public void Dispose()
-        {
-            GodotMcpReflector.Current = _savedCurrent;
-        }
-
-        [Fact]
-        public void GodotMcpReflector_GetOrCreate_FallsBack_WhenNoCurrent()
-        {
-            GodotMcpReflector.Current = null;
-            var reflector = GodotMcpReflector.GetOrCreate();
-            Assert.NotNull(reflector);
-            // The fallback is NOT cached into Current (the connection remains the sole owner).
-            Assert.Null(GodotMcpReflector.Current);
-        }
-
-        [Fact]
-        public void GodotMcpReflector_GetOrCreate_ReturnsCurrent_WhenSet()
-        {
-            var mine = new Reflector();
-            GodotMcpReflector.Current = mine;
-            Assert.Same(mine, GodotMcpReflector.GetOrCreate());
-        }
-    }
-
-    /// <summary>
-    /// Dedicated serial collection for writers of the process-wide <see cref="GodotMcpReflector.Current"/>
-    /// static (issue #195), keeping the rest of <see cref="NodePathNormalizerTests"/> parallel.
-    /// </summary>
-    [CollectionDefinition(Name, DisableParallelization = true)]
-    public sealed class GodotMcpReflectorCurrentCollection
-    {
-        public const string Name = "GodotMcpReflector.Current (serial)";
-    }
 }
