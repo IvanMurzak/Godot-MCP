@@ -81,8 +81,8 @@ export interface AddonEmbeddedResource {
  * Order matches the addon csproj (ReflectorNet, McpPlugin, Rql, then Code-Exec and its Roslyn).
  */
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
-  { id: 'com.IvanMurzak.ReflectorNet', version: '5.6.1' },
-  { id: 'com.IvanMurzak.McpPlugin', version: '8.26.0' },
+  { id: 'com.IvanMurzak.ReflectorNet', version: '5.7.0' },
+  { id: 'com.IvanMurzak.McpPlugin', version: '8.26.1' },
   { id: 'com.IvanMurzak.Rql', version: '0.5.0' },
   { id: 'com.IvanMurzak.CodeExec', version: '0.5.1', editorOnly: true, inGameOptIn: true },
   { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.5.1', editorOnly: true, inGameOptIn: true },

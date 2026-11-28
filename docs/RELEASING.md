@@ -287,8 +287,8 @@ in this repo):
 
 | Package | Version | Role |
 | --- | --- | --- |
-| `com.IvanMurzak.ReflectorNet` | `5.6.1` | reflection core (tool method invocation; RQL is the value layer) |
-| `com.IvanMurzak.McpPlugin` | `8.26.0` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
+| `com.IvanMurzak.ReflectorNet` | `5.7.0` | reflection core (tool method invocation; RQL is the value layer) |
+| `com.IvanMurzak.McpPlugin` | `8.26.1` | MCP plugin client (transitively pulls `McpPlugin.Common` + `ReflectorNet`) |
 | `com.IvanMurzak.Rql` | `0.5.0` | RQL, the value layer of every tool, editor and game (licensed separately under PolyForm Shield) |
 | `com.IvanMurzak.CodeExec` + `com.IvanMurzak.CodeExec.Roslyn` | `0.5.1` | Code-Exec runtime + source-only Roslyn adapter behind `csharp-exec` (PolyForm Shield) |
 | `Microsoft.CodeAnalysis.CSharp` | `4.12.0` | Roslyn for `csharp-exec`; 4.12 keeps its dependencies at the .NET 8 framework versions |
