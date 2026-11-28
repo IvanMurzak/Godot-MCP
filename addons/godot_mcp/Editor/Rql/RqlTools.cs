@@ -57,6 +57,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         public static List<RqlToolRow> All() =>
             (Manager?.GetAllTools() ?? Enumerable.Empty<IRunTool>())
+                .Where(t => !global::com.IvanMurzak.Godot.MCP.Tools.DeprecatedToolAliases.IsAlias(t.Name)) // DEV-314: a hidden alias is no row of its own
                 .Select(t => new RqlToolRow(t.Name, t.Title, t.Description, t.Visible))
                 .OrderBy(r => r.name, StringComparer.Ordinal).ToList();
     }

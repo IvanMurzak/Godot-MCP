@@ -76,10 +76,10 @@ de ese modo. Léelo antes de publicar una compilación que llame a `GodotMcpRunt
   `AuthOption = Consts.MCP.Server.AuthOption.token` y un token real; nunca en una interfaz pública sin autenticación
   en una compilación release.
 
-<a id="in-game-code-execution-withscriptexecute"></a>
-## Ejecución de código en el juego (`WithScriptExecute`)
+<a id="in-game-code-execution-withcsharpexec"></a>
+## Ejecución de código en el juego (`WithCsharpExec`)
 
-`builder.WithScriptExecute()` registra `script-execute` en el juego: un cliente conectado envía C#, el juego
+`builder.WithCsharpExec()` registra `csharp-exec` en el juego: un cliente conectado envía C#, el juego
 lo compila con Roslyn y lo ejecuta en su hilo principal. Eso es **ejecución de código arbitrario en el proceso
 del juego**, con el acceso al sistema de archivos y a la red del jugador. Está DESACTIVADO por defecto y requiere activarlo en la
 compilación: un juego exportado solo tiene Code-Exec y Roslyn cuando su `.csproj` define `GodotMcpCodeExecInGame=true`
@@ -88,7 +88,7 @@ una advertencia y no registra nada.
 
 > **Juegos iniciados desde el editor.** Su compilación es la del editor (`TOOLS`), así que las familias de herramientas
 > de editor del addon también se compilan en el ensamblado del juego. Un `WithToolsFromAssembly(...)` sobre ese ensamblado
-> las registra entonces, incluido el `script-execute` del editor, con o sin `WithScriptExecute()`. En una compilación
+> las registra entonces, incluido el `csharp-exec` del editor, con o sin `WithCsharpExec()`. En una compilación
 > de exportación no existen. Registra tipos concretos (`WithTools(...)`) si un juego ejecutado desde el editor no debe
 > ofrecerlas.
 

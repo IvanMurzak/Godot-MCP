@@ -60,7 +60,7 @@ The server listens on loopback only and answers `403` to a request with a non-al
 
 **Stop Server** stops it; closing the editor stops it too. The download URL comes only from the pinned version and your platform. Offline, the addon logs a warning and the server does not start. Under CI (`CI` / `GITHUB_ACTIONS`) the download is skipped.
 
-Tool calls may run up to 5 minutes. `script-execute` stops a snippet itself when its `timeout` runs out (30 s by default).
+Tool calls may run up to 5 minutes. `csharp-exec` stops a snippet itself when its `timeout` runs out (30 s by default).
 
 For development, `GODOT_MCP_SERVER_PATH=<absolute path>` makes the editor start that existing `gamedev-mcp-server` binary instead of the pinned release (no download, no version check, no orphan cleanup). It is read once per plugin assembly load, from the process environment or the project `.env`; a path that names no file is ignored with a warning. On Linux and macOS the file must already be executable.
 

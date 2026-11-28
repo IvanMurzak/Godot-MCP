@@ -65,7 +65,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | 跳过自动的主线程调度器（仅当你安装了自己的调度器时）。 |
 | `ConnectWhenRunFromEditor()` | 在从编辑器启动的游戏中也进行连接（默认关闭，见下文）。 |
 | `WithRuntimeErrorCapture()` | 捕获游戏内错误并注册 `runtime-errors-*`。默认关闭。 |
-| `WithScriptExecute()` | 在游戏中注册 `script-execute`。默认关闭；需要在 csproj 中启用。 |
+| `WithCsharpExec()` | 在游戏中注册 `csharp-exec`。默认关闭；需要在 csproj 中启用。 |
 | `Build()` | 返回一个未连接的 `GodotMcpRuntimeHandle`。 |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | 打开、关闭或销毁连接。 |
 
@@ -137,7 +137,7 @@ public sealed class SceneTreeSummary
 <a id="running-c-in-the-game"></a>
 ## 在游戏中运行 C#
 
-`builder.WithScriptExecute()` 让智能体发送 C# 代码，由运行中的游戏用 Roslyn 编译并在其主线程上运行，可使用游戏自身的类型、autoload 和场景树。导出构建不包含 Roslyn，因此游戏的 `.csproj` 需要显式启用：
+`builder.WithCsharpExec()` 让智能体发送 C# 代码，由运行中的游戏用 Roslyn 编译并在其主线程上运行，可使用游戏自身的类型、autoload 和场景树。导出构建不包含 Roslyn，因此游戏的 `.csproj` 需要显式启用：
 
 ```xml
 <PropertyGroup>
@@ -146,6 +146,6 @@ public sealed class SceneTreeSummary
 </PropertyGroup>
 ```
 
-当前版本的 `godot-cli install-plugin` 会写入带有 `Condition` 的 Code-Exec 和 Roslyn 包引用，该条件会遵循此属性；RQL 永远不会随游戏发布。未启用时，`WithScriptExecute()` 会记录一条警告且不注册任何内容。
+当前版本的 `godot-cli install-plugin` 会写入带有 `Condition` 的 Code-Exec 和 Roslyn 包引用，该条件会遵循此属性；RQL 永远不会随游戏发布。未启用时，`WithCsharpExec()` 会记录一条警告且不注册任何内容。
 
 > **这就是任意代码执行。** 任何能在该连接上调用工具的人，都能在游戏进程中运行任意代码。仅在开发构建中、在带令牌的回环主机上使用。仅限桌面 CoreCLR：NativeAOT 和 iOS 无法运行运行时生成的代码。

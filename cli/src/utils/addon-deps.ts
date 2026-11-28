@@ -11,9 +11,9 @@
 // this CLI's version — the SAME values, never a bump of those pins. `com.IvanMurzak.Rql` (the RQL data layer of
 // the editor tools, PolyForm Shield 1.0.0) is a direct dependency of the addon sources since 1.0; Code-Exec
 // (`com.IvanMurzak.CodeExec` + the source-only `.Roslyn` adapter, compiled against the pinned
-// `Microsoft.CodeAnalysis.CSharp`) runs `script-execute`. Those four are `editorOnly`: only `#if TOOLS` code
+// `Microsoft.CodeAnalysis.CSharp`) runs `csharp-exec`. Those four are `editorOnly`: only `#if TOOLS` code
 // uses them, so exported games ship neither RQL nor Roslyn. The three Code-Exec ones are also `inGameOptIn`: a game
-// that opts in to in-game `script-execute` (`GodotMcpCodeExecInGame=true`) keeps them in its exports. A parity test
+// that opts in to in-game `csharp-exec` (`GodotMcpCodeExecInGame=true`) keeps them in its exports. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
 // never silently install a mismatched version.
@@ -32,7 +32,7 @@ export interface AddonPackageReference {
    */
   editorOnly?: boolean;
   /**
-   * With `editorOnly`: a game that opts in to in-game `script-execute` (MSBuild property `GodotMcpCodeExecInGame=true`)
+   * With `editorOnly`: a game that opts in to in-game `csharp-exec` (MSBuild property `GodotMcpCodeExecInGame=true`)
    * keeps the package in its export builds, so it is written with `CODE_EXEC_IN_GAME_CONDITION` instead. A CLI that
    * predates this flag reads such a manifest entry as plain editor-only (safe: no in-game code execution).
    */
@@ -46,12 +46,12 @@ export interface AddonPackageReference {
  */
 export const EDITOR_ONLY_CONDITION = "'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'";
 
-/** The MSBuild property a game sets to `true` to keep Code-Exec and Roslyn in its exports (in-game `script-execute`). */
+/** The MSBuild property a game sets to `true` to keep Code-Exec and Roslyn in its exports (in-game `csharp-exec`). */
 export const CODE_EXEC_IN_GAME_PROPERTY = 'GodotMcpCodeExecInGame';
 
 /**
  * The MSBuild condition of an `inGameOptIn` package: the editor-only condition, or the game opted in to in-game
- * `script-execute`. Godot-MCP.csproj marks its Code-Exec packages with this exact attribute.
+ * `csharp-exec`. Godot-MCP.csproj marks its Code-Exec packages with this exact attribute.
  */
 export const CODE_EXEC_IN_GAME_CONDITION = `'$(${CODE_EXEC_IN_GAME_PROPERTY})' == 'true' or (${EDITOR_ONLY_CONDITION})`;
 

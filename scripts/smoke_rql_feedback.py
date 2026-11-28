@@ -40,12 +40,12 @@ def console(host: str) -> None:
     """The console source holds the editor's log, not the tool-call echo; a plugin error is captured once."""
     tag = secrets.token_hex(4)
     fails("C1 a failing query (its error is echoed by the framework)", query(host, f'godot.find("NoSuchNode{tag}")'), "no node")
-    must("C1 an engine error", tool(host, "script-execute", {"csharpCode": f'GD.PushError("feedback-probe-{tag}"); 1'}))
+    must("C1 an engine error", tool(host, "csharp-exec", {"csharpCode": f'GD.PushError("feedback-probe-{tag}"); 1'}))
     text = must("C1 recent console", query(host, "console | sort Sequence desc | first 200 | select LogType Message"))
     lacks("C1 no tool-call echo", text, "McpToolManager: Run tool", "Response to AI", f"NoSuchNode{tag}")
     # An engine error reaches the console through the engine logger (OS.AddLogger, Godot 4.5+): there exactly once;
     # older engines do not capture it at all, so there it must just not be doubled.
-    version = must("C1 version", tool(host, "script-execute", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}))
+    version = must("C1 version", tool(host, "csharp-exec", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}))
     match = re.search(r"(\d+)\.(\d+)", version)
     engine_logger = not match or (int(match[1]), int(match[2])) >= (4, 5)
     count = text.count(f"feedback-probe-{tag}")

@@ -64,7 +64,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | Skip the automatic main-thread dispatcher (only if you install your own). |
 | `ConnectWhenRunFromEditor()` | Also connect in a game started from the editor (off by default, see below). |
 | `WithRuntimeErrorCapture()` | Capture in-game errors and register `runtime-errors-*`. Off by default. |
-| `WithScriptExecute()` | Register `script-execute` in the game. Off by default; needs the csproj opt-in. |
+| `WithCsharpExec()` | Register `csharp-exec` in the game. Off by default; needs the csproj opt-in. |
 | `Build()` | Returns a `GodotMcpRuntimeHandle` that is not connected. |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | Open, close, or tear down the connection. |
 
@@ -131,7 +131,7 @@ On Godot below 4.5 the engine channel is unavailable; the C# channels still work
 
 ## Running C# in the game
 
-`builder.WithScriptExecute()` lets the agent send C# that the running game compiles with Roslyn and runs on its main thread, with the game's own types, autoloads and scene tree. Export builds leave Roslyn out, so the game's `.csproj` opts in:
+`builder.WithCsharpExec()` lets the agent send C# that the running game compiles with Roslyn and runs on its main thread, with the game's own types, autoloads and scene tree. Export builds leave Roslyn out, so the game's `.csproj` opts in:
 
 ```xml
 <PropertyGroup>
@@ -140,6 +140,6 @@ On Godot below 4.5 the engine channel is unavailable; the C# channels still work
 </PropertyGroup>
 ```
 
-A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that honours this property; RQL is never shipped. Without the opt-in, `WithScriptExecute()` logs a warning and registers nothing.
+A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that honours this property; RQL is never shipped. Without the opt-in, `WithCsharpExec()` logs a warning and registers nothing.
 
 > **This is arbitrary code execution.** Anyone who can call tools on the connection can run any code in the game process. Use it only in dev builds, on a loopback host with a token. Desktop CoreCLR only: NativeAOT and iOS cannot run code generated at run time.

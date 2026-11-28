@@ -73,7 +73,7 @@ export const SKILL_FAMILIES: readonly SkillFamily[] = [
           "Build the project's C# (dotnet build) so new or changed C# scripts load; the result arrives after Godot reloads the assembly.",
       },
       {
-        name: 'script-execute',
+        name: 'csharp-exec',
         description:
           'Compile and run C# in the editor (Roslyn): plain statements with the last expression as the result, or a class with a static method; returns the result and what the code printed (GD.Print).',
       },

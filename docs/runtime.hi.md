@@ -65,7 +65,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | Automatic main-thread dispatcher छोड़ देता है (सिर्फ़ तब जब आप अपना install करें)। |
 | `ConnectWhenRunFromEditor()` | Editor से शुरू किए game में भी connect करता है (default रूप से बंद, नीचे देखें)। |
 | `WithRuntimeErrorCapture()` | In-game errors capture करता है और `runtime-errors-*` register करता है। Default रूप से बंद। |
-| `WithScriptExecute()` | Game में `script-execute` register करता है। Default रूप से बंद; csproj opt-in चाहिए। |
+| `WithCsharpExec()` | Game में `csharp-exec` register करता है। Default रूप से बंद; csproj opt-in चाहिए। |
 | `Build()` | एक `GodotMcpRuntimeHandle` लौटाता है जो connected नहीं है। |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | Connection खोलना, बंद करना, या पूरी तरह ख़त्म करना। |
 
@@ -137,7 +137,7 @@ Godot 4.5 से नीचे engine channel उपलब्ध नहीं ह
 <a id="running-c-in-the-game"></a>
 ## Game में C# चलाना
 
-`builder.WithScriptExecute()` एजेंट को C# भेजने देता है जिसे चलता हुआ game Roslyn से compile करके अपने main thread पर चलाता है, game के अपने types, autoloads और scene tree के साथ। Export builds Roslyn को बाहर रखते हैं, इसलिए game की `.csproj` को opt in करना होता है:
+`builder.WithCsharpExec()` एजेंट को C# भेजने देता है जिसे चलता हुआ game Roslyn से compile करके अपने main thread पर चलाता है, game के अपने types, autoloads और scene tree के साथ। Export builds Roslyn को बाहर रखते हैं, इसलिए game की `.csproj` को opt in करना होता है:
 
 ```xml
 <PropertyGroup>
@@ -146,6 +146,6 @@ Godot 4.5 से नीचे engine channel उपलब्ध नहीं ह
 </PropertyGroup>
 ```
 
-मौजूदा `godot-cli install-plugin` Code-Exec और Roslyn package references को एक ऐसी `Condition` के साथ लिखता है जो इस property का पालन करती है; RQL कभी ship नहीं होता। Opt-in के बिना `WithScriptExecute()` warning log करता है और कुछ register नहीं करता।
+मौजूदा `godot-cli install-plugin` Code-Exec और Roslyn package references को एक ऐसी `Condition` के साथ लिखता है जो इस property का पालन करती है; RQL कभी ship नहीं होता। Opt-in के बिना `WithCsharpExec()` warning log करता है और कुछ register नहीं करता।
 
 > **यह arbitrary code execution है।** Connection पर tools call कर सकने वाला कोई भी व्यक्ति game process में कोई भी code चला सकता है। इसे सिर्फ़ dev builds में, token के साथ loopback host पर इस्तेमाल करें। सिर्फ़ Desktop CoreCLR: NativeAOT और iOS run time पर generate किया code नहीं चला सकते।

@@ -11,7 +11,7 @@ Las familias **console**, **reflection** y **runtime-errors** sirven a un *juego
 | Familia | Herramientas | Qué hace |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Consultar y modificar el editor en vivo. Todo o nada, y reversible; varias sentencias por llamada, separadas por `;`. Consulta [rql.md](rql.md). |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | Archivos C# (`.cs`) y GDScript (`.gd`), adjuntar un script a un nodo, validación de GDScript, compilar el C# del proyecto y ejecutar C# en el editor. |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | Archivos C# (`.cs`) y GDScript (`.gd`), adjuntar un script a un nodo, validación de GDScript, compilar el C# del proyecto y ejecutar C# en el editor. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capturar el viewport del editor, una cámara o un nodo renderizado por separado, como un PNG que el LLM puede ver. |
 | **game** | `game-run` | Ejecutar el juego (o una escena) sin ventana durante unos segundos de tiempo de juego y obtener sus errores, advertencias y salida impresa en una sola llamada. |
 | **console** | `console-get-logs`, `console-clear-logs` | En un juego en marcha: leer y borrar los logs recopilados. |
@@ -44,7 +44,7 @@ Los orígenes incluyen `nodes`, `root`, `selection`, `scenes`, `files`, `folders
 - `script-attach-to-node`: adjuntar un script a un nodo.
 - `script-validate`: analizar y compilar archivos GDScript y devolver diagnósticos estructurados.
 - `script-build`: compilar el C# del proyecto (`dotnet build`, Debug) para que se carguen los scripts nuevos. La compilación se ejecuta en segundo plano; cuando termina bien, Godot recarga el ensamblado C#, el plugin se reconecta y el resultado (advertencias o errores) llega tras la recarga. Consulta [Recargas del ensamblado C#](custom-tools.es.md#c-assembly-reloads).
-- `script-execute`: compilar y ejecutar C# en el editor con Roslyn, mediante [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Sentencias simples con la última expresión como resultado (`using` propios, clases locales, `await`), o una clase con un método estático. Los tipos compilados del juego son visibles; `include` añade archivos `.cs` auxiliares de `<project>/.ai-game-dev/snippets`. Devuelve el valor y lo que imprimió el código (`Console`; `GD.Print`, push_warning y push_error cuando el proyecto compila con Godot.NET.Sdk 4.5+). Desde una terminal: `godot-cli exec '1 + 2'`.
+- `csharp-exec`: compilar y ejecutar C# en el editor con Roslyn, mediante [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Sentencias simples con la última expresión como resultado (`using` propios, clases locales, `await`), o una clase con un método estático. Los tipos compilados del juego son visibles; `include` añade archivos `.cs` auxiliares de `<project>/.ai-game-dev/snippets`. Devuelve el valor y lo que imprimió el código (`Console`; `GD.Print`, push_warning y push_error cuando el proyecto compila con Godot.NET.Sdk 4.5+). Desde una terminal: `godot-cli exec '1 + 2'`. Su nombre anterior, `script-execute`, sigue funcionando como alias oculto (no aparece en la lista ni tiene skill) hasta la 0.45.0.
 
 <a id="screenshot"></a>
 ## game

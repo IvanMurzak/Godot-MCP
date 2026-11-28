@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Live smoke of `script-execute` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
+Live smoke of `csharp-exec` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
 
-Checks: an expression, a game type from the project's own C# assembly (with auto-import of its namespace), Godot
+Checks: an expression, the old id `script-execute` (a hidden alias: still runs, listed as hidden), a game type from the project's own C# assembly (with auto-import of its namespace), Godot
 API, GD.Print / GD.PushWarning (Godot 4.5+ only: the engine logger) and Console captured into the result, the
 plugin's live statics with one copy of the game assembly and GodotSharp, `await`, full-source mode, a compile error at
 the snippet's own line, a runtime error, `include` of a helper, the output caps (a huge value or print flood comes back cut),
@@ -36,9 +36,14 @@ HELPER = "public static class SmokeHelper\n{\n    public static int Twice(int v)
 FAILURES: list[str] = []
 
 
-def execute(host: str, args: dict, timeout: float = 180) -> tuple[bool, str]:
+TOOL = "csharp-exec"
+# DEV-314: the tool's old id, a hidden alias (not listed, still callable). Remove with the alias in 0.45.0.
+ALIAS = "script-execute"
+
+
+def execute(host: str, args: dict, timeout: float = 180, tool: str = TOOL) -> tuple[bool, str]:
     """(succeeded, the tool's text or error)."""
-    req = urllib.request.Request(f"{host}/api/tools/script-execute", data=json.dumps(args).encode(),
+    req = urllib.request.Request(f"{host}/api/tools/{tool}", data=json.dumps(args).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -69,14 +74,28 @@ def wait_ready(host: str, timeout: float) -> bool:
     return False
 
 
-def case(host: str, name: str, args: dict, ok: bool, *expected: str) -> str:
-    succeeded, text = execute(host, args)
+def case(host: str, name: str, args: dict, ok: bool, *expected: str, tool: str = TOOL) -> str:
+    succeeded, text = execute(host, args, tool=tool)
     missing = [e for e in expected if e not in text]
     status = "PASS" if succeeded == ok and not missing else "FAIL"
     print(f"{status} {name}: {text.splitlines()[0] if text else ''}")
     if status == "FAIL":
         FAILURES.append(f"{name}: succeeded={succeeded} (want {ok}), missing {missing}; got:\n{text}")
     return text
+
+
+def check_alias_hidden(host: str) -> None:
+    """The server's tool list has the tool visible and the old id hidden (`enabled` = listed in tools/list)."""
+    name = "old id is hidden from the tool list"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"{host}/api/tools"), timeout=60) as resp:
+            listed = {t.get("name"): t.get("enabled") for t in json.loads(resp.read().decode() or "[]")}
+    except (urllib.error.URLError, json.JSONDecodeError, AttributeError) as e:
+        listed = {"<error>": str(e)}
+    ok = listed.get(TOOL) is True and listed.get(ALIAS) is False
+    print(f"{'PASS' if ok else 'FAIL'} {name}: {TOOL}={listed.get(TOOL)!r}, {ALIAS}={listed.get(ALIAS)!r}")
+    if not ok:
+        FAILURES.append(f"{name}: want {TOOL} listed (enabled true) and {ALIAS} registered but hidden (enabled false); got {listed}")
 
 
 def check_size(name: str, text: str, limit: int) -> None:
@@ -90,7 +109,7 @@ def main() -> int:
     parser.add_argument("--host", help="MCP server base URL, e.g. http://localhost:8080 (required unless --prepare)")
     parser.add_argument("--project", required=True, type=pathlib.Path, help="the Godot project the editor has open")
     parser.add_argument("--prepare", action="store_true", help="only write the fixtures into --project, then exit")
-    parser.add_argument("--wait", type=float, default=0, help="seconds to wait for the editor to answer script-execute")
+    parser.add_argument("--wait", type=float, default=0, help="seconds to wait for the editor to answer csharp-exec")
     args = parser.parse_args()
 
     game = args.project / "SmokeExec" / "SmokeExecScore.cs"
@@ -106,10 +125,12 @@ def main() -> int:
     host = args.host.rstrip("/")
 
     if args.wait > 0 and not wait_ready(host, args.wait):
-        print(f"script-execute never answered on {host} within {args.wait:.0f}s", flush=True)
+        print(f"csharp-exec never answered on {host} within {args.wait:.0f}s", flush=True)
         return 1
 
     case(host, "expression", {"csharpCode": "1 + 2"}, True, "System.Int32: 3")
+    case(host, f"old id {ALIAS} still runs", {"csharpCode": "1 + 2"}, True, "System.Int32: 3", tool=ALIAS)
+    check_alias_hidden(host)
     case(host, "game type + auto-import", {"csharpCode": "SmokeExecScore.Value"}, True, "System.Int32: 77")
     version = case(host, "godot api", {"csharpCode": 'Engine.GetVersionInfo()["string"].AsString()'}, True,
                    "System.String: ", "4.")
@@ -178,7 +199,7 @@ def main() -> int:
     if FAILURES:
         print(f"\n{len(FAILURES)} failed:\n" + "\n\n".join(FAILURES))
         return 1
-    print("\nall script-execute cases passed")
+    print("\nall csharp-exec cases passed")
     return 0
 
 

@@ -71,7 +71,7 @@ server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localh
 reading back the `.tres`/`.tscn` Godot wrote and runs every agent-guide example (CI runs it in
 `test_godot_runtime_harness.yml`; it writes fixed `res://scenes/` / `res://materials/` paths, so use a disposable
 project). `python scripts/smoke_script_execute.py --host <host> --project <testbed>` does the same for
-`script-execute` (game type, GD.Print capture, error lines, unload; CI runs it too). `python scripts/smoke_screenshot_save.py --host <host> --project <disposable project>` checks `savePath` of `screenshot-*` (needs a windowed editor with a GPU; not in CI).
+`csharp-exec` (game type, GD.Print capture, error lines, unload; CI runs it too). `python scripts/smoke_screenshot_save.py --host <host> --project <disposable project>` checks `savePath` of `screenshot-*` (needs a windowed editor with a GPU; not in CI).
 `godot-cli exec` / `open --headless` start such an
 editor themselves (cli-core EditorSession, lease `.ai-game-dev/session.json`). Two traps: build
 the testbed with the `Godot.NET.Sdk` version of the running editor (CI rewrites the `Sdk=` pin; a 4.3
@@ -102,13 +102,13 @@ editors keep answering tool calls with an old build).
 - **Editor-only packages.** RQL, Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
   in every csproj (and `editorOnly` in the CLI), so exported games ship none of them. Any addon code using them must
   sit inside `#if TOOLS` (`|| GODOT_MCP_UNIT_TESTS` if xUnit compiles it); `scripts/check-runtime-boundary.py`
-  fails otherwise. Exception: Code-Exec + Roslyn also ship when a game opts in to in-game `script-execute`
+  fails otherwise. Exception: Code-Exec + Roslyn also ship when a game opts in to in-game `csharp-exec`
   (`GodotMcpCodeExecInGame=true`, wider Condition, `inGameOptIn` in the CLI); their code may use
   `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`. Details: `docs/ARCHITECTURE.md`.
 - **Server pin.** The consumed server version is `ServerVersion` in
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.
-- **Code-Exec in the editor.** `script-execute` (`Editor/Tools/Tool_Script.Execute.cs`) loads snippets through
+- **Code-Exec in the editor.** `csharp-exec` (`Editor/Tools/Tool_Script.Execute.cs`) loads snippets through
   Code-Exec's default host, which (0.2.1+) binds them to the LIVE game assembly and GodotSharp before asking the default
   context, where `GodotMcpAssemblyResolver` would load second copies from `.godot/mono/temp/bin` (stale statics, and a
   GodotSharp copy crashes the editor on its first engine call). Never pin Code-Exec below 0.2.1.

@@ -85,10 +85,10 @@ export GODOT_MCP_TOKEN=your-secret-token
   `AuthOption = Consts.MCP.Server.AuthOption.token` ورمز حقيقي — وليس أبدًا على واجهة عامة
   بلا مصادقة في إصدار release.
 
-<a id="in-game-code-execution-withscriptexecute"></a>
-## تنفيذ الكود داخل اللعبة (`WithScriptExecute`)
+<a id="in-game-code-execution-withcsharpexec"></a>
+## تنفيذ الكود داخل اللعبة (`WithCsharpExec`)
 
-يسجّل `builder.WithScriptExecute()` الأداة `script-execute` في اللعبة: يرسل عميل متصل كود C#، فتترجمه اللعبة
+يسجّل `builder.WithCsharpExec()` الأداة `csharp-exec` في اللعبة: يرسل عميل متصل كود C#، فتترجمه اللعبة
 بـ Roslyn وتشغّله على خيطها الرئيسي. هذا **تنفيذ لكود عشوائي في عملية
 اللعبة**، مع صلاحيات اللاعب على نظام الملفات والشبكة. وهو معطّل افتراضيًا ويحتاج إلى اشتراك صريح في
 الإصدار: لا تحتوي اللعبة المُصدَّرة على Code-Exec وRoslyn إلا إذا ضبط ملف `.csproj` الخاص بها `GodotMcpCodeExecInGame=true`
@@ -97,7 +97,7 @@ export GODOT_MCP_TOKEN=your-secret-token
 
 > **الألعاب المُشغَّلة من المحرر.** إصدارها هو إصدار المحرر (`TOOLS`)، لذا تُترجم عائلات أدوات المحرر في الإضافة
 > ضمن تجميعة اللعبة أيضًا. وعندئذٍ يسجّلها `WithToolsFromAssembly(...)` على تلك التجميعة،
-> بما فيها `script-execute` الخاصة بالمحرر، سواء استُدعي `WithScriptExecute()` أم لا. أما في إصدار
+> بما فيها `csharp-exec` الخاصة بالمحرر، سواء استُدعي `WithCsharpExec()` أم لا. أما في إصدار
 > التصدير فلا وجود لها. سجّل أنواعًا محددة (`WithTools(...)`) إذا كان يجب ألا تقدّمها لعبة مُشغَّلة من المحرر.
 
 - **إصدارات debug / التطوير فقط.** اربط الاستدعاء (والاشتراك في csproj) بمفتاح تطوير خاص بك. لا تنشره أبدًا

@@ -129,6 +129,47 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             }
         }
 
+        [Fact]
+        public void A_hidden_deprecated_alias_gets_no_skill_and_its_old_skill_is_removed()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "GodotSkillAliases_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                // The folder an addon older than the rename (DEV-314) generated for the old id.
+                var stale = Path.Combine(root, DeprecatedToolAliases.ScriptExecute);
+                Directory.CreateDirectory(stale);
+                File.WriteAllText(Path.Combine(stale, "SKILL.md"), "old");
+
+                var builder = new McpPluginBuilder(new com.IvanMurzak.McpPlugin.Common.Version());
+                builder.WithConfig(config =>
+                {
+                    config.SkillsPath = root;
+                    config.KeepConnected = false;
+                });
+                builder.WithSkillFileGenerator<GodotSkillFileGenerator>();
+                builder.WithTools(typeof(AliasTools));
+                using var plugin = (com.IvanMurzak.McpPlugin.McpPlugin)builder.Build(new Reflector());
+                Assert.True(plugin.GenerateSkillFiles(root));
+
+                Assert.True(File.Exists(Path.Combine(root, DeprecatedToolAliases.CsharpExec, "SKILL.md")));
+                Assert.False(Directory.Exists(stale));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        // No [AiToolType]: an assembly scan in another test must not pick these names up.
+        public class AliasTools
+        {
+            [AiTool(DeprecatedToolAliases.CsharpExec)]
+            public string Exec(string csharpCode) => csharpCode;
+
+            [AiTool(DeprecatedToolAliases.ScriptExecute, Visible = false)]
+            public string Alias(string csharpCode) => csharpCode;
+        }
+
         [AiToolType]
         public class TestTools
         {

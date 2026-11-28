@@ -192,7 +192,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | API を調べる | `rql-schema` | *「CharacterBody3D にはどんな Godot プロパティがある?」* |
 | スクリプト(GDScript と C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *「このノードを回転させる GDScript を書いてアタッチして。」* |
 | C# のビルド | `script-build` | *「C# プロジェクトをビルドしてエラーを直して。」* |
-| エディターで C# を実行 | `script-execute` | *「開いているシーンの MeshInstance3D ノードを数えて。」* |
+| エディターで C# を実行 | `csharp-exec` | *「開いているシーンの MeshInstance3D ノードを数えて。」* |
 | 結果を見る | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *「ビューポートのスクリーンショットを撮ってライティングを確認して。」* |
 | ゲームを実行してエラーを読む | `game-run` | *「ゲームを実行して、出力されるエラーを見つけて直して。」* |
 | 実行中のゲーム(オプトイン) | `console-*`, `reflection-*`, `runtime-errors-*` | *「実行中のゲームに新しいランタイムエラーがないか確認して。」* |

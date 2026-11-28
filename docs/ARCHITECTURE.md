@@ -55,7 +55,7 @@ addons/godot_mcp/
 │   ├── Extensions/                   # extension registry/installer planning logic (pure-managed)
 │   └── Tools/                        # RUNTIME-SAFE tools: Tool_Ping, Tool_Console*, Tool_Reflection*,
 │                                     #   Tool_RuntimeErrors* (in-game runtime-error capture, opt-in),
-│                                     #   Tool_GameScript + ScriptExecutor (script-execute, editor + in-game opt-in)
+│                                     #   Tool_GameScript + ScriptExecutor (csharp-exec, editor + in-game opt-in)
 │                                     #   + the engine-error logger bridge (GodotScriptErrorLogger*, 4.5+,
 │                                     #   shared by the editor AND the in-game runtime) + pure helpers
 │                                     #   (NodePathNormalizer, ResPathNormalizer, RuntimeErrorCollector, …)
@@ -211,7 +211,7 @@ contains the runtime types and none of the editor types.
 The `#if TOOLS` strip removes editor *code*; the NuGet *packages* only that code uses are kept out of
 exports by an MSBuild condition, the Godot counterpart of Unity-MCP importing the Roslyn DLLs Editor-only.
 Four packages are editor-only: `com.IvanMurzak.Rql` (the RQL data layer), `com.IvanMurzak.CodeExec`,
-the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp` (`script-execute`).
+the source-only `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp` (`csharp-exec`).
 `Godot-MCP.csproj` declares each with
 
 ```xml
@@ -237,7 +237,7 @@ CI checks the package set of both export configurations without Godot (`scripts/
 
 ### In-game code execution (opt-in)
 
-A game can keep Code-Exec and Roslyn to offer `script-execute` itself (`GodotMcpRuntimeBuilder.WithScriptExecute()`,
+A game can keep Code-Exec and Roslyn to offer `csharp-exec` itself (`GodotMcpRuntimeBuilder.WithCsharpExec()`,
 security: [`runtime-security.md`](runtime-security.md)). Its `.csproj` sets the MSBuild property
 `GodotMcpCodeExecInGame=true` and defines `GODOT_MCP_CODE_EXEC_IN_GAME` ([Running C# in the game](runtime.md#running-c-in-the-game)). The three
 Code-Exec packages carry
@@ -251,7 +251,7 @@ Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'Expo
 (`Runtime/Tools/Tool_GameScript.cs`) compile under `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`; the editor
 `Tool_Script.Execute` calls the same executor. `Tool_GameScript` is not an `[AiToolType]`, so the editor's assembly
 scan never registers it; in an editor build a game's own `WithToolsFromAssembly` scan of the addon would register the
-editor `script-execute`, so `GodotMcpRuntime.Build` puts the in-game one back in its place. The boundary guard allows
+editor `csharp-exec`, so `GodotMcpRuntime.Build` puts the in-game one back in its place. The boundary guard allows
 Code-Exec / Roslyn under a guard that includes `GODOT_MCP_CODE_EXEC_IN_GAME`; editor APIs and RQL stay `#if TOOLS`.
 
 ## (Optional) Strictly-zero-bytes export exclude for dev-only users

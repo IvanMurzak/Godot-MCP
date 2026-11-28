@@ -11,7 +11,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 | ファミリー | ツール | 機能 |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 実行中のエディターを照会・変更。すべてか無しかで、元に戻せる。1 回の呼び出しで `;` 区切りの複数ステートメントを実行できる。[rql.md](rql.md) を参照。 |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C#(`.cs`)と GDScript(`.gd`)のファイル、ノードへのスクリプトのアタッチ、GDScript の検証、プロジェクトの C# のビルド、エディターでの C# の実行。 |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | C#(`.cs`)と GDScript(`.gd`)のファイル、ノードへのスクリプトのアタッチ、GDScript の検証、プロジェクトの C# のビルド、エディターでの C# の実行。 |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | エディターのビューポート、カメラ、単独でレンダリングした 1 つのノードを、LLM が見られる PNG としてキャプチャ。 |
 | **game** | `game-run` | ゲーム(または 1 つのシーン)をウィンドウなしでゲーム時間の数秒間実行し、エラー・警告・出力を 1 回の呼び出しで取得します。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 実行中のゲームで: 収集したログの読み取りとクリア。 |
@@ -44,7 +44,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 - `script-attach-to-node`: ノードにスクリプトをアタッチ。
 - `script-validate`: GDScript ファイルをパース・コンパイルし、構造化された診断を返す。
 - `script-build`: 新しいスクリプトが読み込まれるよう、プロジェクトの C# をビルド(`dotnet build`、Debug)。ビルドはバックグラウンドで実行されます。成功すると Godot が C# アセンブリをリロードし、プラグインが再接続し、結果(警告またはエラー)はリロード後に届きます。[C# アセンブリのリロード](custom-tools.ja.md#c-assembly-reloads)を参照。
-- `script-execute`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) を通じ、Roslyn でエディター内の C# をコンパイル・実行。最後の式を結果とする普通の文(独自の `using`、ローカルクラス、`await` が使える)、または静的メソッドを持つクラス。ゲームのコンパイル済みの型が見えます。`include` で `<project>/.ai-game-dev/snippets` からヘルパーの `.cs` ファイルを追加します。値と、コードが出力した内容(`Console`。プロジェクトが Godot.NET.Sdk 4.5+ でビルドされていれば `GD.Print`、push_warning、push_error も)を返します。ターミナルからは: `godot-cli exec '1 + 2'`。
+- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) を通じ、Roslyn でエディター内の C# をコンパイル・実行。最後の式を結果とする普通の文(独自の `using`、ローカルクラス、`await` が使える)、または静的メソッドを持つクラス。ゲームのコンパイル済みの型が見えます。`include` で `<project>/.ai-game-dev/snippets` からヘルパーの `.cs` ファイルを追加します。値と、コードが出力した内容(`Console`。プロジェクトが Godot.NET.Sdk 4.5+ でビルドされていれば `GD.Print`、push_warning、push_error も)を返します。ターミナルからは: `godot-cli exec '1 + 2'`。 旧名の `script-execute` も、0.45.0 までは非表示のエイリアス(一覧にもスキルにも出ない)として実行できます。
 
 <a id="screenshot"></a>
 ## game

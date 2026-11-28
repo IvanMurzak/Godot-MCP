@@ -524,6 +524,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 .WithReflectorModulesFromAssembly(assemblies);
 
             _plugin = builder.Build(reflector);
+            // DEV-314: old tool ids as hidden aliases, before the editor configuration wraps the tools. Remove in 0.45.0.
+            Tools.DeprecatedToolAliases.Register(_plugin.McpManager?.ToolManager, reflector);
 
             // The editor's configuration of the built plugin (the RQL tool data layer, the editor tool surface), run
             // BEFORE the feature states are reapplied and the skills generated so both see the final tool list.

@@ -51,7 +51,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ## Commands
 
 - **`open [path]`** — प्रोजेक्ट की C# assembly build करता है (ताकि पहली बार खोलने पर addon load हो — नीचे देखें), Godot editor binary ढूँढता है, और `GODOT_MCP_*` connection env vars के साथ `--editor --path <project>` launch करता है। `--no-build` build छोड़ देता है। `--headless` इसकी जगह बिना window वाला editor session शुरू करता है ([`exec`](#exec) देखें)।
-- **`exec [code]`** — `script-execute` के ज़रिए editor में C# चलाता है ([`exec`](#exec) देखें): चलते हुए editor को reuse करता है, नहीं तो एक headless editor शुरू करके उसे warm रखता है।
+- **`exec [code]`** — `csharp-exec` के ज़रिए editor में C# चलाता है ([`exec`](#exec) देखें): चलते हुए editor को reuse करता है, नहीं तो एक headless editor शुरू करके उसे warm रखता है।
 - **`create-project [path]`** — नया Godot प्रोजेक्ट scaffold करता है; `--dotnet` एक Godot.NET.Sdk `.csproj` भी लिखता है, `--name` उसका नाम सेट करता है।
 - **`build [path]`** — प्रोजेक्ट की C# assembly build करता है (`dotnet build`) ताकि अगली बार editor खोलने पर `godot_mcp` addon load हो। सिर्फ़ GDScript वाले प्रोजेक्ट्स (`.csproj` नहीं) पर यह कुछ नहीं करता। यह वही build है जो `open` launch से पहले चलाता है।
 - **`rql [query]`** — command line से एक RQL query, बिना JSON के: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`। जिस query का आख़िरी stage `set` या `call` हो वह `rql-mutate` पर जाती है (`--dry-run`, `--max-targets <n>`), बाकी सब `rql-query` पर; `--schema [type]` `rql-schema` चलाता है; जब shell quotes हटा दे तो `-f <file>` (`-f -`: stdin) query पढ़ता है। `run-tool` की तरह headless editor शुरू करता है। `SaveScene()`, `NewScene(...)`, `CreateResource(...)` या `godot.resource(...)` edit के बाद यह लिखी गई files print करता है (`Saved to disk: res://scenes/forest.tscn`); किसी दूसरी language की spelling वाले operator (`startsWith`, `like`) पर RQL की spelling के साथ hint मिलता है। `rql --help` recipes दिखाता है।
@@ -136,7 +136,7 @@ Cloud paths में `/mcp` hub segment होता है ताकि reques
 <a id="exec"></a>
 ## `exec`
 
-प्रोजेक्ट के Godot editor में C# चलाएँ (addon का `script-execute` tool, [Code-Exec](https://github.com/IvanMurzak/Code-Exec) पर आधारित):
+प्रोजेक्ट के Godot editor में C# चलाएँ (addon का `csharp-exec` tool, [Code-Exec](https://github.com/IvanMurzak/Code-Exec) पर आधारित):
 
 ```bash
 godot-cli exec '1 + 2'                                   # → System.Int32: 3

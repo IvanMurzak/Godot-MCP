@@ -184,7 +184,7 @@ You do not write queries: the agent reads the RQL guide that comes with the tool
 | Look up the API | `rql-schema` | *"Which Godot properties does a CharacterBody3D have?"* |
 | Scripts (GDScript and C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *"Write a GDScript that rotates this node and attach it."* |
 | Build C# | `script-build` | *"Build the C# project and fix the errors."* |
-| Run C# in the editor | `script-execute` | *"Count the MeshInstance3D nodes in the open scene."* |
+| Run C# in the editor | `csharp-exec` | *"Count the MeshInstance3D nodes in the open scene."* |
 | See the result | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Take a screenshot of the viewport and check the lighting."* |
 | Run the game and read its errors | `game-run` | *"Run the game, find the error it prints and fix it."* |
 | Running game (opt-in) | `console-*`, `reflection-*`, `runtime-errors-*` | *"Check the running game for new runtime errors."* |

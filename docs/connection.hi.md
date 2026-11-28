@@ -64,7 +64,7 @@ Server सिर्फ़ loopback पर सुनता है और जि�
 
 **Stop Server** उसे रोकता है; editor बंद करने पर भी वह रुक जाता है। Download URL सिर्फ़ pinned version और आपके platform से बनता है। Offline होने पर addon warning log करता है और server शुरू नहीं होता। CI (`CI` / `GITHUB_ACTIONS`) में download skip हो जाता है।
 
-Tool calls 5 मिनट तक चल सकती हैं। `script-execute` snippet को खुद रोक देता है जब उसका `timeout` (default 30 s) ख़त्म हो जाता है।
+Tool calls 5 मिनट तक चल सकती हैं। `csharp-exec` snippet को खुद रोक देता है जब उसका `timeout` (default 30 s) ख़त्म हो जाता है।
 
 Development के लिए, `GODOT_MCP_SERVER_PATH=<absolute path>` editor से pinned release की जगह वह मौजूदा `gamedev-mcp-server` binary शुरू करवाता है (कोई download नहीं, कोई version check नहीं, कोई orphan cleanup नहीं)। इसे हर plugin assembly load पर एक बार, process environment या प्रोजेक्ट की `.env` से पढ़ा जाता है; ऐसा path जो किसी file का नाम नहीं है, warning के साथ ignore हो जाता है। Linux और macOS पर file पहले से executable होनी चाहिए।
 

@@ -51,7 +51,7 @@ O ejecuta cualquier comando sin instalar: `npx godot-cli install-plugin ./MyGodo
 ## Comandos
 
 - **`open [path]`** — Compila el ensamblado C# del proyecto (para que el addon cargue en la primera apertura; ver abajo), localiza el binario del editor de Godot y lanza `--editor --path <project>` con las variables de entorno de conexión `GODOT_MCP_*`. `--no-build` omite la compilación. `--headless` inicia en su lugar una sesión de editor sin ventana (ver [`exec`](#exec)).
-- **`exec [code]`** — Ejecuta C# en el editor mediante `script-execute` (ver [`exec`](#exec)): reutiliza un editor en marcha o, si no, inicia uno headless y lo mantiene activo.
+- **`exec [code]`** — Ejecuta C# en el editor mediante `csharp-exec` (ver [`exec`](#exec)): reutiliza un editor en marcha o, si no, inicia uno headless y lo mantiene activo.
 - **`create-project [path]`** — Crea la estructura de un nuevo proyecto Godot; `--dotnet` también escribe un `.csproj` de Godot.NET.Sdk, `--name` define su nombre.
 - **`build [path]`** — Compila el ensamblado C# del proyecto (`dotnet build`) para que el addon `godot_mcp` cargue en la próxima apertura del editor. En proyectos solo GDScript (sin `.csproj`) no hace nada. Es la misma compilación que `open` ejecuta antes de lanzar.
 - **`rql [query]`** — Una consulta RQL desde la línea de comandos, sin JSON: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`. Una consulta cuya última etapa es `set` o `call` va a `rql-mutate` (`--dry-run`, `--max-targets <n>`), cualquier otra a `rql-query`; `--schema [type]` ejecuta `rql-schema`; `-f <file>` (`-f -`: stdin) lee la consulta cuando un shell elimina sus comillas. Inicia un editor headless como `run-tool`. Tras `SaveScene()`, `NewScene(...)`, `CreateResource(...)` o una edición `godot.resource(...)` muestra los archivos escritos (`Saved to disk: res://scenes/forest.tscn`); un operador escrito como en otro lenguaje (`startsWith`, `like`) recibe una pista con la forma de RQL. `rql --help` lista recetas.
@@ -136,7 +136,7 @@ Las rutas de nube llevan el segmento de hub `/mcp` para que la petición llegue 
 <a id="exec"></a>
 ## `exec`
 
-Ejecuta C# en el editor de Godot del proyecto (la herramienta `script-execute` del addon, sobre [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+Ejecuta C# en el editor de Godot del proyecto (la herramienta `csharp-exec` del addon, sobre [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
 
 ```bash
 godot-cli exec '1 + 2'                                   # → System.Int32: 3

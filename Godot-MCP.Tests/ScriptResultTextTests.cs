@@ -17,7 +17,7 @@ using Xunit;
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// <see cref="ScriptResultText"/>: script-execute results in the RQL format read like rql-query rows — a dictionary's
+    /// <see cref="ScriptResultText"/>: csharp-exec results in the RQL format read like rql-query rows — a dictionary's
     /// entries (not its Count/Capacity internals), a list's items (not name/typeName/value tables), an anonymous object's
     /// members — with C#-style type names.
     /// </summary>

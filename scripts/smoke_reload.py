@@ -7,7 +7,7 @@ Godot reloads the project assembly ~0.5 s after the built DLL changes, whatever 
 flight at that moment used to keep the old assembly alive ("Failed to unload assemblies ... Giving up", plugin offline
 until the editor restarts). Each round here writes a new C# class with `script-create`, builds it with `script-build`
 (the result arrives after Godot's reload, through the requestId) while other threads keep calling tools, then checks
-that the plugin answers again and that the new class is loaded (`script-execute` uses it). A call answered 503 must
+that the plugin answers again and that the new class is loaded (`csharp-exec` uses it). A call answered 503 must
 carry the gate's retryable message; a call lost with the connection while it goes down is only counted. Then the built DLL
 is touched about 1 s after the plugin answers, three times (the later reloads land while its connect is still settling). A
 broken script must come back as compiler errors without a reload. With
@@ -216,7 +216,7 @@ def main() -> int:
             took = wait_connected(host, args.reconnect)
             check(f"round {n}: plugin answers after the reload", took is not None,
                   f"in {took:.1f} s" if took is not None else f"no answer in {args.reconnect:.0f} s")
-            ok, text = tool(host, "script-execute", {"csharpCode": f"return Round{tag}.Value;"})
+            ok, text = tool(host, "csharp-exec", {"csharpCode": f"return Round{tag}.Value;"})
             check(f"round {n}: the class built this round is loaded", ok and text.strip().endswith(f": {n}"), text)
 
         reload_after_connect(host, args.project, args.reconnect)

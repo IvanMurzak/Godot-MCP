@@ -327,7 +327,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                 case SerializedMember member:
                     return ResponseCallTool.Success(Render(member));
                 case ScriptExecuteResult script:
-                    // script-execute: the value as a member, then what the code printed.
+                    // csharp-exec: the value as a member, then what the code printed.
                     var shown = script.Text ?? (script.Result != null ? Render(script.Result) : "null");
                     if (script.Logs is { Count: > 0 } logs)
                         shown += "\nlogs:\n" + string.Join("\n", logs);

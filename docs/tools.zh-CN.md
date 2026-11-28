@@ -11,7 +11,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 | 系列 | 工具 | 作用 |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | 查询和修改实时编辑器。要么全部生效、要么全不生效，且可撤销；一次调用可执行多条以 `;` 分隔的语句。见 [rql.md](rql.md)。 |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C#（`.cs`）和 GDScript（`.gd`）文件、将脚本挂载到节点、GDScript 校验、构建项目的 C#，以及在编辑器中运行 C#。 |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | C#（`.cs`）和 GDScript（`.gd`）文件、将脚本挂载到节点、GDScript 校验、构建项目的 C#，以及在编辑器中运行 C#。 |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | 截取编辑器视口、某个相机或单独渲染的单个节点，生成 LLM 可以查看的 PNG。 |
 | **game** | `game-run` | 以无窗口方式运行游戏(或某个场景)若干秒游戏时间，一次调用即可获得其错误、警告和打印输出。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 在运行中的游戏内：读取和清除收集到的日志。 |
@@ -44,7 +44,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 - `script-attach-to-node`：将脚本挂载到节点。
 - `script-validate`：解析并编译 GDScript 文件，返回结构化诊断信息。
 - `script-build`：构建项目的 C#（`dotnet build`，Debug），以便加载新脚本。构建在后台运行；成功后 Godot 重新加载 C# 程序集，插件重新连接，结果（警告或错误）在重载后返回。见 [C# 程序集重载](custom-tools.zh-CN.md#c-assembly-reloads)。
-- `script-execute`：通过 [Code-Exec](https://github.com/IvanMurzak/Code-Exec) 用 Roslyn 在编辑器中编译并运行 C#。可以是普通语句，以最后一个表达式作为结果（可有自己的 `using`、局部类、`await`），也可以是带静态方法的类。游戏编译后的类型均可见；`include` 会添加来自 `<project>/.ai-game-dev/snippets` 的辅助 `.cs` 文件。返回值以及代码打印的内容（`Console`；当项目使用 Godot.NET.Sdk 4.5+ 构建时还包括 `GD.Print`、push_warning 和 push_error）。在终端中：`godot-cli exec '1 + 2'`。
+- `csharp-exec`：通过 [Code-Exec](https://github.com/IvanMurzak/Code-Exec) 用 Roslyn 在编辑器中编译并运行 C#。可以是普通语句，以最后一个表达式作为结果（可有自己的 `using`、局部类、`await`），也可以是带静态方法的类。游戏编译后的类型均可见；`include` 会添加来自 `<project>/.ai-game-dev/snippets` 的辅助 `.cs` 文件。返回值以及代码打印的内容（`Console`；当项目使用 Godot.NET.Sdk 4.5+ 构建时还包括 `GD.Print`、push_warning 和 push_error）。在终端中：`godot-cli exec '1 + 2'`。 旧名称 `script-execute` 在 0.45.0 之前仍可作为隐藏别名运行（不在列表中，也没有技能）。
 
 <a id="screenshot"></a>
 ## game

@@ -20,12 +20,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     public partial class Tool_Script
     {
-        public const string ScriptExecuteToolId = Tool_GameScript.ScriptExecuteToolId;
+        public const string CsharpExecToolId = Tool_GameScript.CsharpExecToolId;
 
         [AiTool
         (
-            ScriptExecuteToolId,
-            Title = "Script / Execute",
+            CsharpExecToolId,
+            Title = "C# / Exec",
             ReadOnlyHint = false,
             DestructiveHint = true,
             IdempotentHint = false,

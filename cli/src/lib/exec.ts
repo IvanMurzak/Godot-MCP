@@ -1,4 +1,4 @@
-// Library-safe `execCode`: run C# in a project's Godot editor through `script-execute`, starting a warm headless
+// Library-safe `execCode`: run C# in a project's Godot editor through `csharp-exec`, starting a warm headless
 // editor (cli-core EditorSession) when none is running. No console output, no `process.exit`.
 
 import type { EnsureResult } from '@baizor/gamedev-cli-core';
@@ -6,10 +6,17 @@ import { runTool } from './run-tool.js';
 import { ensureEditor, type EnsureEditorDeps, type EnsureEditorOptions, type EnsureEditorResult } from './session.js';
 import type { RunToolFailure, RunToolOptions, RunToolResult } from './types.js';
 
+export const CSHARP_EXEC_TOOL = 'csharp-exec';
+
+/**
+ * The tool's old id, a hidden alias of {@link CSHARP_EXEC_TOOL} in the addon (DEV-314). `execCode` falls back to it
+ * for an addon older than the rename. Remove in 0.45.0.
+ * @deprecated Use {@link CSHARP_EXEC_TOOL}.
+ */
 export const SCRIPT_EXECUTE_TOOL = 'script-execute';
 
 /**
- * Default `script-execute` call timeout. Longer than the server `tool-timeout` the addon passes
+ * Default `csharp-exec` call timeout. Longer than the server `tool-timeout` the addon passes
  * (`GodotMcpServerView.ToolTimeoutMs`, parity-tested), so a call the server gives up on returns the server's
  * timeout error instead of a client abort.
  */
@@ -41,7 +48,7 @@ export interface ExecCodeSuccess {
   baseUrl: string;
   /** How the editor was obtained (cli-core EditorSession): `running`, `foreign`, `owned` or `started`. */
   editor: EnsureResult<string>['source'];
-  /** Parsed `script-execute` response body. */
+  /** Parsed `csharp-exec` response body. */
   data: unknown;
 }
 
@@ -81,26 +88,45 @@ export async function execCode(options: ExecCodeOptions): Promise<ExecCodeResult
   }
 
   options.onStatus?.('Running...');
-  const result = await (options.deps?.invoke ?? runTool)({
-    toolName: SCRIPT_EXECUTE_TOOL,
+  const invoke = options.deps?.invoke ?? runTool;
+  const call = (toolName: string) => invoke({
+    toolName,
     url: baseUrl,
     ...(options.token ? { token: options.token } : {}),
-    input: buildScriptExecuteInput(options.code, options.usings ?? [], options.include ?? []),
+    input: buildCsharpExecInput(options.code, options.usings ?? [], options.include ?? []),
     timeoutMs: options.timeoutMs ?? DEFAULT_EXEC_TIMEOUT_MS,
   });
+  let result = await call(CSHARP_EXEC_TOOL);
+  // DEV-314: an addon older than the rename has only the old id. Remove in 0.45.0 with SCRIPT_EXECUTE_TOOL.
+  if (result.kind === 'failure' && isUnknownTool(result, CSHARP_EXEC_TOOL)) {
+    const old = await call(SCRIPT_EXECUTE_TOOL);
+    // Neither id exists (e.g. a game without WithCsharpExec()): report the tool that was asked for.
+    if (old.kind === 'success' || !isUnknownTool(old, SCRIPT_EXECUTE_TOOL)) result = old;
+  }
   if (result.kind === 'failure') {
     return { kind: 'failure', success: false, reason: 'tool-failed', baseUrl, toolFailure: result, message: toolErrorText(result), error: result.error };
   }
   return { kind: 'success', success: true, baseUrl, editor: source, data: result.data };
 }
 
-/** Request body for `script-execute`; empty lists are left out. */
-export function buildScriptExecuteInput(code: string, usings: string[], include: string[]): Record<string, unknown> {
+/** Request body for `csharp-exec`; empty lists are left out. */
+export function buildCsharpExecInput(code: string, usings: string[], include: string[]): Record<string, unknown> {
   return {
     csharpCode: code,
     ...(usings.length > 0 ? { usings } : {}),
     ...(include.length > 0 ? { include } : {}),
   };
+}
+
+/**
+ * Old name of {@link buildCsharpExecInput} (DEV-314). Remove in 0.45.0.
+ * @deprecated Use {@link buildCsharpExecInput}.
+ */
+export const buildScriptExecuteInput = buildCsharpExecInput;
+
+/** True when the plugin answered that it has no tool `toolName` (McpPlugin: "Tool with Name '<name>' not found."). */
+function isUnknownTool(failure: RunToolFailure, toolName: string): boolean {
+  return failure.reason === 'http-error' && toolErrorText(failure).includes(`Tool with Name '${toolName}' not found`);
 }
 
 /** The text blocks of a tool answer's `content`, and how many blocks it has in all. */

@@ -48,7 +48,7 @@ Or run any command without installing: `npx godot-cli install-plugin ./MyGodotPr
 ## Commands
 
 - **`open [path]`** — Build the project's C# assembly (so the addon loads on first open — see below), resolve the Godot editor binary, and launch `--editor --path <project>` with `GODOT_MCP_*` connection env vars. `--no-build` skips the build. `--headless` starts a windowless editor session instead (see [`exec`](#exec)).
-- **`exec [code]`** — Run C# in the editor through `script-execute` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm.
+- **`exec [code]`** — Run C# in the editor through `csharp-exec` (see [`exec`](#exec)): reuses a running editor, otherwise starts a headless one and keeps it warm.
 - **`create-project [path]`** — Scaffold a new Godot project; `--dotnet` also writes a Godot.NET.Sdk `.csproj`, `--name` sets its name.
 - **`build [path]`** — Build the project's C# assembly (`dotnet build`) so the `godot_mcp` addon loads on the next editor open. GDScript-only projects (no `.csproj`) are a no-op. This is the same build `open` runs before launching.
 - **`rql [query]`** — One RQL query from the command line, no JSON: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`. A query whose last stage is `set` or `call` goes to `rql-mutate` (`--dry-run`, `--max-targets <n>`), any other to `rql-query`; `--schema [type]` runs `rql-schema`; `-f <file>` (`-f -`: stdin) reads the query when a shell strips its quotes. Starts a headless editor like `run-tool`. After `SaveScene()`, `NewScene(...)`, `CreateResource(...)` or a `godot.resource(...)` edit it prints the files written (`Saved to disk: res://scenes/forest.tscn`); an operator spelled as in another language (`startsWith`, `like`) gets a hint with RQL's spelling. `rql --help` lists recipes.
@@ -128,7 +128,7 @@ The cloud paths carry the `/mcp` hub segment so the request reaches the hub rath
 
 ## `exec`
 
-Run C# in the project's Godot editor (the addon's `script-execute` tool, on [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+Run C# in the project's Godot editor (the addon's `csharp-exec` tool, on [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
 
 ```bash
 godot-cli exec '1 + 2'                                   # → System.Int32: 3

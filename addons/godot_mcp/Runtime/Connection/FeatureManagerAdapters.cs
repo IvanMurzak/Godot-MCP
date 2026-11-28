@@ -10,6 +10,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Tools;
 using com.IvanMurzak.Godot.MCP.UI;
 using com.IvanMurzak.McpPlugin;
 
@@ -55,11 +56,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         readonly IToolManager _manager;
         public ToolManagerAdapter(IToolManager manager) => _manager = manager;
 
-        public IEnumerable<string> GetNames() =>
-            _manager.GetAllTools().Where(t => t != null).Select(t => t.Name);
+        public IEnumerable<string> GetNames() => ListedTools().Select(t => t.Name);
 
         public IEnumerable<FeatureRowItem> GetItems() =>
-            _manager.GetAllTools().Where(t => t != null)
+            ListedTools()
                 .Select(t => new FeatureRowItem
                 {
                     Name = t.Name,
@@ -70,10 +70,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     Inputs = FeatureFilter.ParseSchemaArguments(t.InputSchema)
                 });
 
+        // A hidden deprecated alias (DEV-314) is neither a row nor counted, so it can neither be shown nor saved as visible.
         public (int Visible, int Total, int VisibleTokenCount) GetCounts() =>
-            (_manager.VisibleToolsCount, _manager.TotalToolsCount, _manager.VisibleToolsTokenCount);
+            (_manager.VisibleToolsCount, ListedTools().Count(), _manager.VisibleToolsTokenCount);
 
         public void SetVisible(string name, bool visible) => _manager.SetToolVisible(name, visible);
+
+        IEnumerable<IRunTool> ListedTools() =>
+            _manager.GetAllTools().Where(t => t != null && !DeprecatedToolAliases.IsAlias(t.Name));
     }
 
     /// <summary>Adapter over <see cref="IPromptManager"/> (role + prompt arguments; no token count → reports 0).</summary>

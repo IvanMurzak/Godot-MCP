@@ -50,8 +50,8 @@ Godot 会把项目中的所有 `.cs` 文件编译成一个程序集，因此项�
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | 反射与序列化核心 |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP 插件客户端 |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL，编辑器工具的数据层（PolyForm Shield） |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec，`script-execute` 的底层实现（PolyForm Shield） |
-| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn，`script-execute` 使用的 C# 编译器 |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec，`csharp-exec` 的底层实现（PolyForm Shield） |
+| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn，`csharp-exec` 使用的 C# 编译器 |
 
 - 四个仅编辑器使用的包带有 `Condition`，使其不进入导出构建，因此发布的游戏既不包含 RQL 也不包含 Roslyn（[ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)）。
 - `<EmbeddedResource>` 是必需的：插件从自身程序集中读取该目录，其 `LogicalName` 必须严格为 `Godot-MCP.extensions.catalog.json`。

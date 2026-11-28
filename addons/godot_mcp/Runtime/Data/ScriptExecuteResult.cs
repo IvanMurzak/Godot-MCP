@@ -16,11 +16,11 @@ using com.IvanMurzak.ReflectorNet.Model;
 namespace com.IvanMurzak.Godot.MCP.Data
 {
     /// <summary>
-    /// What <c>script-execute</c> returns: the snippet's result (the same serialized member Unity-MCP's
-    /// <c>script-execute</c> returns) plus the output it printed. Pure-managed.
+    /// What <c>csharp-exec</c> returns: the snippet's result (the same serialized member Unity-MCP's
+    /// <c>csharp-exec</c> returns) plus the output it printed. Pure-managed.
     /// </summary>
     [System.Serializable]
-    [Description("The result of 'script-execute': the returned value and the output printed while the code ran.")]
+    [Description("The result of 'csharp-exec': the returned value and the output printed while the code ran.")]
     public class ScriptExecuteResult
     {
         [JsonInclude, JsonPropertyName("result")]

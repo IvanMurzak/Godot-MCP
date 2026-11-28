@@ -22,20 +22,21 @@ using com.IvanMurzak.ReflectorNet.Model;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// <c>script-execute</c> inside a RUNNING GAME: compiles C# with Roslyn and runs it on the game's main thread.
-    /// Registered only by <c>GodotMcpRuntimeBuilder.WithScriptExecute()</c>. Deliberately NOT an <c>[AiToolType]</c>:
-    /// the editor's assembly scan must never pick it up next to the editor <c>script-execute</c>
-    /// (<c>Tool_Script.Execute</c>), which has the same name.
+    /// <c>csharp-exec</c> inside a RUNNING GAME: compiles C# with Roslyn and runs it on the game's main thread.
+    /// Registered only by <c>GodotMcpRuntimeBuilder.WithCsharpExec()</c>. Deliberately NOT an <c>[AiToolType]</c>:
+    /// the editor's assembly scan must never pick it up next to the editor <c>csharp-exec</c>
+    /// (<c>Tool_Script.Execute</c>), which has the same name. The old id <c>script-execute</c> stays a hidden alias
+    /// (<see cref="DeprecatedToolAliases"/>).
     /// </summary>
     public sealed class Tool_GameScript
     {
-        public const string ScriptExecuteToolId = "script-execute";
-        const string ScriptExecuteTitle = "Script / Execute (in game)";
+        public const string CsharpExecToolId = "csharp-exec"; // a literal: cli/src/utils/skills.ts discovers tool ids by it
+        const string CsharpExecTitle = "C# / Exec (in game)";
 
         [AiTool
         (
-            ScriptExecuteToolId,
-            Title = ScriptExecuteTitle,
+            CsharpExecToolId,
+            Title = CsharpExecTitle,
             ReadOnlyHint = false,
             DestructiveHint = true,
             IdempotentHint = false,
@@ -85,25 +86,26 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
 
         /// <summary>
-        /// Makes THIS tool the plugin's <c>script-execute</c>. A game that also registers the addon assembly
+        /// Makes THIS tool the plugin's <c>csharp-exec</c>. A game that also registers the addon assembly
         /// (<c>WithToolsFromAssembly</c>) in an editor build (<c>TOOLS</c>, e.g. a game started from the editor) gets the
         /// editor <c>Tool_Script.Execute</c> from that scan, and McpPlugin processes the scan after the explicit types (the
-        /// last registration of a name wins). Returns true when it replaced another runner.
+        /// last registration of a name wins). Returns true when it replaced another runner. The hidden alias
+        /// <c>script-execute</c> follows with <see cref="DeprecatedToolAliases.Register"/>.
         /// </summary>
         internal static bool EnsureRegistered(IToolManager? tools, Reflector reflector)
         {
             if (tools == null)
                 return false;
-            var current = tools.GetAllTools().FirstOrDefault(t => t.Name == ScriptExecuteToolId);
+            var current = tools.GetAllTools().FirstOrDefault(t => t.Name == CsharpExecToolId);
             if (current is RunTool { Method: var method } && method.DeclaringType == typeof(Tool_GameScript))
                 return false;
             if (current != null)
-                tools.RemoveTool(ScriptExecuteToolId);
+                tools.RemoveTool(CsharpExecToolId);
             var execute = typeof(Tool_GameScript).GetMethod(nameof(Execute))!;
             // The [AiTool] attribute stays the one source of the title and the MCP hints.
             var attribute = execute.GetCustomAttribute<AiToolAttribute>()!;
-            tools.AddTool(ScriptExecuteToolId, RunTool.CreateFromClassMethod(
-                reflector, logger: null, ScriptExecuteToolId, typeof(Tool_GameScript), execute,
+            tools.AddTool(CsharpExecToolId, RunTool.CreateFromClassMethod(
+                reflector, logger: null, CsharpExecToolId, typeof(Tool_GameScript), execute,
                 title: attribute.Title,
                 readOnlyHint: attribute.ReadOnlyHintValue,
                 destructiveHint: attribute.DestructiveHintValue,

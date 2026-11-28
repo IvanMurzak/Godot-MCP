@@ -21,7 +21,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// Undo / redo for agents: <c>editor | call Undo()</c> is the editor's own Undo (the Scene menu item behind Ctrl+Z), so the
     /// editor picks the history (the edited scene's or the global one) and keeps its bookkeeping, exactly as when a user
     /// presses Ctrl+Z. Godot's C# API has no editor-level undo: stepping a history's <see cref="UndoRedo"/> directly (what an
-    /// agent otherwise does through script-execute) leaves the editor's own undo stack out of step.
+    /// agent otherwise does through csharp-exec) leaves the editor's own undo stack out of step.
     /// </summary>
     public sealed partial class RqlEditorApi
     {

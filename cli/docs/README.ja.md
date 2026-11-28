@@ -51,7 +51,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ## コマンド
 
 - **`open [path]`** — プロジェクトの C# アセンブリをビルドし(初回オープンでアドオンが読み込まれるように。後述)、Godot エディターのバイナリを解決して、`GODOT_MCP_*` 接続環境変数付きで `--editor --path <project>` を起動します。`--no-build` でビルドを省略します。`--headless` は代わりにウィンドウなしのエディターセッションを起動します([`exec`](#exec) を参照)。
-- **`exec [code]`** — `script-execute` を通じてエディターで C# を実行します([`exec`](#exec) を参照)。起動中のエディターを再利用し、なければヘッドレスエディターを起動して待機状態に保ちます。
+- **`exec [code]`** — `csharp-exec` を通じてエディターで C# を実行します([`exec`](#exec) を参照)。起動中のエディターを再利用し、なければヘッドレスエディターを起動して待機状態に保ちます。
 - **`create-project [path]`** — 新しい Godot プロジェクトの雛形を作ります。`--dotnet` は Godot.NET.Sdk の `.csproj` も書き込み、`--name` でその名前を指定します。
 - **`build [path]`** — 次にエディターを開いたときに `godot_mcp` アドオンが読み込まれるよう、プロジェクトの C# アセンブリをビルドします(`dotnet build`)。GDScript のみのプロジェクト(`.csproj` なし)では何もしません。`open` が起動前に行うビルドと同じものです。
 - **`rql [query]`** — コマンドラインから JSON なしで RQL クエリを 1 つ実行します: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`。最後のステージが `set` または `call` のクエリは `rql-mutate` へ(`--dry-run`、`--max-targets <n>`)、それ以外は `rql-query` へ送られます。`--schema [type]` は `rql-schema` を実行します。シェルが引用符を取り除いてしまう場合は `-f <file>`(`-f -`: stdin)でクエリを読み込みます。`run-tool` と同様にヘッドレスエディターを起動します。`SaveScene()`、`NewScene(...)`、`CreateResource(...)`、または `godot.resource(...)` の編集のあとは、書き込んだファイルを表示します(`Saved to disk: res://scenes/forest.tscn`)。他の言語の書き方の演算子(`startsWith`、`like`)には RQL での書き方をヒントとして示します。`rql --help` でレシピを一覧表示します。
@@ -136,7 +136,7 @@ godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 <a id="exec"></a>
 ## `exec`
 
-プロジェクトの Godot エディターで C# を実行します(アドオンの `script-execute` ツール、[Code-Exec](https://github.com/IvanMurzak/Code-Exec) 上で動作):
+プロジェクトの Godot エディターで C# を実行します(アドオンの `csharp-exec` ツール、[Code-Exec](https://github.com/IvanMurzak/Code-Exec) 上で動作):
 
 ```bash
 godot-cli exec '1 + 2'                                   # → System.Int32: 3

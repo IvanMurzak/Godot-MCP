@@ -93,6 +93,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void The_tools_source_has_no_row_for_a_hidden_deprecated_alias()
+        {
+            // DEV-314: script-execute is a hidden alias of csharp-exec: one tool, one row.
+            var plugin = new com.IvanMurzak.McpPlugin.McpPluginBuilder(new com.IvanMurzak.McpPlugin.Common.Version())
+                .WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_GameScript))
+                .Build(new com.IvanMurzak.ReflectorNet.Reflector());
+            Assert.Equal(1, com.IvanMurzak.Godot.MCP.Tools.DeprecatedToolAliases.Register(plugin.McpManager.ToolManager, new com.IvanMurzak.ReflectorNet.Reflector()));
+            try
+            {
+                RqlTools.Manager = plugin.McpManager.ToolManager;
+                var names = RqlTools.All().Select(r => r.name).ToList();
+                Assert.Contains("csharp-exec", names);
+                Assert.DoesNotContain("script-execute", names);
+            }
+            finally
+            {
+                RqlTools.Manager = null;
+            }
+        }
+
+        [Fact]
         public void Without_a_connected_plugin_the_tools_source_is_empty()
         {
             RqlTools.Manager = null;

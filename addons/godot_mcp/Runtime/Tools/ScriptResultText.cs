@@ -7,7 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// script-execute: the editor, a game built with the in-game opt-in (docs/ARCHITECTURE.md), and the xUnit suite.
+// csharp-exec: the editor, a game built with the in-game opt-in (docs/ARCHITECTURE.md), and the xUnit suite.
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using System;
@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// The compact text of a script-execute result in the RQL tool format, the vocabulary rql-query answers in:
+    /// The compact text of a csharp-exec result in the RQL tool format, the vocabulary rql-query answers in:
     /// <c>Dictionary&lt;string, int&gt;: {a: 1, b: 2}</c>, <c>List&lt;Vector3&gt;: [(1, 2, 3)]</c>,
     /// <c>anonymous: {name: x, count: 3}</c>, a node as <c>Node3D#123(Geometry/Floor)</c>. ReflectorNet's form printed
     /// a dictionary's internals instead of its entries, a list as name/typeName/value tables and a node with the editor's

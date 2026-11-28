@@ -218,7 +218,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 // 7) Snapshot the captured rows into the report.
                 Snapshot(report);
 
-                // 7a) In-game script-execute: Roslyn compiles and runs C# inside THIS game process. After the snapshot,
+                // 7a) In-game csharp-exec: Roslyn compiles and runs C# inside THIS game process. After the snapshot,
                 //     so its own engine logger never overlaps the capture window asserted above. Called on the tool
                 //     directly: the runtime registers no extra tool, so the recorded tool contract is unchanged.
                 await CheckScriptExecuteAsync(report);
@@ -252,10 +252,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             GetTree().Quit(ok ? 0 : 1);
         }
 
-        // --- In-game script-execute ----------------------------------------------------------------------
+        // --- In-game csharp-exec ----------------------------------------------------------------------
 
         /// <summary>
-        /// Runs two snippets through the in-game <c>script-execute</c> (<see cref="Tool_GameScript"/>): plain arithmetic and
+        /// Runs two snippets through the in-game <c>csharp-exec</c> (<see cref="Tool_GameScript"/>): plain arithmetic and
         /// a read of this game's own scene tree. Records the raw result values (or the error) for the assert script.
         /// </summary>
         async Task CheckScriptExecuteAsync(HarnessReport report)
@@ -264,7 +264,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             var tool = new Tool_GameScript();
             report.ScriptExecuteSum = await RunSnippetAsync(tool, "1 + 1", report);
             report.ScriptExecuteRootName = await RunSnippetAsync(tool, "((SceneTree)Engine.GetMainLoop()).Root.Name.ToString()", report);
-            GD.Print($"[harness] script-execute: sum={report.ScriptExecuteSum}, rootName={report.ScriptExecuteRootName}.");
+            GD.Print($"[harness] csharp-exec: sum={report.ScriptExecuteSum}, rootName={report.ScriptExecuteRootName}.");
 #else
             report.ScriptExecuteFailures.Add("this build has no code execution (neither TOOLS nor GODOT_MCP_CODE_EXEC_IN_GAME)");
             await Task.CompletedTask;
@@ -671,7 +671,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             if (report.VariantRoundTripFailures.Count > 0)
                 return false;
 
-            // In-game script-execute: Roslyn ran C# inside this game and read its scene tree.
+            // In-game csharp-exec: Roslyn ran C# inside this game and read its scene tree.
             if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "\"root\"")
                 return false;
             if (report.VariantRoundTripChecked < VariantRoundTripMinimumChecks)

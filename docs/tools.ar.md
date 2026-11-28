@@ -13,7 +13,7 @@
 | العائلة | الأدوات | ما تفعله |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | الاستعلام عن المحرر الحي وتغييره. كل شيء أو لا شيء، وقابل للتراجع؛ عدة عبارات في استدعاء واحد، مفصولة بـ `;`. انظر [rql.md](rql.md). |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | ملفات C# (`.cs`) وGDScript (`.gd`)، وإرفاق سكربت بعقدة، والتحقق من GDScript، وبناء كود C# للمشروع، وتشغيل C# في المحرر. |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | ملفات C# (`.cs`) وGDScript (`.gd`)، وإرفاق سكربت بعقدة، والتحقق من GDScript، وبناء كود C# للمشروع، وتشغيل C# في المحرر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | التقاط نافذة عرض المحرر، أو كاميرا، أو عقدة واحدة مرسومة وحدها، كصورة PNG يراها النموذج اللغوي. |
 | **game** | `game-run` | تشغيل اللعبة (أو مشهد واحد) دون نافذة لبضع ثوانٍ من زمن اللعبة والحصول على أخطائها وتحذيراتها ومخرجاتها المطبوعة في استدعاء واحد. |
 | **console** | `console-get-logs`, `console-clear-logs` | في لعبة قيد التشغيل: قراءة السجلات المجمّعة ومسحها. |
@@ -46,7 +46,7 @@
 - ‏`script-attach-to-node`: إرفاق سكربت بعقدة.
 - ‏`script-validate`: تحليل ملفات GDScript وترجمتها وإعادة تشخيصات منظّمة.
 - ‏`script-build`: بناء كود C# للمشروع (`dotnet build`، Debug) لتُحمَّل السكربتات الجديدة. يجري البناء في الخلفية؛ وعند نجاحه يعيد Godot تحميل تجميعة C#، ويعيد المكوّن الإضافي الاتصال، وتصل النتيجة (تحذيرات أو أخطاء) بعد إعادة التحميل. انظر [إعادة تحميل تجميعة C#](custom-tools.ar.md#c-assembly-reloads).
-- ‏`script-execute`: ترجمة C# وتشغيله في المحرر بواسطة Roslyn، عبر [Code-Exec](https://github.com/IvanMurzak/Code-Exec). عبارات عادية يكون آخر تعبير فيها هو النتيجة (مع `using` خاصة، وأصناف محلية، و`await`)، أو صنف بدالة ساكنة. الأنواع المترجمة للعبة مرئية؛ ويضيف `include` ملفات `.cs` مساعدة من `<project>/.ai-game-dev/snippets`. تُعيد القيمة وما طبعه الكود (`Console`؛ و`GD.Print` وpush_warning وpush_error عندما يُبنى المشروع بـ Godot.NET.Sdk 4.5+). من الطرفية: `godot-cli exec '1 + 2'`.
+- ‏`csharp-exec`: ترجمة C# وتشغيله في المحرر بواسطة Roslyn، عبر [Code-Exec](https://github.com/IvanMurzak/Code-Exec). عبارات عادية يكون آخر تعبير فيها هو النتيجة (مع `using` خاصة، وأصناف محلية، و`await`)، أو صنف بدالة ساكنة. الأنواع المترجمة للعبة مرئية؛ ويضيف `include` ملفات `.cs` مساعدة من `<project>/.ai-game-dev/snippets`. تُعيد القيمة وما طبعه الكود (`Console`؛ و`GD.Print` وpush_warning وpush_error عندما يُبنى المشروع بـ Godot.NET.Sdk 4.5+). من الطرفية: `godot-cli exec '1 + 2'`. لا يزال اسمها القديم ‏`script-execute` يعمل كاسم بديل مخفي (لا يظهر في القائمة ولا مهارة له) حتى الإصدار 0.45.0.
 
 <a id="screenshot"></a>
 ## game

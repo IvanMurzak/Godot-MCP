@@ -56,8 +56,8 @@
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | نواة الانعكاس والتسلسل |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | عميل المكوّن الإضافي لـ MCP |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، طبقة البيانات لأدوات المحرر (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، الذي يعمل خلف `script-execute` (PolyForm Shield) |
-| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، مترجم C# الذي يشغّله `script-execute` |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، الذي يعمل خلف `csharp-exec` (PolyForm Shield) |
+| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، مترجم C# الذي يشغّله `csharp-exec` |
 
 - تحمل حزم المحرر الأربع `Condition` يستبعدها من إصدارات التصدير، فلا تحتوي اللعبة المنشورة على RQL ولا Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
 - العنصر `<EmbeddedResource>` إلزامي: تقرأ الإضافة الفهرس من تجميعتها، ويجب أن يكون `LogicalName` الخاص به `Godot-MCP.extensions.catalog.json` بالضبط.

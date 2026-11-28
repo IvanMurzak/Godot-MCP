@@ -11,7 +11,7 @@ Default `toolFormat` (`Rql`) के साथ बाकी tools arguments क�
 | Family | Tools | क्या करता है |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | Live editor को query करना और बदलना। All-or-nothing और undo होने लायक; एक call में `;` से अलग कई statements। [rql.md](rql.md) देखें। |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | C# (`.cs`) और GDScript (`.gd`) files, node पर script attach करना, GDScript validation, प्रोजेक्ट का C# build करना, और editor में C# चलाना। |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | C# (`.cs`) और GDScript (`.gd`) files, node पर script attach करना, GDScript validation, प्रोजेक्ट का C# build करना, और editor में C# चलाना। |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Editor viewport, किसी camera, या अकेले render किए एक node को PNG के रूप में capture करना जिसे LLM देख सके। |
 | **game** | `game-run` | Game (या एक scene) को बिना window के game time के कुछ seconds चलाना और उसकी errors, warnings और printed output एक ही call में पाना। |
 | **console** | `console-get-logs`, `console-clear-logs` | चलते हुए game में: इकट्ठे logs पढ़ना और clear करना। |
@@ -44,7 +44,7 @@ Sources में `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `c
 - `script-attach-to-node`: किसी node पर script attach करना।
 - `script-validate`: GDScript files को parse और compile करके structured diagnostics लौटाना।
 - `script-build`: प्रोजेक्ट का C# build करना (`dotnet build`, Debug) ताकि नई scripts load हों। Build background में चलता है; सफल होने पर Godot C# assembly reload करता है, plugin फिर से connect होता है, और result (warnings या errors) reload के बाद आता है। [C# assembly reloads](custom-tools.hi.md#c-assembly-reloads) देखें।
-- `script-execute`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) के ज़रिए Roslyn से editor में C# compile करके चलाना। आख़िरी expression को result मानकर सादे statements (अपने `using`s, local classes, `await`), या static method वाली class। Game के compiled types दिखते हैं; `include` `<project>/.ai-game-dev/snippets` से helper `.cs` files जोड़ता है। Value और code ने जो print किया वह लौटाता है (`Console`; प्रोजेक्ट Godot.NET.Sdk 4.5+ से build हो तो `GD.Print`, push_warning और push_error)। Terminal से: `godot-cli exec '1 + 2'`।
+- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) के ज़रिए Roslyn से editor में C# compile करके चलाना। आख़िरी expression को result मानकर सादे statements (अपने `using`s, local classes, `await`), या static method वाली class। Game के compiled types दिखते हैं; `include` `<project>/.ai-game-dev/snippets` से helper `.cs` files जोड़ता है। Value और code ने जो print किया वह लौटाता है (`Console`; प्रोजेक्ट Godot.NET.Sdk 4.5+ से build हो तो `GD.Print`, push_warning और push_error)। Terminal से: `godot-cli exec '1 + 2'`। इसका पुराना नाम `script-execute` 0.45.0 तक छिपे हुए alias के रूप में चलता रहेगा (सूची में नहीं, कोई skill नहीं)।
 
 <a id="screenshot"></a>
 ## game
