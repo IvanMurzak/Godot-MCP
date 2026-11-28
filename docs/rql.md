@@ -2,8 +2,9 @@
 
 The data layer of the editor tools is RQL (Reflection Query Language, the NuGet package
 [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql)): one query language instead of one tool
-per operation, the same one Unity-MCP 1.0 uses. McpPlugin and its tool plumbing are unchanged; ReflectorNet stays the
-data layer of the in-game runtime (`GodotMcpRuntime`) and of the editor's `Json` tool format.
+per operation, the same one Unity-MCP 1.0 uses. RQL is also the value layer of every other tool, in the editor and in a
+game (`GodotMcpRuntime`): tool schemas, arguments and results. McpPlugin's tool plumbing is unchanged; ReflectorNet
+only invokes the tool methods (McpPlugin's `MethodWrapper`).
 
 Game developers can use RQL freely, commercial games included. Its [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)
 restricts only companies that build competing AI tools for game development. The addon itself stays Apache-2.0.
@@ -61,12 +62,14 @@ file (a TileSet's atlas source, also one created in the same session) save that 
 Kept as tools: `script-*`, `screenshot-*`, `ping`, `godot-skill-*`. The **in-game runtime** tool surface is unchanged:
 `console-*`, `reflection-*`, `runtime-errors-*` and `ping` stay registered in a game build. The first three are game-only
 (`[AiToolType(Target = ToolTarget.Runtime)]`): the editor's plugin does not register them, and while both are connected the
-server sends their calls to the game.
+server sends their calls to the game. In a game they, and the developer's own tools, take and return RQL values too
+(`GodotRqlRuntime`: Godot's value types, `ref("Node3D#12")`, node paths below the current scene, `godot.find`, `res://`;
+no sources and no writes).
 
-With the default `toolFormat` `Rql` (config key `toolFormat`, env `GODOT_MCP_TOOL_FORMAT`), the other tools take RQL
-values as arguments (`"Level/Player"`, `ref("Node3D#12")`, `godot.find("Name")` for a `NodeRef`) and return compact
-text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolTextEscaping` (`Minimal` / `Ascii` /
-`Json`) controls how quoted text in those results is escaped.
+The other tools take RQL values as arguments (`"Level/Player"`, `ref("Node3D#12")`, `godot.find("Name")` for a
+`NodeRef`) and return compact text. RQL is the only tool data layer: the former `toolFormat` setting (`Json` =
+ReflectorNet's JSON schemas and results) is gone, and an old config's `toolFormat` key is ignored. `toolTextEscaping`
+(`Minimal` / `Ascii` / `Json`) controls how quoted text in those results is escaped.
 
 ## Writes: undo and saving
 
@@ -163,6 +166,11 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
 
 ## Code
 
+- `addons/godot_mcp/Runtime/Rql/` (un-gated, ships in games; same namespaces): `Modules/GodotValuesModule.cs` (the value
+  adapters below, shared by the editor and the in-game engine), `Adapters/Struct`, `Adapters/Value`, `Adapters/Tool`,
+  `ToolFormat/` (`RqlToolBinding`, McpPlugin `IToolBinding`), `GodotVariants.cs`, `GodotTypes.cs`, `GodotRqlRuntime.cs`
+  (the in-game engine and binding: value adapters, `Godot_RuntimeObject_Adapter`, `godot.find` over the running scene
+  tree; `AccessorMode.Reflection` where the runtime cannot JIT).
 - `addons/godot_mcp/Editor/Rql/` (namespace `com.IvanMurzak.Godot.MCP.Editor.Rql`):
   - `RqlGodot*.cs` — the engine over the live editor: factory (`AccessorMode.Compiled`, `$ref` = `Class#instance id`
     via `GodotObject.InstanceFromId`, liveness via `IsInstanceValid`), sources and functions, mutation hooks, node
@@ -184,11 +192,11 @@ text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolText
   - `Modules/TestHooksModule.cs` — `test.undo` / `test.redo` / `test.action` / `test.undoManager` (true only when the
     undo manager is reachable; the smoke's probe) / `test.addToGroup(node, group, persistent)`, only with
     `GODOT_MCP_RQL_TEST_HOOKS=1` (the live smoke drives undo with them; never on in a user's editor).
-  - `Modules/GodotCoreModule.cs`, `Modules/ToolTypesModule.cs` — the core module; modules are discovered in every loaded
+  - `Modules/GodotCoreModule.cs` (+ `Runtime/Rql/Modules/GodotValuesModule.cs`) — the core modules; modules are discovered in every loaded
     assembly (`GodotAssemblyUtils.AllAssemblies`), so an extension's `IRqlModule` in the consumer project assembly is
     found as soon as it is installed (its `ctx.AddGuide` text appears in the `godot-rql` skill).
-  - `RqlGodotSchema.cs`, `GodotTypes.cs`, `RqlGuide.cs` (agent texts; every example runs in CI), `Skill_Rql.cs`
-    (`godot-rql`), `ToolFormat/` (`RqlToolBinding`, McpPlugin `IToolBinding`), `RqlInstaller.cs`, `RqlReimport.cs`.
+  - `RqlGodotSchema.cs`, `RqlGuide.cs` (agent texts; every example runs in CI), `Skill_Rql.cs` (`godot-rql`),
+    `RqlInstaller.cs`, `RqlReimport.cs`.
 - `addons/godot_mcp/Editor/Tools/Tool_Rql*.cs` — the three tools.
 - Installation: `GodotMcpPlugin` calls `RqlInstaller.Install` and hands the configuration it returns to the
   `GodotMcpConnection` constructor (`configurePlugin`), which invokes it after building each plugin.

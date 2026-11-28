@@ -97,8 +97,7 @@ una advertencia y no registra nada.
 - **Loopback + token, siempre.** Usa un host loopback y `AuthOption = token` con un token real tomado del
   entorno. Quien pueda llamar a herramientas en la conexión controla el proceso.
 - **Solo CoreCLR de escritorio.** NativeAOT e iOS no pueden ejecutar código emitido en tiempo de ejecución; en móviles no está probado.
-- **Tamaño.** La activación añade Roslyn (`Microsoft.CodeAnalysis*.dll`, varios MB) a la exportación. RQL nunca se
-  incluye.
+- **Tamaño.** La activación añade Roslyn (`Microsoft.CodeAnalysis*.dll`, varios MB) a la exportación.
 
 <a id="environment-variables"></a>
 ## Variables de entorno

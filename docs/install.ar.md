@@ -33,11 +33,11 @@
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
+<!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -53,13 +53,13 @@
 
 | الحزمة | الدور |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | نواة الانعكاس والتسلسل |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | نواة الانعكاس: تجد دوال الأدوات وتستدعيها (اعتمادية McpPlugin) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | عميل المكوّن الإضافي لـ MCP |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، طبقة البيانات لأدوات المحرر (PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، طبقة القيم لكل الأدوات، في المحرر وفي اللعبة (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، الذي يعمل خلف `csharp-exec` (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، مترجم C# الذي يشغّله `csharp-exec` |
 
-- تحمل حزم المحرر الأربع `Condition` يستبعدها من إصدارات التصدير، فلا تحتوي اللعبة المنشورة على RQL ولا Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
+- تحمل حزم المحرر الثلاث `Condition` يستبعدها من إصدارات التصدير، فلا تحتوي اللعبة المنشورة على Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)). لا يحمل RQL أي `Condition`: فأدوات اللعبة تستخدمه أيضًا. في مشروع أعدّه `install-plugin` أقدم يحمل RQL الـ `Condition` الخاص بالمحرر؛ شغّل `godot-cli install-plugin` مجددًا (فهو يزيله) أو احذف الـ `Condition` يدويًا.
 - العنصر `<EmbeddedResource>` إلزامي: تقرأ الإضافة الفهرس من تجميعتها، ويجب أن يكون `LogicalName` الخاص به `Godot-MCP.extensions.catalog.json` بالضبط.
 - أبقِ `<EnableDynamicLoading>true</EnableDynamicLoading>` في `<PropertyGroup>` (قالب C# في Godot يتضمنه). بدونه لا تُنسخ تجميعات الحزم بجوار تجميعة اللعبة، وتفشل اللعبة المُشغَّلة من المحرر في إنشاء أي سكربت C# ("Cannot instantiate C# script because the associated class could not be found").
 

@@ -190,8 +190,8 @@ export function toolErrorText(failure: RunToolFailure): string {
 }
 
 /**
- * The tool's text output and whether it reported success. RQL tool format (the default): the text content
- * (`System.Int32: 3`, then `logs:` lines). JSON format: `{ structured: { result: { result, logs } } }`, shown the same way.
+ * The tool's text output and whether it reported success. RQL (the addon's only tool data layer): the text content
+ * (`3`, then `logs:` lines). An older addon's JSON format: `{ structured: { result: { result, logs } } }`, shown the same way.
  */
 export function readToolResponse(data: unknown): { ok: boolean; text: string } {
   if (typeof data === 'string') return { ok: true, text: data };

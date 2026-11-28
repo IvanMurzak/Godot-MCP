@@ -121,6 +121,8 @@ public sealed class SceneTreeSummary
 }
 ```
 
+参数和结果都是 RQL 值，与编辑器中相同：智能体会在工具描述中看到每个参数的类型，并把自定义类写成字面量——`{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}`——其中节点可以是先前结果中的 `ref(…)`、`godot.find("Player")`，或当前场景下的路径或名称（`"Level/Player"`），资源则是 `"res://…"` 路径。返回的对象以 RQL 文本形式返回（节点为 `Node3D#12`）。AOT 导出（无 JIT，例如 iOS）的工具使用反射访问器；无需任何配置。
+
 提示词和资源的注册方式相同：一个标有 `[AiPromptType]` / `[AiResourceType]` 的 `partial class`，其成员标有 `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`。资源方法返回 `ResponseResourceContent[]`（例如 `ResponseResourceContent.CreateText(uri, json, "application/json")`）。所有这些类型都来自 `com.IvanMurzak.McpPlugin` 包。
 
 <a id="capturing-in-game-runtime-errors"></a>
@@ -146,6 +148,6 @@ public sealed class SceneTreeSummary
 </PropertyGroup>
 ```
 
-当前版本的 `godot-cli install-plugin` 会写入带有 `Condition` 的 Code-Exec 和 Roslyn 包引用，该条件会遵循此属性；RQL 永远不会随游戏发布。未启用时，`WithCsharpExec()` 会记录一条警告且不注册任何内容。
+当前版本的 `godot-cli install-plugin` 会写入带有 `Condition` 的 Code-Exec 和 Roslyn 包引用，该条件会遵循此属性。未启用时，`WithCsharpExec()` 会记录一条警告且不注册任何内容。
 
 > **这就是任意代码执行。** 任何能在该连接上调用工具的人，都能在游戏进程中运行任意代码。仅在开发构建中、在带令牌的回环主机上使用。仅限桌面 CoreCLR：NativeAOT 和 iOS 无法运行运行时生成的代码。

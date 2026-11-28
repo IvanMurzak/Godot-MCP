@@ -4,7 +4,7 @@
 
 Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，按下列系列分组。它们很紧凑，因此智能体需要更少的调用和更少的 token（[在 RQL 的智能体评估中测得](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md)）。编辑器的数据层是 [RQL](rql.md)（Reflection Query Language）：`rql-query`、`rql-mutate` 和 `rql-schema` 用一条查询读取和修改场景节点、Godot 属性、资源、文件、场景和编辑器状态，而不是每种操作一个工具。
 
-在默认的 `toolFormat`（`Rql`）下，其他工具以 RQL 值作为参数并返回紧凑的文本；`Json` 则保留 ReflectorNet 的 JSON schema 和结果。截图返回 PNG 图像。插件启用后，所有编辑器工具即可使用。
+其他工具以 RQL 值作为参数并返回紧凑的文本（RQL 是工具唯一的数据层）。截图返回 PNG 图像。插件启用后，所有编辑器工具即可使用。
 
 **console**、**reflection** 和 **runtime-errors** 系列服务于*运行中的游戏*（见[运行时用法](runtime.zh-CN.md)）。在编辑器中，请改用 RQL 的 `console` 数据源以及 RQL 的 `call` / `CallMethod`。
 
@@ -15,7 +15,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | 截取编辑器视口、某个相机或单独渲染的单个节点，生成 LLM 可以查看的 PNG。 |
 | **game** | `game-run` | 以无窗口方式运行游戏(或某个场景)若干秒游戏时间，一次调用即可获得其错误、警告和打印输出。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 在运行中的游戏内：读取和清除收集到的日志。 |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | 在运行中的游戏内：通过 ReflectorNet 在任意已加载程序集中查找并调用 C# 方法。 |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | 在运行中的游戏内：在任意已加载程序集中查找并调用 C# 方法，目标和参数使用 RQL 值。 |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | 在运行中的游戏内：轮询 GDScript 运行时错误、`push_error` / `push_warning`、着色器错误和 C# 异常。**默认关闭。** |
 | **ping** | `ping` | 就绪探测。系统工具。 |
 | **session** | `session-close` | 保存并退出由 `godot-cli` 启动的编辑器。系统工具。 |
@@ -44,7 +44,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 - `script-attach-to-node`：将脚本挂载到节点。
 - `script-validate`：解析并编译 GDScript 文件，返回结构化诊断信息。
 - `script-build`：构建项目的 C#（`dotnet build`，Debug），以便加载新脚本。构建在后台运行；成功后 Godot 重新加载 C# 程序集，插件重新连接，结果（警告或错误）在重载后返回。见 [C# 程序集重载](custom-tools.zh-CN.md#c-assembly-reloads)。
-- `csharp-exec`：通过 [Code-Exec](https://github.com/IvanMurzak/Code-Exec) 用 Roslyn 在编辑器中编译并运行 C#。可以是普通语句，以最后一个表达式作为结果（可有自己的 `using`、局部类、`await`），也可以是带静态方法的类。游戏编译后的类型均可见；`include` 会添加来自 `<project>/.ai-game-dev/snippets` 的辅助 `.cs` 文件。返回值以及代码打印的内容（`Console`；当项目使用 Godot.NET.Sdk 4.5+ 构建时还包括 `GD.Print`、push_warning 和 push_error）。在终端中：`godot-cli exec '1 + 2'`。 旧名称 `script-execute` 在 0.45.0 之前仍可作为隐藏别名运行（不在列表中，也没有技能）。
+- `csharp-exec`：通过 [Code-Exec](https://github.com/IvanMurzak/Code-Exec) 用 Roslyn 在编辑器中编译并运行 C#。可以是普通语句，以最后一个表达式作为结果（可有自己的 `using`、局部类、`await`），也可以是带静态方法的类。游戏编译后的类型均可见；`include` 会添加来自 `<project>/.ai-game-dev/snippets` 的辅助 `.cs` 文件。`parameters` 是按名称传入的 RQL 值（`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`：名称前的类型会把值转换为该类型）。返回以 RQL 文本形式写在其类型之后的值（`System.Int32: 3`、`Dictionary<string, int>: {a:1,b:2}`）以及代码打印的内容（`Console`；当项目使用 Godot.NET.Sdk 4.5+ 构建时还包括 `GD.Print`、push_warning 和 push_error）。在终端中：`godot-cli exec '1 + 2'`。 旧名称 `script-execute` 在 0.45.0 之前仍可作为隐藏别名运行（不在列表中，也没有技能）。
 
 <a id="screenshot"></a>
 ## game
@@ -63,7 +63,7 @@ Godot-MCP 的内置工具几乎涵盖你在 Godot 编辑器中能做的一切，
 ## console、reflection、runtime-errors（运行中的游戏）
 
 - `console-get-logs` / `console-clear-logs`：读取（可过滤）和清除插件收集的日志，包括插件自身的连接诊断信息。
-- `reflection-method-find` / `reflection-method-call`：在所有已加载程序集中查找 C# 方法（包括私有方法），并带参数调用其中一个。
+- `reflection-method-find` / `reflection-method-call`：在所有已加载程序集中查找 C# 方法（包括私有方法），并调用其中一个：`targetObject` 和具名的 `inputParameters` 是 RQL 值（`ref("Node3D#12")`、`godot.find("Player")`、`[1, 2, 3]`、对象字面量），会被转换为方法声明的类型；结果以 RQL 文本返回。
 - `runtime-errors-get`：捕获到的游戏内错误，按从旧到新排列，保留最新的。将上一次的 `highestSequence` 作为 `sinceSequence` 传入，即可只获取新错误。如果从未启用捕获，则返回 `available:false`。
 - `runtime-errors-clear`：清空缓冲区；序号计数器继续递增。
 

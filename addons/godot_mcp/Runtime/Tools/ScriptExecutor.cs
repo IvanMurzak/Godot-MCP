@@ -19,9 +19,6 @@ using System.Threading.Tasks;
 using com.IvanMurzak.CodeExec;
 using com.IvanMurzak.CodeExec.Roslyn;
 using com.IvanMurzak.Godot.MCP.Data;
-using com.IvanMurzak.Godot.MCP.Reflection;
-using com.IvanMurzak.McpPlugin;
-using com.IvanMurzak.ReflectorNet.Model;
 using com.IvanMurzak.ReflectorNet.Utils;
 using Godot;
 
@@ -30,8 +27,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// <summary>
     /// Runs <c>csharp-exec</c> on Code-Exec (NuGet <c>com.IvanMurzak.CodeExec</c> + the source-only Roslyn adapter),
     /// for the editor tool (<c>Tool_Script.Execute</c>) and the in-game one (<see cref="Tool_GameScript"/>).
-    /// Compiles on the calling thread (MCP calls arrive off the main thread), runs on the Godot main thread. Each run is
-    /// loaded into its own collectible context and unloaded afterwards, so the result is serialized before that.
+    /// Compiles on the calling thread (MCP calls arrive off the main thread), runs on the Godot main thread. Parameters
+    /// arrive as RQL values already converted to their types (<see cref="ScriptParameters"/>); the result leaves as a plain
+    /// object the tool binding presents with RQL. Each run is loaded into its own collectible context and unloaded
+    /// afterwards, so values of the snippet's own types are made plain before that (<see cref="ScriptResultText.Plain"/>).
     /// The runner lives in a static of THIS (reloadable) assembly and subscribes to nothing, so a C# rebuild drops it.
     /// </summary>
     static class ScriptExecutor
@@ -48,7 +47,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static bool IsBusy => Volatile.Read(ref _inFlight) > 0;
 
         public static async Task<ScriptExecuteResult> Execute(string csharpCode, string className, string methodName,
-            SerializedMemberList? parameters, bool isMethodBody, string[]? usings, string[]? include,
+            ScriptParameters? parameters, bool isMethodBody, string[]? usings, string[]? include,
             int timeoutSeconds = ScriptExecuteSource.DefaultTimeoutSeconds)
         {
             if (string.IsNullOrEmpty(csharpCode))
@@ -67,19 +66,19 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         static async Task<ScriptExecuteResult> Run(string csharpCode, string className, string methodName,
-            SerializedMemberList? parameters, bool isMethodBody, string[]? usings, string[]? include, int timeoutMs)
+            ScriptParameters? parameters, bool isMethodBody, string[]? usings, string[]? include, int timeoutMs)
         {
             // The call's budget counts from its arrival (compiling and waiting for an earlier snippet use it up too); the snippet
             // gets its requested timeout within what is left of it.
             var arrived = System.Diagnostics.Stopwatch.StartNew();
             var runner = Runner();
-            // Only the parameter TYPES are needed to compile; the values are deserialized on the main thread.
+            // Only the parameter TYPES are needed to compile; the values are bound on the main thread.
             var request = new ExecuteRequest
             {
                 Code = csharpCode,
                 Usings = usings ?? Array.Empty<string>(),
                 Include = include ?? Array.Empty<string>(),
-                Parameters = parameters?.Select((p, i) => new SnippetParameter(ParameterName(p, i), ParameterType(p, i), null)).ToList()
+                Parameters = parameters?.Items.Select(p => new SnippetParameter(p.Name, p.Type, null)).ToList()
                     ?? (IReadOnlyList<SnippetParameter>)Array.Empty<SnippetParameter>(),
                 TimeoutMs = timeoutMs,
             };
@@ -87,6 +86,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 request.EntryType = entryType;
                 request.EntryMethod = methodName;
+                // The method declares its parameter types: the values are converted to them now (a node path or ref resolves
+                // through the scene tree, on the main thread), so a wrong value fails here instead of when the method is invoked.
+                if (parameters != null && parameters.Items.Count > 0
+                    && ScriptExecuteSource.FullSourceParameterTypes(csharpCode, entryType, methodName, parameters.Items.Count) is { } declared)
+                {
+                    parameters = MainThread.Instance.Run(() => ToDeclaredTypes(parameters, declared));
+                    request.Parameters = parameters.Items.Select(p => new SnippetParameter(p.Name, p.Type, null)).ToList();
+                }
             }
             var prepared = runner.Prepare(request);
             if (!prepared.Succeeded)
@@ -96,14 +103,50 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return await MainThread.Instance.RunAsync(() => RunOnMainThread(runner, request, prepared, parameters, arrived, timeoutMs)).Unwrap();
         }
 
-        static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, ExecuteRequest request, PreparedSnippet prepared,
-            SerializedMemberList? parameters, System.Diagnostics.Stopwatch arrived, int timeoutMs)
+        /// <summary>
+        /// Each parameter converted to the type the full-mode method declares for it (in order), when that type is known and
+        /// differs from the value's; a value that does not convert is an error before anything runs.
+        /// </summary>
+        internal static ScriptParameters ToDeclaredTypes(ScriptParameters parameters, IReadOnlyList<(string name, IReadOnlyList<string> namespaces)?> declared)
         {
-            if (parameters != null)
+            var items = new List<ScriptParameter>(parameters.Items.Count);
+            var names = string.Join(", ", declared.Select(d => d?.name ?? "?"));
+            for (var i = 0; i < parameters.Items.Count; i++)
             {
-                var reflector = GodotMcpReflector.GetOrCreate();
-                prepared = prepared.WithValues(parameters.Select(p => reflector.Deserialize(data: p)).ToList());
+                var p = parameters.Items[i];
+                var type = declared[i] is { } d ? ResolveDeclared(d.name, d.namespaces) : null;
+                if (type == null || type == p.Type || p.Convert == null || (p.Value != null && type.IsInstanceOfType(p.Value) && !type.IsValueType))
+                {
+                    items.Add(p);
+                    continue;
+                }
+                if (!p.Convert(type, out var value, out var reason))
+                    throw new ArgumentException($"parameter '{p.Name}' ({declared[i]!.Value.name} in {names}): {reason}" +
+                        (typeof(GodotObject).IsAssignableFrom(type) && p.Value is string
+                            ? ". A node: godot.find(\"Crate\") (by name or path) or ref(\"Node3D#12\") from a query result"
+                            : ""));
+                items.Add(new ScriptParameter(p.Name, type, value, p.Convert));
             }
+            return new ScriptParameters(items);
+        }
+
+        // A short name in the code's own namespaces first (using MyGame; Timer is MyGame.Timer), then as the agent would name it.
+        static Type? ResolveDeclared(string name, IReadOnlyList<string> namespaces)
+        {
+            if (name.IndexOf('.') < 0 && name.IndexOf('<') < 0)
+                foreach (var ns in namespaces)
+                    if (ns != "Godot" && Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(ns + "." + name) is { } inNamespace
+                        && inNamespace.FullName == ns + "." + name.TrimEnd('?', '[', ']'))
+                        return inNamespace;
+            return Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(name);
+        }
+
+        static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, ExecuteRequest request, PreparedSnippet prepared,
+            ScriptParameters? parameters, System.Diagnostics.Stopwatch arrived, int timeoutMs)
+        {
+            // The values were converted by the RQL tool binding (live nodes included) on this thread.
+            if (parameters != null)
+                prepared = prepared.WithValues(parameters.Items.Select(p => p.Value).ToList());
 
             ExecuteResult result;
             await _runGate.WaitAsync();
@@ -123,17 +166,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             var converted = result.Value as ConvertedValue;
             return new ScriptExecuteResult
             {
-                Result = converted?.Member ?? NoValue(result.ReturnType),
-                Text = converted?.Text,
+                Result = converted?.Value,
+                // Nothing returned (System.Void) reads "Success"; a typed null names its type.
+                TypeName = converted?.TypeName ?? (result.ReturnType == "System.Void" ? null : result.ReturnType ?? "System.Object"),
                 Logs = result.Logs.Count > 0 ? ScriptExecuteSource.LogLines(result.Logs) : null,
+                MaxValueChars = ScriptExecuteSource.MaxValueChars,
             };
-        }
-
-        /// <summary>Typed null reports the result type; nothing returned (System.Void) reads "Success".</summary>
-        static SerializedMember NoValue(string? returnType)
-        {
-            var member = new SerializedMember { name = JsonSchema.Result, typeName = returnType ?? JsonSchema.Object };
-            return member.SetJsonValue(returnType == "System.Void" ? "\"Success\"" : "\"null\"");
         }
 
         static CodeRunner Runner()
@@ -160,7 +198,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 IncludeRoot = Path.GetFullPath(Path.Combine(projectRoot, McpPlugin.AgentConfig.ProjectMarker.DirectoryName, "snippets")),
                 // Godot loads the game assembly from memory: point the compiler at the DLL it was built to.
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),
-                ValueConverter = Serialize,
+                ValueConverter = ToPlain,
                 LogCaptures = new List<ILogCapture> { new ConsoleLogCapture(), new GodotPrintLogCapture() },
                 // Code-Exec's guards (recursion, loops) stop a runaway snippet with a Runtime / Timeout result instead of a stack
                 // overflow that kills the editor or a loop that freezes it; the budget ends before the server's tool timeout. Threads
@@ -171,100 +209,31 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             });
         }
 
-        /// <summary>The serialized result and its compact text (null for a scalar), made before the snippet unloads.</summary>
-        sealed record ConvertedValue(SerializedMember Member, string? Text);
+        /// <summary>The plain result and the type shown before it, made before the snippet unloads.</summary>
+        sealed record ConvertedValue(object? Value, string TypeName);
 
         /// <summary>Runs on the main thread before the snippet unloads: nothing of the snippet may outlive this.</summary>
-        static object? Serialize(object? value)
+        static object? ToPlain(object? value)
         {
             if (value == null)
                 return null;
             var type = value.GetType();
-            if (value is GodotObject godotObject && !GodotObject.IsInstanceValid(godotObject))
-                return new ConvertedValue(Text(type, Freed(godotObject)), null);
+            // The snippet's own types become maps and lists; a freed Godot object its text. The presented text is cut by
+            // the tool binding (ScriptExecuteResult.MaxValueChars).
+            var plain = ScriptResultText.Plainer(ScriptExecuteSource.IsSnippetType,
+                v => v is GodotObject o && !GodotObject.IsInstanceValid(o) ? $"<freed {o.GetType().Name}>" : null);
             // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items: enumerated once, its
-            // text names the element type (the materialized list is a List<object>), the serialized form gets the item rules.
-            string? text;
+            // type names the element type.
             if (ScriptExecuteSource.IsLazySequence(type))
-            {
-                var items = ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value);
-                text = CompactText(items, "IEnumerable<" + ScriptResultText.TypeName(ElementType(type)) + ">");
-                value = items.Select(AsItem).ToList();
-            }
-            else
-            {
-                text = CompactText(value);
-            }
-            // Godot structs without a reflection converter (Basis, Transform3D …) and StringName serialize as "{}": their text.
-            if (ScriptExecuteSource.IsSnippetType(type) || ScriptExecuteSource.IsGodotTextValue(type))
-                return new ConvertedValue(Text(type, value.ToString()), text);
-            var member = GodotMcpReflector.GetOrCreate().Serialize(obj: value);
-            if (string.IsNullOrEmpty(member.name))
-                member.name = JsonSchema.Result;
-            return new ConvertedValue(ScriptExecuteSource.CapValue(member), text);
+                return new ConvertedValue(ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, plain),
+                    "IEnumerable<" + ScriptResultText.TypeName(ElementType(type)) + ">");
+            return new ConvertedValue(plain(value), ScriptResultText.ShownTypeName(type));
         }
-
-        // The RQL format's text of the value, capped like the serialized value; null for a scalar.
-        static string? CompactText(object? value, string? typeName = null)
-        {
-            string? text;
-            try { text = ScriptResultText.Format(value, EngineValueText, Unwrap, typeName); }
-            catch (Exception) { return null; } // a member that cannot be read this way: the serialized form stays
-            return text == null ? null : ScriptExecuteSource.CapText(text);
-        }
-
-        // A Variant (an item of a Godot collection) is read as the value it holds.
-        static object? Unwrap(object value) => value is Variant v ? v.Obj : value;
 
         // The element type of a sequence (IEnumerable<T>), object when it has none.
         static Type ElementType(Type sequence) =>
             (sequence.IsGenericType && sequence.GetGenericTypeDefinition() == typeof(IEnumerable<>) ? sequence : sequence.GetInterfaces()
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>)))?.GetGenericArguments()[0] ?? typeof(object);
-
-        // Nodes and resources the way rql-query prints them (Node3D#123(Geometry/Floor), PlaneMesh#45(res://m.tres)),
-        // Godot structs by their text.
-        static string? EngineValueText(object value)
-        {
-            switch (value)
-            {
-                case GodotObject o when !GodotObject.IsInstanceValid(o):
-                    return Freed(o);
-                case Node n:
-                    return $"{n.GetClass()}#{n.GetInstanceId()}({(n.Owner != null && n.Owner.IsAncestorOf(n) ? n.Owner.GetPathTo(n).ToString() : n.Name.ToString())})";
-                case Resource r:
-                    return $"{r.GetClass()}#{r.GetInstanceId()}({r.ResourcePath})";
-                case GodotObject o:
-                    return $"{o.GetClass()}#{o.GetInstanceId()}";
-                case StringName or NodePath:
-                    return value.ToString();
-            }
-            // Every Godot struct (Vector3, Color, Basis …) by its text, not only the IsGodotTextValue ones: here the text is
-            // the whole output, while the serialized form keeps the struct's members where it has a converter.
-            var type = value.GetType();
-            return type.IsValueType && type.Namespace == "Godot" ? value.ToString() : null;
-        }
-
-        static string Freed(GodotObject o) => $"<freed {o.GetType().Name}>";
-
-        // An item of an enumerated sequence: the same text rules as a top-level value (a freed object, a Godot struct).
-        static object? AsItem(object? item) => item switch
-        {
-            GodotObject o when !GodotObject.IsInstanceValid(o) => Freed(o),
-            not null when ScriptExecuteSource.IsGodotTextValue(item.GetType()) => item.ToString(),
-            _ => item,
-        };
-
-        static SerializedMember Text(Type type, string? text) =>
-            ScriptExecuteSource.CapValue(ScriptExecuteSource.TextMember(JsonSchema.Result, type.FullName ?? type.Name, text));
-
-        static string ParameterName(SerializedMember parameter, int index) => parameter.name ?? $"param{index}";
-
-        /// <summary>An unknown type name fails here, by name, instead of surfacing as an untyped <c>object</c> variable.</summary>
-        static Type ParameterType(SerializedMember parameter, int index) =>
-            string.IsNullOrEmpty(parameter.typeName)
-                ? typeof(object)
-                : TypeUtils.GetType(parameter.typeName)
-                    ?? throw new Exception($"Parameter '{ParameterName(parameter, index)}': type '{parameter.typeName}' not found.");
     }
 }
 #endif

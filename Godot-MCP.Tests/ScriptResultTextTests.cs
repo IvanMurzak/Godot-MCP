@@ -11,168 +11,136 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.Modules;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat;
 using com.IvanMurzak.Godot.MCP.Tools;
+using Rql.Execution;
 using Xunit;
 
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// <see cref="ScriptResultText"/>: csharp-exec results in the RQL format read like rql-query rows — a dictionary's
-    /// entries (not its Count/Capacity internals), a list's items (not name/typeName/value tables), an anonymous object's
-    /// members — with C#-style type names.
+    /// csharp-exec results: the type shown before the value, the plain form made before the snippet unloads
+    /// (<see cref="ScriptResultText.Plain"/>: the snippet's own types become maps and lists, host values stay), and the text
+    /// the RQL tool binding presents it as (<c>Engine.Present</c>, as any tool result) — with a plain engine and the Godot
+    /// value adapters (pure-managed Godot structs only: native-backed values need a live Godot, see smoke_csharp_exec.py).
     /// </summary>
     public class ScriptResultTextTests
     {
-        private static readonly Func<object, string?> NoEngine = _ => null;
-
-        // Stands in for an engine value (a Godot struct / node) the caller renders itself.
-        private readonly struct Vec { public Vec(int x, int y) { X = x; Y = y; } public int X { get; } public int Y { get; } }
-
-        private static string? Engine(object o) => o is Vec v ? $"({v.X}, {v.Y})" : null;
-
         public record Item(string Name, int Price);
 
+        public enum SnippetMode { Fast, Slow }
+
+        public sealed class Snippety
+        {
+            public string Label = "x";
+            public int Count => 3;
+            public int Broken => throw new InvalidOperationException("nope");
+            public List<Item> Items { get; } = new List<Item> { new Item("a", 1) };
+        }
+
+        private static readonly Type[] SnippetTypes = { typeof(Item), typeof(Snippety), typeof(SnippetMode) };
+
+        // Stands in for Code-Exec's snippet-assembly test: the test's own record / class play the snippet's types.
+        private static bool IsSnippet(Type t) =>
+            SnippetTypes.Contains(t) || (t.HasElementType && IsSnippet(t.GetElementType()!)) || (t.IsGenericType && t.GetGenericArguments().Any(IsSnippet))
+            || t.Name.Contains("AnonymousType", StringComparison.Ordinal);
+
+        private static string Presented(object? value, string typeName)
+        {
+            var engine = new RqlEngine();
+            engine.AddModules(new[] { typeof(GodotValuesModule) });
+            var binding = new RqlToolBinding(() => engine, mainThread: null);
+            var method = typeof(ScriptResultTextTests).GetMethod(nameof(Presented), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            var plain = ScriptResultText.Plain(value, IsSnippet);
+            return string.Join("\n", binding.Result(method, new ScriptExecuteResult { Result = plain, TypeName = typeName, MaxValueChars = 20_000 })!.Content.Select(c => c.Text));
+        }
+
         [Theory]
-        [InlineData(42)]
-        [InlineData("text")]
-        [InlineData(true)]
-        [InlineData(1.5)]
-        public void ScalarsKeepTheirSerializedForm(object value) => Assert.Null(ScriptResultText.Format(value, NoEngine));
+        [InlineData(typeof(int), "System.Int32")]
+        [InlineData(typeof(string), "System.String")]
+        [InlineData(typeof(bool), "System.Boolean")]
+        [InlineData(typeof(List<global::Godot.Vector3>), "List<Vector3>")]
+        [InlineData(typeof(Dictionary<string, int>), "Dictionary<string, int>")]
+        [InlineData(typeof(int[]), "int[]")]
+        [InlineData(typeof((int, string)), "(int, string)")]
+        public void ShownTypeNames(Type type, string expected) => Assert.Equal(expected, ScriptResultText.ShownTypeName(type));
 
         [Fact]
-        public void NullKeepsItsSerializedForm() => Assert.Null(ScriptResultText.Format(null, NoEngine));
+        public void AnonymousTypesReadAnonymous() => Assert.Equal("anonymous", ScriptResultText.ShownTypeName(new { a = 1 }.GetType()));
 
         [Fact]
-        public void DictionaryShowsItsEntries() =>
-            Assert.Equal("Dictionary<string, int>: {a: 1, b: 2}",
-                ScriptResultText.Format(new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 }, NoEngine));
-
-        [Fact]
-        public void KeysThatCouldBeMisreadAreQuoted() =>
-            Assert.Equal("Dictionary<string, int>: {res://levels/a.tscn: 3, \"x, y\": 1, \"\": 0}",
-                ScriptResultText.Format(new Dictionary<string, int> { ["res://levels/a.tscn"] = 3, ["x, y"] = 1, [""] = 0 }, NoEngine));
-
-        [Fact]
-        public void ListShowsItsItemsQuoted() =>
-            Assert.Equal("List<string>: [\"a\", \"b \\\"q\\\"\"]", ScriptResultText.Format(new List<string> { "a", "b \"q\"" }, NoEngine));
-
-        [Fact]
-        public void ArraysAndNestingAndEngineValues()
+        public void HostValuesStayAsTheyAre()
         {
-            Assert.Equal("int[]: [1, 2, 3]", ScriptResultText.Format(new[] { 1, 2, 3 }, NoEngine));
-            Assert.Equal("List<Vec>: [(1, 2), (3, 4)]", ScriptResultText.Format(new List<Vec> { new Vec(1, 2), new Vec(3, 4) }, Engine));
-            Assert.Equal("Dictionary<string, List<int>>: {odd: [1, 3], even: []}",
-                ScriptResultText.Format(new Dictionary<string, List<int>> { ["odd"] = new List<int> { 1, 3 }, ["even"] = new List<int>() }, NoEngine));
+            var list = new List<int> { 1, 2 };
+            Assert.Same(list, ScriptResultText.Plain(list, IsSnippet));
+            var map = new Dictionary<string, global::Godot.Vector3>();
+            Assert.Same(map, ScriptResultText.Plain(map, IsSnippet));
+            Assert.Equal(42, ScriptResultText.Plain(42, IsSnippet));
         }
 
         [Fact]
-        public void AnonymousObjectsRecordsAndTuplesShowTheirMembers()
+        public void SnippetValuesBecomeMapsAndLists()
         {
-            Assert.Equal("anonymous: {name: \"x\", count: 3, tags: [\"a\"]}",
-                ScriptResultText.Format(new { name = "x", count = 3, tags = new[] { "a" } }, NoEngine));
-            Assert.Equal("Item: {Name: \"Sword\", Price: 25}", ScriptResultText.Format(new Item("Sword", 25), NoEngine));
-            Assert.Equal("(string, int): (\"x\", 3)", ScriptResultText.Format(("x", 3), NoEngine));
+            var plain = Assert.IsType<Dictionary<string, object?>>(ScriptResultText.Plain(new Snippety(), IsSnippet));
+            Assert.Equal("x", plain["Label"]);
+            Assert.Equal(3, plain["Count"]);
+            Assert.Equal("<InvalidOperationException>", plain["Broken"]);
+            var items = Assert.IsType<List<object?>>(plain["Items"]);
+            var item = Assert.IsType<Dictionary<string, object?>>(Assert.Single(items));
+            Assert.Equal(new Dictionary<string, object?> { ["Name"] = "a", ["Price"] = 1 }, item);
+            // A host collection that holds snippet values is copied too; nothing of the snippet type survives.
+            var mixed = Assert.IsType<List<object?>>(ScriptResultText.Plain(new List<object> { 1, new Item("b", 2) }, IsSnippet));
+            Assert.Equal(1, mixed[0]);
+            Assert.IsType<Dictionary<string, object?>>(mixed[1]);
         }
 
         [Fact]
-        public void GenericOnlyMapsShowEntries() =>
-            Assert.Equal("ReadOnlyMap: {k: 7}", ScriptResultText.Format(new ReadOnlyMap(), NoEngine));
-
-        [Fact]
-        public void LongCollectionsAreCounted()
+        public void SnippetEnumsNestedSequencesAndCodeAreNotKept()
         {
-            var text = ScriptResultText.Format(Enumerable.Range(0, 250).ToList(), NoEngine)!;
-            Assert.StartsWith("List<int>: [0, 1, 2", text);
-            Assert.EndsWith(", … (250 items)]", text);
-            Assert.Equal(ScriptResultText.MaxItems, text.Split(',').Length - 1); // 100 items, then the count
+            var plain = Assert.IsType<Dictionary<string, object?>>(ScriptResultText.Plain(
+                new { mode = SnippetMode.Slow, xs = Enumerable.Range(0, 3).Select(i => i * 2), f = (Func<int>)(() => 1) }, IsSnippet));
+            Assert.Equal("Slow", plain["mode"]);
+            Assert.Equal(new List<object?> { 0, 2, 4 }, plain["xs"]);
+            Assert.IsType<string>(plain["f"]);
+            // Host enums and collections stay as they are.
+            Assert.Equal(DayOfWeek.Monday, ScriptResultText.Plain(DayOfWeek.Monday, IsSnippet));
         }
 
         [Fact]
-        public void DeepNestingStops()
-        {
-            var text = ScriptResultText.Format(new List<object> { new List<object> { new List<object> { new List<object> { new List<object> { 1 } } } } }, NoEngine);
-            Assert.Equal("List<object>: [[[[…]]]]", text);
-        }
-
-        [Fact]
-        public void AThrowingMemberIsNamedNotFatal() =>
-            Assert.Equal("Throwing: {Ok: 1, Bad: \"<InvalidOperationException>\"}", ScriptResultText.Format(new Throwing(), NoEngine));
-
-        // Stands in for a Godot Variant: a wrapper the caller unwraps to the value it holds.
-        private sealed class Boxed { public Boxed(object? value) { Value = value; } public object? Value { get; } }
-
-        private static object? Unbox(object o) => o is Boxed b ? b.Value : o;
-
-        [Fact]
-        public void AWrappedCollectionThatHoldsItselfStops()
+        public void ASelfContainingValueStops()
         {
             var list = new List<object>();
-            list.Add(new Boxed(list));
-            Assert.Equal("List<object>: [[[[…]]]]", ScriptResultText.Format(list, NoEngine, Unbox));
+            list.Add(list);
+            var plain = Assert.IsType<List<object?>>(ScriptResultText.Plain(list, IsSnippet));
+            Assert.IsType<string>(Assert.Single(plain));
         }
 
         [Fact]
-        public void WrappedStringKeysReadBare() =>
-            Assert.Equal("Dictionary<Boxed, int>: {a: 1}",
-                ScriptResultText.Format(new Dictionary<Boxed, int> { [new Boxed("a")] = 1 }, NoEngine, Unbox));
-
-        [Fact]
-        public void TypesWithTheirOwnTextAndReflectionObjectsAreLeaves()
+        public void ScalarsReadAsThemselves()
         {
-            var when = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
-            Assert.Equal($"List<object>: [{when.ToString(System.Globalization.CultureInfo.InvariantCulture)}, System.String, 1.2.3]",
-                ScriptResultText.Format(new List<object> { when, typeof(string), new Version(1, 2, 3) }, NoEngine));
+            Assert.Equal("System.Int32: 3", Presented(3, "System.Int32"));
+            Assert.Equal("System.String: 4.3.0", Presented("4.3.0", "System.String"));
         }
 
         [Fact]
-        public void AGenericOnlyCollectionIsCountedBySize()
+        public void ADictionaryShowsItsEntries() =>
+            Assert.Equal("Dictionary<string, int>: {a:1,b:2}", Presented(new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 }, "Dictionary<string, int>"));
+
+        [Fact]
+        public void AnAnonymousObjectShowsItsMembers() =>
+            Assert.Equal("anonymous: {name:x,count:3}", Presented(new { name = "x", count = 3 }, "anonymous"));
+
+        [Fact]
+        public void GodotStructsReadAsRqlLiterals()
         {
-            var text = ScriptResultText.Format(new HashSet<int>(Enumerable.Range(0, 50_000)), NoEngine)!;
-            Assert.EndsWith(", … (50000 items)]", text);
+            Assert.Equal("List<Vector3>: 1 result\n(1, 2, 3)", Presented(new List<global::Godot.Vector3> { new global::Godot.Vector3(1, 2, 3) }, "List<Vector3>"));
+            Assert.Equal("Basis: (1, 0, 0, 0, 1, 0, 0, 0, 1)", Presented(global::Godot.Basis.Identity, "Basis"));
         }
 
         [Fact]
-        public void AnEndlessSequenceIsCountedUpToALimit()
-        {
-            var text = ScriptResultText.Format(new Endless(), NoEngine)!;
-            Assert.EndsWith($", … ({ScriptResultText.MaxItems * 100}+ items)]", text);
-        }
-
-        [Fact]
-        public void TheCallerCanNameTheType() =>
-            Assert.Equal("IEnumerable<int>: [1, 2]", ScriptResultText.Format(new List<object> { 1, 2 }, NoEngine, typeName: "IEnumerable<int>"));
-
-        [Fact]
-        public void AWideTreeStopsAtTheValueBudget()
-        {
-            var wide = Enumerable.Range(0, 100).Select(_ => Enumerable.Range(0, 100).Select(_ => new List<int> { 1 }).ToList()).ToList();
-            var text = ScriptResultText.Format(wide, NoEngine)!;
-            Assert.Contains("…", text);
-            Assert.True(text.Length < 200_000, $"{text.Length} characters");
-        }
-
-        private sealed class Endless : System.Collections.IEnumerable
-        {
-            public System.Collections.IEnumerator GetEnumerator() { while (true) yield return 1; }
-        }
-
-        private sealed class ReadOnlyMap : IReadOnlyDictionary<string, int>
-        {
-            private readonly Dictionary<string, int> _d = new Dictionary<string, int> { ["k"] = 7 };
-            public int this[string key] => _d[key];
-            public IEnumerable<string> Keys => _d.Keys;
-            public IEnumerable<int> Values => _d.Values;
-            public int Count => _d.Count;
-            public bool ContainsKey(string key) => _d.ContainsKey(key);
-            public bool TryGetValue(string key, out int value) => _d.TryGetValue(key, out value);
-            public IEnumerator<KeyValuePair<string, int>> GetEnumerator() => _d.GetEnumerator();
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _d.GetEnumerator();
-        }
-
-        public sealed class Throwing
-        {
-            public int Ok => 1;
-            public int Bad => throw new InvalidOperationException("boom");
-        }
+        public void ARecordListReadsAsRows() =>
+            Assert.Equal("List<Item>: 2 results\nName|Price\na|1\nb|2", Presented(new List<Item> { new Item("a", 1), new Item("b", 2) }, "List<Item>"));
     }
 }

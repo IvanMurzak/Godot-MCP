@@ -39,8 +39,7 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     /// <para>
     /// Responsibilities:
     /// <list type="bullet">
-    ///   <item>Build the <see cref="Reflector"/> with the Godot type converters
-    ///   (<see cref="GodotReflectorFactory"/>).</item>
+    ///   <item>Build a plain <see cref="Reflector"/> (method invocation only; RQL is the tools' value layer).</item>
     ///   <item>Build an <see cref="IMcpPlugin"/> via <see cref="McpPluginBuilder"/>, scanning the
     ///   addon assembly for <c>[AiToolType]</c>/<c>[AiTool]</c> methods (the <c>ping</c> tool today).</item>
     ///   <item>Apply the resolved <see cref="GodotMcpConfig"/> (Cloud/Custom host + bearer token).</item>
@@ -51,12 +50,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     ///
     /// This type is runtime-agnostic (it lives OUTSIDE <c>#if TOOLS</c> so it also compiles into an
     /// exported, non-editor game build): it instantiates the reused SignalR client and owns the
-    /// connection lifecycle, depending only on pure-managed config / view-model / reflector helpers and
-    /// the Godot <i>runtime</i> API (<see cref="Godot.Node"/>, <see cref="GD"/>, <c>ProjectSettings</c>),
-    /// never on a Godot editor API. In the editor it is driven by <see cref="GodotMcpPlugin"/>'s tree
-    /// lifecycle; the sole editor-only coupling — installing the editor <c>ResourceLoader</c> resolver
-    /// into the (pure-managed) Resource reflection converter — is guarded by <c>#if TOOLS</c> at its one
-    /// call site in <see cref="Start"/>, so the exported build wires up the reflector without it.
+    /// connection lifecycle, depending only on pure-managed config / view-model helpers and the Godot
+    /// <i>runtime</i> API (<see cref="Godot.Node"/>, <see cref="GD"/>, <c>ProjectSettings</c>), never on a Godot
+    /// editor API. In the editor it is driven by <see cref="GodotMcpPlugin"/>'s tree lifecycle, which shapes the
+    /// editor tool surface through the <c>configurePlugin</c> callback.
     /// </summary>
     public sealed class GodotMcpConnection : IDisposable
     {
@@ -138,7 +135,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
         volatile bool _authorizationRejected;
         volatile bool _recoverySuspended;
         volatile bool _disposed;
-        Reflector? _publishedReflector;
 
         /// <summary>
         /// Guards <see cref="ResolveConfig"/> so the persisted + <c>.env</c> layers are applied to
@@ -421,28 +417,9 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             // ResolveConfig → SeedDefaultLocalServerHost — mcp-authorize e1, PR 4).
             LogProjectIdentity(projectRootPath);
 
-            Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
-
-            // Wire the editor-side ResourceLoader.Load resolution into the (pure-managed) Resource
-            // reflection converter so a ReflectorNet tool argument (the Json tool format, reflection-method-call)
-            // can name a Resource by ref (res:// path / instance id). The converter lives outside #if TOOLS; this installs the native resolver.
-            //
-            // EDITOR-ONLY COUPLING (the single one in the connect path): Tool_Resource — and the editor
-            // ResourceLoader/EditorInterface wiring it depends on — is itself gated by #if TOOLS, so it does
-            // NOT compile into an exported game build. Guard the call so the runtime-agnostic connection
-            // compiles with TOOLS undefined; in a non-editor build the Resource converter simply has no
-            // native resolver installed here (a runtime entry point can inject its own resolver later — T2).
-#if TOOLS
-            Tools.Tool_Resource.InstallReflectionResolver();
-            // Same deal for the scene-tree resolution behind the Node reflection converter, which is what
-            // lets an instance-method reflection call name its target as {"instanceId": N} (issue #292).
-            Tools.Tool_Node.InstallReflectionResolver();
-#endif
-
-            // Publish the connection's reflector as the ambient one so tool handlers and the dock
-            // share the exact converter set registered here instead of building their own.
-            GodotMcpReflector.Current = reflector;
-            _publishedReflector = reflector;
+            // ReflectorNet only invokes the tool methods (McpPlugin's MethodWrapper): RQL is the value layer of every tool
+            // (the editor's RqlToolBinding, installed by configurePlugin), so the reflector carries no Godot converters.
+            Reflector reflector = new Reflector();
 
             var version = new McpVersion
             {
@@ -514,9 +491,8 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 // scan-ignore rules without a hardcoded extension list — the Godot equivalent of the M8
                 // "extension-contributed converters" mechanism. Discovery honors the .IgnoreAssemblies(...)
                 // prune above (heavy assemblies are never type-enumerated) and runs strictly before the
-                // heavy attribute scan inside Build(). The Godot core converters registered into the
-                // reflector by GodotReflectorFactory remain the Order=0 baseline; module contributions
-                // layer on top. Mirrors Unity-MCP's UnityMcpPlugin.Build.cs ordering exactly.
+                // heavy attribute scan inside Build(). The addon itself registers no ReflectorNet converters
+                // (RQL is the value layer of every tool). Mirrors Unity-MCP's UnityMcpPlugin.Build.cs ordering.
                 .WithReflectorModulesFromAssembly(assemblies);
 
             _plugin = builder.Build(reflector);
@@ -528,7 +504,14 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (_configurePlugin is { } configurePlugin)
             {
                 try { configurePlugin(_plugin, _config); }
-                catch (Exception ex) { GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    // Fail loudly: a half-configured plugin (e.g. tools without their RQL data layer) must never connect. The
+                    // error is the report (Start is also reached from dock buttons, which must not see an exception).
+                    GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed, not connecting: {ex.GetType().Name}: {ex.Message}");
+                    DisposePlugin();
+                    return;
+                }
             }
 
             // Reapply the persisted per-feature visibility map now that the managers exist (the tool/prompt/
@@ -1680,12 +1663,6 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             _featuresSubscription.Disposable = null;
             _agentsSubscription.Disposable = null;
             _activeAgents = Array.Empty<McpClientData>();
-
-            // Clear the ambient reflector if it is the one we published, so a stale instance does not
-            // outlive the connection that owned it.
-            if (ReferenceEquals(GodotMcpReflector.Current, _publishedReflector))
-                GodotMcpReflector.Current = null;
-            _publishedReflector = null;
 
             if (_plugin != null)
             {

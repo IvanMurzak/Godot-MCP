@@ -116,8 +116,15 @@ function patchRef(element: string, version: string, condition: string | undefine
   return out;
 }
 
-/** The packages this CLI knows as editor-only (an older addon's manifest may not mark them). */
-const KNOWN_EDITOR_ONLY_IDS = new Set(ADDON_PACKAGE_REFERENCES.filter((r) => r.editorOnly).map((r) => r.id));
+/**
+ * The packages this CLI knows as editor-only now or in an older addon (an older addon's manifest may not mark them):
+ * a canonical Condition an older install wrote on one is install-plugin's own, not the project's. RQL was editor-only
+ * until it became the value layer of in-game tools too.
+ */
+const KNOWN_EDITOR_ONLY_IDS = new Set([
+  ...ADDON_PACKAGE_REFERENCES.filter((r) => r.editorOnly).map((r) => r.id),
+  'com.IvanMurzak.Rql',
+]);
 
 /** The Conditions `install-plugin` writes; any other Condition on an element is the project's own. */
 const CANONICAL_CONDITIONS: ReadonlySet<string> = new Set([EDITOR_ONLY_CONDITION, CODE_EXEC_IN_GAME_CONDITION]);

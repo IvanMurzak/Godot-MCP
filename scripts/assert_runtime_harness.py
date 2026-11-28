@@ -20,11 +20,10 @@ Usage:
 
 Per-version contract (the issue's acceptance criteria):
   * ALWAYS: capture installed + available; the C# unobserved-Task exception captured WITH a
-    stack trace; (when --require-connect=1) the live SignalR transport connected; and the
-    Godot.Variant converter round-trip (issue #292) — every documented wire shape materializes,
-    an unreadable payload raises instead of degrading to a silent Nil, and the issue's own
-    ProjectSettings.SetSetting repro reads its value back. (The Node-ref converter's resolve path
-    is NOT covered here: its resolver is installed under #if TOOLS and this is a game process.)
+    stack trace; (when --require-connect=1) the live SignalR transport connected; and RQL as the
+    value layer of a game's own tool — a custom class with a Vector3 and node references, a node
+    result, and Godot.Variant arguments that read back from a project setting (issue #292: never a
+    silent Nil).
   * --engine-logger-expected 1 (Godot 4.5+): the engine GDScript runtime error captured WITH
     a multi-frame backtrace (>= 2 frames, issue #163) + push_error + push_warning.
   * --engine-logger-expected 0 (Godot 4.3 / 4.4): the engine channel is ABSENT (graceful stub
@@ -41,15 +40,12 @@ import sys
 from pathlib import Path
 
 
-#: Minimum number of Godot.Variant wire shapes the harness must exercise (issue #292).
+#: Minimum number of in-game RQL tool calls the harness must make.
 #:
-#: DELIBERATELY an independent literal, not read from RuntimeHarness.VariantRoundTripMinimumChecks.
-#: This asserter's whole charter (see the module docstring) is to re-check the harness's claims
-#: INDEPENDENTLY, so that a harness edit which flips `ok` true without actually doing the work is
-#: still caught. Deriving this number from the harness source would make one edit defeat both
-#: gates — the opposite of defence in depth. It is a FLOOR, so it does not need to track the C#
-#: constant upward; it only needs to stop the assertion going vacuous.
-VARIANT_MIN_CHECKS = 11
+#: DELIBERATELY an independent literal, not read from RuntimeHarness.RqlToolValuesMinimumChecks: this asserter
+#: re-checks the harness's claims independently, so one edit cannot defeat both gates. A floor: it only keeps the
+#: assertion from going vacuous.
+RQL_MIN_CHECKS = 6
 
 
 def _b(value) -> bool:
@@ -95,22 +91,15 @@ def main() -> int:
     check(_b(data.get("hasCSharpException")), "the C# (unobserved-Task) exception was not captured")
     check(_b(data.get("cSharpExceptionHasStackTrace")), "the captured C# exception had no stack trace")
 
-    # --- Godot.Variant converter (issue #292) ------------------------------------------------
-    # This runs against a REAL Godot, which is the only place it CAN run: materializing a non-Nil
-    # Variant calls godotsharp_* P/Invoke and faults the plain xUnit host, so the unit suite covers
-    # only the pure parser and the failure paths.
-    variant_failures = data.get("variantRoundTripFailures") or []
-    check(not variant_failures,
-          f"Godot.Variant round-trip failures: {variant_failures}")
-    checked = data.get("variantRoundTripChecked", 0)
-    check(isinstance(checked, int) and checked >= VARIANT_MIN_CHECKS,
-          f"Godot.Variant round-trip exercised only {checked} shape(s), expected >= {VARIANT_MIN_CHECKS} "
-          "— the assertion must not go vacuous")
-    check(_b(data.get("variantRoundTripRejectsGarbage")),
-          "an unreadable Godot.Variant payload did NOT raise — that is the issue-#292 silent-Nil regression")
-    check(_b(data.get("variantProjectSettingRoundTrip")),
-          "ProjectSettings.SetSetting through a wire Godot.Variant did not read back the value "
-          "(the verbatim issue-#292 repro)")
+    # --- RQL values of an in-game tool ---------------------------------------------------------
+    # A game's own tool took a custom class literal (a Vector3, node references by ref / name / godot.find, a NodeRef by
+    # instance id), returned a node as an RQL reference, and passed Godot.Variant arguments (text, a number) into a project
+    # setting that read back the same value (the issue-#292 silent-Nil regression), through the in-game binding.
+    rql_failures = data.get("rqlToolValueFailures") or []
+    check(not rql_failures, f"in-game RQL tool value failures: {rql_failures}")
+    rql_checked = data.get("rqlToolValuesChecked", 0)
+    check(isinstance(rql_checked, int) and rql_checked >= RQL_MIN_CHECKS,
+          f"the in-game RQL tool values check made only {rql_checked} call(s), expected >= {RQL_MIN_CHECKS}")
 
     # --- In-game csharp-exec -------------------------------------------------------------
     # Roslyn compiled and ran C# inside the running game (arithmetic + a read of the game's scene tree).
@@ -118,8 +107,8 @@ def main() -> int:
     check(not exec_failures, f"in-game csharp-exec failures: {exec_failures}")
     check(data.get("scriptExecuteSum") == "2",
           f"in-game csharp-exec '1 + 1' returned {data.get('scriptExecuteSum')!r}, expected '2'")
-    check(data.get("scriptExecuteRootName") == '"root"',
-          f"in-game csharp-exec read the root window name as {data.get('scriptExecuteRootName')!r}, expected '\"root\"'")
+    check(data.get("scriptExecuteRootName") == "root",
+          f"in-game csharp-exec read the root window name as {data.get('scriptExecuteRootName')!r}, expected 'root'")
 
     if require_connect:
         check(_b(data.get("connected")), "the live SignalR transport did not reach Connected")

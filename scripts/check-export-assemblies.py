@@ -5,9 +5,9 @@ Export-build package guard for the Godot-MCP addon.
 Builds Godot-MCP.csproj in Godot's export configurations (no `TOOLS`) and checks which NuGet assemblies land in the
 output, the proof behind docs/ARCHITECTURE.md "Editor-only NuGet packages":
 
-  * default export        -> McpPlugin + ReflectorNet, and NO RQL, Code-Exec or Roslyn;
+  * default export        -> McpPlugin + ReflectorNet + RQL (the value layer of in-game tools), and NO Code-Exec or Roslyn;
   * `-p:GodotMcpCodeExecInGame=true` (the in-game csharp-exec opt-in)
-                          -> also Code-Exec + Roslyn, still NO RQL, and the in-game tool compiled in.
+                          -> also Code-Exec + Roslyn, and the in-game tool compiled in.
 
 No Godot binary is needed: Godot.NET.Sdk restores from nuget.org. Every build writes to its own fresh output folder.
 
@@ -30,8 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CSPROJ = REPO_ROOT / "Godot-MCP.csproj"
 ADDON_ASSEMBLY = "Godot-MCP.dll"
 
-REQUIRED = ("McpPlugin.dll", "ReflectorNet.dll")
-RQL = re.compile(r"^com\.IvanMurzak\.Rql.*\.dll$|^Rql.*\.dll$", re.IGNORECASE)
+REQUIRED = ("McpPlugin.dll", "ReflectorNet.dll", "Rql.Execution.dll", "Rql.Parser.dll", "Rql.Contracts.dll")
 CODE_EXEC = re.compile(r"^com\.IvanMurzak\.CodeExec.*\.dll$", re.IGNORECASE)
 ROSLYN = re.compile(r"^Microsoft\.CodeAnalysis.*\.dll$", re.IGNORECASE)
 # The in-game tool's type name, present in the addon assembly's metadata only when it is compiled in.
@@ -42,7 +41,6 @@ def check_output(out_dir: Path, code_exec: bool) -> list[str]:
     """The failed checks for one build output folder (empty = all hold)."""
     names = sorted(p.name for p in out_dir.glob("*.dll"))
     failures = [f"missing {name}" for name in (ADDON_ASSEMBLY, *REQUIRED) if name not in names]
-    failures += [f"unexpected RQL assembly {n}" for n in names if RQL.match(n)]
     if code_exec:
         if not any(CODE_EXEC.match(n) for n in names):
             failures.append("missing com.IvanMurzak.CodeExec*.dll")

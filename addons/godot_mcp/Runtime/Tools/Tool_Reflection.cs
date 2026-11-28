@@ -21,12 +21,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
     /// Reflection tool family (<c>reflection-method-*</c>) — the Godot analog of Unity-MCP's
-    /// <c>Tool_Reflection</c>. This family is engine-agnostic: it reuses ReflectorNet's reflection engine
-    /// (<see cref="TypeUtils.AllTypes"/>, <see cref="MethodData"/>, <see cref="MethodWrapper"/>) to find
-    /// and call C# methods (static + instance, public + private) across every loaded assembly. The only
-    /// Godot-specific wiring is the reflector source: it reads <see cref="Reflection.GodotMcpReflector"/>
-    /// (the connection-built reflector with Godot type converters) instead of Unity's
-    /// <c>UnityMcpPluginEditor.Instance.Reflector</c>.
+    /// <c>Tool_Reflection</c>. ReflectorNet finds and describes the methods (<see cref="TypeUtils.AllTypes"/>,
+    /// <see cref="MethodRef"/>, <see cref="MethodData"/>) across every loaded assembly (static + instance, public +
+    /// private); the call's target and arguments are RQL values (<c>RqlValue</c>, converted by the in-game RQL engine).
     ///
     /// <para>
     /// No Godot editor-API surface, so it intentionally lives OUTSIDE <c>#if TOOLS</c>. The find/call
@@ -40,6 +37,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     public partial class Tool_Reflection
     {
         static IEnumerable<Type> AllTypes => TypeUtils.AllTypes;
+
+        // ReflectorNet describes the methods it finds (MethodData, the JSON schema of their parameters); values go through RQL.
+        static Reflector? _reflector;
+        static Reflector Reflector => _reflector ??= new Reflector();
 
         static int Compare(string original, string value)
         {
@@ -141,7 +142,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     .OrderByDescending(entry => entry.MatchLevel)
                     .Select(entry => entry.Method);
 
-            return methodEnumerable;
+            // The same assembly loaded twice (a copy in another load context, e.g. one still unloading after a C# reload) lists
+            // every method twice: one method is one match (the metadata token is the same in every copy of a file and unique
+            // per method in it), the copy in this tool's own (live) context first, then the default context.
+            var live = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(typeof(Tool_Reflection).Assembly);
+            return methodEnumerable
+                .GroupBy(method => (method.DeclaringType!.AssemblyQualifiedName, method.MetadataToken))
+                .Select(copies => copies
+                    .OrderBy(method => System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(method.Module.Assembly) is var context && context == live ? 0
+                        : context == System.Runtime.Loader.AssemblyLoadContext.Default ? 1 : 2)
+                    .First());
         }
 
         public static class Error

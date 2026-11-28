@@ -118,7 +118,7 @@ godot-cli open ./MyGodotProject                       # build C#, start the edit
 
 سپس از عامل خود بخواهید: *«۳ مکعب روی دایره‌ای به شعاع ۲ بساز.»*
 
-برای نصب از زبانه‌ی **AssetLib** ویرایشگر، از [فایل zip یک ریلیز](https://github.com/IvanMurzak/Godot-MCP/releases/latest) یا به صورت دستی، [راهنمای نصب دستی](install.fa.md) را دنبال کنید: در این حالت فایل `.csproj` پروژه به ارجاع‌های NuGet پلاگین (`com.IvanMurzak.ReflectorNet`، `com.IvanMurzak.McpPlugin`، و پکیج‌های مخصوص ویرایشگر `com.IvanMurzak.Rql`، `com.IvanMurzak.CodeExec`، `com.IvanMurzak.CodeExec.Roslyn` و `Microsoft.CodeAnalysis.CSharp`) با نسخه‌های همان ریلیزی که نصب می‌کنید نیاز دارد.
+برای نصب از زبانه‌ی **AssetLib** ویرایشگر، از [فایل zip یک ریلیز](https://github.com/IvanMurzak/Godot-MCP/releases/latest) یا به صورت دستی، [راهنمای نصب دستی](install.fa.md) را دنبال کنید: در این حالت فایل `.csproj` پروژه به ارجاع‌های NuGet پلاگین (`com.IvanMurzak.ReflectorNet`، `com.IvanMurzak.McpPlugin`، `com.IvanMurzak.Rql`، و پکیج‌های مخصوص ویرایشگر `com.IvanMurzak.CodeExec`، `com.IvanMurzak.CodeExec.Roslyn` و `Microsoft.CodeAnalysis.CSharp`) با نسخه‌های همان ریلیزی که نصب می‌کنید نیاز دارد.
 
 <a id="relay"></a>
 ### چه چیزی از ai-game.dev عبور می‌کند
@@ -321,6 +321,6 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 <a id="license"></a>
 ## مجوز
 
-‏**توسعه‌دهندگان بازی می‌توانند آزادانه از همه چیز استفاده کنند، از جمله در بازی‌های تجاری.** ‏Godot-MCP تحت مجوز [Apache-2.0](../LICENSE) است. وابستگی‌های سمت ویرایشگر آن، RQL و Code-Exec، از [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) استفاده می‌کنند که فقط شرکت‌هایی را محدود می‌کند که ابزارهای هوش مصنوعی رقیب برای توسعه‌ی بازی می‌سازند.
+‏**توسعه‌دهندگان بازی می‌توانند آزادانه از همه چیز استفاده کنند، از جمله در بازی‌های تجاری.** ‏Godot-MCP تحت مجوز [Apache-2.0](../LICENSE) است. وابستگی‌های آن، RQL (ویرایشگر و بازی) و Code-Exec (ویرایشگر)، از [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) استفاده می‌کنند که فقط شرکت‌هایی را محدود می‌کند که ابزارهای هوش مصنوعی رقیب برای توسعه‌ی بازی می‌سازند.
 
 </div>

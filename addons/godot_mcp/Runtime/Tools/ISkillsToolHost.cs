@@ -51,7 +51,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// Ambient holder for the editor-side <see cref="ISkillsToolHost"/> implementation. Set once at plugin
     /// boot (<c>GodotMcpPlugin.BootMcp</c>) and CLEARED on teardown so a stale host can never pin the
     /// collectible <c>AssemblyLoadContext</c> open across a C# hot-reload — the same discipline
-    /// <c>GodotLogCollector.Current</c> / <c>GodotMcpReflector.Current</c> follow.
+    /// <c>GodotLogCollector.Current</c> follows.
     ///
     /// <para>
     /// <c>null</c> in an exported game build (there is no editor to author skills in) and before boot

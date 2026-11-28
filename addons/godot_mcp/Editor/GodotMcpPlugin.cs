@@ -767,8 +767,8 @@ namespace com.IvanMurzak.Godot.MCP
                     // native signal connection deterministically before the context unloads. (The dock's
                     // Godot-signal connections are object+method Callables, which never enter the ManagedCallable
                     // registry and so can no longer emit the historical "delegate_handle.value == nullptr" flood;
-                    // see godotengine/godot#78513.) Transient child windows (FeatureListWindow /
-                    // SerializationCheckWindow) are parented under the dock, so this frees them too.
+                    // see godotengine/godot#78513.) Transient child windows (FeatureListWindow)
+                    // are parented under the dock, so this frees them too.
                     _dock.Free();
                     _dock = null;
                     }

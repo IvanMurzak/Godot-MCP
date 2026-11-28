@@ -96,7 +96,7 @@ godot-cli open ./MyGodotProject                       # C# build, editor शु�
 
 फिर अपने एजेंट से कहें: *"2 radius के एक circle में 3 cubes बनाओ।"*
 
-Editor के **AssetLib** tab से, किसी [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) से या हाथ से install करने के लिए [install.hi.md](install.hi.md) देखें: तब प्रोजेक्ट की `.csproj` में addon के NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, और सिर्फ़-editor वाले `com.IvanMurzak.Rql`, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` और `Microsoft.CodeAnalysis.CSharp`) उसी release के versions पर चाहिए जिसे आप install कर रहे हैं।
+Editor के **AssetLib** tab से, किसी [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) से या हाथ से install करने के लिए [install.hi.md](install.hi.md) देखें: तब प्रोजेक्ट की `.csproj` में addon के NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql`, और सिर्फ़-editor वाले `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` और `Microsoft.CodeAnalysis.CSharp`) उसी release के versions पर चाहिए जिसे आप install कर रहे हैं।
 
 <a id="relay"></a>
 ### ai-game.dev से क्या गुज़रता है
@@ -279,4 +279,4 @@ Conventions, headless editor smoke test और मुख्य pitfalls [AGENTS.
 <a id="license"></a>
 ## लाइसेंस
 
-**Game developers सब कुछ मुफ़्त में इस्तेमाल कर सकते हैं, commercial games में भी।** Godot-MCP [Apache-2.0](../LICENSE) के तहत है। इसकी editor-side dependencies RQL और Code-Exec [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) इस्तेमाल करती हैं, जो सिर्फ़ उन कंपनियों पर रोक लगाता है जो game development के लिए competing AI tools बनाती हैं।
+**Game developers सब कुछ मुफ़्त में इस्तेमाल कर सकते हैं, commercial games में भी।** Godot-MCP [Apache-2.0](../LICENSE) के तहत है। इसकी dependencies RQL (editor और game) और Code-Exec (editor) [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) इस्तेमाल करती हैं, जो सिर्फ़ उन कंपनियों पर रोक लगाता है जो game development के लिए competing AI tools बनाती हैं।

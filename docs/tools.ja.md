@@ -4,7 +4,7 @@
 
 Godot-MCP の組み込みツールは、Godot エディターでできることのほぼすべてをカバーし、以下のファミリーに分類されています。ツールはコンパクトなので、エージェントに必要な呼び出しもトークンも少なくて済みます([RQL のエージェント評価で測定](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md))。エディターのデータ層は [RQL](rql.md)(Reflection Query Language)です: `rql-query`、`rql-mutate`、`rql-schema` は、操作ごとに 1 つのツールを使う代わりに、ひとつのクエリでシーンのノード、Godot のプロパティ、リソース、ファイル、シーン、エディターの状態を読み取り、変更します。
 
-既定の `toolFormat`(`Rql`)では、他のツールは RQL の値を引数に取り、コンパクトなテキストを返します。`Json` では ReflectorNet の JSON スキーマと結果のままになります。スクリーンショットは PNG 画像を返します。すべてのエディターツールは、アドオンを有効にした時点で使えます。
+他のツールは RQL の値を引数に取り、コンパクトなテキストを返します(ツールのデータ層は RQL のみです)。スクリーンショットは PNG 画像を返します。すべてのエディターツールは、アドオンを有効にした時点で使えます。
 
 **console**、**reflection**、**runtime-errors** ファミリーは*実行中のゲーム*向けです([ランタイムでの利用](runtime.ja.md)を参照)。エディターでは、代わりに RQL の `console` ソースと RQL の `call` / `CallMethod` を使ってください。
 
@@ -15,7 +15,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | エディターのビューポート、カメラ、単独でレンダリングした 1 つのノードを、LLM が見られる PNG としてキャプチャ。 |
 | **game** | `game-run` | ゲーム(または 1 つのシーン)をウィンドウなしでゲーム時間の数秒間実行し、エラー・警告・出力を 1 回の呼び出しで取得します。 |
 | **console** | `console-get-logs`, `console-clear-logs` | 実行中のゲームで: 収集したログの読み取りとクリア。 |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | 実行中のゲームで: ReflectorNet を使い、読み込まれた任意のアセンブリの C# メソッドを検索・呼び出し。 |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | 実行中のゲームで: 読み込まれた任意のアセンブリの C# メソッドを検索・呼び出し。ターゲットと引数には RQL 値を使います。 |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | 実行中のゲームで: GDScript のランタイムエラー、`push_error` / `push_warning`、シェーダーエラー、C# 例外をポーリング。**既定はオフ。** |
 | **ping** | `ping` | 準備状態の確認。システムツール。 |
 | **session** | `session-close` | `godot-cli` が起動したエディターを保存して終了。システムツール。 |
@@ -44,7 +44,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 - `script-attach-to-node`: ノードにスクリプトをアタッチ。
 - `script-validate`: GDScript ファイルをパース・コンパイルし、構造化された診断を返す。
 - `script-build`: 新しいスクリプトが読み込まれるよう、プロジェクトの C# をビルド(`dotnet build`、Debug)。ビルドはバックグラウンドで実行されます。成功すると Godot が C# アセンブリをリロードし、プラグインが再接続し、結果(警告またはエラー)はリロード後に届きます。[C# アセンブリのリロード](custom-tools.ja.md#c-assembly-reloads)を参照。
-- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) を通じ、Roslyn でエディター内の C# をコンパイル・実行。最後の式を結果とする普通の文(独自の `using`、ローカルクラス、`await` が使える)、または静的メソッドを持つクラス。ゲームのコンパイル済みの型が見えます。`include` で `<project>/.ai-game-dev/snippets` からヘルパーの `.cs` ファイルを追加します。値と、コードが出力した内容(`Console`。プロジェクトが Godot.NET.Sdk 4.5+ でビルドされていれば `GD.Print`、push_warning、push_error も)を返します。ターミナルからは: `godot-cli exec '1 + 2'`。 旧名の `script-execute` も、0.45.0 までは非表示のエイリアス(一覧にもスキルにも出ない)として実行できます。
+- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) を通じ、Roslyn でエディター内の C# をコンパイル・実行。最後の式を結果とする普通の文(独自の `using`、ローカルクラス、`await` が使える)、または静的メソッドを持つクラス。ゲームのコンパイル済みの型が見えます。`include` で `<project>/.ai-game-dev/snippets` からヘルパーの `.cs` ファイルを追加します。`parameters` は名前付きの RQL 値です(`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: 名前の前に型を書くと値をその型に変換します)。型の後に RQL テキストで示した値(`System.Int32: 3`、`Dictionary<string, int>: {a:1,b:2}`)と、コードが出力した内容(`Console`。プロジェクトが Godot.NET.Sdk 4.5+ でビルドされていれば `GD.Print`、push_warning、push_error も)を返します。ターミナルからは: `godot-cli exec '1 + 2'`。 旧名の `script-execute` も、0.45.0 までは非表示のエイリアス(一覧にもスキルにも出ない)として実行できます。
 
 <a id="screenshot"></a>
 ## game
@@ -63,7 +63,7 @@ Godot-MCP の組み込みツールは、Godot エディターでできること�
 ## console、reflection、runtime-errors(実行中のゲーム)
 
 - `console-get-logs` / `console-clear-logs`: プラグインが収集したログ(プラグイン自身の接続診断を含む)を読み取り(フィルタリング可)、クリアします。
-- `reflection-method-find` / `reflection-method-call`: 読み込まれたすべてのアセンブリから C# メソッド(private も含む)を検索し、引数を付けて呼び出します。
+- `reflection-method-find` / `reflection-method-call`: 読み込まれたすべてのアセンブリから C# メソッド(private も含む)を検索し、そのひとつを呼び出します: `targetObject` と名前付きの `inputParameters` は RQL 値(`ref("Node3D#12")`、`godot.find("Player")`、`[1, 2, 3]`、オブジェクトリテラル)で、メソッドが宣言する型に変換されます。結果は RQL テキストで返ります。
 - `runtime-errors-get`: 捕捉したゲーム内エラー。古い順で、新しいものが保持されます。前回の `highestSequence` を `sinceSequence` として渡すと、新しいエラーだけを取得します。捕捉が一度も有効化されていなければ `available:false` を返します。
 - `runtime-errors-clear`: バッファをクリアします。シーケンスカウンターはカウントを続けます。
 

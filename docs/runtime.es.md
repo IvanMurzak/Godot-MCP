@@ -121,6 +121,8 @@ public sealed class SceneTreeSummary
 }
 ```
 
+Los argumentos y resultados son valores RQL, igual que en el editor: el agente ve el tipo de cada parámetro en la descripción de la herramienta y escribe una clase propia como literal — `{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}` — donde un nodo es un `ref(…)` de un resultado anterior, `godot.find("Player")`, o una ruta o nombre bajo la escena actual (`"Level/Player"`), y un recurso una ruta `"res://…"`. Un objeto devuelto vuelve como texto RQL (un nodo como `Node3D#12`). Las herramientas de una exportación AOT (sin JIT, p. ej. iOS) usan accesores de reflexión; no hay nada que configurar.
+
 Los prompts y recursos se registran igual: una `partial class` marcada con `[AiPromptType]` / `[AiResourceType]` con miembros marcados con `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. Un método de recurso devuelve `ResponseResourceContent[]` (por ejemplo `ResponseResourceContent.CreateText(uri, json, "application/json")`). Todos estos tipos vienen del paquete `com.IvanMurzak.McpPlugin`.
 
 <a id="capturing-in-game-runtime-errors"></a>
@@ -146,6 +148,6 @@ En Godot anterior a 4.5 el canal del motor no está disponible; los canales de C
 </PropertyGroup>
 ```
 
-Un `godot-cli install-plugin` actual escribe las referencias a los paquetes Code-Exec y Roslyn con una `Condition` que respeta esta propiedad; RQL nunca se incluye. Sin esta activación, `WithCsharpExec()` registra una advertencia y no registra nada.
+Un `godot-cli install-plugin` actual escribe las referencias a los paquetes Code-Exec y Roslyn con una `Condition` que respeta esta propiedad. Sin esta activación, `WithCsharpExec()` registra una advertencia y no registra nada.
 
 > **Esto es ejecución de código arbitrario.** Cualquiera que pueda llamar a herramientas en la conexión puede ejecutar cualquier código en el proceso del juego. Úsalo solo en compilaciones de desarrollo, en un host loopback con token. Solo CoreCLR de escritorio: NativeAOT e iOS no pueden ejecutar código generado en tiempo de ejecución.

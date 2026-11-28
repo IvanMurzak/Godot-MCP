@@ -9,7 +9,7 @@ scene-* / resource-move|delete to RQL). Then every example of the agent guide
 its fixture scene and must succeed.
 
 It does NOT launch anything. Point it at a local `gamedev-mcp-server` whose Godot editor (with this addon,
-default toolFormat Rql) has the project at `--project` open:
+RQL tool data layer) has the project at `--project` open:
 
     gamedev-mcp-server port=8080 client-transport=streamableHttp authorization=none &
     GODOT_MCP_RQL_TEST_HOOKS=1 GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 \\

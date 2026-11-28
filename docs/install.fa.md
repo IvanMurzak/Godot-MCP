@@ -33,11 +33,11 @@
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no RQL and no Roslyn. -->
+<!-- Editor-only: exported games (ExportDebug / ExportRelease) ship no Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -53,13 +53,13 @@
 
 | پکیج | نقش |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | هسته‌ی reflection و سریال‌سازی |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | هسته‌ی reflection: متدهای ابزار را پیدا و فراخوانی می‌کند (وابستگی McpPlugin) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | کلاینت پلاگین MCP |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، لایه‌ی داده‌ی ابزارهای ویرایشگر (PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، لایه‌ی مقدارِ همه‌ی ابزارها، در ویرایشگر و در بازی (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، پشتوانه‌ی `csharp-exec` (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، کامپایلر C# که `csharp-exec` اجرا می‌کند |
 
-- چهار پکیج مخصوص ویرایشگر یک `Condition` دارند که آن‌ها را از بیلدهای اکسپورت بیرون نگه می‌دارد، پس بازیِ منتشرشده نه RQL دارد و نه Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
+- سه پکیج مخصوص ویرایشگر یک `Condition` دارند که آن‌ها را از بیلدهای اکسپورت بیرون نگه می‌دارد، پس بازیِ منتشرشده Roslyn ندارد ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)). ‏RQL هیچ `Condition`ی ندارد: ابزارهای درون بازی هم از آن استفاده می‌کنند. در پروژه‌ای که یک `install-plugin` قدیمی‌تر راه‌اندازی کرده، RQL همان `Condition`ِ مخصوص ویرایشگر را دارد؛ ‏`godot-cli install-plugin` را دوباره اجرا کنید (آن را حذف می‌کند) یا `Condition` را دستی پاک کنید.
 - ‏`<EmbeddedResource>` الزامی است: پلاگین کاتالوگ را از اسمبلی خود می‌خواند و `LogicalName` آن باید دقیقاً `Godot-MCP.extensions.catalog.json` باشد.
 - ‏`<EnableDynamicLoading>true</EnableDynamicLoading>` را در `<PropertyGroup>` نگه دارید (قالب C# در Godot آن را دارد). بدون آن، اسمبلی‌های پکیج‌ها کنار اسمبلی بازی کپی نمی‌شوند و بازی‌ای که از ویرایشگر اجرا شود در ساختن همه‌ی اسکریپت‌های C# شکست می‌خورد ("Cannot instantiate C# script because the associated class could not be found").
 

@@ -16,10 +16,9 @@ using Godot;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Resource lookup shared by the Resource reflection converter (<c>Tool_Resource.ReflectionResolver.cs</c>). The
-    /// <c>resource-*</c> tool family was replaced by RQL (<c>godot.resource(path)</c> / <c>godot.resources(type)</c> and
-    /// the <c>editor</c> source's CreateResource / MoveResource / DeleteResource, see docs/rql.md); the class keeps its
-    /// name so the resolver wiring stays unchanged. It declares no tools.
+    /// Resource lookup for the editor's RQL engine. The <c>resource-*</c> tool family was replaced by RQL
+    /// (<c>godot.resource(path)</c> / <c>godot.resources(type)</c> and the <c>editor</c> source's CreateResource /
+    /// MoveResource / DeleteResource, see docs/rql.md); the class keeps its name for its call sites. It declares no tools.
     /// </summary>
     public static partial class Tool_Resource
     {

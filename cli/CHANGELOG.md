@@ -4,6 +4,9 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`install-plugin` writes `com.IvanMurzak.Rql` without the editor-only `Condition`.** RQL is now the value layer of
+  in-game tools too, so exported games need it. A re-run removes the editor-only `Condition` an older install wrote on
+  RQL; a `Condition` the project set itself is kept.
 - **`script-execute` is now `csharp-exec`** (DEV-314): the tool name says which language it runs, also in a list that
   mixes several engines. `exec` calls `csharp-exec` and falls back to `script-execute` on an addon older than the rename.
   The addon keeps `script-execute` as a hidden alias until 0.45.0 (not listed, no skill; saved permissions and prompts keep

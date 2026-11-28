@@ -16,10 +16,9 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
-using com.IvanMurzak.Godot.MCP.Reflection;
+using com.IvanMurzak.Godot.MCP.Editor.Rql;
 using com.IvanMurzak.Godot.MCP.Runtime;
 using com.IvanMurzak.Godot.MCP.Tools;
-using com.IvanMurzak.ReflectorNet.Model;
 using Godot;
 using HubConnectionState = Microsoft.AspNetCore.SignalR.Client.HubConnectionState;
 
@@ -103,12 +102,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         /// </summary>
         const string EnvHoldReadyFile = "GODOT_MCP_HARNESS_HOLD_READY_FILE";
 
-        /// <summary>
-        /// How many Godot.Variant wire shapes <see cref="CheckVariantRoundTrip"/> must have exercised for the
-        /// leg to pass. Pinned so a future edit that accidentally drops cases cannot turn the issue-#292
-        /// assertion into a vacuous "no failures recorded".
-        /// </summary>
-        const int VariantRoundTripMinimumChecks = 11;
+        /// <summary>How many in-game RQL tool calls <see cref="CheckRqlToolValuesAsync"/> must have made for the leg to pass.</summary>
+        const int RqlToolValuesMinimumChecks = 6;
 
         // --- State ------------------------------------------------------------------------------------
 
@@ -143,17 +138,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             };
 
             GD.Print($"[harness] starting (godot={report.GodotVersion}, engineLoggerExpected={report.EngineLoggerExpected}, requireConnect={requireConnect}, timeout={timeoutSeconds}s).");
-
-            // Godot.Variant converter round-trip (issue #292). This is the ONLY place the project
-            // can assert it: materializing a non-Nil Variant calls godotsharp_* P/Invoke, which faults the
-            // plain xUnit host with AccessViolationException, so the CI unit suite can only cover the pure
-            // parser and the failure paths. Here we have a REAL Godot, so the actual round-trip (and the
-            // issue's own ProjectSettings.SetSetting repro) is exercised for real.
-            //
-            // Deliberately BEFORE the shared deadline below: it needs neither the connection nor the
-            // capture, is synchronous, and fully try/caught — running it inside the connect+capture window
-            // would silently deduct from that budget, which is exactly the drift issue #196 guards against.
-            CheckVariantRoundTrip(report);
 
             // ONE shared wall-clock deadline for the WHOLE connect+capture phase. Both PollConnectedAsync
             // and PollCapturedAsync poll against this same instant — the capture phase inherits whatever is
@@ -223,6 +207,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 //     directly: the runtime registers no extra tool, so the recorded tool contract is unchanged.
                 await CheckScriptExecuteAsync(report);
 
+                // 7a') RQL as the value layer of a game's own tool: a custom class argument with a Vector3 and live node
+                //      references, and a node result, through the in-game binding against the real scene tree.
+                await CheckRqlToolValuesAsync(report);
+
                 // 7b) Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): signal the workflow (ready
                 //     file) and keep the connection up while its MCP-client recorder drives tools/list + the
                 //     battery. Env-gated, default 0 = no hold. The workflow waits for the ready file before it
@@ -283,7 +271,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                     report.ScriptExecuteFailures.Add($"'{code}' did not finish within 60 s");
                     return null;
                 }
-                return (await run).Result?.valueJsonElement?.GetRawText();
+                // The plain value (presented with RQL by the tool binding over MCP): an int, the root's name as text.
+                return System.Convert.ToString((await run).Result, System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (Exception ex)
             {
@@ -293,116 +282,100 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         }
 #endif
 
-        // --- Godot.Variant round-trip (issue #292) ----------------------------------------------------
+        // --- RQL values of an in-game tool -------------------------------------------------------------
 
-        /// <summary>
-        /// Drive the real <see cref="Godot_Variant_ReflectionConverter"/> through
-        /// <c>Reflector.Deserialize</c> against a LIVE Godot, then re-run the issue's own
-        /// <c>ProjectSettings.SetSetting</c> repro. Every failure is recorded as a string so the CI log names
-        /// exactly which shape broke rather than just "false".
-        ///
-        /// <para>
-        /// Scope: <b>Variant only</b>. The sibling <c>Godot_Node_ReflectionConverter</c>'s resolve path
-        /// cannot be exercised here — its resolver is installed by <c>Tool_Node.InstallReflectionResolver</c>
-        /// under <c>#if TOOLS</c> and this harness is a GAME process, so <c>NodeResolver</c> is always null.
-        /// Its pure-managed half (selection, ref parsing, the throw-instead-of-null policy, an injected
-        /// resolver) is unit-tested; the live scene-tree lookup is covered by the editor smoke.
-        /// </para>
-        /// </summary>
-        void CheckVariantRoundTrip(HarnessReport report)
+        /// <summary>A developer's own argument type: a Godot struct and live node references.</summary>
+        public sealed class HarnessSpawnSpec
         {
-            try
-            {
-                var reflector = GodotReflectorFactory.CreateDefaultReflector();
-
-                // (a) Every documented wire shape must materialize the right variant. The first two are the
-                //     verbatim payloads from issue #292, both of which used to deserialize to Nil.
-                Check(report, "bare-string", "\"res://CharacterCreator.tscn\"",
-                    v => v.VariantType == Variant.Type.String && v.AsString() == "res://CharacterCreator.tscn", reflector);
-                Check(report, "legacy-VariantType-Obj", "{\"VariantType\":\"String\",\"Obj\":\"res://CharacterCreator.tscn\"}",
-                    v => v.VariantType == Variant.Type.String && v.AsString() == "res://CharacterCreator.tscn", reflector);
-                Check(report, "declared-string", "{\"variantType\":\"String\",\"value\":\"hello\"}",
-                    v => v.VariantType == Variant.Type.String && v.AsString() == "hello", reflector);
-                Check(report, "int", "{\"variantType\":\"Int\",\"value\":42}",
-                    v => v.VariantType == Variant.Type.Int && v.AsInt64() == 42, reflector);
-                Check(report, "bool", "true",
-                    v => v.VariantType == Variant.Type.Bool && v.AsBool(), reflector);
-                Check(report, "float", "1.5",
-                    v => v.VariantType == Variant.Type.Float && Math.Abs(v.AsDouble() - 1.5) < 1e-9, reflector);
-                Check(report, "vector3", "{\"variantType\":\"Vector3\",\"value\":[1,2,3]}",
-                    v => v.VariantType == Variant.Type.Vector3 && v.AsVector3() == new Vector3(1, 2, 3), reflector);
-                Check(report, "color-implicit-alpha", "{\"variantType\":\"Color\",\"value\":[0.25,0.5,0.75]}",
-                    v => v.VariantType == Variant.Type.Color && Math.Abs(v.AsColor().A - 1f) < 1e-6f, reflector);
-                Check(report, "nodepath", "{\"variantType\":\"NodePath\",\"value\":\"Main/Player\"}",
-                    v => v.VariantType == Variant.Type.NodePath && v.AsString() == "Main/Player", reflector);
-                Check(report, "explicit-nil", "{\"variantType\":\"Nil\"}",
-                    v => v.VariantType == Variant.Type.Nil, reflector);
-
-                // (b) Serialization must produce a payload that deserializes back to the same variant.
-                var original = Variant.CreateFrom(new Vector3(-1.5f, 0f, 7.25f));
-                var serialized = reflector.Serialize(original, typeof(Variant));
-                var restored = reflector.Deserialize(serialized, fallbackType: typeof(Variant));
-                if (restored is not Variant back || back.VariantType != Variant.Type.Vector3 || back.AsVector3() != new Vector3(-1.5f, 0f, 7.25f))
-                    report.VariantRoundTripFailures.Add($"serialize->deserialize did not round-trip a Vector3 variant (got {restored})");
-                report.VariantRoundTripChecked++;
-
-                // (c) An unreadable payload must THROW, never degrade to a silent Nil — the actual defect.
-                try
-                {
-                    var garbage = reflector.Deserialize(Member("{\"unexpected\":1}"), fallbackType: typeof(Variant));
-                    report.VariantRoundTripFailures.Add(
-                        $"an unreadable Variant payload did NOT throw; it produced {garbage} (the issue-#292 silent-Nil regression)");
-                }
-                catch (ArgumentException)
-                {
-                    report.VariantRoundTripRejectsGarbage = true;
-                }
-
-                // (d) The issue's own repro, end to end: set a project setting through a Variant that came
-                //     off the wire, then read it back. Before the fix this wrote Nil and reported success.
-                const string settingName = "application/config/godot_mcp_harness_probe";
-                var value = reflector.Deserialize(Member("\"res://CharacterCreator.tscn\""), fallbackType: typeof(Variant));
-                ProjectSettings.SetSetting(settingName, (Variant)value!);
-                var readBack = ProjectSettings.GetSetting(settingName);
-                report.VariantProjectSettingRoundTrip =
-                    readBack.VariantType == Variant.Type.String && readBack.AsString() == "res://CharacterCreator.tscn";
-                if (!report.VariantProjectSettingRoundTrip)
-                    report.VariantRoundTripFailures.Add(
-                        $"ProjectSettings.SetSetting via a Godot.Variant argument read back as {readBack.VariantType} '{readBack}'");
-                ProjectSettings.SetSetting(settingName, default(Variant)); // leave no residue
-            }
-            catch (Exception ex)
-            {
-                report.VariantRoundTripFailures.Add($"threw: {ex}");
-            }
-
-            GD.Print($"[harness] variant round-trip: checked={report.VariantRoundTripChecked} " +
-                     $"rejectsGarbage={report.VariantRoundTripRejectsGarbage} " +
-                     $"projectSetting={report.VariantProjectSettingRoundTrip} " +
-                     $"failures={report.VariantRoundTripFailures.Count}");
+            public string? Name;
+            public Vector3 Position;
+            public Node3D? Target;
+            public NodeRef? Anchor;
         }
 
-        static SerializedMember Member(string valueJson)
-            => SerializedMember.FromJson(typeof(Variant), valueJson, "value");
+        public static string HarnessSpawn(HarnessSpawnSpec spec) =>
+            $"{spec.Name}|{spec.Position}|{spec.Target?.Name}|{(spec.Anchor == null ? "" : spec.Anchor.InstanceId.ToString())}";
 
-        static void Check(HarnessReport report, string label, string valueJson, Func<Variant, bool> verify, com.IvanMurzak.ReflectorNet.Reflector reflector)
+        // A Variant argument (issue #292: never a silent Nil) written into a project setting and read back.
+        public static string HarnessVariant(Variant value) => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(() =>
         {
-            report.VariantRoundTripChecked++;
+            const string setting = "application/config/godot_mcp_harness_probe";
+            ProjectSettings.SetSetting(setting, value);
+            var back = ProjectSettings.GetSetting(setting);
+            ProjectSettings.SetSetting(setting, default(Variant)); // leave no residue
+            return $"{back.VariantType}:{back}";
+        });
+
+        // Tool methods run on the MCP call's thread: the scene tree is read on the main thread (off it Godot returns null).
+        public static Node3D? HarnessFind(string name) => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(() =>
+        {
+            var tree = (SceneTree)Engine.GetMainLoop();
+            return (tree.CurrentScene ?? tree.Root).FindChild(name, recursive: true, owned: false) as Node3D;
+        });
+
+        const string RqlHarnessTargetName = "RqlHarnessTarget";
+
+        /// <summary>
+        /// Calls two harness methods through the in-game RQL tool binding (<see cref="GodotRqlRuntime"/>) on a tool manager of
+        /// their own (the plugin's registered tool list, and so the recorded tool contract, stays unchanged): a custom
+        /// class literal with a Vector3, a node by <c>ref("Node3D#id")</c>, by name and by <c>godot.find</c>, a NodeRef by
+        /// instance id, and a node result presented as an RQL reference.
+        /// </summary>
+        async Task CheckRqlToolValuesAsync(HarnessReport report)
+        {
+            var target = new Node3D { Name = RqlHarnessTargetName };
+            AddChild(target);
             try
             {
-                var result = reflector.Deserialize(Member(valueJson), fallbackType: typeof(Variant));
-                if (result is not Variant variant)
+                var reflector = new com.IvanMurzak.ReflectorNet.Reflector();
+                var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
+                var runners = new com.IvanMurzak.McpPlugin.ToolRunnerCollection(reflector, null)
                 {
-                    report.VariantRoundTripFailures.Add($"{label}: deserialized to {result?.GetType().FullName ?? "null"}, not a Godot.Variant");
-                    return;
-                }
-                if (!verify(variant))
-                    report.VariantRoundTripFailures.Add($"{label}: got {variant.VariantType} '{variant}' from {valueJson}");
+                    ["harness-spawn"] = com.IvanMurzak.McpPlugin.RunTool.CreateFromStaticMethod(reflector, null, "harness-spawn", typeof(RuntimeHarness).GetMethod(nameof(HarnessSpawn), flags)!),
+                    ["harness-find"] = com.IvanMurzak.McpPlugin.RunTool.CreateFromStaticMethod(reflector, null, "harness-find", typeof(RuntimeHarness).GetMethod(nameof(HarnessFind), flags)!),
+                    ["harness-variant"] = com.IvanMurzak.McpPlugin.RunTool.CreateFromStaticMethod(reflector, null, "harness-variant", typeof(RuntimeHarness).GetMethod(nameof(HarnessVariant), flags)!),
+                };
+                var tools = new com.IvanMurzak.McpPlugin.McpToolManager(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<com.IvanMurzak.McpPlugin.McpToolManager>.Instance, reflector, runners);
+                GodotRqlRuntime.Install(tools, com.IvanMurzak.McpPlugin.ToolTextEscaping.Minimal);
+
+                var id = target.GetInstanceId();
+                var expected = $"Orc|(1, 2, 3)|{RqlHarnessTargetName}|{id}";
+                await RqlCase(report, tools, "ref", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: [1, 2, 3], Target: ref(\"Node3D#{id}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "name", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: \"(1, 2, 3)\", Target: \"{RqlHarnessTargetName}\", Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "godot.find", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: {{x: 1, y: 2, z: 3}}, Target: godot.find(\"{RqlHarnessTargetName}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "node result", "harness-find", "name", RqlHarnessTargetName, $"Node3D#{id}");
+                await RqlCase(report, tools, "variant text", "harness-variant", "value", "\"res://CharacterCreator.tscn\"", "String:res://CharacterCreator.tscn");
+                await RqlCase(report, tools, "variant number", "harness-variant", "value", "42", "Int:42");
             }
             catch (Exception ex)
             {
-                report.VariantRoundTripFailures.Add($"{label}: threw {ex.GetType().Name}: {ex.Message}");
+                report.RqlToolValueFailures.Add($"threw: {ex}");
             }
+            finally
+            {
+                target.QueueFree();
+            }
+            GD.Print($"[harness] rql tool values: checked={report.RqlToolValuesChecked} failures={report.RqlToolValueFailures.Count}.");
+        }
+
+        /// <summary>One call of <paramref name="tool"/> with <paramref name="argument"/> = the RQL text <paramref name="value"/>.</summary>
+        static async Task RqlCase(HarnessReport report, com.IvanMurzak.McpPlugin.McpToolManager tools, string label, string tool, string argument,
+            string value, string expected)
+        {
+            report.RqlToolValuesChecked++;
+            var args = new Dictionary<string, JsonElement> { [argument] = JsonSerializer.SerializeToElement(value) };
+            // Off the main thread like an MCP call: the binding marshals its engine work onto the main thread.
+            var call = Task.Run(() => tools.RunCallTool(new com.IvanMurzak.McpPlugin.Common.Model.RequestCallTool(tool, args)));
+            if (await Task.WhenAny(call, Task.Delay(TimeSpan.FromSeconds(30))) != call)
+            {
+                report.RqlToolValueFailures.Add($"{label}: did not finish within 30 s");
+                return;
+            }
+            var response = (await call).Value;
+            var text = response == null ? "<no response>" : string.Join("\n", response.Content?.Select(c => c.Text) ?? Array.Empty<string?>());
+            if (response?.Status != com.IvanMurzak.McpPlugin.Common.Model.ResponseStatus.Success || !text.Contains(expected, StringComparison.Ordinal))
+                report.RqlToolValueFailures.Add($"{label}: expected '{expected}', got {response?.Status}: {text}");
         }
 
         // --- Error generation -------------------------------------------------------------------------
@@ -667,16 +640,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             if (!report.CaptureInstalled || !report.CaptureAvailable)
                 return false;
 
-            // Godot.Variant / Node-ref converters (issue #292) — version-independent, no server needed.
-            if (report.VariantRoundTripFailures.Count > 0)
+            // RQL values of a game's own tool (custom class with a Vector3 and node references, a node result).
+            if (report.RqlToolValueFailures.Count > 0 || report.RqlToolValuesChecked < RqlToolValuesMinimumChecks)
                 return false;
 
             // In-game csharp-exec: Roslyn ran C# inside this game and read its scene tree.
-            if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "\"root\"")
-                return false;
-            if (report.VariantRoundTripChecked < VariantRoundTripMinimumChecks)
-                return false;
-            if (!report.VariantRoundTripRejectsGarbage || !report.VariantProjectSettingRoundTrip)
+            if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "root")
                 return false;
 
             // The C# unobserved-Task exception is the version-independent guaranteed row.
@@ -797,10 +766,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
             [JsonPropertyName("fatalError")] public string? FatalError { get; set; }
 
-            [JsonPropertyName("variantRoundTripChecked")] public int VariantRoundTripChecked { get; set; }
-            [JsonPropertyName("variantRoundTripRejectsGarbage")] public bool VariantRoundTripRejectsGarbage { get; set; }
-            [JsonPropertyName("variantProjectSettingRoundTrip")] public bool VariantProjectSettingRoundTrip { get; set; }
-            [JsonPropertyName("variantRoundTripFailures")] public List<string> VariantRoundTripFailures { get; set; } = new();
+            [JsonPropertyName("rqlToolValuesChecked")] public int RqlToolValuesChecked { get; set; }
+            [JsonPropertyName("rqlToolValueFailures")] public List<string> RqlToolValueFailures { get; set; } = new();
 
             [JsonPropertyName("scriptExecuteSum")] public string? ScriptExecuteSum { get; set; }
             [JsonPropertyName("scriptExecuteRootName")] public string? ScriptExecuteRootName { get; set; }

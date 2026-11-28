@@ -29,7 +29,7 @@ public partial class Tool_MyFeature
 }
 ```
 
-- 返回结构化模型（由 ReflectorNet 序列化）或 `void`，不要返回手工拼接的字符串。
+- 参数和结果都是 RQL 值：智能体会在工具描述中看到每个参数的类型，并把类写成字面量（`{position: [1, 2, 3], target: ref("Node3D#12")}`）；返回的模型以紧凑的 RQL 文本返回。返回结构化模型或 `void`，不要返回手工拼接的字符串。
 - 用可空类型加默认值让参数变为可选：`string? optional = null`。
 - `[AiToolType(Target = ToolTarget.Runtime)]` 使某个系列仅用于游戏，`ToolTarget.Editor` 则仅用于编辑器；默认值 `Both` 会在所有地方注册。游戏工具：[runtime.md](runtime.zh-CN.md)。
 - `godot-skill-create` 系统工具会替你写出这样的文件；下次构建后即可调用。

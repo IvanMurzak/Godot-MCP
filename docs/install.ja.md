@@ -29,11 +29,11 @@ Godot はプロジェクト内のすべての `.cs` ファイルをひとつの�
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- エディターのみ: エクスポートしたゲーム(ExportDebug / ExportRelease)には RQL も Roslyn も含まれない。 -->
+<!-- エディターのみ: エクスポートしたゲーム(ExportDebug / ExportRelease)には Roslyn は含まれない。 -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -47,13 +47,13 @@ Godot はプロジェクト内のすべての `.cs` ファイルをひとつの�
 
 | パッケージ | 役割 |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | リフレクションとシリアライズのコア |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | リフレクションのコア: ツールメソッドを検索・呼び出す(McpPlugin の依存関係) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP プラグインクライアント |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL、エディターツールのデータ層(PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL、すべてのツールの値の層。エディターでもゲームでも使われる(PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec、`csharp-exec` の基盤(PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn、`csharp-exec` が実行する C# コンパイラ |
 
-- エディター専用の 4 つのパッケージには、エクスポートビルドから除外する `Condition` が付いているため、配布するゲームには RQL も Roslyn も含まれません([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game))。
+- エディター専用の 3 つのパッケージには、エクスポートビルドから除外する `Condition` が付いているため、配布するゲームには Roslyn は含まれません([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game))。RQL には `Condition` がありません: ゲーム内ツールも使うためです。古い `install-plugin` でセットアップしたプロジェクトでは RQL にエディター専用の `Condition` が付いています。`godot-cli install-plugin` を再実行する(これが削除します)か、その `Condition` を手作業で削除してください。
 - `<EmbeddedResource>` は必須です: アドオンはカタログを自身のアセンブリから読み込み、その `LogicalName` は正確に `Godot-MCP.extensions.catalog.json` でなければなりません。
 - `<PropertyGroup>` には `<EnableDynamicLoading>true</EnableDynamicLoading>` を残してください(Godot の C# テンプレートにはこれがあります)。これがないとパッケージのアセンブリがゲームのアセンブリの隣にコピーされず、エディターから起動したゲームはすべての C# スクリプトの作成に失敗します("Cannot instantiate C# script because the associated class could not be found")。
 

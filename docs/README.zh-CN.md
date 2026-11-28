@@ -96,7 +96,7 @@ godot-cli open ./MyGodotProject                       # 构建 C#、启动编辑
 
 然后对你的智能体说：*"在半径为 2 的圆上创建 3 个立方体。"*
 
-如需通过编辑器的 **AssetLib** 选项卡、[发布版 zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) 或手动安装，请参阅 [install.zh-CN.md](install.zh-CN.md)：此时项目的 `.csproj` 需要插件的 NuGet 引用（`com.IvanMurzak.ReflectorNet`、`com.IvanMurzak.McpPlugin`，以及仅编辑器使用的 `com.IvanMurzak.Rql`、`com.IvanMurzak.CodeExec`、`com.IvanMurzak.CodeExec.Roslyn` 和 `Microsoft.CodeAnalysis.CSharp`），版本需与你安装的发布版一致。
+如需通过编辑器的 **AssetLib** 选项卡、[发布版 zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest) 或手动安装，请参阅 [install.zh-CN.md](install.zh-CN.md)：此时项目的 `.csproj` 需要插件的 NuGet 引用（`com.IvanMurzak.ReflectorNet`、`com.IvanMurzak.McpPlugin`、`com.IvanMurzak.Rql`，以及仅编辑器使用的 `com.IvanMurzak.CodeExec`、`com.IvanMurzak.CodeExec.Roslyn` 和 `Microsoft.CodeAnalysis.CSharp`），版本需与你安装的发布版一致。
 
 <a id="relay"></a>
 ### 哪些数据经过 ai-game.dev
@@ -279,4 +279,4 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 <a id="license"></a>
 ## 许可证
 
-**游戏开发者可以自由使用全部内容，包括商业游戏。** Godot-MCP 采用 [Apache-2.0](../LICENSE) 许可。其编辑器端依赖 RQL 和 Code-Exec 使用 [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)，该许可证只限制构建与之竞争的游戏开发 AI 工具的公司。
+**游戏开发者可以自由使用全部内容，包括商业游戏。** Godot-MCP 采用 [Apache-2.0](../LICENSE) 许可。其依赖 RQL（编辑器和游戏）和 Code-Exec（编辑器）使用 [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)，该许可证只限制构建与之竞争的游戏开发 AI 工具的公司。

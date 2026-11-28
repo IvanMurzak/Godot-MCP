@@ -29,7 +29,7 @@ public partial class Tool_MyFeature
 }
 ```
 
-- हाथ से format की गई strings नहीं, बल्कि एक structured model (ReflectorNet उसे serialize करता है) या `void` लौटाएँ।
+- Parameters और results RQL values हैं: agent tool description में हर parameter का type देखता है और class को literal के रूप में लिखता है (`{position: [1, 2, 3], target: ref("Node3D#12")}`); लौटाया गया model compact RQL text के रूप में वापस आता है। हाथ से format की गई strings नहीं, बल्कि एक structured model या `void` लौटाएँ।
 - Parameter को nullable type और default से वैकल्पिक बनाएँ: `string? optional = null`।
 - `[AiToolType(Target = ToolTarget.Runtime)]` किसी family को सिर्फ़ game के लिए बनाता है, `ToolTarget.Editor` सिर्फ़ editor के लिए; default, `Both`, उसे हर जगह register करता है। Game tools: [runtime.md](runtime.hi.md)।
 - `godot-skill-create` system tool आपके लिए ऐसी file लिखता है; अगले build के बाद यह callable हो जाती है।

@@ -27,8 +27,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// (console-* → the <c>console</c> source, reflection-method-* → <c>call</c> / <c>CallMethod</c> / rql-schema) and
     /// runtime-errors-* are <c>ToolTarget.Runtime</c>: the editor's plugin (role Editor) never registers them, the in-game runtime
     /// (<c>GodotMcpRuntime</c>, role Runtime) does, and the server sends their calls to the game while the editor is connected;</item>
-    /// <item>installs the tool data layer the config asks for (<see cref="GodotMcpConfig.ActiveToolFormat"/>): RQL
-    /// (<see cref="RqlToolBinding"/>) or ReflectorNet JSON.</item>
+    /// <item>installs RQL as the data layer of every tool (<see cref="RqlToolBinding"/>); there is no other one.</item>
     /// </list>
     /// <see cref="Uninstall"/> (plugin teardown) clears the hook and drops the engine and RQL's caches.
     /// </summary>
@@ -38,15 +37,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static Action<IMcpPlugin, GodotMcpConfig> Install(Func<global::Godot.EditorUndoRedoManager?> undoRedo)
         {
             RqlGodot.UndoRedo = undoRedo;
-            RqlToolBinding.EngineProvider = () => RqlGodot.Engine;
-            RqlToolBinding.MainThreadRunner = f => MainThread.Instance.Run(f);
+            RqlToolBinding.Instance.EngineProvider = () => RqlGodot.Engine;
+            RqlToolBinding.Instance.MainThreadRunner = f => MainThread.Instance.Run(f);
             return Configure;
         }
 
         public static void Uninstall()
         {
-            RqlToolBinding.EngineProvider = null;
-            RqlToolBinding.MainThreadRunner = null;
+            RqlToolBinding.Instance.EngineProvider = null;
+            RqlToolBinding.Instance.MainThreadRunner = null;
             RqlGodot.UndoRedo = null;
             RqlTools.Manager = null;
             var used = RqlGodot.Reset();
@@ -62,16 +61,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             var tools = plugin.McpManager?.ToolManager;
             if (tools == null) return;
             RqlTools.Manager = tools; // the tools source lists every tool, hidden ones included
-            try
-            {
-                RqlToolBinding.Apply(tools, config.ActiveToolFormat, config.ToolTextEscaping);
-            }
-            catch (Exception ex)
-            {
-                // Without the binding every tool keeps ReflectorNet's JSON surface; the RQL tools still work.
-                GodotMcpLog.Error($"[Godot-MCP] installing the RQL tool data layer failed ({ex.GetType().Name}: {ex.Message}); tools keep the JSON format.");
-                tools.ToolBinding = null;
-            }
+            // No fallback: without the binding the tools would silently take and return ReflectorNet JSON. A failure
+            // propagates, and GodotMcpConnection.Start then refuses to connect (logged as an error).
+            RqlToolBinding.Apply(tools, config.ToolTextEscaping);
         }
     }
 }

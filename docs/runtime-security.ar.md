@@ -105,8 +105,7 @@ export GODOT_MCP_TOKEN=your-secret-token
 - ‏**loopback مع رمز، دائمًا.** استخدم مضيف loopback و`AuthOption = token` مع رمز حقيقي من
   البيئة. أي جهة تستطيع استدعاء الأدوات على الاتصال تملك العملية.
 - ‏**CoreCLR لسطح المكتب فقط.** لا تستطيع NativeAOT وiOS تشغيل كود يُولَّد في وقت التشغيل؛ والأجهزة المحمولة غير مختبرة.
-- **الحجم.** يضيف الاشتراك Roslyn (`Microsoft.CodeAnalysis*.dll`، عدة ميغابايتات) إلى التصدير. أما RQL فلا يُشحن
-  أبدًا.
+- **الحجم.** يضيف الاشتراك Roslyn (`Microsoft.CodeAnalysis*.dll`، عدة ميغابايتات) إلى التصدير.
 
 <a id="environment-variables"></a>
 ## متغيرات البيئة

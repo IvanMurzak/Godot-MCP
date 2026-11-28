@@ -117,6 +117,12 @@ public sealed class SceneTreeSummary
 }
 ```
 
+Arguments and results are RQL values, as in the editor: the agent sees each parameter's type in the tool's
+description and writes a custom class as a literal — `{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}`
+— where a node is a `ref(…)` from an earlier result, `godot.find("Player")`, or a path or name below the current
+scene (`"Level/Player"`), and a resource a `"res://…"` path. A returned object comes back as RQL text (a node as
+`Node3D#12`). Tools of an AOT export (no JIT, e.g. iOS) use reflection accessors; nothing to configure.
+
 Prompts and resources register the same way: a `partial class` marked `[AiPromptType]` / `[AiResourceType]` with members marked `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. A resource method returns `ResponseResourceContent[]` (for example `ResponseResourceContent.CreateText(uri, json, "application/json")`). All of these types come from the `com.IvanMurzak.McpPlugin` package.
 
 ## Capturing in-game runtime errors
@@ -140,6 +146,6 @@ On Godot below 4.5 the engine channel is unavailable; the C# channels still work
 </PropertyGroup>
 ```
 
-A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that honours this property; RQL is never shipped. Without the opt-in, `WithCsharpExec()` logs a warning and registers nothing.
+A current `godot-cli install-plugin` writes the Code-Exec and Roslyn package references with a `Condition` that honours this property. Without the opt-in, `WithCsharpExec()` logs a warning and registers nothing.
 
 > **This is arbitrary code execution.** Anyone who can call tools on the connection can run any code in the game process. Use it only in dev builds, on a loopback host with a token. Desktop CoreCLR only: NativeAOT and iOS cannot run code generated at run time.

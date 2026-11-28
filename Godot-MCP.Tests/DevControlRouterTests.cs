@@ -126,7 +126,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData("reveal", "reveal")]
         [InlineData("Copy", "copy")]
         [InlineData("generate-token", "generate-token")]
-        [InlineData("Check", "check")]
         public void TryNormalizeClickTarget_NormalizesKnown(string target, string expected)
         {
             Assert.True(DevControlRouter.TryNormalizeClickTarget(target, out var normalized));
@@ -137,6 +136,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [InlineData(null)]
         [InlineData("")]
         [InlineData("explode")]
+        [InlineData("check")] // the footer's former ReflectorNet "Check" window
         [InlineData("start server")]
         public void TryNormalizeClickTarget_RejectsUnknown(string? target)
         {

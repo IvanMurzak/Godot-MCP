@@ -27,7 +27,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
     /// stable references (<c>Node3D#&lt;instance id&gt;</c>), sources and functions, and the editor integration for writes
     /// (one <see cref="EditorUndoRedoManager"/> action per mutation, the scene marked unsaved, edited resource files saved;
     /// see <c>RqlGodot.Save.cs</c>). Sources, functions and adapters come from modules: <see cref="Modules.GodotCoreModule"/>,
-    /// <see cref="Modules.ToolTypesModule"/> and any <see cref="IRqlModule"/> in a loaded assembly (an extension's module in
+    /// <see cref="Modules.GodotValuesModule"/> (shared with the in-game engine) and any <see cref="IRqlModule"/> in a loaded assembly (an extension's module in
     /// the consumer project assembly is found the same way). One engine per editor session: <see cref="Reset"/> drops it on
     /// plugin teardown / assembly reload. Every call must run on the main thread.
     /// </summary>
@@ -100,13 +100,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
             return engine;
         }
 
-        /// <summary><c>Type#id</c> where id is the Godot instance id; the engine checks the type.</summary>
-        internal static object? ResolveStableRef(string type, string id)
-        {
-            if (!ulong.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var instanceId)) return null;
-            if (!GodotObject.IsInstanceIdValid(instanceId)) return null;
-            return GodotObject.InstanceFromId(instanceId);
-        }
+        /// <summary><c>Type#id</c> where id is the Godot instance id; the engine checks the type (shared with the in-game engine).</summary>
+        internal static object? ResolveStableRef(string type, string id) => GodotRqlRuntime.ResolveStableRef(type, id);
 
         // ------------------------------------------------------------ sources
 

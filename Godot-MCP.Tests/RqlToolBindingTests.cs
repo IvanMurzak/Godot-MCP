@@ -83,11 +83,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             _savedEscaping = RqlToolBinding.Instance.Escaping;
             var engine = new RqlEngine();
-            engine.AddModules(new[] { typeof(ToolTypesModule) });
-            RqlToolBinding.EngineProvider = () => engine;
-            RqlToolBinding.MainThreadRunner = null;
+            engine.AddModules(new[] { typeof(GodotValuesModule) });
+            RqlToolBinding.Instance.EngineProvider = () => engine;
+            RqlToolBinding.Instance.MainThreadRunner = null;
             RqlToolBinding.Instance.Reset();
-            var reflector = GodotReflectorFactory.CreateDefaultReflector();
+            var reflector = new com.IvanMurzak.ReflectorNet.Reflector();
             var tools = new ToolRunnerCollection(reflector, null)
             {
                 [Echo] = RunTool.CreateFromStaticMethod(reflector, null, Echo, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Echo))!),
@@ -102,7 +102,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             RqlToolBinding.Instance.Escaping = _savedEscaping;
             RqlToolBinding.Instance.Reset();
-            RqlToolBinding.EngineProvider = null;
+            RqlToolBinding.Instance.EngineProvider = null;
         }
 
         private ResponseListTool Listed(string name) => _tools.RunListTool(new RequestListTool()).Result.Value!.Single(t => t.Name == name);
@@ -190,15 +190,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void ConfigSelectsTheBinding()
+        public void ApplyAlwaysInstallsTheBinding()
         {
-            RqlToolBinding.Apply(_tools, ToolPresentationFormat.Json, ToolTextEscaping.Ascii);
-            Assert.Null(_tools.ToolBinding);
-            Assert.Equal(ToolTextEscaping.Ascii, RqlToolBinding.Instance.Escaping);
+            _tools.ToolBinding = null;
             Assert.Contains("$defs", Listed(Echo).InputSchema.GetRawText());
-            RqlToolBinding.Apply(_tools, ToolPresentationFormat.Rql, ToolTextEscaping.Minimal);
+            RqlToolBinding.Apply(_tools, ToolTextEscaping.Ascii);
             Assert.Same(RqlToolBinding.Instance, _tools.ToolBinding);
+            Assert.Equal(ToolTextEscaping.Ascii, RqlToolBinding.Instance.Escaping);
             Assert.DoesNotContain("$defs", Listed(Echo).InputSchema.GetRawText());
+            RqlToolBinding.Instance.Escaping = ToolTextEscaping.Minimal;
         }
 
         [Theory]
@@ -270,13 +270,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public void ScriptExecuteResultShowsTheValueThenTheOutput()
         {
             var method = typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!;
-            var member = new com.IvanMurzak.ReflectorNet.Model.SerializedMember { name = "result", typeName = "System.Int32" }.SetJsonValue("3");
             string Show(com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult r) =>
                 string.Join("\n", RqlToolBinding.Instance.Result(method, r)!.Content.Select(c => c.Text));
 
-            Assert.Equal("System.Int32: 3", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = member }));
+            Assert.Equal("System.Int32: 3", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = 3, TypeName = "System.Int32" }));
             Assert.Equal("System.Int32: 3\nlogs:\nhello\nwarning: careful",
-                Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = member, Logs = new List<string> { "hello", "warning: careful" } }));
+                Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = 3, TypeName = "System.Int32", Logs = new List<string> { "hello", "warning: careful" } }));
+            Assert.Equal("Success", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult()));
+            Assert.Equal("System.String: null", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { TypeName = "System.String" }));
+            Assert.Equal("System.String: abc", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = "abc", TypeName = "System.String" }));
+            Assert.Equal("System.Boolean: true", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = true, TypeName = "System.Boolean" }));
+            Assert.Equal("System.Double: 1.5", Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = 1.5, TypeName = "System.Double" }));
+            // Anything else is presented by RQL, cut at the result's limit.
+            var cut = Show(new com.IvanMurzak.Godot.MCP.Data.ScriptExecuteResult { Result = Enumerable.Range(0, 5000).ToList(), TypeName = "List<int>", MaxValueChars = 100 });
+            Assert.StartsWith("List<int>: ", cut);
+            Assert.Contains("[truncated: 100 of ", cut);
         }
     }
 

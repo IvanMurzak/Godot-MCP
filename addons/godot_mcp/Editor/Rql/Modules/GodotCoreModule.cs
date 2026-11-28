@@ -69,9 +69,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddFunction("godot.callable", Godot_Callable_Adapter.Function,
                    "godot.callable(target, method): a Callable of a method on a node (path or node), a resource (res://) or Class#id, e.g. godot.callable(\"Player\", \"_on_hit\")");
 
-            // Never expose native handles (garbage or a crash when read) nor plumbing members by type.
-            ctx.ExcludeTypes(t => t == typeof(IntPtr) || t == typeof(UIntPtr) || t.IsPointer || t == typeof(System.Threading.CancellationToken)
-                                  || t == typeof(global::Godot.Signal));
+            // Godot's value types (structs, Variant, arrays, NodePath …) and the type blacklist: GodotValuesModule (Runtime/,
+            // shared with the in-game engine).
 
             // Godot objects
             ctx.AddAdapter(new Godot_GodotObject_Adapter())
@@ -90,34 +89,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
                .AddAdapter(new Godot_ShaderMaterial_Adapter())
                .AddAdapter(new Godot_MeshLibrary_Adapter());
 
-            // Values
-            ctx.AddAdapter(new Godot_Variant_Adapter())
-               .AddAdapter(new Godot_Array_Adapter())
-               .AddAdapter(new Godot_ObjectList_Adapter<global::Godot.Resource>())
-               .AddAdapter(new Godot_ObjectList_Adapter<global::Godot.Node>())
-               .AddAdapter(new RqlFile_Adapter())
-               .AddAdapter(new Godot_StringName_Adapter())
-               .AddAdapter(new Godot_NodePath_Adapter())
-               .AddAdapter(new Godot_Callable_Adapter())
-               .AddAdapter(new Godot_Rid_Adapter());
-
-            // Structs
-            ctx.AddAdapter(new Godot_Vector2_Adapter())
-               .AddAdapter(new Godot_Vector2I_Adapter())
-               .AddAdapter(new Godot_Vector3_Adapter())
-               .AddAdapter(new Godot_Vector3I_Adapter())
-               .AddAdapter(new Godot_Vector4_Adapter())
-               .AddAdapter(new Godot_Vector4I_Adapter())
-               .AddAdapter(new Godot_Color_Adapter())
-               .AddAdapter(new Godot_Quaternion_Adapter())
-               .AddAdapter(new Godot_Basis_Adapter())
-               .AddAdapter(new Godot_Transform2D_Adapter())
-               .AddAdapter(new Godot_Transform3D_Adapter())
-               .AddAdapter(new Godot_Rect2_Adapter())
-               .AddAdapter(new Godot_Rect2I_Adapter())
-               .AddAdapter(new Godot_Aabb_Adapter())
-               .AddAdapter(new Godot_Plane_Adapter())
-               .AddAdapter(new Godot_Projection_Adapter());
+            // Editor values
+            ctx.AddAdapter(new RqlFile_Adapter())
+               .AddAdapter(new Godot_Callable_Adapter());
         }
     }
 }

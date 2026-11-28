@@ -15,7 +15,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using com.IvanMurzak.CodeExec;
-using SerializedMember = com.IvanMurzak.ReflectorNet.Model.SerializedMember;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -86,7 +85,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             // Parsed as a script, the way the snippet writer reads it: anything but a type or namespace is snippet code.
             var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
-            if (script.Members.Any(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)))
+            var notTypes = script.Members.Where(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)).ToList();
+            // Only methods outside any class (e.g. a bare 'public static int Main()'): as a snippet nothing would run.
+            if (notTypes.Count > 0 && notTypes.All(m => m is MethodDeclarationSyntax))
+            {
+                var named = notTypes.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == methodName);
+                throw new Exception((named
+                        ? $"'csharpCode' declares method '{methodName}' outside a class, so it never runs. "
+                        : $"'csharpCode' declares only methods outside a class and no statements to run. ") +
+                    $"Full mode runs static method '{methodName}' of class '{className}': wrap it, e.g. 'public class {className} {{ public static int {methodName}() {{ … }} }}', " +
+                    "or write plain statements with the last expression as the result.");
+            }
+            if (notTypes.Count > 0)
                 return null;
             var declaresTypes = false;
             foreach (var type in script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
@@ -106,6 +116,36 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 "Set 'className' / 'methodName' to the entry point, or write plain statements.");
         }
 
+        /// <summary>
+        /// The parameter types of the full-mode entry point — static method <paramref name="methodName"/> of
+        /// <paramref name="entryType"/> (its runtime name, <see cref="FullSourceEntryType"/>) with <paramref name="count"/>
+        /// parameters — as written, each with the namespaces the code makes visible (its usings and enclosing namespaces, to
+        /// try first); null for a type the code declares itself (it exists only once compiled). Null as a whole when there
+        /// is no such method or more than one of that arity (Code-Exec then picks by the values' types).
+        /// </summary>
+        public static IReadOnlyList<(string name, IReadOnlyList<string> namespaces)?>? FullSourceParameterTypes(string code, string entryType, string methodName, int count)
+        {
+            var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
+            var types = script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
+                .OfType<TypeDeclarationSyntax>().ToList();
+            var methods = types.Where(t => RuntimeName(t) == entryType)
+                .SelectMany(t => t.Members.OfType<MethodDeclarationSyntax>())
+                .Where(m => m.Identifier.Text == methodName && m.Modifiers.Any(SyntaxKind.StaticKeyword) && m.ParameterList.Parameters.Count == count)
+                .ToList();
+            if (methods.Count != 1)
+                return null;
+            var own = new HashSet<string>(types.Select(t => t.Identifier.Text), StringComparer.Ordinal);
+            var namespaces = script.DescendantNodes().OfType<UsingDirectiveSyntax>()
+                .Where(u => u.Alias == null && u.StaticKeyword.IsKind(SyntaxKind.None) && u.Name != null).Select(u => u.Name!.ToString())
+                .Concat(methods[0].Ancestors().OfType<BaseNamespaceDeclarationSyntax>().Select(n => n.Name.ToString()))
+                .Distinct().ToList();
+            return methods[0].ParameterList.Parameters.Select(p =>
+            {
+                var name = p.Type?.ToString() ?? "object";
+                return own.Contains(name.TrimEnd('?', '[', ']')) ? null : ((string, IReadOnlyList<string>)?)(name, namespaces);
+            }).ToList();
+        }
+
         // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) csharp-exec.
         internal const string SkillSnippetModeTail =
             " Own `using` lines, local classes and functions are allowed; " +
@@ -123,15 +163,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n";
         internal const string SkillParameters =
             "## Parameters\n\n" +
-            "Parameters become the snippet's variables (or the method's arguments, in order); each has `name`, `typeName` and a value.";
+            "`parameters` is an RQL map of named values: `{n: 6, label: \"x\", target: godot.find(\"Crate\")}` (a node by name or path with " +
+            "`godot.find(\"…\")`, or `ref(\"Node3D#12\")` with the id from a query result). Each becomes a variable of the " +
+            "snippet (or the method's argument, in order) of its value's type: a node or resource keeps its class, a whole number is an " +
+            "`int`, another number a `double`. Write the type before the name for anything else, and the value is converted to it: " +
+            "`{\"Vector3 at\": [1, 2, 3], \"Color tint\": \"#ff8800\", \"float speed\": 2, \"int[] ids\": [1, 2]}` (C# aliases, Godot and project " +
+            "type names, full names).";
         /// <summary>The csharpCode description after the tool's snippet example (editor and in-game tools).</summary>
         internal const string CodeDescriptionTail =
             " (System, LINQ and Godot are imported; the last expression is the result, so no ';' after it). " +
             "Full: 'using Godot;\\npublic class Script { public static int Main() { return 42; } }' (full code brings its own usings).";
         internal const string ClassNameDescription = "Full mode: the class whose static method runs (namespace-qualified or not).";
         internal const string MethodNameDescription = "Full mode: the static method to run.";
-        internal const string ParametersDescription = "Parameters, each with 'name' and 'typeName': the snippet's variables or the method's arguments in order. " +
-            "Leave empty when none.";
+        internal const string ParametersDescription = "Values for the snippet's variables (or the method's arguments, in order) by name, " +
+            "e.g. {node: godot.find(\"Crate\"), n: 6, \"Vector3 at\": [1, 2, 3]}: a node by name or path with godot.find(\"…\"), or ref(\"Node3D#12\") " +
+            "from a query result; a type before the name converts the value to it. Leave empty if there are none.";
         internal const string IsMethodBodyDescription = "Force snippet mode even when the code declares 'className'.";
         internal const string UsingsDescription = "Extra namespaces for snippet mode, e.g. [\"MyGame.Gameplay\"].";
 
@@ -195,8 +241,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Most characters of the result returned to the agent. Code-Exec bounds logs, errors and text values; the object
-        /// this plugin's value converter returns is the one thing it cannot measure, so it is cut here with its limit.
+        /// Most characters of the result returned to the agent. Code-Exec bounds logs and errors; the presented value is cut
+        /// with this limit by the tool binding (<see cref="Data.ScriptExecuteResult.MaxValueChars"/>), the way Code-Exec clips.
         /// </summary>
         public const int MaxValueChars = OutputLimits.DefaultValueChars;
         /// <summary>Most items of a lazy sequence (LINQ query, iterator) enumerated for the result.</summary>
@@ -206,48 +252,12 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
             logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
 
-        /// <summary>
-        /// The result as returned: a value whose serialized form is longer than <see cref="MaxValueChars"/> becomes that form
-        /// as text, clipped the way Code-Exec clips everything else (<c>... [truncated: N of M characters shown; hint]</c>).
-        /// </summary>
-        public static SerializedMember CapValue(SerializedMember member)
-        {
-            // A plain text value is measured and cut as text; anything else as its serialized form.
-            string full;
-            if (member.fields == null && member.props == null && member.valueJsonElement is { ValueKind: System.Text.Json.JsonValueKind.String } element)
-                full = element.GetString() ?? "";
-            else
-            {
-                try { full = System.Text.Json.JsonSerializer.Serialize(member, CapJson); }
-                catch (Exception) { return member; } // not measurable as JSON: leave it to the transport
-            }
-            return full.Length <= MaxValueChars ? member : TextMember(member.name, member.typeName, CapText(full));
-        }
-
-        /// <summary><paramref name="text"/>, clipped to <see cref="MaxValueChars"/> the way Code-Exec clips its output.</summary>
-        public static string CapText(string text) =>
-            text.Length <= MaxValueChars ? text : OutputLimits.Clip(text, MaxValueChars, "return a count, a summary or a slice");
-
-        /// <summary>A result member holding <paramref name="text"/> as its value.</summary>
-        public static SerializedMember TextMember(string? name, string typeName, string? text) =>
-            new SerializedMember { name = name, typeName = typeName }.SetJsonValue(System.Text.Json.JsonSerializer.Serialize(text));
-
-        static readonly System.Text.Json.JsonSerializerOptions CapJson = new System.Text.Json.JsonSerializerOptions { IncludeFields = true };
-
-        /// <summary>
-        /// A lazy sequence: enumerable, but neither a string nor a collection (a LINQ query, an iterator). Its own members
-        /// (Current, the source iterator) say nothing about its items, so it is enumerated first (<see cref="Materialize"/>).
-        /// </summary>
-        public static bool IsLazySequence(Type type) =>
-            typeof(System.Collections.IEnumerable).IsAssignableFrom(type)
-            && type != typeof(string)
-            && !typeof(System.Collections.ICollection).IsAssignableFrom(type)
-            && !type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(ICollection<>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)));
+        /// <summary>A lazy sequence (LINQ query, iterator): see <see cref="ScriptResultText.IsLazySequence"/>.</summary>
+        public static bool IsLazySequence(Type type) => ScriptResultText.IsLazySequence(type);
 
         /// <summary>
         /// The first <see cref="MaxSequenceItems"/> items of a sequence (an endless one stops there, with a last item saying so),
-        /// each passed through <paramref name="item"/> (the caller's per-value rules); items of the snippet's own types become
-        /// their text, as a snippet-typed result does (<see cref="IsSnippetType"/>).
+        /// each passed through <paramref name="item"/> (the caller's per-value rules, e.g. making snippet values plain).
         /// </summary>
         public static List<object?> Materialize(System.Collections.IEnumerable sequence, Func<object?, object?>? item = null)
         {
@@ -259,7 +269,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 while (items.Count < MaxSequenceItems && e.MoveNext())
                 {
                     var value = e.Current;
-                    items.Add(value != null && IsSnippetType(value.GetType()) ? value.ToString() : item != null ? item(value) : value);
+                    items.Add(item != null ? item(value) : value);
                 }
                 if (items.Count == MaxSequenceItems && e.MoveNext())
                     items.Add($"… (the first {MaxSequenceItems} items; the sequence has more)");
@@ -267,17 +277,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             finally { (e as IDisposable)?.Dispose(); }
             return items;
         }
-
-        // Godot value types the reflector has no converter for (it would print "{}"): their ToString text is the value.
-        static readonly HashSet<string> GodotTextValues = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "Godot.Basis", "Godot.Transform2D", "Godot.Transform3D", "Godot.Quaternion", "Godot.Aabb", "Godot.Rect2", "Godot.Rect2I",
-            "Godot.Plane", "Godot.Projection", "Godot.Vector2I", "Godot.Vector3I", "Godot.Vector4", "Godot.Vector4I", "Godot.Rid",
-            "Godot.StringName",
-        };
-
-        /// <summary>A Godot value returned as its text (e.g. a Basis as "[X: (1, 0, 0), Y: …]").</summary>
-        public static bool IsGodotTextValue(Type type) => type.FullName != null && GodotTextValues.Contains(type.FullName);
 
         /// <summary>
         /// The error text of a failed run (error and output bounded by Code-Exec, at most 20 diagnostics): diagnostics in

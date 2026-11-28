@@ -6,7 +6,7 @@
 
 تغطي أدوات Godot-MCP المدمجة كل ما يمكنك فعله تقريبًا في محرر Godot، وهي مجمّعة في العائلات أدناه. وهي موجزة، لذا يحتاج الوكيل إلى استدعاءات أقل ورموز أقل ([كما قيس في تقييم الوكلاء الخاص بـ RQL](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md)). طبقة البيانات في المحرر هي [RQL](rql.md) (Reflection Query Language): تقرأ `rql-query` و`rql-mutate` و`rql-schema` عقد المشهد وخصائص Godot والموارد والملفات والمشاهد وحالة المحرر وتغيّرها في استعلام واحد، بدلًا من أداة لكل عملية.
 
-مع `toolFormat` الافتراضي (`Rql`) تأخذ الأدوات الأخرى قيم RQL وسائطَ وتُعيد نصًا موجزًا؛ أما `Json` فيُبقي مخططات JSON ونتائجها من ReflectorNet. تُعيد لقطات الشاشة صورة PNG. كل أدوات المحرر متاحة فور تفعيل الإضافة.
+تأخذ الأدوات الأخرى قيم RQL وسائطَ وتُعيد نصًا موجزًا (RQL هي طبقة البيانات الوحيدة للأدوات). تُعيد لقطات الشاشة صورة PNG. كل أدوات المحرر متاحة فور تفعيل الإضافة.
 
 تخدم العائلات **console** و**reflection** و**runtime-errors** *لعبة قيد التشغيل* (انظر [الاستخدام داخل اللعبة](runtime.ar.md)). في المحرر استخدم مصدر RQL `console` و`call` / `CallMethod` في RQL بدلًا منها.
 
@@ -17,7 +17,7 @@
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | التقاط نافذة عرض المحرر، أو كاميرا، أو عقدة واحدة مرسومة وحدها، كصورة PNG يراها النموذج اللغوي. |
 | **game** | `game-run` | تشغيل اللعبة (أو مشهد واحد) دون نافذة لبضع ثوانٍ من زمن اللعبة والحصول على أخطائها وتحذيراتها ومخرجاتها المطبوعة في استدعاء واحد. |
 | **console** | `console-get-logs`, `console-clear-logs` | في لعبة قيد التشغيل: قراءة السجلات المجمّعة ومسحها. |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | في لعبة قيد التشغيل: إيجاد دوال C# واستدعاؤها في أي تجميعة محمّلة عبر ReflectorNet. |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | في لعبة قيد التشغيل: إيجاد دوال C# واستدعاؤها في أي تجميعة محمّلة، مع قيم RQL للهدف والوسائط. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | في لعبة قيد التشغيل: استطلاع أخطاء وقت التشغيل في GDScript و`push_error` / `push_warning` وأخطاء المظلِّلات واستثناءات C#. **معطّلة افتراضيًا.** |
 | **ping** | `ping` | فحص الجاهزية. أداة نظام. |
 | **session** | `session-close` | حفظ محرر شغّله `godot-cli` وإغلاقه. أداة نظام. |
@@ -46,7 +46,7 @@
 - ‏`script-attach-to-node`: إرفاق سكربت بعقدة.
 - ‏`script-validate`: تحليل ملفات GDScript وترجمتها وإعادة تشخيصات منظّمة.
 - ‏`script-build`: بناء كود C# للمشروع (`dotnet build`، Debug) لتُحمَّل السكربتات الجديدة. يجري البناء في الخلفية؛ وعند نجاحه يعيد Godot تحميل تجميعة C#، ويعيد المكوّن الإضافي الاتصال، وتصل النتيجة (تحذيرات أو أخطاء) بعد إعادة التحميل. انظر [إعادة تحميل تجميعة C#](custom-tools.ar.md#c-assembly-reloads).
-- ‏`csharp-exec`: ترجمة C# وتشغيله في المحرر بواسطة Roslyn، عبر [Code-Exec](https://github.com/IvanMurzak/Code-Exec). عبارات عادية يكون آخر تعبير فيها هو النتيجة (مع `using` خاصة، وأصناف محلية، و`await`)، أو صنف بدالة ساكنة. الأنواع المترجمة للعبة مرئية؛ ويضيف `include` ملفات `.cs` مساعدة من `<project>/.ai-game-dev/snippets`. تُعيد القيمة وما طبعه الكود (`Console`؛ و`GD.Print` وpush_warning وpush_error عندما يُبنى المشروع بـ Godot.NET.Sdk 4.5+). من الطرفية: `godot-cli exec '1 + 2'`. لا يزال اسمها القديم ‏`script-execute` يعمل كاسم بديل مخفي (لا يظهر في القائمة ولا مهارة له) حتى الإصدار 0.45.0.
+- ‏`csharp-exec`: ترجمة C# وتشغيله في المحرر بواسطة Roslyn، عبر [Code-Exec](https://github.com/IvanMurzak/Code-Exec). عبارات عادية يكون آخر تعبير فيها هو النتيجة (مع `using` خاصة، وأصناف محلية، و`await`)، أو صنف بدالة ساكنة. الأنواع المترجمة للعبة مرئية؛ ويضيف `include` ملفات `.cs` مساعدة من `<project>/.ai-game-dev/snippets`. ‏`parameters` قيم RQL بحسب الاسم (`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: النوع المكتوب قبل الاسم يحوّل القيمة إليه). تُعيد القيمة نصَّ RQL بعد نوعها (`System.Int32: 3`، `Dictionary<string, int>: {a:1,b:2}`) وما طبعه الكود (`Console`؛ و`GD.Print` وpush_warning وpush_error عندما يُبنى المشروع بـ Godot.NET.Sdk 4.5+). من الطرفية: `godot-cli exec '1 + 2'`. لا يزال اسمها القديم ‏`script-execute` يعمل كاسم بديل مخفي (لا يظهر في القائمة ولا مهارة له) حتى الإصدار 0.45.0.
 
 <a id="screenshot"></a>
 ## game
@@ -65,7 +65,7 @@
 ## console وreflection وruntime-errors (لعبة قيد التشغيل)
 
 - ‏`console-get-logs` / `console-clear-logs`: قراءة السجلات التي جمعها المكوّن الإضافي (مع التصفية) ومسحها، بما فيها تشخيصات الاتصال الخاصة به.
-- ‏`reflection-method-find` / `reflection-method-call`: إيجاد دوال C# (والخاصة منها أيضًا) عبر كل تجميعة محمّلة، واستدعاء إحداها بوسائط.
+- ‏`reflection-method-find` / `reflection-method-call`: إيجاد دوال C# (والخاصة منها أيضًا) عبر كل تجميعة محمّلة، واستدعاء إحداها: ‏`targetObject` و`inputParameters` المسمّاة قيم RQL (`ref("Node3D#12")` و`godot.find("Player")` و`[1, 2, 3]` أو قيمة كائن حرفية) تُحوَّل إلى الأنواع التي تعلنها الدالة؛ وتعود النتيجة نصَّ RQL.
 - ‏`runtime-errors-get`: الأخطاء الملتقطة داخل اللعبة، الأقدم أولًا، مع الاحتفاظ بالأحدث. مرّر `highestSequence` السابق كـ `sinceSequence` لتحصل على الأخطاء الجديدة فقط. تُعيد `available:false` إذا لم يُفعَّل الالتقاط قط.
 - ‏`runtime-errors-clear`: مسح المخزن المؤقت؛ ويستمر عدّاد التسلسل في العدّ.
 

@@ -39,9 +39,6 @@ namespace com.IvanMurzak.Godot.MCP
         /// <summary>Forces the plugin's log-verbosity threshold.</summary>
         public const string LogLevel = "GODOT_MCP_LOG_LEVEL";
 
-        /// <summary>Forces the editor tools' data layer (<c>Rql</c> / <c>Json</c>).</summary>
-        public const string ToolFormat = "GODOT_MCP_TOOL_FORMAT";
-
         // --- In-game runtime started from the editor (resolved in GodotMcpRuntimeHandle). ---
 
         /// <summary>

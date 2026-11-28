@@ -121,6 +121,8 @@ public sealed class SceneTreeSummary
 }
 ```
 
+引数と結果は、エディターと同じく RQL 値です: エージェントはツールの説明で各パラメーターの型を確認し、カスタムクラスをリテラルとして書きます — `{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}` — ここでノードは以前の結果の `ref(…)`、`godot.find("Player")`、または現在のシーン以下のパスや名前(`"Level/Player"`)で、リソースは `"res://…"` パスです。返されたオブジェクトは RQL テキストで返ります(ノードは `Node3D#12`)。AOT エクスポート(JIT なし、例: iOS)のツールはリフレクションのアクセサーを使います。設定は不要です。
+
 プロンプトとリソースも同じ方法で登録します: `[AiPromptType]` / `[AiResourceType]` を付けた `partial class` に、`[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]` を付けたメンバーを置きます。リソースメソッドは `ResponseResourceContent[]` を返します(例: `ResponseResourceContent.CreateText(uri, json, "application/json")`)。これらの型はすべて `com.IvanMurzak.McpPlugin` パッケージにあります。
 
 <a id="capturing-in-game-runtime-errors"></a>
@@ -146,6 +148,6 @@ Godot 4.5 未満ではエンジンのチャネルは使えませんが、C# の�
 </PropertyGroup>
 ```
 
-現行の `godot-cli install-plugin` は、このプロパティを尊重する `Condition` 付きで Code-Exec と Roslyn のパッケージ参照を書き込みます。RQL は決して同梱されません。オプトインがなければ、`WithCsharpExec()` は警告をログに出し、何も登録しません。
+現行の `godot-cli install-plugin` は、このプロパティを尊重する `Condition` 付きで Code-Exec と Roslyn のパッケージ参照を書き込みます。オプトインがなければ、`WithCsharpExec()` は警告をログに出し、何も登録しません。
 
 > **これは任意コード実行です。** 接続上でツールを呼び出せる人は誰でも、ゲームプロセスで任意のコードを実行できます。開発ビルドで、ループバックホストとトークンを使う場合にのみ使用してください。デスクトップの CoreCLR のみ: NativeAOT と iOS は実行時に生成したコードを実行できません。

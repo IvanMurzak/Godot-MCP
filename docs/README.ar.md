@@ -118,7 +118,7 @@ godot-cli open ./MyGodotProject                       # build C#, start the edit
 
 ثم اطلب من وكيلك: *«أنشئ 3 مكعبات على دائرة نصف قطرها 2.»*
 
-للتثبيت من تبويب **AssetLib** في المحرر، أو من [ملف zip لإصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest)، أو يدويًا، اتبع [دليل التثبيت اليدوي](install.ar.md): يحتاج ملف `.csproj` للمشروع حينها إلى مراجع NuGet الخاصة بالإضافة (`com.IvanMurzak.ReflectorNet` و`com.IvanMurzak.McpPlugin`، والحزم الخاصة بالمحرر فقط `com.IvanMurzak.Rql` و`com.IvanMurzak.CodeExec` و`com.IvanMurzak.CodeExec.Roslyn` و`Microsoft.CodeAnalysis.CSharp`) بإصدارات الإصدار الذي تثبّته.
+للتثبيت من تبويب **AssetLib** في المحرر، أو من [ملف zip لإصدار](https://github.com/IvanMurzak/Godot-MCP/releases/latest)، أو يدويًا، اتبع [دليل التثبيت اليدوي](install.ar.md): يحتاج ملف `.csproj` للمشروع حينها إلى مراجع NuGet الخاصة بالإضافة (`com.IvanMurzak.ReflectorNet` و`com.IvanMurzak.McpPlugin` و`com.IvanMurzak.Rql`، والحزم الخاصة بالمحرر فقط `com.IvanMurzak.CodeExec` و`com.IvanMurzak.CodeExec.Roslyn` و`Microsoft.CodeAnalysis.CSharp`) بإصدارات الإصدار الذي تثبّته.
 
 <a id="relay"></a>
 ### ما الذي يمر عبر ai-game.dev
@@ -321,6 +321,6 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 <a id="license"></a>
 ## الترخيص
 
-‏**يستطيع مطورو الألعاب استخدام كل شيء بحرية، بما في ذلك الألعاب التجارية.** ‏Godot-MCP مرخّص بموجب [Apache-2.0](../LICENSE). أما اعتمادياته من جهة المحرر، RQL وCode-Exec، فتستخدم [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)، التي لا تقيّد إلا الشركات التي تبني أدوات ذكاء اصطناعي منافسة لتطوير الألعاب.
+‏**يستطيع مطورو الألعاب استخدام كل شيء بحرية، بما في ذلك الألعاب التجارية.** ‏Godot-MCP مرخّص بموجب [Apache-2.0](../LICENSE). أما اعتمادياته RQL (المحرر واللعبة) وCode-Exec (المحرر)، فتستخدم [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/)، التي لا تقيّد إلا الشركات التي تبني أدوات ذكاء اصطناعي منافسة لتطوير الألعاب.
 
 </div>

@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
     /// This type lives OUTSIDE <c>#if TOOLS</c>, so it compiles into an exported game build (where
     /// <c>TOOLS</c> is undefined and the editor <c>EditorPlugin</c>/dock/editor tool families are dropped).
     /// It reuses the existing runtime-agnostic stack — <see cref="GodotMcpConfig"/>,
-    /// <see cref="GodotReflectorFactory"/>, <see cref="McpPluginBuilder"/>, <see cref="GodotMcpReflector"/>,
+    /// <see cref="McpPluginBuilder"/>, the in-game RQL engine (<c>GodotRqlRuntime</c>),
     /// and the <see cref="MainThreadDispatcher"/>/<see cref="GodotMainThread"/> pair — rather than inventing
     /// a parallel transport.
     /// </para>
@@ -122,12 +122,9 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             if (builder.InstallDispatcher)
                 EnsureMainThreadDispatcher();
 
-            // 3) Build the reflector with the Godot value-type / ref converters and publish it as the ambient
-            //    one so tool handlers share the exact converter set (mirrors GodotMcpConnection.Start). The
-            //    editor ResourceLoader resolver (Tool_Resource.InstallReflectionResolver) is intentionally
-            //    NOT installed — it is #if TOOLS editor-only and absent from a game build.
-            Reflector reflector = GodotReflectorFactory.CreateDefaultReflector();
-            GodotMcpReflector.Current = reflector;
+            // 3) The reflector only invokes the tool methods (McpPlugin's MethodWrapper): RQL is the value layer of every
+            //    in-game tool (step 4d), so it carries no Godot converters.
+            Reflector reflector = new Reflector();
 
             var version = new McpVersion
             {
@@ -184,8 +181,21 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             // DEV-314: old tool ids as hidden aliases of the final tools (script-execute of csharp-exec). Remove in 0.45.0.
             Tools.DeprecatedToolAliases.Register(plugin.McpManager?.ToolManager, reflector);
 
+            // 4d) RQL is the value layer of every in-game tool, as in the editor: schemas from RQL's type model, arguments as
+            //     RQL values (a custom class literal {position: [1, 2, 3], target: ref("Node3D#12")}, a node path, res://),
+            //     results as RQL text. No fallback: a game whose tools could not get it does not build a handle.
+            try
+            {
+                Editor.Rql.GodotRqlRuntime.Install(plugin.McpManager?.ToolManager, config.ToolTextEscaping);
+            }
+            catch
+            {
+                try { plugin.Dispose(); } catch { /* the original fault is the one to report */ }
+                throw;
+            }
+
             // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
-            //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the
+            //    end so a failure anywhere on the fallible build path above (the RQL binding, the
             //    McpPluginBuilder.Build reflection scan, the WithTools/Prompts/Resources type scans) never leaves
             //    the PROCESS-WIDE hooks (engine 4.5+ OS.AddLogger + the C# unhandled / unobserved-Task exception
             //    handlers) registered for the lifetime of the game with no GodotMcpRuntimeHandle to ever uninstall
