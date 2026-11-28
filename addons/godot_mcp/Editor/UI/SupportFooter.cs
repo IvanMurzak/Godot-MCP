@@ -59,11 +59,9 @@ namespace com.IvanMurzak.Godot.MCP.UI
             prompt.AddThemeFontSizeOverride("font_size", FooterFontSize);
             AddChild(prompt);
 
-            // --- Support buttons: secondary icon buttons (Discord "Help / Talk", GitHub "Bug Report", and the
-            // "Check" serialization tool). Styled like Unity's .btn-secondary.btn-with-icon (gray bordered,
-            // leading icon). Discord/GitHub open external URLs; "Check" opens the in-editor Serialization Check
-            // window (the Godot port of Unity's "Check" button — ReflectorNet is in-process here, so this DOES
-            // have a Godot equivalent: it was previously omitted only because the dock had no window for it yet).
+            // --- Support buttons: secondary icon buttons (Discord "Help / Talk", GitHub "Bug Report"). Styled like
+            // Unity's .btn-secondary.btn-with-icon (gray bordered, leading icon); both open external URLs. (The former
+            // "Check" button tested ReflectorNet serialization, which no tool uses any more: RQL is the value layer.)
             var buttonRow = new HBoxContainer { Name = "SupportButtons" };
             buttonRow.AddThemeConstantOverride("separation", 6);
             buttonRow.AddChild(DockStyle.IconButton(
@@ -72,8 +70,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             buttonRow.AddChild(DockStyle.IconButton(
                 "GitHubIssue", "Bug Report", DockTheme.GitHubIconFileName,
                 () => OS.ShellOpen(SupportFooterLinks.IssuesUrl)));
-            buttonRow.AddChild(DockStyle.IconButton(
-                "Check", "Check", iconFileName: null, OnCheckPressed));
             AddChild(buttonRow);
 
             // --- Divider between the support buttons and the thanks block (Unity's .divider). ---
@@ -119,19 +115,6 @@ namespace com.IvanMurzak.Godot.MCP.UI
             signRow.AddChild(star);
 
             AddChild(signRow);
-        }
-
-        /// <summary>
-        /// Open the <see cref="SerializationCheckWindow"/> — the Godot port of Unity's "Check" button. A fresh
-        /// window is parented under the footer (a Godot <see cref="Window"/> renders as its own OS window
-        /// regardless of where it sits in the tree) and popped centred; it frees itself on close (mirrors how
-        /// <c>FeaturesPanel</c> opens its <c>FeatureListWindow</c>).
-        /// </summary>
-        void OnCheckPressed()
-        {
-            var window = new SerializationCheckWindow();
-            AddChild(window);
-            window.PopupCenteredAndShow();
         }
     }
 }

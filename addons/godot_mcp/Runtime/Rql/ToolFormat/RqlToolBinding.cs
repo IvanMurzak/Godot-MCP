@@ -23,7 +23,6 @@ using com.IvanMurzak.Godot.MCP.Connection;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.Common.Model;
-using com.IvanMurzak.ReflectorNet.Model;
 using MethodUtils = com.IvanMurzak.ReflectorNet.Utils.MethodUtils;
 using Rql;
 using Rql.Execution;
@@ -338,26 +337,51 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                     return response;
                 case string s:
                     return ResponseCallTool.Success(s);
-                case SerializedMember member:
-                    return ResponseCallTool.Success(Render(member));
                 case ScriptExecuteResult script:
-                    // csharp-exec: the value as a member, then what the code printed.
-                    var shown = script.Text ?? (script.Result != null ? Render(script.Result) : "null");
+                    // csharp-exec: "Type: value" (the plain value presented like any result), then what the code printed.
+                    var shown = script.TypeName == null ? "Success" : script.TypeName + ": " + ScriptValue(script);
                     if (script.Logs is { Count: > 0 } logs)
                         shown += "\nlogs:\n" + string.Join("\n", logs);
                     return ResponseCallTool.Success(shown);
                 default:
-                    return OnMain(() =>
-                    {
-                        var presented = Engine.Present(value);
-                        // A value RQL could not present is reported as an error, not as success with error text.
-                        if (!presented.Ok) return ResponseCallTool.Error(Show(presented));
-                        // One object (not a list) reads as the object itself, without a "1 result" header.
-                        return ResponseCallTool.Success(Engine.Types.Info(value.GetType()).Kind != TypeKind.List && presented.Items is { Count: 1 } one
-                            ? AgentFormat.Cell(one[0])
-                            : Show(presented));
-                    });
+                    return OnMain(() => Present(value, out var text) ? ResponseCallTool.Success(text) : ResponseCallTool.Error(text));
             }
+        }
+
+        /// <summary>
+        /// <paramref name="value"/> as RQL text: one object (not a list) as the object itself, without a "1 result" header;
+        /// a list as rows. False (with the error text) when RQL could not present it. On the main thread.
+        /// </summary>
+        private bool Present(object value, out string text)
+        {
+            var presented = Engine.Present(value);
+            if (!presented.Ok) { text = Show(presented); return false; }
+            text = Engine.Types.Info(value.GetType()).Kind != TypeKind.List && presented.Items is { Count: 1 } one
+                ? AgentFormat.Cell(one[0])
+                : Show(presented);
+            return true;
+        }
+
+        /// <summary>A csharp-exec value: a scalar as itself, anything else presented, cut at the result's limit.</summary>
+        private string ScriptValue(ScriptExecuteResult script)
+        {
+            var text = script.Result switch
+            {
+                null => "null",
+                string s => s,
+                bool b => b ? "true" : "false",
+                IFormattable f when f.GetType().IsPrimitive || f is decimal || f.GetType().IsEnum => f.ToString(null, System.Globalization.CultureInfo.InvariantCulture),
+                var value => OnMain(() => Present(value, out var presented) ? presented : "<" + presented + ">"),
+            };
+            return Clip(text, script.MaxValueChars);
+        }
+
+        /// <summary><paramref name="text"/> cut at <paramref name="limit"/> characters (0 = none), the way Code-Exec clips its output.</summary>
+        internal static string Clip(string text, int limit)
+        {
+            if (limit <= 0 || text.Length <= limit) return text;
+            var keep = char.IsHighSurrogate(text[limit - 1]) ? limit - 1 : limit;
+            return text.Substring(0, keep) + "... [truncated: " + keep + " of " + text.Length + " characters shown; return a count, a summary or a slice]";
         }
 
         /// <summary>
@@ -382,20 +406,5 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
         }
 
         private static ContentBlock Text(string text) => new ContentBlock { Type = com.IvanMurzak.McpPlugin.Common.Consts.ContentType.Text, Text = text };
-
-        /// <summary>A ReflectorNet SerializedMember result: "System.Int32: 42"; nested fields / properties as compact text.</summary>
-        private string Render(SerializedMember member)
-        {
-            var value = member.valueJsonElement is JsonElement e && e.ValueKind != JsonValueKind.Undefined ? JsonSerializer.SerializeToNode(e) : null;
-            var text = member.typeName + ": " + _compact.Render(value);
-            if (member.fields is { Count: > 0 } || member.props is { Count: > 0 })
-            {
-                var nested = new JsonObject();
-                foreach (var f in (member.fields ?? new SerializedMemberList()).Concat(member.props ?? new SerializedMemberList()))
-                    nested[f.name ?? "?"] = f.valueJsonElement is JsonElement fe ? JsonSerializer.SerializeToNode(fe) : null;
-                text += "\n" + _compact.Render(nested);
-            }
-            return text;
-        }
     }
 }

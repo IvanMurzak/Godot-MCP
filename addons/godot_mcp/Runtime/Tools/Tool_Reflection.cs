@@ -41,6 +41,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         static IEnumerable<Type> AllTypes => TypeUtils.AllTypes;
 
+        // ReflectorNet describes the methods it finds (MethodData, the JSON schema of their parameters); values go through RQL.
+        static Reflector? _reflector;
+        static Reflector Reflector => _reflector ??= new Reflector();
+
         static int Compare(string original, string value)
         {
             if (string.IsNullOrEmpty(original) || string.IsNullOrEmpty(value))

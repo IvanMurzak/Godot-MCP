@@ -14,7 +14,6 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
-using com.IvanMurzak.ReflectorNet.Model;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -59,9 +58,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description(ScriptExecuteSource.MethodNameDescription)]
             string methodName = "Main",
             [Description(ScriptExecuteSource.ParametersDescription)]
-            [Editor.Rql.ToolFormat.RqlArgument("Values for the snippet's / method's parameters by name, e.g. {node: ref(\"Node3D#12\"), n: 6}. " +
-                "Leave empty if there are none.")]
-            SerializedMemberList? parameters = null,
+            ScriptParameters? parameters = null,
             [Description(ScriptExecuteSource.IsMethodBodyDescription)]
             bool isMethodBody = false,
             [Description(ScriptExecuteSource.UsingsDescription)]

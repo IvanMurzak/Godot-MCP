@@ -291,7 +291,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                     report.ScriptExecuteFailures.Add($"'{code}' did not finish within 60 s");
                     return null;
                 }
-                return (await run).Result?.valueJsonElement?.GetRawText();
+                // The plain value (presented with RQL by the tool binding over MCP): an int, the root's name as text.
+                return System.Convert.ToString((await run).Result, System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (Exception ex)
             {
@@ -763,7 +764,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 return false;
 
             // In-game csharp-exec: Roslyn ran C# inside this game and read its scene tree.
-            if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "\"root\"")
+            if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "root")
                 return false;
             if (report.VariantRoundTripChecked < VariantRoundTripMinimumChecks)
                 return false;

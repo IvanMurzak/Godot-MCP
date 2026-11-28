@@ -15,7 +15,7 @@ The **console**, **reflection** and **runtime-errors** families serve a *running
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capture the editor viewport, a camera, or one node rendered alone, as a PNG the LLM can see. |
 | **game** | `game-run` | Run the game (or one scene) windowless for a few seconds of game time and get its errors, warnings and printed output in one call. |
 | **console** | `console-get-logs`, `console-clear-logs` | In a running game: read and clear the collected logs. |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods in any loaded assembly via ReflectorNet. |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | In a running game: find and call C# methods in any loaded assembly, with RQL values as the target and arguments. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | In a running game: poll GDScript runtime errors, `push_error` / `push_warning`, shader errors and C# exceptions. **Off by default.** |
 | **ping** | `ping` | Readiness probe. System tool. |
 | **session** | `session-close` | Save and quit an editor that `godot-cli` started. System tool. |
@@ -42,7 +42,7 @@ Sources include `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `cla
 - `script-attach-to-node`: attach a script to a node.
 - `script-validate`: parse and compile GDScript files and return structured diagnostics.
 - `script-build`: build the project's C# (`dotnet build`, Debug) so new scripts load. The build runs in the background; when it succeeds Godot reloads the C# assembly, the plugin reconnects, and the result (warnings or errors) arrives after the reload. See [C# assembly reloads](custom-tools.md#c-assembly-reloads).
-- `csharp-exec`: compile and run C# in the editor with Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a static method. The game's compiled types are visible; `include` adds helper `.cs` files from `<project>/.ai-game-dev/snippets`. Returns the value and what the code printed (`Console`; `GD.Print`, push_warning and push_error when the project builds with Godot.NET.Sdk 4.5+). From a terminal: `godot-cli exec '1 + 2'`. Its old name `script-execute` still runs as a hidden alias (not listed, no skill) until 0.45.0.
+- `csharp-exec`: compile and run C# in the editor with Roslyn, via [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Plain statements with the last expression as the result (own `using`s, local classes, `await`), or a class with a static method. The game's compiled types are visible; `include` adds helper `.cs` files from `<project>/.ai-game-dev/snippets`. `parameters` are RQL values by name (`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: a type before the name converts the value to it). Returns the value as RQL text after its type (`System.Int32: 3`, `Dictionary<string, int>: {a:1,b:2}`) and what the code printed (`Console`; `GD.Print`, push_warning and push_error when the project builds with Godot.NET.Sdk 4.5+). From a terminal: `godot-cli exec '1 + 2'`. Its old name `script-execute` still runs as a hidden alias (not listed, no skill) until 0.45.0.
 
 ## game
 
@@ -59,7 +59,7 @@ All three return the image in the conversation. Pass `savePath` to also write a 
 ## console, reflection, runtime-errors (running game)
 
 - `console-get-logs` / `console-clear-logs`: read (with filtering) and clear the logs the plugin collected, including its own connection diagnostics.
-- `reflection-method-find` / `reflection-method-call`: find C# methods (private ones too) across every loaded assembly, and call one with arguments.
+- `reflection-method-find` / `reflection-method-call`: find C# methods (private ones too) across every loaded assembly, and call one: `targetObject` and the named `inputParameters` are RQL values (`ref("Node3D#12")`, `godot.find("Player")`, `[1, 2, 3]`, an object literal) converted to the types the method declares; the result comes back as RQL text.
 - `runtime-errors-get`: captured in-game errors, oldest first, newest kept. Pass the previous `highestSequence` as `sinceSequence` to get only new errors. Returns `available:false` when capture was never enabled.
 - `runtime-errors-clear`: clear the buffer; the sequence counter keeps counting.
 

@@ -29,7 +29,7 @@ public partial class Tool_MyFeature
 }
 ```
 
-- Return a structured model (ReflectorNet serializes it) or `void`, not hand-formatted strings.
+- Parameters and results are RQL values: the agent sees each parameter's type in the tool description and writes a class as a literal (`{position: [1, 2, 3], target: ref("Node3D#12")}`); a returned model comes back as compact RQL text. Return a structured model or `void`, not hand-formatted strings.
 - Make a parameter optional with a nullable type and a default: `string? optional = null`.
 - `[AiToolType(Target = ToolTarget.Runtime)]` makes a family game-only, `ToolTarget.Editor` editor-only; the default, `Both`, registers it everywhere. Game tools: [runtime.md](runtime.md).
 - The `godot-skill-create` system tool writes such a file for you; it becomes callable after the next build.

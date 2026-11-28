@@ -10,37 +10,35 @@
 #nullable enable
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text.Json.Serialization;
-using com.IvanMurzak.ReflectorNet.Model;
 
 namespace com.IvanMurzak.Godot.MCP.Data
 {
     /// <summary>
-    /// What <c>csharp-exec</c> returns: the snippet's result (the same serialized member Unity-MCP's
-    /// <c>csharp-exec</c> returns) plus the output it printed. Pure-managed.
+    /// What <c>csharp-exec</c> returns: the snippet's value as a plain object (values of the snippet's own types were
+    /// converted to maps and lists before the snippet unloaded) and the output it printed. The tool binding presents
+    /// <see cref="Result"/> with RQL (<c>Engine.Present</c>) after <see cref="TypeName"/>: <c>System.Int32: 3</c>,
+    /// <c>Dictionary&lt;string, int&gt;: {a:1,b:2}</c>. Pure-managed.
     /// </summary>
-    [System.Serializable]
     [Description("The result of 'csharp-exec': the returned value and the output printed while the code ran.")]
     public class ScriptExecuteResult
     {
-        [JsonInclude, JsonPropertyName("result")]
-        [Description("The returned value: its type name and serialized value. 'Success' for code that returns nothing.")]
-        public SerializedMember? Result { get; set; }
-
-        [JsonInclude, JsonPropertyName("logs")]
-        [Description("Lines printed while the code ran (GD.Print, push_warning / push_error, Console). Omitted when none.")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<string>? Logs { get; set; }
+        /// <summary>The returned value (null for a null result or code that returns nothing).</summary>
+        public object? Result { get; set; }
 
         /// <summary>
-        /// The value as compact text ("Dictionary&lt;string, int&gt;: {a: 1}") for the RQL tool format, or null when the
-        /// serialized <see cref="Result"/> reads well as it is (a scalar). Not serialized: the Json format keeps Result.
+        /// The type shown before the value: the full name of a scalar (<c>System.Int32</c>), the C# name of anything else
+        /// (<c>List&lt;Vector3&gt;</c>, <c>anonymous</c>); null for code that returns nothing (shown as <c>Success</c>).
         /// </summary>
-        [JsonIgnore]
-        internal string? Text { get; set; }
+        public string? TypeName { get; set; }
+
+        /// <summary>Lines printed while the code ran (GD.Print, push_warning / push_error, Console); null when none.</summary>
+        public List<string>? Logs { get; set; }
+
+        /// <summary>Most characters of the presented value; 0 = no limit.</summary>
+        public int MaxValueChars { get; set; }
 
         public ScriptExecuteResult() { }
 
-        public override string ToString() => Result?.ToString() ?? "null";
+        public override string ToString() => TypeName == null ? "Success" : TypeName + ": " + (Result?.ToString() ?? "null");
     }
 }

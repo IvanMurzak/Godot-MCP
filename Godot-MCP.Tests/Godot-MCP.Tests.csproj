@@ -224,6 +224,7 @@
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotSnippetLogger.cs" Link="Source\GodotSnippetLogger.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_GameScript.cs" Link="Source\Tool_GameScript.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptExecuteResult.cs" Link="Source\ScriptExecuteResult.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Data\ScriptParameters.cs" Link="Source\ScriptParameters.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\IdleShutdownTimer.cs" Link="Source\IdleShutdownTimer.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\SessionLease.cs" Link="Source\SessionLease.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Tools\GameRunOutput.cs" Link="Source\GameRunOutput.cs" />
@@ -282,13 +283,16 @@
          collector. The console tool handlers (Tool_Console.*.cs) live OUTSIDE
          #if TOOLS and only touch the pure-managed GodotLogCollector — they are a thin wrapper over the
          collector (maxEntries validation + Query/Clear delegation), so they are unit-tested here
-         (ConsoleToolTests). The reflection tool handlers (Tool_Reflection.*.cs) drive the editor reflector
-         and remain a Suite-3 concern. -->
+         (ConsoleToolTests). The reflection tool handlers (Tool_Reflection.*.cs) take RQL values: their call path is
+         unit-tested through the RQL binding (ReflectionMethodCallTests); Godot objects as targets need the harness. -->
     <Compile Include="..\addons\godot_mcp\Runtime\Data\LogEntry.cs" Link="Source\LogEntry.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\GodotLogCollector.cs" Link="Source\GodotLogCollector.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.cs" Link="Source\Tool_Console.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.GetLogs.cs" Link="Source\Tool_Console.GetLogs.cs" />
     <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Console.ClearLogs.cs" Link="Source\Tool_Console.ClearLogs.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Reflection.cs" Link="Source\Tool_Reflection.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Reflection.MethodCall.cs" Link="Source\Tool_Reflection.MethodCall.cs" />
+    <Compile Include="..\addons\godot_mcp\Runtime\Tools\Tool_Reflection.MethodFind.cs" Link="Source\Tool_Reflection.MethodFind.cs" />
     <!-- Connection-panel presentation logic — pure-managed (no Godot native types, no #if TOOLS): the
          HubConnectionState+keepConnected → ConnectionStatus reduction, label/button/colour mappings, and
          server-URL validation. The editor Control wiring (ConnectionPanel.cs) is #if TOOLS and verified

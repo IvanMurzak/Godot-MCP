@@ -16,7 +16,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 {
     /// <summary>
     /// Godot's value types in RQL terms — the structs (Vector3, Color, Transform3D …), Variant, Godot arrays, StringName,
-    /// NodePath, Rid — plus the parameter types of the addon's tools (NodeRef, csharp-exec parameters) and the type blacklist.
+    /// NodePath, Rid — plus the parameter types of the addon's tools (NodeRef, csharp-exec parameters, RqlValue / RqlValues) and
+    /// the type blacklist.
     /// No editor API: the editor engine (<see cref="RqlGodot"/>, which finds it like any module) and the in-game runtime
     /// engine (<see cref="GodotRqlRuntime"/>) share it, so a tool argument reads the same in the editor and in a game.
     /// </summary>
@@ -59,7 +60,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 
             // Tool parameter types
             ctx.AddAdapter(new Godot_NodeRef_Adapter())
-               .AddAdapter(new ReflectorNet_SerializedMemberList_Adapter());
+               .AddAdapter(new Godot_ScriptParameters_Adapter())
+               .AddAdapter(new RqlValue_Adapter())
+               .AddAdapter(new RqlValues_Adapter());
         }
     }
 }

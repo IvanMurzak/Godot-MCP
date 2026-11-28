@@ -17,8 +17,8 @@ using System.Text.Json;
 using com.IvanMurzak.CodeExec;
 using com.IvanMurzak.CodeExec.Roslyn;
 using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat;
 using com.IvanMurzak.Godot.MCP.Tools;
-using com.IvanMurzak.ReflectorNet.Model;
 using Xunit;
 using LogEntry = com.IvanMurzak.CodeExec.LogEntry;
 
@@ -293,24 +293,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             }
         }
 
-        [Fact]
-        public void ParametersAdapter_NamedValuesAndReflectorNetForm()
-        {
-            var adapter = new com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.ReflectorNet_SerializedMemberList_Adapter();
-            var named = new global::Rql.Execution.ObjectValue { ["n"] = 21.0, ["f"] = 1.5, ["s"] = "x", ["b"] = true, ["none"] = null };
-            Assert.Equal(global::Rql.Execution.AdapterOutcome.Ok, adapter.TryCoerce(named, typeof(SerializedMemberList), null!, out var result, out _));
-            var list = Assert.IsType<SerializedMemberList>(result);
-            Assert.Equal(new[] { "n:System.Int32:21", "f:System.Double:1.5", "s:System.String:\"x\"", "b:System.Boolean:true", "none:System.Object:" },
-                list.Select(m => $"{m.name}:{m.typeName}:{m.valueJsonElement?.GetRawText()}"));
-
-            var reflectorForm = new List<object?> { new global::Rql.Execution.ObjectValue { ["name"] = "n", ["typeName"] = "System.Int32", ["value"] = 6.0 } };
-            Assert.Equal(global::Rql.Execution.AdapterOutcome.Ok, adapter.TryCoerce(reflectorForm, typeof(SerializedMemberList), null!, out result, out _));
-            var member = Assert.Single(Assert.IsType<SerializedMemberList>(result));
-            Assert.Equal("n:System.Int32:6", $"{member.name}:{member.typeName}:{member.valueJsonElement?.GetRawText()}");
-
-            Assert.Equal(global::Rql.Execution.AdapterOutcome.NotHandled, adapter.TryCoerce("text", typeof(SerializedMemberList), null!, out _, out _));
-        }
-
         static int AliveSnippetContexts() => AssemblyLoadContext.All.Count(c => c.Name?.StartsWith("CodeExec:", StringComparison.Ordinal) == true);
 
         [Theory]
@@ -356,35 +338,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void CapValue_CutsAHugeValueToText()
+        public void HugeText_IsCutWhenPresented()
         {
-            var big = new SerializedMember { name = "result", typeName = "System.String" }
-                .SetJsonValue(JsonSerializer.Serialize(new string('z', 2_000_000)));
-            var capped = ScriptExecuteSource.CapValue(big);
-
-            var text = capped.valueJsonElement!.Value.GetString()!;
+            var text = RqlToolBinding.Clip(new string('z', 2_000_000), ScriptExecuteSource.MaxValueChars);
             Assert.InRange(text.Length, ScriptExecuteSource.MaxValueChars, ScriptExecuteSource.MaxValueChars + 200);
             Assert.StartsWith(new string('z', 100), text);
             Assert.Contains("[truncated: 20000 of 2000000 characters shown", text);
-            Assert.Equal("System.String", capped.typeName);
-        }
-
-        [Fact]
-        public void CapValue_CountsNestedMembers()
-        {
-            var list = new SerializedMember { name = "result", typeName = "System.Int32[]", fields = new SerializedMemberList() };
-            for (int i = 0; i < 5_000; i++)
-                list.fields.Add(new SerializedMember { name = $"[{i}]", typeName = "System.Int32" }.SetJsonValue(i.ToString()));
-            var capped = ScriptExecuteSource.CapValue(list);
-            Assert.Null(capped.fields);
-            Assert.Contains("[truncated:", capped.valueJsonElement!.Value.GetString());
-        }
-
-        [Fact]
-        public void CapValue_SmallValueIsTheSameObject()
-        {
-            var small = new SerializedMember { name = "result", typeName = "System.Int32" }.SetJsonValue("3");
-            Assert.Same(small, ScriptExecuteSource.CapValue(small));
+            Assert.Equal("small", RqlToolBinding.Clip("small", ScriptExecuteSource.MaxValueChars));
+            Assert.Equal(ScriptExecuteSource.CapText(new string('z', 2_000_000)).Substring(0, 20_040),
+                RqlToolBinding.Clip(new string('z', 2_000_000), ScriptExecuteSource.MaxValueChars).Substring(0, 20_040));
         }
 
         [Theory]
@@ -425,16 +387,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             for (int i = 0; ; i++) yield return i;
         }
 
-        [Theory]
-        [InlineData(typeof(global::Godot.Basis), true)]
-        [InlineData(typeof(global::Godot.Transform3D), true)]
-        [InlineData(typeof(global::Godot.Quaternion), true)]
-        [InlineData(typeof(global::Godot.StringName), true)]
-        [InlineData(typeof(global::Godot.Vector3), false)] // has a reflection converter
-        [InlineData(typeof(global::Godot.Color), false)]
-        [InlineData(typeof(string), false)]
-        public void IsGodotTextValue(Type type, bool expected) => Assert.Equal(expected, ScriptExecuteSource.IsGodotTextValue(type));
-
         [Fact]
         public void SkillText_StatesTheCaps()
         {
@@ -452,18 +404,6 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
             Assert.Contains("Execution failed (Runtime): System.InvalidOperationException: nope", text);
             Assert.EndsWith("Output:\nbefore", text);
-        }
-
-        [Fact]
-        public void Result_OmitsLogsWhenThereAreNone()
-        {
-            var member = new SerializedMember { name = "result", typeName = "System.Int32" }.SetJsonValue("3");
-            var json = JsonSerializer.Serialize(new ScriptExecuteResult { Result = member });
-            Assert.DoesNotContain("logs", json);
-            Assert.Contains("\"result\"", json);
-
-            json = JsonSerializer.Serialize(new ScriptExecuteResult { Result = member, Logs = new List<string> { "hi" } });
-            Assert.Contains("\"logs\":[\"hi\"]", json);
         }
     }
 

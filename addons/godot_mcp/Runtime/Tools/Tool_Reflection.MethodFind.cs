@@ -67,7 +67,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (methods.Count == 0)
                     return $"[Success] Method not found. With request:\n{filter}";
 
-                var reflector = GodotMcpReflector.GetOrCreate();
+                var reflector = Reflector;
 
                 var methodRefs = methods
                     .Select(method => new MethodData(reflector, method, justRef: false))

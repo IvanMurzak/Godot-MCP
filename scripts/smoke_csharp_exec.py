@@ -168,25 +168,27 @@ def main() -> int:
     text = case(host, "flood of prints is cut", {"csharpCode": "for (int i = 0; i < 20000; i++) Console.WriteLine(\"line \" + i + \" \" + new string('x', 50));\n1"},
                 True, "System.Int32: 1", "log line(s) left out")
     check_size("flood of prints is cut", text, 25_000)
-    # Values the reflector cannot show field by field: Godot structs as text, lazy sequences enumerated, a freed object.
-    case(host, "Basis as text", {"csharpCode": "Basis.Identity"}, True, "(1, 0, 0)")
+    # Results are presented by RQL (the tool data layer): Godot structs as RQL literals, lazy sequences enumerated, a freed object.
+    case(host, "Basis as text", {"csharpCode": "Basis.Identity"}, True, "Basis: (1, 0, 0, 0, 1, 0, 0, 0, 1)")
     case(host, "StringName as text", {"csharpCode": "new StringName(\"smoke-name\")"}, True, "smoke-name")
     case(host, "lazy sequence enumerated", {"csharpCode": "Enumerable.Range(0, 5).Select(i => i * i)"}, True, "16")
     case(host, "freed object", {"csharpCode": "var n = new Node(); n.Free(); n"}, True, "freed")
-    # The RQL format's compact text: entries, items and members instead of the reflector's internals and tables.
+    # RQL's compact text: entries, items (rows) and members, the snippet's own types as maps of their members.
     case(host, "dictionary entries", {"csharpCode": 'new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 }'}, True,
-         "Dictionary<string, int>: {a: 1, b: 2}")
-    case(host, "list of Godot structs", {"csharpCode": "new List<Vector3> { new Vector3(1, 2, 3) }"}, True, "List<Vector3>: [(1, 2, 3)]")
-    case(host, "anonymous object", {"csharpCode": 'new { name = "x", count = 3 }'}, True, 'anonymous: {name: "x", count: 3}')
+         "Dictionary<string, int>: {a:1,b:2}")
+    case(host, "list of Godot structs", {"csharpCode": "new List<Vector3> { new Vector3(1, 2, 3) }"}, True, "List<Vector3>: ", "(1, 2, 3)")
+    case(host, "anonymous object", {"csharpCode": 'new { name = "x", count = 3 }'}, True, "anonymous: {name:x,count:3}")
     text = case(host, "nodes like rql-query", {"csharpCode":
                 "var root = new Node3D { Name = \"SmokeRoot\" }; var kid = new Node3D { Name = \"Kid\" }; root.AddChild(kid); kid.Owner = root;\n"
                 "new { root, kid, list = new Godot.Collections.Array<Node> { kid } }"},
-                True, "(SmokeRoot)", "(Kid)", "Node3D#")
+                True, "SmokeRoot", "Kid", "Node3D#")
     if "/root/" in text or "instanceId" in text:
         FAILURES.append(f"nodes like rql-query: an editor path or reflector field leaked: {text}")
-    case(host, "Godot dictionary keys bare", {"csharpCode": 'Json.ParseString("{\\"a\\": 1}").AsGodotDictionary()'}, True, "{a: 1}")
+    case(host, "Godot dictionary keys bare", {"csharpCode": 'Json.ParseString("{\\"a\\": 1}").AsGodotDictionary()'}, True, "a:1")
     case(host, "lazy sequence names its element type", {"csharpCode": "Enumerable.Range(0, 2).Select(i => new Vector3(i, 0, 0))"},
-         True, "IEnumerable<Vector3>: [(0, 0, 0), (1, 0, 0)]")
+         True, "IEnumerable<Vector3>: ", "(0, 0, 0)", "(1, 0, 0)")
+    # Parameters are RQL values: inferred types, a type written before the name, a node by ref.
+    case(host, "parameters", {"csharpCode": "n * 2 + at.X", "parameters": '{n: 20, "Vector3 at": [2, 0, 0]}'}, True, "System.Single: 42")
     # A Godot collection that holds itself crashed the editor (stack overflow in the Variant converter).
     case(host, "self-containing Godot array", {"csharpCode": "var a = new Godot.Collections.Array(); a.Add(a); a"}, True, "Array")
     for i in range(20):

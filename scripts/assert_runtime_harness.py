@@ -130,8 +130,8 @@ def main() -> int:
     check(not exec_failures, f"in-game csharp-exec failures: {exec_failures}")
     check(data.get("scriptExecuteSum") == "2",
           f"in-game csharp-exec '1 + 1' returned {data.get('scriptExecuteSum')!r}, expected '2'")
-    check(data.get("scriptExecuteRootName") == '"root"',
-          f"in-game csharp-exec read the root window name as {data.get('scriptExecuteRootName')!r}, expected '\"root\"'")
+    check(data.get("scriptExecuteRootName") == "root",
+          f"in-game csharp-exec read the root window name as {data.get('scriptExecuteRootName')!r}, expected 'root'")
 
     if require_connect:
         check(_b(data.get("connected")), "the live SignalR transport did not reach Connected")

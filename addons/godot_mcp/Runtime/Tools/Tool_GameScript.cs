@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.ReflectorNet;
-using com.IvanMurzak.ReflectorNet.Model;
 
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
@@ -72,7 +71,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [Description(ScriptExecuteSource.MethodNameDescription)]
             string methodName = "Main",
             [Description(ScriptExecuteSource.ParametersDescription)]
-            SerializedMemberList? parameters = null,
+            ScriptParameters? parameters = null,
             [Description(ScriptExecuteSource.IsMethodBodyDescription)]
             bool isMethodBody = false,
             [Description(ScriptExecuteSource.UsingsDescription)]
