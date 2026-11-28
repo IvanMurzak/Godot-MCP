@@ -66,11 +66,11 @@ describe('skill content', () => {
     expect(buildGuideFiles().map((f) => f.relativePath)).toEqual(FILES);
   });
 
-  it('marks every skill for App exclusion and gives it a name + description', () => {
+  it('marks every skill as App-visible knowledge and gives it a name + description', () => {
     for (const file of buildGuideFiles().filter((f) => f.relativePath.endsWith('SKILL.md'))) {
       const name = file.relativePath.split('/')[0];
       expect(file.content.startsWith(`---\nname: ${name}\ndescription: "`)).toBe(true);
-      expect(file.content).toContain('metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n---');
+      expect(file.content).toContain('metadata:\n  generated-by: godot-mcp\n  ai-game-dev: include\n---');
     }
   });
 

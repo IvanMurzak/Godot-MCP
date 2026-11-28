@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void GlobalMetadataAndReferencesCoverToolsAndStandaloneGuides()
+        public void ToolSkillsAreExcludedAndStandaloneGuidesIncludedForTheApp()
         {
             var root = Path.Combine(Path.GetTempPath(), "GodotSkillGuides_" + Guid.NewGuid().ToString("N"));
             try
@@ -100,19 +100,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 {
                     config.SkillsPath = root;
                     config.KeepConnected = false;
-                    config.SkillMetadata["generated-by"] = "godot-mcp";
-                    config.SkillMetadata["ai-game-dev"] = "exclude";
+                    GodotSkillFileGenerator.ApplySkillMetadata(config);
                 });
                 builder.WithSkillFileGenerator<GodotSkillFileGenerator>();
                 builder.WithSkills(typeof(Skill_Cli), typeof(Skill_App));
                 builder.WithTools(typeof(TestTools));
                 using var plugin = (com.IvanMurzak.McpPlugin.McpPlugin)builder.Build(new Reflector());
 
-                var files = Directory.GetFiles(root, "SKILL.md", SearchOption.AllDirectories);
-                Assert.Equal(3, files.Length);
-                foreach (var file in files)
-                    Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n",
-                        File.ReadAllText(file).Replace("\r\n", "\n"));
+                Assert.Equal(3, Directory.GetFiles(root, "SKILL.md", SearchOption.AllDirectories).Length);
+                string Read(string id) => File.ReadAllText(Path.Combine(root, id, "SKILL.md")).Replace("\r\n", "\n");
+                Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n", Read("guide-test"));
+                foreach (var id in new[] { Skill_Cli.SkillId, Skill_App.SkillId })
+                {
+                    Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: include\n", Read(id));
+                    Assert.DoesNotContain("ai-game-dev: exclude", Read(id));
+                }
                 var tool = File.ReadAllText(Path.Combine(root, "guide-test", "SKILL.md"));
                 Assert.Contains("the `godot-cli` skill", tool);
                 Assert.Contains("installation: `godot-cli-install`", tool);
