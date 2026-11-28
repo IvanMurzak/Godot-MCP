@@ -89,7 +89,10 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 throw new Exception(Error.MoreThanOneMethodFound(Reflector, methods));
 
             var method = methods[0];
-            Func<object?> action = () => Invoke(method, targetObject, given);
+            // Values are converted on the main thread (a node path or ref resolves through the scene tree), whichever thread
+            // the method then runs on.
+            var (target, args) = MainThread.Instance.Run(() => Bind(method, targetObject, given));
+            Func<object?> action = () => Invoke(method, target, args);
             return executeInMainThread ? MainThread.Instance.Run(action) : action();
         }
 
@@ -101,7 +104,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             return set.All(n => parameters.Any(p => p.Name == n)) && parameters.All(p => set.Contains(p.Name!) || p.HasDefaultValue || p.IsOptional);
         }
 
-        static object? Invoke(MethodInfo method, RqlValue? targetObject, IReadOnlyList<KeyValuePair<string, RqlValue>> given)
+        /// <summary>The instance and the arguments of the call, converted to the types <paramref name="method"/> declares.</summary>
+        static (object? target, object?[] args) Bind(MethodInfo method, RqlValue? targetObject, IReadOnlyList<KeyValuePair<string, RqlValue>> given)
         {
             object? target = null;
             if (!method.IsStatic)
@@ -140,7 +144,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 else if (p.IsOptional) args[i] = Type.Missing;
                 else throw new ArgumentException($"'inputParameters' has no '{p.Name}' ({p.ParameterType.Name}), and it has no default.");
             }
+            return (target, args);
+        }
 
+        static object? Invoke(MethodInfo method, object? target, object?[] args)
+        {
             object? result;
             try { result = method.Invoke(target, args); }
             catch (TargetInvocationException ex) when (ex.InnerException != null)
