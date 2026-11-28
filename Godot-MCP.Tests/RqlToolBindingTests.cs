@@ -58,6 +58,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public static string Target(NodeRef nodeRef) => nodeRef.InstanceId != 0 ? "id:" + nodeRef.InstanceId : "path:" + nodeRef.Path;
 
         public static string Configure(ClashAlpha.Settings a, ClashBeta.Settings b) => "ok";
+
+        public static string Optionals(string name, string? note, NodeRef? nodeRef, int? count, int times = 1) =>
+            name + "|" + (note ?? "null") + "|" + (nodeRef == null ? "null" : nodeRef.Path) + "|" + (count?.ToString() ?? "null") + "|" + times;
     }
 
     /// <summary>
@@ -71,6 +74,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         private const string Echo = "binding-echo";
         private const string Items = "binding-items";
         private const string Target = "binding-target";
+        private const string Optionals = "binding-optionals";
 
         private readonly McpToolManager _tools;
         private readonly ToolTextEscaping _savedEscaping;
@@ -89,6 +93,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 [Echo] = RunTool.CreateFromStaticMethod(reflector, null, Echo, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Echo))!),
                 [Items] = RunTool.CreateFromStaticMethod(reflector, null, Items, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!),
                 [Target] = RunTool.CreateFromStaticMethod(reflector, null, Target, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Target))!),
+                [Optionals] = RunTool.CreateFromStaticMethod(reflector, null, Optionals, typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Optionals))!),
             };
             _tools = new McpToolManager(NullLogger<McpToolManager>.Instance, reflector, tools) { ToolBinding = RqlToolBinding.Instance };
         }
@@ -120,6 +125,33 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("RQL: RqlBindingTestSettings", settings.GetProperty("description").GetString());
             Assert.Equal("integer", listed.InputSchema.GetProperty("properties").GetProperty("times").GetProperty("type").GetString());
             Assert.Contains("RqlBindingTestSettings {title string, mode Fast|Slow, items [RqlBindingTestItem]", listed.Description);
+        }
+
+        [Fact]
+        public void OnlyNonNullableParametersWithoutDefaultsAreRequired()
+        {
+            // string name: required; string? note / NodeRef? nodeRef (NRT) and int? count (Nullable<T>): not required;
+            // int times = 1: not required.
+            var schema = Listed(Optionals).InputSchema;
+            var required = schema.GetProperty("required").EnumerateArray().Select(e => e.GetString()).ToArray();
+            Assert.Equal(new[] { "name" }, required);
+            // No "null" in the schema types: nullability only drops the parameter from "required".
+            var properties = schema.GetProperty("properties");
+            Assert.Equal("string", properties.GetProperty("note").GetProperty("type").GetString());
+            Assert.Equal("string", properties.GetProperty("nodeRef").GetProperty("type").GetString());
+            Assert.Equal("integer", properties.GetProperty("count").GetProperty("type").GetString());
+            Assert.DoesNotContain("\"null\"", schema.GetRawText());
+        }
+
+        [Theory]
+        [InlineData("{\"name\": \"a\"}", "a|null|null|null|1")]
+        [InlineData("{\"name\": \"a\", \"note\": null, \"nodeRef\": null, \"count\": null}", "a|null|null|null|1")]
+        [InlineData("{\"name\": \"a\", \"note\": \"n\", \"nodeRef\": \"Level/Player\", \"count\": 2, \"times\": 3}", "a|n|Level/Player|2|3")]
+        public void OmittedOrNullNullableArgumentsReachTheMethodAsNull(string json, string expected)
+        {
+            var (r, text) = Call(Optionals, json);
+            Assert.Equal(ResponseStatus.Success, r.Status);
+            Assert.Contains(expected, text);
         }
 
         [Fact]
