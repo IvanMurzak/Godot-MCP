@@ -94,8 +94,7 @@ a warning and registers nothing.
 - **Loopback + token, always.** Use a loopback host and `AuthOption = token` with a real token from the
   environment. Anyone who can call tools on the connection owns the process.
 - **Desktop CoreCLR only.** NativeAOT and iOS cannot run code emitted at run time; mobile is untested.
-- **Size.** The opt-in adds Roslyn (`Microsoft.CodeAnalysis*.dll`, several MB) to the export. RQL is never
-  shipped.
+- **Size.** The opt-in adds Roslyn (`Microsoft.CodeAnalysis*.dll`, several MB) to the export.
 
 ## Environment variables
 

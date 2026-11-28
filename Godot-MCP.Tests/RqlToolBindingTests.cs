@@ -83,9 +83,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             _savedEscaping = RqlToolBinding.Instance.Escaping;
             var engine = new RqlEngine();
-            engine.AddModules(new[] { typeof(ToolTypesModule) });
-            RqlToolBinding.EngineProvider = () => engine;
-            RqlToolBinding.MainThreadRunner = null;
+            engine.AddModules(new[] { typeof(GodotValuesModule) });
+            RqlToolBinding.Instance.EngineProvider = () => engine;
+            RqlToolBinding.Instance.MainThreadRunner = null;
             RqlToolBinding.Instance.Reset();
             var reflector = GodotReflectorFactory.CreateDefaultReflector();
             var tools = new ToolRunnerCollection(reflector, null)
@@ -102,7 +102,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             RqlToolBinding.Instance.Escaping = _savedEscaping;
             RqlToolBinding.Instance.Reset();
-            RqlToolBinding.EngineProvider = null;
+            RqlToolBinding.Instance.EngineProvider = null;
         }
 
         private ResponseListTool Listed(string name) => _tools.RunListTool(new RequestListTool()).Result.Value!.Single(t => t.Name == name);

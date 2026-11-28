@@ -91,7 +91,7 @@ godot-cli open ./MyGodotProject                       # build C#, start the edit
 
 Then ask your agent: *"Create 3 cubes in a circle with radius 2."*
 
-To install from the editor's **AssetLib** tab, from a [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest), or by hand, follow [docs/install.md](docs/install.md): the project's `.csproj` then needs the addon's NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, and the editor-only `com.IvanMurzak.Rql`, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp`) at the versions of the release you install.
+To install from the editor's **AssetLib** tab, from a [release zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest), or by hand, follow [docs/install.md](docs/install.md): the project's `.csproj` then needs the addon's NuGet references (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql`, and the editor-only `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` and `Microsoft.CodeAnalysis.CSharp`) at the versions of the release you install.
 
 ### What goes through ai-game.dev
 
@@ -266,4 +266,4 @@ Related: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Server) 
 
 ## License
 
-**Game developers can use everything freely, commercial games included.** Godot-MCP is [Apache-2.0](LICENSE). Its editor-side dependencies RQL and Code-Exec use the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), which restricts only companies that build competing AI tools for game development.
+**Game developers can use everything freely, commercial games included.** Godot-MCP is [Apache-2.0](LICENSE). Its dependencies RQL (editor and game) and Code-Exec (editor) use the [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), which restricts only companies that build competing AI tools for game development.

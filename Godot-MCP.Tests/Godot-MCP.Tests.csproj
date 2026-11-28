@@ -454,15 +454,10 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlStatementRunner.cs" Link="Source\Rql\RqlStatementRunner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlMutationOwner.cs" Link="Source\Rql\RqlMutationOwner.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTargetLimit.cs" Link="Source\Rql\RqlTargetLimit.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\GodotTypedArrayHint.cs" Link="Source\Rql\GodotTypedArrayHint.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlLiteralPolicy.cs" Link="Source\Rql\RqlLiteralPolicy.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlExtensionGuides.cs" Link="Source\Rql\RqlExtensionGuides.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlTools.cs" Link="Source\Rql\RqlTools.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\ConvertingList.cs" Link="Source\Rql\ConvertingList.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\OverrideDiff.cs" Link="Source\Rql\OverrideDiff.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\RqlHostNames.cs" Link="Source\Rql\RqlHostNames.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\ToolFormat\*.cs" Link="Source\Rql\ToolFormat\%(Filename)%(Extension)" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Struct\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\InputEventText.cs" Link="Source\Rql\Settings\InputEventText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Settings\LayerNames.cs" Link="Source\Rql\Settings\LayerNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\ShaderUniformDefaults.cs" Link="Source\Rql\Adapters\ShaderUniformDefaults.cs" />
@@ -470,8 +465,8 @@
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\NodeOptions.cs" Link="Source\Rql\NodeOptions.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Object\GodotEnumNames.cs" Link="Source\Rql\Adapters\GodotEnumNames.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Value\CallableText.cs" Link="Source\Rql\Adapters\CallableText.cs" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\Adapters\Tool\*.cs" Link="Source\Rql\Adapters\%(Filename)%(Extension)" />
-    <Compile Include="..\addons\godot_mcp\Editor\Rql\Modules\ToolTypesModule.cs" Link="Source\Rql\ToolTypesModule.cs" />
+    <!-- Runtime/Rql: the value layer shared by the editor and the in-game runtime (no editor API, so it compiles here whole). -->
+    <Compile Include="..\addons\godot_mcp\Runtime\Rql\**\*.cs" Link="Source\Rql\Runtime\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\RotationUnits.cs" Link="Source\Rql\RotationUnits.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\HistoryStepText.cs" Link="Source\Rql\EditorApi\HistoryStepText.cs" />
     <Compile Include="..\addons\godot_mcp\Editor\Rql\EditorApi\GameLogText.cs" Link="Source\Rql\EditorApi\GameLogText.cs" />

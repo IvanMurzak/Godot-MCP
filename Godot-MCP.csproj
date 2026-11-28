@@ -18,16 +18,18 @@
   <ItemGroup>
     <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="5.6.1" />
     <PackageReference Include="com.IvanMurzak.McpPlugin" Version="8.26.0" />
+    <!-- RQL is the value layer of every tool, in the editor and in a game (GodotMcpRuntime), so it ships in exports too. -->
+    <PackageReference Include="com.IvanMurzak.Rql" Version="0.5.0" />
   </ItemGroup>
 
   <!--
-    Editor-only packages: only `#if TOOLS` code uses them (RQL data layer, `csharp-exec` via Code-Exec + Roslyn),
-    so Godot's export builds (ExportDebug / ExportRelease, the two configurations without TOOLS) leave them out and
-    an exported game ships no Roslyn. Same rule the Godot SDK applies to GodotSharpEditor. The Condition sits on each
+    Editor-only packages: only `#if TOOLS` code uses them (`csharp-exec` via Code-Exec + Roslyn), so Godot's export
+    builds (ExportDebug / ExportRelease, the two configurations without TOOLS) leave them out and an exported game
+    ships no Roslyn. Same rule the Godot SDK applies to GodotSharpEditor. The Condition sits on each
     element (after Version) so `godot-cli install-plugin` copies it per package; see docs/ARCHITECTURE.md.
     Code-Exec and Roslyn also go into exports when the game opts in to in-game `csharp-exec` with
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
-    consumer csproj sets both). RQL never ships in a game.
+    consumer csproj sets both).
     Every package above is a published nuget.org release (cascade train t-2026-10-30-03: McpPlugin 8.14.0, ReflectorNet
     5.5.1, RQL 0.3.0, Code-Exec 0.4.0; McpPlugin 8.21.0, Code-Exec 0.4.1 and ReflectorNet 5.5.2 since). Every csproj pin, the CLI fallback (cli/src/utils/addon-deps.ts) and the pin
     docs move together.
@@ -36,7 +38,6 @@
     <DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="com.IvanMurzak.Rql" Version="0.5.0" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
     <PackageReference Include="com.IvanMurzak.CodeExec" Version="0.5.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="0.5.1" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" Condition="'$(GodotMcpCodeExecInGame)' == 'true' or ('$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease')" />

@@ -99,12 +99,14 @@ editors keep answering tool calls with an old build).
   `scripts/write-nuget-deps.mjs` (never committed), or the checkout's csproj for `--source`; the
   constants in `cli/src/utils/addon-deps.ts` (parity-tested against `Godot-MCP.csproj`) are only the
   fallback for older zips. User-facing steps: [`docs/install.md`](docs/install.md).
-- **Editor-only packages.** RQL, Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
+- **Editor-only packages.** Code-Exec and Roslyn carry `Condition="… != 'ExportDebug' and … != 'ExportRelease'"`
   in every csproj (and `editorOnly` in the CLI), so exported games ship none of them. Any addon code using them must
   sit inside `#if TOOLS` (`|| GODOT_MCP_UNIT_TESTS` if xUnit compiles it); `scripts/check-runtime-boundary.py`
   fails otherwise. Exception: Code-Exec + Roslyn also ship when a game opts in to in-game `csharp-exec`
   (`GodotMcpCodeExecInGame=true`, wider Condition, `inGameOptIn` in the CLI); their code may use
-  `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`. Details: `docs/ARCHITECTURE.md`.
+  `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME`. Details: `docs/ARCHITECTURE.md`. RQL is NOT editor-only: it is the value
+  layer of in-game tools too, so `Runtime/Rql/` (value adapters, `RqlToolBinding`, the in-game engine `GodotRqlRuntime`)
+  is un-gated; editor RQL (sources, writes, undo) stays in `Editor/Rql/` behind `#if TOOLS`.
 - **Server pin.** The consumed server version is `ServerVersion` in
   `addons/godot_mcp/Runtime/Connection/GodotMcpServerView.cs`; that release (all 7 RID zips) must exist
   on GameDev-MCP-Server before an addon release pins it. Details: `docs/RELEASING.md`.

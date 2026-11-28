@@ -16,6 +16,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using com.IvanMurzak.Godot.MCP.Data;
+using com.IvanMurzak.Godot.MCP.Editor.Rql;
 using com.IvanMurzak.Godot.MCP.Reflection;
 using com.IvanMurzak.Godot.MCP.Runtime;
 using com.IvanMurzak.Godot.MCP.Tools;
@@ -109,6 +110,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
         /// assertion into a vacuous "no failures recorded".
         /// </summary>
         const int VariantRoundTripMinimumChecks = 11;
+
+        /// <summary>How many in-game RQL tool calls <see cref="CheckRqlToolValuesAsync"/> must have made for the leg to pass.</summary>
+        const int RqlToolValuesMinimumChecks = 4;
 
         // --- State ------------------------------------------------------------------------------------
 
@@ -223,6 +227,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
                 //     directly: the runtime registers no extra tool, so the recorded tool contract is unchanged.
                 await CheckScriptExecuteAsync(report);
 
+                // 7a') RQL as the value layer of a game's own tool: a custom class argument with a Vector3 and live node
+                //      references, and a node result, through the in-game binding against the real scene tree.
+                await CheckRqlToolValuesAsync(report);
+
                 // 7b) Chain record leg (MCP-Plugin-dotnet docs/chain-fixtures.md): signal the workflow (ready
                 //     file) and keep the connection up while its MCP-client recorder drives tools/list + the
                 //     battery. Env-gated, default 0 = no hold. The workflow waits for the ready file before it
@@ -292,6 +300,85 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             }
         }
 #endif
+
+        // --- RQL values of an in-game tool -------------------------------------------------------------
+
+        /// <summary>A developer's own argument type: a Godot struct and live node references.</summary>
+        public sealed class HarnessSpawnSpec
+        {
+            public string? Name;
+            public Vector3 Position;
+            public Node3D? Target;
+            public NodeRef? Anchor;
+        }
+
+        public static string HarnessSpawn(HarnessSpawnSpec spec) =>
+            $"{spec.Name}|{spec.Position}|{spec.Target?.Name}|{(spec.Anchor == null ? "" : spec.Anchor.InstanceId.ToString())}";
+
+        public static Node3D? HarnessFind(string name) =>
+            ((SceneTree)Engine.GetMainLoop()).CurrentScene?.FindChild(name, recursive: true, owned: false) as Node3D;
+
+        const string RqlHarnessTargetName = "RqlHarnessTarget";
+
+        /// <summary>
+        /// Calls two harness methods through the in-game RQL tool binding (<see cref="GodotRqlRuntime"/>) on a tool manager of
+        /// their own (the plugin's registered tool list, and so the recorded tool contract, stays unchanged): a custom
+        /// class literal with a Vector3, a node by <c>ref("Node3D#id")</c>, by name and by <c>godot.find</c>, a NodeRef by
+        /// instance id, and a node result presented as an RQL reference.
+        /// </summary>
+        async Task CheckRqlToolValuesAsync(HarnessReport report)
+        {
+            var target = new Node3D { Name = RqlHarnessTargetName };
+            AddChild(target);
+            try
+            {
+                var reflector = new com.IvanMurzak.ReflectorNet.Reflector();
+                var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
+                var runners = new com.IvanMurzak.McpPlugin.ToolRunnerCollection(reflector, null)
+                {
+                    ["harness-spawn"] = com.IvanMurzak.McpPlugin.RunTool.CreateFromStaticMethod(reflector, null, "harness-spawn", typeof(RuntimeHarness).GetMethod(nameof(HarnessSpawn), flags)!),
+                    ["harness-find"] = com.IvanMurzak.McpPlugin.RunTool.CreateFromStaticMethod(reflector, null, "harness-find", typeof(RuntimeHarness).GetMethod(nameof(HarnessFind), flags)!),
+                };
+                var tools = new com.IvanMurzak.McpPlugin.McpToolManager(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<com.IvanMurzak.McpPlugin.McpToolManager>.Instance, reflector, runners);
+                GodotRqlRuntime.Install(tools, com.IvanMurzak.McpPlugin.ToolTextEscaping.Minimal);
+
+                var id = target.GetInstanceId();
+                var expected = $"Orc|(1, 2, 3)|{RqlHarnessTargetName}|{id}";
+                await RqlCase(report, tools, "ref", "harness-spawn", $"{{Name: \"Orc\", Position: [1, 2, 3], Target: ref(\"Node3D#{id}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "name", "harness-spawn", $"{{Name: \"Orc\", Position: \"(1, 2, 3)\", Target: \"{RqlHarnessTargetName}\", Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "godot.find", "harness-spawn", $"{{Name: \"Orc\", Position: {{x: 1, y: 2, z: 3}}, Target: godot.find(\"{RqlHarnessTargetName}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "node result", "harness-find", null, $"Node3D#{id}");
+            }
+            catch (Exception ex)
+            {
+                report.RqlToolValueFailures.Add($"threw: {ex}");
+            }
+            finally
+            {
+                target.QueueFree();
+            }
+            GD.Print($"[harness] rql tool values: checked={report.RqlToolValuesChecked} failures={report.RqlToolValueFailures.Count}.");
+        }
+
+        static async Task RqlCase(HarnessReport report, com.IvanMurzak.McpPlugin.McpToolManager tools, string label, string tool, string? spec, string expected)
+        {
+            report.RqlToolValuesChecked++;
+            var args = new Dictionary<string, JsonElement>();
+            if (spec != null) args["spec"] = JsonSerializer.SerializeToElement(spec);
+            else args["name"] = JsonSerializer.SerializeToElement(RqlHarnessTargetName);
+            // Off the main thread like an MCP call: the binding marshals its engine work onto the main thread.
+            var call = Task.Run(() => tools.RunCallTool(new com.IvanMurzak.McpPlugin.Common.Model.RequestCallTool(tool, args)));
+            if (await Task.WhenAny(call, Task.Delay(TimeSpan.FromSeconds(30))) != call)
+            {
+                report.RqlToolValueFailures.Add($"{label}: did not finish within 30 s");
+                return;
+            }
+            var response = (await call).Value;
+            var text = response == null ? "<no response>" : string.Join("\n", response.Content?.Select(c => c.Text) ?? Array.Empty<string?>());
+            if (response?.Status != com.IvanMurzak.McpPlugin.Common.Model.ResponseStatus.Success || !text.Contains(expected, StringComparison.Ordinal))
+                report.RqlToolValueFailures.Add($"{label}: expected '{expected}', got {response?.Status}: {text}");
+        }
 
         // --- Godot.Variant round-trip (issue #292) ----------------------------------------------------
 
@@ -671,6 +758,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             if (report.VariantRoundTripFailures.Count > 0)
                 return false;
 
+            // RQL values of a game's own tool (custom class with a Vector3 and node references, a node result).
+            if (report.RqlToolValueFailures.Count > 0 || report.RqlToolValuesChecked < RqlToolValuesMinimumChecks)
+                return false;
+
             // In-game csharp-exec: Roslyn ran C# inside this game and read its scene tree.
             if (report.ScriptExecuteFailures.Count > 0 || report.ScriptExecuteSum != "2" || report.ScriptExecuteRootName != "\"root\"")
                 return false;
@@ -801,6 +892,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             [JsonPropertyName("variantRoundTripRejectsGarbage")] public bool VariantRoundTripRejectsGarbage { get; set; }
             [JsonPropertyName("variantProjectSettingRoundTrip")] public bool VariantProjectSettingRoundTrip { get; set; }
             [JsonPropertyName("variantRoundTripFailures")] public List<string> VariantRoundTripFailures { get; set; } = new();
+
+            [JsonPropertyName("rqlToolValuesChecked")] public int RqlToolValuesChecked { get; set; }
+            [JsonPropertyName("rqlToolValueFailures")] public List<string> RqlToolValueFailures { get; set; } = new();
 
             [JsonPropertyName("scriptExecuteSum")] public string? ScriptExecuteSum { get; set; }
             [JsonPropertyName("scriptExecuteRootName")] public string? ScriptExecuteRootName { get; set; }

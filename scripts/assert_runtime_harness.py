@@ -51,6 +51,9 @@ from pathlib import Path
 #: constant upward; it only needs to stop the assertion going vacuous.
 VARIANT_MIN_CHECKS = 11
 
+#: Minimum number of in-game RQL tool calls the harness must make (an independent floor, as above).
+RQL_MIN_CHECKS = 4
+
 
 def _b(value) -> bool:
     return value is True
@@ -111,6 +114,15 @@ def main() -> int:
     check(_b(data.get("variantProjectSettingRoundTrip")),
           "ProjectSettings.SetSetting through a wire Godot.Variant did not read back the value "
           "(the verbatim issue-#292 repro)")
+
+    # --- RQL values of an in-game tool ---------------------------------------------------------
+    # A game's own tool took a custom class literal (a Vector3, node references by ref / name / godot.find, a NodeRef by
+    # instance id) and returned a node as an RQL reference, through the in-game binding against the real scene tree.
+    rql_failures = data.get("rqlToolValueFailures") or []
+    check(not rql_failures, f"in-game RQL tool value failures: {rql_failures}")
+    rql_checked = data.get("rqlToolValuesChecked", 0)
+    check(isinstance(rql_checked, int) and rql_checked >= RQL_MIN_CHECKS,
+          f"the in-game RQL tool values check made only {rql_checked} call(s), expected >= {RQL_MIN_CHECKS}")
 
     # --- In-game csharp-exec -------------------------------------------------------------
     # Roslyn compiled and ran C# inside the running game (arithmetic + a read of the game's scene tree).

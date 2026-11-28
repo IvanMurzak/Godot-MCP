@@ -37,15 +37,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
         public static Action<IMcpPlugin, GodotMcpConfig> Install(Func<global::Godot.EditorUndoRedoManager?> undoRedo)
         {
             RqlGodot.UndoRedo = undoRedo;
-            RqlToolBinding.EngineProvider = () => RqlGodot.Engine;
-            RqlToolBinding.MainThreadRunner = f => MainThread.Instance.Run(f);
+            RqlToolBinding.Instance.EngineProvider = () => RqlGodot.Engine;
+            RqlToolBinding.Instance.MainThreadRunner = f => MainThread.Instance.Run(f);
             return Configure;
         }
 
         public static void Uninstall()
         {
-            RqlToolBinding.EngineProvider = null;
-            RqlToolBinding.MainThreadRunner = null;
+            RqlToolBinding.Instance.EngineProvider = null;
+            RqlToolBinding.Instance.MainThreadRunner = null;
             RqlGodot.UndoRedo = null;
             RqlTools.Manager = null;
             var used = RqlGodot.Reset();

@@ -25,9 +25,10 @@ Concretely it FAILS (exit 1) when a `Runtime/**/*.cs` file, OUTSIDE comments, co
     as a WARNING, not a failure, because the guarded body is stripped from the game build.
 
 It also FAILS when ANY `addons/godot_mcp/**/*.cs` file uses an editor-only NuGet package outside its guard:
-Godot-MCP.csproj leaves those packages out of the export configurations. RQL must sit inside `#if TOOLS`; Code-Exec and
-Roslyn inside a guard that may also allow the in-game opt-in, e.g. `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME` (an
-opted-in game references them, docs/ARCHITECTURE.md). Editor APIs stay TOOLS-only: an opted-in game has no editor.
+Godot-MCP.csproj leaves those packages out of the export configurations. Code-Exec and Roslyn must sit inside a guard
+that may also allow the in-game opt-in, e.g. `#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME` (an opted-in game references
+them, docs/ARCHITECTURE.md). RQL is not editor-only: it is the value layer of the in-game runtime too, so it ships in
+every game. Editor APIs stay TOOLS-only: an opted-in game has no editor.
 
 The check is comment-aware: editor type names mentioned in `//` / `///` / `/* */`
 documentation (which the addon's runtime files use heavily to EXPLAIN the boundary) never
@@ -54,9 +55,6 @@ _TOKEN_RE = re.compile(r"\b(" + "|".join(EDITOR_TOKENS) + r")\b")
 
 # Namespaces of the editor-only NuGet packages. Godot-MCP.csproj leaves them out of ExportDebug/ExportRelease, so ANY
 # addon file (Runtime/ or Editor/) may use them only inside their guard, or the exported game fails to compile.
-# `Rql` is the root namespace of every RQL assembly (`using Rql;`, `Rql.Execution`, `global::Rql.RqlParser`);
-# `(?<![.\w])` keeps the addon's own `...Editor.Rql` namespace from matching. RQL never ships in a game (`#if TOOLS`).
-_RQL_RE = re.compile(r"(?<![.\w])(Rql(?=\s*[.;]))")
 # Code-Exec + Roslyn also ship in a game built with the in-game opt-in (`GodotMcpCodeExecInGame=true` plus the
 # GODOT_MCP_CODE_EXEC_IN_GAME symbol), so their guard may allow that symbol.
 _CODE_EXEC_RE = re.compile(r"(?<![.\w])(com\.IvanMurzak\.CodeExec|Microsoft\.CodeAnalysis)\b")
@@ -193,8 +191,8 @@ def strip_comments(text: str) -> str:
 def scan_file(path: Path):
     """Return (violations, package_violations, warnings) for one .cs file.
 
-    A violation is an editor token in real code outside a `#if TOOLS` guard; a package violation is RQL outside
-    `#if TOOLS`, or Code-Exec / Roslyn outside a guard that is off in every game without the in-game opt-in. A warning
+    A violation is an editor token in real code outside a `#if TOOLS` guard; a package violation is Code-Exec / Roslyn
+    outside a guard that is off in every game without the in-game opt-in. A warning
     is a `#if TOOLS` guard (an allowed shim when the file is under Runtime/).
     """
     raw = path.read_text(encoding="utf-8")
@@ -225,8 +223,6 @@ def scan_file(path: Path):
             continue  # inside #if TOOLS: stripped from the game build, not a leak
         for m in _TOKEN_RE.finditer(line):
             violations.append((lineno, m.group(1), line.strip()))
-        for m in _RQL_RE.finditer(line):
-            package_violations.append((lineno, m.group(1), "#if TOOLS", line.strip()))
         if not any(code_exec for _, code_exec in if_stack):
             for m in _CODE_EXEC_RE.finditer(line):
                 package_violations.append((lineno, m.group(1), f"#if TOOLS || {CODE_EXEC_SYMBOL}", line.strip()))
@@ -277,8 +273,8 @@ def main(argv=None) -> int:
     if package_violations:
         print()
         print(f"FAILED: {package_violations} use(s) of an editor-only package outside its guard.")
-        print("Godot-MCP.csproj leaves RQL / Code-Exec / Roslyn out of ExportDebug/ExportRelease, so the exported")
-        print(f"game would not compile. Wrap RQL code in #if TOOLS, Code-Exec / Roslyn code in #if TOOLS || {CODE_EXEC_SYMBOL}")
+        print("Godot-MCP.csproj leaves Code-Exec / Roslyn out of ExportDebug/ExportRelease, so the exported")
+        print(f"game would not compile. Wrap Code-Exec / Roslyn code in #if TOOLS || {CODE_EXEC_SYMBOL}")
         print("(|| GODOT_MCP_UNIT_TESTS for xUnit-compiled sources).")
     if total_violations or package_violations:
         return 1

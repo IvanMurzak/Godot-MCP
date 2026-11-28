@@ -184,6 +184,19 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             // DEV-314: old tool ids as hidden aliases of the final tools (script-execute of csharp-exec). Remove in 0.45.0.
             Tools.DeprecatedToolAliases.Register(plugin.McpManager?.ToolManager, reflector);
 
+            // 4d) RQL is the value layer of every in-game tool, as in the editor: schemas from RQL's type model, arguments as
+            //     RQL values (a custom class literal {position: (1, 2, 3), target: ref("Node3D#12")}, a node path, res://),
+            //     results as RQL text. No fallback: a game whose tools could not get it does not build a handle.
+            try
+            {
+                Editor.Rql.GodotRqlRuntime.Install(plugin.McpManager?.ToolManager, config.ToolTextEscaping);
+            }
+            catch
+            {
+                try { plugin.Dispose(); } catch { /* the original fault is the one to report */ }
+                throw;
+            }
+
             // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
             //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the
             //    McpPluginBuilder.Build reflection scan, the WithTools/Prompts/Resources type scans) never leaves

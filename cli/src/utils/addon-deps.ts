@@ -8,11 +8,11 @@
 // checkout's `Godot-MCP.csproj` for `--source`). These constants are used only for
 // addon zips that predate that manifest. They mirror the addon's own reused pins in
 // `Godot-MCP.csproj` (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`) at
-// this CLI's version — the SAME values, never a bump of those pins. `com.IvanMurzak.Rql` (the RQL data layer of
-// the editor tools, PolyForm Shield 1.0.0) is a direct dependency of the addon sources since 1.0; Code-Exec
-// (`com.IvanMurzak.CodeExec` + the source-only `.Roslyn` adapter, compiled against the pinned
-// `Microsoft.CodeAnalysis.CSharp`) runs `csharp-exec`. Those four are `editorOnly`: only `#if TOOLS` code
-// uses them, so exported games ship neither RQL nor Roslyn. The three Code-Exec ones are also `inGameOptIn`: a game
+// this CLI's version — the SAME values, never a bump of those pins. `com.IvanMurzak.Rql` (the value layer of
+// every tool, in the editor and in a game, PolyForm Shield 1.0.0) is a direct dependency of the addon sources and ships
+// in exports; Code-Exec (`com.IvanMurzak.CodeExec` + the source-only `.Roslyn` adapter, compiled against the pinned
+// `Microsoft.CodeAnalysis.CSharp`) runs `csharp-exec`. Those three are `editorOnly`: only `#if TOOLS` code
+// uses them, so exported games ship no Roslyn. They are also `inGameOptIn`: a game
 // that opts in to in-game `csharp-exec` (`GodotMcpCodeExecInGame=true`) keeps them in its exports. A parity test
 // (`cli/tests/addon-deps-parity.test.ts`) reads `Godot-MCP.csproj` and FAILS the
 // build if these constants ever drift from the addon's pins, so the scaffold can
@@ -28,7 +28,7 @@ export interface AddonPackageReference {
   version: string;
   /**
    * Only editor (`#if TOOLS`) code uses the package: it is written with `EDITOR_ONLY_CONDITION`, so Godot's
-   * export builds leave it out (an exported game ships no RQL / Roslyn).
+   * export builds leave it out (an exported game ships no Roslyn).
    */
   editorOnly?: boolean;
   /**
@@ -83,7 +83,7 @@ export interface AddonEmbeddedResource {
 export const ADDON_PACKAGE_REFERENCES: readonly AddonPackageReference[] = [
   { id: 'com.IvanMurzak.ReflectorNet', version: '5.6.1' },
   { id: 'com.IvanMurzak.McpPlugin', version: '8.26.0' },
-  { id: 'com.IvanMurzak.Rql', version: '0.5.0', editorOnly: true },
+  { id: 'com.IvanMurzak.Rql', version: '0.5.0' },
   { id: 'com.IvanMurzak.CodeExec', version: '0.5.1', editorOnly: true, inGameOptIn: true },
   { id: 'com.IvanMurzak.CodeExec.Roslyn', version: '0.5.1', editorOnly: true, inGameOptIn: true },
   { id: 'Microsoft.CodeAnalysis.CSharp', version: '4.12.0', editorOnly: true, inGameOptIn: true },

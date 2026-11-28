@@ -50,10 +50,9 @@ class PackageGuards(unittest.TestCase):
         _, packages, _ = scan("#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME\n#else\nusing Microsoft.CodeAnalysis;\n#endif\n")
         self.assertEqual([3], [p[0] for p in packages])
 
-    def test_rql_stays_tools_only(self):
-        _, packages, _ = scan("#if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME\nusing Rql;\n#endif\n")
-        self.assertEqual([(2, "Rql", "#if TOOLS")], [p[:3] for p in packages])
-        _, packages, _ = scan("#if TOOLS\nusing Rql;\n#endif\n")
+    def test_rql_ships_in_games(self):
+        # RQL is the in-game runtime's value layer too: allowed in un-guarded code.
+        _, packages, _ = scan("using Rql;\nusing Rql.Execution;\nvar e = new global::Rql.Execution.RqlEngine();\n")
         self.assertEqual([], packages)
 
     def test_editor_api_under_the_opt_in_guard_fails(self):

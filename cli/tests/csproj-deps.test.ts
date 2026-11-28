@@ -455,7 +455,7 @@ describe('addAddonPackageReferences — in-game code execution opt-in (GodotMcpC
     expect(text).toContain('<PackageReference Include="com.IvanMurzak.CodeExec" Version="0.2.1" />');
   });
 
-  it('the built-in pins write Code-Exec and Roslyn with the in-game condition, RQL editor-only', () => {
+  it('the built-in pins write Code-Exec and Roslyn with the in-game condition, RQL in every build', () => {
     const { text } = addAddonPackageReferences(FRESH_CSPROJ);
     const inGameRefs = ADDON_PACKAGE_REFERENCES.filter((r) => r.inGameOptIn);
     expect(inGameRefs.map((r) => r.id)).toEqual(['com.IvanMurzak.CodeExec', 'com.IvanMurzak.CodeExec.Roslyn', 'Microsoft.CodeAnalysis.CSharp']);
@@ -463,7 +463,14 @@ describe('addAddonPackageReferences — in-game code execution opt-in (GodotMcpC
       expect(text).toContain(`<PackageReference Include="${ref.id}" Version="${ref.version}" ${inGame} />`);
     }
     const rql = ADDON_PACKAGE_REFERENCES.find((r) => r.id === 'com.IvanMurzak.Rql');
-    expect(text).toContain(`Include="com.IvanMurzak.Rql" Version="${rql?.version}" ${editorOnly}`);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.Rql" Version="${rql?.version}" />`);
+  });
+
+  it('drops the editor-only condition an older install wrote on RQL (it ships in games now)', () => {
+    const rqlPin = ADDON_PACKAGE_REFERENCES.find((r) => r.id === 'com.IvanMurzak.Rql')!;
+    const before = csproj(`<PackageReference Include="com.IvanMurzak.Rql" Version="${rqlPin.version}" ${editorOnly} />`);
+    const { text } = addAddonPackageReferences(before, [rqlPin]);
+    expect(text).toContain(`<PackageReference Include="com.IvanMurzak.Rql" Version="${rqlPin.version}" />`);
   });
 });
 
