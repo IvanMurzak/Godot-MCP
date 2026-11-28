@@ -130,6 +130,27 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("nope is not a parameter", text);
         }
 
+        // net8 CI: another test had loaded a copy of this assembly into its own load context, so every method was found twice.
+        [Fact]
+        public void ACopyOfTheAssemblyInAnotherLoadContextIsOneMatch()
+        {
+            var context = new System.Runtime.Loader.AssemblyLoadContext("reflection-call-copy", isCollectible: true);
+            try
+            {
+                using (var file = System.IO.File.OpenRead(typeof(ReflectionCallTarget).Assembly.Location))
+                    context.LoadFromStream(file);
+                com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearAssemblyTypeCache();
+                var (status, text) = Call(Tools(), Tool_Reflection.ReflectionMethodCallToolId, Args("Scale", "\"inputParameters\": \"{at: [1, 2, 3]}\""));
+                Assert.True(status == ResponseStatus.Success, text);
+                Assert.Equal("(2, 4, 6)", text);
+            }
+            finally
+            {
+                context.Unload();
+                com.IvanMurzak.ReflectorNet.Utils.TypeUtils.ClearAssemblyTypeCache();
+            }
+        }
+
         [Fact]
         public void AVoidMethodReportsSuccess()
         {

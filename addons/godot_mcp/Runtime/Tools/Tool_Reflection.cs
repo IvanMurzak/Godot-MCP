@@ -142,7 +142,13 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     .OrderByDescending(entry => entry.MatchLevel)
                     .Select(entry => entry.Method);
 
-            return methodEnumerable;
+            // The same assembly loaded twice (a copy in another load context, e.g. one still unloading after a C# reload) lists
+            // every method twice: one method is one match, the copy in the default context first.
+            return methodEnumerable
+                .GroupBy(method => (method.DeclaringType!.AssemblyQualifiedName, method.ToString()))
+                .Select(copies => copies
+                    .OrderBy(method => System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(method.Module.Assembly) == System.Runtime.Loader.AssemblyLoadContext.Default ? 0 : 1)
+                    .First());
         }
 
         public static class Error
