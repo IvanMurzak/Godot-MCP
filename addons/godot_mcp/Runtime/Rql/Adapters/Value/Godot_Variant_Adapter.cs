@@ -18,11 +18,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>
     /// Variant (the elements of Godot arrays and dictionaries, Variant-typed C# members and tool parameters): shown as the
     /// value it holds; any RQL value is accepted where a Variant is expected (lists and object literals become Godot arrays
-    /// and dictionaries, a whole number an int as in GDScript: <c>42</c> is Int, <c>42.5</c> Float).
+    /// and dictionaries; a whole number on its own is an int as in GDScript, <c>42</c> Int, <c>42.5</c> Float — numbers inside a
+    /// list or map stay Float, like every other Variant conversion).
     /// </summary>
     public sealed class Godot_Variant_Adapter : RqlTypeAdapter<Variant>
     {
-        public override string Description => "Variant: any value (number — a whole one is an int —, text, bool, vector, color, object, list, map)";
+        public override string Description => "Variant: any value (number — a whole number on its own is an int —, text, bool, vector, color, object, list, map)";
 
         protected override JsonNode? Encode(Variant value, EncodeContext context) => context.EncodeValue(GodotVariants.ToClr(value));
 
