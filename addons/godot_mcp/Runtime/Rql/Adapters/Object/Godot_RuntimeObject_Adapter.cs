@@ -32,14 +32,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
         protected override bool? Alive(GodotObject o) => GodotObject.IsInstanceValid(o);
 
         /// <summary>
-        /// <c>id</c> is the identity member, so a Godot object in a result reads as its reference (<c>{$ref: Node3D#12, name: …}</c>,
-        /// the form <c>ref("Node3D#12")</c> takes back) instead of every C# member (Multiplayer peers, StringName internals …).
+        /// A Godot class (Node3D, StandardMaterial3D …): <c>id</c> is its identity, so in a result it reads as its reference
+        /// (<c>{$ref: Node3D#12, name: …}</c>, the form <c>ref("Node3D#12")</c> takes back) instead of every C# member
+        /// (Multiplayer peers, StringName internals …). A project's own class (a script node, a data Resource) keeps its own
+        /// members, written out in a result (a game has no query tool to read them otherwise); only the engine's are hidden.
         /// </summary>
         protected override void Members(MemberTable<GodotObject> m)
         {
             m.Add<ulong>("id", o => o.GetInstanceId(), description: "Godot instance id (the number in $ref)")
              .Add<string>("class", o => o.GetClass(), description: "Godot class name, e.g. \"OmniLight3D\"")
              .Add<string?>("name", o => NameOf(o), description: "a node's name, a resource's path (or its name)");
+            // The table's type is the one its virtual members are declared on (MemberTable does not expose it).
+            Type? type = null;
+            m.HideWhere(member => { if (member.Name == "id" && member.Member == null) type = member.DeclaringType; return false; });
+            var godot = typeof(GodotObject).Assembly;
+            if (type != null && type.Assembly != godot)
+            {
+                m.HideWhere(member => member.Member?.DeclaringType?.Assembly == godot);
+                return;
+            }
             // The C# Name is a StringName; "name" reads it as text (and the two names would clash case-insensitively).
             m.HideWhere(member => member.Name == "Name" && member.Type == typeof(StringName));
             m.Identity("id");

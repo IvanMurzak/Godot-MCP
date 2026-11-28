@@ -36,6 +36,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         public List<Vector2>? Path;
     }
 
+    public partial class RuntimePlayerStats : Resource { public int Health = 10; public float Mana { get; set; } }
+
+    public partial class RuntimeEnemyNode : Node3D { public int Health = 3; }
+
     public static class RuntimeBindingTestTools
     {
         public static RuntimeSpawnSpec Spawn(RuntimeSpawnSpec spec, int count = 1)
@@ -189,6 +193,20 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal("id", info.IdMember?.Name);
             Assert.Equal("name", info.DisplayMember?.Name);
             Assert.DoesNotContain(info.Members, m => m.Name == "Name");
+        }
+
+        // A project's own Godot class (a data Resource, a script node) keeps its fields in a result: a game has no query tool.
+        [Theory]
+        [InlineData(AccessorMode.Compiled, typeof(RuntimePlayerStats))]
+        [InlineData(AccessorMode.Reflection, typeof(RuntimePlayerStats))]
+        [InlineData(AccessorMode.Reflection, typeof(RuntimeEnemyNode))]
+        public void AProjectsOwnGodotClassKeepsItsMembers(AccessorMode accessors, System.Type type)
+        {
+            var info = GodotRqlRuntime.CreateEngine(accessors).Types.Info(type);
+            Assert.Null(info.IdMember);
+            Assert.Contains(info.Members, m => m.Name == "Health");
+            Assert.Contains(info.Members, m => m.Name == "id");
+            Assert.DoesNotContain(info.Members, m => m.Name == "Multiplayer" || m.Name == "ResourcePath" || m.Name == "Name");
         }
 
         [Theory]
