@@ -320,7 +320,11 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
                     if (response.StructuredContent == null) return null;
                     var node = response.StructuredContent is JsonObject o && o.Count == 1 && o.ContainsKey("result") ? o["result"] : response.StructuredContent;
                     response.StructuredContent = null;
-                    response.Content = new List<ContentBlock> { Text(_compact.Render(node)) };
+                    // The rendered text replaces the text blocks only: image / audio / resource blocks are kept, in order.
+                    var content = new List<ContentBlock> { Text(_compact.Render(node)) };
+                    if (response.Content != null)
+                        content.AddRange(response.Content.Where(c => c.Type != com.IvanMurzak.McpPlugin.Common.Consts.ContentType.Text));
+                    response.Content = content;
                     return response;
                 case string s:
                     return ResponseCallTool.Success(s);

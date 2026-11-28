@@ -207,6 +207,34 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void StructuredResultsKeepTheirNonTextBlocks()
+        {
+            var method = typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!;
+            var response = ResponseCallTool.Image(new byte[] { 1, 2, 3 }, McpPlugin.Common.Consts.MimeType.ImagePng, "ignored");
+            response.StructuredContent = System.Text.Json.Nodes.JsonNode.Parse("{\"result\": {\"width\": 4}}")!;
+            var shown = RqlToolBinding.Instance.Result(method, response)!;
+
+            Assert.Equal(McpPlugin.Common.Consts.ContentType.Text, shown.Content[0].Type);
+            Assert.Contains("width", shown.Content[0].Text);
+            Assert.DoesNotContain(shown.Content, c => c.Text == "ignored");
+            var image = Assert.Single(shown.Content, c => c.Type != McpPlugin.Common.Consts.ContentType.Text);
+            Assert.Equal(McpPlugin.Common.Consts.MimeType.ImagePng, image.MimeType);
+            Assert.Null(shown.StructuredContent);
+        }
+
+        [Fact]
+        public void ResultsWithoutStructuredContentPassThroughUnchanged()
+        {
+            var method = typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!;
+            var response = ResponseCallTool.Image(new byte[] { 1, 2, 3 }, McpPlugin.Common.Consts.MimeType.ImagePng, "caption");
+            var before = response.Content.ToList();
+
+            Assert.Null(RqlToolBinding.Instance.Result(method, response));
+            Assert.Equal(before, response.Content);
+            Assert.Contains(response.Content, c => c.MimeType == McpPlugin.Common.Consts.MimeType.ImagePng);
+        }
+
+        [Fact]
         public void ScriptExecuteResultShowsTheValueThenTheOutput()
         {
             var method = typeof(RqlBindingTestTools).GetMethod(nameof(RqlBindingTestTools.Items))!;
