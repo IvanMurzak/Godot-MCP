@@ -107,8 +107,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) csharp-exec.
-        /// <summary>DEV-314: the description of the hidden <c>csharp-exec</c> alias. Remove in 0.45.0.</summary>
-        internal const string AliasDescription = "Deprecated alias of csharp-exec (same arguments, same result): call csharp-exec.";
         internal const string SkillSnippetModeTail =
             " Own `using` lines, local classes and functions are allowed; " +
             "`await` works. Usings for System, LINQ and Godot are already there; an unknown type name (also one of the game's own " +

@@ -99,6 +99,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var plugin = new com.IvanMurzak.McpPlugin.McpPluginBuilder(new com.IvanMurzak.McpPlugin.Common.Version())
                 .WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_GameScript))
                 .Build(new com.IvanMurzak.ReflectorNet.Reflector());
+            Assert.Equal(1, com.IvanMurzak.Godot.MCP.Tools.DeprecatedToolAliases.Register(plugin.McpManager.ToolManager, new com.IvanMurzak.ReflectorNet.Reflector()));
             try
             {
                 RqlTools.Manager = plugin.McpManager.ToolManager;

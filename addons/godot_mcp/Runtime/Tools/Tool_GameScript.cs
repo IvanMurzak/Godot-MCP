@@ -10,7 +10,6 @@
 // The editor and a game built with the in-game opt-in (GODOT_MCP_CODE_EXEC_IN_GAME, docs/ARCHITECTURE.md).
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
 #nullable enable
-using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
@@ -31,9 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public sealed class Tool_GameScript
     {
-        public const string CsharpExecToolId = "csharp-exec";
-        /// <summary>DEV-314: the old id of <see cref="CsharpExecToolId"/>, a hidden alias. Remove in 0.45.0.</summary>
-        public const string ScriptExecuteAliasToolId = DeprecatedToolAliases.ScriptExecute;
+        public const string CsharpExecToolId = DeprecatedToolAliases.CsharpExec;
         const string CsharpExecTitle = "C# / Exec (in game)";
 
         [AiTool
@@ -89,61 +86,31 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
 
         /// <summary>
-        /// DEV-314: the old id <c>script-execute</c>, kept as a HIDDEN alias of <see cref="Execute"/> (not listed, still
-        /// callable) so saved permissions and prompts keep working. Remove in 0.45.0 with <see cref="DeprecatedToolAliases"/>.
-        /// </summary>
-        [Obsolete("DEV-314: hidden alias 'script-execute' of csharp-exec. Remove in 0.45.0.")]
-        [AiTool(ScriptExecuteAliasToolId, Title = CsharpExecTitle, ReadOnlyHint = false, DestructiveHint = true,
-            IdempotentHint = false, OpenWorldHint = true, Visible = false)]
-        [Description(ScriptExecuteSource.AliasDescription)]
-        public Task<ScriptExecuteResult> ExecuteDeprecatedAlias
-        (
-            [Description("C# code.")] string csharpCode,
-            [Description(ScriptExecuteSource.ClassNameDescription)] string className = "Script",
-            [Description(ScriptExecuteSource.MethodNameDescription)] string methodName = "Main",
-            [Description(ScriptExecuteSource.ParametersDescription)] SerializedMemberList? parameters = null,
-            [Description(ScriptExecuteSource.IsMethodBodyDescription)] bool isMethodBody = false,
-            [Description(ScriptExecuteSource.UsingsDescription)] string[]? usings = null,
-            [Description("Helper .cs files or folders compiled with the code, relative to .ai-game-dev/snippets.")] string[]? include = null,
-            [Description(ScriptExecuteSource.TimeoutDescription)] int timeout = ScriptExecuteSource.DefaultTimeoutSeconds
-        )
-            => Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
-
-        /// <summary>
-        /// Makes THIS tool the plugin's <c>csharp-exec</c> (and its hidden alias <c>script-execute</c>). A game that also
-        /// registers the addon assembly (<c>WithToolsFromAssembly</c>) in an editor build (<c>TOOLS</c>, e.g. a game started
-        /// from the editor) gets the editor <c>Tool_Script.Execute</c> from that scan, and McpPlugin processes the scan after
-        /// the explicit types (the last registration of a name wins). Returns true when it replaced another runner.
+        /// Makes THIS tool the plugin's <c>csharp-exec</c>. A game that also registers the addon assembly
+        /// (<c>WithToolsFromAssembly</c>) in an editor build (<c>TOOLS</c>, e.g. a game started from the editor) gets the
+        /// editor <c>Tool_Script.Execute</c> from that scan, and McpPlugin processes the scan after the explicit types (the
+        /// last registration of a name wins). Returns true when it replaced another runner. The hidden alias
+        /// <c>script-execute</c> follows with <see cref="DeprecatedToolAliases.Register"/>.
         /// </summary>
         internal static bool EnsureRegistered(IToolManager? tools, Reflector reflector)
         {
             if (tools == null)
                 return false;
-            var replaced = EnsureRegistered(tools, reflector, CsharpExecToolId, nameof(Execute));
-#pragma warning disable CS0618 // DEV-314: the hidden alias is registered on purpose until 0.45.0.
-            replaced |= EnsureRegistered(tools, reflector, ScriptExecuteAliasToolId, nameof(ExecuteDeprecatedAlias));
-#pragma warning restore CS0618
-            return replaced;
-        }
-
-        static bool EnsureRegistered(IToolManager tools, Reflector reflector, string toolId, string methodName)
-        {
-            var current = tools.GetAllTools().FirstOrDefault(t => t.Name == toolId);
+            var current = tools.GetAllTools().FirstOrDefault(t => t.Name == CsharpExecToolId);
             if (current is RunTool { Method: var method } && method.DeclaringType == typeof(Tool_GameScript))
                 return false;
             if (current != null)
-                tools.RemoveTool(toolId);
-            var execute = typeof(Tool_GameScript).GetMethod(methodName)!;
-            // The [AiTool] attribute stays the one source of the title, the MCP hints and the visibility.
+                tools.RemoveTool(CsharpExecToolId);
+            var execute = typeof(Tool_GameScript).GetMethod(nameof(Execute))!;
+            // The [AiTool] attribute stays the one source of the title and the MCP hints.
             var attribute = execute.GetCustomAttribute<AiToolAttribute>()!;
-            tools.AddTool(toolId, RunTool.CreateFromClassMethod(
-                reflector, logger: null, toolId, typeof(Tool_GameScript), execute,
+            tools.AddTool(CsharpExecToolId, RunTool.CreateFromClassMethod(
+                reflector, logger: null, CsharpExecToolId, typeof(Tool_GameScript), execute,
                 title: attribute.Title,
                 readOnlyHint: attribute.ReadOnlyHintValue,
                 destructiveHint: attribute.DestructiveHintValue,
                 idempotentHint: attribute.IdempotentHintValue,
-                openWorldHint: attribute.OpenWorldHintValue,
-                visible: attribute.VisibleValue));
+                openWorldHint: attribute.OpenWorldHintValue));
             return current != null;
         }
     }

@@ -181,6 +181,8 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             if (builder.ToolTypes.Contains(typeof(Tools.Tool_GameScript)))
                 Tools.Tool_GameScript.EnsureRegistered(plugin.McpManager?.ToolManager, reflector);
 #endif
+            // DEV-314: old tool ids as hidden aliases of the final tools (script-execute of csharp-exec). Remove in 0.45.0.
+            Tools.DeprecatedToolAliases.Register(plugin.McpManager?.ToolManager, reflector);
 
             // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
             //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the

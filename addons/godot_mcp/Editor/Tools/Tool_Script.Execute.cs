@@ -21,14 +21,11 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     public partial class Tool_Script
     {
         public const string CsharpExecToolId = Tool_GameScript.CsharpExecToolId;
-        /// <summary>DEV-314: the old id of <see cref="CsharpExecToolId"/>, a hidden alias. Remove in 0.45.0.</summary>
-        public const string ScriptExecuteAliasToolId = Tool_GameScript.ScriptExecuteAliasToolId;
-        const string CsharpExecTitle = "C# / Exec";
 
         [AiTool
         (
             CsharpExecToolId,
-            Title = CsharpExecTitle,
+            Title = "C# / Exec",
             ReadOnlyHint = false,
             DestructiveHint = true,
             IdempotentHint = false,
@@ -75,27 +72,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             int timeout = ScriptExecuteSource.DefaultTimeoutSeconds
         )
             => ScriptExecutor.Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
-
-        /// <summary>
-        /// DEV-314: the old id <c>script-execute</c>, kept as a HIDDEN alias of <see cref="Execute"/> (not listed, still
-        /// callable) so saved permissions and prompts keep working. Remove in 0.45.0 with <see cref="DeprecatedToolAliases"/>.
-        /// </summary>
-        [Obsolete("DEV-314: hidden alias 'script-execute' of csharp-exec. Remove in 0.45.0.")]
-        [AiTool(ScriptExecuteAliasToolId, Title = CsharpExecTitle, ReadOnlyHint = false, DestructiveHint = true,
-            IdempotentHint = false, OpenWorldHint = true, Visible = false)]
-        [Description(ScriptExecuteSource.AliasDescription)]
-        public Task<ScriptExecuteResult> ExecuteDeprecatedAlias
-        (
-            [Description("C# code.")] string csharpCode,
-            [Description(ScriptExecuteSource.ClassNameDescription)] string className = "Script",
-            [Description(ScriptExecuteSource.MethodNameDescription)] string methodName = "Main",
-            [Description(ScriptExecuteSource.ParametersDescription)] SerializedMemberList? parameters = null,
-            [Description(ScriptExecuteSource.IsMethodBodyDescription)] bool isMethodBody = false,
-            [Description(ScriptExecuteSource.UsingsDescription)] string[]? usings = null,
-            [Description("Helper .cs files or folders compiled with the code, relative to <project>/.ai-game-dev/snippets.")] string[]? include = null,
-            [Description(ScriptExecuteSource.TimeoutDescription)] int timeout = ScriptExecuteSource.DefaultTimeoutSeconds
-        )
-            => Execute(csharpCode, className, methodName, parameters, isMethodBody, usings, include, timeout);
     }
 }
 #endif

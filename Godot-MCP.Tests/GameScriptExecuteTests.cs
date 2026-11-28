@@ -91,14 +91,41 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(attribute.IdempotentHintValue, registered.IdempotentHint);
             Assert.Equal(attribute.OpenWorldHintValue, registered.OpenWorldHint);
 
-            // The hidden alias is replaced too, and stays hidden.
-            Assert.Equal(typeof(Tool_GameScript), Winner(tools, Tool_GameScript.ScriptExecuteAliasToolId));
-            Assert.False(tools.IsToolVisible(Tool_GameScript.ScriptExecuteAliasToolId));
-
             Assert.False(Tool_GameScript.EnsureRegistered(tools, reflector));
             Assert.Single(tools.GetAllTools(), t => t.Name == Tool_GameScript.CsharpExecToolId);
-            Assert.Single(tools.GetAllTools(), t => t.Name == Tool_GameScript.ScriptExecuteAliasToolId);
         }
+
+        [Fact]
+        public void AliasRegistration_FollowsTheWinnerOfTheNewId()
+        {
+            // DEV-314: the hidden alias runs whatever csharp-exec runs, also after EnsureRegistered replaced the scanned one.
+            var reflector = new Reflector();
+            var plugin = new McpPluginBuilder(new McpVersion())
+                .WithTools(typeof(Tool_GameScript))
+                .WithToolsFromAssembly(new[] { typeof(ScannedEditorScript).Assembly })
+                .Build(reflector);
+            var tools = plugin.McpManager.ToolManager!;
+            Assert.Equal(1, DeprecatedToolAliases.Register(tools, reflector));
+            Assert.Equal(typeof(ScannedEditorScript), Winner(tools, Alias));
+
+            Tool_GameScript.EnsureRegistered(tools, reflector);
+            Assert.Equal(1, DeprecatedToolAliases.Register(tools, reflector));
+            Assert.Equal(typeof(Tool_GameScript), Winner(tools, Alias));
+            Assert.Single(tools.GetAllTools(), t => t.Name == Alias);
+            Assert.False(tools.IsToolVisible(Alias));
+        }
+
+        [Fact]
+        public void AliasRegistration_SkipsAMissingTool()
+        {
+            var reflector = new Reflector();
+            var tools = new McpPluginBuilder(new McpVersion()).Build(reflector).McpManager.ToolManager!;
+            Assert.Equal(0, DeprecatedToolAliases.Register(tools, reflector));
+            Assert.Equal(0, DeprecatedToolAliases.Register(null, reflector));
+            Assert.DoesNotContain(tools.GetAllTools(), t => t.Name == Alias);
+        }
+
+        const string Alias = DeprecatedToolAliases.ScriptExecute;
 
         [Fact]
         public async Task OldId_IsAHiddenAliasThatRunsTheSameTool()
@@ -107,26 +134,26 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var reflector = new Reflector();
             var plugin = new McpPluginBuilder(new McpVersion()).WithTools(typeof(Tool_GameScript)).Build(reflector);
             var tools = plugin.McpManager.ToolManager!;
+            DeprecatedToolAliases.Register(tools, reflector);
 
-            Assert.Equal("script-execute", Tool_GameScript.ScriptExecuteAliasToolId);
+            Assert.Equal("script-execute", Alias);
             Assert.True(tools.IsToolVisible(Tool_GameScript.CsharpExecToolId));
-            Assert.False(tools.IsToolVisible(Tool_GameScript.ScriptExecuteAliasToolId));
+            Assert.False(tools.IsToolVisible(Alias));
             var listed = (await tools.RunListTool(new RequestListTool())).Value!;
             Assert.True(listed.Single(t => t.Name == Tool_GameScript.CsharpExecToolId).Visible);
-            Assert.False(listed.Single(t => t.Name == Tool_GameScript.ScriptExecuteAliasToolId).Visible);
+            Assert.False(listed.Single(t => t.Name == Alias).Visible);
 
-            var alias = (RunTool)tools.GetAllTools().Single(t => t.Name == Tool_GameScript.ScriptExecuteAliasToolId);
+            var alias = (RunTool)tools.GetAllTools().Single(t => t.Name == Alias);
             var tool = (RunTool)tools.GetAllTools().Single(t => t.Name == Tool_GameScript.CsharpExecToolId);
-            Assert.Equal(
-                tool.Method.GetParameters().Select(p => (p.Name, p.ParameterType, p.DefaultValue?.ToString())),
-                alias.Method.GetParameters().Select(p => (p.Name, p.ParameterType, p.DefaultValue?.ToString())));
-            Assert.Equal(tool.Method.ReturnType, alias.Method.ReturnType);
-            Assert.Equal(Tool_GameScript.CsharpExecToolId, DeprecatedToolAliases.NewNameByAlias[Tool_GameScript.ScriptExecuteAliasToolId]);
+            Assert.Same(tool.Method, alias.Method);
+            Assert.Equal(tool.Title, alias.Title);
+            Assert.Equal(tool.DestructiveHint, alias.DestructiveHint);
+            Assert.Equal(Tool_GameScript.CsharpExecToolId, DeprecatedToolAliases.NewNameByAlias[Alias]);
 
             // tools/call reaches it: a missing tool answers "not found", the alias runs the executor (here: its empty-code check,
             // which needs no Godot main thread).
             var args = new Dictionary<string, JsonElement> { ["csharpCode"] = JsonDocument.Parse("\"\"").RootElement };
-            var call = await tools.RunCallTool(new RequestCallTool(Tool_GameScript.ScriptExecuteAliasToolId, args));
+            var call = await tools.RunCallTool(new RequestCallTool(Alias, args));
             Assert.Contains("'csharpCode' is null or empty", call.Message);
             var missing = await tools.RunCallTool(new RequestCallTool("no-such-tool", args));
             Assert.Contains("Tool with Name 'no-such-tool' not found", missing.Message);
@@ -167,8 +194,5 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     {
         [AiTool("csharp-exec")]
         public string Execute(string csharpCode) => csharpCode;
-
-        [AiTool("script-execute", Visible = false)]
-        public string ExecuteDeprecatedAlias(string csharpCode) => csharpCode;
     }
 }
