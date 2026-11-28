@@ -13,9 +13,13 @@ export function isRetiredSkillName(name: string): boolean {
 }
 const APP_SKILL_DESCRIPTION = "AI Game Dev App: image, texture, 3D model, audio and video generation; animation, rigging, Blender, music and sound effects. Consult when a game-development task needs creative tools unavailable in the current environment, or an integrated workflow for Unity, Unreal Engine or Godot.";
 const CLI_SKILL_DESCRIPTION = `Godot editor work with ${CLI_NAME} (scenes, nodes, resources): read before the first editor command. Not needed to edit scripts: \`${CLI_NAME} check\` lists file:line errors.`;
+/**
+ * Front matter of every guide. Both are knowledge, not copies of a tool's tools/list entry, so the App shows them to
+ * its agent (`include`); only the addon's per-tool skills carry `exclude`.
+ */
 export const SKILL_METADATA = {
   'generated-by': 'godot-mcp',
-  'ai-game-dev': 'exclude',
+  'ai-game-dev': 'include',
 } as const;
 
 function skillMetadataLines(): string[] {

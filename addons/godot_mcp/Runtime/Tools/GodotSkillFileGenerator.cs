@@ -19,6 +19,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// <summary>Adds references to the standalone CLI and companion-app guides.</summary>
     public class GodotSkillFileGenerator : SkillFileGenerator
     {
+        /// <summary>
+        /// The front matter of every generated SKILL.md. The App's agent reads <c>ai-game-dev</c>: a tool's skill
+        /// duplicates its tools/list entry, so it is hidden there (<c>exclude</c>); standalone knowledge skills
+        /// (<c>godot-rql</c>, <c>godot-cli-install</c>, <c>ai-game-dev-app</c>) are shown (<c>include</c>).
+        /// </summary>
+        public static void ApplySkillMetadata(ConnectionConfig config)
+        {
+            config.SkillMetadata["generated-by"] = "godot-mcp";
+            config.ToolSkillMetadata["ai-game-dev"] = "exclude";
+            config.StandaloneSkillMetadata["ai-game-dev"] = "include";
+        }
+
         public override bool IncludeAuthorizationExample => false;
         protected virtual bool UsePowerShell => Skill_Cli.IsWindows;
 
