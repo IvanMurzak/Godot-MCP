@@ -159,6 +159,45 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("RuntimeSpawnSpec", text);
         }
 
+        // The harness's live 'variant number' case: a whole RQL number becomes a Variant Int, as a GDScript literal 42 would.
+        [Theory]
+        [InlineData(42.0, 42L)]
+        [InlineData(-3.0, -3L)]
+        [InlineData(42.5, 42.5)]
+        public void AWholeNumberForAVariantIsAnInt(double value, object expected) =>
+            Assert.Equal(expected, com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.Godot_Variant_Adapter.Input(value));
+
+        [Fact]
+        public void TextAndOtherValuesForAVariantAreUnchanged()
+        {
+            Assert.Equal("42", com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.Godot_Variant_Adapter.Input("42"));
+            Assert.Equal(true, com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.Godot_Variant_Adapter.Input(true));
+            Assert.Equal(1e20, com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.Godot_Variant_Adapter.Input(1e20)); // past a long: stays a float
+        }
+
+        // The harness's live 'node result' case: an object with an identity (a Godot object in a game) returned by a tool
+        // reads as its members, never as an empty "Success".
+        [Theory]
+        [InlineData(AccessorMode.Compiled)]
+        [InlineData(AccessorMode.Reflection)]
+        public void AnObjectResultWithAnIdentityIsPresented(AccessorMode accessors)
+        {
+            var engine = GodotRqlRuntime.CreateEngine(accessors);
+            engine.AddAdapter(new IdentifiedAdapter());
+            var binding = new RqlToolBinding(() => engine, mainThread: null);
+            var method = typeof(RuntimeBindingTestTools).GetMethod(nameof(RuntimeBindingTestTools.Spawn))!;
+            var text = string.Join("\n", binding.Result(method, new Identified())!.Content.Select(c => c.Text));
+            Assert.Contains("class:Node3D", text);
+        }
+
+        public sealed class Identified { public string Label = "x"; }
+
+        private sealed class IdentifiedAdapter : RqlTypeAdapter<Identified>
+        {
+            protected override string? Id(Identified o) => "12";
+            protected override void Members(MemberTable<Identified> m) => m.Add<string>("class", o => "Node3D");
+        }
+
         [Fact]
         public void TheAccessorModeFollowsDynamicCodeSupport() =>
             Assert.Equal(System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported ? AccessorMode.Compiled : AccessorMode.Reflection,

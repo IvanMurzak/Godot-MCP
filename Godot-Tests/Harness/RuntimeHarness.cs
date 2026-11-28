@@ -297,17 +297,21 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             $"{spec.Name}|{spec.Position}|{spec.Target?.Name}|{(spec.Anchor == null ? "" : spec.Anchor.InstanceId.ToString())}";
 
         // A Variant argument (issue #292: never a silent Nil) written into a project setting and read back.
-        public static string HarnessVariant(Variant value)
+        public static string HarnessVariant(Variant value) => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(() =>
         {
             const string setting = "application/config/godot_mcp_harness_probe";
             ProjectSettings.SetSetting(setting, value);
             var back = ProjectSettings.GetSetting(setting);
             ProjectSettings.SetSetting(setting, default(Variant)); // leave no residue
             return $"{back.VariantType}:{back}";
-        }
+        });
 
-        public static Node3D? HarnessFind(string name) =>
-            ((SceneTree)Engine.GetMainLoop()).CurrentScene?.FindChild(name, recursive: true, owned: false) as Node3D;
+        // Tool methods run on the MCP call's thread: the scene tree is read on the main thread (off it Godot returns null).
+        public static Node3D? HarnessFind(string name) => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(() =>
+        {
+            var tree = (SceneTree)Engine.GetMainLoop();
+            return (tree.CurrentScene ?? tree.Root).FindChild(name, recursive: true, owned: false) as Node3D;
+        });
 
         const string RqlHarnessTargetName = "RqlHarnessTarget";
 

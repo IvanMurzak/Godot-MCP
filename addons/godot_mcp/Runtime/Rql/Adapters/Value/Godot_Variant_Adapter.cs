@@ -16,13 +16,13 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
     /// <summary>
-    /// Variant (the elements of Godot arrays and dictionaries, Variant-typed C# members): shown as the value it holds;
-    /// any RQL value is accepted where a Variant is expected (lists and object literals become Godot arrays and
-    /// dictionaries).
+    /// Variant (the elements of Godot arrays and dictionaries, Variant-typed C# members and tool parameters): shown as the
+    /// value it holds; any RQL value is accepted where a Variant is expected (lists and object literals become Godot arrays
+    /// and dictionaries, a whole number an int as in GDScript: <c>42</c> is Int, <c>42.5</c> Float).
     /// </summary>
     public sealed class Godot_Variant_Adapter : RqlTypeAdapter<Variant>
     {
-        public override string Description => "Variant: any value (number, text, bool, vector, color, object, list, map)";
+        public override string Description => "Variant: any value (number — a whole one is an int —, text, bool, vector, color, object, list, map)";
 
         protected override JsonNode? Encode(Variant value, EncodeContext context) => context.EncodeValue(GodotVariants.ToClr(value));
 
@@ -33,7 +33,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (target != typeof(Variant)) return AdapterOutcome.NotHandled;
             try
             {
-                result = GodotVariants.ToVariant(value);
+                result = GodotVariants.ToVariant(Input(value));
                 return AdapterOutcome.Ok;
             }
             catch (ArgumentException ex)
@@ -42,6 +42,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 return AdapterOutcome.Failed;
             }
         }
+
+        /// <summary>
+        /// The CLR value a Variant is made from: RQL numbers are doubles, and a whole one becomes a long (Variant Int), as a
+        /// GDScript literal 42 would; anything else is unchanged. Pure (unit-tested; making the Variant needs Godot).
+        /// </summary>
+        internal static object? Input(object? value) =>
+            value is double d && Math.Floor(d) == d && Math.Abs(d) < 9e15 ? (long)d : value;
 
         protected override void Members(MemberTable<Variant> m) => m.HideWhere(member => member.Name != "VariantType" && member.Name != "Obj");
     }
