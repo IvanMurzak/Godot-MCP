@@ -75,7 +75,7 @@ connection चलाने से एक **remote-control surface** खुलत
   `AuthOption = Consts.MCP.Server.AuthOption.token` और असली token के साथ enable करें — release build में
   unauthenticated public interface पर कभी नहीं।
 
-<a id="in-game-code-execution-withscriptexecute"></a>
+<a id="in-game-code-execution-withcsharpexec"></a>
 ## In-game code execution (`WithCsharpExec`)
 
 `builder.WithCsharpExec()` game में `csharp-exec` register करता है: connected client C# भेजता है, game

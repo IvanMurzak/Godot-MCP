@@ -44,7 +44,7 @@ Godot-MCP 不仅能在编辑器中运行，还能**在运行中 / 已导出的�
 - **不要在发布的二进制文件中嵌入长期有效的机密。** 优先从环境变量读取 `GODOT_MCP_TOKEN`，而不是硬编码 `config.Token`，这样令牌就无法从构建中提取出来。
 - **仅在可信连接上启用运行时错误捕获。** `builder.WithRuntimeErrorCapture()` **默认关闭**。启用后，捕获的错误会通过 `runtime-errors-get` 工具把**完整**消息以及（对于 C# 故障）**完整的托管堆栈跟踪**转发给已连接的智能体。这些字符串可能包含敏感的运行时数据——绝对文件系统路径、机器名/用户名、查询字符串，或者出现在异常消息或参数中的机密/令牌。这正是其预期的诊断价值，但也扩大了经由连接暴露的数据范围。仅在回环主机上、使用 `AuthOption = Consts.MCP.Server.AuthOption.token` 和真实令牌时启用——绝不要在 release 构建中于未认证的公共接口上启用。
 
-<a id="in-game-code-execution-withscriptexecute"></a>
+<a id="in-game-code-execution-withcsharpexec"></a>
 ## 游戏内代码执行（`WithCsharpExec`）
 
 `builder.WithCsharpExec()` 在游戏中注册 `csharp-exec`：已连接的客户端发送 C#，游戏用 Roslyn 编译并在其主线程上运行。这是**在游戏进程中的任意代码执行**，拥有玩家的文件系统和网络访问权限。它默认关闭，且需要在构建时启用：只有当导出游戏的 `.csproj` 设置了 `GodotMcpCodeExecInGame=true` 并定义了 `GODOT_MCP_CODE_EXEC_IN_GAME` 时，导出的游戏才包含 Code-Exec 和 Roslyn（[在游戏中运行 C#](runtime.zh-CN.md#running-c-in-the-game)）。未启用时，该调用会记录一条警告且不注册任何内容。

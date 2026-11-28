@@ -98,7 +98,11 @@ export async function execCode(options: ExecCodeOptions): Promise<ExecCodeResult
   });
   let result = await call(CSHARP_EXEC_TOOL);
   // DEV-314: an addon older than the rename has only the old id. Remove in 0.45.0 with SCRIPT_EXECUTE_TOOL.
-  if (result.kind === 'failure' && isUnknownTool(result, CSHARP_EXEC_TOOL)) result = await call(SCRIPT_EXECUTE_TOOL);
+  if (result.kind === 'failure' && isUnknownTool(result, CSHARP_EXEC_TOOL)) {
+    const old = await call(SCRIPT_EXECUTE_TOOL);
+    // Neither id exists (e.g. a game without WithCsharpExec()): report the tool that was asked for.
+    if (old.kind === 'success' || !isUnknownTool(old, SCRIPT_EXECUTE_TOOL)) result = old;
+  }
   if (result.kind === 'failure') {
     return { kind: 'failure', success: false, reason: 'tool-failed', baseUrl, toolFailure: result, message: toolErrorText(result), error: result.error };
   }

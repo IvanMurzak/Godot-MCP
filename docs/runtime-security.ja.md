@@ -44,7 +44,7 @@ Godot-MCP は、エディターだけでなく**実行中 / エクスポート�
 - **配布するバイナリに長期間有効な秘密情報を埋め込まない。** ビルドからトークンを抽出されないよう、 ハードコードした `config.Token` より、環境変数の `GODOT_MCP_TOKEN` を推奨します。
 - **ランタイムエラーの捕捉は信頼できる接続でのみ有効にする。** `builder.WithRuntimeErrorCapture()` は **既定でオフ**です。有効にすると、捕捉したエラーは**完全な**メッセージと(C# の障害では)**完全なマネージド スタックトレース**を、`runtime-errors-get` ツールを通じて接続中のエージェントに転送します。これらの文字列には 機密性のあるランタイムデータ — ファイルシステムの絶対パス、マシン名やユーザー名、クエリ文字列、例外メッセージや 引数に現れた秘密情報やトークン — が含まれることがあります。それが意図した診断上の価値ですが、接続を通じて 公開されるデータの範囲は広がります。有効にするのは、ループバックホストで `AuthOption = Consts.MCP.Server.AuthOption.token` と実際のトークンを使う場合だけにしてください — リリースビルドの 認証のない公開インターフェースでは決して有効にしないでください。
 
-<a id="in-game-code-execution-withscriptexecute"></a>
+<a id="in-game-code-execution-withcsharpexec"></a>
 ## ゲーム内のコード実行(`WithCsharpExec`)
 
 `builder.WithCsharpExec()` はゲームに `csharp-exec` を登録します: 接続したクライアントが C# を送ると、ゲームは それを Roslyn でコンパイルし、メインスレッドで実行します。これは、プレイヤーのファイルシステムとネットワークへの アクセス権を持つ、**ゲームプロセス内での任意コード実行**です。既定ではオフで、ビルドでのオプトインが必要です: エクスポートしたゲームが Code-Exec と Roslyn を含むのは、その `.csproj` が `GodotMcpCodeExecInGame=true` を設定し、 `GODOT_MCP_CODE_EXEC_IN_GAME` を定義した場合だけです([ゲーム内での C# の実行](runtime.ja.md#running-c-in-the-game))。 オプトインがなければ、この呼び出しは警告をログに出し、何も登録しません。

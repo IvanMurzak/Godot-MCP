@@ -201,6 +201,18 @@ describe('ensureEditor / execCode', () => {
     expect(invoke.mock.calls.map((c) => c[0].toolName)).toEqual(['csharp-exec', 'script-execute']);
   });
 
+  it('reports csharp-exec when neither id exists', async () => {
+    const ensure = vi.fn(async () => ready('http://localhost:1234'));
+    const invoke = vi.fn(async (o: RunToolOptions): Promise<RunToolResult> => ({
+      kind: 'failure', success: false, endpoint: 'x', reason: 'http-error', httpStatus: 404,
+      data: { error: `Tool with Name '${o.toolName}' not found.` }, message: 'Not Found',
+    }));
+    const result = await execCode({ projectPath: tempProject(), url: DEAD_URL, code: '1', deps: { ensure, invoke } });
+
+    expect(result).toMatchObject({ kind: 'failure', message: "Tool with Name 'csharp-exec' not found." });
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
   it('does not retry another failure of csharp-exec', async () => {
     const ensure = vi.fn(async () => ready('http://localhost:1234'));
     const invoke = vi.fn(async (): Promise<RunToolResult> => ({

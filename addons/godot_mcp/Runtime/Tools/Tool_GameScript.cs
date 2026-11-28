@@ -30,7 +30,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public sealed class Tool_GameScript
     {
-        public const string CsharpExecToolId = DeprecatedToolAliases.CsharpExec;
+        public const string CsharpExecToolId = "csharp-exec"; // a literal: cli/src/utils/skills.ts discovers tool ids by it
         const string CsharpExecTitle = "C# / Exec (in game)";
 
         [AiTool

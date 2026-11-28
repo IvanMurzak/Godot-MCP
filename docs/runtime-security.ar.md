@@ -85,7 +85,7 @@ export GODOT_MCP_TOKEN=your-secret-token
   `AuthOption = Consts.MCP.Server.AuthOption.token` ورمز حقيقي — وليس أبدًا على واجهة عامة
   بلا مصادقة في إصدار release.
 
-<a id="in-game-code-execution-withscriptexecute"></a>
+<a id="in-game-code-execution-withcsharpexec"></a>
 ## تنفيذ الكود داخل اللعبة (`WithCsharpExec`)
 
 يسجّل `builder.WithCsharpExec()` الأداة `csharp-exec` في اللعبة: يرسل عميل متصل كود C#، فتترجمه اللعبة

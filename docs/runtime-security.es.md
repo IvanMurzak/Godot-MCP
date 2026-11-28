@@ -76,7 +76,7 @@ de ese modo. Léelo antes de publicar una compilación que llame a `GodotMcpRunt
   `AuthOption = Consts.MCP.Server.AuthOption.token` y un token real; nunca en una interfaz pública sin autenticación
   en una compilación release.
 
-<a id="in-game-code-execution-withscriptexecute"></a>
+<a id="in-game-code-execution-withcsharpexec"></a>
 ## Ejecución de código en el juego (`WithCsharpExec`)
 
 `builder.WithCsharpExec()` registra `csharp-exec` en el juego: un cliente conectado envía C#, el juego
