@@ -29,11 +29,11 @@ Godot compila todos los archivos `.cs` del proyecto en un único ensamblado, as�
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- Solo editor: los juegos exportados (ExportDebug / ExportRelease) no incluyen RQL ni Roslyn. -->
+<!-- Solo editor: los juegos exportados (ExportDebug / ExportRelease) no incluyen Roslyn. -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -47,13 +47,13 @@ Godot compila todos los archivos `.cs` del proyecto en un único ensamblado, as�
 
 | Paquete | Función |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Núcleo de reflexión y serialización |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Núcleo de reflexión: encuentra e invoca los métodos de las herramientas (dependencia de McpPlugin) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | Cliente del plugin MCP |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, la capa de datos de las herramientas del editor (PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, la capa de valores de todas las herramientas, en el editor y en un juego (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec, detrás de `csharp-exec` (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn, el compilador de C# que ejecuta `csharp-exec` |
 
-- Los cuatro paquetes solo de editor llevan una `Condition` que los excluye de las compilaciones de exportación, de modo que un juego publicado no contiene ni RQL ni Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
+- Los tres paquetes solo de editor llevan una `Condition` que los excluye de las compilaciones de exportación, de modo que un juego publicado no contiene Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)). RQL no lleva `Condition`: las herramientas del juego también lo usan. Un proyecto configurado por un `install-plugin` antiguo tiene RQL con la `Condition` solo de editor; vuelve a ejecutar `godot-cli install-plugin` (la elimina) o borra la `Condition` a mano.
 - El `<EmbeddedResource>` es obligatorio: el addon lee el catálogo desde su ensamblado, y su `LogicalName` debe ser exactamente `Godot-MCP.extensions.catalog.json`.
 - Mantén `<EnableDynamicLoading>true</EnableDynamicLoading>` en el `<PropertyGroup>` (la plantilla C# de Godot lo incluye). Sin él, los ensamblados de los paquetes no se copian junto al ensamblado del juego, y un juego iniciado desde el editor no logra crear ningún script C# ("Cannot instantiate C# script because the associated class could not be found").
 

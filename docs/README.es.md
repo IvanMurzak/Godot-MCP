@@ -96,7 +96,7 @@ godot-cli open ./MyGodotProject                       # compilar C#, iniciar el 
 
 Después pídele a tu agente: *"Crea 3 cubos en un círculo de radio 2."*
 
-Para instalar desde la pestaña **AssetLib** del editor, desde un [zip de release](https://github.com/IvanMurzak/Godot-MCP/releases/latest) o a mano, sigue [install.es.md](install.es.md): el `.csproj` del proyecto necesita entonces las referencias NuGet del addon (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin` y, solo para el editor, `com.IvanMurzak.Rql`, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` y `Microsoft.CodeAnalysis.CSharp`) en las versiones de la release que instalas.
+Para instalar desde la pestaña **AssetLib** del editor, desde un [zip de release](https://github.com/IvanMurzak/Godot-MCP/releases/latest) o a mano, sigue [install.es.md](install.es.md): el `.csproj` del proyecto necesita entonces las referencias NuGet del addon (`com.IvanMurzak.ReflectorNet`, `com.IvanMurzak.McpPlugin`, `com.IvanMurzak.Rql` y, solo para el editor, `com.IvanMurzak.CodeExec`, `com.IvanMurzak.CodeExec.Roslyn` y `Microsoft.CodeAnalysis.CSharp`) en las versiones de la release que instalas.
 
 <a id="relay"></a>
 ### Qué pasa por ai-game.dev
@@ -279,4 +279,4 @@ Relacionados: [GameDev-MCP-Server](https://github.com/IvanMurzak/GameDev-MCP-Ser
 <a id="license"></a>
 ## Licencia
 
-**Los desarrolladores de juegos pueden usarlo todo libremente, también en juegos comerciales.** Godot-MCP usa la licencia [Apache-2.0](../LICENSE). Sus dependencias del lado del editor, RQL y Code-Exec, usan la [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), que solo restringe a las empresas que crean herramientas de IA competidoras para el desarrollo de juegos.
+**Los desarrolladores de juegos pueden usarlo todo libremente, también en juegos comerciales.** Godot-MCP usa la licencia [Apache-2.0](../LICENSE). Sus dependencias RQL (editor y juego) y Code-Exec (editor) usan la [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/), que solo restringe a las empresas que crean herramientas de IA competidoras para el desarrollo de juegos.

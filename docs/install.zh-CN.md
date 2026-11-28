@@ -29,11 +29,11 @@ Godot 会把项目中的所有 `.cs` 文件编译成一个程序集，因此项�
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- 仅编辑器：导出的游戏（ExportDebug / ExportRelease）不包含 RQL 和 Roslyn。 -->
+<!-- 仅编辑器：导出的游戏（ExportDebug / ExportRelease）不包含 Roslyn。 -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -47,13 +47,13 @@ Godot 会把项目中的所有 `.cs` 文件编译成一个程序集，因此项�
 
 | 包 | 作用 |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | 反射与序列化核心 |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | 反射核心：查找并调用工具方法（McpPlugin 的依赖） |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP 插件客户端 |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL，编辑器工具的数据层（PolyForm Shield） |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL，所有工具的值层，在编辑器和游戏中均使用（PolyForm Shield） |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec，`csharp-exec` 的底层实现（PolyForm Shield） |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn，`csharp-exec` 使用的 C# 编译器 |
 
-- 四个仅编辑器使用的包带有 `Condition`，使其不进入导出构建，因此发布的游戏既不包含 RQL 也不包含 Roslyn（[ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)）。
+- 三个仅编辑器使用的包带有 `Condition`，使其不进入导出构建，因此发布的游戏不包含 Roslyn（[ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)）。RQL 没有 `Condition`：游戏内工具也会用到它。由旧版 `install-plugin` 配置的项目中，RQL 带有仅编辑器的 `Condition`；请再次运行 `godot-cli install-plugin`（它会将其移除），或手动删除该 `Condition`。
 - `<EmbeddedResource>` 是必需的：插件从自身程序集中读取该目录，其 `LogicalName` 必须严格为 `Godot-MCP.extensions.catalog.json`。
 - 在 `<PropertyGroup>` 中保留 `<EnableDynamicLoading>true</EnableDynamicLoading>`（Godot 的 C# 模板自带）。没有它，包的程序集不会被复制到游戏程序集旁边，从编辑器启动的游戏将无法创建任何 C# 脚本（"Cannot instantiate C# script because the associated class could not be found"）。
 

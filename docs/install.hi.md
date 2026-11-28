@@ -29,11 +29,11 @@ Godot प्रोजेक्ट की हर `.cs` file को एक assembl
 <ItemGroup>
   <PackageReference Include="com.IvanMurzak.ReflectorNet" Version="<version>" />
   <PackageReference Include="com.IvanMurzak.McpPlugin"   Version="<version>" />
+  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" />
 </ItemGroup>
 
-<!-- सिर्फ़ editor: export किए गए games (ExportDebug / ExportRelease) में न RQL जाता है, न Roslyn। -->
+<!-- सिर्फ़ editor: export किए गए games (ExportDebug / ExportRelease) में Roslyn नहीं जाता। -->
 <ItemGroup>
-  <PackageReference Include="com.IvanMurzak.Rql"         Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec"        Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="com.IvanMurzak.CodeExec.Roslyn" Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
   <PackageReference Include="Microsoft.CodeAnalysis.CSharp"  Version="<version>" Condition="'$(Configuration)' != 'ExportDebug' and '$(Configuration)' != 'ExportRelease'" />
@@ -47,13 +47,13 @@ Godot प्रोजेक्ट की हर `.cs` file को एक assembl
 
 | Package | भूमिका |
 | --- | --- |
-| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Reflection और serialization core |
+| [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Reflection core: tool methods ढूँढता और invoke करता है (McpPlugin की dependency) |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP plugin client |
-| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, editor tools की data layer (PolyForm Shield) |
+| [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, हर tool की value layer, editor में भी और game में भी (PolyForm Shield) |
 | [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec, `csharp-exec` के पीछे (PolyForm Shield) |
 | [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn, वह C# compiler जिसे `csharp-exec` चलाता है |
 
-- चारों editor-only packages में एक `Condition` है जो उन्हें export builds से बाहर रखती है, इसलिए shipped game में न RQL होता है न Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game))।
+- तीनों editor-only packages में एक `Condition` है जो उन्हें export builds से बाहर रखती है, इसलिए shipped game में Roslyn नहीं होता ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game))। RQL में कोई `Condition` नहीं है: in-game tools भी उसे इस्तेमाल करते हैं। किसी पुराने `install-plugin` से set up किए गए प्रोजेक्ट में RQL पर editor-only `Condition` लगी होती है; `godot-cli install-plugin` फिर से चलाएँ (वह उसे हटा देता है) या `Condition` को हाथ से हटा दें।
 - `<EmbeddedResource>` ज़रूरी है: addon catalog को अपनी assembly से पढ़ता है, और उसका `LogicalName` ठीक `Godot-MCP.extensions.catalog.json` होना चाहिए।
 - `<PropertyGroup>` में `<EnableDynamicLoading>true</EnableDynamicLoading>` रहने दें (Godot के C# template में यह होता है)। इसके बिना package assemblies game assembly के पास copy नहीं होतीं, और editor से शुरू किया game कोई भी C# script नहीं बना पाता ("Cannot instantiate C# script because the associated class could not be found")।
 

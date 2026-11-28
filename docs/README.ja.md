@@ -96,7 +96,7 @@ godot-cli open ./MyGodotProject                       # C# をビルドし、エ
 
 あとはエージェントに頼むだけです: *「半径 2 の円周上にキューブを 3 つ作って。」*
 
-エディターの **AssetLib** タブ、[リリース zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest)、または手作業でインストールする場合は [install.ja.md](install.ja.md) に従ってください: その場合、プロジェクトの `.csproj` に、インストールするリリースのバージョンでアドオンの NuGet 参照(`com.IvanMurzak.ReflectorNet`、`com.IvanMurzak.McpPlugin`、およびエディター専用の `com.IvanMurzak.Rql`、`com.IvanMurzak.CodeExec`、`com.IvanMurzak.CodeExec.Roslyn`、`Microsoft.CodeAnalysis.CSharp`)が必要です。
+エディターの **AssetLib** タブ、[リリース zip](https://github.com/IvanMurzak/Godot-MCP/releases/latest)、または手作業でインストールする場合は [install.ja.md](install.ja.md) に従ってください: その場合、プロジェクトの `.csproj` に、インストールするリリースのバージョンでアドオンの NuGet 参照(`com.IvanMurzak.ReflectorNet`、`com.IvanMurzak.McpPlugin`、`com.IvanMurzak.Rql`、およびエディター専用の `com.IvanMurzak.CodeExec`、`com.IvanMurzak.CodeExec.Roslyn`、`Microsoft.CodeAnalysis.CSharp`)が必要です。
 
 <a id="relay"></a>
 ### ai-game.dev を通るもの
@@ -279,4 +279,4 @@ dotnet test   Godot-MCP.Tests/Godot-MCP.Tests.csproj --configuration Debug --no-
 <a id="license"></a>
 ## ライセンス
 
-**ゲーム開発者は、商用ゲームを含め、すべてを自由に使えます。** Godot-MCP は [Apache-2.0](../LICENSE) です。エディター側の依存関係である RQL と Code-Exec は [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) を使用しており、これが制限するのはゲーム開発向けの競合 AI ツールを作る企業だけです。
+**ゲーム開発者は、商用ゲームを含め、すべてを自由に使えます。** Godot-MCP は [Apache-2.0](../LICENSE) です。依存関係である RQL(エディターとゲーム)と Code-Exec(エディター)は [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0/) を使用しており、これが制限するのはゲーム開発向けの競合 AI ツールを作る企業だけです。

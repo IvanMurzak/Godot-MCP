@@ -15,7 +15,7 @@ Las familias **console**, **reflection** y **runtime-errors** sirven a un *juego
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Capturar el viewport del editor, una cámara o un nodo renderizado por separado, como un PNG que el LLM puede ver. |
 | **game** | `game-run` | Ejecutar el juego (o una escena) sin ventana durante unos segundos de tiempo de juego y obtener sus errores, advertencias y salida impresa en una sola llamada. |
 | **console** | `console-get-logs`, `console-clear-logs` | En un juego en marcha: leer y borrar los logs recopilados. |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | En un juego en marcha: buscar y llamar métodos C# de cualquier ensamblado cargado mediante ReflectorNet. |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | En un juego en marcha: buscar y llamar métodos C# de cualquier ensamblado cargado, con valores RQL como objetivo y argumentos. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | En un juego en marcha: consultar errores de runtime de GDScript, `push_error` / `push_warning`, errores de shader y excepciones de C#. **Desactivado por defecto.** |
 | **ping** | `ping` | Sonda de disponibilidad. Herramienta de sistema. |
 | **session** | `session-close` | Guardar y cerrar un editor que inició `godot-cli`. Herramienta de sistema. |
@@ -44,7 +44,7 @@ Los orígenes incluyen `nodes`, `root`, `selection`, `scenes`, `files`, `folders
 - `script-attach-to-node`: adjuntar un script a un nodo.
 - `script-validate`: analizar y compilar archivos GDScript y devolver diagnósticos estructurados.
 - `script-build`: compilar el C# del proyecto (`dotnet build`, Debug) para que se carguen los scripts nuevos. La compilación se ejecuta en segundo plano; cuando termina bien, Godot recarga el ensamblado C#, el plugin se reconecta y el resultado (advertencias o errores) llega tras la recarga. Consulta [Recargas del ensamblado C#](custom-tools.es.md#c-assembly-reloads).
-- `csharp-exec`: compilar y ejecutar C# en el editor con Roslyn, mediante [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Sentencias simples con la última expresión como resultado (`using` propios, clases locales, `await`), o una clase con un método estático. Los tipos compilados del juego son visibles; `include` añade archivos `.cs` auxiliares de `<project>/.ai-game-dev/snippets`. Devuelve el valor y lo que imprimió el código (`Console`; `GD.Print`, push_warning y push_error cuando el proyecto compila con Godot.NET.Sdk 4.5+). Desde una terminal: `godot-cli exec '1 + 2'`. Su nombre anterior, `script-execute`, sigue funcionando como alias oculto (no aparece en la lista ni tiene skill) hasta la 0.45.0.
+- `csharp-exec`: compilar y ejecutar C# en el editor con Roslyn, mediante [Code-Exec](https://github.com/IvanMurzak/Code-Exec). Sentencias simples con la última expresión como resultado (`using` propios, clases locales, `await`), o una clase con un método estático. Los tipos compilados del juego son visibles; `include` añade archivos `.cs` auxiliares de `<project>/.ai-game-dev/snippets`. `parameters` son valores RQL por nombre (`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: un tipo antes del nombre convierte el valor a ese tipo). Devuelve el valor como texto RQL tras su tipo (`System.Int32: 3`, `Dictionary<string, int>: {a:1,b:2}`) y lo que imprimió el código (`Console`; `GD.Print`, push_warning y push_error cuando el proyecto compila con Godot.NET.Sdk 4.5+). Desde una terminal: `godot-cli exec '1 + 2'`. Su nombre anterior, `script-execute`, sigue funcionando como alias oculto (no aparece en la lista ni tiene skill) hasta la 0.45.0.
 
 <a id="screenshot"></a>
 ## game
@@ -63,7 +63,7 @@ Las tres devuelven la imagen en la conversación. Pasa `savePath` para escribir 
 ## console, reflection, runtime-errors (juego en marcha)
 
 - `console-get-logs` / `console-clear-logs`: leer (con filtrado) y borrar los logs que recopiló el plugin, incluidos sus propios diagnósticos de conexión.
-- `reflection-method-find` / `reflection-method-call`: buscar métodos C# (también privados) en todos los ensamblados cargados y llamar a uno con argumentos.
+- `reflection-method-find` / `reflection-method-call`: buscar métodos C# (también privados) en todos los ensamblados cargados y llamar a uno: `targetObject` y los `inputParameters` con nombre son valores RQL (`ref("Node3D#12")`, `godot.find("Player")`, `[1, 2, 3]`, un literal de objeto) convertidos a los tipos que declara el método; el resultado vuelve como texto RQL.
 - `runtime-errors-get`: errores capturados en el juego, del más antiguo al más reciente, conservando los más nuevos. Pasa el `highestSequence` anterior como `sinceSequence` para obtener solo los errores nuevos. Devuelve `available:false` si la captura nunca se activó.
 - `runtime-errors-clear`: vaciar el búfer; el contador de secuencia sigue contando.
 

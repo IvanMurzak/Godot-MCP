@@ -29,7 +29,7 @@ public partial class Tool_MyFeature
 }
 ```
 
-- Devuelve un modelo estructurado (ReflectorNet lo serializa) o `void`, no cadenas formateadas a mano.
+- Los parámetros y resultados son valores RQL: el agente ve el tipo de cada parámetro en la descripción de la herramienta y escribe una clase como literal (`{position: [1, 2, 3], target: ref("Node3D#12")}`); un modelo devuelto vuelve como texto RQL compacto. Devuelve un modelo estructurado o `void`, no cadenas formateadas a mano.
 - Haz opcional un parámetro con un tipo anulable y un valor por defecto: `string? optional = null`.
 - `[AiToolType(Target = ToolTarget.Runtime)]` hace que una familia sea solo del juego, `ToolTarget.Editor` solo del editor; el valor predeterminado, `Both`, la registra en todas partes. Herramientas del juego: [runtime.md](runtime.es.md).
 - La herramienta de sistema `godot-skill-create` escribe ese archivo por ti; se puede llamar tras la siguiente compilación.

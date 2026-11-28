@@ -15,7 +15,7 @@ Godot-MCP के built-in tools, Godot editor में आप जो कुछ 
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | Editor viewport, किसी camera, या अकेले render किए एक node को PNG के रूप में capture करना जिसे LLM देख सके। |
 | **game** | `game-run` | Game (या एक scene) को बिना window के game time के कुछ seconds चलाना और उसकी errors, warnings और printed output एक ही call में पाना। |
 | **console** | `console-get-logs`, `console-clear-logs` | चलते हुए game में: इकट्ठे logs पढ़ना और clear करना। |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | चलते हुए game में: ReflectorNet के ज़रिए किसी भी loaded assembly में C# methods ढूँढना और call करना। |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | चलते हुए game में: किसी भी loaded assembly में C# methods ढूँढना और call करना, target और arguments RQL values के रूप में। |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | चलते हुए game में: GDScript runtime errors, `push_error` / `push_warning`, shader errors और C# exceptions को poll करना। **Default रूप से बंद।** |
 | **ping** | `ping` | Readiness probe। System tool। |
 | **session** | `session-close` | `godot-cli` द्वारा शुरू किए editor को save करके बंद करना। System tool। |
@@ -44,7 +44,7 @@ Sources में `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `c
 - `script-attach-to-node`: किसी node पर script attach करना।
 - `script-validate`: GDScript files को parse और compile करके structured diagnostics लौटाना।
 - `script-build`: प्रोजेक्ट का C# build करना (`dotnet build`, Debug) ताकि नई scripts load हों। Build background में चलता है; सफल होने पर Godot C# assembly reload करता है, plugin फिर से connect होता है, और result (warnings या errors) reload के बाद आता है। [C# assembly reloads](custom-tools.hi.md#c-assembly-reloads) देखें।
-- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) के ज़रिए Roslyn से editor में C# compile करके चलाना। आख़िरी expression को result मानकर सादे statements (अपने `using`s, local classes, `await`), या static method वाली class। Game के compiled types दिखते हैं; `include` `<project>/.ai-game-dev/snippets` से helper `.cs` files जोड़ता है। Value और code ने जो print किया वह लौटाता है (`Console`; प्रोजेक्ट Godot.NET.Sdk 4.5+ से build हो तो `GD.Print`, push_warning और push_error)। Terminal से: `godot-cli exec '1 + 2'`। इसका पुराना नाम `script-execute` 0.45.0 तक छिपे हुए alias के रूप में चलता रहेगा (सूची में नहीं, कोई skill नहीं)।
+- `csharp-exec`: [Code-Exec](https://github.com/IvanMurzak/Code-Exec) के ज़रिए Roslyn से editor में C# compile करके चलाना। आख़िरी expression को result मानकर सादे statements (अपने `using`s, local classes, `await`), या static method वाली class। Game के compiled types दिखते हैं; `include` `<project>/.ai-game-dev/snippets` से helper `.cs` files जोड़ता है। `parameters` नाम के हिसाब से RQL values हैं (`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: नाम से पहले लिखा type value को उस type में convert करता है)। Value को उसके type के बाद RQL text के रूप में (`System.Int32: 3`, `Dictionary<string, int>: {a:1,b:2}`) और code ने जो print किया वह लौटाता है (`Console`; प्रोजेक्ट Godot.NET.Sdk 4.5+ से build हो तो `GD.Print`, push_warning और push_error)। Terminal से: `godot-cli exec '1 + 2'`। इसका पुराना नाम `script-execute` 0.45.0 तक छिपे हुए alias के रूप में चलता रहेगा (सूची में नहीं, कोई skill नहीं)।
 
 <a id="screenshot"></a>
 ## game
@@ -63,7 +63,7 @@ Sources में `nodes`, `root`, `selection`, `scenes`, `files`, `folders`, `c
 ## console, reflection, runtime-errors (चलता हुआ game)
 
 - `console-get-logs` / `console-clear-logs`: plugin द्वारा इकट्ठे logs, उसके अपने connection diagnostics समेत, पढ़ना (filtering के साथ) और clear करना।
-- `reflection-method-find` / `reflection-method-call`: हर loaded assembly में C# methods (private भी) ढूँढना, और किसी एक को arguments के साथ call करना।
+- `reflection-method-find` / `reflection-method-call`: हर loaded assembly में C# methods (private भी) ढूँढना, और किसी एक को call करना: `targetObject` और नाम वाले `inputParameters` RQL values हैं (`ref("Node3D#12")`, `godot.find("Player")`, `[1, 2, 3]`, एक object literal), जो method में declared types में convert होते हैं; result RQL text के रूप में लौटता है।
 - `runtime-errors-get`: capture किए in-game errors, सबसे पुराने पहले, सबसे नए रखे जाते हैं। सिर्फ़ नए errors पाने के लिए पिछला `highestSequence` `sinceSequence` के रूप में दें। Capture कभी enable न हुआ हो तो `available:false` लौटाता है।
 - `runtime-errors-clear`: buffer clear करना; sequence counter गिनती जारी रखता है।
 

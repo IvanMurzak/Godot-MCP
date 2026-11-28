@@ -17,7 +17,7 @@
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | گرفتن تصویر از viewport ویرایشگر، یک دوربین، یا یک نود که به‌تنهایی رندر شده، به صورت PNG که LLM می‌تواند ببیند. |
 | **game** | `game-run` | اجرای بازی (یا یک صحنه) بدون پنجره برای چند ثانیه از زمان بازی و دریافت خطاها، هشدارها و خروجی چاپ‌شده‌ی آن در یک فراخوانی. |
 | **console** | `console-get-logs`, `console-clear-logs` | در بازیِ در حال اجرا: خواندن و پاک کردن لاگ‌های جمع‌آوری‌شده. |
-| **reflection** | `reflection-method-find`, `reflection-method-call` | در بازیِ در حال اجرا: پیدا کردن و فراخوانی متدهای C# در هر اسمبلی بارگذاری‌شده از طریق ReflectorNet. |
+| **reflection** | `reflection-method-find`, `reflection-method-call` | در بازیِ در حال اجرا: پیدا کردن و فراخوانی متدهای C# در هر اسمبلی بارگذاری‌شده، با مقدارهای RQL به‌عنوان هدف و آرگومان‌ها. |
 | **runtime-errors** | `runtime-errors-get`, `runtime-errors-clear` | در بازیِ در حال اجرا: دریافت خطاهای زمان اجرای GDScript، `push_error` / `push_warning`، خطاهای شیدر و استثناهای C#. **پیش‌فرض خاموش.** |
 | **ping** | `ping` | بررسی آمادگی. ابزار سیستمی. |
 | **session** | `session-close` | ذخیره و بستن ویرایشگری که `godot-cli` اجرا کرده است. ابزار سیستمی. |
@@ -46,7 +46,7 @@
 - ‏`script-attach-to-node`: اتصال یک اسکریپت به یک نود.
 - ‏`script-validate`: پارس و کامپایل فایل‌های GDScript و برگرداندن عیب‌یابی ساختاریافته.
 - ‏`script-build`: بیلد C# پروژه (`dotnet build`، Debug) تا اسکریپت‌های جدید بارگذاری شوند. بیلد در پس‌زمینه اجرا می‌شود؛ وقتی موفق شود Godot اسمبلی C# را دوباره بارگذاری می‌کند، پلاگین دوباره وصل می‌شود و نتیجه (هشدارها یا خطاها) پس از بارگذاری مجدد می‌رسد. [بارگذاری مجدد اسمبلی C#](custom-tools.fa.md#c-assembly-reloads) را ببینید.
-- ‏`csharp-exec`: کامپایل و اجرای C# در ویرایشگر با Roslyn، از طریق [Code-Exec](https://github.com/IvanMurzak/Code-Exec). دستورهای ساده که آخرین عبارت نتیجه است (با `using`های خودش، کلاس‌های محلی، `await`)، یا یک کلاس با یک متد static. تایپ‌های کامپایل‌شده‌ی بازی قابل مشاهده‌اند؛ `include` فایل‌های کمکی `.cs` را از `<project>/.ai-game-dev/snippets` اضافه می‌کند. مقدار و آنچه کد چاپ کرده را برمی‌گرداند (`Console`؛ و `GD.Print`، push_warning و push_error وقتی پروژه با Godot.NET.Sdk 4.5+‎ بیلد شود). از ترمینال: `godot-cli exec '1 + 2'`. نام قدیمی آن، ‏`script-execute`، تا نسخهٔ 0.45.0 به‌صورت نام مستعار پنهان (بدون فهرست و بدون skill) همچنان اجرا می‌شود.
+- ‏`csharp-exec`: کامپایل و اجرای C# در ویرایشگر با Roslyn، از طریق [Code-Exec](https://github.com/IvanMurzak/Code-Exec). دستورهای ساده که آخرین عبارت نتیجه است (با `using`های خودش، کلاس‌های محلی، `await`)، یا یک کلاس با یک متد static. تایپ‌های کامپایل‌شده‌ی بازی قابل مشاهده‌اند؛ `include` فایل‌های کمکی `.cs` را از `<project>/.ai-game-dev/snippets` اضافه می‌کند. ‏`parameters` مقدارهای RQL بر اساس نام هستند (`{n: 6, target: ref("Node3D#12"), "Vector3 at": [1, 2, 3]}`: تایپی که پیش از نام بیاید، مقدار را به آن تایپ تبدیل می‌کند). مقدار را به‌صورت متن RQL پس از تایپش (`System.Int32: 3`، `Dictionary<string, int>: {a:1,b:2}`) و آنچه کد چاپ کرده را برمی‌گرداند (`Console`؛ و `GD.Print`، push_warning و push_error وقتی پروژه با Godot.NET.Sdk 4.5+‎ بیلد شود). از ترمینال: `godot-cli exec '1 + 2'`. نام قدیمی آن، ‏`script-execute`، تا نسخهٔ 0.45.0 به‌صورت نام مستعار پنهان (بدون فهرست و بدون skill) همچنان اجرا می‌شود.
 
 <a id="screenshot"></a>
 ## game
@@ -65,7 +65,7 @@
 ## console، reflection، runtime-errors (بازیِ در حال اجرا)
 
 - ‏`console-get-logs` / `console-clear-logs`: خواندن (با فیلتر) و پاک کردن لاگ‌هایی که پلاگین جمع کرده، از جمله عیب‌یابی اتصال خودش.
-- ‏`reflection-method-find` / `reflection-method-call`: پیدا کردن متدهای C# (از جمله private) در همه‌ی اسمبلی‌های بارگذاری‌شده، و فراخوانی یکی از آن‌ها با آرگومان.
+- ‏`reflection-method-find` / `reflection-method-call`: پیدا کردن متدهای C# (از جمله private) در همه‌ی اسمبلی‌های بارگذاری‌شده، و فراخوانی یکی از آن‌ها: ‏`targetObject` و `inputParameters`ِ نام‌دار مقدارهای RQL هستند (`ref("Node3D#12")`، `godot.find("Player")`، `[1, 2, 3]`، یک object literal) که به تایپ‌هایی که متد اعلام می‌کند تبدیل می‌شوند؛ نتیجه به‌صورت متن RQL برمی‌گردد.
 - ‏`runtime-errors-get`: خطاهای ثبت‌شده‌ی درون بازی، قدیمی‌ترین اول، جدیدترین‌ها نگه داشته می‌شوند. مقدار `highestSequence` قبلی را به عنوان `sinceSequence` بدهید تا فقط خطاهای جدید را بگیرید. وقتی ثبت خطا هرگز فعال نشده باشد `available:false` برمی‌گرداند.
 - ‏`runtime-errors-clear`: پاک کردن بافر؛ شمارنده‌ی ترتیب به شمارش ادامه می‌دهد.
 

@@ -29,7 +29,7 @@ public partial class Tool_MyFeature
 }
 ```
 
-- 手作業で整形した文字列ではなく、構造化されたモデル(ReflectorNet がシリアライズします)または `void` を返してください。
+- パラメーターと結果は RQL 値です: エージェントはツールの説明で各パラメーターの型を確認し、クラスをリテラルとして書きます(`{position: [1, 2, 3], target: ref("Node3D#12")}`)。返されたモデルはコンパクトな RQL テキストで返ります。手作業で整形した文字列ではなく、構造化されたモデルまたは `void` を返してください。
 - パラメーターを省略可能にするには、null 許容型と既定値を使います: `string? optional = null`。
 - `[AiToolType(Target = ToolTarget.Runtime)]` はファミリーをゲーム専用に、`ToolTarget.Editor` はエディター専用にします。既定の `Both` はどこにでも登録します。ゲーム用ツール: [runtime.md](runtime.ja.md)。
 - `godot-skill-create` システムツールがこのようなファイルを書いてくれます。次のビルド後に呼び出せるようになります。

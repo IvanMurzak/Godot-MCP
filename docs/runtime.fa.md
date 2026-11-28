@@ -131,6 +131,8 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
+آرگومان‌ها و نتیجه‌ها، مثل ویرایشگر، مقدارهای RQL هستند: ایجنت تایپ هر پارامتر را در توضیح ابزار می‌بیند و یک کلاس سفارشی را به‌صورت literal می‌نویسد — `{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}` — که در آن یک نود یک `ref(…)` از نتیجه‌ای قبلی، `godot.find("Player")`، یا یک مسیر یا نام زیر صحنه‌ی فعلی (`"Level/Player"`) است، و یک ریسورس یک مسیر `"res://…"`. شیء برگردانده‌شده به‌صورت متن RQL برمی‌گردد (یک نود به‌صورت `Node3D#12`). ابزارهای یک اکسپورت AOT (بدون JIT، مثلاً iOS) از accessorهای reflection استفاده می‌کنند؛ چیزی برای پیکربندی نیست.
+
 پرامپت‌ها و ریسورس‌ها به همین شکل ثبت می‌شوند: یک `partial class` با اتریبیوت `[AiPromptType]` / `[AiResourceType]` و اعضایی با اتریبیوت `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. متد ریسورس `ResponseResourceContent[]` برمی‌گرداند (برای مثال `ResponseResourceContent.CreateText(uri, json, "application/json")`). همه‌ی این تایپ‌ها از پکیج `com.IvanMurzak.McpPlugin` می‌آیند.
 
 <a id="capturing-in-game-runtime-errors"></a>
@@ -160,7 +162,7 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
-یک `godot-cli install-plugin` به‌روز، ارجاع‌های پکیج Code-Exec و Roslyn را با یک `Condition` می‌نویسد که به این ویژگی احترام می‌گذارد؛ RQL هرگز همراه بازی منتشر نمی‌شود. بدون این فعال‌سازی، `WithCsharpExec()` یک هشدار در لاگ می‌نویسد و چیزی ثبت نمی‌کند.
+یک `godot-cli install-plugin` به‌روز، ارجاع‌های پکیج Code-Exec و Roslyn را با یک `Condition` می‌نویسد که به این ویژگی احترام می‌گذارد. بدون این فعال‌سازی، `WithCsharpExec()` یک هشدار در لاگ می‌نویسد و چیزی ثبت نمی‌کند.
 
 > **این اجرای کد دلخواه است.** هر کسی که بتواند روی اتصال ابزار فراخوانی کند می‌تواند هر کدی را در پروسه‌ی بازی اجرا کند. فقط در بیلدهای توسعه، روی یک میزبان loopback با توکن از آن استفاده کنید. فقط CoreCLR دسکتاپ: NativeAOT و iOS نمی‌توانند کدی را که در زمان اجرا تولید شده اجرا کنند.
 

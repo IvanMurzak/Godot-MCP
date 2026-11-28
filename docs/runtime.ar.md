@@ -131,6 +131,8 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
+الوسائط والنتائج قيم RQL، كما في المحرر: يرى الوكيل نوع كل معامل في وصف الأداة ويكتب الصنف المخصص كقيمة حرفية — `{position: [1, 2, 3], tint: "#ff8800", target: ref("Node3D#12")}` — حيث تكون العقدة `ref(…)` من نتيجة سابقة، أو `godot.find("Player")`، أو مسارًا أو اسمًا تحت المشهد الحالي (`"Level/Player"`)، ويكون المورد مسار `"res://…"`. يعود الكائن المُعاد نصَّ RQL (والعقدة بصيغة `Node3D#12`). تستخدم أدوات تصدير AOT (بلا JIT، مثل iOS) موصّلات الانعكاس؛ لا شيء يحتاج إلى إعداد.
+
 تُسجَّل الموجّهات والموارد بالطريقة نفسها: `partial class` معلَّمة بـ `[AiPromptType]` / `[AiResourceType]` وأعضاؤها معلَّمة بـ `[AiPrompt(Name = …, Role = …)]` / `[AiResource(Name = …, Route = "game://…", MimeType = …)]`. دالة المورد تُعيد `ResponseResourceContent[]` (مثلًا `ResponseResourceContent.CreateText(uri, json, "application/json")`). كل هذه الأنواع تأتي من الحزمة `com.IvanMurzak.McpPlugin`.
 
 <a id="capturing-in-game-runtime-errors"></a>
@@ -160,7 +162,7 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
-يكتب `godot-cli install-plugin` الحالي مراجع حزم Code-Exec وRoslyn مع `Condition` يحترم هذه الخاصية؛ أما RQL فلا يُشحن أبدًا. بدون هذا الاشتراك يسجّل `WithCsharpExec()` تحذيرًا ولا يسجّل شيئًا.
+يكتب `godot-cli install-plugin` الحالي مراجع حزم Code-Exec وRoslyn مع `Condition` يحترم هذه الخاصية. بدون هذا الاشتراك يسجّل `WithCsharpExec()` تحذيرًا ولا يسجّل شيئًا.
 
 > **هذا تنفيذ لكود عشوائي.** أي جهة تستطيع استدعاء الأدوات على الاتصال تستطيع تشغيل أي كود في عملية اللعبة. استخدمه في إصدارات التطوير فقط، على مضيف loopback مع رمز. يعمل على CoreCLR لسطح المكتب فقط: لا تستطيع NativeAOT وiOS تشغيل كود مولَّد في وقت التشغيل.
 

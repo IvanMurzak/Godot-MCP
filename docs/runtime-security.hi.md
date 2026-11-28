@@ -96,8 +96,7 @@ call warning log करती है और कुछ register नहीं क�
 - **हमेशा loopback + token।** Loopback host और environment से असली token के साथ `AuthOption = token` इस्तेमाल करें।
   Connection पर tools call कर सकने वाले का process पर पूरा नियंत्रण होता है।
 - **सिर्फ़ Desktop CoreCLR।** NativeAOT और iOS run time पर emit किया code नहीं चला सकते; mobile test नहीं हुआ है।
-- **आकार।** Opt-in export में Roslyn (`Microsoft.CodeAnalysis*.dll`, कई MB) जोड़ता है। RQL कभी ship नहीं
-  होता।
+- **आकार।** Opt-in export में Roslyn (`Microsoft.CodeAnalysis*.dll`, कई MB) जोड़ता है।
 
 <a id="environment-variables"></a>
 ## Environment variables

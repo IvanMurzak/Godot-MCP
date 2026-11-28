@@ -54,7 +54,7 @@ Godot-MCP 不仅能在编辑器中运行，还能**在运行中 / 已导出的�
 - **仅限 debug / 开发构建。** 用你自己的开发开关控制该调用（以及 csproj 中的启用项）。绝不要在公开的 release 构建中启用它。
 - **始终使用回环地址 + 令牌。** 使用回环主机和 `AuthOption = token`，并从环境变量获取真实令牌。任何能在该连接上调用工具的人都等于掌控了该进程。
 - **仅限桌面 CoreCLR。** NativeAOT 和 iOS 无法运行运行时生成的代码；移动平台未经测试。
-- **体积。** 启用后会在导出中加入 Roslyn（`Microsoft.CodeAnalysis*.dll`，数 MB）。RQL 永远不会随游戏发布。
+- **体积。** 启用后会在导出中加入 Roslyn（`Microsoft.CodeAnalysis*.dll`，数 MB）。
 
 <a id="environment-variables"></a>
 ## 环境变量
