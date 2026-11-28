@@ -13,7 +13,7 @@ It does NOT launch anything (or use `godot-cli exec`, which does):
 
     GODOT_MCP_CONNECTION_MODE=Custom GODOT_MCP_HOST=http://localhost:8080 GODOT_MCP_START_SERVER=true \\
         godot --headless --path <project> --editor &
-    python scripts/smoke_script_execute.py --host http://localhost:8080 --project <project>
+    python scripts/smoke_csharp_exec.py --host http://localhost:8080 --project <project>
 
 `--project` gets a fixture game type (`res://SmokeExec/SmokeExecScore.cs`, namespace SmokeExec) and a snippet helper
 (`.ai-game-dev/snippets/smoke/SmokeHelper.cs`) written before the run: build the project after the first run (or run

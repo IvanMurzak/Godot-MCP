@@ -27,7 +27,7 @@
 #      captures.
 #
 # Then three live EDITOR smokes against the same server: RQL (scripts/smoke_rql.py),
-# script-execute (scripts/smoke_script_execute.py) and C# reloads (scripts/smoke_reload.py).
+# csharp-exec (scripts/smoke_csharp_exec.py) and C# reloads (scripts/smoke_reload.py).
 #
 # Called once per matrix version by test_pull_request.yml.
 name: Test Godot Runtime Harness
@@ -303,10 +303,10 @@ jobs:
           godot --headless --path "${TEST_PROJECT}" --import --quit 2>&1 | tee import.log || true
           echo "Import pass complete."
 
-      # The script-execute smoke (below) calls a game type of its own; it must be in the assembly this build compiles.
-      - name: Prepare the script-execute smoke fixtures
+      # The csharp-exec smoke (below) calls a game type of its own; it must be in the assembly this build compiles.
+      - name: Prepare the csharp-exec smoke fixtures
         shell: bash
-        run: python scripts/smoke_script_execute.py --prepare --project "${TEST_PROJECT}"
+        run: python scripts/smoke_csharp_exec.py --prepare --project "${TEST_PROJECT}"
 
       - name: Build C# (addon + harness compile into the project assembly)
         shell: bash
@@ -554,11 +554,11 @@ jobs:
           fi
           exit "$RC"
 
-      # Live EDITOR suite of script-execute (Code-Exec + Roslyn): a fresh editor (the RQL one has quit, so it is the
-      # only plugin connected) runs scripts/smoke_script_execute.py — game type + auto-import, Godot API, GD.Print
+      # Live EDITOR suite of csharp-exec (Code-Exec + Roslyn): a fresh editor (the RQL one has quit, so it is the
+      # only plugin connected) runs scripts/smoke_csharp_exec.py — game type + auto-import, Godot API, GD.Print
       # (4.5+) / Console capture, one copy of the game assembly and GodotSharp, compile / runtime error lines, include,
       # and snippet unload.
-      - name: Live editor script-execute smoke
+      - name: Live editor csharp-exec smoke
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         shell: bash
         run: |
@@ -569,12 +569,12 @@ jobs:
             godot --headless --path "${TEST_PROJECT}" --editor > editor-exec.log 2>&1 &
           EDITOR_PID=$!
           RC=0
-          python scripts/smoke_script_execute.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --wait 180 || RC=$?
+          python scripts/smoke_csharp_exec.py --host "http://localhost:${SERVER_PORT}" --project "${TEST_PROJECT}" --wait 180 || RC=$?
           kill "$EDITOR_PID" 2>/dev/null || true
           wait "$EDITOR_PID" 2>/dev/null || true
           echo "----- editor-exec.log (tail) -----"; tail -n 150 editor-exec.log || true
           if [ "$RC" != "0" ]; then
-            echo "::error::the live editor script-execute smoke (scripts/smoke_script_execute.py) failed on Godot ${{ inputs.godotVersion }} — see the FAIL lines above."
+            echo "::error::the live editor csharp-exec smoke (scripts/smoke_csharp_exec.py) failed on Godot ${{ inputs.godotVersion }} — see the FAIL lines above."
           fi
           exit "$RC"
 

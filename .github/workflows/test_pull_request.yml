@@ -488,7 +488,7 @@ jobs:
       lock_hash8: ${{ inputs.lock_hash8 }}
       serverVersion: ${{ needs.resolve-server-version.outputs.serverVersion }}
 
-  # (d') the runtime harness (game + live editor RQL / script-execute / reload smokes) on a testbed that
+  # (d') the runtime harness (game + live editor RQL / csharp-exec / reload smokes) on a testbed that
   #      targets net10.0. Skipped on a dispatched (chain) run, as (c') (`runtime-harness*` width).
   net10-runtime-harness-4-7:
     needs: [resolve-server-version]

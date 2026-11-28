@@ -70,7 +70,7 @@ server, set `GODOT_MCP_CONNECTION_MODE=Custom` and `GODOT_MCP_HOST=http://localh
 `python scripts/smoke_rql.py --host <host> --project <testbed>` checks `rql-query` / `rql-mutate` / `rql-schema` by
 reading back the `.tres`/`.tscn` Godot wrote and runs every agent-guide example (CI runs it in
 `test_godot_runtime_harness.yml`; it writes fixed `res://scenes/` / `res://materials/` paths, so use a disposable
-project). `python scripts/smoke_script_execute.py --host <host> --project <testbed>` does the same for
+project). `python scripts/smoke_csharp_exec.py --host <host> --project <testbed>` does the same for
 `csharp-exec` (game type, GD.Print capture, error lines, unload; CI runs it too). `python scripts/smoke_screenshot_save.py --host <host> --project <disposable project>` checks `savePath` of `screenshot-*` (needs a windowed editor with a GPU; not in CI).
 `godot-cli exec` / `open --headless` start such an
 editor themselves (cli-core EditorSession, lease `.ai-game-dev/session.json`). Two traps: build
