@@ -109,20 +109,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
 
                 Assert.Equal(3, Directory.GetFiles(root, "SKILL.md", SearchOption.AllDirectories).Length);
                 string Read(string id) => File.ReadAllText(Path.Combine(root, id, "SKILL.md")).Replace("\r\n", "\n");
-                Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n", Read("guide-test"));
-                foreach (var id in new[] { Skill_Cli.SkillId, Skill_App.SkillId })
+                var tool = Read("guide-test");
+                Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: exclude\n", tool);
+                var cli = Read(Skill_Cli.SkillId);
+                var app = Read(Skill_App.SkillId);
+                foreach (var guide in new[] { cli, app })
                 {
-                    Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: include\n", Read(id));
-                    Assert.DoesNotContain("ai-game-dev: exclude", Read(id));
+                    Assert.Contains("metadata:\n  generated-by: godot-mcp\n  ai-game-dev: include\n", guide);
+                    Assert.DoesNotContain("ai-game-dev: exclude", guide);
                 }
-                var tool = File.ReadAllText(Path.Combine(root, "guide-test", "SKILL.md"));
                 Assert.Contains("the `godot-cli` skill", tool);
                 Assert.Contains("installation: `godot-cli-install`", tool);
                 Assert.Contains("ai-game-dev-app", tool);
                 Assert.DoesNotContain("npm install", tool);
-                Assert.Contains(Skill_Cli.IsWindows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", File.ReadAllText(Path.Combine(root, "godot-cli-install", "SKILL.md")));
+                Assert.Contains(Skill_Cli.IsWindows ? "npm.cmd install -g godot-cli" : "npm install -g godot-cli", cli);
                 Assert.False(Directory.Exists(Path.Combine(root, "godot-cli")), "godot-cli belongs to the CLI's setup-skills");
-                Assert.Contains("Blender", File.ReadAllText(Path.Combine(root, "ai-game-dev-app", "SKILL.md")));
+                Assert.Contains("Blender", app);
                 Assert.Equal(new[] { "guide-test" }, plugin.McpManager.ToolManager!.GetAllTools().Select(t => t.Name));
             }
             finally
