@@ -200,9 +200,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// Most characters of the result returned to the agent. Code-Exec bounds logs, errors and text values; the object
-        /// this plugin's value converter returns is the one thing it cannot measure, so its presented text is cut with this
-        /// limit (by the tool binding, <see cref="Data.ScriptExecuteResult.MaxValueChars"/>).
+        /// Most characters of the result returned to the agent. Code-Exec bounds logs and errors; the presented value is cut
+        /// with this limit by the tool binding (<see cref="Data.ScriptExecuteResult.MaxValueChars"/>), the way Code-Exec clips.
         /// </summary>
         public const int MaxValueChars = OutputLimits.DefaultValueChars;
         /// <summary>Most items of a lazy sequence (LINQ query, iterator) enumerated for the result.</summary>
@@ -211,10 +210,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// <summary>Captured output (already bounded by Code-Exec) as lines: <c>message</c> for info, <c>level: message</c> otherwise.</summary>
         public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
             logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
-
-        /// <summary><paramref name="text"/>, clipped to <see cref="MaxValueChars"/> the way Code-Exec clips its output.</summary>
-        public static string CapText(string text) =>
-            text.Length <= MaxValueChars ? text : OutputLimits.Clip(text, MaxValueChars, "return a count, a summary or a slice");
 
         /// <summary>
         /// A lazy sequence: enumerable, but neither a string nor a collection (a LINQ query, an iterator). Its own members

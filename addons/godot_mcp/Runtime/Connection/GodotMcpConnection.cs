@@ -50,12 +50,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
     ///
     /// This type is runtime-agnostic (it lives OUTSIDE <c>#if TOOLS</c> so it also compiles into an
     /// exported, non-editor game build): it instantiates the reused SignalR client and owns the
-    /// connection lifecycle, depending only on pure-managed config / view-model / reflector helpers and
-    /// the Godot <i>runtime</i> API (<see cref="Godot.Node"/>, <see cref="GD"/>, <c>ProjectSettings</c>),
-    /// never on a Godot editor API. In the editor it is driven by <see cref="GodotMcpPlugin"/>'s tree
-    /// lifecycle; the sole editor-only coupling — installing the editor <c>ResourceLoader</c> resolver
-    /// into the (pure-managed) Resource reflection converter — is guarded by <c>#if TOOLS</c> at its one
-    /// call site in <see cref="Start"/>, so the exported build wires up the reflector without it.
+    /// connection lifecycle, depending only on pure-managed config / view-model helpers and the Godot
+    /// <i>runtime</i> API (<see cref="Godot.Node"/>, <see cref="GD"/>, <c>ProjectSettings</c>), never on a Godot
+    /// editor API. In the editor it is driven by <see cref="GodotMcpPlugin"/>'s tree lifecycle, which shapes the
+    /// editor tool surface through the <c>configurePlugin</c> callback.
     /// </summary>
     public sealed class GodotMcpConnection : IDisposable
     {

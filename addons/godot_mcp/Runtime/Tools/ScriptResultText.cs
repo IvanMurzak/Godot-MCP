@@ -28,7 +28,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// </summary>
     public static class ScriptResultText
     {
-        /// <summary>Most items of a snippet-typed collection kept (the rest is counted).</summary>
+        /// <summary>Most items of a snippet-typed collection kept (the rest is counted), as for a lazy sequence.</summary>
         public const int MaxItems = 1_000;
 
         const int MaxDepth = 4;
@@ -61,13 +61,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// values are returned as they are. <paramref name="special"/> may replace a value first (a freed Godot object).
         /// </summary>
         public static object? Plain(object? value, Func<Type, bool> isSnippetType, Func<object, object?>? special = null) =>
-            new Walk(isSnippetType, special).Value(value, 0);
+            Plainer(isSnippetType, special)(value);
+
+        /// <summary><see cref="Plain"/> as one function for many values (the items of a sequence share one walk and its type facts).</summary>
+        public static Func<object?, object?> Plainer(Func<Type, bool> isSnippetType, Func<object, object?>? special = null)
+        {
+            var walk = new Walk(isSnippetType, special);
+            return value => walk.Value(value, 0);
+        }
 
         sealed class Walk
         {
             readonly Func<Type, bool> _isSnippetType;
             readonly Func<object, object?>? _special;
-            readonly HashSet<object> _open = new HashSet<object>(ReferenceComparer.Instance);
+            readonly HashSet<object> _open = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            // Public members of each snippet type, read once per walk (never a static cache: it would hold the snippet's types).
+            readonly Dictionary<Type, (FieldInfo[] fields, PropertyInfo[] properties)> _members = new Dictionary<Type, (FieldInfo[], PropertyInfo[])>();
 
             public Walk(Func<Type, bool> isSnippetType, Func<object, object?>? special)
             {
@@ -108,14 +117,23 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                         return items;
                     }
                     var members = new Dictionary<string, object?>();
-                    foreach (var f in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                    var (fields, properties) = MembersOf(type);
+                    foreach (var f in fields)
                         members[f.Name] = Read(() => f.GetValue(value), depth);
-                    foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-                        if (p.CanRead && p.GetIndexParameters().Length == 0 && !(IsRecord(type) && p.Name == "EqualityContract"))
-                            members[p.Name] = Read(() => p.GetValue(value), depth);
+                    foreach (var p in properties)
+                        members[p.Name] = Read(() => p.GetValue(value), depth);
                     return members.Count > 0 ? members : Safe(value);
                 }
                 finally { _open.Remove(value); }
+            }
+
+            (FieldInfo[] fields, PropertyInfo[] properties) MembersOf(Type type)
+            {
+                if (_members.TryGetValue(type, out var known)) return known;
+                var record = IsRecord(type);
+                var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && !(record && p.Name == "EqualityContract")).ToArray();
+                return _members[type] = (type.GetFields(BindingFlags.Public | BindingFlags.Instance), properties);
             }
 
             object? Read(Func<object?> get, int depth)
@@ -134,13 +152,6 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 var args = type.IsGenericType ? type.GetGenericArguments() : new[] { typeof(object) };
                 return args.Any(a => !a.IsSealed && !a.IsValueType && !typeof(global::Godot.GodotObject).IsAssignableFrom(a));
             }
-        }
-
-        sealed class ReferenceComparer : IEqualityComparer<object>
-        {
-            public static readonly ReferenceComparer Instance = new ReferenceComparer();
-            public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
-            public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
         }
 
         static readonly Dictionary<Type, string> Aliases = new Dictionary<Type, string>

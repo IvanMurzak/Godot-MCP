@@ -195,7 +195,7 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
             }
 
             // 5) Install in-game runtime ERROR CAPTURE last, when opted in (default OFF) — DEFERRED to the very
-            //    end so a failure anywhere on the fallible build path above (reflector/converter setup, the
+            //    end so a failure anywhere on the fallible build path above (the RQL binding, the
             //    McpPluginBuilder.Build reflection scan, the WithTools/Prompts/Resources type scans) never leaves
             //    the PROCESS-WIDE hooks (engine 4.5+ OS.AddLogger + the C# unhandled / unobserved-Task exception
             //    handlers) registered for the lifetime of the game with no GodotMcpRuntimeHandle to ever uninstall

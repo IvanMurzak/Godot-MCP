@@ -36,8 +36,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     ///
     /// <para>
     /// The guarded statics are the <c>*.Current</c> setters, the <c>RuntimeErrorCapture</c>
-    /// install/uninstall state mutators, and the injected native resolvers behind the Resource/Node
-    /// reflection converters (see <see cref="GuardedWritePattern"/>). A future contributor who adds another
+    /// install/uninstall state mutators (see <see cref="GuardedWritePattern"/>). A future contributor who adds another
     /// unguarded mutator gets a failing test whose message names the offending class + static and the
     /// fix (join a <c>DisableParallelization = true</c> collection).
     /// </para>
@@ -56,8 +55,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         /// </summary>
         static readonly Regex GuardedWritePattern = new(
             @"\b(?:GodotLogCollector|RuntimeErrorCollector|ScriptErrorCapture|SkillsToolHost)\.Current\s*=(?!=)"
-            + @"|\bRuntimeErrorCapture\.(?:Install|Uninstall)\s*\("
-            ,
+            + @"|\bRuntimeErrorCapture\.(?:Install|Uninstall)\s*\(",
             RegexOptions.Compiled);
 
         /// <summary>Matches a top-level <c>... class Name ...</c> declaration, capturing the class name.</summary>

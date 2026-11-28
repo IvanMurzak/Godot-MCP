@@ -96,17 +96,23 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 return true;
             }
             // RQL numbers are doubles: a whole one is passed as an integer.
-            switch (value)
+            (Type type, object? value)? inferred = value switch
             {
-                case null: parameter = new ScriptParameter(name, typeof(object), null); return true;
-                case string s: parameter = new ScriptParameter(name, typeof(string), s); return true;
-                case bool b: parameter = new ScriptParameter(name, typeof(bool), b); return true;
-                case double d when Math.Floor(d) == d && d >= int.MinValue && d <= int.MaxValue: parameter = new ScriptParameter(name, typeof(int), (int)d); return true;
-                case double d when Math.Floor(d) == d && Math.Abs(d) < 9e15: parameter = new ScriptParameter(name, typeof(long), (long)d); return true;
-                case double d: parameter = new ScriptParameter(name, typeof(double), d); return true;
-                case long l when l >= int.MinValue && l <= int.MaxValue: parameter = new ScriptParameter(name, typeof(int), (int)l); return true;
-                case long l: parameter = new ScriptParameter(name, typeof(long), l); return true;
-                case global::Godot.GodotObject o: parameter = new ScriptParameter(name, o.GetType(), o); return true;
+                null => (typeof(object), null),
+                string s => (typeof(string), s),
+                bool b => (typeof(bool), b),
+                double d when Math.Floor(d) == d && d >= int.MinValue && d <= int.MaxValue => (typeof(int), (int)d),
+                double d when Math.Floor(d) == d && Math.Abs(d) < 9e15 => (typeof(long), (long)d),
+                double d => (typeof(double), d),
+                long l when l >= int.MinValue && l <= int.MaxValue => (typeof(int), (int)l),
+                long l => (typeof(long), l),
+                global::Godot.GodotObject o => (o.GetType(), o),
+                _ => null,
+            };
+            if (inferred is { } known)
+            {
+                parameter = new ScriptParameter(name, known.type, known.value);
+                return true;
             }
             reason = $"parameter '{name}': write its type before the name for {(value is ObjectValue ? "an object" : value is List<object?> ? "a list" : "this")} " +
                      $"value, e.g. \"Vector3 {name}\": [1, 2, 3] or \"int[] {name}\": [1, 2]";
@@ -142,7 +148,9 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 catch (Exception) { continue; } // an assembly that cannot list its types
                 if (found != null) return found;
             }
-            return GodotTypes.Candidates(name).FirstOrDefault();
+            // Godot's own types by short name (Vector3, Node3D) without building the full type index.
+            return typeof(global::Godot.GodotObject).Assembly.GetType("Godot." + name, throwOnError: false)
+                ?? GodotTypes.Candidates(name).FirstOrDefault();
         }
     }
 }

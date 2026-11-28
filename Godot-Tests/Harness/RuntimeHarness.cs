@@ -337,12 +337,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
 
                 var id = target.GetInstanceId();
                 var expected = $"Orc|(1, 2, 3)|{RqlHarnessTargetName}|{id}";
-                await RqlCase(report, tools, "ref", "harness-spawn", $"{{Name: \"Orc\", Position: [1, 2, 3], Target: ref(\"Node3D#{id}\"), Anchor: {id}}}", expected);
-                await RqlCase(report, tools, "name", "harness-spawn", $"{{Name: \"Orc\", Position: \"(1, 2, 3)\", Target: \"{RqlHarnessTargetName}\", Anchor: {id}}}", expected);
-                await RqlCase(report, tools, "godot.find", "harness-spawn", $"{{Name: \"Orc\", Position: {{x: 1, y: 2, z: 3}}, Target: godot.find(\"{RqlHarnessTargetName}\"), Anchor: {id}}}", expected);
-                await RqlCase(report, tools, "node result", "harness-find", null, $"Node3D#{id}");
-                await RqlCase(report, tools, "variant text", "harness-variant", "\"res://CharacterCreator.tscn\"", "String:res://CharacterCreator.tscn", "value");
-                await RqlCase(report, tools, "variant number", "harness-variant", "42", "Int:42", "value");
+                await RqlCase(report, tools, "ref", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: [1, 2, 3], Target: ref(\"Node3D#{id}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "name", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: \"(1, 2, 3)\", Target: \"{RqlHarnessTargetName}\", Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "godot.find", "harness-spawn", "spec", $"{{Name: \"Orc\", Position: {{x: 1, y: 2, z: 3}}, Target: godot.find(\"{RqlHarnessTargetName}\"), Anchor: {id}}}", expected);
+                await RqlCase(report, tools, "node result", "harness-find", "name", RqlHarnessTargetName, $"Node3D#{id}");
+                await RqlCase(report, tools, "variant text", "harness-variant", "value", "\"res://CharacterCreator.tscn\"", "String:res://CharacterCreator.tscn");
+                await RqlCase(report, tools, "variant number", "harness-variant", "value", "42", "Int:42");
             }
             catch (Exception ex)
             {
@@ -355,13 +355,12 @@ namespace com.IvanMurzak.Godot.MCP.Tests.Project.Harness
             GD.Print($"[harness] rql tool values: checked={report.RqlToolValuesChecked} failures={report.RqlToolValueFailures.Count}.");
         }
 
-        static async Task RqlCase(HarnessReport report, com.IvanMurzak.McpPlugin.McpToolManager tools, string label, string tool, string? spec, string expected,
-            string argument = "spec")
+        /// <summary>One call of <paramref name="tool"/> with <paramref name="argument"/> = the RQL text <paramref name="value"/>.</summary>
+        static async Task RqlCase(HarnessReport report, com.IvanMurzak.McpPlugin.McpToolManager tools, string label, string tool, string argument,
+            string value, string expected)
         {
             report.RqlToolValuesChecked++;
-            var args = new Dictionary<string, JsonElement>();
-            if (spec != null) args[argument] = JsonSerializer.SerializeToElement(spec);
-            else args["name"] = JsonSerializer.SerializeToElement(RqlHarnessTargetName);
+            var args = new Dictionary<string, JsonElement> { [argument] = JsonSerializer.SerializeToElement(value) };
             // Off the main thread like an MCP call: the binding marshals its engine work onto the main thread.
             var call = Task.Run(() => tools.RunCallTool(new com.IvanMurzak.McpPlugin.Common.Model.RequestCallTool(tool, args)));
             if (await Task.WhenAny(call, Task.Delay(TimeSpan.FromSeconds(30))) != call)

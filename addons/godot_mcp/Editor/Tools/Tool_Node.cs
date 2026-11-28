@@ -16,10 +16,9 @@ using Godot;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Scene-tree helpers shared by the kept editor tools (<c>script-attach-to-node</c>, <c>screenshot-*</c>) and the
-    /// Node reflection converter. The <c>node-*</c> tool family was replaced by RQL (<c>rql-query</c> /
-    /// <c>rql-mutate</c> over the <c>nodes</c> source, see docs/rql.md); the class keeps its name so existing call sites
-    /// and the reflection-resolver wiring stay unchanged. It declares no tools.
+    /// Scene-tree helpers shared by the kept editor tools (<c>script-attach-to-node</c>, <c>screenshot-*</c>) and RQL.
+    /// The <c>node-*</c> tool family was replaced by RQL (<c>rql-query</c> / <c>rql-mutate</c> over the <c>nodes</c>
+    /// source, see docs/rql.md); the class keeps its name so existing call sites stay unchanged. It declares no tools.
     /// </summary>
     public static partial class Tool_Node
     {

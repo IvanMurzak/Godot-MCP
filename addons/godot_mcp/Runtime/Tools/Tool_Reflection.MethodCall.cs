@@ -90,10 +90,15 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             var method = methods[0];
             // Values are converted on the main thread (a node path or ref resolves through the scene tree), whichever thread
-            // the method then runs on.
+            // the method then runs on; one trip when both run there.
+            if (executeInMainThread)
+                return MainThread.Instance.Run(() =>
+                {
+                    var (mainTarget, mainArgs) = Bind(method, targetObject, given);
+                    return Invoke(method, mainTarget, mainArgs);
+                });
             var (target, args) = MainThread.Instance.Run(() => Bind(method, targetObject, given));
-            Func<object?> action = () => Invoke(method, target, args);
-            return executeInMainThread ? MainThread.Instance.Run(action) : action();
+            return Invoke(method, target, args);
         }
 
         /// <summary>Every given name is a parameter of <paramref name="method"/>, and every parameter without a default is given.</summary>

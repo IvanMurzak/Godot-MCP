@@ -345,8 +345,9 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.StartsWith(new string('z', 100), text);
             Assert.Contains("[truncated: 20000 of 2000000 characters shown", text);
             Assert.Equal("small", RqlToolBinding.Clip("small", ScriptExecuteSource.MaxValueChars));
-            Assert.Equal(ScriptExecuteSource.CapText(new string('z', 2_000_000)).Substring(0, 20_040),
-                RqlToolBinding.Clip(new string('z', 2_000_000), ScriptExecuteSource.MaxValueChars).Substring(0, 20_040));
+            // The same cut and note Code-Exec applies to the output it bounds.
+            Assert.Equal(OutputLimits.Clip(new string('z', 2_000_000), ScriptExecuteSource.MaxValueChars, "return a count, a summary or a slice"),
+                RqlToolBinding.Clip(new string('z', 2_000_000), ScriptExecuteSource.MaxValueChars));
         }
 
         [Theory]

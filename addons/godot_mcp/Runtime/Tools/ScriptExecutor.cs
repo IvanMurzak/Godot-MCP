@@ -152,7 +152,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 IncludeRoot = Path.GetFullPath(Path.Combine(projectRoot, McpPlugin.AgentConfig.ProjectMarker.DirectoryName, "snippets")),
                 // Godot loads the game assembly from memory: point the compiler at the DLL it was built to.
                 References = new LoadedAssembliesReferenceProvider(assembly => ScriptExecuteSource.BuiltAssemblyPath(binRoot, assembly.GetName().Name)),
-                ValueConverter = Serialize,
+                ValueConverter = ToPlain,
                 LogCaptures = new List<ILogCapture> { new ConsoleLogCapture(), new GodotPrintLogCapture() },
                 // Code-Exec's guards (recursion, loops) stop a runaway snippet with a Runtime / Timeout result instead of a stack
                 // overflow that kills the editor or a loop that freezes it; the budget ends before the server's tool timeout. Threads
@@ -167,26 +167,22 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         sealed record ConvertedValue(object? Value, string TypeName);
 
         /// <summary>Runs on the main thread before the snippet unloads: nothing of the snippet may outlive this.</summary>
-        static object? Serialize(object? value)
+        static object? ToPlain(object? value)
         {
             if (value == null)
                 return null;
             var type = value.GetType();
+            // The snippet's own types become maps and lists; a freed Godot object its text. The presented text is cut by
+            // the tool binding (ScriptExecuteResult.MaxValueChars).
+            var plain = ScriptResultText.Plainer(ScriptExecuteSource.IsSnippetType,
+                v => v is GodotObject o && !GodotObject.IsInstanceValid(o) ? $"<freed {o.GetType().Name}>" : null);
             // A lazy sequence (LINQ query, iterator) would show the enumerator's state, not its items: enumerated once, its
             // type names the element type.
             if (ScriptExecuteSource.IsLazySequence(type))
-                return new ConvertedValue(
-                    ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, item => Plain(item)),
+                return new ConvertedValue(ScriptExecuteSource.Materialize((System.Collections.IEnumerable)value, plain),
                     "IEnumerable<" + ScriptResultText.TypeName(ElementType(type)) + ">");
-            // A huge text is cut here (the presented text of anything else is cut by the tool binding, MaxValueChars).
-            if (value is string text)
-                return new ConvertedValue(ScriptExecuteSource.CapText(text), ScriptResultText.ShownTypeName(type));
-            return new ConvertedValue(Plain(value), ScriptResultText.ShownTypeName(type));
+            return new ConvertedValue(plain(value), ScriptResultText.ShownTypeName(type));
         }
-
-        // The snippet's own types become maps and lists; a freed Godot object its text.
-        static object? Plain(object? value) => ScriptResultText.Plain(value, ScriptExecuteSource.IsSnippetType,
-            v => v is GodotObject o && !GodotObject.IsInstanceValid(o) ? $"<freed {o.GetType().Name}>" : null);
 
         // The element type of a sequence (IEnumerable<T>), object when it has none.
         static Type ElementType(Type sequence) =>
