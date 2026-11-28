@@ -143,11 +143,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                     .Select(entry => entry.Method);
 
             // The same assembly loaded twice (a copy in another load context, e.g. one still unloading after a C# reload) lists
-            // every method twice: one method is one match, the copy in the default context first.
+            // every method twice: one method is one match (the metadata token is the same in every copy of a file and unique
+            // per method in it), the copy in this tool's own (live) context first, then the default context.
+            var live = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(typeof(Tool_Reflection).Assembly);
             return methodEnumerable
-                .GroupBy(method => (method.DeclaringType!.AssemblyQualifiedName, method.ToString()))
+                .GroupBy(method => (method.DeclaringType!.AssemblyQualifiedName, method.MetadataToken))
                 .Select(copies => copies
-                    .OrderBy(method => System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(method.Module.Assembly) == System.Runtime.Loader.AssemblyLoadContext.Default ? 0 : 1)
+                    .OrderBy(method => System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(method.Module.Assembly) is var context && context == live ? 0
+                        : context == System.Runtime.Loader.AssemblyLoadContext.Default ? 1 : 2)
                     .First());
         }
 
