@@ -190,15 +190,15 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
-        public void ConfigSelectsTheBinding()
+        public void ApplyAlwaysInstallsTheBinding()
         {
-            RqlToolBinding.Apply(_tools, ToolPresentationFormat.Json, ToolTextEscaping.Ascii);
-            Assert.Null(_tools.ToolBinding);
-            Assert.Equal(ToolTextEscaping.Ascii, RqlToolBinding.Instance.Escaping);
+            _tools.ToolBinding = null;
             Assert.Contains("$defs", Listed(Echo).InputSchema.GetRawText());
-            RqlToolBinding.Apply(_tools, ToolPresentationFormat.Rql, ToolTextEscaping.Minimal);
+            RqlToolBinding.Apply(_tools, ToolTextEscaping.Ascii);
             Assert.Same(RqlToolBinding.Instance, _tools.ToolBinding);
+            Assert.Equal(ToolTextEscaping.Ascii, RqlToolBinding.Instance.Escaping);
             Assert.DoesNotContain("$defs", Listed(Echo).InputSchema.GetRawText());
+            RqlToolBinding.Instance.Escaping = ToolTextEscaping.Minimal;
         }
 
         [Theory]

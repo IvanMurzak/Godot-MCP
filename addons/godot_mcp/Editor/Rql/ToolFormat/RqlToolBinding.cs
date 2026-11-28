@@ -47,16 +47,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.ToolFormat
     {
         public static readonly RqlToolBinding Instance = new RqlToolBinding();
 
-        /// <summary>
-        /// Install the data layer the configuration asks for on <paramref name="tools"/>: <see cref="ToolPresentationFormat.Rql"/>
-        /// = this binding, <see cref="ToolPresentationFormat.Json"/> = none (ReflectorNet).
-        /// </summary>
-        public static void Apply(IToolManager? tools, ToolPresentationFormat format, ToolTextEscaping escaping)
+        /// <summary>Install this binding as the data layer of every tool on <paramref name="tools"/> (RQL is the only one).</summary>
+        public static void Apply(IToolManager? tools, ToolTextEscaping escaping)
         {
             Instance.Escaping = escaping;
             if (tools == null) return;
-            if (format == ToolPresentationFormat.Rql) Instance.Prebuild(tools);
-            tools.ToolBinding = format == ToolPresentationFormat.Rql ? Instance : null;
+            Instance.Prebuild(tools);
+            tools.ToolBinding = Instance;
         }
 
         /// <summary>

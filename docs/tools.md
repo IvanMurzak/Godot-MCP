@@ -4,7 +4,7 @@
 
 Godot-MCP's built-in tools cover virtually anything you can do in the Godot editor, grouped in the families below. They are compact, so an agent needs fewer calls and fewer tokens ([measured in RQL's agent evaluation](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md)). The editor's data layer is [RQL](rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` and `rql-schema` read and change scene nodes, Godot properties, resources, files, scenes and editor state in one query instead of one tool per operation.
 
-With the default `toolFormat` (`Rql`) the other tools take RQL values as arguments and return compact text; `Json` keeps ReflectorNet's JSON schemas and results. Screenshots return a PNG image. Every editor tool is available as soon as the addon is enabled.
+The other tools take RQL values as arguments and return compact text (RQL is the only tool data layer). Screenshots return a PNG image. Every editor tool is available as soon as the addon is enabled.
 
 The **console**, **reflection** and **runtime-errors** families serve a *running game* (see [Runtime usage](runtime.md)). In the editor, use the RQL `console` source and RQL `call` / `CallMethod` instead.
 

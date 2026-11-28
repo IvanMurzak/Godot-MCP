@@ -56,46 +56,30 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
     }
 
-    /// <summary>The tools' data-layer setting: Rql by default, persisted, and overridable by GODOT_MCP_TOOL_FORMAT.</summary>
-    [Collection("env")]
-    public class RqlToolFormatConfigTests : IDisposable
+    /// <summary>RQL is the only tool data layer: the escaping is persisted, an old config's toolFormat key is ignored.</summary>
+    public class RqlToolDataLayerConfigTests
     {
-        private readonly string? _saved = Environment.GetEnvironmentVariable(GodotMcpEnv.ToolFormat);
-
-        public void Dispose() => Environment.SetEnvironmentVariable(GodotMcpEnv.ToolFormat, _saved);
+        [Fact]
+        public void MinimalEscapingIsTheDefault() => Assert.Equal(ToolTextEscaping.Minimal, new GodotMcpConfig().ToolTextEscaping);
 
         [Fact]
-        public void RqlIsTheDefault()
+        public void TheEscapingIsPersisted()
         {
-            Environment.SetEnvironmentVariable(GodotMcpEnv.ToolFormat, null);
-            var config = new GodotMcpConfig();
-            Assert.Equal(ToolPresentationFormat.Rql, config.ToolFormat);
-            Assert.Equal(ToolPresentationFormat.Rql, config.ActiveToolFormat);
-            Assert.Equal(ToolTextEscaping.Minimal, config.ToolTextEscaping);
+            var saved = new GodotMcpConfig { ToolTextEscaping = ToolTextEscaping.Ascii };
+            var json = System.Text.Json.JsonSerializer.Serialize(saved, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
+            Assert.DoesNotContain("toolFormat", json);
+            var loaded = System.Text.Json.JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig)!;
+            Assert.Equal(ToolTextEscaping.Ascii, GodotMcpConfigStore.ApplyPersisted(new GodotMcpConfig(), loaded).ToolTextEscaping);
         }
 
         [Theory]
-        [InlineData("Json", ToolPresentationFormat.Json)]
-        [InlineData(" json ", ToolPresentationFormat.Json)]
-        [InlineData("RQL", ToolPresentationFormat.Rql)]
-        [InlineData("1", ToolPresentationFormat.Rql)]
-        [InlineData("nonsense", ToolPresentationFormat.Rql)]
-        public void TheEnvironmentOverridesTheConfiguredFormat(string env, ToolPresentationFormat expected)
+        [InlineData("Json")]
+        [InlineData("Rql")]
+        public void AnOldConfigWithAToolFormatStillLoads(string format)
         {
-            Environment.SetEnvironmentVariable(GodotMcpEnv.ToolFormat, env);
-            Assert.Equal(expected, GodotMcpConfig.ResolveActiveToolFormat(ToolPresentationFormat.Rql));
-        }
-
-        [Fact]
-        public void TheFormatIsPersisted()
-        {
-            var saved = new GodotMcpConfig { ToolFormat = ToolPresentationFormat.Json, ToolTextEscaping = ToolTextEscaping.Ascii };
-            var json = System.Text.Json.JsonSerializer.Serialize(saved, GodotMcpConfigJsonContext.Default.GodotMcpConfig);
-            Assert.Contains("\"toolFormat\": \"Json\"", json);
+            var json = "{\"toolFormat\": \"" + format + "\", \"toolTextEscaping\": \"Ascii\"}";
             var loaded = System.Text.Json.JsonSerializer.Deserialize(json, GodotMcpConfigJsonContext.Default.GodotMcpConfig)!;
-            var target = GodotMcpConfigStore.ApplyPersisted(new GodotMcpConfig(), loaded);
-            Assert.Equal(ToolPresentationFormat.Json, target.ToolFormat);
-            Assert.Equal(ToolTextEscaping.Ascii, target.ToolTextEscaping);
+            Assert.Equal(ToolTextEscaping.Ascii, GodotMcpConfigStore.ApplyPersisted(new GodotMcpConfig(), loaded).ToolTextEscaping);
         }
     }
 }

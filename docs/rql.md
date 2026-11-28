@@ -63,10 +63,10 @@ Kept as tools: `script-*`, `screenshot-*`, `ping`, `godot-skill-*`. The **in-gam
 (`[AiToolType(Target = ToolTarget.Runtime)]`): the editor's plugin does not register them, and while both are connected the
 server sends their calls to the game.
 
-With the default `toolFormat` `Rql` (config key `toolFormat`, env `GODOT_MCP_TOOL_FORMAT`), the other tools take RQL
-values as arguments (`"Level/Player"`, `ref("Node3D#12")`, `godot.find("Name")` for a `NodeRef`) and return compact
-text; `Json` keeps ReflectorNet's JSON schemas and structured results. `toolTextEscaping` (`Minimal` / `Ascii` /
-`Json`) controls how quoted text in those results is escaped.
+The other tools take RQL values as arguments (`"Level/Player"`, `ref("Node3D#12")`, `godot.find("Name")` for a
+`NodeRef`) and return compact text. RQL is the only tool data layer: the former `toolFormat` setting (`Json` =
+ReflectorNet's JSON schemas and results) is gone, and an old config's `toolFormat` key is ignored. `toolTextEscaping`
+(`Minimal` / `Ascii` / `Json`) controls how quoted text in those results is escaped.
 
 ## Writes: undo and saving
 

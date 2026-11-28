@@ -4,7 +4,7 @@
 
 Las herramientas integradas de Godot-MCP cubren prácticamente todo lo que puedes hacer en el editor de Godot, agrupadas en las familias que aparecen a continuación. Son compactas, así que un agente necesita menos llamadas y menos tokens ([medido en la evaluación de agentes de RQL](https://github.com/IvanMurzak/RQL/blob/main/RESULTS.md)). La capa de datos del editor es [RQL](rql.md) (Reflection Query Language): `rql-query`, `rql-mutate` y `rql-schema` leen y modifican nodos de escena, propiedades de Godot, recursos, archivos, escenas y el estado del editor con una sola consulta, en lugar de una herramienta por operación.
 
-Con el `toolFormat` predeterminado (`Rql`), las demás herramientas reciben valores RQL como argumentos y devuelven texto compacto; `Json` conserva los esquemas y resultados JSON de ReflectorNet. Las capturas devuelven una imagen PNG. Todas las herramientas del editor están disponibles en cuanto se activa el addon.
+Las demás herramientas reciben valores RQL como argumentos y devuelven texto compacto (RQL es la única capa de datos de las herramientas). Las capturas devuelven una imagen PNG. Todas las herramientas del editor están disponibles en cuanto se activa el addon.
 
 Las familias **console**, **reflection** y **runtime-errors** sirven a un *juego en marcha* (consulta [Uso en runtime](runtime.es.md)). En el editor, usa en su lugar el origen RQL `console` y `call` / `CallMethod` de RQL.
 

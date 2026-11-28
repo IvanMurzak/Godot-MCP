@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Live smoke of `csharp-exec` (Code-Exec) against a running Godot editor with this addon (default toolFormat Rql).
+Live smoke of `csharp-exec` (Code-Exec) against a running Godot editor with this addon.
 
 Checks: an expression, the old id `script-execute` (a hidden alias: still runs, listed as hidden), a game type from the project's own C# assembly (with auto-import of its namespace), Godot
 API, GD.Print / GD.PushWarning (Godot 4.5+ only: the engine logger) and Console captured into the result, the

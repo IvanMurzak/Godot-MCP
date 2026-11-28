@@ -528,7 +528,13 @@ namespace com.IvanMurzak.Godot.MCP.Connection
             if (_configurePlugin is { } configurePlugin)
             {
                 try { configurePlugin(_plugin, _config); }
-                catch (Exception ex) { GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    // Fail loudly: a half-configured plugin (e.g. tools without their RQL data layer) must never connect.
+                    GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed, not connecting: {ex.GetType().Name}: {ex.Message}");
+                    DisposePlugin();
+                    throw;
+                }
             }
 
             // Reapply the persisted per-feature visibility map now that the managers exist (the tool/prompt/
