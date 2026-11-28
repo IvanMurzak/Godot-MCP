@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Vector3I (grid cells): compact "(x, y, z)" output; whole numbers only.</summary>
     public sealed class Godot_Vector3I_Adapter : GodotIntTupleAdapter<Vector3I>
     {
-        public override string Description => "Vector3I: write as \"(x, y, z)\" or [x, y, z] with whole numbers";
+        public override string Description => "Vector3I: write as [x, y, z] or \"(x, y, z)\" in quotes with whole numbers";
         protected override string Expected => "(x, y, z) or [x, y, z] with whole numbers";
         protected override int Width => 3;
         // Component-wise arithmetic (RQL spec §4.2): Cell + [1, 0, 0], Size * 2; a result that is not whole is a type-mismatch.

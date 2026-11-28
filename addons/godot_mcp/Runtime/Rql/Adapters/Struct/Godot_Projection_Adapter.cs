@@ -18,7 +18,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// </summary>
     public sealed class Godot_Projection_Adapter : GodotFloatTupleAdapter<Projection>
     {
-        public override string Description => "Projection (4x4 matrix): write as 16 numbers column by column, \"(xx, xy, xz, xw, yx, …, ww)\" or a list";
+        public override string Description => "Projection (4x4 matrix): write as 16 numbers column by column, as a list [xx, xy, …, ww] or \"(xx, xy, …, ww)\" in quotes";
         protected override string Expected => "16 numbers, column by column: (xx, xy, xz, xw, yx, yy, yz, yw, zx, zy, zz, zw, wx, wy, wz, ww)";
         protected override int Width => 16;
 

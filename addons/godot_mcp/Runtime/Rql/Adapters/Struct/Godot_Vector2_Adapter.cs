@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Vector2: compact "(x, y)" output; "(…)" / [ … ] / object literal input.</summary>
     public sealed class Godot_Vector2_Adapter : GodotFloatTupleAdapter<Vector2>
     {
-        public override string Description => "Vector2: write as \"(x, y)\", [x, y] or {x: 1, y: 2}";
+        public override string Description => "Vector2: write as [x, y] or \"(x, y)\" in quotes or {x: 1, y: 2}";
         protected override string Expected => "(x, y) or [x, y]";
         protected override int Width => 2;
         // Component-wise arithmetic (RQL spec §4.2): Scale * 1.5, Position + [0, 1, 0], -Velocity.

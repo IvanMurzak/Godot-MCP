@@ -122,7 +122,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             "- `usings`: extra namespaces, e.g. `[\"MyGame.Gameplay\"]`.\n";
         internal const string SkillParameters =
             "## Parameters\n\n" +
-            "`parameters` is an RQL map of named values: `{n: 6, label: \"x\", target: ref(\"Node3D#12\")}`. Each becomes a variable of the " +
+            "`parameters` is an RQL map of named values: `{n: 6, label: \"x\", target: godot.find(\"Crate\")}` (a node by name or path with " +
+            "`godot.find(\"…\")`, or `ref(\"Node3D#12\")` with the id from a query result). Each becomes a variable of the " +
             "snippet (or the method's argument, in order) of its value's type: a node or resource keeps its class, a whole number is an " +
             "`int`, another number a `double`. Write the type before the name for anything else, and the value is converted to it: " +
             "`{\"Vector3 at\": [1, 2, 3], \"Color tint\": \"#ff8800\", \"float speed\": 2, \"int[] ids\": [1, 2]}` (C# aliases, Godot and project " +
@@ -134,7 +135,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         internal const string ClassNameDescription = "Full mode: the class whose static method runs (namespace-qualified or not).";
         internal const string MethodNameDescription = "Full mode: the static method to run.";
         internal const string ParametersDescription = "Values for the snippet's variables (or the method's arguments, in order) by name, " +
-            "e.g. {node: ref(\"Node3D#12\"), n: 6, \"Vector3 at\": [1, 2, 3]} (a type before the name converts the value to it). Leave empty if there are none.";
+            "e.g. {node: godot.find(\"Crate\"), n: 6, \"Vector3 at\": [1, 2, 3]}: a node by name or path with godot.find(\"…\"), or ref(\"Node3D#12\") " +
+            "from a query result; a type before the name converts the value to it. Leave empty if there are none.";
         internal const string IsMethodBodyDescription = "Force snippet mode even when the code declares 'className'.";
         internal const string UsingsDescription = "Extra namespaces for snippet mode, e.g. [\"MyGame.Gameplay\"].";
 

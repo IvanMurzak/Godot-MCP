@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Color: "(r, g, b, a)" output; "(r, g, b[, a])", [r, g, b[, a]], "#RRGGBB[AA]" or {r, g, b, a} input.</summary>
     public sealed class Godot_Color_Adapter : GodotFloatTupleAdapter<Color>
     {
-        public override string Description => "Color: write as \"(r, g, b, a)\" with 0..1 components, [r, g, b] or \"#RRGGBB\"";
+        public override string Description => "Color: write as [r, g, b] or [r, g, b, a] with 0..1 components, \"#RRGGBB\", or \"(r, g, b, a)\" in quotes";
         protected override string Expected => "(r, g, b, a), [r, g, b] or #RRGGBB";
         protected override int Width => 4;
         // Component-wise arithmetic (RQL spec §4.2): Scale * 1.5, Position + [0, 1, 0], -Velocity.

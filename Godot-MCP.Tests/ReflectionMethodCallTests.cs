@@ -164,6 +164,11 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"{\\\"NoSuchType x\\\": 1}\"}");
             Assert.Equal(ResponseStatus.Error, status);
             Assert.Contains("type 'NoSuchType' not found", text);
+            // ref() takes a Type#id from a query; a bare name is refused with the form that works (BEFORE-eval G1).
+            (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"{node: ref(\\\"Crate\\\")}\"}");
+            Assert.Equal(ResponseStatus.Error, status);
+            Assert.Contains("godot.find(\"Crate\")", text);
+            Assert.DoesNotContain("not supported", text);
         }
     }
 }

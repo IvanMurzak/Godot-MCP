@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Transform2D: X axis, Y axis and origin as one 6-number tuple.</summary>
     public sealed class Godot_Transform2D_Adapter : GodotFloatTupleAdapter<Transform2D>
     {
-        public override string Description => "Transform2D: write as \"(xx, xy, yx, yy, ox, oy)\" (X axis, Y axis, origin)";
+        public override string Description => "Transform2D: write as [xx, xy, yx, yy, ox, oy] or \"(xx, xy, yx, yy, ox, oy)\" in quotes (X axis, Y axis, origin)";
         protected override string Expected => "(xx, xy, yx, yy, ox, oy)";
         protected override int Width => 6;
         protected override float Component(Transform2D v, int index) => index switch { 0 => v.X.X, 1 => v.X.Y, 2 => v.Y.X, 3 => v.Y.Y, 4 => v.Origin.X, _ => v.Origin.Y };

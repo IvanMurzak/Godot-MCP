@@ -26,7 +26,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     public sealed class Godot_ScriptParameters_Adapter : RqlTypeAdapter<ScriptParameters>
     {
         public override string? Description =>
-            "named values {n: 6, label: \"x\", target: ref(\"Node3D#12\"), \"Vector3 at\": [1, 2, 3]}: each becomes a parameter (a variable of " +
+            "named values {n: 6, label: \"x\", target: godot.find(\"Crate\"), \"Vector3 at\": [1, 2, 3]}: each becomes a parameter (a variable of " +
             "the snippet, or the method's argument in order) of the type written before its name, else of its value's type (a node or " +
             "resource, string, bool, a whole number → int, another number → double)";
 
@@ -74,6 +74,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     typeName = name.Substring(0, space).Trim();
                     name = name.Substring(space + 1);
                 }
+            }
+            // A function or ref that failed inside the map (ref("Crate") names no Type#id): say so, with the form that works.
+            if (value is RqlError error)
+            {
+                reason = $"parameter '{name}': {error.Detail ?? error.Code}. Name a node with godot.find(\"Crate\") (a name or path), or " +
+                         "ref(\"Node3D#12\") with the Type#id from a query result";
+                return false;
             }
             if (!IsIdentifier(name))
             {

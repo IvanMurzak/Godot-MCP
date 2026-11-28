@@ -132,6 +132,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.DoesNotContain("\"x\"", text); // not ReflectorNet's JSON
         }
 
+        [Theory]
+        [InlineData("Position: [2, 0, 5]", "(2, 0, 5)")]
+        [InlineData("Position: \\\"(2, 0, 5)\\\"", "(2, 0, 5)")]
+        [InlineData("Position: {x: 2, y: 0, z: 5}", "(2, 0, 5)")]
+        [InlineData("Tint: [1, 0, 0]", "tint ff0000")]
+        [InlineData("Tint: \\\"#00ff00\\\"", "tint 00ff00")]
+        [InlineData("Tint: \\\"(0, 0, 1, 1)\\\"", "tint 0000ff")]
+        public void EveryFormTheTypeTextTeachesParsesInALiteral(string member, string expected)
+        {
+            var (tools, _) = Tools(AccessorMode.Reflection);
+            var listed = tools.RunListTool(new RequestListTool()).Result.Value!.Single(t => t.Name == Describe);
+            // The schema teaches the list form first and the tuple only as quoted text (a bare (2, 0, 5) is no RQL value).
+            Assert.Contains("Vector3: write as [x, y, z] or \"(x, y, z)\" in quotes", listed.Description);
+            var (r, text) = Call(tools, Describe, "{\"spec\": \"{Name: \\\"Orc\\\", " + member + "}\"}");
+            Assert.True(r.Status == ResponseStatus.Success, text);
+            Assert.Contains(expected, text);
+        }
+
         [Fact]
         public void AWrongValueIsRefusedWithTheExpectedType()
         {

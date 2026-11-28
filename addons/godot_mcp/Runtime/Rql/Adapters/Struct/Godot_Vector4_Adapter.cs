@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Vector4: compact "(x, y, z, w)" output.</summary>
     public sealed class Godot_Vector4_Adapter : GodotFloatTupleAdapter<Vector4>
     {
-        public override string Description => "Vector4: write as \"(x, y, z, w)\" or [x, y, z, w]";
+        public override string Description => "Vector4: write as [x, y, z, w] or \"(x, y, z, w)\" in quotes";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w]";
         protected override int Width => 4;
         // Component-wise arithmetic (RQL spec §4.2): Scale * 1.5, Position + [0, 1, 0], -Velocity.

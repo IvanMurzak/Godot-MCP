@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Transform3D: basis axes then origin as one 12-number tuple (read Position / Rotation on the node for the friendly form).</summary>
     public sealed class Godot_Transform3D_Adapter : GodotFloatTupleAdapter<Transform3D>
     {
-        public override string Description => "Transform3D: write as \"(xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz)\" (basis X, Y, Z axes, then origin)";
+        public override string Description => "Transform3D: write as [xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz] or \"(xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz)\" in quotes (basis X, Y, Z axes, then origin)";
         protected override string Expected => "(xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz)";
         protected override int Width => 12;
         protected override float Component(Transform3D v, int index) => index switch { 0 => v.Basis.X.X, 1 => v.Basis.X.Y, 2 => v.Basis.X.Z, 3 => v.Basis.Y.X, 4 => v.Basis.Y.Y, 5 => v.Basis.Y.Z, 6 => v.Basis.Z.X, 7 => v.Basis.Z.Y, 8 => v.Basis.Z.Z, 9 => v.Origin.X, 10 => v.Origin.Y, _ => v.Origin.Z };

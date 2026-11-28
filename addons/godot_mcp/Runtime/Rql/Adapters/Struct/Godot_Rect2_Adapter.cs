@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Rect2: compact "(x, y, width, height)" output.</summary>
     public sealed class Godot_Rect2_Adapter : GodotFloatTupleAdapter<Rect2>
     {
-        public override string Description => "Rect2: write as \"(x, y, width, height)\" or [x, y, width, height]";
+        public override string Description => "Rect2: write as [x, y, width, height] or \"(x, y, width, height)\" in quotes";
         protected override string Expected => "(x, y, width, height)";
         protected override int Width => 4;
         protected override float Component(Rect2 v, int index) => index switch { 0 => v.Position.X, 1 => v.Position.Y, 2 => v.Size.X, _ => v.Size.Y };

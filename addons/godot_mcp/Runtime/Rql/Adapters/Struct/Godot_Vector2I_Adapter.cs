@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Vector2I (tile coordinates, sizes): compact "(x, y)" output; whole numbers only.</summary>
     public sealed class Godot_Vector2I_Adapter : GodotIntTupleAdapter<Vector2I>
     {
-        public override string Description => "Vector2I: write as \"(x, y)\" or [x, y] with whole numbers";
+        public override string Description => "Vector2I: write as [x, y] or \"(x, y)\" in quotes with whole numbers";
         protected override string Expected => "(x, y) or [x, y] with whole numbers";
         protected override int Width => 2;
         // Component-wise arithmetic (RQL spec §4.2): Cell + [1, 0, 0], Size * 2; a result that is not whole is a type-mismatch.

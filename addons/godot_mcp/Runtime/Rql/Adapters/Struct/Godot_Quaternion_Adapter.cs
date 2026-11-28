@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
     /// <summary>Quaternion: compact "(x, y, z, w)" output.</summary>
     public sealed class Godot_Quaternion_Adapter : GodotFloatTupleAdapter<Quaternion>
     {
-        public override string Description => "Quaternion: write as \"(x, y, z, w)\" or [x, y, z, w]";
+        public override string Description => "Quaternion: write as [x, y, z, w] or \"(x, y, z, w)\" in quotes";
         protected override string Expected => "(x, y, z, w) or [x, y, z, w]";
         protected override int Width => 4;
         protected override float Component(Quaternion v, int index) => index switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
