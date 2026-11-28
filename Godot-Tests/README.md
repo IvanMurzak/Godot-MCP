@@ -75,7 +75,7 @@ degradation (no engine logger, frames null) while the C# channel still captures.
 `test_pull_request.yml` and `release.yml` both fan it out across the Godot matrix.
 
 After the game, the same job boots a headless **editor** twice against that server for the live editor smokes:
-`scripts/smoke_rql.py` (RQL tools) and `scripts/smoke_script_execute.py` (`csharp-exec`: Code-Exec + Roslyn; its
+`scripts/smoke_rql.py` (RQL tools) and `scripts/smoke_csharp_exec.py` (`csharp-exec`: Code-Exec + Roslyn; its
 fixture game type is written by `--prepare` before the C# build). Both run on every matrix version.
 
 ## Local run

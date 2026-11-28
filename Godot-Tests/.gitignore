@@ -23,6 +23,6 @@ Godot-MCP-Tests.sln
 Godot-Tests.sln
 nuget.config
 
-# scripts/smoke_script_execute.py fixtures (CI writes them before the C# build)
+# scripts/smoke_csharp_exec.py fixtures (CI writes them before the C# build)
 /SmokeExec/
 /.ai-game-dev/

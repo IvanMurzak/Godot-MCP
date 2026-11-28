@@ -26,7 +26,7 @@ jobs:
         run: python scripts/check-runtime-boundary.py --verbose
 
   # Export-build package set, no Godot binary: Godot-MCP.csproj in ExportRelease / ExportDebug ships McpPlugin +
-  # ReflectorNet and no RQL / Code-Exec / Roslyn; with the in-game script-execute opt-in
+  # ReflectorNet and no RQL / Code-Exec / Roslyn; with the in-game csharp-exec opt-in
   # (-p:GodotMcpCodeExecInGame=true) it also ships Code-Exec + Roslyn, still no RQL. See scripts/check-export-assemblies.py.
   export-packages:
     name: export builds (package set)

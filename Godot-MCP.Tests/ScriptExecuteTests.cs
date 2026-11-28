@@ -28,7 +28,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// Pure-managed coverage for <c>csharp-exec</c>: mode detection, the game-assembly location hook, snippet-type
     /// flattening, error text and the result model, plus real Code-Exec runs with the editor's default usings. The editor
     /// handler (main thread, GD.Print capture, the live game assembly) is covered by the headless Godot smoke
-    /// (<c>scripts/smoke_script_execute.py</c>).
+    /// (<c>scripts/smoke_csharp_exec.py</c>).
     /// </summary>
     public class ScriptExecuteTests
     {
