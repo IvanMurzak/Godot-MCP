@@ -57,10 +57,14 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql
 
         /// <summary>
         /// A tool binding over <paramref name="engine"/> whose calls run on the game's main thread (ReflectorNet's
-        /// <c>MainThread</c>, which <c>GodotMcpRuntime</c> routes through its dispatcher).
+        /// <c>MainThread</c>, which <c>GodotMcpRuntime</c> routes through its dispatcher). A call made ON Godot's main thread
+        /// runs inline: <c>GodotMcpRuntime.Build</c> installs the binding (and builds every tool's signature) from
+        /// <c>_Ready</c>, before the deferred dispatcher has entered the tree, so queueing it there would wait forever.
         /// </summary>
         public static RqlToolBinding CreateBinding(RqlEngine engine) =>
-            new RqlToolBinding(() => engine, f => com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(f));
+            new RqlToolBinding(() => engine, f => OS.GetThreadCallerId() == OS.GetMainThreadId()
+                ? f()
+                : com.IvanMurzak.ReflectorNet.Utils.MainThread.Instance.Run(f));
 
         /// <summary>Install a fresh binding as the data layer of every tool on <paramref name="tools"/>; returns it.</summary>
         public static RqlToolBinding Install(IToolManager? tools, ToolTextEscaping escaping)

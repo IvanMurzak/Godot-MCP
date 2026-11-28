@@ -43,11 +43,12 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                     items.Add(parameter!);
                 }
             }
-            else if (value is List<object?> list && list.All(i => i is ObjectValue o && o.ContainsKey("name")))
+            else if (value is List<object?> list && list.All(i => i is ObjectValue o && (o.ContainsKey("name") || o.ContainsKey("typeName"))))
             {
                 foreach (var o in list.Cast<ObjectValue>())
                 {
-                    if (!(o["name"] is string name) || name.Length == 0) { reason = "every parameter needs a name"; return AdapterOutcome.Failed; }
+                    // A full-source method takes its arguments in order, so a nameless entry gets a positional name.
+                    var name = o.TryGetValue("name", out var n) && n is string given && given.Length > 0 ? given : "arg" + items.Count;
                     var typeName = o.TryGetValue("typeName", out var t) ? t as string : null;
                     o.TryGetValue("value", out var v);
                     if (!TryParameter(name, string.IsNullOrWhiteSpace(typeName) ? null : typeName, v, kernel, out var parameter, out reason)) return AdapterOutcome.Failed;
@@ -143,6 +144,8 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             if (Type.GetType(name, throwOnError: false) is Type direct) return direct;
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
+                // An earlier snippet's assembly may not have unloaded yet: its types are never a parameter type.
+                if (assembly.GetName().Name?.StartsWith("CodeExec.Snippet", StringComparison.Ordinal) == true) continue;
                 Type? found;
                 try { found = assembly.GetType(name, throwOnError: false); }
                 catch (Exception) { continue; } // an assembly that cannot list its types

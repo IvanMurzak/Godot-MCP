@@ -89,10 +89,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 if (value == null) return null;
                 if (_special?.Invoke(value) is { } replaced) return replaced;
                 var type = value.GetType();
-                if (IsScalar(type)) return value;
                 var snippet = _isSnippetType(type);
+                if (IsScalar(type)) return snippet ? Safe(value) : value; // an enum the snippet declares: its name
+                // Code that would run after the snippet ended (outside its time budget) is shown, never kept.
+                if (value is Delegate || value is System.Threading.Tasks.Task) return Safe(value);
+                // A nested lazy sequence (the top level is enumerated by the caller) is enumerated here, capped.
+                var lazy = depth > 0 && IsLazySequence(type);
                 // A host collection is copied only when an item is a snippet value (shallow check: its declared item type).
-                if (!snippet && !HoldsSnippetValues(type)) return value;
+                if (!snippet && !lazy && !HoldsSnippetValues(type)) return value;
                 if (depth >= MaxDepth || !_open.Add(value)) return Safe(value);
                 try
                 {
@@ -160,6 +164,16 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             [typeof(long)] = "long", [typeof(float)] = "float", [typeof(double)] = "double", [typeof(decimal)] = "decimal",
             [typeof(byte)] = "byte", [typeof(short)] = "short", [typeof(uint)] = "uint", [typeof(ulong)] = "ulong", [typeof(char)] = "char",
         };
+
+        /// <summary>
+        /// A lazy sequence: enumerable, but neither a string nor a collection (a LINQ query, an iterator). Its own members
+        /// (Current, the source iterator) say nothing about its items, so it is enumerated (capped) instead.
+        /// </summary>
+        public static bool IsLazySequence(Type type) =>
+            typeof(IEnumerable).IsAssignableFrom(type)
+            && type != typeof(string)
+            && !typeof(ICollection).IsAssignableFrom(type)
+            && !type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(ICollection<>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)));
 
         static bool IsScalar(Type t) => t == typeof(string) || t == typeof(bool) || t == typeof(char) || t.IsEnum || IsNumber(t);
 

@@ -30,6 +30,8 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     {
         public record Item(string Name, int Price);
 
+        public enum SnippetMode { Fast, Slow }
+
         public sealed class Snippety
         {
             public string Label = "x";
@@ -38,7 +40,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             public List<Item> Items { get; } = new List<Item> { new Item("a", 1) };
         }
 
-        private static readonly Type[] SnippetTypes = { typeof(Item), typeof(Snippety) };
+        private static readonly Type[] SnippetTypes = { typeof(Item), typeof(Snippety), typeof(SnippetMode) };
 
         // Stands in for Code-Exec's snippet-assembly test: the test's own record / class play the snippet's types.
         private static bool IsSnippet(Type t) =>
@@ -92,6 +94,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             var mixed = Assert.IsType<List<object?>>(ScriptResultText.Plain(new List<object> { 1, new Item("b", 2) }, IsSnippet));
             Assert.Equal(1, mixed[0]);
             Assert.IsType<Dictionary<string, object?>>(mixed[1]);
+        }
+
+        [Fact]
+        public void SnippetEnumsNestedSequencesAndCodeAreNotKept()
+        {
+            var plain = Assert.IsType<Dictionary<string, object?>>(ScriptResultText.Plain(
+                new { mode = SnippetMode.Slow, xs = Enumerable.Range(0, 3).Select(i => i * 2), f = (Func<int>)(() => 1) }, IsSnippet));
+            Assert.Equal("Slow", plain["mode"]);
+            Assert.Equal(new List<object?> { 0, 2, 4 }, plain["xs"]);
+            Assert.IsType<string>(plain["f"]);
+            // Host enums and collections stay as they are.
+            Assert.Equal(DayOfWeek.Monday, ScriptResultText.Plain(DayOfWeek.Monday, IsSnippet));
         }
 
         [Fact]

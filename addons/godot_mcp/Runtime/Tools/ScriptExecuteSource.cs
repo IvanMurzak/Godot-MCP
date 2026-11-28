@@ -211,15 +211,8 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static List<string> LogLines(IEnumerable<LogEntry> logs) =>
             logs.Select(l => l.Level == "info" ? l.Message : l.Level + ": " + l.Message).ToList();
 
-        /// <summary>
-        /// A lazy sequence: enumerable, but neither a string nor a collection (a LINQ query, an iterator). Its own members
-        /// (Current, the source iterator) say nothing about its items, so it is enumerated first (<see cref="Materialize"/>).
-        /// </summary>
-        public static bool IsLazySequence(Type type) =>
-            typeof(System.Collections.IEnumerable).IsAssignableFrom(type)
-            && type != typeof(string)
-            && !typeof(System.Collections.ICollection).IsAssignableFrom(type)
-            && !type.GetInterfaces().Any(i => i.IsGenericType && (i.GetGenericTypeDefinition() == typeof(ICollection<>) || i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>)));
+        /// <summary>A lazy sequence (LINQ query, iterator): see <see cref="ScriptResultText.IsLazySequence"/>.</summary>
+        public static bool IsLazySequence(Type type) => ScriptResultText.IsLazySequence(type);
 
         /// <summary>
         /// The first <see cref="MaxSequenceItems"/> items of a sequence (an endless one stops there, with a last item saying so),

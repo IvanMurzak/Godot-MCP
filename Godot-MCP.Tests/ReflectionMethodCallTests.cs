@@ -133,7 +133,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void AVoidMethodReportsSuccess()
         {
-            var (status, text) = Call(Tools(), Tool_Reflection.ReflectionMethodCallToolId, Args("Nothing", "\"parametersMatchLevel\": 0"));
+            var (status, text) = Call(Tools(), Tool_Reflection.ReflectionMethodCallToolId, Args("Nothing"));
             Assert.True(status == ResponseStatus.Success, text);
         }
 
@@ -148,10 +148,10 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"{\\\"Vector3 at\\\": [1, 2, 3], \\\"float speed\\\": 2, \\\"int[] ids\\\": [1, 2]}\"}");
             Assert.True(status == ResponseStatus.Success, text);
             Assert.Equal("at:Vector3=(1, 2, 3);speed:float=2;ids:int[]=System.Int32[]", text);
-            // The list form of earlier versions.
-            (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"[{name: \\\"n\\\", typeName: \\\"System.Int32\\\", value: 6}]\"}");
+            // The list form of earlier versions; a nameless entry is positional.
+            (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"[{name: \\\"n\\\", typeName: \\\"System.Int32\\\", value: 6}, {typeName: \\\"System.String\\\", value: \\\"x\\\"}]\"}");
             Assert.True(status == ResponseStatus.Success, text);
-            Assert.Equal("n:int=6", text);
+            Assert.Equal("n:int=6;arg1:string=x", text);
         }
 
         [Fact]

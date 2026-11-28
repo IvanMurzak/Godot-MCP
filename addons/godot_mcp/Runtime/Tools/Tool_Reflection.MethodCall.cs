@@ -73,8 +73,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 knownNamespace: knownNamespace,
                 typeNameMatchLevel: typeNameMatchLevel,
                 methodNameMatchLevel: methodNameMatchLevel,
-                // Without parameters in the filter, the argument names choose among overloads (below).
-                parametersMatchLevel: (filter.InputParameters?.Count ?? 0) == 0 && given.Count > 0 ? 0 : parametersMatchLevel).ToList();
+                // Without parameters in the filter, they do not filter (a parameterless method is found too) and the argument
+                // names choose among overloads (below).
+                parametersMatchLevel: filter.InputParameters == null || (filter.InputParameters.Count == 0 && given.Count > 0) ? 0 : parametersMatchLevel).ToList();
 
             if (methods.Count == 0)
                 throw new Exception($"Method not found.\n{filter}");

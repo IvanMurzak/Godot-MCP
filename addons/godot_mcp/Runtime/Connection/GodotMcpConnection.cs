@@ -506,10 +506,11 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                 try { configurePlugin(_plugin, _config); }
                 catch (Exception ex)
                 {
-                    // Fail loudly: a half-configured plugin (e.g. tools without their RQL data layer) must never connect.
+                    // Fail loudly: a half-configured plugin (e.g. tools without their RQL data layer) must never connect. The
+                    // error is the report (Start is also reached from dock buttons, which must not see an exception).
                     GodotMcpLog.Error($"[Godot-MCP] configuring the built MCP plugin failed, not connecting: {ex.GetType().Name}: {ex.Message}");
                     DisposePlugin();
-                    throw;
+                    return;
                 }
             }
 
