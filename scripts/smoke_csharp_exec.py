@@ -191,7 +191,7 @@ def main() -> int:
     case(host, "parameters", {"csharpCode": "n * 2 + at.X", "parameters": '{n: 20, "Vector3 at": [2, 0, 0]}'}, True, "System.Single: 42")
     # Full mode converts the values to the method's parameter types before it runs (a whole number for a float here).
     case(host, "full-mode parameters take the declared types",
-         {"csharpCode": "public class Script { public static float Main(float speed, Vector3 at) { return speed * 2 + at.X; } }",
+         {"csharpCode": "using Godot;\npublic class Script { public static float Main(float speed, Vector3 at) { return speed * 2 + at.X; } }",
           "parameters": '{speed: 20, at: "(2, 0, 0)"}'}, True, "System.Single: 42")
     # RQL code written as text, and a method outside any class: refused up front, never a silent "Success".
     case(host, "rql call written as text is refused", {"csharpCode": "crate", "parameters": {"crate": 'godot.find("Crate")'}},

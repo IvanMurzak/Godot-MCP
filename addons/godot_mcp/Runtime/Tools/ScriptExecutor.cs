@@ -107,26 +107,38 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         /// Each parameter converted to the type the full-mode method declares for it (in order), when that type is known and
         /// differs from the value's; a value that does not convert is an error before anything runs.
         /// </summary>
-        internal static ScriptParameters ToDeclaredTypes(ScriptParameters parameters, IReadOnlyList<string> declared)
+        internal static ScriptParameters ToDeclaredTypes(ScriptParameters parameters, IReadOnlyList<(string name, IReadOnlyList<string> namespaces)?> declared)
         {
             var items = new List<ScriptParameter>(parameters.Items.Count);
+            var names = string.Join(", ", declared.Select(d => d?.name ?? "?"));
             for (var i = 0; i < parameters.Items.Count; i++)
             {
                 var p = parameters.Items[i];
-                var type = Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(declared[i]);
+                var type = declared[i] is { } d ? ResolveDeclared(d.name, d.namespaces) : null;
                 if (type == null || type == p.Type || p.Convert == null || (p.Value != null && type.IsInstanceOfType(p.Value) && !type.IsValueType))
                 {
                     items.Add(p);
                     continue;
                 }
                 if (!p.Convert(type, out var value, out var reason))
-                    throw new ArgumentException($"parameter '{p.Name}' ({declared[i]} in {string.Join(", ", declared)}): {reason}" +
+                    throw new ArgumentException($"parameter '{p.Name}' ({declared[i]!.Value.name} in {names}): {reason}" +
                         (typeof(GodotObject).IsAssignableFrom(type) && p.Value is string
                             ? ". A node: godot.find(\"Crate\") (by name or path) or ref(\"Node3D#12\") from a query result"
                             : ""));
                 items.Add(new ScriptParameter(p.Name, type, value, p.Convert));
             }
             return new ScriptParameters(items);
+        }
+
+        // A short name in the code's own namespaces first (using MyGame; Timer is MyGame.Timer), then as the agent would name it.
+        static Type? ResolveDeclared(string name, IReadOnlyList<string> namespaces)
+        {
+            if (name.IndexOf('.') < 0 && name.IndexOf('<') < 0)
+                foreach (var ns in namespaces)
+                    if (ns != "Godot" && Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(ns + "." + name) is { } inNamespace
+                        && inNamespace.FullName == ns + "." + name.TrimEnd('?', '[', ']'))
+                        return inNamespace;
+            return Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(name);
         }
 
         static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, ExecuteRequest request, PreparedSnippet prepared,

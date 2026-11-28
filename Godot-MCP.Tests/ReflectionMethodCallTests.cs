@@ -204,13 +204,24 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.True(status == ResponseStatus.Success, text);
             var given = Captured!;
             // A whole number for a float, text for a Vector3: converted to the method's types.
-            var typed = ScriptExecutor.ToDeclaredTypes(new ScriptParameters(given.Items.Take(2).ToList()), new[] { "float", "Vector3" });
+            var typed = ScriptExecutor.ToDeclaredTypes(new ScriptParameters(given.Items.Take(2).ToList()), Declared("float", "Vector3"));
             Assert.Equal(new object?[] { 2f, new Vector3(1, 2, 3) }, typed.Items.Select(p => p.Value));
             Assert.Equal(new[] { typeof(float), typeof(Vector3) }, typed.Items.Select(p => p.Type));
             // A value that does not convert is an error now, before the run (a Node needs Godot: the live smoke covers it).
             var e = Assert.Throws<System.ArgumentException>(() => ScriptExecutor.ToDeclaredTypes(
-                new ScriptParameters(given.Items.Skip(2).ToList()), new[] { "Vector3" }));
+                new ScriptParameters(given.Items.Skip(2).ToList()), Declared("Vector3")));
             Assert.Contains("parameter 'crate' (Vector3 in Vector3)", e.Message);
+        }
+
+        private static IReadOnlyList<(string name, IReadOnlyList<string> namespaces)?> Declared(params string[] names) =>
+            names.Select(n => ((string, IReadOnlyList<string>)?)(n, System.Array.Empty<string>())).ToList();
+
+        [Fact]
+        public void AnExplicitStringTypeKeepsTextThatLooksLikeACall()
+        {
+            var (status, text) = Call(Tools(), "echo-parameters", "{\"parameters\": {\"string label\": \"ref (page 4)\"}}");
+            Assert.True(status == ResponseStatus.Success, text);
+            Assert.Equal("label:string=ref (page 4)", text);
         }
 
         [Fact]

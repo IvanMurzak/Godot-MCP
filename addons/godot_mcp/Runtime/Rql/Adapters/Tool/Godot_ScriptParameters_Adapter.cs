@@ -83,13 +83,6 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                          "ref(\"Node3D#12\") with the Type#id from a query result";
                 return false;
             }
-            // RQL code written as text ("godot.find(\"Crate\")" in quotes) is a string, never the node it names.
-            if (value is string code && LooksLikeRqlCall(code))
-            {
-                reason = $"parameter '{name}': {Quoted(code)} is RQL code written as text, so it would be passed as a string. Give the call " +
-                         $"itself, without quotes: {{{name}: {code.Trim()}}} (a node by name or path: godot.find(\"Crate\"))";
-                return false;
-            }
             if (!IsIdentifier(name))
             {
                 reason = $"'{key}' is not a parameter name (write \"name\" or \"Type name\", e.g. \"Vector3 at\")";
@@ -102,6 +95,15 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 if (!kernel.TryCoerce(value, type, out var coerced, out var why)) { reason = $"parameter '{name}': {why}"; return false; }
                 parameter = new ScriptParameter(name, type, coerced, Converter(value, kernel));
                 return true;
+            }
+            // RQL code written as text ("godot.find(\"Crate\")" in quotes) would be a string, never the node it names. An explicit
+            // type ("string label": "ref(x)") keeps the text.
+            if (value is string code && LooksLikeRqlCall(code))
+            {
+                reason = $"parameter '{name}': {Quoted(code)} is RQL code written as text, so it would be passed as a string. Give the call " +
+                         $"itself, without quotes: {{{name}: {code.Trim()}}} (a node by name or path: godot.find(\"Crate\")); for the text " +
+                         $"itself write \"string {name}\"";
+                return false;
             }
             // RQL numbers are doubles: a whole one is passed as an integer.
             (Type type, object? value)? inferred = value switch

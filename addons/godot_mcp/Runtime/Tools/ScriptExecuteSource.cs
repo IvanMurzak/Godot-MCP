@@ -117,18 +117,33 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         }
 
         /// <summary>
-        /// The parameter types (as written) of the full-mode entry point: static method <paramref name="methodName"/> of
+        /// The parameter types of the full-mode entry point — static method <paramref name="methodName"/> of
         /// <paramref name="entryType"/> (its runtime name, <see cref="FullSourceEntryType"/>) with <paramref name="count"/>
-        /// parameters; null when no such method is found (Code-Exec reports it).
+        /// parameters — as written, each with the namespaces the code makes visible (its usings and enclosing namespaces, to
+        /// try first); null for a type the code declares itself (it exists only once compiled). Null as a whole when there
+        /// is no such method or more than one of that arity (Code-Exec then picks by the values' types).
         /// </summary>
-        public static IReadOnlyList<string>? FullSourceParameterTypes(string code, string entryType, string methodName, int count)
+        public static IReadOnlyList<(string name, IReadOnlyList<string> namespaces)?>? FullSourceParameterTypes(string code, string entryType, string methodName, int count)
         {
             var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
-            var type = script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
-                .OfType<TypeDeclarationSyntax>().FirstOrDefault(t => RuntimeName(t) == entryType);
-            var method = type?.Members.OfType<MethodDeclarationSyntax>().FirstOrDefault(m =>
-                m.Identifier.Text == methodName && m.Modifiers.Any(SyntaxKind.StaticKeyword) && m.ParameterList.Parameters.Count == count);
-            return method?.ParameterList.Parameters.Select(p => p.Type?.ToString() ?? "object").ToList();
+            var types = script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
+                .OfType<TypeDeclarationSyntax>().ToList();
+            var methods = types.Where(t => RuntimeName(t) == entryType)
+                .SelectMany(t => t.Members.OfType<MethodDeclarationSyntax>())
+                .Where(m => m.Identifier.Text == methodName && m.Modifiers.Any(SyntaxKind.StaticKeyword) && m.ParameterList.Parameters.Count == count)
+                .ToList();
+            if (methods.Count != 1)
+                return null;
+            var own = new HashSet<string>(types.Select(t => t.Identifier.Text), StringComparer.Ordinal);
+            var namespaces = script.DescendantNodes().OfType<UsingDirectiveSyntax>()
+                .Where(u => u.Alias == null && u.StaticKeyword.IsKind(SyntaxKind.None) && u.Name != null).Select(u => u.Name!.ToString())
+                .Concat(methods[0].Ancestors().OfType<BaseNamespaceDeclarationSyntax>().Select(n => n.Name.ToString()))
+                .Distinct().ToList();
+            return methods[0].ParameterList.Parameters.Select(p =>
+            {
+                var name = p.Type?.ToString() ?? "object";
+                return own.Contains(name.TrimEnd('?', '[', ']')) ? null : ((string, IReadOnlyList<string>)?)(name, namespaces);
+            }).ToList();
         }
 
         // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) csharp-exec.

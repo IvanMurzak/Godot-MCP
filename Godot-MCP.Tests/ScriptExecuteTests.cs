@@ -194,9 +194,18 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         {
             const string code = "using Godot;\nnamespace Game { public class Script { public static int Main(Node crate, float speed) => 1; " +
                                 "public static int Main(int n) => n; } }";
-            Assert.Equal(new[] { "Node", "float" }, ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 2));
-            Assert.Equal(new[] { "int" }, ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 1));
+            var two = ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 2)!;
+            Assert.Equal(new[] { "Node", "float" }, two.Select(t => t!.Value.name));
+            Assert.Equal(new[] { "Godot", "Game" }, two[0]!.Value.namespaces);
+            Assert.Equal(new[] { "int" }, ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 1)!.Select(t => t!.Value.name));
             Assert.Null(ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 3));
+            // Two overloads of the arity: Code-Exec picks by the values' types, nothing is converted ahead.
+            Assert.Null(ScriptExecuteSource.FullSourceParameterTypes(
+                "public class Script { public static int Main(int n) => n; public static int Main(string s) => 0; }", "Script", "Main", 1));
+            // A type the code declares itself exists only once compiled.
+            var own = ScriptExecuteSource.FullSourceParameterTypes("public class Item { } public class Script { public static int Main(Item i, int n) => n; }", "Script", "Main", 2)!;
+            Assert.Null(own[0]);
+            Assert.Equal("int", own[1]!.Value.name);
         }
 
         // ---- BuiltAssemblyPath ---------------------------------------------------------------------
