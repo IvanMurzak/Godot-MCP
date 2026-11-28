@@ -31,9 +31,27 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 
         protected override bool? Alive(GodotObject o) => GodotObject.IsInstanceValid(o);
 
-        protected override void Members(MemberTable<GodotObject> m) =>
+        /// <summary>
+        /// <c>id</c> is the identity member, so a Godot object in a result reads as its reference (<c>{$ref: Node3D#12, name: …}</c>,
+        /// the form <c>ref("Node3D#12")</c> takes back) instead of every C# member (Multiplayer peers, StringName internals …).
+        /// </summary>
+        protected override void Members(MemberTable<GodotObject> m)
+        {
             m.Add<ulong>("id", o => o.GetInstanceId(), description: "Godot instance id (the number in $ref)")
-             .Add<string>("class", o => o.GetClass(), description: "Godot class name, e.g. \"OmniLight3D\"");
+             .Add<string>("class", o => o.GetClass(), description: "Godot class name, e.g. \"OmniLight3D\"")
+             .Add<string?>("name", o => NameOf(o), description: "a node's name, a resource's path (or its name)");
+            // The C# Name is a StringName; "name" reads it as text (and the two names would clash case-insensitively).
+            m.HideWhere(member => member.Name == "Name" && member.Type == typeof(StringName));
+            m.Identity("id");
+            m.Display("name");
+        }
+
+        internal static string? NameOf(GodotObject o) => o switch
+        {
+            Node n => n.Name.ToString(),
+            Resource r => string.IsNullOrEmpty(r.ResourcePath) ? (string.IsNullOrEmpty(r.ResourceName) ? null : r.ResourceName) : r.ResourcePath,
+            _ => null,
+        };
 
         public override AdapterOutcome TryCoerce(object? value, Type target, RqlKernel kernel, out object? result, out string? reason)
         {

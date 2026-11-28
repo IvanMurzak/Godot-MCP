@@ -175,27 +175,49 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Equal(1e20, com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters.Godot_Variant_Adapter.Input(1e20)); // past a long: stays a float
         }
 
-        // The harness's live 'node result' case: an object with an identity (a Godot object in a game) returned by a tool
-        // reads as its members, never as an empty "Success".
+        // The harness's live 'node result' case: a Godot object a game tool returns reads as its reference, not member by member
+        // (a live Node needs Godot, so the in-game engine's type model is checked on the real Godot types, and the same member
+        // table on a stand-in type is presented).
+        [Theory]
+        [InlineData(AccessorMode.Compiled, typeof(Node3D))]
+        [InlineData(AccessorMode.Reflection, typeof(Node3D))]
+        [InlineData(AccessorMode.Reflection, typeof(Node))]
+        [InlineData(AccessorMode.Reflection, typeof(StandardMaterial3D))]
+        public void GodotObjectsInAGameHaveTheirIdentityAndName(AccessorMode accessors, System.Type type)
+        {
+            var info = GodotRqlRuntime.CreateEngine(accessors).Types.Info(type);
+            Assert.Equal("id", info.IdMember?.Name);
+            Assert.Equal("name", info.DisplayMember?.Name);
+            Assert.DoesNotContain(info.Members, m => m.Name == "Name");
+        }
+
         [Theory]
         [InlineData(AccessorMode.Compiled)]
         [InlineData(AccessorMode.Reflection)]
-        public void AnObjectResultWithAnIdentityIsPresented(AccessorMode accessors)
+        public void AnObjectResultWithAnIdentityReadsAsItsRef(AccessorMode accessors)
         {
             var engine = GodotRqlRuntime.CreateEngine(accessors);
             engine.AddAdapter(new IdentifiedAdapter());
             var binding = new RqlToolBinding(() => engine, mainThread: null);
             var method = typeof(RuntimeBindingTestTools).GetMethod(nameof(RuntimeBindingTestTools.Spawn))!;
             var text = string.Join("\n", binding.Result(method, new Identified())!.Content.Select(c => c.Text));
-            Assert.Contains("class:Node3D", text);
+            Assert.Contains("Identified#12", text);
+            Assert.Contains("Crate", text);
+            Assert.DoesNotContain("Secret", text); // no member-by-member expansion
         }
 
-        public sealed class Identified { public string Label = "x"; }
+        public sealed class Identified { public string Secret = "x"; public ulong Number = 12; }
 
+        // The same member table shape as Godot_RuntimeObject_Adapter (identity "id", display "name").
         private sealed class IdentifiedAdapter : RqlTypeAdapter<Identified>
         {
             protected override string? Id(Identified o) => "12";
-            protected override void Members(MemberTable<Identified> m) => m.Add<string>("class", o => "Node3D");
+            protected override void Members(MemberTable<Identified> m)
+            {
+                m.Add<ulong>("id", o => o.Number).Add<string>("name", o => "Crate");
+                m.Identity("id");
+                m.Display("name");
+            }
         }
 
         [Fact]
