@@ -83,6 +83,13 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                          "ref(\"Node3D#12\") with the Type#id from a query result";
                 return false;
             }
+            // RQL code written as text ("godot.find(\"Crate\")" in quotes) is a string, never the node it names.
+            if (value is string code && LooksLikeRqlCall(code))
+            {
+                reason = $"parameter '{name}': {Quoted(code)} is RQL code written as text, so it would be passed as a string. Give the call " +
+                         $"itself, without quotes: {{{name}: {code.Trim()}}} (a node by name or path: godot.find(\"Crate\"))";
+                return false;
+            }
             if (!IsIdentifier(name))
             {
                 reason = $"'{key}' is not a parameter name (write \"name\" or \"Type name\", e.g. \"Vector3 at\")";
@@ -93,7 +100,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
                 var type = ResolveType(typeName);
                 if (type == null) { reason = $"parameter '{name}': type '{typeName}' not found"; return false; }
                 if (!kernel.TryCoerce(value, type, out var coerced, out var why)) { reason = $"parameter '{name}': {why}"; return false; }
-                parameter = new ScriptParameter(name, type, coerced);
+                parameter = new ScriptParameter(name, type, coerced, Converter(value, kernel));
                 return true;
             }
             // RQL numbers are doubles: a whole one is passed as an integer.
@@ -112,13 +119,25 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             };
             if (inferred is { } known)
             {
-                parameter = new ScriptParameter(name, known.type, known.value);
+                parameter = new ScriptParameter(name, known.type, known.value, Converter(value, kernel));
                 return true;
             }
             reason = $"parameter '{name}': write its type before the name for {(value is ObjectValue ? "an object" : value is List<object?> ? "a list" : "this")} " +
                      $"value, e.g. \"Vector3 {name}\": [1, 2, 3] or \"int[] {name}\": [1, 2]";
             return false;
         }
+
+        // Kernels are immutable and reusable (RQL's contract): the value can be converted again once the declared type is known.
+        private static ScriptParameterConverter Converter(object? raw, RqlKernel kernel) =>
+            (Type type, out object? converted, out string? reason) => kernel.TryCoerce(raw, type, out converted, out reason);
+
+        private static readonly System.Text.RegularExpressions.Regex RqlCall =
+            new System.Text.RegularExpressions.Regex(@"^\s*(godot\.[A-Za-z]+|ref)\s*\(.*\)\s*$", System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        /// <summary>Text that is an RQL function call such as <c>godot.find("Crate")</c> or <c>ref("Node3D#12")</c>.</summary>
+        internal static bool LooksLikeRqlCall(string text) => RqlCall.IsMatch(text);
+
+        private static string Quoted(string text) => "\"" + text.Replace("\"", "\\\"") + "\"";
 
         private static bool IsIdentifier(string name) =>
             name.Length > 0 && (char.IsLetter(name[0]) || name[0] == '_') && name.All(c => char.IsLetterOrDigit(c) || c == '_');

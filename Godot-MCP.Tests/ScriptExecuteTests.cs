@@ -172,6 +172,33 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             Assert.Contains("declares no class 'Script'", e.Message);
         }
 
+        // AFTER-eval: a bare static method (no class) ran as a snippet that did nothing and reported Success.
+        [Theory]
+        [InlineData("public static int Main() { return 7; }", "declares method 'Main' outside a class")]
+        [InlineData("static int Helper() => 1;", "declares only methods outside a class")]
+        public void FullSourceEntryType_MethodOutsideAClass_Throws(string code, string expected)
+        {
+            var e = Assert.Throws<Exception>(() => ScriptExecuteSource.FullSourceEntryType(code, "Script", "Main"));
+            Assert.Contains(expected, e.Message);
+            Assert.Contains("public class Script", e.Message);
+        }
+
+        [Theory]
+        [InlineData("var x = 5;")]
+        [InlineData("int Twice(int v) => v * 2;\nTwice(21)")]
+        public void FullSourceEntryType_StatementsWithHelpers_StaySnippets(string code) =>
+            Assert.Null(ScriptExecuteSource.FullSourceEntryType(code, "Script", "Main"));
+
+        [Fact]
+        public void FullSourceParameterTypes_AreTheEntryMethodsAsWritten()
+        {
+            const string code = "using Godot;\nnamespace Game { public class Script { public static int Main(Node crate, float speed) => 1; " +
+                                "public static int Main(int n) => n; } }";
+            Assert.Equal(new[] { "Node", "float" }, ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 2));
+            Assert.Equal(new[] { "int" }, ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 1));
+            Assert.Null(ScriptExecuteSource.FullSourceParameterTypes(code, "Game.Script", "Main", 3));
+        }
+
         // ---- BuiltAssemblyPath ---------------------------------------------------------------------
 
         [Fact]

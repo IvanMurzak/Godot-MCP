@@ -189,6 +189,15 @@ def main() -> int:
          True, "IEnumerable<Vector3>: ", "(0, 0, 0)", "(1, 0, 0)")
     # Parameters are RQL values: inferred types, a type written before the name, a node by ref.
     case(host, "parameters", {"csharpCode": "n * 2 + at.X", "parameters": '{n: 20, "Vector3 at": [2, 0, 0]}'}, True, "System.Single: 42")
+    # Full mode converts the values to the method's parameter types before it runs (a whole number for a float here).
+    case(host, "full-mode parameters take the declared types",
+         {"csharpCode": "public class Script { public static float Main(float speed, Vector3 at) { return speed * 2 + at.X; } }",
+          "parameters": '{speed: 20, at: "(2, 0, 0)"}'}, True, "System.Single: 42")
+    # RQL code written as text, and a method outside any class: refused up front, never a silent "Success".
+    case(host, "rql call written as text is refused", {"csharpCode": "crate", "parameters": {"crate": 'godot.find("Crate")'}},
+         False, "RQL code written as text")
+    case(host, "method outside a class is an error", {"csharpCode": "public static int Main() { return 7; }"}, False,
+         "outside a class")
     # A Godot collection that holds itself crashed the editor (stack overflow in the Variant converter).
     case(host, "self-containing Godot array", {"csharpCode": "var a = new Godot.Collections.Array(); a.Add(a); a"}, True, "Array")
     for i in range(20):

@@ -47,6 +47,14 @@ namespace com.IvanMurzak.Godot.MCP.Tests
     /// </summary>
     public sealed class ReflectionMethodCallTests
     {
+        public static ScriptParameters? Captured;
+
+        public static string Capture(ScriptParameters parameters)
+        {
+            Captured = parameters;
+            return "ok";
+        }
+
         public static string Echo(ScriptParameters parameters) =>
             string.Join(";", parameters.Items.Select(p => $"{p.Name}:{ScriptResultText.TypeName(p.Type)}={System.Convert.ToString(p.Value, System.Globalization.CultureInfo.InvariantCulture)}"));
 
@@ -58,6 +66,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
                 [Tool_Reflection.ReflectionMethodCallToolId] = RunTool.CreateFromClassMethod(reflector, null, Tool_Reflection.ReflectionMethodCallToolId,
                     typeof(Tool_Reflection), typeof(Tool_Reflection).GetMethod(nameof(Tool_Reflection.MethodCall))!),
                 ["echo-parameters"] = RunTool.CreateFromStaticMethod(reflector, null, "echo-parameters", typeof(ReflectionMethodCallTests).GetMethod(nameof(Echo))!),
+                ["capture-parameters"] = RunTool.CreateFromStaticMethod(reflector, null, "capture-parameters", typeof(ReflectionMethodCallTests).GetMethod(nameof(Capture))!),
             };
             var tools = new McpToolManager(NullLogger<McpToolManager>.Instance, reflector, runners);
             var engine = GodotRqlRuntime.CreateEngine(AccessorMode.Reflection);
@@ -173,6 +182,35 @@ namespace com.IvanMurzak.Godot.MCP.Tests
             (status, text) = Call(tools, "echo-parameters", "{\"parameters\": \"[{name: \\\"n\\\", typeName: \\\"System.Int32\\\", value: 6}, {typeName: \\\"System.String\\\", value: \\\"x\\\"}]\"}");
             Assert.True(status == ResponseStatus.Success, text);
             Assert.Equal("n:int=6;arg1:string=x", text);
+        }
+
+        // AFTER-eval: {"crate": "godot.find(\"Crate\")"} (the call written as text) passed and failed only when the method ran.
+        [Theory]
+        [InlineData("{\"parameters\": {\"crate\": \"godot.find(\\\"Crate\\\")\"}}")]
+        [InlineData("{\"parameters\": \"{crate: \\\"ref(\\\\\\\"Node3D#12\\\\\\\")\\\"}\"}")]
+        public void RqlCodeWrittenAsTextIsRefusedUpFront(string json)
+        {
+            var (status, text) = Call(Tools(), "echo-parameters", json);
+            Assert.Equal(ResponseStatus.Error, status);
+            Assert.Contains("RQL code written as text", text);
+            Assert.Contains("without quotes", text);
+        }
+
+        [Fact]
+        public void FullModeParametersAreConvertedToTheDeclaredTypesBeforeTheRun()
+        {
+            var tools = Tools();
+            var (status, text) = Call(tools, "capture-parameters", "{\"parameters\": \"{speed: 2, at: \\\"(1, 2, 3)\\\", crate: \\\"left\\\"}\"}");
+            Assert.True(status == ResponseStatus.Success, text);
+            var given = Captured!;
+            // A whole number for a float, text for a Vector3: converted to the method's types.
+            var typed = ScriptExecutor.ToDeclaredTypes(new ScriptParameters(given.Items.Take(2).ToList()), new[] { "float", "Vector3" });
+            Assert.Equal(new object?[] { 2f, new Vector3(1, 2, 3) }, typed.Items.Select(p => p.Value));
+            Assert.Equal(new[] { typeof(float), typeof(Vector3) }, typed.Items.Select(p => p.Type));
+            // A value that does not convert is an error now, before the run (a Node needs Godot: the live smoke covers it).
+            var e = Assert.Throws<System.ArgumentException>(() => ScriptExecutor.ToDeclaredTypes(
+                new ScriptParameters(given.Items.Skip(2).ToList()), new[] { "Vector3" }));
+            Assert.Contains("parameter 'crate' (Vector3 in Vector3)", e.Message);
         }
 
         [Fact]

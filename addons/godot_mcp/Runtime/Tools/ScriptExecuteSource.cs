@@ -85,7 +85,18 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         {
             // Parsed as a script, the way the snippet writer reads it: anything but a type or namespace is snippet code.
             var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
-            if (script.Members.Any(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)))
+            var notTypes = script.Members.Where(m => !(m is BaseNamespaceDeclarationSyntax || m is BaseTypeDeclarationSyntax || m is DelegateDeclarationSyntax)).ToList();
+            // Only methods outside any class (e.g. a bare 'public static int Main()'): as a snippet nothing would run.
+            if (notTypes.Count > 0 && notTypes.All(m => m is MethodDeclarationSyntax))
+            {
+                var named = notTypes.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == methodName);
+                throw new Exception((named
+                        ? $"'csharpCode' declares method '{methodName}' outside a class, so it never runs. "
+                        : $"'csharpCode' declares only methods outside a class and no statements to run. ") +
+                    $"Full mode runs static method '{methodName}' of class '{className}': wrap it, e.g. 'public class {className} {{ public static int {methodName}() {{ … }} }}', " +
+                    "or write plain statements with the last expression as the result.");
+            }
+            if (notTypes.Count > 0)
                 return null;
             var declaresTypes = false;
             foreach (var type in script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
@@ -103,6 +114,21 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 return null;
             throw new Exception($"'csharpCode' declares no class '{className}' and has no statements to run. " +
                 "Set 'className' / 'methodName' to the entry point, or write plain statements.");
+        }
+
+        /// <summary>
+        /// The parameter types (as written) of the full-mode entry point: static method <paramref name="methodName"/> of
+        /// <paramref name="entryType"/> (its runtime name, <see cref="FullSourceEntryType"/>) with <paramref name="count"/>
+        /// parameters; null when no such method is found (Code-Exec reports it).
+        /// </summary>
+        public static IReadOnlyList<string>? FullSourceParameterTypes(string code, string entryType, string methodName, int count)
+        {
+            var script = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code, ScriptParseOptions).GetRoot();
+            var type = script.DescendantNodes(n => n is CompilationUnitSyntax || n is BaseNamespaceDeclarationSyntax || n is TypeDeclarationSyntax)
+                .OfType<TypeDeclarationSyntax>().FirstOrDefault(t => RuntimeName(t) == entryType);
+            var method = type?.Members.OfType<MethodDeclarationSyntax>().FirstOrDefault(m =>
+                m.Identifier.Text == methodName && m.Modifiers.Any(SyntaxKind.StaticKeyword) && m.ParameterList.Parameters.Count == count);
+            return method?.ParameterList.Parameters.Select(p => p.Type?.ToString() ?? "object").ToList();
         }
 
         // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) csharp-exec.

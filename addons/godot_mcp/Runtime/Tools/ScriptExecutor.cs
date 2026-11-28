@@ -86,6 +86,14 @@ namespace com.IvanMurzak.Godot.MCP.Tools
             {
                 request.EntryType = entryType;
                 request.EntryMethod = methodName;
+                // The method declares its parameter types: the values are converted to them now (a node path or ref resolves
+                // through the scene tree, on the main thread), so a wrong value fails here instead of when the method is invoked.
+                if (parameters != null && parameters.Items.Count > 0
+                    && ScriptExecuteSource.FullSourceParameterTypes(csharpCode, entryType, methodName, parameters.Items.Count) is { } declared)
+                {
+                    parameters = MainThread.Instance.Run(() => ToDeclaredTypes(parameters, declared));
+                    request.Parameters = parameters.Items.Select(p => new SnippetParameter(p.Name, p.Type, null)).ToList();
+                }
             }
             var prepared = runner.Prepare(request);
             if (!prepared.Succeeded)
@@ -93,6 +101,32 @@ namespace com.IvanMurzak.Godot.MCP.Tools
 
             // Awaits inside the snippet resume on the main thread (Godot's synchronization context).
             return await MainThread.Instance.RunAsync(() => RunOnMainThread(runner, request, prepared, parameters, arrived, timeoutMs)).Unwrap();
+        }
+
+        /// <summary>
+        /// Each parameter converted to the type the full-mode method declares for it (in order), when that type is known and
+        /// differs from the value's; a value that does not convert is an error before anything runs.
+        /// </summary>
+        internal static ScriptParameters ToDeclaredTypes(ScriptParameters parameters, IReadOnlyList<string> declared)
+        {
+            var items = new List<ScriptParameter>(parameters.Items.Count);
+            for (var i = 0; i < parameters.Items.Count; i++)
+            {
+                var p = parameters.Items[i];
+                var type = Editor.Rql.Adapters.Godot_ScriptParameters_Adapter.ResolveType(declared[i]);
+                if (type == null || type == p.Type || p.Convert == null || (p.Value != null && type.IsInstanceOfType(p.Value) && !type.IsValueType))
+                {
+                    items.Add(p);
+                    continue;
+                }
+                if (!p.Convert(type, out var value, out var reason))
+                    throw new ArgumentException($"parameter '{p.Name}' ({declared[i]} in {string.Join(", ", declared)}): {reason}" +
+                        (typeof(GodotObject).IsAssignableFrom(type) && p.Value is string
+                            ? ". A node: godot.find(\"Crate\") (by name or path) or ref(\"Node3D#12\") from a query result"
+                            : ""));
+                items.Add(new ScriptParameter(p.Name, type, value, p.Convert));
+            }
+            return new ScriptParameters(items);
         }
 
         static async Task<ScriptExecuteResult> RunOnMainThread(CodeRunner runner, ExecuteRequest request, PreparedSnippet prepared,

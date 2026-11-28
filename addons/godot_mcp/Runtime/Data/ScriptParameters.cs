@@ -26,15 +26,25 @@ namespace com.IvanMurzak.Godot.MCP.Data
         public IReadOnlyList<ScriptParameter> Items { get; }
     }
 
+    /// <summary>The given value converted to <paramref name="type"/>, or false with the reason.</summary>
+    public delegate bool ScriptParameterConverter(Type type, out object? value, out string? reason);
+
     /// <summary>One <c>csharp-exec</c> parameter: its name, the type it is declared with and its value.</summary>
     public sealed class ScriptParameter
     {
-        public ScriptParameter(string name, Type type, object? value)
+        public ScriptParameter(string name, Type type, object? value, ScriptParameterConverter? convert = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Type = type ?? throw new ArgumentNullException(nameof(type));
             Value = value;
+            Convert = convert;
         }
+
+        /// <summary>
+        /// Converts the value the agent gave to another type (the one a full-mode method declares), by the rules every tool
+        /// argument follows; null when the parameter cannot be converted again.
+        /// </summary>
+        public ScriptParameterConverter? Convert { get; }
 
         public string Name { get; }
         public Type Type { get; }
