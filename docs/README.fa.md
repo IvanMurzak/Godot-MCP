@@ -222,7 +222,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | جستجو در API | `rql-schema` | *«یک CharacterBody3D چه propertyهایی در Godot دارد؟»* |
 | اسکریپت‌ها (GDScript و C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *«یک GDScript بنویس که این نود را بچرخاند و آن را متصل کن.»* |
 | بیلد C# | `script-build` | *«پروژه‌ی C# را بیلد کن و خطاها را برطرف کن.»* |
-| اجرای C# در ویرایشگر | `script-execute` | *«نودهای MeshInstance3D صحنه‌ی باز را بشمار.»* |
+| اجرای C# در ویرایشگر | `csharp-exec` | *«نودهای MeshInstance3D صحنه‌ی باز را بشمار.»* |
 | دیدن نتیجه | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *«از viewport اسکرین‌شات بگیر و نورپردازی را بررسی کن.»* |
 | اجرای بازی و خواندن خطاهای آن | `game-run` | *«بازی را اجرا کن، خطایی را که چاپ می‌کند پیدا کن و درستش کن.»* |
 | بازیِ در حال اجرا (اختیاری) | `console-*`, `reflection-*`, `runtime-errors-*` | *«بازیِ در حال اجرا را برای خطاهای جدید زمان اجرا بررسی کن.»* |

@@ -74,9 +74,9 @@ for that mode. Read it before shipping a build that calls `GodotMcpRuntime.Initi
   `AuthOption = Consts.MCP.Server.AuthOption.token` and a real token — never on an unauthenticated public
   interface in a release build.
 
-## In-game code execution (`WithScriptExecute`)
+## In-game code execution (`WithCsharpExec`)
 
-`builder.WithScriptExecute()` registers `script-execute` in the game: a connected client sends C#, the game
+`builder.WithCsharpExec()` registers `csharp-exec` in the game: a connected client sends C#, the game
 compiles it with Roslyn and runs it on its main thread. That is **arbitrary code execution in the game
 process**, with the player's file system and network access. It is OFF by default and it needs a build
 opt-in: an exported game has Code-Exec and Roslyn only when its `.csproj` sets `GodotMcpCodeExecInGame=true`
@@ -85,7 +85,7 @@ a warning and registers nothing.
 
 > **Games started from the editor.** Their build is the editor build (`TOOLS`), so the addon's editor tool
 > families compile into the game assembly too. A `WithToolsFromAssembly(...)` over that assembly then
-> registers them, the editor `script-execute` included, with or without `WithScriptExecute()`. In an export
+> registers them, the editor `csharp-exec` included, with or without `WithCsharpExec()`. In an export
 > build they do not exist. Register specific types (`WithTools(...)`) if a game run from the editor must not
 > offer them.
 

@@ -65,7 +65,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ## دستورها
 
 - ‏ **`open [path]`** — اسمبلی C# پروژه را بیلد می‌کند (تا پلاگین در اولین باز شدن بارگذاری شود؛ پایین‌تر را ببینید)، فایل اجرایی ویرایشگر Godot را پیدا می‌کند و `--editor --path <project>` را با متغیرهای محیطی اتصال `GODOT_MCP_*` اجرا می‌کند. `--no-build` بیلد را رد می‌کند. `--headless` به جای آن یک نشست ویرایشگر بدون پنجره اجرا می‌کند ([`exec`](#exec) را ببینید).
-- ‏ **`exec [code]`** — اجرای C# در ویرایشگر از طریق `script-execute` ([`exec`](#exec) را ببینید): از ویرایشگرِ در حال اجرا استفاده می‌کند، وگرنه یک ویرایشگر headless اجرا می‌کند و آن را گرم نگه می‌دارد.
+- ‏ **`exec [code]`** — اجرای C# در ویرایشگر از طریق `csharp-exec` ([`exec`](#exec) را ببینید): از ویرایشگرِ در حال اجرا استفاده می‌کند، وگرنه یک ویرایشگر headless اجرا می‌کند و آن را گرم نگه می‌دارد.
 - ‏ **`create-project [path]`** — ساخت اسکلت یک پروژه‌ی جدید Godot؛ `--dotnet` یک `.csproj` با Godot.NET.Sdk هم می‌نویسد و `--name` نام آن را تعیین می‌کند.
 - ‏ **`build [path]`** — اسمبلی C# پروژه را بیلد می‌کند (`dotnet build`) تا پلاگین `godot_mcp` در باز شدن بعدی ویرایشگر بارگذاری شود. برای پروژه‌های فقط GDScript (بدون `.csproj`) کاری انجام نمی‌دهد. این همان بیلدی است که `open` پیش از اجرا انجام می‌دهد.
 - ‏ **`rql [query]`** — یک کوئری RQL از خط فرمان، بدون JSON: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`. کوئری‌ای که آخرین مرحله‌اش `set` یا `call` باشد به `rql-mutate` می‌رود (`--dry-run`، `--max-targets <n>`) و بقیه به `rql-query`؛ `--schema [type]` ابزار `rql-schema` را اجرا می‌کند؛ `-f <file>` (`-f -`: stdin) کوئری را وقتی shell نقل‌قول‌هایش را حذف می‌کند از فایل می‌خواند. مثل `run-tool` یک ویرایشگر headless اجرا می‌کند. پس از `SaveScene()`، `NewScene(...)`، `CreateResource(...)` یا یک ویرایش `godot.resource(...)` فایل‌های نوشته‌شده را چاپ می‌کند (`Saved to disk: res://scenes/forest.tscn`)؛ عملگری که به سبک زبان دیگری نوشته شده (`startsWith`، `like`) یک راهنمایی با املای RQL می‌گیرد. `rql --help` دستورالعمل‌ها را فهرست می‌کند.
@@ -154,7 +154,7 @@ godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 <a id="exec"></a>
 ## `exec`
 
-اجرای C# در ویرایشگر Godotِ پروژه (ابزار `script-execute`ِ پلاگین، مبتنی بر [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+اجرای C# در ویرایشگر Godotِ پروژه (ابزار `csharp-exec`ِ پلاگین، مبتنی بر [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
 
 </div>
 

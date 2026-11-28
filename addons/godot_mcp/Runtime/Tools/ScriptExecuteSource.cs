@@ -7,7 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// script-execute: the editor, a game built with the in-game opt-in (docs/ARCHITECTURE.md), and the xUnit suite.
+// csharp-exec: the editor, a game built with the in-game opt-in (docs/ARCHITECTURE.md), and the xUnit suite.
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME || GODOT_MCP_UNIT_TESTS
 #nullable enable
 using System;
@@ -23,7 +23,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// The pure-managed half of <c>script-execute</c> (no Godot API, so it is unit-testable): mode detection, where the
+    /// The pure-managed half of <c>csharp-exec</c> (no Godot API, so it is unit-testable): mode detection, where the
     /// game assembly lives on disk, which results must be flattened before their snippet unloads, and error text.
     /// Mirrors Unity-MCP's Script.Execute.cs.
     /// </summary>
@@ -106,7 +106,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
                 "Set 'className' / 'methodName' to the entry point, or write plain statements.");
         }
 
-        // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) script-execute.
+        // Tool text shared by the editor (Tool_Script.Execute) and the in-game (Tool_GameScript) csharp-exec.
+        /// <summary>DEV-314: the description of the hidden <c>csharp-exec</c> alias. Remove in 0.45.0.</summary>
+        internal const string AliasDescription = "Deprecated alias of csharp-exec (same arguments, same result): call csharp-exec.";
         internal const string SkillSnippetModeTail =
             " Own `using` lines, local classes and functions are allowed; " +
             "`await` works. Usings for System, LINQ and Godot are already there; an unknown type name (also one of the game's own " +

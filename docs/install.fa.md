@@ -56,8 +56,8 @@
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | هسته‌ی reflection و سریال‌سازی |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | کلاینت پلاگین MCP |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | ‏RQL، لایه‌ی داده‌ی ابزارهای ویرایشگر (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، پشتوانه‌ی `script-execute` (PolyForm Shield) |
-| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، کامپایلر C# که `script-execute` اجرا می‌کند |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | ‏Code-Exec، پشتوانه‌ی `csharp-exec` (PolyForm Shield) |
+| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | ‏Roslyn، کامپایلر C# که `csharp-exec` اجرا می‌کند |
 
 - چهار پکیج مخصوص ویرایشگر یک `Condition` دارند که آن‌ها را از بیلدهای اکسپورت بیرون نگه می‌دارد، پس بازیِ منتشرشده نه RQL دارد و نه Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
 - ‏`<EmbeddedResource>` الزامی است: پلاگین کاتالوگ را از اسمبلی خود می‌خواند و `LogicalName` آن باید دقیقاً `Godot-MCP.extensions.catalog.json` باشد.

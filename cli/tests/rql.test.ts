@@ -109,7 +109,7 @@ describe('rqlToolCall / saveReceipt', () => {
   it('ignores string literals and backtick identifiers', () => {
     expect(rqlMaySave('nodes | where name == "SaveScene(" | set Visible = false')).toBe(false);
     expect(isRqlMutation("nodes | where `Bob's` == 1 | set Visible = false")).toBe(true);
-    expect(rqlErrorHint('script-execute', "unexpected 'startsWith'")).toBeUndefined();
+    expect(rqlErrorHint('csharp-exec', "unexpected 'startsWith'")).toBeUndefined();
   });
 
   it('names the files a save wrote', () => {

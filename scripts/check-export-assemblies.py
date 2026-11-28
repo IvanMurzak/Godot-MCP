@@ -6,7 +6,7 @@ Builds Godot-MCP.csproj in Godot's export configurations (no `TOOLS`) and checks
 output, the proof behind docs/ARCHITECTURE.md "Editor-only NuGet packages":
 
   * default export        -> McpPlugin + ReflectorNet, and NO RQL, Code-Exec or Roslyn;
-  * `-p:GodotMcpCodeExecInGame=true` (the in-game script-execute opt-in)
+  * `-p:GodotMcpCodeExecInGame=true` (the in-game csharp-exec opt-in)
                           -> also Code-Exec + Roslyn, still NO RQL, and the in-game tool compiled in.
 
 No Godot binary is needed: Godot.NET.Sdk restores from nuget.org. Every build writes to its own fresh output folder.
@@ -53,7 +53,7 @@ def check_output(out_dir: Path, code_exec: bool) -> list[str]:
         failures += [f"unexpected Roslyn assembly {n}" for n in names if ROSLYN.match(n)]
     addon = out_dir / ADDON_ASSEMBLY
     if addon.is_file() and (IN_GAME_TOOL in addon.read_bytes()) != code_exec:
-        failures.append(f"{ADDON_ASSEMBLY} {'lacks' if code_exec else 'contains'} the in-game script-execute tool")
+        failures.append(f"{ADDON_ASSEMBLY} {'lacks' if code_exec else 'contains'} the in-game csharp-exec tool")
     return failures
 
 

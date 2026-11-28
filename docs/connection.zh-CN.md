@@ -64,7 +64,7 @@ godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 
 **Stop Server** 会停止服务器；关闭编辑器也会停止它。下载 URL 仅由固定版本和你的平台决定。离线时，插件记录一条警告，服务器不会启动。在 CI 下（`CI` / `GITHUB_ACTIONS`）会跳过下载。
 
-工具调用最长可运行 5 分钟。`script-execute` 会在其 `timeout` 到期时自行停止代码片段（默认 30 秒）。
+工具调用最长可运行 5 分钟。`csharp-exec` 会在其 `timeout` 到期时自行停止代码片段（默认 30 秒）。
 
 开发时，`GODOT_MCP_SERVER_PATH=<absolute path>` 让编辑器启动该现有的 `gamedev-mcp-server` 可执行文件，而不是固定的发布版（不下载、不检查版本、不清理孤立进程）。它在每次插件程序集加载时从进程环境或项目 `.env` 中读取一次；指向不存在文件的路径会被忽略并给出警告。在 Linux 和 macOS 上，该文件必须已具有可执行权限。
 

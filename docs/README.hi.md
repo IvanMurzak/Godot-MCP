@@ -192,7 +192,7 @@ Queries आपको नहीं लिखनी पड़तीं: एजे�
 | API देखना | `rql-schema` | *"CharacterBody3D में कौन-सी Godot properties होती हैं?"* |
 | Scripts (GDScript और C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *"एक GDScript लिखो जो इस node को घुमाए, और उसे attach करो।"* |
 | C# build करना | `script-build` | *"C# प्रोजेक्ट build करो और errors ठीक करो।"* |
-| Editor में C# चलाना | `script-execute` | *"खुले scene में MeshInstance3D nodes गिनो।"* |
+| Editor में C# चलाना | `csharp-exec` | *"खुले scene में MeshInstance3D nodes गिनो।"* |
 | नतीजा देखना | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Viewport का screenshot लो और lighting जाँचो।"* |
 | Game चलाना और उसकी errors पढ़ना | `game-run` | *"Game चलाओ, जो error वह print करता है उसे ढूँढो और ठीक करो।"* |
 | चलता हुआ game (opt-in) | `console-*`, `reflection-*`, `runtime-errors-*` | *"चलते हुए game में नए runtime errors जाँचो।"* |

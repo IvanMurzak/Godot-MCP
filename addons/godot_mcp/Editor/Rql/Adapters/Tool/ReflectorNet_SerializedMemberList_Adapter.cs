@@ -21,7 +21,7 @@ using Rql.Execution;
 namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
 {
     /// <summary>
-    /// SerializedMemberList tool arguments (script-execute parameters) in RQL terms, as in Unity-MCP: named values
+    /// SerializedMemberList tool arguments (csharp-exec parameters) in RQL terms, as in Unity-MCP: named values
     /// <c>{count: 3, target: ref("Node3D#12")}</c>, each becoming a parameter of its value's type. The ReflectorNet form
     /// (a list of {name, typeName, value}) still works. Pure-managed except for a node value's instance id.
     /// </summary>
@@ -90,7 +90,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Adapters
             return true;
         }
 
-        // JSON in the form script-execute's ReflectorNet deserialization expects; nodes as {"instanceId": N}.
+        // JSON in the form csharp-exec's ReflectorNet deserialization expects; nodes as {"instanceId": N}.
         private static JsonNode? ToJson(object? v) => v switch
         {
             null => null,

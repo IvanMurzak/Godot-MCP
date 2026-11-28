@@ -13,7 +13,7 @@
 | خانواده | ابزارها | چه می‌کند |
 | --- | --- | --- |
 | **rql** | `rql-query`, `rql-mutate`, `rql-schema` | کوئری و تغییر ویرایشگرِ زنده. همه یا هیچ و قابل بازگردانی؛ چند دستور در یک فراخوانی، جدا شده با `;`. [rql.md](rql.md) را ببینید. |
-| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `script-execute` | فایل‌های C# (`.cs`) و GDScript (`.gd`)، اتصال اسکریپت به نود، اعتبارسنجی GDScript، بیلد C# پروژه و اجرای C# در ویرایشگر. |
+| **script** | `script-read`, `script-create`, `script-update`, `script-delete`, `script-attach-to-node`, `script-validate`, `script-build`, `csharp-exec` | فایل‌های C# (`.cs`) و GDScript (`.gd`)، اتصال اسکریپت به نود، اعتبارسنجی GDScript، بیلد C# پروژه و اجرای C# در ویرایشگر. |
 | **screenshot** | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | گرفتن تصویر از viewport ویرایشگر، یک دوربین، یا یک نود که به‌تنهایی رندر شده، به صورت PNG که LLM می‌تواند ببیند. |
 | **game** | `game-run` | اجرای بازی (یا یک صحنه) بدون پنجره برای چند ثانیه از زمان بازی و دریافت خطاها، هشدارها و خروجی چاپ‌شده‌ی آن در یک فراخوانی. |
 | **console** | `console-get-logs`, `console-clear-logs` | در بازیِ در حال اجرا: خواندن و پاک کردن لاگ‌های جمع‌آوری‌شده. |
@@ -46,7 +46,7 @@
 - ‏`script-attach-to-node`: اتصال یک اسکریپت به یک نود.
 - ‏`script-validate`: پارس و کامپایل فایل‌های GDScript و برگرداندن عیب‌یابی ساختاریافته.
 - ‏`script-build`: بیلد C# پروژه (`dotnet build`، Debug) تا اسکریپت‌های جدید بارگذاری شوند. بیلد در پس‌زمینه اجرا می‌شود؛ وقتی موفق شود Godot اسمبلی C# را دوباره بارگذاری می‌کند، پلاگین دوباره وصل می‌شود و نتیجه (هشدارها یا خطاها) پس از بارگذاری مجدد می‌رسد. [بارگذاری مجدد اسمبلی C#](custom-tools.fa.md#c-assembly-reloads) را ببینید.
-- ‏`script-execute`: کامپایل و اجرای C# در ویرایشگر با Roslyn، از طریق [Code-Exec](https://github.com/IvanMurzak/Code-Exec). دستورهای ساده که آخرین عبارت نتیجه است (با `using`های خودش، کلاس‌های محلی، `await`)، یا یک کلاس با یک متد static. تایپ‌های کامپایل‌شده‌ی بازی قابل مشاهده‌اند؛ `include` فایل‌های کمکی `.cs` را از `<project>/.ai-game-dev/snippets` اضافه می‌کند. مقدار و آنچه کد چاپ کرده را برمی‌گرداند (`Console`؛ و `GD.Print`، push_warning و push_error وقتی پروژه با Godot.NET.Sdk 4.5+‎ بیلد شود). از ترمینال: `godot-cli exec '1 + 2'`.
+- ‏`csharp-exec`: کامپایل و اجرای C# در ویرایشگر با Roslyn، از طریق [Code-Exec](https://github.com/IvanMurzak/Code-Exec). دستورهای ساده که آخرین عبارت نتیجه است (با `using`های خودش، کلاس‌های محلی، `await`)، یا یک کلاس با یک متد static. تایپ‌های کامپایل‌شده‌ی بازی قابل مشاهده‌اند؛ `include` فایل‌های کمکی `.cs` را از `<project>/.ai-game-dev/snippets` اضافه می‌کند. مقدار و آنچه کد چاپ کرده را برمی‌گرداند (`Console`؛ و `GD.Print`، push_warning و push_error وقتی پروژه با Godot.NET.Sdk 4.5+‎ بیلد شود). از ترمینال: `godot-cli exec '1 + 2'`. نام قدیمی آن، ‏`script-execute`، تا نسخهٔ 0.45.0 به‌صورت نام مستعار پنهان (بدون فهرست و بدون skill) همچنان اجرا می‌شود.
 
 <a id="screenshot"></a>
 ## game

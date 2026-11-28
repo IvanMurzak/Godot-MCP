@@ -71,7 +71,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | تخطّي موزّع الخيط الرئيسي التلقائي (فقط إذا ثبّتّ موزّعك الخاص). |
 | `ConnectWhenRunFromEditor()` | الاتصال أيضًا في لعبة شُغّلت من المحرر (معطّل افتراضيًا، انظر أدناه). |
 | `WithRuntimeErrorCapture()` | التقاط الأخطاء داخل اللعبة وتسجيل `runtime-errors-*`. معطّل افتراضيًا. |
-| `WithScriptExecute()` | تسجيل `script-execute` في اللعبة. معطّل افتراضيًا؛ ويحتاج إلى الاشتراك في csproj. |
+| `WithCsharpExec()` | تسجيل `csharp-exec` في اللعبة. معطّل افتراضيًا؛ ويحتاج إلى الاشتراك في csproj. |
 | `Build()` | يُعيد `GodotMcpRuntimeHandle` غير متصل. |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | فتح الاتصال أو إغلاقه أو تفكيكه. |
 
@@ -147,7 +147,7 @@ public sealed class SceneTreeSummary
 <a id="running-c-in-the-game"></a>
 ## تشغيل C# داخل اللعبة
 
-يتيح `builder.WithScriptExecute()` للوكيل إرسال كود C# تترجمه اللعبة الجارية بـ Roslyn وتشغّله على خيطها الرئيسي، مع أنواع اللعبة نفسها وعقد autoload وشجرة المشهد. تستبعد إصدارات التصدير Roslyn، لذا يشترك ملف `.csproj` للعبة صراحةً:
+يتيح `builder.WithCsharpExec()` للوكيل إرسال كود C# تترجمه اللعبة الجارية بـ Roslyn وتشغّله على خيطها الرئيسي، مع أنواع اللعبة نفسها وعقد autoload وشجرة المشهد. تستبعد إصدارات التصدير Roslyn، لذا يشترك ملف `.csproj` للعبة صراحةً:
 
 </div>
 
@@ -160,7 +160,7 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
-يكتب `godot-cli install-plugin` الحالي مراجع حزم Code-Exec وRoslyn مع `Condition` يحترم هذه الخاصية؛ أما RQL فلا يُشحن أبدًا. بدون هذا الاشتراك يسجّل `WithScriptExecute()` تحذيرًا ولا يسجّل شيئًا.
+يكتب `godot-cli install-plugin` الحالي مراجع حزم Code-Exec وRoslyn مع `Condition` يحترم هذه الخاصية؛ أما RQL فلا يُشحن أبدًا. بدون هذا الاشتراك يسجّل `WithCsharpExec()` تحذيرًا ولا يسجّل شيئًا.
 
 > **هذا تنفيذ لكود عشوائي.** أي جهة تستطيع استدعاء الأدوات على الاتصال تستطيع تشغيل أي كود في عملية اللعبة. استخدمه في إصدارات التطوير فقط، على مضيف loopback مع رمز. يعمل على CoreCLR لسطح المكتب فقط: لا تستطيع NativeAOT وiOS تشغيل كود مولَّد في وقت التشغيل.
 

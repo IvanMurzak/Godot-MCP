@@ -192,7 +192,7 @@ No escribes consultas: el agente lee la guía de RQL que acompaña a las herrami
 | Consultar la API | `rql-schema` | *"¿Qué propiedades de Godot tiene un CharacterBody3D?"* |
 | Scripts (GDScript y C#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *"Escribe un GDScript que rote este nodo y adjúntaselo."* |
 | Compilar C# | `script-build` | *"Compila el proyecto C# y corrige los errores."* |
-| Ejecutar C# en el editor | `script-execute` | *"Cuenta los nodos MeshInstance3D de la escena abierta."* |
+| Ejecutar C# en el editor | `csharp-exec` | *"Cuenta los nodos MeshInstance3D de la escena abierta."* |
 | Ver el resultado | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *"Haz una captura del viewport y revisa la iluminación."* |
 | Ejecutar el juego y leer sus errores | `game-run` | *"Ejecuta el juego, encuentra el error que imprime y corrígelo."* |
 | Juego en marcha (opcional) | `console-*`, `reflection-*`, `runtime-errors-*` | *"Comprueba si el juego en marcha tiene errores de runtime nuevos."* |

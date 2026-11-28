@@ -275,10 +275,10 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         }
 
         /// <summary>
-        /// Enable <c>script-execute</c> IN THE RUNNING GAME: the agent sends C#, the game compiles it with Roslyn and runs it
+        /// Enable <c>csharp-exec</c> IN THE RUNNING GAME: the agent sends C#, the game compiles it with Roslyn and runs it
         /// on its main thread (game types, autoloads and the scene tree available; no editor APIs). OFF by default. (In an
         /// editor build, e.g. a game started from the editor, a <see cref="WithToolsFromAssembly"/> scan of the game assembly
-        /// also registers the addon's editor tools, the editor <c>script-execute</c> included; an export build has none.)
+        /// also registers the addon's editor tools, the editor <c>csharp-exec</c> included; an export build has none.)
         ///
         /// <para>
         /// <b>Needs the build opt-in.</b> Godot's export builds leave Code-Exec and Roslyn out, so an exported game has this
@@ -303,19 +303,25 @@ namespace com.IvanMurzak.Godot.MCP.Runtime
         ///
         /// Returns <c>this</c> for chaining.
         /// </summary>
-        public GodotMcpRuntimeBuilder WithScriptExecute()
+        public GodotMcpRuntimeBuilder WithCsharpExec()
         {
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
             WithTools(typeof(com.IvanMurzak.Godot.MCP.Tools.Tool_GameScript));
 #else
-            GodotMcpLog.Warning(ScriptExecuteUnavailableMessage);
+            GodotMcpLog.Warning(CsharpExecUnavailableMessage);
 #endif
             return this;
         }
 
-        /// <summary>The warning <see cref="WithScriptExecute"/> logs in a build without code execution.</summary>
-        internal const string ScriptExecuteUnavailableMessage =
-            "[Godot-MCP] WithScriptExecute(): this build has no code execution, so script-execute is not registered. " +
+        /// <summary>
+        /// Old name of <see cref="WithCsharpExec"/> (the tool was <c>script-execute</c>). DEV-314: remove in 0.45.0.
+        /// </summary>
+        [Obsolete("Renamed to WithCsharpExec() with the tool (script-execute is now csharp-exec, DEV-314). Removed in 0.45.0.")]
+        public GodotMcpRuntimeBuilder WithScriptExecute() => WithCsharpExec();
+
+        /// <summary>The warning <see cref="WithCsharpExec"/> logs in a build without code execution.</summary>
+        internal const string CsharpExecUnavailableMessage =
+            "[Godot-MCP] WithCsharpExec(): this build has no code execution, so csharp-exec is not registered. " +
             "Enable it in the game .csproj: <PropertyGroup><GodotMcpCodeExecInGame>true</GodotMcpCodeExecInGame>" +
             "<DefineConstants>$(DefineConstants);GODOT_MCP_CODE_EXEC_IN_GAME</DefineConstants></PropertyGroup> " +
             "(see docs/runtime-security.md before shipping it).";

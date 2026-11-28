@@ -8,6 +8,8 @@
 └──────────────────────────────────────────────────────────────────┘
 */
 #nullable enable
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using com.IvanMurzak.McpPlugin;
 using com.IvanMurzak.McpPlugin.Skills;
@@ -19,6 +21,20 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     {
         public override bool IncludeAuthorizationExample => false;
         protected virtual bool UsePowerShell => Skill_Cli.IsWindows;
+
+        /// <summary>
+        /// No SKILL.md for a hidden deprecated alias (<see cref="DeprecatedToolAliases"/>, DEV-314), so agents never see two
+        /// copies of one tool; the folder an older addon wrote for it is deleted.
+        /// </summary>
+        public override bool Generate(IEnumerable<IRunTool> tools, string skillsPath, string host)
+        {
+            if (tools == null)
+                return base.Generate(tools!, skillsPath, host);
+            var list = tools.Where(t => t != null).ToList();
+            var aliases = list.Where(t => DeprecatedToolAliases.IsAlias(t.Name)).ToList();
+            var generated = base.Generate(list.Except(aliases), skillsPath, host);
+            return (aliases.Count == 0 || Delete(aliases, skillsPath)) && generated;
+        }
 
         protected override void BuildHowToCallHeading(StringBuilder sb)
         {

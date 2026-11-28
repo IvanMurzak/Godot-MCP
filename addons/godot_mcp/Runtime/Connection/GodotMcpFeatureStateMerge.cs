@@ -61,6 +61,10 @@ namespace com.IvanMurzak.Godot.MCP.Connection
                     continue;
                 savedByName[entry.Name] = entry.Visible;
             }
+            // DEV-314: a choice saved for a renamed tool's old id carries over to its new id (remove with the aliases).
+            foreach (var alias in global::com.IvanMurzak.Godot.MCP.Tools.DeprecatedToolAliases.NewNameByAlias)
+                if (savedByName.TryGetValue(alias.Key, out var aliasVisible) && !savedByName.ContainsKey(alias.Value))
+                    savedByName[alias.Value] = aliasVisible;
 
             var result = new Dictionary<string, bool>();
             foreach (var name in live)

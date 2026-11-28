@@ -38,6 +38,22 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         }
 
         [Fact]
+        public void ComputeReapply_carries_a_choice_saved_for_a_renamed_tool_over_to_its_new_id()
+        {
+            // DEV-314: script-execute became csharp-exec; the old id is a hidden alias that is no live dock item.
+            var live = new[] { "csharp-exec", "rql-query" };
+
+            var carried = GodotMcpFeatureStateMerge.ComputeReapply(live, new List<GodotMcpFeatureState> { S("script-execute", false) });
+            Assert.False(carried["csharp-exec"]);
+            Assert.False(carried.ContainsKey("script-execute"));
+
+            // A choice saved for the new id wins over the old one.
+            var both = GodotMcpFeatureStateMerge.ComputeReapply(live,
+                new List<GodotMcpFeatureState> { S("script-execute", false), S("csharp-exec", true) });
+            Assert.True(both["csharp-exec"]);
+        }
+
+        [Fact]
         public void ComputeReapply_applies_only_saved_entries_matching_live_items()
         {
             var live = new[] { "a", "b", "c" };

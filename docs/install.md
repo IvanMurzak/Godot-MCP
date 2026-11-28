@@ -47,8 +47,8 @@ Godot compiles every `.cs` file in the project into one assembly, so the project
 | [`com.IvanMurzak.ReflectorNet`](https://www.nuget.org/packages/com.IvanMurzak.ReflectorNet) | Reflection and serialization core |
 | [`com.IvanMurzak.McpPlugin`](https://www.nuget.org/packages/com.IvanMurzak.McpPlugin) | MCP plugin client |
 | [`com.IvanMurzak.Rql`](https://www.nuget.org/packages/com.IvanMurzak.Rql) | RQL, the editor tools' data layer (PolyForm Shield) |
-| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec, behind `script-execute` (PolyForm Shield) |
-| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn, the C# compiler `script-execute` runs |
+| [`com.IvanMurzak.CodeExec`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec) + [`.Roslyn`](https://www.nuget.org/packages/com.IvanMurzak.CodeExec.Roslyn) | Code-Exec, behind `csharp-exec` (PolyForm Shield) |
+| [`Microsoft.CodeAnalysis.CSharp`](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp) | Roslyn, the C# compiler `csharp-exec` runs |
 
 - The four editor-only packages carry a `Condition` that leaves them out of export builds, so a shipped game contains neither RQL nor Roslyn ([ARCHITECTURE.md](ARCHITECTURE.md#editor-only-nuget-packages-no-roslyn-in-an-exported-game)).
 - The `<EmbeddedResource>` is required: the addon reads the catalog from its assembly, and its `LogicalName` must be exactly `Godot-MCP.extensions.catalog.json`.

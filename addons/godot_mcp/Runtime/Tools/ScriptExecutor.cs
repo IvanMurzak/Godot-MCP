@@ -28,7 +28,7 @@ using Godot;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Runs <c>script-execute</c> on Code-Exec (NuGet <c>com.IvanMurzak.CodeExec</c> + the source-only Roslyn adapter),
+    /// Runs <c>csharp-exec</c> on Code-Exec (NuGet <c>com.IvanMurzak.CodeExec</c> + the source-only Roslyn adapter),
     /// for the editor tool (<c>Tool_Script.Execute</c>) and the in-game one (<see cref="Tool_GameScript"/>).
     /// Compiles on the calling thread (MCP calls arrive off the main thread), runs on the Godot main thread. Each run is
     /// loaded into its own collectible context and unloaded afterwards, so the result is serialized before that.

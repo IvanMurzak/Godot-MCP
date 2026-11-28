@@ -334,7 +334,7 @@ namespace com.IvanMurzak.Godot.MCP.Tests
         [Fact]
         public void ToolTimeout_OutlastsScriptExecuteRun_AndKeepsTheServerDefault()
         {
-            // script-execute must end with its own timeout error (compile time on top of the run) before the
+            // csharp-exec must end with its own timeout error (compile time on top of the run) before the
             // server gives up on the call; never shorten the McpPlugin server default.
             Assert.True(GodotMcpServerView.ToolTimeoutMs >= Tools.ScriptExecuteSource.RunTimeoutMs + 60_000);
             Assert.True(GodotMcpServerView.ToolTimeoutMs >= com.IvanMurzak.McpPlugin.Common.Consts.Hub.DefaultToolTimeoutMs);

@@ -29,7 +29,7 @@ namespace com.IvanMurzak.Godot.MCP.Tools
     /// Godot ↔ Unity mapping: a Godot <see cref="Script"/> file on disk ↔ a Unity <c>MonoScript</c>
     /// <c>.cs</c>; <c>script-read</c>/<c>script-update-or-create</c>/<c>script-delete</c> map 1:1; attaching a
     /// script to a node (<c>node.SetScript</c>) ↔ Unity's "add a MonoBehaviour component". The key
-    /// difference from Unity: Godot has no Roslyn <c>script-execute</c> (Unity compiles + runs arbitrary C#
+    /// difference from Unity: Godot has no Roslyn <c>csharp-exec</c> (Unity compiles + runs arbitrary C#
     /// at runtime), so dynamic code-execution is intentionally out of scope here — this family is file CRUD
     /// + attach only.
     /// </para>

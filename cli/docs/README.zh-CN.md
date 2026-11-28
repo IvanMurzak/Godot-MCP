@@ -51,7 +51,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ## 命令
 
 - **`open [path]`** — 构建项目的 C# 程序集（以便首次打开时插件能加载——见下文），定位 Godot 编辑器可执行文件，并带着 `GODOT_MCP_*` 连接环境变量启动 `--editor --path <project>`。`--no-build` 跳过构建。`--headless` 则启动一个无窗口的编辑器会话（见 [`exec`](#exec)）。
-- **`exec [code]`** — 通过 `script-execute` 在编辑器中运行 C#（见 [`exec`](#exec)）：复用正在运行的编辑器，否则启动一个无界面编辑器并保持其常驻。
+- **`exec [code]`** — 通过 `csharp-exec` 在编辑器中运行 C#（见 [`exec`](#exec)）：复用正在运行的编辑器，否则启动一个无界面编辑器并保持其常驻。
 - **`create-project [path]`** — 创建一个新的 Godot 项目骨架；`--dotnet` 还会写入一个 Godot.NET.Sdk `.csproj`，`--name` 设置其名称。
 - **`build [path]`** — 构建项目的 C# 程序集（`dotnet build`），以便下次打开编辑器时加载 `godot_mcp` 插件。仅 GDScript 的项目（没有 `.csproj`）不做任何事。这与 `open` 在启动前运行的构建相同。
 - **`rql [query]`** — 从命令行执行一条 RQL 查询，无需 JSON：`godot-cli rql 'nodes | where name starts-with "Tree" | count'`。最后一个阶段为 `set` 或 `call` 的查询发往 `rql-mutate`（`--dry-run`、`--max-targets <n>`），其他的发往 `rql-query`；`--schema [type]` 运行 `rql-schema`；当 shell 去掉查询的引号时，`-f <file>`（`-f -`：stdin）从文件读取查询。与 `run-tool` 一样会启动无界面编辑器。在 `SaveScene()`、`NewScene(...)`、`CreateResource(...)` 或 `godot.resource(...)` 编辑之后，它会输出写入的文件（`Saved to disk: res://scenes/forest.tscn`）；按其他语言习惯拼写的运算符（`startsWith`、`like`）会得到 RQL 正确拼写的提示。`rql --help` 列出常用示例。
@@ -136,7 +136,7 @@ godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 <a id="exec"></a>
 ## `exec`
 
-在项目的 Godot 编辑器中运行 C#（插件的 `script-execute` 工具，基于 [Code-Exec](https://github.com/IvanMurzak/Code-Exec)）：
+在项目的 Godot 编辑器中运行 C#（插件的 `csharp-exec` 工具，基于 [Code-Exec](https://github.com/IvanMurzak/Code-Exec)）：
 
 ```bash
 godot-cli exec '1 + 2'                                   # → System.Int32: 3

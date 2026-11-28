@@ -29,7 +29,7 @@ for (const element of csproj.match(/<PackageReference\b[^>]*>/gi) ?? []) {
   const id = /\bInclude\s*=\s*"([^"]+)"/i.exec(element)?.[1];
   const version = /\bVersion\s*=\s*"([^"]+)"/i.exec(element)?.[1];
   // The editor-only Condition marks a package exports leave out, the in-game one a package exports keep when the game
-  // opts in to in-game script-execute (`inGameOptIn`, which an older godot-cli ignores: it writes plain editor-only);
+  // opts in to in-game csharp-exec (`inGameOptIn`, which an older godot-cli ignores: it writes plain editor-only);
   // godot-cli writes the same condition. Any other Condition is refused: the manifest could not carry it.
   const condition = /\bCondition\s*=\s*"([^"]*)"/i.exec(element)?.[1];
   if (condition !== undefined && condition !== EDITOR_ONLY_CONDITION && condition !== CODE_EXEC_IN_GAME_CONDITION) {

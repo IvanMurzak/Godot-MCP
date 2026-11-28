@@ -65,7 +65,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | 自動のメインスレッドディスパッチャーを省略する(独自のものを導入する場合のみ)。 |
 | `ConnectWhenRunFromEditor()` | エディターから起動したゲームでも接続する(既定はオフ。後述)。 |
 | `WithRuntimeErrorCapture()` | ゲーム内のエラーを捕捉し、`runtime-errors-*` を登録する。既定はオフ。 |
-| `WithScriptExecute()` | ゲームに `script-execute` を登録する。既定はオフ。csproj でのオプトインが必要。 |
+| `WithCsharpExec()` | ゲームに `csharp-exec` を登録する。既定はオフ。csproj でのオプトインが必要。 |
 | `Build()` | 未接続の `GodotMcpRuntimeHandle` を返す。 |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | 接続を開く、閉じる、または破棄する。 |
 
@@ -137,7 +137,7 @@ Godot 4.5 未満ではエンジンのチャネルは使えませんが、C# の�
 <a id="running-c-in-the-game"></a>
 ## ゲーム内での C# の実行
 
-`builder.WithScriptExecute()` を使うと、エージェントが送った C# を、実行中のゲームが Roslyn でコンパイルし、ゲーム自身の型、オートロード、シーンツリーを使ってメインスレッドで実行できます。エクスポートビルドには Roslyn が含まれないため、ゲームの `.csproj` でオプトインします:
+`builder.WithCsharpExec()` を使うと、エージェントが送った C# を、実行中のゲームが Roslyn でコンパイルし、ゲーム自身の型、オートロード、シーンツリーを使ってメインスレッドで実行できます。エクスポートビルドには Roslyn が含まれないため、ゲームの `.csproj` でオプトインします:
 
 ```xml
 <PropertyGroup>
@@ -146,6 +146,6 @@ Godot 4.5 未満ではエンジンのチャネルは使えませんが、C# の�
 </PropertyGroup>
 ```
 
-現行の `godot-cli install-plugin` は、このプロパティを尊重する `Condition` 付きで Code-Exec と Roslyn のパッケージ参照を書き込みます。RQL は決して同梱されません。オプトインがなければ、`WithScriptExecute()` は警告をログに出し、何も登録しません。
+現行の `godot-cli install-plugin` は、このプロパティを尊重する `Condition` 付きで Code-Exec と Roslyn のパッケージ参照を書き込みます。RQL は決して同梱されません。オプトインがなければ、`WithCsharpExec()` は警告をログに出し、何も登録しません。
 
 > **これは任意コード実行です。** 接続上でツールを呼び出せる人は誰でも、ゲームプロセスで任意のコードを実行できます。開発ビルドで、ループバックホストとトークンを使う場合にのみ使用してください。デスクトップの CoreCLR のみ: NativeAOT と iOS は実行時に生成したコードを実行できません。

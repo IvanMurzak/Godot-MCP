@@ -16,7 +16,7 @@ namespace com.IvanMurzak.Godot.MCP.Editor.Rql.Modules
 {
     /// <summary>
     /// Adapters for the parameter types of the kept tools (RqlToolBinding): NodeRef (script-attach-to-node, screenshot-*) and
-    /// SerializedMemberList (script-execute parameters).
+    /// SerializedMemberList (csharp-exec parameters).
     /// </summary>
     public sealed class ToolTypesModule : IRqlModule
     {

@@ -65,7 +65,7 @@ godot-cli rql 'nodes | where name starts-with "Tree" | count'
 ## الأوامر
 
 - ‏ **`open [path]`** — يبني تجميعة C# للمشروع (لكي تُحمَّل الإضافة عند أول فتح — انظر أدناه)، ويحدد الملف التنفيذي لمحرر Godot، ويشغّل `--editor --path <project>` مع متغيرات بيئة الاتصال `GODOT_MCP_*`. يتخطّى `--no-build` البناء. ويبدأ `--headless` بدلًا من ذلك جلسة محرر بلا نافذة (انظر [`exec`](#exec)).
-- ‏ **`exec [code]`** — يشغّل C# في المحرر عبر `script-execute` (انظر [`exec`](#exec)): يعيد استخدام محرر قيد التشغيل، وإلا فيبدأ محررًا بلا واجهة ويبقيه جاهزًا.
+- ‏ **`exec [code]`** — يشغّل C# في المحرر عبر `csharp-exec` (انظر [`exec`](#exec)): يعيد استخدام محرر قيد التشغيل، وإلا فيبدأ محررًا بلا واجهة ويبقيه جاهزًا.
 - ‏ **`create-project [path]`** — ينشئ هيكل مشروع Godot جديد؛ ويكتب `--dotnet` أيضًا ملف `.csproj` بـ Godot.NET.Sdk، ويحدد `--name` اسمه.
 - ‏ **`build [path]`** — يبني تجميعة C# للمشروع (`dotnet build`) لكي تُحمَّل الإضافة `godot_mcp` عند فتح المحرر التالي. في مشاريع GDScript فقط (بلا `.csproj`) لا يفعل شيئًا. وهو البناء نفسه الذي يجريه `open` قبل التشغيل.
 - ‏ **`rql [query]`** — استعلام RQL واحد من سطر الأوامر، بلا JSON: `godot-cli rql 'nodes | where name starts-with "Tree" | count'`. الاستعلام الذي تكون مرحلته الأخيرة `set` أو `call` يذهب إلى `rql-mutate` (`--dry-run`، `--max-targets <n>`)، وأي استعلام آخر إلى `rql-query`؛ ويشغّل `--schema [type]` الأداة `rql-schema`؛ ويقرأ `-f <file>` (`-f -`: stdin) الاستعلام عندما تحذف الصدفة علامات الاقتباس. يبدأ محررًا بلا واجهة مثل `run-tool`. بعد `SaveScene()` أو `NewScene(...)` أو `CreateResource(...)` أو تعديل `godot.resource(...)` يطبع الملفات المكتوبة (`Saved to disk: res://scenes/forest.tscn`)؛ والعامل المكتوب بتهجئة لغة أخرى (`startsWith`، `like`) يحصل على تلميح بتهجئة RQL. يسرد `rql --help` وصفات جاهزة.
@@ -154,7 +154,7 @@ godot-cli open ./MyGodotProject --mode Custom --auth Required --token <token>
 <a id="exec"></a>
 ## `exec`
 
-شغّل C# في محرر Godot الخاص بالمشروع (أداة الإضافة `script-execute`، المبنية على [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
+شغّل C# في محرر Godot الخاص بالمشروع (أداة الإضافة `csharp-exec`، المبنية على [Code-Exec](https://github.com/IvanMurzak/Code-Exec)):
 
 </div>
 

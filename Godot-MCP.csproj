@@ -21,11 +21,11 @@
   </ItemGroup>
 
   <!--
-    Editor-only packages: only `#if TOOLS` code uses them (RQL data layer, `script-execute` via Code-Exec + Roslyn),
+    Editor-only packages: only `#if TOOLS` code uses them (RQL data layer, `csharp-exec` via Code-Exec + Roslyn),
     so Godot's export builds (ExportDebug / ExportRelease, the two configurations without TOOLS) leave them out and
     an exported game ships no Roslyn. Same rule the Godot SDK applies to GodotSharpEditor. The Condition sits on each
     element (after Version) so `godot-cli install-plugin` copies it per package; see docs/ARCHITECTURE.md.
-    Code-Exec and Roslyn also go into exports when the game opts in to in-game `script-execute` with
+    Code-Exec and Roslyn also go into exports when the game opts in to in-game `csharp-exec` with
     `GodotMcpCodeExecInGame=true` (plus the GODOT_MCP_CODE_EXEC_IN_GAME symbol, defined below for this project; a
     consumer csproj sets both). RQL never ships in a game.
     Every package above is a published nuget.org release (cascade train t-2026-10-30-03: McpPlugin 8.14.0, ReflectorNet

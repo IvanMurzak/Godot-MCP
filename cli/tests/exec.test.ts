@@ -5,7 +5,7 @@ import type { AddressInfo } from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import { EditorSessionError, readSessionLease, type EditorSession, type EnsureResult, type SessionLease } from '@baizor/gamedev-cli-core';
-import { buildScriptExecuteInput, execCode, readToolResponse, toolErrorText } from '../src/lib/exec.js';
+import { buildCsharpExecInput, buildScriptExecuteInput, execCode, readToolResponse, toolErrorText } from '../src/lib/exec.js';
 import { createGodotSession, ensureEditor, godotSessionAdapter, sessionEditorEnv } from '../src/lib/session.js';
 import { dotnetRuntimeWorkaroundEnv } from '../src/utils/godot-editor.js';
 import { runSystemTool } from '../src/lib/run-tool.js';
@@ -90,10 +90,14 @@ const builtOk = (projectPath: string) => ({ kind: 'success' as const, success: t
 
 const ready = (url: string, source: EnsureResult<string>['source'] = 'started'): EnsureResult<string> => ({ ready: url, source });
 
-describe('buildScriptExecuteInput', () => {
+describe('buildCsharpExecInput', () => {
   it('leaves empty lists out', () => {
-    expect(buildScriptExecuteInput('1 + 2', [], [])).toEqual({ csharpCode: '1 + 2' });
-    expect(buildScriptExecuteInput('x', ['A.B'], ['helpers'])).toEqual({ csharpCode: 'x', usings: ['A.B'], include: ['helpers'] });
+    expect(buildCsharpExecInput('1 + 2', [], [])).toEqual({ csharpCode: '1 + 2' });
+    expect(buildCsharpExecInput('x', ['A.B'], ['helpers'])).toEqual({ csharpCode: 'x', usings: ['A.B'], include: ['helpers'] });
+  });
+
+  it('keeps the old name as a deprecated alias (DEV-314)', () => {
+    expect(buildScriptExecuteInput).toBe(buildCsharpExecInput);
   });
 });
 
@@ -178,7 +182,35 @@ describe('ensureEditor / execCode', () => {
 
     expect(result).toMatchObject({ kind: 'success', baseUrl: 'http://localhost:1234', editor: 'started' });
     expect(ensure.mock.calls[0]![1]).toBe('headless');
-    expect(invoke.mock.calls[0]![0]).toMatchObject({ toolName: 'script-execute', url: 'http://localhost:1234', input: { csharpCode: '1 + 2', usings: ['A'] } });
+    expect(invoke.mock.calls[0]![0]).toMatchObject({ toolName: 'csharp-exec', url: 'http://localhost:1234', input: { csharpCode: '1 + 2', usings: ['A'] } });
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the old id script-execute on an addon older than the rename (DEV-314)', async () => {
+    const ensure = vi.fn(async () => ready('http://localhost:1234'));
+    const notFound: RunToolResult = {
+      kind: 'failure', success: false, endpoint: 'x', reason: 'http-error', httpStatus: 404,
+      data: { error: "Tool with Name 'csharp-exec' not found." }, message: 'Not Found',
+    };
+    const invoke = vi.fn(async (o: RunToolOptions): Promise<RunToolResult> => o.toolName === 'csharp-exec'
+      ? notFound
+      : { kind: 'success', success: true, endpoint: 'x', httpStatus: 200, data: { status: 'success' } });
+    const result = await execCode({ projectPath: tempProject(), url: DEAD_URL, code: '1 + 2', deps: { ensure, invoke } });
+
+    expect(result).toMatchObject({ kind: 'success' });
+    expect(invoke.mock.calls.map((c) => c[0].toolName)).toEqual(['csharp-exec', 'script-execute']);
+  });
+
+  it('does not retry another failure of csharp-exec', async () => {
+    const ensure = vi.fn(async () => ready('http://localhost:1234'));
+    const invoke = vi.fn(async (): Promise<RunToolResult> => ({
+      kind: 'failure', success: false, endpoint: 'x', reason: 'http-error', httpStatus: 400,
+      data: { error: 'Compilation failed' }, message: 'Bad Request',
+    }));
+    const result = await execCode({ projectPath: tempProject(), url: DEAD_URL, code: 'x +', deps: { ensure, invoke } });
+
+    expect(result).toMatchObject({ kind: 'failure', reason: 'tool-failed', message: 'Compilation failed' });
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it('builds right before starting the editor; an editor that never answers is stopped', async () => {

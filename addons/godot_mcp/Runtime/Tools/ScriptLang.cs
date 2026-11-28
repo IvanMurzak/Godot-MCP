@@ -87,9 +87,9 @@ namespace com.IvanMurzak.Godot.MCP.Tools
         public static string NotAScriptHint(string path) => ReimportClassifier.ExtensionOf(path) switch
         {
             "tscn" or "scn" => " A scene is not a script: open it with rql-mutate editor | call OpenScene(\"" + path + "\"), then query its nodes " +
-                               "with rql-query nodes | …, or read its text with script-execute (FileAccess.GetFileAsString).",
+                               "with rql-query nodes | …, or read its text with csharp-exec (FileAccess.GetFileAsString).",
             "tres" or "res" => " A resource is not a script: query it with rql-query godot.resource(\"" + path + "\") | select props, or read " +
-                               "its text with script-execute (FileAccess.GetFileAsString).",
+                               "its text with csharp-exec (FileAccess.GetFileAsString).",
             _ => "",
         };
 

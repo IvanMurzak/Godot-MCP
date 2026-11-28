@@ -64,7 +64,7 @@ El servidor escucha solo en loopback y responde `403` a una petición con una ca
 
 **Stop Server** lo detiene; cerrar el editor también lo detiene. La URL de descarga depende solo de la versión fijada y de tu plataforma. Sin conexión, el addon registra una advertencia y el servidor no arranca. En CI (`CI` / `GITHUB_ACTIONS`) se omite la descarga.
 
-Las llamadas a herramientas pueden durar hasta 5 minutos. `script-execute` detiene un fragmento por sí mismo cuando se agota su `timeout` (30 s por defecto).
+Las llamadas a herramientas pueden durar hasta 5 minutos. `csharp-exec` detiene un fragmento por sí mismo cuando se agota su `timeout` (30 s por defecto).
 
 Para desarrollo, `GODOT_MCP_SERVER_PATH=<ruta absoluta>` hace que el editor inicie ese binario `gamedev-mcp-server` existente en lugar de la release fijada (sin descarga, sin comprobación de versión, sin limpieza de procesos huérfanos). Se lee una vez por cada carga del ensamblado del plugin, desde el entorno del proceso o el `.env` del proyecto; una ruta que no apunta a ningún archivo se ignora con una advertencia. En Linux y macOS el archivo ya debe ser ejecutable.
 

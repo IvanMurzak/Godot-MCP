@@ -7,7 +7,7 @@
 │  See the LICENSE file in the project root for more information.  │
 └──────────────────────────────────────────────────────────────────┘
 */
-// script-execute output capture: the editor and a game built with the in-game opt-in (docs/ARCHITECTURE.md).
+// csharp-exec output capture: the editor and a game built with the in-game opt-in (docs/ARCHITECTURE.md).
 #if TOOLS || GODOT_MCP_CODE_EXEC_IN_GAME
 #nullable enable
 using System;
@@ -17,7 +17,7 @@ using Godot;
 namespace com.IvanMurzak.Godot.MCP.Tools
 {
     /// <summary>
-    /// Captures what a <c>script-execute</c> snippet prints through the engine (<c>GD.Print</c>, <c>GD.PushWarning</c>,
+    /// Captures what a <c>csharp-exec</c> snippet prints through the engine (<c>GD.Print</c>, <c>GD.PushWarning</c>,
     /// <c>GD.PushError</c>). Godot 4.5+ only: an engine logger (<c>OS.AddLogger</c>) is registered for the run and
     /// removed right after, so no addon object stays rooted in the engine across a C# reload. On older engines only
     /// <c>Console</c> output is captured.

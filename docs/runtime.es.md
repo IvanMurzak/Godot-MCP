@@ -65,7 +65,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | Omite el despachador automático del hilo principal (solo si instalas el tuyo). |
 | `ConnectWhenRunFromEditor()` | Conecta también en un juego iniciado desde el editor (desactivado por defecto, ver abajo). |
 | `WithRuntimeErrorCapture()` | Captura errores en el juego y registra `runtime-errors-*`. Desactivado por defecto. |
-| `WithScriptExecute()` | Registra `script-execute` en el juego. Desactivado por defecto; requiere activarlo en el csproj. |
+| `WithCsharpExec()` | Registra `csharp-exec` en el juego. Desactivado por defecto; requiere activarlo en el csproj. |
 | `Build()` | Devuelve un `GodotMcpRuntimeHandle` sin conectar. |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | Abre, cierra o destruye la conexión. |
 
@@ -137,7 +137,7 @@ En Godot anterior a 4.5 el canal del motor no está disponible; los canales de C
 <a id="running-c-in-the-game"></a>
 ## Ejecutar C# en el juego
 
-`builder.WithScriptExecute()` permite al agente enviar C# que el juego en marcha compila con Roslyn y ejecuta en su hilo principal, con los tipos, autoloads y árbol de escena del propio juego. Las compilaciones de exportación excluyen Roslyn, así que el `.csproj` del juego debe activarlo:
+`builder.WithCsharpExec()` permite al agente enviar C# que el juego en marcha compila con Roslyn y ejecuta en su hilo principal, con los tipos, autoloads y árbol de escena del propio juego. Las compilaciones de exportación excluyen Roslyn, así que el `.csproj` del juego debe activarlo:
 
 ```xml
 <PropertyGroup>
@@ -146,6 +146,6 @@ En Godot anterior a 4.5 el canal del motor no está disponible; los canales de C
 </PropertyGroup>
 ```
 
-Un `godot-cli install-plugin` actual escribe las referencias a los paquetes Code-Exec y Roslyn con una `Condition` que respeta esta propiedad; RQL nunca se incluye. Sin esta activación, `WithScriptExecute()` registra una advertencia y no registra nada.
+Un `godot-cli install-plugin` actual escribe las referencias a los paquetes Code-Exec y Roslyn con una `Condition` que respeta esta propiedad; RQL nunca se incluye. Sin esta activación, `WithCsharpExec()` registra una advertencia y no registra nada.
 
 > **Esto es ejecución de código arbitrario.** Cualquiera que pueda llamar a herramientas en la conexión puede ejecutar cualquier código en el proceso del juego. Úsalo solo en compilaciones de desarrollo, en un host loopback con token. Solo CoreCLR de escritorio: NativeAOT e iOS no pueden ejecutar código generado en tiempo de ejecución.

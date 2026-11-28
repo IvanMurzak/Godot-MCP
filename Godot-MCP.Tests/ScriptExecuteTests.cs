@@ -25,7 +25,7 @@ using LogEntry = com.IvanMurzak.CodeExec.LogEntry;
 namespace com.IvanMurzak.Godot.MCP.Tests
 {
     /// <summary>
-    /// Pure-managed coverage for <c>script-execute</c>: mode detection, the game-assembly location hook, snippet-type
+    /// Pure-managed coverage for <c>csharp-exec</c>: mode detection, the game-assembly location hook, snippet-type
     /// flattening, error text and the result model, plus real Code-Exec runs with the editor's default usings. The editor
     /// handler (main thread, GD.Print capture, the live game assembly) is covered by the headless Godot smoke
     /// (<c>scripts/smoke_script_execute.py</c>).

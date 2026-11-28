@@ -222,7 +222,7 @@ godot-cli setup-mcp gemini ./MyGodotProject
 | البحث في الواجهة البرمجية | `rql-schema` | *«ما خصائص Godot التي يملكها CharacterBody3D؟»* |
 | السكربتات (GDScript وC#) | `script-create`, `script-update`, `script-attach-to-node`, `script-validate`, `script-read`, `script-delete` | *«اكتب سكربت GDScript يدوّر هذه العقدة وأرفقه بها.»* |
 | بناء C# | `script-build` | *«ابنِ مشروع C# وأصلح الأخطاء.»* |
-| تشغيل C# في المحرر | `script-execute` | *«احسب عدد عقد MeshInstance3D في المشهد المفتوح.»* |
+| تشغيل C# في المحرر | `csharp-exec` | *«احسب عدد عقد MeshInstance3D في المشهد المفتوح.»* |
 | رؤية النتيجة | `screenshot-viewport`, `screenshot-camera`, `screenshot-isolated` | *«التقط لقطة شاشة لنافذة العرض وتحقق من الإضاءة.»* |
 | تشغيل اللعبة وقراءة أخطائها | `game-run` | *«شغّل اللعبة، وابحث عن الخطأ الذي تطبعه وأصلحه.»* |
 | اللعبة قيد التشغيل (اختياري) | `console-*`, `reflection-*`, `runtime-errors-*` | *«افحص اللعبة قيد التشغيل بحثًا عن أخطاء وقت تشغيل جديدة.»* |

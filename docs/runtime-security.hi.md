@@ -76,9 +76,9 @@ connection चलाने से एक **remote-control surface** खुलत
   unauthenticated public interface पर कभी नहीं।
 
 <a id="in-game-code-execution-withscriptexecute"></a>
-## In-game code execution (`WithScriptExecute`)
+## In-game code execution (`WithCsharpExec`)
 
-`builder.WithScriptExecute()` game में `script-execute` register करता है: connected client C# भेजता है, game
+`builder.WithCsharpExec()` game में `csharp-exec` register करता है: connected client C# भेजता है, game
 उसे Roslyn से compile करके अपने main thread पर चलाता है। यह **game process में arbitrary code execution** है,
 player के file system और network access के साथ। यह default रूप से OFF है और इसके लिए build opt-in चाहिए:
 export किए game में Code-Exec और Roslyn सिर्फ़ तब होते हैं जब उसकी `.csproj` `GodotMcpCodeExecInGame=true` सेट करे
@@ -87,7 +87,7 @@ call warning log करती है और कुछ register नहीं क�
 
 > **Editor से शुरू किए games।** इनका build editor build (`TOOLS`) होता है, इसलिए addon की editor tool
 > families भी game assembly में compile हो जाती हैं। तब उस assembly पर `WithToolsFromAssembly(...)` उन्हें
-> register कर देता है, editor वाले `script-execute` समेत, `WithScriptExecute()` हो या न हो। Export build में
+> register कर देता है, editor वाले `csharp-exec` समेत, `WithCsharpExec()` हो या न हो। Export build में
 > ये मौजूद नहीं होतीं। अगर editor से चलाए game को इन्हें offer नहीं करना चाहिए, तो ख़ास types register करें
 > (`WithTools(...)`)।
 

@@ -71,7 +71,7 @@ public partial class GameMcp : Node
 | `WithoutMainThreadDispatcher()` | صرف‌نظر از dispatcher خودکار نخ اصلی (فقط اگر dispatcher خودتان را نصب می‌کنید). |
 | `ConnectWhenRunFromEditor()` | اتصال در بازی‌ای که از ویرایشگر اجرا شده هم (پیش‌فرض خاموش، پایین‌تر را ببینید). |
 | `WithRuntimeErrorCapture()` | ثبت خطاهای درون بازی و ثبت `runtime-errors-*`. پیش‌فرض خاموش. |
-| `WithScriptExecute()` | ثبت `script-execute` در بازی. پیش‌فرض خاموش؛ به فعال‌سازی در csproj نیاز دارد. |
+| `WithCsharpExec()` | ثبت `csharp-exec` در بازی. پیش‌فرض خاموش؛ به فعال‌سازی در csproj نیاز دارد. |
 | `Build()` | یک `GodotMcpRuntimeHandle` برمی‌گرداند که وصل نیست. |
 | `handle.Connect()` / `Disconnect()` / `Dispose()` | باز کردن، بستن یا از بین بردن اتصال. |
 
@@ -147,7 +147,7 @@ public sealed class SceneTreeSummary
 <a id="running-c-in-the-game"></a>
 ## اجرای C# درون بازی
 
-‏`builder.WithScriptExecute()` به عامل اجازه می‌دهد کد C# بفرستد که بازیِ در حال اجرا آن را با Roslyn کامپایل و روی نخ اصلی خود اجرا می‌کند، با تایپ‌ها، autoloadها و درخت صحنه‌ی خود بازی. بیلدهای اکسپورت Roslyn را کنار می‌گذارند، پس فایل `.csproj` بازی باید آن را فعال کند:
+‏`builder.WithCsharpExec()` به عامل اجازه می‌دهد کد C# بفرستد که بازیِ در حال اجرا آن را با Roslyn کامپایل و روی نخ اصلی خود اجرا می‌کند، با تایپ‌ها، autoloadها و درخت صحنه‌ی خود بازی. بیلدهای اکسپورت Roslyn را کنار می‌گذارند، پس فایل `.csproj` بازی باید آن را فعال کند:
 
 </div>
 
@@ -160,7 +160,7 @@ public sealed class SceneTreeSummary
 
 <div dir="rtl">
 
-یک `godot-cli install-plugin` به‌روز، ارجاع‌های پکیج Code-Exec و Roslyn را با یک `Condition` می‌نویسد که به این ویژگی احترام می‌گذارد؛ RQL هرگز همراه بازی منتشر نمی‌شود. بدون این فعال‌سازی، `WithScriptExecute()` یک هشدار در لاگ می‌نویسد و چیزی ثبت نمی‌کند.
+یک `godot-cli install-plugin` به‌روز، ارجاع‌های پکیج Code-Exec و Roslyn را با یک `Condition` می‌نویسد که به این ویژگی احترام می‌گذارد؛ RQL هرگز همراه بازی منتشر نمی‌شود. بدون این فعال‌سازی، `WithCsharpExec()` یک هشدار در لاگ می‌نویسد و چیزی ثبت نمی‌کند.
 
 > **این اجرای کد دلخواه است.** هر کسی که بتواند روی اتصال ابزار فراخوانی کند می‌تواند هر کدی را در پروسه‌ی بازی اجرا کند. فقط در بیلدهای توسعه، روی یک میزبان loopback با توکن از آن استفاده کنید. فقط CoreCLR دسکتاپ: NativeAOT و iOS نمی‌توانند کدی را که در زمان اجرا تولید شده اجرا کنند.
 

@@ -4,6 +4,11 @@ All notable changes to `godot-cli` are documented in this file.
 
 ## Unreleased
 
+- **`script-execute` is now `csharp-exec`** (DEV-314): the tool name says which language it runs, also in a list that
+  mixes several engines. `exec` calls `csharp-exec` and falls back to `script-execute` on an addon older than the rename.
+  The addon keeps `script-execute` as a hidden alias until 0.45.0 (not listed, no skill; saved permissions and prompts keep
+  working). Library API: `CSHARP_EXEC_TOOL` and `buildCsharpExecInput`; `SCRIPT_EXECUTE_TOOL` (now the old id) and
+  `buildScriptExecuteInput` are deprecated. Games: `GodotMcpRuntimeBuilder.WithCsharpExec()`; `WithScriptExecute()` is obsolete.
 - **`export` exports a Web preset from a .NET editor.** No Godot 4 .NET editor exports to Web, so a GDScript project
   with the Godot-MCP addon could not be exported to Web through `godot-cli`. For a `platform="Web"` preset run from a .NET
   editor, `export` now uses the standard editor of the same version: an official, unrenamed build beside the .NET
